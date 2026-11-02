@@ -1,0 +1,1833 @@
+from __future__ import annotations
+
+import re
+from datetime import timedelta
+from functools import partial
+from pathlib import PurePath
+from typing import TYPE_CHECKING
+
+from captain_hook import Allow, Block
+from captain_hook.bindings import Resolved
+from captain_hook.builtin_packs.general.hooks._sessions import (
+    ARG_TOKEN_BREAK,
+    CLAUDE_PROMPT,
+    GUARDED_PROGRAMS,
+    INLINE_BUSY,
+    INLINE_COMMANDS,
+    INLINE_OWNER_TERMINAL,
+    INLINE_SESSION,
+    INLINE_STARTED,
+    INLINE_TABLE,
+    KILL_FIX,
+    KILL_RULING_TAGS,
+    LATER_SESSION,
+    LAUNCHD_STOP,
+    LAUNCHERS,
+    NEGATIVE_TARGET,
+    RENICE_FIX,
+    SESSION_HOST_APPS,
+    SETTLED_CLOSE,
+    TERMINAL_CLOSE,
+    Scan,
+    Ungranted,
+    Unreadable,
+    app_host,
+    applescripts,
+    block_first,
+    clip,
+    describe,
+    describe_target,
+    double_quoted,
+    guard,
+    guarded,
+    hidden_behind,
+    hosts_agent,
+    inline_ask,
+    inline_class_rulings,
+    inline_create,
+    inline_dispatch,
+    inline_ruling,
+    inline_run,
+    inline_screen,
+    inline_tab,
+    inline_worker,
+    inline_workers,
+    is_agent,
+    kill_lift,
+    lift,
+    literal_pid,
+    lone_pane,
+    nested,
+    own_dispatch,
+    own_lane,
+    owner_lift,
+    pid_verdict,
+    process_class,
+    quit_targets,
+    runs_once,
+    settled_close,
+    shell_scripts,
+    spell,
+    still_settled,
+    unresolvable,
+)
+from captain_hook.command_schemas import KILL, LAUNCHCTL, ORCA, PMSET, RENICE, SOFTWAREUPDATE, TMUX
+from captain_hook.guard_literal import QUOTING_CHARS
+from captain_hook.tickets import Proposal, Reach, Ticket
+
+if TYPE_CHECKING:
+    from cc_transcript.command import Word
+
+    from captain_hook import HookResult, ToolRewriteEvent
+    from captain_hook.builtin_packs.general.hooks._sessions import Facts
+    from captain_hook.cmd import Call
+    from captain_hook.command_schema import Arguments, Scalar
+
+CRITERIA_PROGRAMS = frozenset({"pkill", "killall", "killall5", "skill", "snice", "kill-port"})
+PKILL_CRITERIA_SHORT = frozenset("fxnoiluUgGtPacvF")
+PKILL_CRITERIA_LONG = frozenset(
+    {
+        "--full",
+        "--exact",
+        "--newest",
+        "--oldest",
+        "--ignore-case",
+        "--inverse",
+        "--count",
+        "--list-name",
+        "--list-full",
+        "--euid",
+        "--uid",
+        "--group",
+        "--pgroup",
+        "--session",
+        "--terminal",
+        "--parent",
+        "--ns",
+        "--nslist",
+        "--pidfile",
+        "--logpidfile",
+        "--cgroup",
+        "--runstates",
+        "--ignore-ancestors",
+        "--require-handler",
+    }
+)
+ORCA_VM_RUN_FLAGS = frozenset({"--provision", "--connect"})
+PACKAGE_RUNNERS = frozenset({"npx", "bunx", "pnpx", "pnpm", "yarn"})
+CRITERIA_FIX = (
+    "Find the pid with `pgrep -fl <pattern>`, verify it with `ps -o pid,ppid,pgid,lstart,command -p <pid>`, and "
+    "run `kill <pid>` alone."
+)
+SHUTDOWNS = frozenset({"shutdown", "reboot", "halt", "poweroff"})
+ORCA_GROUPS = frozenset(
+    {
+        "account",
+        "agent",
+        "agent-context",
+        "artifacts",
+        "automations",
+        "capture",
+        "claude-teams",
+        "computer",
+        "cookie",
+        "diagnostics",
+        "emulator",
+        "environment",
+        "file",
+        "help",
+        "host",
+        "linear",
+        "open",
+        "orchestration",
+        "project",
+        "repo",
+        "search",
+        "serve",
+        "skills",
+        "status",
+        "storage",
+        "tab",
+        "terminal",
+        "vm",
+        "worktree",
+    }
+)
+ORCA_ENDINGS = {
+    "terminal": frozenset({"close", "stop"}),
+    "worktree": frozenset({"rm", "remove", "delete"}),
+    "orchestration": frozenset({"worker-stop", "worker-release", "coordinator-stop", "run-stop"}),
+}
+ORCA_PAYLOADS = {
+    "hotkey": "key",
+    "press-key": "key",
+    "type-text": "text",
+    "paste-text": "text",
+    "set-value": "value",
+    "perform-secondary-action": "action",
+}
+HELP_FLAGS = frozenset({"--help", "-h"})
+ORCA_READ = "Read sessions with `orca terminal list|show|read|wait` and leave ending them to the owner."
+ORCA_STOP_FIX = (
+    "Only the root coordinating its Run stops a done lane: one literal worker-stop, or `orca-gc --done <ctx>`."
+)
+ORCA_CLOSE_SCOPES = frozenset({"all", "worktree"})
+CLOSE_FIX = f"Close only an idle orphan this session created, or ask the owner to {LATER_SESSION}."
+KEY_ALIASES = {
+    "command": "cmd",
+    "meta": "cmd",
+    "super": "cmd",
+    "control": "ctrl",
+    "option": "alt",
+    "opt": "alt",
+    "escape": "esc",
+}
+END_OF_SESSION_CHORDS = frozenset(
+    frozenset(chord)
+    for chord in (
+        ("cmd", "q"),
+        ("ctrl", "q"),
+        ("cmd", "w"),
+        ("cmd", "shift", "w"),
+        ("cmd", "alt", "esc"),
+        ("ctrl", "c"),
+        ("ctrl", "d"),
+    )
+)
+END_OF_SESSION_ACTION = re.compile(r"(?i)\b(quit|close|kill|stop|terminate|interrupt|remove|delete)\b")
+END_OF_SESSION = frozenset(
+    {"exit", "/exit", "/quit", "logout", "\x03", "\x04", "^c", "^d", "c-c", "c-d", "\\x03", "\\x04"}
+)
+LAUNCHCTL_ENDINGS = frozenset(
+    {"bootout", "kill", "kickstart", "stop", "remove", "unload", "disable", "reboot", "asuser", "bsexec"}
+)
+LAUNCHD_SERVICE_VERBS = frozenset({"bootout", "kickstart", "disable", "stop", "remove", "kill"})
+LAUNCHD_DOMAINS = frozenset({"gui", "user", "pid", "login"})
+APPLESCRIPT_ENDING = re.compile(r'(?i)\b(quit|log ?out|restart|shut ?down|sleep)\b|keystroke\s+"q"')
+PMSET_ENDINGS = frozenset({"sleepnow", "restart", "halt", "sleep"})
+PMSET_SCHEDULES = frozenset({"shutdown", "restart", "sleep", "poweroff"})
+TMUX_ENDINGS = frozenset({"kill-server", "kill-session", "kill-pane", "kill-window"})
+SERVE_RULING = inline_ruling("Owner: restart com.example.orca-serve once.")
+DESK_RULING = "Owner: end this drive's own desk-runner.py for a version restart."
+DESK_COMMANDS = {
+    **INLINE_COMMANDS,
+    "ccn answer search desk-runner.py": inline_ruling(DESK_RULING, tags=KILL_RULING_TAGS),
+}
+CODEX_TABLE = (
+    f"{INLINE_TABLE}"
+    "20000     1 20000  501 Thu Jan  1 00:00:00 2026 codex --no-daemon --dangerously-bypass-approvals-and-sandbox\n"
+    "20001 20000 20000  501 Thu Jan  1 00:00:00 2026 codex-code-mode-host\n"
+    "21000     1 21000  501 Thu Jan  1 00:00:00 2026 codex exec --json\n"
+    "21001 21000 21000  501 Thu Jan  1 00:00:00 2026 claude --dangerously-skip-permissions\n"
+)
+CODEX_RULING = "Owner: end the idle codex sessions older than one hour; never claude."
+CODEX_COMMANDS = {
+    **INLINE_COMMANDS,
+    "ps -A -ww -o": CODEX_TABLE,
+    "ccn answer search codex": inline_ruling(CODEX_RULING, tags=KILL_RULING_TAGS),
+    "ccn answer search claude": inline_ruling(CODEX_RULING, tags=KILL_RULING_TAGS),
+}
+CODEX_ALLOW = {"allow": True, "relied_on": ["ccn:0207568"]}
+BOTH_PIDS = "Two old dashboard servers (pids 18300, 18301) poll GitHub for nothing."
+ONE_PID = "The old dashboard server (pid 18300) polls GitHub for nothing."
+OWNER_KILL = {"allow": True, "relied_on": ["ask:toolu_askuserquestion#0"]}
+AGENT_CLOSE = "orca terminal close --terminal term_agent --json"
+SETTLED_COMMANDS = {**INLINE_COMMANDS, **inline_class_rulings(), **inline_run("term_root")}
+CLASS_ALLOW = {"allow": True, "relied_on": ["ccn:c9b27c1"]}
+settling = partial(guarded, env={"ORCA_TERMINAL_HANDLE": "term_root"})
+ORCA_GC = ".agents/skills/orca/scripts/orca-gc"
+STOPPED = "ctx_a0f447e7e42c"
+INTERRUPTED = "term_4137f7d4-c749-445f-bb84-7dbd162da898"
+OWN_LANE = {**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker(INTERRUPTED, "running", "working")}
+ROLLBACK_STOP = (
+    f"orca terminal send --terminal {INTERRUPTED} --text 'STOP THE ROLLBACK. OWNER 8:25 AM: do not roll back "
+    "executor, fix forward only. Evidence #28631: not executor; one team queue at its concurrency cap 55/55 with "
+    "executors idle. Re-read the OWNER OVERRIDE at the end of your brief.' --interrupt 2>&1 | tail -2; "
+    "~/.local/bin/cci post --drive release-v3 --lane root --kind hold --to merge-walker-r2,incident-run-backlog-0711 "
+    "--text 'OWNER 8:25 AM: NO executor rollback.' 2>&1 | tail -1"
+)
+
+
+def unread_reason(call: Call, arguments: Arguments) -> str:
+    negative = next(
+        (
+            word
+            for index, word in enumerate(call.command.words[1:])
+            if word.value is not None
+            and NEGATIVE_TARGET.fullmatch(word.value)
+            and (index or not 1 <= int(word.value[1:]) <= 64)
+        ),
+        None,
+    )
+    if negative is not None:
+        return describe_target(negative, negative.value)
+    if arguments.unread:
+        return f"it passes `{clip(arguments.unread[0].raw, 40)}`, an option the guard cannot read"
+    return "it names an option or signal at run time"
+
+
+def probe_pid(call: Call, word: Word, value: Scalar | None) -> bool:
+    if literal_pid(word, value) is not None:
+        return True
+    match call.resolve(word):
+        case Resolved(candidates, _):
+            return all(candidate.isdecimal() for candidate in candidates)
+        case _:
+            return False
+
+
+def kill_verdict(call: Call, facts: Facts, evt: ToolRewriteEvent) -> str | Ungranted | None:
+    if call.name != "kill":
+        return None
+    spelling = spell(call)
+    deny = partial(unresolvable, spelling, fix=KILL_FIX)
+    arguments = KILL.bind(call)
+    if call.substituted:
+        return deny("a command substitution supplies its targets at run time")
+    if "xargs" in call.wrappers:
+        return deny("xargs supplies its targets from stdin")
+    if not arguments.complete:
+        return deny(unread_reason(call, arguments))
+    values = arguments.values
+    if "list" in values:
+        return None
+    targets = tuple(zip(arguments.words.get("targets", ()), values.get("targets", ()), strict=True))
+    probing = ("probe" in values and "signal" not in values) or values.get("signal") == ("0",)
+    if probing and all(probe_pid(call, word, value) for word, value in targets):
+        return None
+    if not targets:
+        return deny("a wrapper supplies its targets") if call.wrappers else None
+    for word, value in targets:
+        if (pid := literal_pid(word, value)) is None:
+            if probing:
+                return (
+                    f"BLOCKED: `{spelling}` cannot be verified: {describe_target(word, value)}, so the probe could "
+                    "expand into a real signal. Pass the literal pid, or a variable the same line sets to one."
+                )
+            return deny(describe_target(word, value))
+        if (verdict := pid_verdict(pid, spelling, facts, KILL_FIX, partial(kill_lift, evt))) is not None:
+            return verdict
+    return None
+
+
+@guard(
+    tests={
+        guarded(command="Kill -9 -1"): Block(pattern="broadcasts to every process you own"),
+        guarded(command="pgrep -f pr-poll | xargs kill"): Block(pattern="xargs supplies"),
+        guarded(command="pgrep x | xargs kill -0"): Block(pattern="`xargs kill -0`"),
+        guarded(command="kill -9 -123"): Block(pattern="negative process group 123"),
+        guarded(command="kill -- -123"): Block(pattern="negative process group 123"),
+        guarded(command="kill -TERM -14575"): Block(),
+        guarded(command="kill -123"): Block(pattern="negative process group 123"),
+        guarded(command="kill 0"): Block(pattern="whole process group"),
+        guarded(command="kill -9 -1"): Block(pattern="broadcasts to every process you own"),
+        guarded(command="kill $pid"): Block(pattern=r"`\$pid` is not a literal"),
+        guarded(command="kill $!"): Block(),
+        guarded(command="kill $$"): Block(),
+        guarded(command="kill %1"): Block(pattern="job spec"),
+        guarded(command="kill $(pgrep x)"): Block(pattern=r"`kill \$\(pgrep x\)` cannot be verified"),
+        guarded(command="kill -9 $(pgrep -f server) 2>/dev/null"): Block(pattern="command substitution"),
+        guarded(command="kill 12*"): Block(),
+        guarded(command="kill 0123"): Block(),
+        guarded(command="kill +5"): Block(),
+        guarded(command="kill --signal=TERM 123"): Block(pattern="passes `--signal=TERM`"),
+        guarded(command="kill -sTERM 123"): Block(pattern="passes `-sTERM`"),
+        guarded(command="kill 14575 -l"): Block(pattern="passes `-l`"),
+        guarded(command="kill 14575 -s 0"): Block(pattern="passes `-s`"),
+        guarded(command="kill 14575 -n 0"): Block(),
+        guarded(command="kill -9 14575 -L"): Block(),
+        guarded(command="sudo kill 1743 -l"): Block(),
+        guarded(command="kill 1743"): Block(pattern="the Orca PTY daemon"),
+        guarded(command="for A in a b c kill; do for B in 1 2 3 4 14575; do $A $B; done; done"): Block(
+            pattern="pid 1 "
+        ),
+        guarded(command="kill 1445"): Block(pattern="the Orca app"),
+        guarded(command="kill -9 14575"): Block(pattern="an agent session"),
+        guarded(
+            command="kill 16002", commands={**INLINE_COMMANDS, "ccn answer search 16002": inline_ruling("16002")}
+        ): Block(pattern="an agent session"),
+        guarded(command="kill 15001"): Block(pattern="pid 15001"),
+        guarded(command="kill 14545"): Block(pattern="a terminal host"),
+        guarded(command="kill 14550"): Block(pattern="an ancestor of a protected process"),
+        guarded(command="kill 900"): Block(pattern="the Captain Hook host"),
+        guarded(command="kill 99999"): Block(pattern="not in the current process table"),
+        guarded(command="sudo kill -9 14575"): Block(pattern="an agent session"),
+        guarded(command="env kill 14575"): Block(pattern="an agent session"),
+        guarded(command="nohup kill 14575"): Block(pattern="an agent session"),
+        guarded(command="timeout 5 kill 14575"): Block(pattern="an agent session"),
+        guarded(command="sh -c 'kill 14575'"): Block(pattern="an agent session"),
+        guarded(command="~/bin/kill 14575"): Block(pattern="an agent session"),
+        guarded(command="/bin/kill 14575"): Block(pattern="an agent session"),
+        guarded(command="command kill 14575"): Block(pattern="an agent session"),
+        guarded(command="KILL 14575"): Block(pattern="an agent session"),
+        guarded(command="kill -STOP 14575"): Block(),
+        guarded(command="kill -s KILL 14575"): Block(),
+        guarded(command="kill -0 -9 14575"): Block(),
+        guarded(command="kill -0 14575 -9"): Block(),
+        guarded(command="PID='-s 9 14575'; kill -0 $PID"): Block(pattern="an agent session"),
+        guarded(command='bash -c \'PID=$(printf "%s" "-s KILL 14575"); kill -0 $PID\''): Block(
+            pattern="probe could expand into a real signal"
+        ),
+        guarded(command='kill -0 "$worker" 2>/dev/null || break'): Block(pattern="probe could expand"),
+        guarded(command="kill -0 ${PID}"): Block(pattern="probe could expand"),
+        guarded(command="PID=$(awk '{print $2}' /tmp/apply.pid); kill -0 $PID 2>/dev/null && echo alive"): Block(
+            pattern="probe could expand"
+        ),
+        guarded(command="PID=14575x; kill -0 $PID"): Block(pattern="probe could expand"),
+        guarded(command="X=-9; kill $X $(printf 14575)"): Block(pattern="command substitution"),
+        guarded(command="kill -0 $pid 14575"): Block(pattern="probe could expand into a real signal"),
+        guarded(command="kill -0 $pid$x"): Block(pattern="probe could expand into a real signal"),
+        guarded(command='kill -0 "$a" 14575'): Block(pattern="probe could expand"),
+        guarded(command='kill -0 "$a" "$b" 14575'): Block(),
+        guarded(command='kill -0 "$(cat /tmp/server.pid)"'): Block(pattern="command substitution"),
+        guarded(command='trap "kill -9 14575" EXIT'): Block(pattern="an agent session"),
+        guarded(command="osascript <<'EOF'\ndo shell script \"kill -9 14575\"\nEOF"): Block(pattern="an agent session"),
+        guarded(tool="mcp__runner__exec", tool_input={"command": ["kill", "-9", "14575"]}): Block(
+            pattern="an agent session"
+        ),
+        guarded(tool="mcp__runner__exec", tool_input={"command": ["bash", "-lc", "kill -9 14575"]}): Block(),
+        guarded(tool="mcp__runner__exec", tool_input={"command": "kill", "args": ["-9", "14575"]}): Block(
+            pattern="an agent session"
+        ),
+        guarded(tool="mcp__runner__exec", tool_input={"argv": ["kill", 14575]}): Block(pattern="an agent session"),
+        guarded(tool="mcp__x__exec", tool_input={"command": "kill 14575 \udc80"}): Block(),
+        guarded(command="kill 31337", session_id=INLINE_SESSION): Allow(),
+        guarded(command="kill -TERM 31337", session_id=INLINE_SESSION): Allow(),
+        guarded(command="kill 31337 14575", session_id=INLINE_SESSION): Block(pattern="an agent session"),
+        guarded(command="kill 31337 $pid", session_id=INLINE_SESSION): Block(pattern=r"`\$pid` is not a literal"),
+        guarded(command="kill 31337", session_id="0ther000-0000-4000-8000-000000000000"): Block(
+            pattern="ownership of pid 31337"
+        ),
+        guarded(command="kill 15001", session_id=INLINE_SESSION): Block(pattern="pid 15001"),
+        guarded(command="kill 18100", session_id=INLINE_SESSION): Allow(),
+        guarded(command="kill 18100", session_id="0ther000-0000-4000-8000-000000000000"): Block(
+            pattern="ownership of pid 18100"
+        ),
+        guarded(command="kill 18200", session_id=INLINE_SESSION): Block(pattern="an ancestor of a protected process"),
+        guarded(command="kill 18400", session_id=INLINE_SESSION): Allow(),
+        guarded(command="kill 18500", session_id=INLINE_SESSION): Block(pattern="an ancestor of a protected process"),
+        guarded(command="kill 18100"): Block(pattern="ownership of pid 18100"),
+        guarded(command="kill 18100", commands=DESK_COMMANDS): Allow(),
+        guarded(command="kill -9 18100", commands=DESK_COMMANDS): Allow(),
+        guarded(
+            command="kill 18100",
+            commands={**INLINE_COMMANDS, "ccn answer search desk-runner.py": inline_ruling(DESK_RULING)},
+        ): Block(pattern="ownership of pid 18100"),
+        guarded(
+            command="kill 18100",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search desk-runner.py": inline_ruling(DESK_RULING, tags=["sessions-guard"]),
+            },
+        ): Block(pattern="ownership of pid 18100"),
+        guarded(
+            command="kill 18100",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search desk-runner.py": inline_ruling(
+                    DESK_RULING, tags=KILL_RULING_TAGS, written=INLINE_STARTED + timedelta(minutes=5)
+                ),
+            },
+        ): Block(pattern="ownership of pid 18100"),
+        guarded(
+            command="kill 18100",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search desk-runner.py": inline_ruling(
+                    "Owner: end the old desk-runner.py.bak copy.", tags=KILL_RULING_TAGS
+                ),
+            },
+        ): Block(pattern="ownership of pid 18100"),
+        guarded(command="kill 18100 14575", commands=DESK_COMMANDS): Block(pattern="an agent session"),
+        guarded(
+            command="kill 18200",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search serve-wrapper.py": inline_ruling(
+                    "Owner: end serve-wrapper.py.", tags=KILL_RULING_TAGS
+                ),
+            },
+        ): Block(pattern="an ancestor of a protected process"),
+        guarded(
+            command="kill 16002",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search claude": inline_ruling("Owner: end claude.", tags=KILL_RULING_TAGS),
+            },
+        ): Block(pattern="an agent session"),
+        guarded(command="kill 18300 18301", session_id=INLINE_SESSION): Block(pattern="ownership of pid 18300"),
+        guarded(
+            command="kill 18300 18301", session_id=INLINE_SESSION, transcript=inline_ask(BOTH_PIDS), llm=OWNER_KILL
+        ): Allow(),
+        guarded(
+            command="kill 18300 18301", session_id=INLINE_SESSION, transcript=inline_ask(ONE_PID), llm=OWNER_KILL
+        ): Block(pattern="ownership of pid 18301"),
+        guarded(
+            command="kill 18300",
+            session_id=INLINE_SESSION,
+            transcript=inline_ask(BOTH_PIDS, pick="Leave them"),
+            llm={"allow": False, "refusal": "The owner picked Leave them."},
+        ): Block(pattern="ownership of pid 18300"),
+        guarded(command="kill 20000", commands=CODEX_COMMANDS, llm=CODEX_ALLOW): Allow(),
+        guarded(
+            command="kill 20000",
+            commands=CODEX_COMMANDS,
+            llm={"allow": False, "refusal": "The ruling names other pids."},
+        ): Block(pattern="pid 20000 .* is an agent session"),
+        guarded(command="kill 20000", commands={**INLINE_COMMANDS, "ps -A -ww -o": CODEX_TABLE}): Block(
+            pattern="pid 20000 .* is an agent session"
+        ),
+        guarded(command="kill 21000", commands=CODEX_COMMANDS, llm=CODEX_ALLOW): Block(
+            pattern="pid 21000 .* is an agent session"
+        ),
+        guarded(command="kill 21001", commands=CODEX_COMMANDS, llm=CODEX_ALLOW): Block(
+            pattern="pid 21001 .* is an agent session"
+        ),
+        guarded(command="kill -0 14575"): Allow(),
+        guarded(command="PID=31337; kill -0 $PID"): Allow(),
+        guarded(command='PID=31337; kill -0 "$PID" 2>/dev/null || break'): Allow(),
+        guarded(command="for p in 31337 31338; do kill -0 $p; done"): Allow(),
+        guarded(command="kill -s 0 14575"): Allow(),
+        guarded(command="kill -l"): Allow(),
+        guarded(command="kill -l 9"): Allow(),
+        guarded(command="kill"): Allow(),
+        guarded(command="command -v kill"): Allow(),
+        guarded(command="command -v kill >/dev/null 2>&1"): Allow(),
+        guarded(command="sudo command -v kill"): Block(pattern="a wrapper supplies its targets"),
+        guarded(command="command -v -i kill -9 14575"): Block(pattern="an agent session"),
+        guarded(command="env -u command -v kill -9 14575"): Block(pattern="an agent session"),
+        guarded(command="ps -p 1743"): Allow(),
+    }
+)
+def kill_unverified_pid(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (kill_verdict(call, scan.facts, evt) for call in scan.literal_calls))
+
+
+def renice_verdict(call: Call, facts: Facts) -> str | Ungranted | None:
+    if call.name != "renice":
+        return None
+    spelling = spell(call)
+    deny = partial(unresolvable, spelling, fix=RENICE_FIX)
+    arguments = RENICE.bind(call)
+    if call.substituted or "xargs" in call.wrappers:
+        return deny("its targets are supplied at run time")
+    if not arguments.complete:
+        return deny(
+            f"it passes `{clip(arguments.unread[0].raw, 40)}`, an option the guard cannot read"
+            if arguments.unread
+            else "it names an option at run time"
+        )
+    if "scope" in arguments.values:
+        return f"BLOCKED: `{spelling}` reprioritizes a whole process group or every process of a user. {RENICE_FIX}"
+    pairs = list(zip(arguments.words.get("args", ()), arguments.values.get("args", ()), strict=True))
+    if "adjust" not in arguments.values:
+        if not pairs or pairs[0][1] is None or not str(pairs[0][1]).lstrip("+-").isdecimal():
+            return deny("its priority operand is not a literal number")
+        pairs = pairs[1:]
+    for word, value in pairs:
+        if (pid := literal_pid(word, value)) is None:
+            return deny(describe_target(word, value))
+        if (verdict := pid_verdict(pid, spelling, facts, RENICE_FIX)) is not None:
+            return verdict
+    return None
+
+
+@guard(
+    tests={
+        guarded(command="renice -n 5 -p 14575"): Block(pattern="an agent session"),
+        guarded(command="renice 5 -u dev"): Block(pattern="every process of a user"),
+        guarded(command="renice -n 5 -g 14575"): Block(),
+        guarded(command="renice 5 $pid"): Block(pattern="`renice -n <priority> -p <pid>`"),
+        guarded(command="renice -n 5 -p 99999"): Block(pattern="would reach an unrelated process"),
+        guarded(command="command -v renice"): Allow(),
+        guarded(command="renice 5"): Allow(),
+        guarded(command="renice -n 5 -p 31337", session_id=INLINE_SESSION): Allow(),
+        guarded(command="renice -n 5 -p 31337 14575", session_id=INLINE_SESSION): Block(pattern="an agent session"),
+    }
+)
+def renice_unverified_pid(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (renice_verdict(call, scan.facts) for call in scan.literal_calls))
+
+
+def probes_only(call: Call) -> bool:
+    if call.args[:1] != ("-0",):
+        return False
+    for arg in call.args[1:]:
+        if not arg.startswith("-"):
+            continue
+        flag = arg.partition("=")[0]
+        if flag in PKILL_CRITERIA_LONG:
+            continue
+        if flag.startswith("--") or len(flag) < 2 or not set(flag[1:]) <= PKILL_CRITERIA_SHORT:
+            return False
+    return True
+
+
+def criteria_program(call: Call) -> str | None:
+    match call.name:
+        case "pkill" if probes_only(call):
+            return None
+        case name if name in CRITERIA_PROGRAMS:
+            return name
+        case "fuser" if any(
+            arg == "--kill" or (arg.startswith("-") and not arg.startswith("--") and "k" in arg[1:])
+            for arg in call.args
+        ):
+            return "fuser -k"
+        case name if name in PACKAGE_RUNNERS and "kill-port" in call.args:
+            return "kill-port"
+        case _:
+            return None
+
+
+def criteria_verdict(call: Call) -> str | None:
+    if (program := criteria_program(call)) is None:
+        return None
+    return (
+        f"BLOCKED: `{program}` signals every process matching a name, pattern, port, or open file, other sessions' "
+        f"agents and terminals included. {CRITERIA_FIX}"
+    )
+
+
+@guard(
+    tests={
+        guarded(
+            command=(
+                "pkill -x sleep 2>/dev/null; sleep 0; orca orchestration check --peek --run run-1 --json 2>&1 | "
+                "head -c 600; echo; echo rc=$?"
+            )
+        ): Block(pattern="`pkill` signals every process matching a name"),
+        guarded(command='pkill -f "never" 2>/dev/null; codex-ask --help'): Block(pattern="`pgrep -fl <pattern>`"),
+        guarded(command="p=pkill; $p sleep"): Block(pattern="signals every process matching"),
+        guarded(command="eval 'pkill -x sleep'"): Block(pattern="signals every process matching"),
+        guarded(command="for p in pgrep pkill; do $p -x sleep; done"): Block(pattern="signals every process matching"),
+        guarded(command="ITEMS='echo pkill'; for X in $ITEMS; do \"$X\" claude; done"): Block(),
+        guarded(command="X=pkill; cat <<EOF\n\tEOF\nX=echo\nEOF\n$X claude"): Block(pattern="signals every process"),
+        guarded(command="X=pkill; cat <<-EOF\n\tEOF\nX=echo\nEOF\n$X claude"): Allow(),
+        guarded(command="pkill node"): Block(),
+        guarded(command="pkill -0 --signal KILL -f claude"): Block(pattern="signals every process matching"),
+        guarded(command="pkill -0 --signal=KILL -f claude"): Block(),
+        guarded(command="pkill -0 -s KILL -f claude"): Block(),
+        guarded(command="pkill -0 -SIGKILL -f claude"): Block(),
+        guarded(command="pkill -0 -fs KILL claude"): Block(),
+        guarded(command="pkill -0 -e claude"): Block(),
+        guarded(command="pkill -0 -9 x"): Block(),
+        guarded(command="pkill -f -0 x"): Block(),
+        guarded(command="pkill -TERM -0 x"): Block(),
+        guarded(command="sudo pkill node"): Block(),
+        guarded(command="pkill -9 -f 'vite dev'"): Block(),
+        guarded(command="sudo pkill -f server"): Block(),
+        guarded(command='pkill -f "ledger.py watch --ledger main"; sleep 1'): Block(),
+        guarded(command='kill %1 2>/dev/null; pkill -f "pr-poll.sh 42" 2>/dev/null'): Block(),
+        guarded(command="/usr/bin/pkill x"): Block(),
+        guarded(command="xargs pkill"): Block(),
+        guarded(command="p\\kill node"): Block(),
+        guarded(command="killall claude"): Block(pattern="`killall`"),
+        guarded(command="sudo killall Orca"): Block(),
+        guarded(command="killall5 -15"): Block(),
+        guarded(command="Killall claude"): Block(),
+        guarded(command="fuſer -k 3000/tcp"): Block(),
+        guarded(command="fuser -k 3000/tcp"): Block(pattern="`fuser -k`"),
+        guarded(command="fuser -ki -TERM /tmp/sock"): Block(),
+        guarded(command="npx kill-port 3000"): Block(pattern="`kill-port`"),
+        guarded(command="bunx kill-port 3000"): Block(),
+        guarded(command=nested(3, "pkill -x sleep")): Block(pattern="signals every process matching"),
+        guarded(command="trap 'pkill -f claude' EXIT; true"): Block(pattern="signals every process matching"),
+        guarded(command="osascript -e 'do shell script \"pkill -f claude\"'"): Block(
+            pattern="signals every process matching"
+        ),
+        guarded(tool="mcp__runner__exec", tool_input={"cmd": "pkill -x sleep"}): Block(),
+        guarded(tool="mcp__runner__exec", tool_input={"command": ["echo", "hi", ";", "pkill", "-x", "sleep"]}): Block(
+            pattern="signals every process matching"
+        ),
+        guarded(
+            tool="Monitor", tool_input={"command": "pkill -f poll", "description": "x", "timeout_ms": 1000}
+        ): Block(),
+        guarded(command="fuser -v 3000/tcp"): Allow(),
+        guarded(command="gh api rate_limit -q '.resources.core' ; date +%s; pkill -0 x 2>/dev/null; echo"): Allow(),
+        guarded(command="pkill -0 -f 'ledger.py watch'"): Allow(),
+        guarded(command="pkill -0 -fx --newest claude"): Allow(),
+        guarded(command="pgrep -f claude"): Allow(),
+        guarded(command="echo pkill -f never"): Allow(),
+        guarded(command="command -v pkill killall"): Allow(),
+        guarded(tool="mcp__runner__exec", tool_input={"cmd": "pgrep -f claude"}): Allow(),
+        guarded(tool="mcp__x__call", tool_input={"subject": "pkill", "mode": "x"}): Allow(),
+        guarded(tool="SendMessage", tool_input={"to": "a", "message": "never pkill by name"}): Allow(),
+    }
+)
+def signal_by_criteria(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(criteria_verdict, Scan.of(evt).literal_calls))
+
+
+def shutdown_verdict(call: Call) -> str | None:
+    if call.name not in SHUTDOWNS:
+        return None
+    return (
+        f"BLOCKED: `{call.name}` ends every session on the Mac, Orca and every agent in it included. Report the need "
+        "to the owner instead."
+    )
+
+
+@guard(
+    tests={
+        guarded(command="reboot"): Block(pattern="ends every session on the Mac"),
+        guarded(command="sudo reboot"): Block(),
+        guarded(command="sudo shutdown -r now"): Block(),
+        guarded(command="ſhutdown -h now"): Block(pattern="`shutdown`"),
+        guarded(command="halt"): Block(),
+        guarded(command="poweroff"): Block(),
+        guarded(tool="mcp__srv__Bash", tool_input={"command": "reboot"}): Block(),
+        guarded(command="echo reboot later"): Allow(),
+        guarded(command="command -v shutdown reboot"): Allow(),
+        guarded(command="command shutdown -r now"): Block(),
+    }
+)
+def shutdown_ends_sessions(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(shutdown_verdict, Scan.of(evt).literal_calls))
+
+
+def orca_bound(arguments: Arguments, name: str) -> str | None:
+    return next((f"`{word.raw}`" for word in arguments.words.get(name, ())), None)
+
+
+def orca_command(arguments: Arguments) -> tuple[Scalar | None, Scalar | None]:
+    group, verb = arguments.values.get("group", ()), arguments.values.get("verb", ())
+    return (group[0] if group else None, verb[0] if verb else None)
+
+
+def orca_ending(spelling: str, group: str, verb: str, arguments: Arguments) -> str:
+    values = arguments.values
+    match group:
+        case "terminal":
+            scope = (
+                f"terminal {terminal}"
+                if (terminal := orca_bound(arguments, "terminal")) is not None
+                else f"{'every terminal' if 'all' in values else 'the active terminal'} in worktree {worktree}"
+                if (worktree := orca_bound(arguments, "worktree")) is not None
+                else "the current tab's terminal"
+                if "tab" in values
+                else "the current terminal"
+            )
+            action = f"{'closes' if verb == 'close' else 'stops'} {scope}"
+        case "worktree":
+            worktree = orca_bound(arguments, "worktree") or "named by its arguments"
+            action = f"removes worktree {worktree} and every terminal in it"
+        case _:
+            action = f"{verb} ends the worker or run {orca_bound(arguments, 'dispatch') or 'named by its arguments'}"
+    fix = ORCA_STOP_FIX if (group, verb) == ("orchestration", "worker-stop") else ORCA_READ
+    return f"BLOCKED: `{spelling}` {action}, which ends the agent session living there. {fix}"
+
+
+def help_only(call: Call, values: dict[str, tuple[Scalar | None, ...]]) -> bool:
+    if "help" not in values or any(word.value is None for word in call.command.words):
+        return False
+    path = [arg for arg in call.args if arg not in HELP_FLAGS]
+    return len(path) == len(call.args) - 1 and len(path) <= 2 and (not path or path[0] in ORCA_GROUPS)
+
+
+def lone_target(call: Call, arguments: Arguments, command: tuple[str, str], key: str) -> str | None:
+    if (
+        call.substituted
+        or call.wrappers
+        or not arguments.complete
+        or not arguments.operands_complete
+        or orca_command(arguments) != command
+        or arguments.values.get("rest")
+    ):
+        return None
+    words = arguments.words.get(key, ())
+    targets = arguments.values.get(key, ())
+    if len(words) != 1 or words[0].value is None or words[0].expandable or not isinstance(targets[0], str):
+        return None
+    return None if targets[0].startswith("-") else targets[0]
+
+
+def closed_terminal(call: Call, arguments: Arguments) -> str | None:
+    if not ORCA_CLOSE_SCOPES.isdisjoint(arguments.values):
+        return None
+    return lone_target(call, arguments, ("terminal", "close"), "terminal")
+
+
+def stopped_dispatch(call: Call, arguments: Arguments) -> str | None:
+    return lone_target(call, arguments, ("orchestration", "worker-stop"), "dispatch")
+
+
+def closes_one_terminal(call: Call) -> bool:
+    return call.name == "orca" and closed_terminal(call, ORCA.bind(call)) is not None
+
+
+def spelled(call: Call, scan: Scan) -> bool:
+    return all(other is not call for other in scan.respelled)
+
+
+def verifiable_close(call: Call, scan: Scan) -> bool:
+    return spelled(call, scan) and sum(map(closes_one_terminal, scan.literal_calls)) == 1
+
+
+def terminal_close_denied(spelling: str, handle: str, detail: str) -> str:
+    return f"BLOCKED: `{spelling}` closes terminal `{clip(handle, 48)}`{detail}. {CLOSE_FIX}"
+
+
+def whole_tab_verdict(spelling: str, handle: str) -> str | None:
+    match lone_pane(handle):
+        case True:
+            return None
+        case Unreadable(reason):
+            detail = f"; the guard could not prove it holds no other pane ({reason})"
+        case _:
+            detail = ", which holds other panes"
+    return f"BLOCKED: `{spelling}` closes the whole tab of terminal `{clip(handle, 48)}`{detail}. Drop `--tab`."
+
+
+def terminal_close_verdict(call: Call, handle: str, scan: Scan, evt: ToolRewriteEvent) -> str | Ungranted | None:
+    spelling = clip(call.source.raw, 50)
+    tab = "tab" in ORCA.bind(call).values
+    if tab and (crowded := whole_tab_verdict(spelling, handle)) is not None:
+        return crowded
+    agent = None
+    match scan.facts.terminal_tree(handle):
+        case Unreadable(reason):
+            detail = f" ({reason})"
+        case (root, *below):
+            agent = next((row for row in below if hosts_agent(row)), root if is_agent(root) else None)
+            if agent is None:
+                return None
+            detail = f", where {describe(agent)} runs"
+        case _:
+            detail = " (its process tree could not be read)"
+    denied = terminal_close_denied(spelling, handle, detail)
+    if not runs_once(call, scan):
+        return denied
+    action = Proposal(place={"terminal": handle}, payload={"tab": tab}, summary=f"close terminal {handle}")
+    if (ungranted := lift(evt, TERMINAL_CLOSE, action, denied, owner=False)) is None:
+        return None
+    if agent is not None and (settled := settled_close(evt, handle, tab)) is not None:
+        if (ungranted := lift(evt, SETTLED_CLOSE, settled, SETTLED_CLOSE.deny, owner=False)) is None:
+            if still_settled(settled):
+                return None
+            changed = "sessions: the terminal's dispatch or idle prompt changed while the judge decided."
+            return Ungranted(denied, changed)
+    return owner_lift(evt, TERMINAL_CLOSE, action, ungranted)
+
+
+def orca_ending_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Ungranted | None:
+    if call.name != "orca":
+        return None
+    spelling = spell(call)
+    arguments = ORCA.bind(call)
+    values = arguments.values
+    if help_only(call, values):
+        return None
+    if (handle := closed_terminal(call, arguments)) is not None and verifiable_close(call, scan):
+        return terminal_close_verdict(call, handle, scan, evt)
+    if (
+        (dispatch := stopped_dispatch(call, arguments)) is not None
+        and spelled(call, scan)
+        and runs_once(call, scan)
+        and own_dispatch(evt, dispatch)
+    ):
+        return None
+    found = next(
+        (
+            (group, verb)
+            for group, verbs in ORCA_ENDINGS.items()
+            for verb in verbs
+            if group in call.args and verb in call.args
+        ),
+        None,
+    )
+    if found is not None:
+        return orca_ending(spelling, *found, arguments)
+    group = values.get("group", ())
+    verb = values.get("verb", ())
+    if None in group or None in verb:
+        return (
+            f"BLOCKED: `{spelling}` names its orca group or verb at run time, so it may close a terminal, remove a "
+            "worktree, or stop a worker. Spell the group and verb literally."
+        )
+    if not arguments.operands_complete and (not group or not verb):
+        return (
+            f"BLOCKED: `{spelling}` hides its orca group or verb behind {hidden_behind(arguments)}, so it may close a "
+            "terminal, remove a worktree, or stop a worker. Put the group and verb first."
+        )
+    match orca_command(arguments):
+        case (None, _):
+            return None
+        case (unknown, _) if unknown not in ORCA_GROUPS:
+            return (
+                f"BLOCKED: `{spelling}` uses an orca command group the guard does not know, so it cannot rule out an "
+                "ending action. Use a group listed by `orca --help`."
+            )
+        case (str() as group_name, str() as verb_name) if verb_name in ORCA_ENDINGS.get(group_name, ()):
+            return orca_ending(spelling, group_name, verb_name, arguments)
+        case ("vm", verb_name) if (flag := orca_vm_run_flag(call)) is not None or verb_name != "recipe":
+            return (
+                f"BLOCKED: `{spelling}` passes `{flag or verb_name}`, which runs a recipe's commands on a VM, and a "
+                "recipe may end sessions. Run `orca vm recipe doctor <recipe-id>` without `--provision` or `--connect`."
+            )
+        case _:
+            return None
+
+
+def orca_vm_run_flag(call: Call) -> str | None:
+    return next((arg for arg in call.args if arg.partition("=")[0] in ORCA_VM_RUN_FLAGS), None)
+
+
+@guard(
+    tests={
+        guarded(
+            command=(
+                "for x in term_a term_b; do orca terminal close --terminal $x --json >/dev/null 2>&1 && "
+                "echo closed $x; done"
+            )
+        ): Block(pattern="closes terminal `term_a`"),
+        guarded(
+            command=(
+                "n=0; for x in $(cat /tmp/reap.txt); do orca terminal close --terminal $x --json >/dev/null 2>&1 && "
+                "n=$((n+1)); done; echo closed $n; uptime"
+            )
+        ): Block(pattern="closes terminal"),
+        guarded(
+            command=(
+                'n=0; while read t; do [ -z "$t" ] && continue; orca terminal close --terminal "$t" >/dev/null 2>&1 '
+                "&& n=$((n+1)); done < /tmp/close-list.txt"
+            )
+        ): Block(pattern="closes terminal"),
+        guarded(
+            command=(
+                'orca terminal list --worktree path:$M/$w --json 2>&1 | python3 -c "import json,sys\nfor t in '
+                "json.load(sys.stdin)['result']['terminals']: print(t['handle'])\" | while read t; do orca terminal "
+                "close --terminal $t 2>&1 | tail -1; done"
+            )
+        ): Block(pattern="closes terminal"),
+        guarded(command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL} --json"): Allow(),
+        guarded(
+            command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL} --json",
+            tickets=[
+                Ticket(
+                    id="c105e0000001",
+                    kind=TERMINAL_CLOSE.kind,
+                    tree=INLINE_SESSION,
+                    place={"terminal": INLINE_OWNER_TERMINAL},
+                    reach=Reach.PLACE,
+                    rule="owner-cli",
+                    author="owner-cli",
+                    created=INLINE_STARTED,
+                )
+            ],
+            commands={**INLINE_COMMANDS, f"ccn answer search {INLINE_OWNER_TERMINAL}": "[]"},
+            session_id=INLINE_SESSION,
+        ): Allow(),
+        guarded(
+            command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL} --json",
+            commands={
+                **INLINE_COMMANDS,
+                f"ccn answer search {INLINE_OWNER_TERMINAL}": inline_ruling(
+                    f"close {INLINE_OWNER_TERMINAL}", written=INLINE_STARTED + timedelta(hours=1)
+                ),
+            },
+        ): Block(pattern=f"closes terminal `{INLINE_OWNER_TERMINAL}`"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            commands={**INLINE_COMMANDS, "ccn answer search term_agent": inline_ruling("close term_agent2")},
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            commands={**INLINE_COMMANDS, "ccn answer search term_agent": inline_ruling("close term_agent, term_idle")},
+        ): Allow(),
+        guarded(command=f"T={INLINE_OWNER_TERMINAL}; orca terminal close --terminal $T"): Block(
+            pattern="leave ending them to the owner"
+        ),
+        guarded(command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL} --terminal term_agent"): Block(),
+        guarded(
+            command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL}; orca terminal close --terminal x"
+        ): Block(pattern="closes terminal `"),
+        guarded(command="timeout 5 orca terminal close --terminal term_agent"): Block(),
+        guarded(command=f"orca terminal close --terminal {INLINE_OWNER_TERMINAL} --all"): Block(),
+        guarded(
+            command="orca terminal close --terminal term_agent --json", transcript=inline_create("term_agent")
+        ): Allow(),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            transcript=inline_create("term_agent", "orca terminal create --json; orca terminal list --json"),
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            transcript=inline_create("term_agent", "./orca terminal create --json"),
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="for t in 1 2; do orca terminal close --terminal term_agent --json; done",
+            transcript=inline_create("term_agent"),
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json", transcript=inline_create("term_other")
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            transcript=inline_create("term_agent"),
+            commands={**INLINE_COMMANDS, "orca terminal read": INLINE_BUSY},
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            transcript=inline_create("term_agent"),
+            commands={**INLINE_COMMANDS, "orca terminal read": inline_screen("Shall I close it?", CLAUDE_PROMPT)},
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            transcript=inline_create("term_agent"),
+            commands={**INLINE_COMMANDS, "orca orchestration worker-list": inline_workers("term_agent")},
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command="orca terminal close --terminal term_agent --tab --json",
+            transcript=inline_create("term_agent"),
+            commands={**INLINE_COMMANDS, **inline_tab("term_agent", "term_agent")},
+        ): Allow(),
+        guarded(
+            command="orca terminal close --terminal term_idle --tab --json",
+            commands={**INLINE_COMMANDS, **inline_tab("term_idle", "term_idle", "term_agent")},
+        ): Block(pattern="closes the whole tab of terminal `term_idle`, which holds other panes"),
+        guarded(command="orca terminal close --terminal term_idle --tab"): Block(
+            pattern="could not prove it holds no other pane"
+        ),
+        guarded(
+            command="orca orchestration worker-stop --dispatch ctx-1",
+            commands={**INLINE_COMMANDS, "ccn answer search ctx-1": inline_ruling("stop ctx-1")},
+        ): Block(pattern="worker-stop ends the worker"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+            llm=CLASS_ALLOW,
+        ): Allow(),
+        settling(
+            command=AGENT_CLOSE,
+            commands={
+                **SETTLED_COMMANDS,
+                "orca orchestration worker-list": inline_worker("term_agent", "failed", "agent_readiness"),
+            },
+            llm={"allow": True, "relied_on": ["ccn:6190a4a"]},
+        ): Allow(),
+        settling(
+            command=AGENT_CLOSE,
+            commands={
+                **SETTLED_COMMANDS,
+                "orca orchestration worker-list": inline_worker("term_agent", "dispatched", "input_accepted"),
+            },
+            llm=CLASS_ALLOW,
+        ): Block(pattern="where pid 16002"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={
+                **SETTLED_COMMANDS,
+                "orca orchestration worker-list": inline_worker("term_agent", "completed"),
+                "orca terminal read": INLINE_BUSY,
+            },
+            llm=CLASS_ALLOW,
+        ): Block(pattern="where pid 16002"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={
+                **SETTLED_COMMANDS,
+                **inline_class_rulings(written=INLINE_STARTED + timedelta(hours=1)),
+                "orca orchestration worker-list": inline_worker("term_agent", "completed"),
+            },
+            llm=CLASS_ALLOW,
+        ): Block(pattern="under a standing owner decision"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+        ): Block(pattern="under a standing owner decision"),
+        settling(
+            command="for t in term_agent; do orca terminal close --terminal $t; done",
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+            llm=CLASS_ALLOW,
+        ): Block(pattern="leave ending them to the owner"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+            env={"ORCA_TERMINAL_HANDLE": "term_lane"},
+            llm=CLASS_ALLOW,
+        ): Block(pattern="where pid 16002"),
+        settling(
+            command=AGENT_CLOSE,
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+            agent_id="sibling-lane",
+            llm=CLASS_ALLOW,
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command=AGENT_CLOSE,
+            commands={**SETTLED_COMMANDS, "orca orchestration worker-list": inline_worker("term_agent", "completed")},
+            llm=CLASS_ALLOW,
+        ): Block(pattern="where pid 16002"),
+        settling(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED} --json",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Allow(),
+        settling(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED} 2>&1 | tail -5",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Allow(),
+        guarded(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Block(pattern=f"worker-stop ends the worker or run `{STOPPED}`"),
+        settling(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+            env={"ORCA_TERMINAL_HANDLE": "term_lane"},
+        ): Block(pattern="Only the root coordinating its Run"),
+        settling(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+            agent_id="sibling-lane",
+        ): Block(pattern="worker-stop ends the worker"),
+        settling(
+            command=f"orca orchestration worker-stop --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED, "run_other")},
+        ): Block(pattern="worker-stop ends the worker"),
+        settling(command=f"orca orchestration worker-stop --dispatch {STOPPED}", commands=SETTLED_COMMANDS): Block(
+            pattern="worker-stop ends the worker"
+        ),
+        settling(
+            command=f"for d in {STOPPED}; do orca orchestration worker-stop --dispatch $d; done",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Block(pattern="worker-stop ends the worker"),
+        settling(
+            command=f"true && orca orchestration worker-stop --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Block(pattern="worker-stop ends the worker"),
+        settling(
+            command="orca orchestration run-stop --run run_inline",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Block(pattern="run-stop ends the worker"),
+        settling(
+            command=f"orca orchestration worker-release --dispatch {STOPPED}",
+            commands={**SETTLED_COMMANDS, **inline_dispatch(STOPPED)},
+        ): Block(pattern="leave ending them to the owner"),
+        guarded(command=f"{ORCA_GC} --run run_7715a23a5657 --dispatch ctx_d83bbb927995"): Allow(),
+        guarded(command=f"{ORCA_GC} --run run_7715a23a5657 --done ctx_a0f447e7e42c"): Allow(),
+        guarded(command=f"{ORCA_GC} --run run_7715a23a5657 --dispatch ctx_1 --dispatch ctx_2"): Allow(),
+        guarded(command=f"cd /Users/dev/monorepo && {ORCA_GC} --run run_1 --dispatch ctx_1 2>&1 | tail -20"): Allow(),
+        guarded(command=f"{ORCA_GC} --run run_1 --dry-run"): Allow(),
+        guarded(command="orca terminal close --terminal term_idle --json"): Allow(),
+        guarded(command="orca terminal close --terminal term_agent --json"): Block(
+            pattern=r"where pid 16002 \(`claude"
+        ),
+        guarded(command="orca terminal close --terminal term_shim"): Block(pattern=r"where pid 17002 \(`"),
+        guarded(command="orca terminal close --terminal term_gone"): Block(pattern="is not in the process table"),
+        guarded(command="orca terminal close --terminal term_nope"): Block(pattern="Orca reports no process"),
+        guarded(command="orca terminal close --terminal term_idle; orca terminal close --terminal term_idle"): Block(),
+        guarded(command="for x in term_idle; do orca terminal close --terminal $x; done"): Block(
+            pattern="leave ending them to the owner"
+        ),
+        guarded(command="orca terminal close"): Block(pattern="closes the current terminal"),
+        guarded(command="orca terminal close --tab"): Block(pattern="the current tab's terminal"),
+        guarded(command="orca terminal close --worktree active --all"): Block(
+            pattern="every terminal in worktree `active`"
+        ),
+        guarded(command="orca --json terminal close --terminal t"): Block(),
+        guarded(command="orca terminal --json close --terminal=t"): Block(),
+        guarded(command="xargs -n1 orca terminal close --terminal"): Block(),
+        guarded(command="orca terminal stop --worktree x"): Block(pattern="stops the active terminal in worktree"),
+        guarded(command="orca worktree rm --worktree path:/x"): Block(pattern="removes worktree `path:/x`"),
+        guarded(command="orca orchestration worker-stop --dispatch ctx-1"): Block(
+            pattern="worker-stop ends the worker or run `ctx-1`"
+        ),
+        guarded(command="orca orchestration worker-release --dispatch ctx-1"): Block(),
+        guarded(command="orca $GROUP close --terminal t"): Block(pattern="at run time"),
+        guarded(command="for x in term_a term_b; do orca terminal close --terminal $x; done"): Block(
+            pattern="closes terminal `term_a`"
+        ),
+        guarded(command="orca --bogus terminal close"): Block(),
+        guarded(command="orca --bogus status"): Block(pattern="hides its orca group or verb behind `--bogus`"),
+        guarded(command="orca nuke everything"): Block(pattern="does not know"),
+        guarded(
+            command=(
+                "for d in ctx_c9c192f997b0 ctx_84420bceb40d; do orca orchestration worker-show --dispatch $d --json "
+                "2>&1 | jq -c --arg d $d '{d:$d, s:.result.dispatch.status}'; done; "
+                "orca orchestration worker-release --help 2>&1 | head -15"
+            )
+        ): Allow(),
+        guarded(command="orca orchestration worker-release --dispatch ctx-1 --help"): Block(),
+        guarded(command="orca agent-teams-tmux kill-pane --help -t %2 terminal close"): Block(),
+        guarded(command="orca agent-teams-tmux kill-pane --help"): Block(),
+        guarded(command="orca orchestration worker-release -- --help"): Block(pattern="worker-release"),
+        guarded(command="orca terminal close --help"): Allow(),
+        guarded(command="orca terminal close -h"): Allow(),
+        guarded(command="orca terminal close --terminal --help"): Block(pattern="closes terminal `--help`"),
+        guarded(command="orca --bogus terminal close --help"): Block(),
+        guarded(command="read OPT <<<'--terminal'; orca terminal close \"$OPT\" -h --terminal="): Block(),
+        guarded(command="orca terminal close -h $T"): Block(),
+        guarded(command="orca terminal close --help; orca terminal close"): Block(
+            pattern="closes the current terminal"
+        ),
+        guarded(
+            command="orca vm recipe doctor guard-probe --provision --repo-path /Users/yasyf/.claude/scratch/x/vm-probe"
+        ): Block(pattern="passes `--provision`"),
+        guarded(command="orca vm recipe doctor guard-probe --connect --json"): Block(pattern="passes `--connect`"),
+        guarded(command="orca vm recipe doctor guard-probe --provision=true"): Block(
+            pattern="passes `--provision=true`"
+        ),
+        guarded(command="orca vm create guard-probe"): Block(pattern="passes `create`"),
+        guarded(command="orca vm recipe doctor cloud-sandbox --repo-path /path/to/repo --json"): Allow(),
+        guarded(command="'orca' terminal close"): Block(),
+        guarded(
+            tool="mcp__runner__exec", tool_input={"command": "orca", "args": ["terminal", "close", "--terminal", "t"]}
+        ): Block(pattern="closes terminal `t`"),
+        guarded(tool="mcp__x__call", tool_input={"opts": {"cmd": "orca terminal close --terminal term_x"}}): Block(
+            pattern="closes terminal `term_x`"
+        ),
+        guarded(command="orca terminal list --json"): Allow(),
+        guarded(command="orca --help"): Allow(),
+        guarded(command="orca -h"): Allow(),
+        guarded(command="orca terminal --help 2>&1 | head -60"): Allow(),
+        guarded(command="orca orchestration --help 2>&1 | head -60"): Allow(),
+        guarded(command="orca orchestration --help >/dev/null 2>&1; orca orchestration 2>&1 | head -30"): Allow(),
+        guarded(command="orca help terminal 2>&1 | head -80"): Allow(),
+        guarded(command="orca orchestration worker-show --dispatch ctx_5a35fc72f713 --json"): Allow(),
+        guarded(command="orca orchestration task-list --run run_7715a23a5657 --json"): Allow(),
+        guarded(command="orca file open-changed --mode diff"): Allow(),
+        guarded(command="orca terminal show --terminal t"): Allow(),
+        guarded(command="orca terminal read --terminal t --screen"): Allow(),
+        guarded(command="orca status"): Allow(),
+        guarded(command="orca --json status"): Allow(),
+        guarded(command="orca orchestration check --peek --run r --json"): Allow(),
+        guarded(command="orca worktree list --json"): Allow(),
+        guarded(command="command -v orca ccx cc-notes"): Allow(),
+        guarded(command="command -V orca terminal close"): Allow(),
+        guarded(command="if command -pv orca ccx >/dev/null 2>&1; then orca status; fi"): Allow(),
+        guarded(command="command -v orca ccx; orca terminal close --terminal t"): Block(pattern="closes terminal `t`"),
+        guarded(command="command orca terminal close --terminal t"): Block(pattern="closes terminal `t`"),
+        guarded(command="command -p orca terminal close --terminal t"): Block(pattern="closes terminal `t`"),
+    }
+)
+def orca_ends_session(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (orca_ending_verdict(call, scan, evt) for call in scan.literal_calls))
+
+
+def interrupts_own_lane(call: Call, scan: Scan, evt: ToolRewriteEvent, arguments: Arguments) -> bool:
+    handle = lone_target(call, arguments, ("terminal", "send"), "terminal")
+    return handle is not None and spelled(call, scan) and own_lane(evt, handle)
+
+
+def orca_send_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | None:
+    if call.name != "orca" or orca_command(arguments := ORCA.bind(call)) != ("terminal", "send"):
+        return None
+    spelling = spell(call)
+    values, words = arguments.values, arguments.words
+    text = values.get("text", ())
+    if any(str(payload).strip().casefold() in END_OF_SESSION for payload in text if payload is not None):
+        return (
+            f"BLOCKED: `{spelling}` interrupts or exits the agent in another terminal, which ends that session. Send "
+            "only ordinary text, and leave interrupts and exits to the owner."
+        )
+    if "interrupt" in values and not interrupts_own_lane(call, scan, evt, arguments):
+        return (
+            f"BLOCKED: `{spelling}` interrupts or exits the agent in another terminal, which ends that session. Send "
+            "only ordinary text; only the root coordinating that lane's Orca Run may `--interrupt` it."
+        )
+    if None in text:
+        return (
+            f"BLOCKED: `{spelling}` sends text built at run time "
+            f"(`--text {clip(words['text'][text.index(None)].raw, 40)}`), which could be `exit` or a control byte. "
+            "Put the literal text in `--text`."
+        )
+    if "help" in values:
+        return None
+    if arguments.unread:
+        return (
+            f"BLOCKED: `{spelling}` passes `{clip(arguments.unread[0].raw, 40)}`, an option the guard does not know, "
+            "so it cannot rule out an interrupt. Drop the option; to answer a dialog, send `--text N` without "
+            "`--enter`, or `--enter` alone."
+        )
+    for word in words.get("rest", ()):
+        flag, _, value = word.raw.partition("=")
+        if word.value is None and (flag not in {"--terminal", "--worktree"} or not double_quoted(value)):
+            return (
+                f"BLOCKED: `{spelling}` passes `{clip(word.raw, 40)}`, an argument named at run time that Orca "
+                "may read as `--interrupt` or as the text. Spell it literally, or pass the handle as "
+                '`--terminal "$handle"`.'
+            )
+    loose = next(
+        (
+            word
+            for name, bound in words.items()
+            if name != "rest"
+            for word in bound
+            if word.value is None and not double_quoted(word.raw)
+        ),
+        None,
+    )
+    if loose is not None:
+        return (
+            f"BLOCKED: `{spelling}` names `{clip(loose.raw, 40)}` at run time in a form the shell may split into "
+            f'words such as `--interrupt`. Quote it (`"{clip(loose.raw, 40)}"`) or spell it literally.'
+        )
+    return None
+
+
+@guard(
+    tests={
+        guarded(command="orca terminal send --terminal t --interrupt"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text exit --enter"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text /exit --enter"): Block(),
+        guarded(command="orca terminal send --terminal t --text /quit --enter"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text logout --enter"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text ^C"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text ^D"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text C-c"): Block(pattern="interrupts or exits"),
+        guarded(command="orca terminal send --terminal t --text '\\x03'"): Block(pattern="interrupts or exits"),
+        guarded(command='orca terminal send --terminal t --text "$MSG" --enter'): Block(pattern="built at run time"),
+        guarded(
+            command=(
+                "B=\"$(sed -n '1184p' ~/.claude/scratch/release-v3/inbox/orca-desk.md | sed 's/^- //') "
+                '-- orca-desk: GO"\n'
+                'orca terminal send --terminal term_f8d32118 --text "$B" --enter --wait-submit 15 --json'
+            )
+        ): Block(pattern="built at run time"),
+        guarded(
+            command=(
+                'w(){ orca terminal send --terminal "$1" --text "$2" --enter 2>&1 | tail -1; }\n'
+                "w term_cab63c4c 'orca-desk-4 R508: l08 ALONE linearizes'"
+            )
+        ): Block(pattern="built at run time"),
+        guarded(command="orca terminal send --terminal t --text exit --help"): Block(pattern="interrupts or exits"),
+        guarded(command='orca terminal send --terminal t --text "$(cat /tmp/msg.txt)" --enter'): Block(),
+        guarded(command="orca terminal send --terminal t --text hi --enter --timeout-ms 3000"): Block(
+            pattern="passes `--timeout-ms`"
+        ),
+        guarded(command="orca terminal send --terminal t --keys Enter"): Block(pattern="without `--enter`"),
+        guarded(command="orca terminal send --terminal t --text 1"): Allow(),
+        guarded(command="orca terminal send --terminal t --enter"): Allow(),
+        guarded(command='orca terminal send "$X" --text hi --enter'): Block(pattern="may read as `--interrupt`"),
+        guarded(command="orca terminal send --terminal $t --text hi --enter"): Block(pattern="may split"),
+        guarded(command="orca terminal send --terminal=$t --text hi --enter"): Block(),
+        guarded(command='orca terminal send --terminal="$t" --text hi --enter'): Allow(),
+        guarded(command="orca terminal send --help 2>&1 | rg -i 'key|interrupt|esc' | head"): Allow(),
+        guarded(
+            command=(
+                "for t in term_ce852041 term_33fabfa8; do orca terminal send --terminal $t --text 'codex -c "
+                "model=gpt-6.1-sol' --enter --json | jq -c .ok; done"
+            )
+        ): Allow(),
+        guarded(
+            command='for t in term_a term_b; do orca terminal send --terminal "$t" --text "status?" --enter; done'
+        ): Allow(),
+        guarded(command='orca terminal send --terminal "$ORCA_TERMINAL_HANDLE" --text "note to self" --enter'): Allow(),
+        guarded(command='orca terminal send --worktree "$w" --text hi --enter'): Allow(),
+        guarded(command='orca terminal send --terminal t --text "ship it" --enter'): Allow(),
+        settling(command=ROLLBACK_STOP, commands=OWN_LANE): Allow(),
+        settling(command=f"orca terminal send --terminal {INTERRUPTED} --interrupt", commands=OWN_LANE): Allow(),
+        guarded(command=ROLLBACK_STOP, commands=OWN_LANE): Block(pattern="only the root coordinating"),
+        settling(command=ROLLBACK_STOP, commands=OWN_LANE, env={"ORCA_TERMINAL_HANDLE": "term_lane"}): Block(
+            pattern="only the root coordinating"
+        ),
+        settling(command=ROLLBACK_STOP, commands=OWN_LANE, agent_id="sibling-lane"): Block(
+            pattern="only the root coordinating"
+        ),
+        settling(
+            command=ROLLBACK_STOP,
+            commands={
+                **SETTLED_COMMANDS,
+                "orca orchestration worker-list": inline_worker(INTERRUPTED, "running", "working", "run_other"),
+            },
+        ): Block(pattern="only the root coordinating"),
+        settling(command=ROLLBACK_STOP, commands=SETTLED_COMMANDS): Block(pattern="only the root coordinating"),
+        settling(command=f"orca terminal send --terminal {INTERRUPTED} --text exit --interrupt", commands=OWN_LANE): (
+            Block(pattern="leave interrupts and exits to the owner")
+        ),
+        settling(command=f"orca terminal send --terminal {INTERRUPTED} --text /quit --enter", commands=OWN_LANE): (
+            Block(pattern="leave interrupts and exits to the owner")
+        ),
+        settling(command='orca terminal send --terminal "$T" --text hi --interrupt', commands=OWN_LANE): Block(
+            pattern="only the root coordinating"
+        ),
+        settling(
+            command=f'orca terminal send --terminal {INTERRUPTED} --text "$MSG" --interrupt', commands=OWN_LANE
+        ): Block(pattern="interrupts or exits"),
+    }
+)
+def orca_send_ends_session(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (orca_send_verdict(call, scan, evt) for call in scan.literal_calls))
+
+
+def ends_session_key(key: str) -> bool:
+    parts = [KEY_ALIASES.get(part, part) for part in (raw.strip() for raw in key.casefold().split("+"))]
+    chords = (
+        (frozenset(modifier if part == "cmdorctrl" else part for part in parts) for modifier in ("cmd", "ctrl"))
+        if "cmdorctrl" in parts
+        else (frozenset(parts),)
+    )
+    return not END_OF_SESSION_CHORDS.isdisjoint(chords)
+
+
+def orca_input_verdict(call: Call) -> str | None:
+    if call.name != "orca":
+        return None
+    match orca_command(arguments := ORCA.bind(call)):
+        case ("computer", str() as verb) if verb in ORCA_PAYLOADS:
+            role = ORCA_PAYLOADS[verb]
+        case _:
+            return None
+    spelling = spell(call)
+    values, words = arguments.values.get(role, ()), arguments.words.get(role, ())
+    if None in values or f"{role}_stdin" in arguments.values:
+        source = f"--{role} {words[values.index(None)].raw}" if None in values else f"--{role}-stdin"
+        return (
+            f"BLOCKED: `{spelling}` names its {role} at run time (`{clip(source, 40)}`), which could quit, close, "
+            f"interrupt, or exit the focused session. Spell the {role} literally."
+        )
+    if not values and arguments.unread:
+        return (
+            f"BLOCKED: `{spelling}` hides its {role} behind {hidden_behind(arguments)}, so it may quit, close, "
+            f"interrupt, or exit the focused session. Spell the {role} literally."
+        )
+    match role, next((str(value) for value in values if value is not None), None):
+        case ("key", str() as key) if ends_session_key(key):
+            return (
+                f"BLOCKED: `{spelling}` presses `{clip(key, 40)}`, which quits, closes, interrupts, or exits the "
+                "focused session. Press only keys that leave the session running."
+            )
+        case ("text" | "value", str() as text) if text.strip().casefold() in END_OF_SESSION:
+            return (
+                f"BLOCKED: `{spelling}` types `{clip(text, 40)}`, which exits the focused terminal. Type only "
+                "ordinary text."
+            )
+        case ("action", str() as action) if END_OF_SESSION_ACTION.search(action) is not None:
+            return (
+                f"BLOCKED: `{spelling}` performs the `{clip(action, 40)}` action, which quits, closes, or stops its "
+                "target. Perform only actions that leave the session running."
+            )
+        case _:
+            return None
+
+
+@guard(
+    tests={
+        guarded(command="orca computer hotkey --app Orca --key CmdOrCtrl+Q"): Block(
+            pattern="quits, closes, interrupts, or exits the focused session"
+        ),
+        guarded(command="orca computer hotkey --app Orca --key Cmd+Shift+W"): Block(pattern=r"presses `Cmd\+Shift\+W`"),
+        guarded(command="orca computer hotkey --app Orca --key Command+Option+Escape"): Block(),
+        guarded(command="orca computer press-key --app Orca --key Ctrl+C"): Block(pattern=r"presses `Ctrl\+C`"),
+        guarded(command='orca computer hotkey --app Orca --key "$K"'): Block(pattern="names its key at run time"),
+        guarded(command="orca computer hotkey --app Orca --window-index 0 --key Control+D"): Block(),
+        guarded(command="orca computer hotkey --app Orca --bogus 1 --key CmdOrCtrl+N"): Block(
+            pattern="hides its key behind `--bogus`"
+        ),
+        guarded(command="orca computer type-text --app Orca --text exit"): Block(pattern="exits the focused terminal"),
+        guarded(command="orca computer paste-text --app Orca --text ^C"): Block(pattern="exits the focused terminal"),
+        guarded(command="orca computer set-value --app Orca --element-index 3 --value /quit"): Block(),
+        guarded(command="orca computer type-text --app Orca --text-stdin < /tmp/payload"): Block(
+            pattern=r"names its text at run time \(`--text-stdin`\)"
+        ),
+        guarded(command='orca computer type-text --app Orca --text "$MSG"'): Block(
+            pattern="names its text at run time"
+        ),
+        guarded(command="orca computer perform-secondary-action --app Orca --element-index 3 --action Quit"): Block(
+            pattern="performs the `Quit` action"
+        ),
+        guarded(
+            command="orca computer perform-secondary-action --app Orca --element-index 3 --action AXPress"
+        ): Allow(),
+        guarded(command="orca computer hotkey --app Orca --key CmdOrCtrl+N"): Allow(),
+        guarded(command="orca computer hotkey --app Orca --key Cmd+Shift+N --restore-window"): Allow(),
+        guarded(command="orca computer press-key --app Orca --key Escape"): Allow(),
+        guarded(command="orca computer press-key --app Orca --key Return"): Allow(),
+        guarded(command="orca computer click --app Orca --element-index 12"): Allow(),
+        guarded(command='orca computer click --app "$APP" --element-index 3'): Allow(),
+        guarded(command='orca computer type-text --app Orca --text "capt-session-guard"'): Allow(),
+        guarded(command="orca computer set-value --app Orca --element-index 3 --value feature/x"): Allow(),
+        guarded(command="orca computer list-apps"): Allow(),
+        guarded(command="orca computer get-app-state --app Orca --json"): Allow(),
+        guarded(command="orca computer click --app Terminal --element-index 1"): Allow(),
+    }
+)
+def orca_input_ends_session(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(orca_input_verdict, Scan.of(evt).literal_calls))
+
+
+def launchd_label(target: str) -> str | None:
+    match target.split("/"):
+        case ["system", label] if label:
+            return label
+        case [domain, _, label] if domain in LAUNCHD_DOMAINS and label:
+            return label
+        case _:
+            return None
+
+
+def launchd_service(call: Call, arguments: Arguments, scan: Scan) -> tuple[str, str] | None:
+    words = arguments.words.get("targets", ())
+    targets = arguments.values.get("targets", ())
+    match arguments.values.get("verb", ()):
+        case (str() as verb,) if verb in LAUNCHD_SERVICE_VERBS:
+            pass
+        case _:
+            return None
+    if (
+        call.substituted
+        or call.wrappers
+        or not arguments.complete
+        or not arguments.operands_complete
+        or any(other is call for other in scan.respelled)
+        or not runs_once(call, scan)
+        or any(word.value is None or word.expandable for word in words)
+        or len(targets) != (2 if verb == "kill" else 1)
+        or not isinstance(target := targets[-1], str)
+    ):
+        return None
+    label = target if verb in ("stop", "remove") and "/" not in target else launchd_label(target)
+    return None if label is None else (verb, label)
+
+
+def launchctl_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Ungranted | None:
+    if call.name != "launchctl":
+        return None
+    spelling = spell(call)
+    arguments = LAUNCHCTL.bind(call)
+    if (service := launchd_service(call, arguments, scan)) is not None:
+        verb, label = service
+        action = Proposal(place={"service": label}, payload={"verb": verb}, summary=f"launchctl {verb} {label}")
+        message = (
+            f"BLOCKED: `{spelling}` stops, unloads, or restarts launchd service `{clip(label, 40)}`, which may host "
+            f"sessions. Inspect it with `launchctl print`, or ask the owner to {LATER_SESSION}."
+        )
+        return lift(evt, LAUNCHD_STOP, action, message)
+    match arguments.values.get("verb", ()):
+        case (None,):
+            return (
+                f"BLOCKED: `{spelling}` names its launchctl verb at run time, so it may stop, unload, or reboot a "
+                "service that hosts sessions. Spell the verb literally."
+            )
+        case (str() as verb,) if verb in LAUNCHCTL_ENDINGS:
+            return (
+                f"BLOCKED: `{spelling}` stops, unloads, restarts, or reboots a launchd service or domain that may host "
+                "sessions. Inspect it with `launchctl list` or `launchctl print <target>` instead."
+            )
+        case () if not arguments.operands_complete:
+            return (
+                f"BLOCKED: `{spelling}` hides its launchctl verb behind {hidden_behind(arguments)}, so it may stop or "
+                "unload a service that hosts sessions. Put the verb first."
+            )
+        case _:
+            return None
+
+
+@guard(
+    tests={
+        guarded(command="launchctl reboot system"): Block(pattern="launchctl reboot"),
+        guarded(command="launchctl bootout gui/501/com.example.orca-serve"): Block(
+            pattern="`launchctl bootout gui/501/com.example.orca-serve` stops, unloads, or restarts launchd service"
+        ),
+        guarded(
+            command="launchctl bootout gui/501/com.example.orca-serve",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Allow(),
+        guarded(
+            command="launchctl kickstart -k system/com.example.orca-serve",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Allow(),
+        guarded(
+            command="launchctl bootout gui/501/com.example.orca-serve",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search com.example.orca-serve": inline_ruling(
+                    "restart com.example.orca-serve", written=INLINE_STARTED + timedelta(minutes=5)
+                ),
+            },
+        ): Block(pattern="ask the owner to name it in a cc-notes answer for a later session"),
+        guarded(
+            command="launchctl bootout gui/501/com.example.orca-serve",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": inline_ruling("com.example.orca")},
+        ): Block(),
+        guarded(
+            command="launchctl bootout gui/501",
+            commands={**INLINE_COMMANDS, "ccn answer search gui/501": inline_ruling("bootout gui/501")},
+        ): Block(pattern="launchd service or domain"),
+        guarded(
+            command="launchctl reboot system",
+            commands={**INLINE_COMMANDS, "ccn answer search system": inline_ruling("reboot system")},
+        ): Block(pattern="launchctl reboot"),
+        guarded(
+            command="L=com.example.orca-serve; launchctl bootout gui/501/$L",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Block(),
+        guarded(
+            command="launchctl kill SIGTERM gui/501/com.example.orca-serve",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Allow(),
+        guarded(
+            command="launchctl kickstart -k system/com.example.orca-serve 2>&1 | tail -3",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Allow(),
+        guarded(
+            command="for i in 1 2; do launchctl kickstart -k system/com.example.orca-serve; done",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Block(),
+        guarded(
+            command="cd /tmp && launchctl kickstart -k system/com.example.orca-serve",
+            commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": SERVE_RULING},
+        ): Block(),
+        guarded(
+            command="launchctl stop com.example.orca-serve",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search com.example.orca-serve": inline_ruling("Stop com.example.orca-serve.helper once."),
+            },
+        ): Block(),
+        guarded(command="launchctl kickstart -k system/com.example.host"): Block(),
+        guarded(command="launchctl $verb gui/501"): Block(pattern="at run time"),
+        guarded(command="launchctl -q bootout gui/501/com.example.orca-serve"): Block(
+            pattern="hides its launchctl verb behind `-q`"
+        ),
+        guarded(command="launchctl list"): Allow(),
+        guarded(command="launchctl print gui/501"): Allow(),
+    }
+)
+def launchctl_stops_service(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (launchctl_verdict(call, scan, evt) for call in scan.literal_calls))
+
+
+def app_quit_verdict(name: str, spelling: str, facts: Facts) -> str | None:
+    if PurePath(name).name.removesuffix(".app").casefold() in SESSION_HOST_APPS:
+        return (
+            f"BLOCKED: `{spelling}` quits {name}, which hosts terminals and agent sessions, so quitting it ends every "
+            "session on it. Ask the owner to run it."
+        )
+    ownership = facts.ownership
+    if isinstance(ownership, Unreadable):
+        return unresolvable(spelling, ownership.reason, f"Ask the owner to quit {name}.")
+    if (host := app_host(name, ownership)) is not None:
+        app, hosted = host
+        return (
+            f"BLOCKED: `{spelling}` quits {name}, whose {describe(app)} hosts {process_class(hosted)} at "
+            f"{describe(hosted)}, so quitting it ends that session. Ask the owner to run it."
+        )
+    return None
+
+
+def osascript_verdict(call: Call, facts: Facts) -> str | None:
+    if call.name != "osascript":
+        return None
+    spelling = spell(call)
+    if (scripts := applescripts(call)) is None:
+        return (
+            f"BLOCKED: `{spelling}` runs an AppleScript statement built at run time, which may quit Orca, log out, "
+            "restart, or sleep the Mac. Spell the statement literally."
+        )
+    targets, rest = quit_targets("\n".join(scripts))
+    if APPLESCRIPT_ENDING.search(rest):
+        return (
+            f"BLOCKED: `{spelling}` quits an application it does not name, logs out, restarts, shuts down, or "
+            "sleeps the Mac, which ends every session on it. Ask the owner to run it."
+        )
+    if verdict := next(filter(None, (app_quit_verdict(name, spelling, facts) for name in targets)), None):
+        return verdict
+    if any(script is None for script in shell_scripts(scripts)):
+        return (
+            f"BLOCKED: `{spelling}` runs a `do shell script` that AppleScript builds at run time, so the guard cannot "
+            "see what runs. Spell the shell command literally."
+        )
+    return None
+
+
+@guard(
+    tests={
+        guarded(command="osascript -e 'tell application \"Orca\" to quit'"): Block(pattern="quits Orca, which hosts"),
+        guarded(command="osascript -e 'quit app \"iTerm2\" saving no'"): Block(pattern="quits iTerm2"),
+        guarded(command="osascript -e 'tell application \"Ghostty\"' -e quit -e 'end tell'"): Block(),
+        guarded(command="osascript -e 'tell application \"Zed\" to quit'"): Block(
+            pattern=r"hosts an agent session at pid 19102"
+        ),
+        guarded(command="osascript -e 'tell application \"Slack\" to quit'"): Allow(),
+        guarded(
+            command="osascript -e 'quit app \"Slack\"'; open -a Slack --args --remote-debugging-port=9222"
+        ): Allow(),
+        guarded(command="osascript -e 'tell application \"Slack\"' -e quit -e 'end tell'"): Allow(),
+        guarded(
+            command="osascript -e 'tell application \"Slack\" to quit' -e 'tell application \"Orca\" to quit'"
+        ): Block(pattern="quits Orca"),
+        guarded(command="osascript -e 'tell application \"Slack\" to activate' -e quit"): Block(
+            pattern="quits an application it does not name"
+        ),
+        guarded(command="osascript -e 'tell application \"System Events\" to restart'"): Block(),
+        guarded(
+            command='osascript -e \'tell application "System Events" to keystroke "q" using command down\''
+        ): Block(),
+        guarded(command='osascript -e "$S"'): Block(pattern="built at run time"),
+        guarded(command="osascript <<'EOF'\ntell application \"Orca\" to quit\nEOF"): Block(),
+        guarded(command="osascript -e 'do shell script theCommand'"): Block(pattern="AppleScript builds at run time"),
+        guarded(command="osascript -e 'do shell script \"ls -la\"'"): Allow(),
+        guarded(command="osascript -e 'display notification \"done\"'"): Allow(),
+    }
+)
+def osascript_ends_session(evt: ToolRewriteEvent) -> HookResult | None:
+    scan = Scan.of(evt)
+    return block_first(evt, (osascript_verdict(call, scan.facts) for call in scan.literal_calls))
+
+
+def softwareupdate_verdict(call: Call) -> str | None:
+    if call.name != "softwareupdate":
+        return None
+    arguments = SOFTWAREUPDATE.bind(call)
+    if "mutate" not in arguments.values and arguments.complete:
+        return None
+    return (
+        f"BLOCKED: `{spell(call)}` installs or stages a system update, which restarts the Mac and ends every session "
+        "on it. Use the read-only `softwareupdate -l` or `softwareupdate --history` instead."
+    )
+
+
+@guard(
+    tests={
+        guarded(command="softwareupdate -i -a -R"): Block(pattern="installs or stages"),
+        guarded(command="softwareupdate --install --all --restart"): Block(),
+        guarded(command="softwareupdate --force --install --all"): Block(pattern="installs or stages"),
+        guarded(command="softwareupdate -l"): Allow(),
+        guarded(command="softwareupdate --history"): Allow(),
+    }
+)
+def softwareupdate_restarts_mac(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(softwareupdate_verdict, Scan.of(evt).literal_calls))
+
+
+def pmset_verdict(call: Call) -> str | None:
+    if call.name != "pmset":
+        return None
+    spelling = spell(call)
+    arguments = PMSET.bind(call)
+    rest = arguments.values.get("rest", ())
+    match arguments.values.get("verb", ()):
+        case (None,):
+            return (
+                f"BLOCKED: `{spelling}` names its pmset verb at run time, so it may sleep or restart the Mac. Spell "
+                "the verb literally."
+            )
+        case (str() as verb,) if verb in PMSET_ENDINGS:
+            return (
+                f"BLOCKED: `{spelling}` sleeps, halts, or restarts the Mac, which suspends or ends every session on "
+                "it. Read power state with `pmset -g` instead."
+            )
+        case ("schedule" | "repeat",) if None in rest or any(str(word) in PMSET_SCHEDULES for word in rest):
+            return (
+                f"BLOCKED: `{spelling}` schedules a shutdown, restart, sleep, or power-off, which ends every session "
+                "on the Mac. Read the schedule with `pmset -g sched` instead."
+            )
+        case () if not arguments.operands_complete:
+            return (
+                f"BLOCKED: `{spelling}` hides its pmset verb behind {hidden_behind(arguments)}, so it may sleep or "
+                "restart the Mac. Put the verb first."
+            )
+        case _:
+            return None
+
+
+@guard(
+    tests={
+        guarded(command="pmset sleepnow"): Block(pattern="pmset sleepnow"),
+        guarded(command="pmset schedule shutdown '09/30/26 23:00:00'"): Block(),
+        guarded(command="pmset repeat shutdown MTWRFSU 23:00:00"): Block(pattern="schedules a shutdown"),
+        guarded(command="pmset -z sleepnow"): Block(pattern="hides its pmset verb behind `-z`"),
+        guarded(command="pmset repeat cancel"): Allow(),
+        guarded(command="pmset -g"): Allow(),
+        guarded(command="pmset -g sched"): Allow(),
+    }
+)
+def pmset_sleeps_mac(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(pmset_verdict, Scan.of(evt).literal_calls))
+
+
+def tmux_verdict(call: Call) -> str | None:
+    if call.name != "tmux":
+        return None
+    spelling = spell(call)
+    arguments = TMUX.bind(call)
+    match arguments.values.get("verb", ()):
+        case (None,):
+            return (
+                f"BLOCKED: `{spelling}` names its tmux verb at run time, so it may kill an agent's session. Spell the "
+                "verb literally."
+            )
+        case (str() as verb,) if verb in TMUX_ENDINGS:
+            return (
+                f"BLOCKED: `{spelling}` kills a tmux server, session, window, or pane, ending the agent session "
+                "attached there. Inspect with `tmux ls` or `tmux list-panes` instead."
+            )
+        case () if not arguments.operands_complete:
+            return (
+                f"BLOCKED: `{spelling}` hides its tmux verb behind {hidden_behind(arguments)}, so it may kill an "
+                "agent's session. Put the verb first."
+            )
+        case _:
+            return None
+
+
+@guard(
+    tests={
+        guarded(command="tmux kill-server"): Block(pattern="tmux kill-server"),
+        guarded(command="tmux -L work kill-session -t main"): Block(pattern="`tmux -L work kill-session -t main`"),
+        guarded(command="tmux -N kill-server"): Block(pattern="hides its tmux verb behind `-N`"),
+        guarded(command="tmux ls"): Allow(),
+        guarded(command="command -v tmux kill-server"): Allow(),
+        guarded(command="command tmux kill-server"): Block(pattern="tmux kill-server"),
+        guarded(command="tmux send-keys -t main ls Enter"): Allow(),
+    }
+)
+def tmux_kills_session(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(tmux_verdict, Scan.of(evt).literal_calls))
+
+
+def guarded_program_in(args: tuple[str, ...]) -> str | None:
+    return next(
+        (
+            name
+            for arg in args
+            for token in ARG_TOKEN_BREAK.split(arg)
+            if (name := PurePath(QUOTING_CHARS.sub("", token)).name.casefold()) in GUARDED_PROGRAMS
+        ),
+        None,
+    )
+
+
+def launcher_verdict(call: Call) -> str | None:
+    if call.name not in LAUNCHERS or (inner := guarded_program_in(call.args)) is None:
+        return None
+    return (
+        f"BLOCKED: `{spell(call)}` runs `{inner}` through `{call.name}`, which hides its target from the guard. Run "
+        f"`{inner}` directly as its own command."
+    )
+
+
+@guard(
+    tests={
+        guarded(command="caffeinate kill 14575"): Block(pattern="hides its target from the guard"),
+        guarded(command="setsid kill 14575"): Block(),
+        guarded(command="builtin kill 14575"): Block(),
+        guarded(command="su root -c 'kill 14575'"): Block(),
+        guarded(command="caffeinate sh -c 'x;kill 14575'"): Block(pattern="runs `kill` through `caffeinate`"),
+        guarded(command="watch 'true;kill 14575'"): Block(),
+        guarded(command='watch -n1 "pgrep x|xargs kill"'): Block(),
+        guarded(command="caffeinate /bin/kill 14575"): Block(),
+        guarded(command="caffeinate PKILL -f claude"): Block(pattern="runs `pkill`"),
+        guarded(command="watch -n1 PKILL -x sleep"): Block(),
+        guarded(command="setsid SHUTDOWN -h now"): Block(),
+        guarded(command="stdbuf -oL tail -f /tmp/orca.log"): Allow(),
+        guarded(command="caffeinate -i make kill-target"): Allow(),
+        guarded(command="caffeinate -i ./scripts/reboot-check.sh"): Allow(),
+        guarded(command="arch -arm64 make test-kill"): Allow(),
+        guarded(command="caffeinate -i make -C /tmp/ws/x test"): Allow(),
+        guarded(command="caffeinate -i make test"): Allow(),
+        guarded(command='read -r K <<< kill; caffeinate "$K" 14575'): Allow(),
+        guarded(command="read N; caffeinate -i make -j$N; ls ~/.orca"): Allow(),
+        guarded(command='PWD="i /bin/kill 14575"; caffeinate -$PWD'): Allow(),
+        guarded(command="N=4; caffeinate -i make -j$N; ls ~/.orca"): Allow(),
+        guarded(command="X=echo; caffeinate $X 14575; ls ~/.orca"): Allow(),
+    }
+)
+def launcher_hides_target(evt: ToolRewriteEvent) -> HookResult | None:
+    return block_first(evt, map(launcher_verdict, Scan.of(evt).literal_calls))

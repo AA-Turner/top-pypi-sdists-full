@@ -1,0 +1,530 @@
+"""Singleton MapManager for holding map data used by coordinate transforms.
+
+Only one LaneletMap and one RoadNetwork instance exist at any time.
+Use MapManager.get_instance() to access the singleton.
+
+Coordinate note
+---------------
+MGRSProjector returns *absolute* MGRS coordinates, while the OpenDRIVE reference
+line stores coordinates *relative* to the geoReference origin (lat_0, lon_0).
+The MGRS offset corrects for this:
+
+    xodr_xy = mgrs_xy - mgrs_offset
+    mgrs_xy = xodr_xy + mgrs_offset
+
+where ``mgrs_offset = MGRSProjector.forward(lat_0, lon_0)``.
+
+That correction is a single translation, so it only holds while the whole map
+projects into one continuous MGRS square.  A map whose geoReference sits on a
+100 km grid line -- or on the lon 0 UTM zone boundary, as the CARLA towns do --
+has half of its geometry land in the neighbouring square, tens of kilometres
+away from the rest.
+
+Which projection a map wants is not a guess: Autoware ships it next to the map,
+in ``map_projector_info.yaml``, and :mod:`.projection` -- which every loader in
+this package shares -- is what reads it.  A ``Local``
+map -- the CARLA towns again -- is read with ``UtmProjector`` at the map origin,
+which reproduces the ``local_x``/``local_y`` the file stores and makes the
+offset above zero.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar, Optional
+
+import lanelet2.core
+import lanelet2.io
+from pyxodr.road_objects.network import RoadNetwork
+
+if TYPE_CHECKING:
+    import lanelet2.routing
+    import typesafe_carla.carla as carla
+
+# ``_parse_geo_reference`` moved to `projection`, beside `map_origin`, which is
+# the only thing that consults it now.  Re-exported because it is the
+# geoReference parser this package has always offered under this name.
+from .projection import _parse_geo_reference, load_lanelet2, map_origin
+
+__all__ = ["MapManager", "_parse_geo_reference"]
+
+logger = logging.getLogger(__name__)
+
+
+def _road_z(carla_map: carla.Map, location: carla.Location) -> float:
+    """The height of the road under *location*, or its own where there is none.
+
+    The waypoint CARLA projects *location* onto lies on the road surface its
+    OpenDRIVE describes, whatever height the location itself was put at.
+    """
+    try:
+        waypoint = carla_map.get_waypoint(location, project_to_road=True)
+    except (AttributeError, RuntimeError, TypeError):
+        waypoint = None
+    if waypoint is None:
+        return float(location.z)
+    return float(waypoint.transform.location.z)
+
+
+class MapManager:
+    """Singleton that holds one LaneletMap and one RoadNetwork instance.
+
+    Usage::
+
+        mm = MapManager.get_instance()
+        mm.initialize(xodr_path=Path("map.xodr"), lanelet2_path=Path("map.osm"))
+
+        # Access loaded maps
+        lmap = mm.lanelet_map
+        rnet = mm.road_network
+
+        # MGRS ↔ XODR coordinate offset
+        ox, oy = mm.mgrs_offset
+    """
+
+    _instance: ClassVar[Optional["MapManager"]] = None
+    _lanelet_map: Optional[lanelet2.core.LaneletMap]
+    _routing_graph: Optional[lanelet2.routing.RoutingGraph]
+    _road_network: Optional[RoadNetwork]
+    _geo_origin: Optional[tuple[float, float, float]]
+    _mgrs_offset: Optional[tuple[float, float]]
+    _z_offset: Optional[float]
+    _carla_map: Optional[carla.Map]
+
+    def __new__(cls) -> "MapManager":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._lanelet_map = None
+            cls._instance._routing_graph = None
+            cls._instance._road_network = None
+            cls._instance._geo_origin = None
+            cls._instance._mgrs_offset = None
+            cls._instance._z_offset = None
+            cls._instance._carla_map = None
+        return cls._instance
+
+    def __init__(self) -> None:
+        """Nothing: ``__new__`` sets up the one instance, once.
+
+        Declared for the static check (docs/typecheck.md), whose constructor
+        of a class without one would take every attribute declared above.
+        """
+
+    @classmethod
+    def get_instance(cls) -> "MapManager":
+        """Return the singleton MapManager instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset the singleton (for testing only)."""
+        cls._instance = None
+
+    # ------------------------------------------------------------------
+    # Initialization
+    # ------------------------------------------------------------------
+
+    def initialize(
+        self,
+        xodr_path: Path,
+        lanelet2_path: Path,
+        carla_world: Optional[carla.World] = None,
+        projector_type: Optional[str] = None,
+    ) -> None:
+        """Load both map files.
+
+        Parameters
+        ----------
+        xodr_path:
+            Path to the OpenDRIVE (.xodr) file.
+        lanelet2_path:
+            Path to the Lanelet2 map file (.osm or .xml).
+        carla_world:
+            Optional CARLA ``carla.World`` instance.  When provided, the
+            vertical offset (z_offset) is computed by averaging the
+            difference between Lanelet2 elevation and CARLA spawn-point
+            elevation across all map spawn points.  When ``None``, a
+            single-point fallback using the XODR reference line is used.
+        projector_type:
+            Which projection to read the Lanelet2 map with -- ``"mgrs"``,
+            ``"utm"``, ``"local_xy"``, ``"local_cartesian"`` or
+            ``"transverse_mercator"``.
+            Leave it unset (the default) to take it from the map's own
+            ``map_projector_info.yaml``, the file Autoware reads for the same
+            purpose; ``mgrs`` is used when there is no such file.
+
+        Raises
+        ------
+        RuntimeError
+            If already initialized.
+        FileNotFoundError
+            If either map file does not exist.
+        """
+        if self._lanelet_map is not None or self._road_network is not None:
+            raise RuntimeError(
+                "MapManager is already initialized. "
+                "Call MapManager.reset() before re-initializing (testing only)."
+            )
+
+        if not xodr_path.exists():
+            raise FileNotFoundError(f"OpenDRIVE file not found: {xodr_path}")
+        if not lanelet2_path.exists():
+            raise FileNotFoundError(f"Lanelet2 file not found: {lanelet2_path}")
+
+        # Where the map is anchored, decided the way the sweeper decides it:
+        # the map's own descriptor first, the OpenDRIVE geoReference second.
+        # Reading it one way here and another there is how a vehicle ends up
+        # somewhere the sweep never looked.
+        (lat, lon, alt), anchored_by = map_origin(lanelet2_path, xodr_path)
+        self._geo_origin = (lat, lon, alt)
+        logger.info(
+            "Anchoring %s at (%s, %s, %s) from %s",
+            lanelet2_path.name,
+            lat,
+            lon,
+            alt,
+            anchored_by,
+        )
+
+        # With the altitude, as Autoware's get_lanelet2_projector() builds it:
+        # LocalCartesianProjector measures z from the origin's altitude (the
+        # other projections ignore it), so dropping it shifts every z.
+        origin = lanelet2.io.Origin(lat, lon, alt)
+        self._lanelet_map, projector, projector_type = load_lanelet2(
+            lanelet2_path, origin, projector_type
+        )
+        logger.info(
+            "Loaded %s with the %s projection", lanelet2_path.name, projector_type
+        )
+
+        # Compute MGRS offset: forward-project the geoReference origin.
+        # MGRSProjector returns absolute MGRS coords, while XODR stores coords
+        # relative to the geoReference origin, so we need this correction.
+        # A Local map read from its local tags has its frame's origin there,
+        # which is where UtmProjector puts it too: (0, 0).
+        fwd = projector.forward(lanelet2.core.GPSPoint(lat, lon, alt))
+        self._mgrs_offset = (fwd.x, fwd.y)
+
+        # Parse the OpenDRIVE road network; its roads are built on first use,
+        # remembered per map content (maps.road_network_cache).
+        from ..maps.road_network_cache import open_road_network  # noqa: PLC0415
+
+        self._road_network = open_road_network(xodr_path)
+
+        # Build carla.Map for waypoint-based road/lane lookups (optional).
+        # First, so the z offset below reads its spawn points off this map
+        # rather than building a second one.
+        self._build_carla_map(carla_world)
+
+        # Compute vertical offset: Lanelet2 z (MGRS absolute elevation) minus
+        # XODR z (elevation relative to geoReference origin).  This is constant
+        # across the map and lets us convert z between the two systems.
+        # Read off every spawn point with a CARLA world, some 40 s on a large
+        # map: remembered per map content (maps.z_offset_cache).
+        held = self._carla_map
+        if carla_world is None or held is None:
+            self._z_offset = self._compute_z_offset(carla_world)
+        else:
+            from ..maps.z_offset_cache import cached_z_offset  # noqa: PLC0415
+
+            self._z_offset = cached_z_offset(
+                lanelet2_path,
+                xodr_path,
+                str(held.name),
+                lambda: self._compute_z_offset(carla_world),
+                projection=f"{projector_type} {lat!r} {lon!r} {alt!r}",
+            )
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def lanelet_map(self) -> lanelet2.core.LaneletMap:
+        """The loaded lanelet2.LaneletMap instance."""
+        if self._lanelet_map is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        return self._lanelet_map
+
+    @property
+    def routing_graph(self) -> lanelet2.routing.RoutingGraph:
+        """A Lanelet2 routing graph of the loaded map, built on first use.
+
+        What a condition addressed by lanelet walks to reach the lanelets
+        before and after one; built once, since building it reads the whole map
+        (some 40 s for the 6,460 lanelets of a city map).  How long it took is
+        logged.  It is built on the calling thread: Lanelet2 holds the GIL
+        while it builds, so a thread of its own would overlap nothing.
+        """
+        if self._routing_graph is None:
+            import time
+
+            import lanelet2.routing
+            import lanelet2.traffic_rules
+
+            started = time.monotonic()
+            self._routing_graph = build_routing_graph(
+                self.lanelet_map, lanelet2.traffic_rules.Participants.Vehicle
+            )
+            logger.info(
+                "Built the Lanelet2 routing graph in %.1f s",
+                time.monotonic() - started,
+            )
+        return self._routing_graph
+
+    @property
+    def road_network(self) -> RoadNetwork:
+        """The loaded pyxodr.RoadNetwork instance, its roads built on first use.
+
+        Building them takes some 15 s on a large map (3,890 roads): they are
+        remembered per map content (maps.road_network_cache).
+        """
+        if self._road_network is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        if len(self._road_network.road_ids_to_object) == 0:
+            from ..maps.road_network_cache import load_roads  # noqa: PLC0415
+
+            load_roads(self._road_network)
+        return self._road_network
+
+    @property
+    def geo_origin(self) -> tuple[float, float, float]:
+        """The (lat, lon, alt) origin parsed from the XODR geoReference."""
+        if self._geo_origin is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        return self._geo_origin
+
+    @property
+    def mgrs_offset(self) -> tuple[float, float]:
+        """(offset_x, offset_y) to convert between MGRS and XODR coordinates.
+
+        xodr_xy = mgrs_xy - mgrs_offset
+        mgrs_xy = xodr_xy + mgrs_offset
+        """
+        if self._mgrs_offset is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        return self._mgrs_offset
+
+    @property
+    def carla_map(self) -> Optional[carla.Map]:
+        """The ``carla.Map`` instance, or ``None`` if unavailable.
+
+        Used by :func:`~.transform._carla_to_opendrive_via_waypoint` to look
+        up the exact road/lane for a given world location.
+        """
+        return self._carla_map
+
+    @property
+    def z_offset(self) -> float:
+        """Vertical offset: ``lanelet2_z - xodr_z``.
+
+        Use this to convert between Lanelet2 absolute elevation and XODR/CARLA
+        relative elevation::
+
+            carla_z = lanelet2_z - z_offset
+            lanelet2_z = carla_z + z_offset
+        """
+        if self._z_offset is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        return self._z_offset
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _build_carla_map(self, carla_world: Optional[carla.World] = None) -> None:
+        """Build and store a ``carla.Map`` for waypoint lookups.
+
+        When *carla_world* is provided its map is used directly (matches the
+        running simulation).  When no world is available (e.g. unit tests),
+        ``_carla_map`` stays ``None`` and the brute-force fallback is used
+        instead.
+
+        Failures are silently caught so that the rest of MapManager
+        initialisation is unaffected.
+        """
+        if carla_world is None:
+            return
+
+        try:
+            self._carla_map = carla_world.get_map()
+        except Exception:
+            logger.debug(
+                "Could not build carla.Map; waypoint-based lookup disabled",
+                exc_info=True,
+            )
+            self._carla_map = None
+
+    def _compute_z_offset(self, carla_world: Optional[carla.World] = None) -> float:
+        """Compute ``lanelet2_z − carla_z``.
+
+        When *carla_world* is provided, every CARLA spawn point is projected
+        onto the nearest Lanelet2 centerline and the per-point offset
+        ``(lanelet2_z − carla_spawn_z)`` is averaged.  This yields a more
+        accurate result than single-point sampling because it smooths out
+        local interpolation noise.
+
+        When *carla_world* is ``None`` (e.g. in unit tests without a CARLA
+        connection) the legacy single-point fallback is used.
+        """
+        if carla_world is not None:
+            result = self._z_offset_from_spawn_points(carla_world)
+            if result is not None:
+                return result
+        return self._z_offset_from_reference_line()
+
+    # -- spawn-point based (preferred) ------------------------------------
+
+    def _z_offset_from_spawn_points(self, carla_world: carla.World) -> Optional[float]:
+        """Average ``lanelet2_z − carla_z`` over all CARLA spawn points.
+
+        A spawn point is where a vehicle is dropped from, not the road under
+        it: CARLA's own maps put them half a metre up, a map cooked from
+        roadgen four metres.  The road's height there is what the Lanelet2
+        centerline is compared with, so it is read off the road the point
+        stands on.
+
+        Returns ``None`` when no usable spawn points are found so the caller
+        can fall back to the reference-line method.
+        """
+        import lanelet2.core
+        import lanelet2.geometry
+        import numpy as np
+
+        assert self._lanelet_map is not None
+        assert self._mgrs_offset is not None
+
+        # The map _build_carla_map() just built for this world, when it could:
+        # CARLA builds a whole new one on every get_map().
+        held = self._carla_map
+        # Annotated, so Codon unwraps the Optional (docs/typecheck.md).
+        carla_map: carla.Map = held if held is not None else carla_world.get_map()
+        spawn_points = carla_map.get_spawn_points()
+        if not spawn_points:
+            return None
+
+        offset_x, offset_y = self._mgrs_offset
+        offsets: list[float] = []
+
+        for sp in spawn_points:
+            # CARLA world → Lanelet2 MGRS (x, y)
+            mgrs_x = sp.location.x + offset_x
+            mgrs_y = -sp.location.y + offset_y
+
+            query = lanelet2.core.BasicPoint2d(mgrs_x, mgrs_y)
+            results = lanelet2.geometry.findNearest(
+                self._lanelet_map.laneletLayer, query, 1
+            )
+            if not results:
+                continue
+
+            dist_to_lanelet = results[0][0]
+            # Skip spawn points too far from any lanelet (off-road areas)
+            if dist_to_lanelet > 10.0:
+                continue
+
+            lanelet = results[0][1]
+
+            # Nearest centerline point → its z
+            best_d2 = float("inf")
+            ll2_z = 0.0
+            for pt in lanelet.centerline:
+                d2 = (pt.x - mgrs_x) ** 2 + (pt.y - mgrs_y) ** 2
+                if d2 < best_d2:
+                    best_d2 = d2
+                    ll2_z = pt.z
+
+            offsets.append(ll2_z - _road_z(carla_map, sp.location))
+
+        if not offsets:
+            return None
+
+        return float(np.mean(offsets))
+
+    # -- single-point fallback (for tests without CARLA) ------------------
+
+    def _z_offset_from_reference_line(self) -> float:
+        """Compute ``lanelet2_z − xodr_z`` by sampling one reference point.
+
+        Takes the first lanelet centerline point, finds the nearest XODR road
+        reference-line point at the same (x, y), and returns the difference
+        in their z coordinates.
+        """
+        import numpy as np
+
+        assert self._lanelet_map is not None
+        for lanelet in self._lanelet_map.laneletLayer:
+            ref_pt = lanelet.centerline[0]
+            break
+        else:
+            return 0.0
+
+        ll2_z = ref_pt.z
+        assert self._mgrs_offset is not None
+        xodr_x = ref_pt.x - self._mgrs_offset[0]
+        xodr_y = ref_pt.y - self._mgrs_offset[1]
+
+        road_network = self.road_network
+
+        best_z = 0.0
+        best_dist = float("inf")
+        query = np.array([xodr_x, xodr_y])
+
+        for road in road_network.road_ids_to_object.values():
+            ref_line = road.reference_line  # shape (N, 2)
+            if len(ref_line) < 2:
+                continue
+            dists = np.linalg.norm(ref_line - query, axis=1)
+            min_idx = int(np.argmin(dists))
+            dist = float(dists[min_idx])
+            if dist < best_dist:
+                best_dist = dist
+                z_coords = road.z_coordinates
+                deltas = np.diff(ref_line, axis=0)
+                seg_lengths = np.linalg.norm(deltas, axis=1)
+                arc = np.zeros(len(ref_line))
+                arc[1:] = np.cumsum(seg_lengths)
+                best_z = float(np.interp(arc[min_idx], arc, z_coords))
+
+        return ll2_z - best_z
+
+
+def build_routing_graph(
+    lanelet_map: lanelet2.core.LaneletMap, participant: str
+) -> lanelet2.routing.RoutingGraph:
+    """A routing graph of *lanelet_map* for *participant*
+    (``lanelet2.traffic_rules.Participants``), by German traffic rules."""
+    import lanelet2.routing
+    import lanelet2.traffic_rules
+
+    rules = lanelet2.traffic_rules.create(
+        lanelet2.traffic_rules.Locations.Germany, participant
+    )
+    return lanelet2.routing.RoutingGraph(lanelet_map, rules)
+
+
+def run_carla_map(world: carla.World) -> carla.Map:
+    """The run's CARLA map: the one :class:`MapManager` holds, else the world's.
+
+    Not a fresh ``world.get_map()`` where one is held: CARLA builds a new map,
+    road graph and all (hundreds of MB on a large map), on every call, and one
+    kept by something a finished run leaves behind (its scenario, kept by the
+    queue) stays with it.
+    """
+    shared = MapManager.get_instance().carla_map
+    if shared is not None:
+        return shared
+    return world.get_map()

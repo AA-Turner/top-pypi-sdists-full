@@ -12,7 +12,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core.session_journal import Journal, DeliveryPending, ReconciliationRequired
 from probe.tap_core.session_identity import validate_identity, compatible_copy
 
@@ -133,7 +133,8 @@ def isolated_state(tmp_path, monkeypatch):
 @pytest.fixture
 def wire(monkeypatch):
     wire = FakeWire()
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     return wire
 
 
@@ -383,7 +384,8 @@ def test_a_finalized_session_is_not_re_sent_and_never_anchors(tmp_path, wire):
 @pytest.fixture
 def background_job(tmp_path, wire, monkeypatch):
     from types import SimpleNamespace
-    from probe.cli import capabilities, import_jobs
+    from probe.cli.wizard import state as capabilities
+    from probe.cli.imports import jobs as import_jobs
     from probe.sdk import client as sdk_client
     from probe.sdk.settings import settings as config
 
@@ -405,11 +407,13 @@ def background_job(tmp_path, wire, monkeypatch):
     monkeypatch.setattr(sdk_client.resources.runs.attach, "Client", lambda **kwargs: client)
     monkeypatch.setattr(config, "current_context_name", lambda: "approved-account")
     monkeypatch.setattr(config, "resolve", lambda **kwargs: client.settings)
-    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda source: (wire.token, wire.base_url))
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda source: "approved-device")
+    monkeypatch.setattr(capabilities.capture_credentials, "resolved_capture_credential", lambda source: (wire.token, wire.base_url))
+    monkeypatch.setattr(capabilities.device_state, "resolved_capture_credential", lambda source: (wire.token, wire.base_url))
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda source: "approved-device")
     ledger = bt.TranscriptLedger(tmp_path / "transcript-ledger.jsonl")
     monkeypatch.setattr(bt.TranscriptLedger, "for_device", classmethod(lambda cls: ledger))
-    monkeypatch.setattr(bt, "fetch_ingest_state", lambda *a: None)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", lambda *a: None)
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", lambda *a: None)
     transcript = _transcript(tmp_path)
     payload = bt._background_payload(
         bt.Census(candidates=[transcript]), client=client,
@@ -429,7 +433,8 @@ def test_background_worker_imports_exact_reviewed_prefix_and_resumes_without_dup
             "type": "user", "sessionId": transcript.session_id,
             "message": {"role": "user", "content": "after approval"},
         }) + "\n")
-    monkeypatch.setattr(bt, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
+    monkeypatch.setattr(bt.discovery, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
+    monkeypatch.setattr(bt.lane, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
     progress = []
     lines = bt.run_background_job(payload, progress=lambda message, **fields: progress.append((message, fields)))
     assert len(wire.events) == 12
@@ -474,7 +479,7 @@ def test_background_worker_checks_capture_tenant_before_sending_bytes(background
 def test_background_network_retry_preserves_pending_bytes_and_reviewed_scope(
     background_job, wire, tmp_path, monkeypatch, status,
 ):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, transcript, _client, _error = background_job
     wire.status = status
@@ -488,7 +493,8 @@ def test_background_network_retry_preserves_pending_bytes_and_reviewed_scope(
             "type": "user", "sessionId": transcript.session_id,
             "message": {"role": "user", "content": "after approval"},
         }) + "\n")
-    monkeypatch.setattr(bt, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
+    monkeypatch.setattr(bt.discovery, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
+    monkeypatch.setattr(bt.lane, "discover", lambda **kwargs: pytest.fail("background rediscovery"))
     wire.status = 202
     bt.run_background_job(payload, progress=lambda *a, **k: None)
     assert wire.calls[1] == pending
@@ -498,7 +504,7 @@ def test_background_network_retry_preserves_pending_bytes_and_reviewed_scope(
 
 
 def test_background_finalize_retry_reuses_accepted_event_receipts(background_job, wire):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, _transcript, _client, _error = background_job
     wire.finalize_status = 503
@@ -515,7 +521,7 @@ def test_background_finalize_retry_reuses_accepted_event_receipts(background_job
 def test_background_outage_waits_before_attempting_other_approved_sessions(
     background_job, wire, tmp_path,
 ):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, transcript, client, _error = background_job
     another = _transcript(tmp_path)
@@ -535,7 +541,7 @@ def test_background_outage_waits_before_attempting_other_approved_sessions(
 
 @pytest.mark.parametrize("status", [0, 400, 401, 403, 409, 422])
 def test_background_auth_protocol_and_untyped_failures_need_attention(background_job, wire, status):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, _transcript, _client, _error = background_job
     wire.status = status
@@ -548,7 +554,7 @@ def test_background_auth_protocol_and_untyped_failures_need_attention(background
 def test_background_failure_names_session_stage_and_http_status_without_response_body(
     background_job, wire, monkeypatch, stage, status,
 ):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, transcript, _client, _error = background_job
     post = wire.post
@@ -574,7 +580,7 @@ def test_background_failure_names_session_stage_and_http_status_without_response
 def test_background_mixed_failures_log_each_reason_and_keep_confirmed_completion(
     background_job, wire, tmp_path, monkeypatch,
 ):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, first, client, _error = background_job
     rejected, timed_out = _transcript(tmp_path), _transcript(tmp_path)
@@ -616,7 +622,8 @@ def test_resumed_import_details_show_how_many_sessions_the_worker_has_processed(
     The detail page names the walk position from what the real worker saves,
     and only on the walk's own updates."""
     from copy import deepcopy
-    from probe.cli import import_jobs as jobs, import_jobs_ui as ui
+    from probe.cli.imports import jobs as jobs
+    from probe.cli.imports.jobs import ui as ui
 
     payload, confirmed, client, _error = background_job
     rejected = _transcript(tmp_path)
@@ -626,8 +633,9 @@ def test_resumed_import_details_show_how_many_sessions_the_worker_has_processed(
         devices={bt.CLAUDE: "approved-device"}, budget_bytes=None, unpaired=[],
     )
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "jobs"))
-    monkeypatch.setattr(jobs, "_launch", lambda folder: jobs._read(folder))
-    monkeypatch.setattr(jobs, "_post_failure_report", lambda *args: None)
+    monkeypatch.setattr(jobs.workers, "_launch", lambda folder: jobs._read(folder))
+    monkeypatch.setattr(jobs.jobs, "_launch", lambda folder: jobs._read(folder))
+    monkeypatch.setattr(jobs.failure_report, "_post_failure_report", lambda *args: None)
     post = wire.post
 
     def reject(encoded):
@@ -641,7 +649,9 @@ def test_resumed_import_details_show_how_many_sessions_the_worker_has_processed(
         save(folder, value)
         saved.append(deepcopy(value))
 
-    monkeypatch.setattr(jobs, "_save", observe)
+    monkeypatch.setattr(jobs.store, "_save", observe)
+    monkeypatch.setattr(jobs.jobs, "_save", observe)
+    monkeypatch.setattr(jobs.workers, "_save", observe)
     monkeypatch.setattr(wire, "post", reject)
     job = jobs.enqueue(jobs.Kind.TRANSCRIPTS, payload, "Sessions")
     assert jobs.run_worker(job["id"]) == 1
@@ -670,7 +680,7 @@ def test_resumed_import_details_show_how_many_sessions_the_worker_has_processed(
 
 
 def test_background_receipt_timeout_names_receipt_stage(background_job, wire, monkeypatch):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, transcript, _client, _error = background_job
 
@@ -688,7 +698,7 @@ def test_background_receipt_timeout_names_receipt_stage(background_job, wire, mo
 
 def test_worker_persists_the_failure_reason_in_log_and_job_details(background_job, wire, tmp_path, monkeypatch):
     from types import SimpleNamespace
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, transcript, _client, _error = background_job
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
@@ -708,7 +718,7 @@ def test_worker_persists_the_failure_reason_in_log_and_job_details(background_jo
 
 @pytest.mark.parametrize("failure", [PermissionError(13, "private path", "/private/file"), sqlite3.OperationalError("private SQL")])
 def test_background_local_failure_does_not_expose_paths_or_sql(background_job, wire, monkeypatch, failure):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, _transcript, _client, _error = background_job
 
@@ -725,7 +735,7 @@ def test_background_local_failure_does_not_expose_paths_or_sql(background_job, w
 
 
 def test_broken_journal_cleanup_keeps_original_failure_and_closes(background_job, monkeypatch):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     payload, _transcript, _client, _error = background_job
     closed = []
@@ -798,7 +808,7 @@ def test_http_error_body_timeout_keeps_known_status(monkeypatch, status):
 
 
 def test_background_account_check_retries_connectivity_before_upload(background_job, wire, monkeypatch):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
     from probe.sdk.errors import TransportError
 
     payload, _transcript, client, _error = background_job
@@ -817,7 +827,7 @@ def test_background_account_check_retries_connectivity_before_upload(background_
 
 
 def test_background_ingest_check_retains_the_network_cause(background_job, wire, monkeypatch):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
     from probe.sdk.errors import TransportError
 
     payload, _transcript, _client, _error = background_job
@@ -828,11 +838,13 @@ def test_background_ingest_check_retains_the_network_cause(background_job, wire,
         except TransportError as exc:
             raise bt.ProbeUnavailable("cannot check ingestion") from exc
 
-    monkeypatch.setattr(bt, "fetch_ingest_state", disconnected)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", disconnected)
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", disconnected)
     with pytest.raises(import_jobs.RetryableJobError):
         bt.run_background_job(payload, progress=lambda *a, **k: None)
     assert wire.calls == []
-    monkeypatch.setattr(bt, "fetch_ingest_state", lambda *a: None)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", lambda *a: None)
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", lambda *a: None)
     bt.run_background_job(payload, progress=lambda *a, **k: None)
     assert len(wire.events) == 12
 

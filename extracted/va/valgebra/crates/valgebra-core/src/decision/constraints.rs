@@ -1,0 +1,362 @@
+//! The algebra of a refinement's bounds: which pairs cannot hold together, and
+//! which one entails another.
+//!
+//! A refinement is a base set narrowed by predicates, and these are the
+//! questions a decision asks about the predicates -- reading the base only for
+//! the kind of number it holds, and without an SMT solver. A bound is compared
+//! through the oracle, because the values it orders are Python objects the core
+//! cannot see, and a user predicate is opaque to all of it.
+//!
+//! Two of the answers are worth naming apart. **Unsatisfiable** is a proof about
+//! the constraints: a lower bound above an upper one admits nothing, whatever
+//! the base. **Entailed** is a proof about a pair: a tighter bound is inside a
+//! looser one, which is what makes a refinement a subtype of a weaker
+//! refinement of the same base.
+
+use crate::descr::lower::Operand;
+use crate::ir::{Constraint, OperandIx, Schema};
+use crate::kind::Kind;
+
+use super::LeafRelations;
+
+/// Whether the values a bound cuts are countable between two points.
+///
+/// The whole numbers are counted here, so a pair of bounds with no integer
+/// between them admits nothing; the floats are not, and the set of floats is
+/// what decides a pair of float bounds.
+/// Named rather than spelled as a boolean, because the reading that separates
+/// them is the one this module exists for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Density {
+    /// The base is the whole numbers, so the bounds count their values.
+    Discrete,
+    /// The base admits more than the integers, so this rule counts nothing.
+    Dense,
+}
+
+/// Which end of an interval a comparison bound sets.
+///
+/// A two-member domain the reading turns on, named rather than spelled as a
+/// boolean: a call site passing `true` says nothing about which end that is,
+/// and the two ends are what the whole of this module distinguishes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum End {
+    /// `Ge` and `Gt`: the bound below the values.
+    Lower,
+    /// `Le` and `Lt`: the bound above them.
+    Upper,
+}
+
+/// One end of an order bound: the constant, and whether the end is strict.
+type Bound = Option<(OperandIx, bool)>;
+
+/// The shortest length a conjunction of bounds admits, which is the largest
+/// `MinLen` among them and zero where none is written.
+pub(super) fn shortest<'a>(constraints: impl Iterator<Item = &'a Constraint>) -> usize {
+    constraints
+        .filter_map(|c| match c {
+            Constraint::MinLen(n) => Some(*n),
+            _ => None,
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// The longest length a conjunction of bounds admits, which is the smallest
+/// `MaxLen` among them, or `None` where none is written.
+pub(super) fn longest<'a>(constraints: impl Iterator<Item = &'a Constraint>) -> Option<usize> {
+    constraints
+        .filter_map(|c| match c {
+            Constraint::MaxLen(n) => Some(*n),
+            _ => None,
+        })
+        .min()
+}
+
+/// The tightest lower and upper bound a conjunction names, and whether every
+/// comparison it took was answered.
+///
+/// One fold, read by two questions. Emptiness ignores the flag: where the
+/// oracle cannot order two bounds on one side, keeping either is sound, because
+/// an interval it proves empty under the looser one is empty under the tighter.
+/// Inhabitance cannot -- naming a value under the looser bound would name one
+/// the tighter excludes -- so it reads the flag and declines.
+pub(super) fn tightest_bounds<'a>(
+    constraints: impl Iterator<Item = &'a Constraint>,
+    oracle: &dyn LeafRelations,
+) -> (Bound, Bound, bool) {
+    let mut lower: Bound = None;
+    let mut upper: Bound = None;
+    let mut ordered = true;
+    for constraint in constraints {
+        let (bound, end) = match constraint {
+            Constraint::Ge(i) => ((*i, false), End::Lower),
+            Constraint::Gt(i) => ((*i, true), End::Lower),
+            Constraint::Le(i) => ((*i, false), End::Upper),
+            Constraint::Lt(i) => ((*i, true), End::Upper),
+            _ => continue,
+        };
+        let slot = match end {
+            End::Lower => &mut lower,
+            End::Upper => &mut upper,
+        };
+        ordered &= slot.is_none() || oracle.compare(bound.0, slot.unwrap_or(bound).0).is_some();
+        *slot = Some(tighter_bound(*slot, bound, oracle, end));
+    }
+    (lower, upper, ordered)
+}
+
+/// Whether a refinement's bound and length constraints cannot hold together: a
+/// required minimum length above the allowed maximum, or a numeric lower bound
+/// above the upper bound (or equal with a strict end).
+///
+/// Sound: it reports unsatisfiable only when the ordering the oracle returns
+/// forces it, and stays conservative when the oracle cannot compare two bounds.
+pub(super) fn bounds_unsatisfiable<'a>(
+    constraints: impl Iterator<Item = &'a Constraint> + Clone,
+    oracle: &dyn LeafRelations,
+    density: Density,
+) -> bool {
+    use core::cmp::Ordering;
+    let min_len = constraints
+        .clone()
+        .filter_map(|c| match c {
+            Constraint::MinLen(n) => Some(*n),
+            _ => None,
+        })
+        .max();
+    let max_len = constraints
+        .clone()
+        .filter_map(|c| match c {
+            Constraint::MaxLen(n) => Some(*n),
+            _ => None,
+        })
+        .min();
+    if let (Some(lo), Some(hi)) = (min_len, max_len)
+        && lo > hi
+    {
+        return true;
+    }
+    let (lower, upper, _) = tightest_bounds(constraints, oracle);
+    if let (Some((lo, lo_strict)), Some((hi, hi_strict))) = (lower, upper) {
+        match oracle.compare(lo, hi) {
+            Some(Ordering::Greater) => return true,
+            Some(Ordering::Equal) => return lo_strict || hi_strict,
+            _ => {}
+        }
+        // An integer-discrete base bounds the integers in the interval, so the
+        // refinement is empty when no integer lies between the bounds even though
+        // the endpoints themselves are ordered `lo < hi` — `Annotated[int, Gt(0),
+        // Lt(1)]` admits no value. The oracle answers only for a real numeric
+        // pair and stays `None` otherwise, so floats and incomparable bounds keep
+        // the interval conservatively non-empty.
+        if density == Density::Discrete
+            && oracle.no_int_between(lo, lo_strict, hi, hi_strict) == Some(true)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether a single supertype refinement constraint is *entailed* by the
+/// subtype's constraint set: every value satisfying all of `narrow` also
+/// satisfies `wide`, the entailment Sub-Base reduces a refined subtyping to
+/// [JV20, Fig. 3.4]. Order and length bounds entail by value (a tighter lower
+/// bound entails a looser one, dually for upper and length), decided through
+/// the ordering `oracle`; a divisor entails a divisor it divides, decided
+/// through the same oracle; the remaining kinds (`Predicate`, `Regex`) have no
+/// sound value entailment and require the constraint to appear verbatim,
+/// handled by the caller's syntactic-containment check. A bound the oracle
+/// cannot compare is not entailed (conservative).
+pub(super) fn constraint_entailed(
+    wide: &Constraint,
+    narrow_base: &Schema,
+    narrow: &[Constraint],
+    oracle: &dyn LeafRelations,
+) -> bool {
+    use core::cmp::Ordering;
+    let ge = |o: Option<Ordering>| matches!(o, Some(Ordering::Greater | Ordering::Equal));
+    let gt = |o: Option<Ordering>| matches!(o, Some(Ordering::Greater));
+    let le = |o: Option<Ordering>| matches!(o, Some(Ordering::Less | Ordering::Equal));
+    let lt = |o: Option<Ordering>| matches!(o, Some(Ordering::Less));
+    match wide {
+        // x >= w holds if the subtype forces a lower bound at value >= w.
+        Constraint::Ge(w) => narrow.iter().any(|c| match c {
+            Constraint::Ge(n) | Constraint::Gt(n) => ge(oracle.compare(*n, *w)),
+            _ => false,
+        }),
+        // x > w holds from Gt(n>=w), or Ge(n>w).
+        Constraint::Gt(w) => narrow.iter().any(|c| match c {
+            Constraint::Gt(n) => ge(oracle.compare(*n, *w)),
+            Constraint::Ge(n) => gt(oracle.compare(*n, *w)),
+            _ => false,
+        }),
+        // x <= w holds if the subtype forces an upper bound at value <= w.
+        Constraint::Le(w) => narrow.iter().any(|c| match c {
+            Constraint::Le(n) | Constraint::Lt(n) => le(oracle.compare(*n, *w)),
+            _ => false,
+        }),
+        // x < w holds from Lt(n<=w), or Le(n<w).
+        Constraint::Lt(w) => narrow.iter().any(|c| match c {
+            Constraint::Lt(n) => le(oracle.compare(*n, *w)),
+            Constraint::Le(n) => lt(oracle.compare(*n, *w)),
+            _ => false,
+        }),
+        // Length bounds compare by their raw counts, as the array rule compares
+        // its item counts [BBC+26, (array)].
+        Constraint::MinLen(w) => narrow
+            .iter()
+            .any(|c| matches!(c, Constraint::MinLen(n) if n >= w)),
+        Constraint::MaxLen(w) => narrow
+            .iter()
+            .any(|c| matches!(c, Constraint::MaxLen(n) if n <= w)),
+        // Every multiple of `n` is a multiple of `w` when `w` divides `n`
+        // [HSHP20, Fig. 10], wherever `%` reads the value and both steps as one
+        // kind of number. The question goes to the oracle because a step is a
+        // value a caller wrote, and `%` is what the walk asks of a value.
+        Constraint::MultipleOf(w) => narrow.iter().any(|c| match c {
+            Constraint::MultipleOf(n) => {
+                steps_read_alike(narrow_base, *w, *n, oracle)
+                    && oracle.divides(*w, *n) == Some(true)
+            }
+            _ => false,
+        }),
+        // No sound value entailment without an exact match (handled by the caller).
+        Constraint::Predicate(_) | Constraint::Regex(_) => false,
+    }
+}
+
+/// The numbers a base holds, as `%` reads them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Numbers {
+    /// `int` and `bool`, which `%` divides exactly by an integer.
+    Integers,
+    /// `float`, which `%` divides exactly by a float and by an integer that is
+    /// one.
+    Floats,
+    /// Both, where a pair of steps has to be read alike under each.
+    Both,
+}
+
+impl Numbers {
+    /// The numbers `base` holds, or `None` for a base holding anything else.
+    fn of(base: &Schema, oracle: &dyn LeafRelations) -> Option<Numbers> {
+        if let Schema::Union(members) = base {
+            return members
+                .iter()
+                .map(|member| Numbers::of(member, oracle))
+                .reduce(|left, right| Some(left?.join(right?)))?;
+        }
+        match base.type_tag_with(oracle)? {
+            Kind::Int | Kind::Bool => Some(Numbers::Integers),
+            Kind::Float => Some(Numbers::Floats),
+            _ => None,
+        }
+    }
+
+    fn join(self, other: Numbers) -> Numbers {
+        if self == other { self } else { Numbers::Both }
+    }
+}
+
+/// A step, as `%` reads it against a value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Step {
+    /// An `int` or a `bool` a float holds exactly: at most `2**53` from zero.
+    Integer,
+    /// An `int` past `2**53`, which `%` reads as the float nearest it against a
+    /// float value.
+    WideInteger,
+    /// A `float`, which `%` meets every number as.
+    Float,
+}
+
+impl Step {
+    fn of(step: OperandIx, oracle: &dyn LeafRelations) -> Option<Step> {
+        Some(match oracle.operand_kind(step)? {
+            Kind::Float => Step::Float,
+            Kind::Int | Kind::Bool => match oracle.operand(step) {
+                Some(Operand::Boolean(_)) => Step::Integer,
+                Some(Operand::Integer(value)) if value.unsigned_abs() <= 1 << 53 => Step::Integer,
+                _ => Step::WideInteger,
+            },
+            _ => return None,
+        })
+    }
+}
+
+/// Whether `%` reads every value of `base` against the two steps alike, so a
+/// step dividing the other carries to the values.
+///
+/// Dividing is a fact about numbers, and `%` asks it of a value in the kind of
+/// number the two operands meet in. Where the value and both steps meet in one
+/// kind, a multiple of `multiple` is a multiple of `step`. Where they do not,
+/// the steps' answer is about something else:
+///
+/// - `2**53 + 1` is a multiple of `2.0`, because `%` reads it as the float
+///   `2**53`, and not of `2`, which `2.0` divides;
+/// - `2.0**53` is a multiple of `2**53 + 1`, which `%` reads as the same float,
+///   and not of `3`, which divides the step;
+/// - a `Decimal` raises once a quotient outgrows its precision, and the smaller
+///   step's quotient does first.
+///
+/// So the kinds are read first: two float steps over any of the numbers, two
+/// integer steps over the integers, two a float holds exactly over the floats
+/// too, and one of each over the floats alone. A base holding any other value
+/// declines.
+fn steps_read_alike(
+    base: &Schema,
+    step: OperandIx,
+    multiple: OperandIx,
+    oracle: &dyn LeafRelations,
+) -> bool {
+    let (Some(numbers), Some(step), Some(multiple)) = (
+        Numbers::of(base, oracle),
+        Step::of(step, oracle),
+        Step::of(multiple, oracle),
+    ) else {
+        return false;
+    };
+    match (step, multiple) {
+        (Step::Float, Step::Float) | (Step::Integer, Step::Integer) => true,
+        (Step::Float | Step::Integer, Step::Float | Step::Integer) => numbers == Numbers::Floats,
+        (Step::Float, Step::WideInteger) | (Step::WideInteger, Step::Float) => false,
+        (Step::Integer | Step::WideInteger, Step::Integer | Step::WideInteger) => {
+            numbers == Numbers::Integers
+        }
+    }
+}
+
+/// Keep the tighter of two one-sided bounds: the greater value for a lower bound,
+/// the lesser for an upper bound; on equal values the strict end wins, and on an
+/// incomparable pair the current bound is kept (conservative).
+pub(super) fn tighter_bound(
+    current: Option<(OperandIx, bool)>,
+    candidate: (OperandIx, bool),
+    oracle: &dyn LeafRelations,
+    end: End,
+) -> (OperandIx, bool) {
+    use core::cmp::Ordering;
+    let Some(current) = current else {
+        return candidate;
+    };
+    match oracle.compare(candidate.0, current.0) {
+        Some(Ordering::Equal) => (current.0, current.1 || candidate.1),
+        Some(Ordering::Greater) => {
+            if end == End::Lower {
+                candidate
+            } else {
+                current
+            }
+        }
+        Some(Ordering::Less) => {
+            if end == End::Lower {
+                current
+            } else {
+                candidate
+            }
+        }
+        None => current,
+    }
+}

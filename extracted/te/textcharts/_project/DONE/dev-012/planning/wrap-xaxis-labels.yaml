@@ -1,0 +1,120 @@
+id: wrap-xaxis-labels
+title: "Wrap long horizontal axis labels onto 2 lines instead of truncating"
+worktree: dev-012
+priority: High
+status: "Completed"
+completed_date: "2026-03-12"
+category: "Core Functionality"
+description: |
+  Histogram x-axis labels are truncated to fit within bar_width (e.g.,
+  "histogram" -> "hist", "summary_box" -> "summ"), making them hard to
+  understand. Instead of truncating, wrap long labels onto 2 lines.
+
+  The wrapping logic must be shared via ChartBase so all charts with
+  horizontal axis labels can use it. When all labels fit on 1 line, no
+  second row should appear. When any label needs 2 lines, all labels get
+  a second row (short labels padded with blank space for alignment).
+
+work:
+  - id: w1
+    summary: "Add _wrap_label() and _build_wrapped_label_rows() to ChartBase in base.py"
+    status: done
+    notes: |
+      Add after _truncate_label (line 567). _wrap_label splits a label into
+      1 or 2 lines at word boundaries (underscore, hyphen, space, camelCase)
+      or hard-splits at max_width. _build_wrapped_label_rows takes a list of
+      labels and returns 1 or 2 complete row strings with centering/padding.
+
+  - id: w2
+    summary: "Replace histogram simple-mode label rendering (lines 331-336) with _build_wrapped_label_rows"
+    needs: [w1]
+    status: done
+
+  - id: w3
+    summary: "Replace histogram grouped-mode label rendering (lines 556-562) with _build_wrapped_label_rows"
+    needs: [w1]
+    status: done
+
+  - id: w4
+    summary: "Replace line chart categorical label rendering (lines 280-286) with _build_wrapped_label_rows"
+    needs: [w1]
+    status: done
+
+  - id: w5
+    summary: "Add unit tests for _wrap_label and _build_wrapped_label_rows, and integration tests for histogram wrapping"
+    needs: [w2, w3, w4]
+    status: done
+    notes: |
+      Unit tests in test_base_and_options.py. Integration tests in
+      test_histogram_behavior.py. Update golden fixtures if needed.
+
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/line_chart.py"
+    - "tests/test_base_and_options.py"
+    - "tests/test_histogram_behavior.py"
+
+approach: |
+  Add two static methods to ChartBase (base.py) after _truncate_label:
+
+  1. _wrap_label(label, max_width) -> list[str]:
+     - Sanitize ANSI, return [label] if it fits in max_width
+     - Find best split point in [1, max_width]: prefer underscore, hyphen,
+       space, camelCase boundaries (rightmost match fills line 1 maximally)
+     - Fall back to hard split at max_width
+     - Truncate line 2 with ".." if still too long
+     - Return [line1, line2]
+
+  2. _build_wrapped_label_rows(labels, col_width, prefix, separator) -> list[str]:
+     - Wrap each label via _wrap_label
+     - If any need 2 lines, produce 2 rows (pad short labels with blank line 2)
+     - Center each label within col_width, join with separator, prepend prefix
+
+  Replace inline label rendering in histogram (simple + grouped) and line
+  chart (categorical mode) with calls to _build_wrapped_label_rows.
+  Keep _compact_label in histogram for backward compat but stop calling it
+  from the render path.
+
+must_preserve:
+  - "Short labels (e.g., Q1-Q6) that fit in bar_width render on a single line with no second row"
+  - "Histogram _compact_label() method stays in class for backward compatibility"
+  - "Golden test output for Q1-Q6 labels at default width remains unchanged (no extra blank row)"
+  - "Line chart numeric x-axis labels (lines 265-278) are unaffected"
+
+anti_patterns:
+  - "DO NOT delete _compact_label -- because external callers may use it -- keep it but stop calling from render path"
+  - "DO NOT add a second label row when all labels fit on 1 line -- because it wastes vertical space -- conditionally add row 2 only when needed"
+  - "DO NOT mix ANSI-aware and ANSI-unaware length checks -- because it causes misalignment -- sanitize once at entry point"
+
+verification:
+  - description: "All existing tests pass"
+    command: "uv run pytest"
+    expected_output: "all tests pass, 0 failures"
+  - description: "Golden fixtures still match (or are regenerated)"
+    command: "uv run pytest tests/test_golden_output.py -v"
+    expected_output: "all pass"
+  - description: "Histogram with long labels wraps to 2 label rows"
+    command: "uv run python -c \"from textcharts.histogram import Histogram, HistogramBar; from textcharts.base import ChartOptions; data=[HistogramBar(label='summary_box',value=100),HistogramBar(label='histogram',value=200),HistogramBar(label='Q1',value=150)]; print(Histogram(data=data,options=ChartOptions(use_color=False,width=80)).render())\""
+    expected_output: "Labels split across 2 lines; 'summary' and '_box' appear on consecutive rows"
+  - description: "Short labels remain single-row"
+    command: "uv run python -c \"from textcharts.histogram import Histogram, HistogramBar; from textcharts.base import ChartOptions; data=[HistogramBar(label=f'Q{i}',value=i*10) for i in range(1,6)]; print(Histogram(data=data,options=ChartOptions(use_color=False,width=80)).render())\""
+    expected_output: "All labels on single row, no blank second row"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/base.py"
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/line_chart.py"
+    - "tests/test_base_and_options.py"
+    - "tests/test_histogram_behavior.py"
+    - "tests/fixtures/"
+
+metadata:
+  created_date: "2026-03-12"
+  estimated_effort: "1-2 days"
+  tags:
+    - "ux"
+    - "label-rendering"
+    - "shared-utility"

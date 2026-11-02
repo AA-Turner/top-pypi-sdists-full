@@ -1,0 +1,288 @@
+Metadata-Version: 2.4
+Name: pyvista-cad
+Version: 0.0.5
+Summary: PyVista accessor and reader-registry plugin for CAD formats (STEP, IGES, BREP, DXF, 3MF, IFC, FCStd) and bridges to build123d, cadquery, and OCP.
+Author-email: The PyVista Developers <info@pyvista.org>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/pyvista/pyvista-cad
+Project-URL: Documentation, https://pyvista.github.io/pyvista-cad/
+Project-URL: Issues, https://github.com/pyvista/pyvista-cad/issues
+Project-URL: Repository, https://github.com/pyvista/pyvista-cad
+Keywords: 3d,pyvista,cad,step,iges,brep,dxf,3mf,ifc,build123d,cadquery,opencascade
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSES.md
+Requires-Dist: ezdxf>=1.3
+Requires-Dist: numpy>=1.24
+Requires-Dist: pooch>=1.8
+Requires-Dist: pyvista>=0.48.4
+Provides-Extra: step
+Requires-Dist: build123d>=0.7; extra == "step"
+Provides-Extra: step-light
+Requires-Dist: cascadio>=0.0.17; extra == "step-light"
+Provides-Extra: 3mf
+Requires-Dist: lib3mf>=2.3; extra == "3mf"
+Provides-Extra: ifc
+Requires-Dist: ifcopenshell>=0.7.0; extra == "ifc"
+Provides-Extra: iges
+Requires-Dist: pyiges[full]>=0.3; extra == "iges"
+Provides-Extra: cadquery
+Requires-Dist: cadquery>=2.4; extra == "cadquery"
+Provides-Extra: trimesh
+Requires-Dist: pyvista-trimesh>=0.1; extra == "trimesh"
+Provides-Extra: all
+Requires-Dist: pyvista-cad[3mf,cadquery,ifc,iges,step,trimesh]; extra == "all"
+Provides-Extra: full
+Requires-Dist: pyvista-cad[all]; extra == "full"
+Provides-Extra: docs
+Requires-Dist: pyvista-cad[all]; extra == "docs"
+Requires-Dist: cadquery>=2.4; extra == "docs"
+Requires-Dist: pandas>=2.0; extra == "docs"
+Requires-Dist: sphinx>=8.0; extra == "docs"
+Requires-Dist: sphinx-gallery>=0.18; extra == "docs"
+Requires-Dist: sphinx-design>=0.6; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.5; extra == "docs"
+Requires-Dist: sphinx-book-theme>=1.1; extra == "docs"
+Requires-Dist: myst-parser>=4.0; extra == "docs"
+Requires-Dist: sphinx-notfound-page>=1.1; extra == "docs"
+Requires-Dist: numpydoc>=1.10; extra == "docs"
+Requires-Dist: pypandoc>=1.13; extra == "docs"
+Requires-Dist: pyvista[jupyter]; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: pyvista-cad[docs]; extra == "dev"
+Requires-Dist: mypy==2.3.0; extra == "dev"
+Requires-Dist: ruff==0.16.2; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: pytest-pyvista>=0.2; extra == "dev"
+Requires-Dist: pytest-xdist>=3.6; extra == "dev"
+Requires-Dist: hypothesis>=6.100; extra == "dev"
+Dynamic: license-file
+
+<p align="center">
+  <img src="https://github.com/pyvista/pyvista/raw/main/doc/source/_static/pyvista_logo.svg" alt="PyVista" width="400" />
+</p>
+
+# pyvista-cad
+
+[![CI](https://github.com/pyvista/pyvista-cad/actions/workflows/ci.yml/badge.svg)](https://github.com/pyvista/pyvista-cad/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyvista-cad.svg)](https://pypi.org/project/pyvista-cad/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**CAD format reading, writing, and CAD-style plotting for [PyVista](https://github.com/pyvista/pyvista).**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pyvista/pyvista-cad/main/doc/_static/hero.png" alt="The same flange shown two ways: a generic mesh viewer drawing the raw triangulation on the left, and pyvista-cad drawing smoothly shaded faces with the model's topological edges on the right." width="90%">
+</p>
+
+`pyvista-cad` adds CAD-format support to PyVista: STEP, IGES, BREP, DXF, 3MF, IFC, FreeCAD `.fcstd`, OpenSCAD `.scad`, and glTF. It registers a `.cad` accessor on every `pv.DataSet` / `pv.MultiBlock` and wires reader entries into `pv.read(...)`. It also adds CAD-style rendering: smoothly shaded faces with the model's topological B-rep edges instead of triangle-mesh noise, via `.cad.plot()` and a `plotter.cad` component. No monkey-patching, no forks, no direct VTK calls.
+
+## Install matrix
+
+| Extra          | Adds                    | Formats unlocked                                          |
+| -------------- | ----------------------- | --------------------------------------------------------- |
+| (base)         | ezdxf                   | DXF read + write, glTF read + write                       |
+| `[step]`       | build123d, cadquery-ocp | STEP, BREP, FCStd, IGES (`ocp` backend), build123d bridge |
+| `[step-light]` | cascadio                | STEP (read-only, faster, no colors)                       |
+| `[3mf]`        | lib3mf                  | 3MF read + write                                          |
+| `[ifc]`        | ifcopenshell            | IFC read (with property sets)                             |
+| `[iges]`       | pyiges[full]            | IGES read (`pyiges` backend, default)                     |
+| `[openscad]`   | (uses `openscad` CLI)   | SCAD read                                                 |
+| `[all]`        | all of the above        | every supported format                                    |
+
+`[full]` is kept as an alias of `[all]`, so existing installs and pinned requirement files keep resolving.
+
+**Python support:** 3.10 – 3.14.
+
+trimesh interop is provided by pyvista core (`pyvista.from_trimesh`, `pyvista.to_trimesh`) and the `pyvista-trimesh` package's `.trimesh` accessor (install `pyvista-cad[trimesh]`); pyvista-cad does not duplicate it.
+
+FEA meshing via gmsh is intentionally out of scope. `gmsh` is GPLv2+ and would virally license any closed-source product that linked it, so `pyvista-cad`'s dependency set stays fully permissive (MIT / BSD / Apache, plus LGPL-with-exception for the OpenCascade and IFC backends). For CAD-to-tet workflows, drive `gmsh` directly and read the resulting `.msh` file back with `pv.read` (PyVista routes `.msh` through `meshio`); the `scikit-gmsh` package wraps the live-model API if you prefer that.
+
+```bash
+pip install pyvista-cad           # DXF and glTF only
+pip install pyvista-cad[step]     # add STEP, BREP, FCStd
+pip install pyvista-cad[all]      # everything
+```
+
+## Quick start
+
+```python
+import pyvista as pv
+import pyvista_cad  # registers the .cad accessor and reader entries
+
+mesh = pv.read('part.step')  # MultiBlock of parts with cad.color, cad.label
+mesh.plot(show_edges=True)
+
+floorplan = pv.read('floor.dxf')  # PolyData with Layer cell data
+layers = floorplan.cad.split_by_layer()  # MultiBlock keyed on layer
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pyvista/pyvista-cad/main/doc/_static/readme_quickstart.png" alt="Two independent example fixtures. Left: a STEP part read with pv.read, drawn CAD-style with shaded faces and topological edges. Right: a DXF drawing split into colored per-layer blocks (body, centerlines, dimensions, holes)." width="90%">
+</p>
+
+## CAD-friendly plotting
+
+A generic mesh viewer draws the _triangulation_. With `show_edges=True` you see every facet edge, an artifact of the tessellation tolerance. A CAD application instead shows smoothly shaded faces with the model's _topological_ edges (the B-rep feature curves) on top. `pyvista-cad` reproduces that: analytic surface normals so a coarse mesh still shades round, topological edges recovered from the cached B-rep, triangle edges hidden.
+
+```python
+import pyvista as pv
+import pyvista_cad
+from pyvista_cad.examples import downloads
+
+mb = pyvista_cad.read_step(downloads.step_part_path())  # NIST AM Bench specimen
+
+mb.cad.plot()  # shaded faces + topological edges
+
+# Or compose it into a scene, color faces by a scalar, keep the edges:
+part = mb[0]  # a cached block keeps its B-rep
+part['height'] = part.points[:, 2]
+pl = pv.Plotter()
+pl.cad.add(part, scalars='height', cmap='viridis')
+pl.show()
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pyvista/pyvista-cad/main/doc/_static/readme_cad_plotting.png" alt="The NIST AM Bench specimen. Left: cad.plot draws shaded faces with topological B-rep edges. Right: the same cached block colored by a height scalar with the viridis colormap, the topological edges still drawn." width="90%">
+</p>
+
+`.cad.plot()` and the `plotter.cad` component accept a `MultiBlock`, `PolyData`, raw `TopoDS`, or a build123d / cadquery object; a plain mesh with no B-rep origin degrades to crease feature edges.
+
+## Real-world workflow
+
+Load a STEP assembly, locate a part, drive it through gmsh to a
+tetrahedral FEA mesh, then clip to expose the interior. `pv.read`
+handles the resulting `.msh` file natively via `meshio`, so no extra
+PyVista dependency is needed.
+
+```python
+import gmsh
+import pyvista as pv
+import pyvista_cad
+from pyvista_cad.examples import downloads
+
+assembly = pv.read(downloads.step_assembly_path())  # 3-part NIST build assembly
+print(assembly.cad.assembly_tree())  # nested dict of block names
+matches = assembly.cad.find('*PartCAD')  # glob -> list of (path, block)
+path, part = matches[0]
+
+gmsh.initialize()
+try:
+    gmsh.model.occ.importShapes(downloads.step_part_path())
+    gmsh.model.occ.synchronize()
+    gmsh.option.setNumber('Mesh.MeshSizeMax', 2.0)
+    gmsh.model.mesh.generate(3)
+    gmsh.write('part.msh')
+finally:
+    gmsh.finalize()
+
+grid = pv.read('part.msh')  # via meshio
+grid = grid.extract_cells(grid.celltypes == 10)  # keep VTK_TETRA
+clip = grid.clip(normal='x', crinkle=True)
+clip.save('part_tets.vtu')  # full tet mesh round-trips
+```
+
+The Quick start uses bundled offline fixtures (`bracket_step_path()`, a parametric L-bracket committed as STEP; `drawing_dxf_path()`, a layered 2D drawing). The other examples pull real, openly licensed parts from `pyvista_cad.examples.downloads` (cached on first fetch) — the NIST AM Bench LPBF specimen and its 3-part build assembly.
+
+## Common tasks
+
+| Task                                      | How                                                                                       |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Read a STEP assembly with per-part colors | `pv.read('a.step')` returns a `MultiBlock`; each block has `cad.color` and `cad.label`    |
+| Split a DXF by layer                      | `pv.read('a.dxf').cad.split_by_layer()`                                                   |
+| Round-trip a 3MF print                    | `pyvista_cad.write_three_mf(mb, 'b.3mf')` (object color + units kept)                     |
+| Load an IFC building and filter walls     | `mb = pv.read('b.ifc'); walls = mb.cad.find(ifc_type='IfcWall')`                          |
+| Read IFC property sets                    | `json.loads(block.field_data['cad.psets'][0])` returns the source `Pset_*` / `Qto_*` dict |
+| Convert build123d to PyVista              | `pyvista_cad.from_build123d(part)` (preserves color, label, transform)                    |
+| Mesh a STEP for FEA in gmsh               | Drive `gmsh` directly, `gmsh.write('out.msh')`, then `pv.read('out.msh')` (uses `meshio`) |
+| Generate a signed distance field from CAD | see `examples/05_workflows/cad_to_signed_distance.py`                                     |
+
+## Licensing
+
+`pyvista-cad` is MIT. Every runtime dependency is either permissive
+(MIT / BSD / Apache) or LGPL with the OpenCascade exception. **No
+GPL code is pulled in by any extra**, which makes the package safe to
+use in closed-source / proprietary products subject to the standard
+LGPL dynamic-link obligations. See [LICENSES.md](LICENSES.md) for the
+full dependency-by-dependency breakdown, the LGPL compliance notes, and the rationale for not depending on
+`gmsh`.
+
+## IGES backends
+
+`read_iges` has two readers behind it.
+
+| `backend=`           | Needs    | Trimmed surfaces               | IGES level metadata        |
+| -------------------- | -------- | ------------------------------ | -------------------------- |
+| `'pyiges'` (default) | `[iges]` | Ignored                        | `cad.level` / `cad.levels` |
+| `'ocp'`              | `[step]` | Clipped to the trimming curves | none                       |
+
+```python
+import pyvista_cad
+
+mesh = pyvista_cad.read_iges('scan.igs', backend='ocp', linear_deflection=0.1)
+mesh.cad.plot()
+```
+
+The default is unchanged, so `pv.read('part.igs')` still goes through
+pyiges. `pv.read` accepts no reader keywords, so selecting the OCCT
+backend means calling `read_iges` directly.
+
+### Speed
+
+pyiges parses and evaluates surfaces in Python; OCCT does both in C++.
+Best of three warm runs on `pyvista_cad.examples.downloads.iges_impeller_path()`
+(4.0 MB, 4615 entities, a SolidWorks export):
+
+| Reader | Setting                           | Cells   | Time   |
+| ------ | --------------------------------- | ------- | ------ |
+| pyiges | `delta=0.025` (default)           | 753,716 | 19.9 s |
+| ocp    | `linear_deflection=0.1` (default) | 20,195  | 0.5 s  |
+| ocp    | `linear_deflection=0.005`         | 122,335 | 0.8 s  |
+| ocp    | `linear_deflection=0.0005`        | 716,465 | 4.0 s  |
+
+The two defaults are not the same mesh density, so the 36x at defaults
+is partly a coarser mesh. Matched at roughly equal cell count the gap is
+about 5x, and it grows with file size because the Python-side cost
+scales with entity count. Numbers are from one machine; treat the ratios
+as the signal, not the absolute times.
+
+### Trimmed surfaces
+
+pyiges dispatches IGES type 128 (rational B-spline surface) and has no
+handler for type 144 (trimmed parametric surface), so it tessellates the
+full underlying surface and ignores the trimming curves. OCCT applies
+them. On the impeller above that shows up in the extent:
+
+| Reader | X bounds      |
+| ------ | ------------- |
+| pyiges | -50.5 to 49.5 |
+| ocp    | -42.7 to 42.5 |
+
+Files whose trimming curves follow the natural surface boundary read the
+same either way, which is why the small `tests/data/impeller.iges`
+fixture agrees between backends.
+
+Reach for `'ocp'` on anything from a scanner or a CMM. Use `'pyiges'`
+when you need the per-entity level numbers.
+
+## Fidelity and limitations
+
+Round-trip fidelity varies by format. Tessellated formats (STEP, IGES, BREP, FCStd) discretize analytic surfaces on read; the originating B-rep is cached so `tessellate()` can refine it. DXF and 3MF round-trip geometry and metadata within documented tolerances. IGES and SCAD are read-only.

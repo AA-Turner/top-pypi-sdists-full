@@ -176,19 +176,19 @@ def _card_summary(value: Any) -> tuple[Any, bool]:
     if not isinstance(value, dict):
         return None, value is not None
     result: dict = {}
-    truncated = False
+    is_truncated = False
     for key, item in value.items():
         if len(result) == _CARD_LIST_ITEMS or not isinstance(key, str):
-            truncated = True
+            is_truncated = True
             continue
         if item is None or isinstance(item, (bool, int, float)):
             result[key] = item
         elif isinstance(item, str):
             result[key] = item[:_CARD_TEXT_CHARS]
-            truncated |= len(item) > _CARD_TEXT_CHARS
+            is_truncated |= len(item) > _CARD_TEXT_CHARS
         else:
-            truncated = True
-    return result, truncated
+            is_truncated = True
+    return result, is_truncated
 
 
 def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = False) -> dict:
@@ -202,13 +202,13 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
     # server that has already dropped the alias AND one that has not.
     summary_key = "summary_metrics" if "summary_metrics" in entity else "summary"
     if (card or document) and summary_key in entity:
-        summary, truncated = _card_summary(entity[summary_key])
+        summary, is_truncated = _card_summary(entity[summary_key])
         # An empty summary (`{}`, "") is omitted like an absent one: it rode every
         # document read as `"summary": {}`, a key with nothing in it. Kept when
         # truncation emptied it, so `summary_truncated` has what it describes.
-        if summary is not None and (summary or truncated):
+        if summary is not None and (summary or is_truncated):
             out["summary"] = summary
-        if truncated:
+        if is_truncated:
             out["summary_truncated"] = True
     if not card:
         return out
@@ -333,8 +333,8 @@ def _notes_excerpt(text: str | None, *, read_all: str = 'view="notes"') -> dict 
     """
     if not text:
         return None
-    truncated = len(text) > _NOTES_CARD_EXCERPT
-    excerpt: dict = {"text": text[:_NOTES_CARD_EXCERPT], "truncated": truncated}
-    if truncated:
+    is_truncated = len(text) > _NOTES_CARD_EXCERPT
+    excerpt: dict = {"text": text[:_NOTES_CARD_EXCERPT], "truncated": is_truncated}
+    if is_truncated:
         excerpt["read_all"] = read_all
     return excerpt

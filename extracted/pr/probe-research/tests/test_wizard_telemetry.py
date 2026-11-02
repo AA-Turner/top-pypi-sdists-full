@@ -16,15 +16,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 from probe.cli import backfill_run
-from probe.cli import bootstrap
-from probe.cli import doctor as doctor_mod
+from probe.cli.install import bootstrap
+from probe.cli.wizard import doctor as doctor_mod
 from probe.shared.harness import plugins as plugin_cli
-from probe.cli import setup, tui
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
 from probe.cli import telemetry as tm
-from probe.cli.actions import Action
-from probe.cli.capabilities import Capabilities
+from probe.cli.wizard.actions.onboarding import Action
+from probe.cli.wizard.state.state import Capabilities
 
 # `probe.cli.main` the MODULE is shadowed by the re-exported `main` function on
 # the package (probe/cli/__init__.py) — import it by path, like test_atif does.
@@ -77,7 +78,7 @@ def wizard_stubs(monkeypatch):
     def fake_collect():
         return collects.pop(0) if len(collects) > 1 else collects[0]
 
-    monkeypatch.setattr(doctor_mod, "collect", fake_collect)
+    monkeypatch.setattr(doctor_mod.doctor, "collect", fake_collect)
     return collects
 
 
@@ -161,25 +162,29 @@ def test_menu_loop_emits_one_started_and_per_iteration_action_chosen(
     """Drive the interactive menu loop with a scripted menu — the one wizard
     behavior (re-collect + re-choose) the flag paths never reach."""
     wizard_stubs.append(Capabilities())
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     def signed_in(**kwargs):
         from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
 
-    monkeypatch.setattr(setup, "sign_in", signed_in)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", signed_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", signed_in)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None, **kwargs: "")
     actions = iter(["diagnose", "diagnose", None])
-    from probe.cli import actions as actions_mod
+    from probe.cli.wizard.actions import onboarding as actions_mod
 
     def scripted_menu(_caps):
         nxt = next(actions)
         return actions_mod.Action(nxt) if nxt else None
 
-    monkeypatch.setattr(setup, "run_action_menu", scripted_menu)
-    monkeypatch.setattr(setup, "run_agent_menu", lambda defaults, action=None: ("claude_code",))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", scripted_menu)
+    monkeypatch.setattr(setup.screens.agent_picker, "run_agent_menu", lambda defaults, action=None: ("claude_code",))
     with pytest.raises(SystemExit) as excinfo:
         main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
     assert excinfo.value.code == 0
@@ -198,7 +203,7 @@ def test_a_default_switched_on_the_menu_row_is_saved_by_the_loop(
     from probe.sdk import session_marker
 
     wizard_stubs.append(Capabilities())
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
@@ -208,12 +213,16 @@ def test_a_default_switched_on_the_menu_row_is_saved_by_the_loop(
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
 
-    monkeypatch.setattr(setup, "sign_in", signed_in)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None, **kwargs: "")
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda *a, **k: pytest.fail("picker drawn"))
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", signed_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", signed_in)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda *a, **k: pytest.fail("picker drawn"))
     answers = iter([setup.DefaultChoice("off"), None])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(answers))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(answers))
     with pytest.raises(SystemExit) as excinfo:
         main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
     assert excinfo.value.code == 0
@@ -233,9 +242,9 @@ def registrations() -> list[bool]:
 
 @pytest.fixture()
 def configure_stubs(monkeypatch, wizard_stubs, registrations):
-    monkeypatch.setattr(setup, "needs_authorization", lambda caps, selection: [])
-    monkeypatch.setattr(setup, "apply_tracking", lambda on, on_retry=None: ["installed"])
-    monkeypatch.setattr(setup, "refresh_marketplace", lambda: None)
+    monkeypatch.setattr(setup.apply.authorize, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(setup.apply.apply, "apply_tracking", lambda on, on_retry=None: ["installed"])
+    monkeypatch.setattr(setup.apply.plugins, "refresh_marketplace", lambda: None)
     # Records `complete` so the failure-branch tests can assert the wizard tells
     # the server the run did NOT finish -- the signal the dashboard reads to
     # decide an install completed.
@@ -320,7 +329,8 @@ def test_a_signed_in_fresh_machine_is_still_a_first_install(captured, configure_
 
 
 def test_reconfiguring_an_installed_agent_adds_nothing(captured, configure_stubs, monkeypatch):
-    monkeypatch.setattr(setup, "plan", lambda caps, selection: [])
+    monkeypatch.setattr(setup.wizard, "plan", lambda caps, selection: [])
+    monkeypatch.setattr(setup.apply.plugins, "plan", lambda caps, selection: [])
     configure_stubs.append(Capabilities(tracking_plugin_installed=True))
     assert main_mod.main(_configure_argv()) == 0
     settled = _props(captured, tm.EVENT_WIZARD_INSTALL_SETTLED)
@@ -344,9 +354,9 @@ def test_sign_out_is_reported_for_the_person_who_left(monkeypatch):
             order.append(event)
             emitted.append((event, props))
 
-    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: False)
     monkeypatch.setattr(
-        setup, "sign_out", lambda sources: order.append("sign_out") or ["Signed out", "! codex: left a file"]
+        setup.account.sign_out, "sign_out", lambda sources: order.append("sign_out") or ["Signed out", "! codex: left a file"]
     )
     monkeypatch.setattr(main_mod, "_record_device_sign_in", lambda **_: None)
     with pytest.raises(typer.Exit):
@@ -381,7 +391,8 @@ def test_configure_failure_names_the_kind(captured, configure_stubs, registratio
 
 
 def test_configure_noop_still_completes_the_funnel(captured, configure_stubs, monkeypatch):
-    monkeypatch.setattr(setup, "plan", lambda caps, selection: [])
+    monkeypatch.setattr(setup.wizard, "plan", lambda caps, selection: [])
+    monkeypatch.setattr(setup.apply.plugins, "plan", lambda caps, selection: [])
     installed = Capabilities(tracking_plugin_installed=True)
     configure_stubs.append(installed)
     assert main_mod.main(_configure_argv()) == 0
@@ -390,9 +401,11 @@ def test_configure_noop_still_completes_the_funnel(captured, configure_stubs, mo
 
 
 def test_signed_in_success_reaches_the_funnel(captured, configure_stubs, monkeypatch):
-    monkeypatch.setattr(setup, "needs_authorization", lambda caps, selection: ["tracking"])
-    monkeypatch.setattr(setup, "authorize", lambda needs, **kw: ({"tracking": object()}, []))
-    monkeypatch.setattr(setup, "blocked_by_missing_grants", lambda gate, *, needed, granted: [])
+    monkeypatch.setattr(setup.apply.authorize, "needs_authorization", lambda caps, selection: ["tracking"])
+    monkeypatch.setattr(setup.apply.authorize, "authorize", lambda needs, **kw: ({"tracking": object()}, []))
+    monkeypatch.setattr(setup.account.sign_in, "authorize", lambda needs, **kw: ({"tracking": object()}, []))
+    monkeypatch.setattr(setup.apply.capture_credentials, "authorize", lambda needs, **kw: ({"tracking": object()}, []))
+    monkeypatch.setattr(setup.apply.authorize, "blocked_by_missing_grants", lambda gate, *, needed, granted: [])
     fresh = Capabilities()
     after = dataclasses.replace(fresh, tracking_plugin_installed=True)
     configure_stubs.extend([fresh, after])  # menu snapshot, then the post-configure re-read
@@ -403,10 +416,12 @@ def test_signed_in_success_reaches_the_funnel(captured, configure_stubs, monkeyp
 
 
 def test_signed_in_failure_names_missing_grants(captured, configure_stubs, monkeypatch, registrations):
-    monkeypatch.setattr(setup, "needs_authorization", lambda caps, selection: ["tracking"])
-    monkeypatch.setattr(setup, "authorize", lambda needs, **kw: ({}, []))
+    monkeypatch.setattr(setup.apply.authorize, "needs_authorization", lambda caps, selection: ["tracking"])
+    monkeypatch.setattr(setup.apply.authorize, "authorize", lambda needs, **kw: ({}, []))
+    monkeypatch.setattr(setup.account.sign_in, "authorize", lambda needs, **kw: ({}, []))
+    monkeypatch.setattr(setup.apply.capture_credentials, "authorize", lambda needs, **kw: ({}, []))
     monkeypatch.setattr(
-        setup,
+        setup.apply.authorize,
         "blocked_by_missing_grants",
         lambda gate, *, needed, granted: ["tracking"],
     )
@@ -433,7 +448,7 @@ def test_configure_unverifiable_when_plugins_cannot_be_asked(
 
 
 def test_configure_runtime_failure_kind(captured, configure_stubs, monkeypatch, registrations):
-    monkeypatch.setattr(setup, "apply_capture", lambda caps, on, mode=None, on_retry=None: ["ok"])
+    monkeypatch.setattr(setup.apply.apply, "apply_capture", lambda caps, on, mode=None, on_retry=None: ["ok"])
     fresh = Capabilities()
     after = dataclasses.replace(
         fresh, capture_plugin_installed=True, capture_credential_valid=False
@@ -504,8 +519,10 @@ def test_backfill_abort_emits_summary(captured, tmp_path, monkeypatch):
     def interrupted(**kwargs):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(backfill_run, "_execute", interrupted)
-    monkeypatch.setattr(bf, "stop_all", lambda: None)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", interrupted)
+    monkeypatch.setattr(bf.agents.process, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.digest, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.launch_once, "stop_all", lambda: None)
     lines = backfill_run.execute(
         client_factory=nullcontext,
         folder=tmp_path,
@@ -539,7 +556,7 @@ def test_backfill_success_emits_the_full_funnel(captured, folder_harness, monkey
 
 
 def test_backfill_no_plan_emits_summary(captured, folder_harness, monkeypatch):
-    monkeypatch.setattr(backfill_run, "classify", lambda *args, **kwargs: (None, "agent died", None))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *args, **kwargs: (None, "agent died", None))
     lines = _run_folder(folder_harness)
     assert any("usable plan" in line for line in lines)
     assert _props(captured, tm.EVENT_BACKFILL_SUMMARY)["outcome"] == "no_plan"
@@ -549,10 +566,10 @@ def test_backfill_no_plan_emits_summary(captured, folder_harness, monkeypatch):
 def test_a_plan_naming_an_unwalked_path_is_reported_never_refused(captured, folder_harness, monkeypatch):
     """`trustworthy` is an invariant on our own code now; a broken one goes to
     analytics and the walked files still import."""
-    from probe.cli.backfill_plan import Assignment, Plan, ProjectSpec
+    from probe.cli.imports.folder.classify.plan import Assignment, Plan, ProjectSpec
 
     plan = Plan([ProjectSpec("project")], [Assignment("ghost.py", "project"), Assignment("a.py", "project")])
-    monkeypatch.setattr(backfill_run, "classify", lambda *args, **kwargs: (plan, "", None))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *args, **kwargs: (plan, "", None))
     monkeypatch.setattr(folder_harness.client, "_wake_delivery", folder_harness.drain)
     _run_folder(folder_harness)
     assert _props(captured, tm.EVENT_BACKFILL_PLAN_READY)["trustworthy"] is False
@@ -601,8 +618,10 @@ def test_backfill_crash_emits_error_summary_and_reraises(captured, tmp_path, mon
     def crash(**kwargs):
         raise RuntimeError("ledger exploded")
 
-    monkeypatch.setattr(backfill_run, "_execute", crash)
-    monkeypatch.setattr(bf, "stop_all", lambda: None)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", crash)
+    monkeypatch.setattr(bf.agents.process, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.digest, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.launch_once, "stop_all", lambda: None)
     with pytest.raises(RuntimeError):
         backfill_run.execute(
             client_factory=nullcontext,
@@ -625,8 +644,10 @@ def test_interrupt_after_summary_never_double_emits(captured, tmp_path, monkeypa
         summary_state["emitted"] = True  # what _summary does on the success path
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(backfill_run, "_execute", already_summarized)
-    monkeypatch.setattr(bf, "stop_all", lambda: None)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", already_summarized)
+    monkeypatch.setattr(bf.agents.process, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.digest, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.launch_once, "stop_all", lambda: None)
     backfill_run.execute(
         client_factory=nullcontext,
         folder=tmp_path,
@@ -650,7 +671,7 @@ def test_standalone_backfill_command_threads_a_command_context(monkeypatch, capt
         seen["telemetry"] = kwargs.get("telemetry")
         return []
 
-    monkeypatch.setattr(bf, "run", capture_run)  # main.py imports this module lazily
+    monkeypatch.setattr(bf.folder, "run", capture_run)  # main.py imports this module lazily
     rc = main_mod.main(["backfill", "--agent", "claude"])
     assert rc == 0
     ctx = seen["telemetry"]
@@ -683,17 +704,22 @@ def test_backfill_queued_files_remain_partial_until_receipted(captured, folder_h
 
 
 def test_backfill_approved_event_counts_accepted_revisions(captured, folder_harness, monkeypatch):
-    from probe.cli.backfill_plan import Assignment, Plan, ProjectSpec
+    from probe.cli.imports.folder.classify.plan import Assignment, Plan, ProjectSpec
 
     h = folder_harness
     decisions = iter(["revise", "import"])
     monkeypatch.setattr(
-        tui, "review",
+        tui.forms, "review",
         lambda title, lines, choices: next(decisions) if title == "Review the import plan" else "skip",
     )
-    monkeypatch.setattr(tui, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.forms, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.choices, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.clipboard, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.layout, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.status_board, "text", lambda *args: "put it in the reviewed project")
+    monkeypatch.setattr(tui.terminal, "text", lambda *args: "put it in the reviewed project")
     revised = Plan([ProjectSpec("reviewed")], [Assignment("a.py", "reviewed")])
-    monkeypatch.setattr(backfill_run, "revise", lambda *args, **kwargs: (revised, "", "session"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *args, **kwargs: (revised, "", "session"))
     _run_folder(h, interactive=True, yes=False)
     assert _props(captured, tm.EVENT_BACKFILL_APPROVED)["revision_count"] == 1
     assert [row["slug"] for row in h.created] == ["reviewed"]
@@ -703,7 +729,7 @@ def test_backfill_real_interrupt_emits_one_aborted_summary(captured, folder_harn
     def interrupt(*args, **kwargs):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(backfill_run, "classify", interrupt)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", interrupt)
     lines = _run_folder(folder_harness)
     assert any("Stopped" in line for line in lines)
     assert _events(captured).count(tm.EVENT_BACKFILL_SUMMARY) == 1
@@ -732,7 +758,7 @@ def test_a_default_saved_on_the_menu_row_is_still_counted_as_the_defaults_action
     from probe.sdk import session_marker
 
     wizard_stubs.append(Capabilities())
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
@@ -746,9 +772,11 @@ def test_a_default_saved_on_the_menu_row_is_still_counted_as_the_defaults_action
         session_marker.write_default_state(session_marker.STATE_OFF)  # the row, pressed
         return None  # then the researcher quits
 
-    monkeypatch.setattr(setup, "sign_in", signed_in)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(setup, "run_action_menu", menu)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", signed_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", signed_in)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", menu)
     with pytest.raises(SystemExit):
         main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
     assert session_marker.default_session_state() == session_marker.STATE_OFF
@@ -760,11 +788,11 @@ def test_switching_the_default_then_pressing_enter_on_it_counts_once(
 ):
     """`→` saves the row, then Enter on the same row answers DEFAULTS: one
     `defaults` action, not one for the save and one for the Enter."""
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
     from probe.sdk import session_marker
 
     wizard_stubs.append(Capabilities())
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
@@ -782,11 +810,15 @@ def test_switching_the_default_then_pressing_enter_on_it_counts_once(
             session_marker.write_default_state(session_marker.STATE_OFF)  # `→`, then Enter
         return answer
 
-    monkeypatch.setattr(setup, "sign_in", signed_in)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None, **kwargs: "")
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda *a, **k: tui.BACK)
-    monkeypatch.setattr(setup, "run_action_menu", menu)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", signed_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", signed_in)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda *a, **k: tui.BACK)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", menu)
     with pytest.raises(SystemExit):
         main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
     chosen = [r["properties"]["action"] for r in captured if r["event"] == tm.EVENT_WIZARD_ACTION_CHOSEN]
@@ -821,11 +853,11 @@ def test_diagnose_asks_the_agents_own_cli_not_its_record(captured, wizard_stubs,
     """The wizard reads plugin records (`capabilities.plugin_records`), but
     Diagnose shows what each agent's own CLI says: a `claude` that cannot
     start is what it is there to show. One agent picked, the common case."""
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     reads: list[bool] = []
     monkeypatch.setattr(
-        doctor_mod, "collect", lambda: reads.append(capabilities._read_records.get()) or Capabilities()
+        doctor_mod.doctor, "collect", lambda: reads.append(capabilities._read_records.get()) or Capabilities()
     )
     assert main_mod.main(["wizard", "--action", "diagnose", "--agent", "claude"]) == 0
     assert reads[0] is True  # the menu's state read

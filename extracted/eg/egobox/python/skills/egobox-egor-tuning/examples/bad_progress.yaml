@@ -1,0 +1,11 @@
+case: stagnation
+
+symptom:
+  no improvement
+
+recommendation:
+  use:
+    TREGO
+
+  kernel:
+    Matern52

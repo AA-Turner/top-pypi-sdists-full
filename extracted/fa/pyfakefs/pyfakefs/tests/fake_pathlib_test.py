@@ -30,10 +30,10 @@ from collections import namedtuple
 from unittest import mock
 from unittest.mock import patch
 
-from pyfakefs import fake_pathlib, fake_filesystem, fake_filesystem_unittest, fake_os
-from pyfakefs.fake_filesystem import OSType, FakeFilesystem
+from pyfakefs import fake_filesystem, fake_filesystem_unittest, fake_os, fake_pathlib
+from pyfakefs.fake_filesystem import FakeFilesystem, OSType
 from pyfakefs.fake_pathlib import FakePathlibModule
-from pyfakefs.helpers import IS_PYPY, is_root
+from pyfakefs.helpers import IS_PYPY, REALPATH_RESOLVES_DRIVE_RELATIVE, is_root
 from pyfakefs.tests.skipped_pathlib import (
     check_exists_pathlib,
     read_bytes_pathlib,
@@ -657,6 +657,34 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
             self.path(self.os.path.realpath(self.make_path("antoine", "setup.py"))),
         )
 
+    def test_resolve_relative_windows_path_with_valid_drive(self):
+        self.check_windows_only()
+        root = self.make_path("root")
+        root_path = self.path(root)
+        self.create_file(root_path / "test_data" / "dummy1.xml")
+        self.os.chdir(root)
+
+        drive = self.path.cwd().drive
+        path = self.path(rf"{drive.lower()}test\test_data\dummy1.xml")
+        self.assertFalse(path.is_absolute())
+        resolved = path.resolve(strict=False)
+        self.assert_equal_paths(rf"{root}\test\test_data\dummy1.xml", str(resolved))
+
+    def test_resolve_relative_windows_path_with_invalid_drive(self):
+        self.check_windows_only()
+        root = self.make_path("root")
+        root_path = self.path(root)
+        self.create_file(root_path / "test_data" / "dummy1.xml")
+        self.os.chdir(root)
+
+        path = self.path(r"x:test\test_data\dummy1.xml")
+        self.assertFalse(path.is_absolute())
+        resolved = path.resolve(strict=False)
+        if REALPATH_RESOLVES_DRIVE_RELATIVE:
+            self.assertEqual(r"X:\test\test_data\dummy1.xml", str(resolved))
+        else:
+            self.assertEqual(r"x:test\test_data\dummy1.xml", str(resolved))
+
     def test_stat_file_in_unreadable_dir(self):
         self.check_posix_only()
         dir_path = self.make_path("some_dir")
@@ -682,7 +710,7 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
                 self.assert_raises_os_error(errno.EACCES, list, it)
         else:
             it = self.path(dir_path).iterdir()
-            path = str(list(it)[0])
+            path = str(next(iter(it)))
             self.assertTrue(path.endswith("some_file"))
 
     def test_iterdir_and_glob_without_exe_permission(self):
@@ -701,9 +729,9 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
             self.os.link(another_file, directory / "link.txt")
         # We can enumerate the directory using iterdir and glob:
         assert len(list(directory.iterdir())) == 1
-        assert list(directory.iterdir())[0] == file_path
+        assert next(iter(directory.iterdir())) == file_path
         assert len(list(directory.glob("*.txt"))) == 1
-        assert list(directory.glob("*.txt"))[0] == file_path
+        assert next(iter(directory.glob("*.txt"))) == file_path
 
         # We cannot read files inside the directory,
         # even if we have read access to the file
@@ -762,20 +790,20 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
     @patch.dict(os.environ, {"USERPROFILE": r"C:\Users\John"})
     def test_expanduser_windows_posixfs(self):
         self.skip_real_fs()
-        self.set_windows_fs(False)
+        self.filesystem.os = OSType.LINUX
         self.assertEqual(
+            self.path("/home/John"),
             self.path("~").expanduser(),
-            self.path("\\home\\John"),
         )
 
     @unittest.skipIf(sys.platform != "win32", "Windows specific test")
     @patch.dict(os.environ, {"USERPROFILE": r"C:\Users\John"})
     def test_expanduser_windows_posixfs_path(self):
         self.skip_real_fs()
-        self.set_windows_fs(False)
+        self.filesystem.os = OSType.LINUX
         self.assertEqual(
+            self.path("/home/John/stuff/test.txt"),
             self.path("~/stuff/test.txt").expanduser(),
-            self.path("\\home\\John\\stuff\\test.txt"),
         )
 
     @unittest.skipIf(sys.platform == "win32", "Posix specific test")
@@ -795,14 +823,14 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
     @patch.dict(os.environ, {"HOME": "/home/john"})
     def test_expanduser_posix_windowsfs(self):
         self.skip_real_fs()
-        self.set_windows_fs(True)
+        self.filesystem.os = OSType.WINDOWS
         self.assertEqual(self.path("~").expanduser(), self.path("C:/Users/john"))
 
     @unittest.skipIf(sys.platform == "win32", "Posix specific test")
     @patch.dict(os.environ, {"HOME": "/home/john"})
     def test_expanduser_posix_windowsfs_path(self):
         self.skip_real_fs()
-        self.set_windows_fs(True)
+        self.filesystem.os = OSType.WINDOWS
         self.assertEqual(
             self.path("~/stuff/test.txt").expanduser(),
             self.path("C:/Users/john/stuff/test.txt"),
@@ -820,10 +848,10 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
     @patch.dict(os.environ, {"USERPROFILE": r"C:\Users\John"})
     def test_home_windows_posixfs(self):
         self.skip_real_fs()
-        self.set_windows_fs(False)
+        self.filesystem.os = OSType.LINUX
         self.assertEqual(
-            self.path(self.path("\\home\\John")),
             self.path.home(),
+            self.path(self.path("/home/John")),
         )
 
     @unittest.skipIf(sys.platform == "win32", "Posix specific test")
@@ -835,7 +863,7 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
     @patch.dict(os.environ, {"HOME": "/home/john"})
     def test_home_posix_windowsfs(self):
         self.skip_real_fs()
-        self.set_windows_fs(True)
+        self.filesystem.os = OSType.WINDOWS
         self.assertEqual(self.path("C:/Users//john"), self.path.home())
 
 
@@ -1075,7 +1103,7 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.create_file(self.make_path("foo", "bar", "file2"))
         self.create_file(self.make_path("foo", "bar", "file3"))
         path = self.path(self.make_path("foo", "bar"))
-        contents = [entry for entry in path.iterdir()]
+        contents = [*path.iterdir()]
         self.assertEqual(3, len(contents))
         self.assertIn(self.path(self.make_path("foo", "bar", "file2")), contents)
 
@@ -1128,6 +1156,50 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertEqual(
             sorted(path.glob("*.py")),
             [self.path(self.make_path("foo", "setup.py"))],
+        )
+
+    @unittest.skipIf(
+        sys.version_info < (3, 13), "literal glob parts are looked up since Python 3.13"
+    )
+    def test_glob_literal_case_insensitive_fs(self):
+        # regression test for #1347
+        self.check_posix_only()
+        if sys.platform == "win32" and sys.version_info < (3, 14):
+            self.skipTest(reason="Ignoring inconsistent path delimiters")
+        self.check_case_insensitive_fs()
+        self.create_file(self.make_path("foo", "B.TXT"))
+        self.create_file(self.make_path("foo", "Sub", "x.py"))
+        path = self.path(self.make_path("foo"))
+        # literal pattern parts are looked up in the filesystem
+        self.assertEqual(
+            [self.path(self.make_path("foo", "b.txt"))], list(path.glob("b.txt"))
+        )
+        self.assertEqual(
+            [self.path(self.make_path("foo", "sub", "x.py"))],
+            list(path.glob("sub/*.py")),
+        )
+        # wildcard parts are still matched case-sensitively under Posix
+        self.assertEqual([], list(path.glob("*.txt")))
+        # explicit arguments take precedence
+        self.assertEqual([], list(path.glob("b.txt", case_sensitive=True)))
+        self.assertEqual(
+            [self.path(self.make_path("foo", "B.TXT"))],
+            list(path.glob("*.txt", case_sensitive=False)),
+        )
+
+    @unittest.skipIf(
+        sys.version_info < (3, 13), "literal glob parts are looked up since Python 3.13"
+    )
+    def test_glob_literal_case_sensitive_fs(self):
+        self.check_posix_only()
+        self.check_case_sensitive_fs()
+        self.create_file(self.make_path("foo", "B.TXT"))
+        path = self.path(self.make_path("foo"))
+        self.assertEqual([], list(path.glob("b.txt")))
+        self.assertEqual([], list(path.glob("*.txt")))
+        self.assertEqual(
+            [self.path(self.make_path("foo", "B.TXT"))],
+            list(path.glob("b.txt", case_sensitive=False)),
         )
 
 
@@ -1386,7 +1458,7 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         directory = self.make_path("xyzzy", "plugh")
         self.create_dir(directory)
         self.create_file(self.os.path.join(directory, "test.txt"))
-        dir_entries = [entry for entry in self.os.scandir(self.path(directory))]
+        dir_entries = [*self.os.scandir(self.path(directory))]
         self.assertEqual(1, len(dir_entries))
 
     def test_symlink(self):
@@ -1463,10 +1535,12 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         path = self.make_path("some_file")
         self.create_file(path)
         self.os.chown(path, 42, 5)
-        with mock.patch("pwd.getpwuid", fake_getpwuid):
-            with mock.patch("grp.getgrgid", fake_getgrgid):
-                self.assertEqual("NewUser", self.path(path).owner())
-                self.assertEqual("NewGroup", self.path(path).group())
+        with (
+            mock.patch("pwd.getpwuid", fake_getpwuid),
+            mock.patch("grp.getgrgid", fake_getgrgid),
+        ):
+            self.assertEqual("NewUser", self.path(path).owner())
+            self.assertEqual("NewGroup", self.path(path).group())
 
     def test_owner_and_group_windows(self):
         self.check_windows_only()
@@ -1585,7 +1659,7 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.create_dir(base_path)
         self.create_file(base_path / "1.txt")
         self.create_file(base_path / "bar" / "2.txt")
-        result = list(step for step in self.os.walk(base_path))
+        result = [*self.os.walk(base_path)]
         assert len(result) == 2
         assert result[0] == (base_dir, ["bar"], ["1.txt"])
         assert result[1] == (self.os.path.join(base_dir, "bar"), [], ["2.txt"])

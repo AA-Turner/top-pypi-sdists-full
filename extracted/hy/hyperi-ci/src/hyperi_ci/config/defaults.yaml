@@ -1,0 +1,626 @@
+# Project:   HyperI CI
+# File:      config/defaults.yaml
+# Purpose:   Default configuration values for HyperI CI
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Projects override these via:
+#   1. .hyperi-ci.yaml (single source of truth)
+#   2. Environment variables (HYPERCI_*)
+
+# Project language (auto-detected if not specified)
+# Values: python, typescript, golang, rust, none
+language: none
+
+# Project metadata
+#
+# project.status: lifecycle stage of THIS PROJECT (not of any given release).
+# Information-only field -- surfaced in `hyperi-ci config` and at stage
+# startup in CI logs so consumers can immediately see "oh, it's not GA".
+# Does not affect release behaviour (that's `release.channel`).
+#
+# Values:
+#   experimental -- early R&D, no API commitment, expect anything
+#   alpha        -- usable, expect breaks, no semver guarantees
+#   beta         -- feature-stable, polishing, mild breaks possible
+#   ga           -- semver guarantees apply, breaking only on major bump
+#   legacy       -- still works, successor exists, plan migration
+#   deprecated   -- active sunset, do not adopt
+#
+# Unset = "not declared" -- the log line says "(status not declared)" which
+# is itself a useful signal. New projects scaffolded by `hyperi-ci init`
+# default to `experimental`.
+project:
+  status: ""
+
+# Declared repo category -- DECLARED, never inferred from the repo name.
+# Decides visibility, licence, publish policy and branding.
+#
+# Values:
+#   internal     -- company-wide HyperI tooling; private, never published
+#   product      -- shipped product; private until a human flips it public
+#   fork         -- long-running fork; inherits upstream licence and conventions
+#   general-oss  -- HyperI-controlled, for general use; public, Apache-2.0
+#
+# `hyperi`, `oss` and the category numbers 1-4 are accepted as input
+# aliases and normalise to the canonical spellings above.
+#
+# Resolution order: this key (or HYPERCI_CLASSIFICATION, which lands on
+# it), then the `.hyperi-classification` one-token dotfile at repo root,
+# then -- only via `hyperi-ci config --org-classification` -- the GitHub
+# org custom property.
+#
+# Unset = "not declared". `hyperi-ci config` then reports
+# `classification_effective: internal`, the most restrictive category --
+# an undeclared repo is never read as public OSS.
+classification: ""
+
+# Runner selection is NOT configured here. The reusable workflows resolve it
+# from the GH_RUNNER_* org variables and their own `runner-*` inputs; ARC vs
+# free is a workflow-level decision. A `runners:` block in .hyperi-ci.yaml is
+# read by nothing.
+
+# Quality Checks
+quality:
+  # `enabled: false` switches off every gate below at once, the security gates
+  # included, so it needs a `reason` beside it, the same as one security gate
+  # turned down. Without one the stage fails:
+  #
+  #   enabled: false
+  #   reason: "security gates run in the org-level pipeline for this mirror"
+  #
+  # See docs/quality-gate.md#relaxing-a-security-gate.
+  enabled: true
+  reason: ""
+  exclude_paths: []
+
+  # Gates a repo runs as their own CI JOB, repeated in the LOCAL check so a
+  # local green predicts a CI green. hyperi-ci's check covers what hyperi-ci
+  # MANAGES; a gate the repo bolted into its own workflow is invisible to it,
+  # and touching the file that gate watches passes locally and goes red on the
+  # runner. Declared per repo because which gates exist is the repo's business.
+  #
+  #   local_gates:
+  #     - name: version SSOT
+  #       command: ["uv", "run", "python", "scripts/update-versions.py", "--check"]
+  #
+  # Runs on `hyperi-ci check` only -- CI already runs them as jobs. A malformed
+  # entry FAILS rather than being skipped: a gate that quietly does not run is
+  # the defect this exists to close.
+  local_gates: []
+
+  # Every tool below takes a bare mode (`blocking` / `warn` / `disabled`) or a
+  # mapping carrying `mode` plus options. A SECURITY tool (gitleaks, semgrep,
+  # ruff_security, pip_audit, audit, deny, osv_scanner, gosec, govulncheck) set
+  # BELOW the default shipped here needs a `reason` in that mapping, or the
+  # stage fails:
+  #
+  #   pip_audit:
+  #     mode: warn
+  #     reason: "CVE-2025-69872 has no upstream fix; mitigated by pod isolation"
+  #
+  # Matching the shipped default is not a downgrade and needs nothing.
+  # See docs/quality-gate.md#relaxing-a-security-gate.
+  gitleaks: blocking
+  semgrep: warn              # Semgrep SAST (cross-language) - runs once at dispatch, like gitleaks
+  # The ASCII-only rule, enforced at last (issue #169). `warn` first per the
+  # ratchet: this repo still carries ~900 lines of it. Promote at zero.
+  charset: warn              # Typography a keyboard cannot produce; plus ASCII-art diagrams
+  charset_exclude: []        # Globs on the repo-relative path (`src/*/data/**`) for files whose typography is DATA
+
+  # Container linting (cross-language, dispatch-level, auto-detect Dockerfiles).
+  hadolint: blocking         # Dockerfile GATE - blocks on ERROR severity only (shellcheck-on-RUN)
+  droast: warn               # Dockerfile ADVISORY - cache order / .dockerignore / npm ci; never gates
+
+  # IaC linting (`hyperi-ci lint-iac`). May be a mode string OR a dict with
+  # `mode` + tool options (see docs/quality-gate-tools.md).
+  # `iac` is the umbrella for lint-iac inside the quality stage: `warn` caps
+  # every tool below at warn, per the ratchet. Promote it to `blocking` once the
+  # repo is clean, and the per-tool modes apply. `hyperi-ci lint-iac` ignores it.
+  iac: warn
+  kubeconform: blocking      # k8s schema GATE; also gates helm/kustomize render failures
+  render_stable: blocking    # Two helm/kustomize renders must be byte-equal (test hooks excluded)
+  kube_linter: warn          # k8s best-practice ADVISORY; never gates
+  checkov: warn              # IaC security ADVISORY (k8s/helm/kustomize/terraform); never gates by default
+  tofu: blocking             # OpenTofu fmt -check, init -backend=false, validate per root
+  ansible_lint: warn         # ansible-lint (+ yamllint where the repo has a .yamllint)
+  iac_generated: blocking    # iac.generated entries: regenerate, fail on a diff
+  compose_config: blocking   # `docker compose config` resolution GATE
+  compose_pins: blocking     # image-pin GATE - an image resolving to `latest` fails
+
+  # Rust rustflags a repo declares but cannot ship (issue #178). `warn` first
+  # per the ratchet: promote once the fleet's count is zero.
+  cargo_flags: warn          # inert gitignore negation, or flags under [build]
+
+  # Documentation linting (`hyperi-ci lint-docs`, and inside the quality stage).
+  # ALL start at `warn` deliberately: a new lint introduced as blocking on an
+  # existing tree fails every PR until the backlog clears. Promote a check to
+  # `blocking` in a repo once that repo's count reaches zero - the first three
+  # are deterministic and carry no style opinion, so they are ready first.
+  # doc_paths also takes `prescriptive:`, directories whose inline-code paths
+  # name the CONSUMER's tree (a standards repo) and are not checked here.
+  doc_paths: warn            # Docs naming a file the repo no longer has
+  doc_links: warn            # lychee over internal links + anchors, offline only
+  mermaid_parse: warn        # Every fenced mermaid block, against mermaid's own grammar
+  markdownlint: warn         # Mechanical markdown syntax (markdownlint-cli2)
+  docs_touched: warn         # Source changed and no doc did. NEVER gates, in any mode
+
+  alint: auto                # Repo-hygiene advisory via external `alint` (profile-aware,
+                             # NON-BLOCKING). auto = run if installed else info-skip;
+                             # enabled = warn if missing; disabled = never run. Ships an
+                             # opinionated default config so no per-repo .alint.yml is needed.
+
+  # Directories treated as test code (relaxed rules applied)
+  # Override per project in .hyperi-ci.yaml
+  test_paths:
+    - tests/
+
+  python:
+    ruff: blocking
+    ty: warn                   # Astral's type checker (OSS, Rust-based)
+    pip_audit: blocking
+    ruff_format: blocking       # Ruff formatter -- its own key, not `ruff` above, so a
+                                # project can defer adopting it (a whole-tree reformat)
+                                # without relaxing the lint gate
+    ruff_security: warn         # Ruff S rules (flake8-bandit) over the Python source
+                                # directories, run whatever the repo's own ruff config selects.
+                                # The bandit-class check: bandit itself is not run
+    ruff_docstrings: warn       # Ruff D rules (pydocstyle) -- replaces interrogate
+    vulture: warn
+    # Rules auto-relaxed in test directories (applied via --extend-ignore)
+    test_ignore:
+      - S101   # assert (standard pytest pattern)
+      - S104   # bind all interfaces (test servers)
+      - S105   # hardcoded passwords (test fixtures)
+      - S108   # hardcoded temp file (test temp dirs)
+      - S311   # non-cryptographic random (test data)
+      - T201   # print (debug output in tests)
+      - PT003  # fixture scope
+      - PT006  # parametrize names type
+      - PT011  # raises too broad
+      - PT012  # raises multiple statements
+      - PT017  # assert in except
+      - PT018  # composite assertion
+      - N803   # invalid argument name (fixtures)
+      - PT001  # fixture parentheses style
+      - PT021  # fixture finalizer callback
+      - S106   # hardcoded password func arg
+      - RUF003 # ambiguous unicode comment
+      - RUF015 # unnecessary iterable allocation
+      - RUF043 # raises ambiguous pattern
+
+  typescript:
+    eslint: blocking
+    oxlint: blocking           # also `vp lint` and the lint half of `vp check`
+    prettier: blocking
+    oxfmt: warn                # Oxfmt is pre-1.0 (beta); also `vp fmt` and `vp check`
+    tsc: blocking
+    audit: blocking
+    audit_level: moderate
+    osv_scanner: warn          # malicious-package (MAL-*) scan; npm audit is CVE-only
+    # No `test_ignore`: eslint runs through the project's own script, so test
+    # relaxation belongs in the project's eslint config overrides.
+
+  golang:
+    gofmt: warn
+    govet: blocking
+    golangci_lint: blocking
+    gosec: blocking
+    # CVE gate, blocking to match the other languages -- see the note on
+    # `rust.audit`. Go was in the same state as Rust and nobody had looked.
+    govulncheck: blocking
+    test_ignore:
+      - errcheck
+      - gosec
+
+  rust:
+    fmt: blocking
+    clippy: blocking
+    # Public-API break detector for library crates, on the release path only
+    # (issue #186). `warn` first per the ratchet; promote at zero violations.
+    # `warn` covers a break only: a run that reaches no verdict fails in CI
+    # whatever the mode (issue #678).
+    semver_checks: warn
+    # CVE gates, blocking to match Python and TypeScript. The ratchet does not
+    # apply: it introduces a new LINT at warn against an existing backlog,
+    # whereas a known advisory is the reason to gate rather than the reason to
+    # wait. `warn` here let RUSTSEC-2026-0258 and -0285 ship green (issue #185).
+    audit: blocking
+    osv_scanner: warn          # malicious-package (MAL-*) scan; OSV feed not in RustSec
+    deny: blocking
+    features: all
+    # Feature-matrix check: clippy on each feature alone. Catches a module
+    # behind feature X using a crate only feature Y declares, and a lint that
+    # fires only on a single-feature build. Always-on. Opt-out with a reason.
+    feature_matrix:
+      enabled: true
+      reason: ""                       # required IF enabled=false; CI fails without it
+      also_check_no_default_features: true
+      exclude: []                      # features to skip entirely (e.g., ["_testing-only"])
+      mutually_exclusive: []           # pairs that must not coexist (e.g., [["native-tls", "rustls"]])
+      extra_args: []                   # pass-through to `cargo hack` (e.g., ["--workspace"])
+      warnings: warn                   # a feature set with warnings or lints: blocking / warn / disabled
+    # Test targets under each feature alone (`cargo hack --each-feature check
+    # --tests`). Finds a #[cfg(test)] module that needs a feature but has no gate.
+    # Ships `warn` per the ratchet, and goes blocking once the fleet is clean.
+    feature_matrix_tests: warn
+    # Rustdoc compliance hint -- single concise warning if doc warnings are
+    # found. Non-blocking by design (rustdoc hygiene is a ratchet, not a
+    # gate). Set enabled=false to silence entirely. References:
+    # https://doc.rust-lang.org/rustdoc/ +
+    # https://rust-lang.github.io/api-guidelines/documentation.html
+    rustdoc_hint:
+      enabled: true
+    test_ignore:
+      - clippy::unwrap_used
+      - clippy::expect_used
+      - clippy::panic
+      - clippy::indexing_slicing
+
+# Testing
+test:
+  enabled: true
+  # core: the suite the project selects by default (its pytest `addopts -m`,
+  # nextest `#[ignore]` and `default-filter`). full: everything the runner can
+  # execute. HYPERCI_TEST_TIER and `--tier` override. Unrelated to `use_tiers`
+  # below and to `rust.tier`, which pick directories and test kinds.
+  tier: core
+
+  # Native tools the tests shell out to, installed pinned (version + sha256
+  # from versions.yaml) and put on PATH before the tests run, in both tiers and
+  # every language. Opt-in: nothing is installed by default. An unknown name
+  # fails the stage. Known: helm, kustomize, tofu.
+  native_tools: []
+
+  # Globs, relative to the project root, of logs a test run writes. The test
+  # stage prints the last 400 lines of each match after the tests, pass or
+  # fail. The default is the shared-service harness's per-run log.
+  logs:
+    - "target/tmp/shared-services-*.log"
+
+  full:
+    # Whether a release must have run the full tier.
+    required_for_release: false
+    # UTC hours, both ends inclusive, in which `hyperi-ci init` places a repo's
+    # nightly full-tier cron. Each repo hashes to its own minute and hour in it.
+    schedule_window_utc: "14-18"
+    python:
+      # pytest -m expression the full tier passes in place of the project's
+      # addopts -m. Empty selects every test; "not live" keeps one marker out.
+      markers: ""
+      # Regexes (re.search) for the skip reasons a full run tolerates; any other skip fails it.
+      allow_skip: []
+    # Tests full leaves out because the CI runner cannot execute them (live
+    # cloud, manual, perf). `filter` is a nextest filterset, passed as -E, and
+    # fails the stage under cargo test, which cannot apply one. `skip` lists
+    # test-name substrings, passed as --skip to nextest and cargo test alike.
+    rust:
+      filter: ""
+      skip: []
+
+  coverage: true
+  min_coverage: 80
+  fail_on_missing: false
+  use_tiers: false
+
+  # Python only, with `use_tiers`. No `timeout`: nothing enforced one.
+  tiers:
+    unit:
+      enabled: true
+      fail_fast: true
+    integration:
+      enabled: true
+      fail_fast: true
+    e2e:
+      enabled: false
+      fail_fast: false
+
+  # No `runner`: pytest is the only one the handler runs.
+  python:
+    args:
+      - "-v"
+      - "--tb=short"
+    coverage_format: xml
+    # Unset | false | true | auto | a worker count. Unset runs `auto` when
+    # pytest-xdist is installed and serial with one warning when it is not.
+    # `auto` sizes by the CPUs and free memory (see hyperi_ci/workers.py).
+    parallel: null
+    # Memory planned per pytest worker when hyperi-ci picks the count.
+    worker_mem_mb: 1024
+
+  # No `args` and no `e2e` block: the handler runs a package script, and
+  # nothing ran Playwright or Cypress. A `test:full` script is the way in.
+  typescript:
+    runner: auto
+
+  # No `runner`: go test is the only one the handler runs.
+  golang:
+    race: true
+    args:
+      - "-v"
+
+  rust:
+    tier: all
+    features: all
+    # Test runner. `auto` takes cargo-nextest when installed and cargo test
+    # when not; `true` REQUIRES nextest and fails the stage without it;
+    # `false` pins cargo test.
+    #
+    # The two are not interchangeable. nextest runs each test in its own
+    # process, cargo test runs them as threads in one, so process-global state
+    # (a metrics recorder, a OnceLock, an env var a test sets) is fresh per
+    # test under nextest and shared under cargo test - a suite passes under one
+    # and fails under the other. Doctests run only under cargo test.
+    #
+    # The CI Test job installs the pinned nextest on every runner
+    # (setup-nextest), so `auto` varies only where nothing does, such as a
+    # local `hyperi-ci check`, and warns loudly when it degrades. Set `true`
+    # in a repo whose suite depends on process isolation.
+    nextest: auto
+    # Memory planned per nextest test thread when hyperi-ci sets
+    # NEXTEST_TEST_THREADS. A nextest config `test-threads`,
+    # NEXTEST_TEST_THREADS or HYPERCI_TEST_WORKERS beats the computed count.
+    thread_mem_mb: 2048
+
+# Build
+build:
+  enabled: true
+
+  # Skip the optimisation stage (Rust: no PGO, no BOLT, Tier 1 stays).
+  # HYPERCI_SKIP_OPTIMIZE, set by the workflows' skip-optimize input, beats it.
+  skip_optimize: false
+
+  strategies:
+    - native
+
+
+  # No `typescript.package_manager`: detect_package_manager() resolves it from
+  # the package.json `packageManager` field, the lockfile, then npm.
+
+  rust:
+    # arm64 leg on a releasable merge to main. Read from .hyperi-ci.yaml only, so no env override (#249).
+    arm64_on_main: true
+    # CARGO_BUILD_JOBS for every Rust stage (quality, test, build, PGO,
+    # release). `auto` takes the smaller of the CPU budget and the memory
+    # limit divided by `memory_per_job_gib`, because cargo sizes by CPUs alone
+    # and a 16-CPU runner with a 16Gi limit is OOM-killed. A number fixes it.
+    # CARGO_BUILD_JOBS in the environment beats both; a `[build] jobs` in a
+    # cargo config file beats `auto`.
+    jobs: auto
+    # Memory planned per concurrent rustc under `jobs: auto`. Raise it for a
+    # workspace whose big crates each take several GiB.
+    memory_per_job_gib: 2
+    # Advice in runner-fit.json on which runner profile holds the Build. It
+    # never changes a runner. `profiles` run cheapest first: x64 under 32 cores
+    # on ARC, 32 cores and arm64 on Namespace. A profile is recommended when it
+    # has a CPU for each cargo job the build ran (at least `min_jobs`) and that
+    # many jobs at the measured per-job peak fit its memory with `min_headroom`
+    # free. `per_job_drift` is the relative gap to
+    # `memory_per_job_gib` that earns a note.
+    runner_fit:
+      min_headroom: 0.2
+      min_jobs: 2
+      per_job_drift: 0.25
+      # Cheapest first, as the live runner sets size them.
+      profiles:
+        - {label: arc-native-4x8, arch: amd64, cpus: 4, memory_gib: 8}
+        - {label: arc-native-8x16, arch: amd64, cpus: 8, memory_gib: 16}
+        - {label: arc-native-16x32, arch: amd64, cpus: 16, memory_gib: 32}
+        - {label: namespace-profile-hyperi-amd64-32x64, arch: amd64, cpus: 32, memory_gib: 64}
+        - {label: namespace-profile-hyperi-arm64-4x8, arch: arm64, cpus: 4, memory_gib: 8}
+        - {label: namespace-profile-hyperi-arm64-8x16, arch: arm64, cpus: 8, memory_gib: 16}
+        - {label: namespace-profile-hyperi-arm64-16x32, arch: arm64, cpus: 16, memory_gib: 32}
+        - {label: namespace-profile-hyperi-arm64-32x64, arch: arm64, cpus: 32, memory_gib: 64}
+    # LLVM major for bolt-NN / lld-NN / clang-NN, shimmed ahead of the runner's
+    # own unversioned ld.lld and clang. HYPERCI_LLVM_VERSION beats this key, and
+    # versions.yaml `runtimes.llvm` is the default, so no value is set here.
+    # llvm_version: 23
+    # Newest glibc the runtime image provides, as MAJOR.MINOR ("2.41" for
+    # debian:trixie). Packaging fails a binary needing newer GLIBC_ symbols.
+    # Unset reports the binary's need without failing.
+    # glibc_max: "2.41"
+    # Link librdkafka, OpenSSL, zstd and zlib statically from the pinned
+    # static-libs release (docs/languages/rust-static-libs.md). The app keeps
+    # rdkafka's `dynamic-linking` feature, and packaging fails a binary that
+    # still needs librdkafka, libssl, libcrypto, libsasl2 or libcurl.
+    # static_libs: false
+
+  golang:
+    targets:
+      - linux/amd64
+      - linux/arm64
+      - darwin/amd64
+      - darwin/arm64
+    cgo: false
+    # No `garble` or `container`: the Go build handler implements neither.
+
+# Releasing
+#
+# One word for the event that ships an artefact. A project's `publish:` block
+# still works: it folds into this one at load time and names its replacement.
+#
+# All artefacts go to OSS registries (PyPI / npm / crates.io / GHCR / GitHub
+# Releases / Cloudflare R2). The legacy `target` key is accepted from downstream
+# `.hyperi-ci.yaml` files but ignored at runtime.
+release:
+  enabled: true
+  # alpha | beta | release. Pre-GA channels ship a GitHub prerelease and an R2
+  # channel path, to the same registries as release. A prerelease version
+  # carries its own label, which wins over this.
+  channel: release
+
+  # A push to main with no release trailer reports the releasable commits the
+  # last v* tag lacks. It is a notice until the oldest of them is more than
+  # this many days old, then a warning. 0 warns on any unreleased work.
+  unreleased_warn_days: 7
+
+  # Destination mapping (OSS only). Was `destinations_oss`, which still works.
+  #
+  # Set any artefact to `false` in a project's .hyperi-ci.yaml to opt out
+  # of publishing it while keeping the rest -- e.g. a private Python service
+  # that ships only its GHCR container sets `python: false`.
+  destinations:
+    python: pypi               # pypi.org (OIDC Trusted Publishing)
+    npm: npmjs                 # npmjs.com @hyperi/* (OIDC)
+    cargo: crates-io           # crates.io (API token)
+    container: ghcr            # ghcr.io/hyperi-io/*
+    binaries: r2-binaries      # downloads.hyperi.io (Cloudflare R2) ONLY -- set
+                               # `github-releases` to attach built binaries to
+                               # the Release instead (`release.assets` always do)
+    go: go-proxy               # proxy.golang.org (automatic)
+
+  # No per-language `repository`/`registry` keys and no `s3:` block: the
+  # destinations map above is what routes a publish, and the R2 bucket is a
+  # constant in release/binaries.py. Those keys routed nothing.
+
+  # Extra files to ship with the release. They are attached to the GitHub
+  # Release directly, so they arrive whatever `destinations.binaries` is, and
+  # are also copied into dist/ so the binary destinations carry them. A listed
+  # file that is missing fails the release rather than shipping a broken pin.
+  assets: []
+
+  # For committed files that carry the version where hyperi-ci cannot see it,
+  # such as a generated OpenAPI spec. `stamp-version` runs `stamp_cmd` from the
+  # repo root after it writes VERSION and the manifest -- in the Build job and
+  # in Prepare release. The Container job stamps with `--no-stamp-cmd`, because
+  # it holds registry logins, so the image carries the committed copies of
+  # these files. Tag & Release runs no repo code. A string is split like a shell
+  # would split it but never run through one; a list is the argv. A failure
+  # fails the stamp. `release-commit` then puts `stamp_paths` back on the
+  # branch next to VERSION and CHANGELOG.md.
+  stamp_cmd: ""
+  stamp_paths: []
+
+  # Committed Helm charts, packaged at the release version and pushed to
+  # `<registry>/<chart name>` by `hyperi-ci publish-charts`. `charts` lists
+  # chart directories or globs from the repo root. A glob skips library charts,
+  # and a library chart named by its exact directory is published.
+  # `contract` is `emit` (run `<app> generate-artefacts`) or the path of a
+  # committed contract; `hyperi-ci chart assemble` turns it into a chart on
+  # the scalo-service library at version `library`. On a release,
+  # `publish-charts` assembles and pushes it too, pinned to the image the
+  # Container job pushed. `emit` runs in the Build job, never Tag & Release.
+  helm:
+    enabled: false
+    charts: []
+    registry: oci://ghcr.io/hyperi-io/charts
+    contract: null
+    library: null
+
+  # Container build & publish.
+  #
+  # The image is always built from the repo's own Dockerfile.
+  #
+  # `enabled` is three-state:
+  #   auto  (default) - build when the Dockerfile exists; skip otherwise.
+  #   true            - build is required; fail loudly if there is no
+  #                      Dockerfile.
+  #   false           - explicit skip.
+  #
+  # Every container is published to GHCR (ghcr.io/<org>). There is
+  # intentionally no `registry:` field.
+  #
+  # Docker Hub is NOT a publish target. The Container job logs in to it
+  # only to authenticate the Dockerfile's base-image pulls.
+  container:
+    enabled: auto
+    # Both must resolve inside the checkout, symlinks followed, or the stage
+    # fails: the job holds the registry logins in ~/.docker/config.json.
+    dockerfile: Dockerfile
+    context: .
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    # `--build-arg NAME=value` pairs. A value may carry `{version}` (the
+    # release version, as on the image's version label) and `{sha}` (the
+    # commit on its revision label): `CODE_VERSION: "{version}"`. Any other
+    # `{...}` fails the build. Write a literal brace as `{{` or `}}`.
+    build_args: {}
+    # An apt mirror caught mid-sync fails the build with "Mirror sync in
+    # progress", "Hash Sum mismatch" or "File has unexpected size", and apt
+    # never retries those itself. A build whose output carries one is run again,
+    # `build_attempts` builds in all, `build_retry_delay_seconds` apart. Any
+    # other failure fails at once. 1 turns the retry off.
+    build_attempts: 3
+    build_retry_delay_seconds: 60
+
+# One-line project description, duplicated by every registry that wants one:
+# PyPI, crates.io, npm, the OCI image label, GHCR's package page, the GitHub
+# repo blurb.
+#
+# Leave empty. The manifest is the source -- pyproject [project], Cargo.toml
+# [package] (or [workspace.package] for a workspace), package.json -- because
+# cargo publish refuses without it and PyPI and npm render theirs from it, so
+# those files must be correct anyway. Set this only where no manifest field
+# exists (Go) or the registries should differ from the manifest.
+description: ""
+
+# Release notifications
+#
+# A shipped release comments on the issues and PRs it carries; a failed one
+# opens a tracker issue. Both are GitHub-native and always on.
+#
+# Slack is opt-in and off: name the environment variable holding the webhook
+# URL, never the URL itself (config is committed, a webhook is a secret).
+notify:
+  slack:
+    webhook_env: ""
+
+# Issue labelling (`hyperi-ci labels`). The org label set is read at run time
+# from `labels.path` on the default branch of the org's `.github` repo. With no
+# such file, or an empty path, the neutral default in config/labels.yaml
+# applies. A repo adds only its areas, each an `area/<name>` label covering the
+# listed paths. Name: lower-case slug. Paths: a non-empty list.
+#   areas:
+#     auth: [src/app/auth/, src/app/orgs/]
+#     docs: [docs/]
+#
+# `horizons` sets when `hyperi-ci labels --stale` calls a horizon label stale:
+# once it has waited this many releases of its own scope since it was applied.
+# A repo horizon counts the repo's GA `v*` tags, a program horizon its
+# program's releases. release-blocker and backlog never go stale.
+# `programs` overrides `stale_after` for one program, e.g.
+#   programs:
+#     dfe: {next-patch: 3}
+issues:
+  labels:
+    path: labels/labels.yaml
+  areas: {}
+  horizons:
+    stale_after:
+      next-patch: 2
+      next-minor: 2
+      next-major: 1
+    programs: {}
+
+# IaC linting (`hyperi-ci lint-iac`). Every dimension detects its own targets;
+# these only tune it. Modes live under `quality:` (kubeconform, tofu, ...).
+iac:
+  timeout_seconds: 600       # Per external tool call; a run past it fails a blocking gate
+  memory_limit_mb: 4096      # RLIMIT_AS for the Python tools (checkov, ansible-lint, yamllint)
+  helm:
+    values: []               # Value files (repo-relative) added to every chart render
+    set: {}                  # `key: value` pairs passed as --set to every chart render
+  # Regenerate-and-diff: run `command` from the repo root, fail if `paths` change.
+  #   generated:
+  #     - paths: [docs/schema.json]
+  #       command: "uv run scripts/gen-schema.py"
+  generated: []
+
+# Files mirrored one way from another repo at a pinned ref, by
+# `hyperi-ci vendor sync`; the quality stage fails on a hand edit. Each entry:
+#   - source: owner/repo
+#     ref: v2.14.1
+#     files: {<path in source>: <path here>}
+vendor: []
+
+# No `workspace:` block: Rust workspaces are detected by parsing Cargo.toml
+# (`[workspace]` / `[workspace.package]`), never declared in config. Nothing
+# read `workspace.enabled` or `workspace.members`.
+
+# No `standards:` block: commit-message validation is unconditional
+# (quality/commit_validation.py + the commit-msg hook), and branch naming is
+# not enforced at all. Those toggles switched nothing.
+
+# No `integrations:` block: the Linear integration was never built.

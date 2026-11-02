@@ -1,0 +1,4192 @@
+"""Closed name and placement authority for Exomem's internal state families.
+
+Logical classification is deliberately pure and existence-independent.  Physical
+classification is a second, conservative acquisition-time check; it is not a
+substitute for the held-handle operation that consumes the target.
+"""
+
+from __future__ import annotations
+
+import errno
+import functools
+import hashlib
+import io
+import logging
+import os
+import re
+import threading
+import time
+import unicodedata
+from collections import ChainMap
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from dataclasses import replace as dataclass_replace
+from enum import StrEnum
+from pathlib import Path
+from types import MappingProxyType
+from typing import IO
+
+from . import call_spans, held_fs, request_budget
+from .cli_ops import OpError
+from .kbdir import kb_dirname
+
+log = logging.getLogger(__name__)
+
+REGISTRY_VERSION = 1
+# Closed portable security artifact; its contents carry no connector authority.
+CONNECTOR_BOUNDARY_DESCRIPTOR_ID = "connector-boundary"
+CONNECTOR_BOUNDARY_REQUIREMENT_NAME = ".connector-boundary.json"
+
+_SQLITE_SUFFIXES = ("", "-wal", "-shm", "-journal")
+#: A recall sidecar named for the vector space it holds (`index_paths.space_sidecar_name`).
+_EMBEDDINGS_SPACE_RE = re.compile(
+    r"^\.embeddings\.[0-9a-f]{16}\.sqlite(?:-(?:wal|shm|journal))?$", re.ASCII
+)
+_REVIEW_TEMP_RE = re.compile(r"^\.\.review-state\.json\.[a-z0-9_]{8}\.tmp$", re.ASCII)
+_DUE_TEMP_RE = re.compile(
+    r"^\.\.due-state(?:-emission)?\.json\.[a-z0-9_]{8}\.tmp$", re.ASCII
+)
+_LEXICAL_REBUILD_RE = re.compile(
+    r"^\.lexical\.sqlite\.rebuild-[0-9a-f]{32}\.tmp(?:-(?:wal|shm|journal))?$",
+    re.ASCII,
+)
+_LEXICAL_QUARANTINE_RE = re.compile(
+    r"^\.lexical\.sqlite(?:-(?:wal|shm))?\.quarantine-[0-9a-f]{32}$",
+    re.ASCII,
+)
+_GRAPH_REBUILD_RE = re.compile(
+    r"^\.graph-rebuild-[0-9a-f]{64}-[0-9a-f]{24}\.sqlite"
+    r"(?:-(?:wal|shm|journal))?$",
+    re.ASCII,
+)
+_GRAPH_RESET_RE = re.compile(r"^\.graph-reset-[0-9a-f]{24}$", re.ASCII)
+_BATCH_WORKSPACE_RE = re.compile(r"^\.exomem-batch-[0-9a-f]{32}$", re.ASCII)
+_HELD_PUBLICATION_RE = re.compile(
+    rf"^{re.escape(held_fs.PUBLISH_TEMP_PREFIX)}[0-9a-f]{{32}}$",
+    re.ASCII,
+)
+_COLLECTION_PUBLICATION_RE = re.compile(
+    r"^\.exomem-collection-(?:stage-[0-9a-f]{32}|aside-[0-9a-f]{32}-[01])$",
+    re.ASCII,
+)
+_COLLECTION_SNAPSHOT_RE = re.compile(
+    r"^\.exomem-collection-snapshot-[0-9a-f]{32}\.sqlite(?:-(?:wal|shm|journal))?$",
+    re.ASCII,
+)
+_COLLECTION_AUDIT_SPOOL_RE = re.compile(
+    r"^\.exomem-collection-audit-[0-9a-f]{32}\.sqlite(?:-(?:wal|shm|journal))?$",
+    re.ASCII,
+)
+_COLLECTION_MIGRATION_RE = re.compile(r"^\.exomem-collection-migration-[0-9a-f]{32}$", re.ASCII)
+#: The names a reverse export gives the live store and its derived rows when it retires them,
+#: casefolded as classification sees every name.
+_COLLECTION_EXPORTED_RE = re.compile(
+    r"^collections(?:-derived)?\.sqlite\.exported-[0-9]{8}t[0-9]{6}z$", re.ASCII
+)
+_DRIVE_RE = re.compile(r"^[a-zA-Z]:")
+
+
+class PathDisposition(StrEnum):
+    """The only public logical outcomes."""
+
+    ORDINARY = "ordinary"
+    RESERVED = "reserved"
+    INVALID = "invalid"
+
+
+class StatePlacement(StrEnum):
+    """The one explicit placement class for every reserved state family."""
+
+    VAULT_CANONICAL = "vault-canonical"
+    EXTERNAL_STATE = "external-state"
+    #: Canonical data under the external state root (the live collection
+    #: store): placed like external state, but never rebuilt, reset, wiped or
+    #: moved by the machine-local state migration.
+    EXTERNAL_CANONICAL = "external-canonical"
+    TARGET_ADJACENT = "target-adjacent"
+
+
+@dataclass(frozen=True, slots=True)
+class PathClassification:
+    disposition: PathDisposition
+    descriptor_id: str | None = None
+    canonical: str | None = None
+    reason: str = ""
+
+    @property
+    def blocked(self) -> bool:
+        return self.disposition is not PathDisposition.ORDINARY
+
+
+@dataclass(frozen=True, slots=True)
+class InternalStateDescriptor:
+    """One non-overlapping private-state family and its sole owner.
+
+    ``placement`` is mandatory rather than inferred from a default boolean.
+    External families live under ``state_paths.vault_state_dir``; target-
+    adjacent scratch follows the operation target for same-volume atomicity;
+    vault-canonical trees remain user-governed vault structure.  The names
+    stay registered here either way, so in-vault leftovers keep classifying
+    RESERVED and nothing ever treats them as content.
+    """
+
+    id: str
+    owner: str
+    placement: StatePlacement
+    owning_command: str | None = None
+    authority_enabled: bool = True
+    #: Whether the family once lived inside the vault. Only such a family has legacy state for the
+    #: one-time migration to move, so only its id joins the migration manifest's descriptor set. A
+    #: family born external adds no migration: an upgrade stays seamless and an older reader accepts it.
+    migrates_from_vault: bool = True
+    exact: tuple[str, ...] = ()
+    trees: tuple[str, ...] = ()
+    patterns: tuple[re.Pattern[str], ...] = ()
+    tree_patterns: tuple[re.Pattern[str], ...] = ()
+    leaf_patterns: tuple[re.Pattern[str], ...] = ()
+    component_tree_patterns: tuple[re.Pattern[str], ...] = ()
+
+    def matches(self, parts: tuple[str, ...]) -> bool:
+        if not parts:
+            return False
+        leaf_path = "/".join(parts)
+        if leaf_path in self.exact:
+            return True
+        if any(leaf_path == tree or leaf_path.startswith(f"{tree}/") for tree in self.trees):
+            return True
+        if len(parts) == 1 and any(pattern.fullmatch(parts[0]) for pattern in self.patterns):
+            return True
+        if any(pattern.fullmatch(parts[0]) for pattern in self.tree_patterns):
+            return True
+        if any(pattern.fullmatch(parts[-1]) for pattern in self.leaf_patterns):
+            return True
+        return any(
+            pattern.fullmatch(part)
+            for part in parts
+            for pattern in self.component_tree_patterns
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PathRole:
+    """How one public command argument can name filesystem-backed state."""
+
+    argument: str
+    role: str
+    value_kind: str = "path"
+    #: For a list whose items may also be objects, the object field that holds
+    #: the path. Every other field of such an object is the caller's free text.
+    object_path_field: str | None = None
+    #: False keeps the role out of `reserved_preflight`. Such a role is declared
+    #: so that errors echo the caller's reference; reserved preflight on its
+    #: write door belongs to the write-admission work.
+    preflight: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class ReservedPathHit:
+    """One content-free preflight match; caller input is intentionally absent."""
+
+    role: PathRole
+    classification: PathClassification
+
+
+@dataclass(frozen=True, slots=True)
+class GenericFileSnapshot:
+    """Bytes and metadata read from the exact retained generic leaf."""
+
+    data: bytes
+    identity: held_fs.StableIdentity
+    mtime: float
+
+
+@dataclass(frozen=True, slots=True)
+class GenericBinarySource:
+    """A binary stream whose root, parent and file remain held by its context."""
+
+    stream: IO[bytes]
+    version: held_fs.FileVersion
+    _check: Callable[[], None]
+
+    def require_current(self) -> None:
+        self._check()
+
+
+@dataclass(frozen=True, slots=True)
+class GenericFileCopy:
+    """A private disk copy bound to the retained canonical source and its bytes."""
+
+    private_path: Path
+    vault_root: Path
+    relative_path: str
+    identity: held_fs.StableIdentity
+    source_stat: os.stat_result
+    sha256: str
+    size: int
+    private_identity: held_fs.StableIdentity
+    source_version: held_fs.FileVersion
+    deadline: float | None = None
+    max_bytes: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GenericTreeFile:
+    """One file read from a retained, recursively enumerated ordinary tree."""
+
+    relative_path: str
+    snapshot: GenericFileSnapshot
+
+
+@dataclass(frozen=True, slots=True)
+class GenericTreeEntry:
+    """One structurally releasable entry from a retained directory walk."""
+
+    relative_path: str
+    identity: held_fs.StableIdentity
+    size_bytes: int | None
+    mtime: float | None
+    markdown: bytes | None = None
+
+
+@dataclass(slots=True)
+class ReservedPathLeafError(Exception):
+    """Content-free failure from the descriptor-bound generic leaf boundary."""
+
+    code: str
+
+    def __str__(self) -> str:
+        return self.code
+
+
+class SqliteIdentityBusyError(RuntimeError):
+    """A live SQLite family changed while its retained identities were sampled."""
+
+
+_OWNER_AUTHORITY_SEAL = object()
+
+
+class _OwnerAuthority:
+    """Opaque dispatcher-issued authority; deliberately has no wire form."""
+
+    __slots__ = ("_seal", "_descriptor_ids")
+
+    def __init__(self, seal: object, descriptor_ids: frozenset[str]) -> None:
+        if seal is not _OWNER_AUTHORITY_SEAL:
+            raise TypeError("owner authority is dispatcher-issued")
+        self._seal = seal
+        self._descriptor_ids = descriptor_ids
+
+    def __reduce__(self):
+        raise TypeError("owner authority cannot be serialized")
+
+    def __reduce_ex__(self, _protocol: int):
+        raise TypeError("owner authority cannot be serialized")
+
+    def __repr__(self) -> str:
+        return "<reserved owner authority>"
+
+
+_ACTIVE_OWNER_AUTHORITY: ContextVar[_OwnerAuthority | None] = ContextVar(
+    "exomem_reserved_owner_authority", default=None
+)
+_ACTIVE_IDENTITY_COORDINATION: ContextVar[
+    tuple[tuple[str, frozenset[str]], ...]
+] = ContextVar(
+    "exomem_reserved_identity_coordination", default=()
+)
+
+
+def _active_owner_authority() -> _OwnerAuthority | None:
+    """Return the current opaque authority for internal enforcement/tests."""
+
+    return _ACTIVE_OWNER_AUTHORITY.get()
+
+
+def _vault_identity_key(vault_root: Path) -> str:
+    """Canonical process key shared by short/long spellings of one vault.
+
+    Asked several times per request and answering the same thing every time, so
+    the resolution goes through the request-scoped memo; outside a request scope
+    it is the same full resolution it always was.
+    """
+
+    from . import state_paths
+
+    return os.path.normcase(str(state_paths.resolved_vault_path(vault_root)))
+
+
+def _identity_coordination_domains(
+    descriptor_ids: Iterable[str] | None,
+) -> tuple[frozenset[str], bool]:
+    """Return the exact private-owner domains and whether all must be excluded."""
+
+    authority = _ACTIVE_OWNER_AUTHORITY.get()
+    if descriptor_ids is not None:
+        domains = frozenset(descriptor_ids)
+        if (
+            not domains
+            or authority is None
+            or authority._seal is not _OWNER_AUTHORITY_SEAL
+            or not domains <= authority._descriptor_ids
+        ):
+            raise RuntimeError("private identity domain lacks exact owner authority")
+        return domains, False
+    if authority is not None and authority._seal is _OWNER_AUTHORITY_SEAL:
+        return authority._descriptor_ids, False
+    return frozenset(descriptor.id for descriptor in _REGISTRY), True
+
+
+def _identity_coordination_active(
+    vault_root: Path,
+    descriptor_id: str | None = None,
+) -> bool:
+    """Whether this task holds the required cooperative identity domain."""
+
+    key = _vault_identity_key(vault_root)
+    return any(
+        active_key == key
+        and (descriptor_id is None or descriptor_id in active_domains)
+        for active_key, active_domains in _ACTIVE_IDENTITY_COORDINATION.get()
+    )
+
+
+@contextmanager
+def _identity_coordination_scope(
+    vault_root: Path,
+    *,
+    descriptor_ids: Iterable[str] | None = None,
+    identity_may_change: bool = True,
+    deadline: float | None = None,
+) -> Iterator[str | None]:
+    """Serialize private identity publication with generic held-leaf acquisition."""
+
+    key = _vault_identity_key(vault_root)
+    domains, exclusive = _identity_coordination_domains(descriptor_ids)
+    if not domains:
+        raise RuntimeError("private identity coordination has no registered domain")
+    active = _ACTIVE_IDENTITY_COORDINATION.get()
+    held_domains = frozenset(
+        domain
+        for active_key, active_set in active
+        if active_key == key
+        for domain in active_set
+    )
+    if domains <= held_domains:
+        yield None
+        return
+    if held_domains:
+        raise RuntimeError("private identity coordination cannot widen while held")
+
+    from .writer_lease import active_manager
+
+    with active_manager().reserved_identity_guard(
+        vault_root,
+        domains=domains,
+        exclusive=exclusive,
+        advance_generation=identity_may_change,
+        operation="reserved_identity",
+        holder_kind="reserved-state",
+        deadline=deadline,
+    ) as generation:
+        token = _ACTIVE_IDENTITY_COORDINATION.set((*active, (key, domains)))
+        try:
+            yield generation
+        finally:
+            _ACTIVE_IDENTITY_COORDINATION.reset(token)
+
+
+def owner_authorized(descriptor_id: str) -> bool:
+    """Whether the current dispatcher scope owns exactly this descriptor."""
+
+    authority = _ACTIVE_OWNER_AUTHORITY.get()
+    return bool(
+        authority is not None
+        and authority._seal is _OWNER_AUTHORITY_SEAL
+        and descriptor_id in authority._descriptor_ids
+    )
+
+
+def _sqlite_family(name: str) -> tuple[str, ...]:
+    return tuple(f"{name}{suffix}" for suffix in _SQLITE_SUFFIXES)
+
+
+_REGISTRY = (
+    InternalStateDescriptor(
+        "source-corrections", "source_corrections", StatePlacement.VAULT_CANONICAL,
+        trees=("_sources/corrections",),
+    ),
+    InternalStateDescriptor(
+        "compiled-history", "compiled_history", StatePlacement.VAULT_CANONICAL,
+        trees=("_compiled",),
+    ),
+    InternalStateDescriptor(
+        CONNECTOR_BOUNDARY_DESCRIPTOR_ID,
+        "governance.connector_boundary",
+        StatePlacement.VAULT_CANONICAL,
+        exact=(CONNECTOR_BOUNDARY_REQUIREMENT_NAME,),
+    ),
+    InternalStateDescriptor(
+        "governance-tree",
+        "governance.tool",
+        StatePlacement.VAULT_CANONICAL,
+        "govern_memory",
+        trees=("_governance",),
+    ),
+    InternalStateDescriptor(
+        "consolidation-tree",
+        "consolidation.future",
+        StatePlacement.VAULT_CANONICAL,
+        authority_enabled=False,
+        trees=("_consolidation",),
+    ),
+    InternalStateDescriptor(
+        "governance-store",
+        "governance.store",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".governance.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "embeddings-store",
+        "embedding_index",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(*_sqlite_family(".embeddings.sqlite"), ".embeddings.active"),
+        patterns=(_EMBEDDINGS_SPACE_RE,),
+    ),
+    InternalStateDescriptor(
+        "clip-store",
+        "clip_index",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".clip.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "lexical-store",
+        "lexstore",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".lexical.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "graph-store",
+        "epistemic_graph",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".graph.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "claims-store",
+        "claims",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".claims.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "references-store",
+        "references.legacy",
+        StatePlacement.EXTERNAL_STATE,
+        authority_enabled=False,
+        exact=_sqlite_family(".references.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "refs-store",
+        "memory_refs",
+        StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".refs.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "freshness-store",
+        "freshness.legacy",
+        StatePlacement.EXTERNAL_STATE,
+        authority_enabled=False,
+        exact=_sqlite_family(".freshness.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "deferred-index-store",
+        "deferred_index",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(
+            *_sqlite_family(".deferred-index.sqlite"),
+            *_sqlite_family(".deferred_index.sqlite"),
+            ".deferred-index.json",
+        ),
+    ),
+    InternalStateDescriptor(
+        "media-jobs-store",
+        "media_jobs",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(
+            *_sqlite_family(".media-jobs.sqlite"),
+            *_sqlite_family(".media_jobs.sqlite"),
+            ".media-jobs.json",
+            ".media-worker.lock",
+        ),
+    ),
+    InternalStateDescriptor(
+        "maintenance-jobs-store",
+        "maintenance_jobs",
+        StatePlacement.EXTERNAL_STATE,
+        migrates_from_vault=False,
+        exact=_sqlite_family(".maintenance-jobs.sqlite"),
+    ),
+    InternalStateDescriptor(
+        "idempotency-store",
+        "idempotency",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(
+            *_sqlite_family(".idempotency.sqlite"),
+            ".idempotency.json",
+            ".idempotency.jsonl",
+        ),
+    ),
+    InternalStateDescriptor(
+        "voice-profile-store",
+        "voice_profiles",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(".voice_profiles.json",),
+    ),
+    InternalStateDescriptor(
+        "graph-handoff",
+        "graph_sync",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(
+            ".graph-sync.json",
+            ".graph-sync-floor.json",
+            # The durable recovery clock, reserved for the same reason as its
+            # siblings: graph_sync-owned state whose corruption silences an
+            # alarm, so it is published atomically through the owner path
+            # rather than written in place.
+            ".graph-sync-recovery.json",
+        ),
+    ),
+    InternalStateDescriptor(
+        "graph-receipts",
+        "graph_sync",
+        StatePlacement.EXTERNAL_STATE,
+        trees=(".graph-commit-receipts",),
+    ),
+    InternalStateDescriptor(
+        "review-state",
+        "review_state",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(".review-state.json",),
+        patterns=(_REVIEW_TEMP_RE,),
+    ),
+    InternalStateDescriptor(
+        "due-state",
+        "due_state",
+        StatePlacement.EXTERNAL_STATE,
+        exact=(".due-state.json", ".due-state-emission.json"),
+        patterns=(_DUE_TEMP_RE,),
+    ),
+    InternalStateDescriptor(
+        "lexical-rebuild",
+        "lexstore",
+        StatePlacement.EXTERNAL_STATE,
+        patterns=(_LEXICAL_REBUILD_RE,),
+    ),
+    InternalStateDescriptor(
+        "lexical-quarantine",
+        "lexstore",
+        StatePlacement.EXTERNAL_STATE,
+        patterns=(_LEXICAL_QUARANTINE_RE,),
+    ),
+    InternalStateDescriptor(
+        "graph-rebuild",
+        "epistemic_graph",
+        StatePlacement.EXTERNAL_STATE,
+        patterns=(_GRAPH_REBUILD_RE,),
+    ),
+    InternalStateDescriptor(
+        "graph-reset",
+        "graph_sync",
+        StatePlacement.EXTERNAL_STATE,
+        tree_patterns=(_GRAPH_RESET_RE,),
+    ),
+    InternalStateDescriptor(
+        "graph-coordination",
+        "graph_sync",
+        StatePlacement.EXTERNAL_STATE,
+        trees=(".graph-coordination",),
+    ),
+    InternalStateDescriptor(
+        "authorization-projections",
+        "governance.projections",
+        StatePlacement.EXTERNAL_STATE,
+        trees=(".authorization-projections",),
+    ),
+    InternalStateDescriptor(
+        "collection-store",
+        "collection_store",
+        StatePlacement.EXTERNAL_CANONICAL,
+        # The live structured-collection store. Canonical, so it is not in
+        # the machine-local migration set; its in-vault replica and mode
+        # marker are vault-canonical and are reserved by their own phase.
+        # Derived collections' rows sit beside it and rebuild from its import log.
+        exact=(*_sqlite_family("collections.sqlite"), *_sqlite_family("collections-derived.sqlite")),
+        # A reverse export keeps the retired store as evidence that no host adopts.
+        patterns=(_COLLECTION_EXPORTED_RE,),
+    ),
+    InternalStateDescriptor(
+        "collection-replica",
+        "collection_store.replica",
+        StatePlacement.VAULT_CANONICAL,
+        trees=("_collections",),
+    ),
+    InternalStateDescriptor(
+        "batch-workspace",
+        "vault.batch",
+        StatePlacement.TARGET_ADJACENT,
+        # Machine-local by nature, but its members stage the note they
+        # install and follow that note (atomic same-volume rename), so the
+        # placement suite exempts it from the constructor walk.
+        component_tree_patterns=(_BATCH_WORKSPACE_RE,),
+    ),
+    InternalStateDescriptor(
+        "held-publication",
+        "held_fs",
+        StatePlacement.TARGET_ADJACENT,
+        # Machine-local by nature; a publish temp is a leaf under the retained
+        # parent of whatever is being published, so it follows state to the
+        # external root automatically and follows content into the vault.
+        leaf_patterns=(_HELD_PUBLICATION_RE,),
+    ),
+    InternalStateDescriptor(
+        "collection-publication",
+        "collection_store.views",
+        StatePlacement.TARGET_ADJACENT,
+        leaf_patterns=(_COLLECTION_PUBLICATION_RE,),
+    ),
+    InternalStateDescriptor(
+        "collection-snapshot",
+        "collection_store.replica",
+        StatePlacement.TARGET_ADJACENT,
+        leaf_patterns=(_COLLECTION_SNAPSHOT_RE,),
+    ),
+    InternalStateDescriptor(
+        "collection-audit-spool",
+        "collection_store.legacy",
+        StatePlacement.TARGET_ADJACENT,
+        leaf_patterns=(_COLLECTION_AUDIT_SPOOL_RE,),
+    ),
+    InternalStateDescriptor(
+        "collection-migration",
+        "collection_store.migration",
+        StatePlacement.TARGET_ADJACENT,
+        # Bounded recovery scratch: the one retained migration staging directory beside
+        # the live store it becomes. A new prepare replaces it; a finished cutover removes it.
+        component_tree_patterns=(_COLLECTION_MIGRATION_RE,),
+    ),
+)
+
+_DESCRIPTOR_BY_ID = MappingProxyType({descriptor.id: descriptor for descriptor in _REGISTRY})
+
+
+def _roles(*values: tuple[str, str, str]) -> tuple[PathRole, ...]:
+    return tuple(PathRole(*value) for value in values)
+
+
+def _reference_roles(*values: tuple[str, str, str]) -> tuple[PathRole, ...]:
+    """Roles declared for error echo only, outside reserved preflight (see `PathRole.preflight`)."""
+    return tuple(PathRole(*value, preflight=False) for value in values)
+
+
+_COMMAND_PATH_ROLES = MappingProxyType(
+    {
+        "fetch": _roles(("id", "source", "path-or-ref")),
+        "find": _roles(("relation_of", "selector", "path-or-ref")),
+        "suggest_links": _roles(("path", "source", "path-or-ref")),
+        "graph_context": _roles(
+            ("path", "source", "path-or-ref"),
+            ("unit_ref", "source", "ref"),
+        ),
+        "suggest_relations": _roles(("path", "source", "path-or-ref")),
+        "overview": _roles(("path", "source", "path")),
+        "adopt": _roles(
+            ("path", "external-source", "external-path"),
+            ("manifest_path", "external-selector", "external-path"),
+            ("selected_paths", "external-selector", "external-path-list"),
+        ),
+        "provenance_report": _roles(("path", "source", "path-or-ref")),
+        "propose_compilation": _roles(("sources", "source", "path-or-ref-list")),
+        "get": _roles(("path", "source", "path-or-ref")),
+        "edit": _roles(("path", "source-destination", "path")),
+        "observe_memory": _roles(
+            ("path", "source-destination", "path"),
+            ("unit_ref", "source", "ref"),
+        ),
+        "replace": _roles(
+            ("old_path", "source", "path"),
+            ("sources", "source", "path-or-ref-list"),
+        ),
+        "note": _roles(("sources", "source", "path-or-ref-list")),
+        "link": _reference_roles(("ref", "source", "path-or-ref")),
+        "query_data": _roles(("path", "dataset", "path")),
+        "create_file": _roles(("path", "destination", "path")),
+        "list_directory": _roles(("path", "recursive-source", "path")),
+        "move_file": _roles(
+            ("old_path", "source", "path"),
+            ("new_path", "destination", "path"),
+        ),
+        "delete": _roles(("path", "recursive-source", "path")),
+        "append_to_file": _roles(("path", "source-destination", "path")),
+        "recover_from_trash": _roles(
+            ("trash_path", "recovery-source", "path"),
+            ("restore_path", "recovery-destination", "path"),
+        ),
+        "list_inbound_links": _roles(("target", "source", "path-or-ref")),
+        "record_memory": _roles(
+            ("collection", "selector", "path-or-ref"),
+            ("manifest_path", "destination", "path"),
+        ),
+        "plan_memory": _roles(
+            ("collection", "selector", "path-or-ref"),
+            ("manifest_path", "destination", "path"),
+        ),
+        "get_video_frames": _roles(("path", "media-source", "path")),
+        "ask_memory": _roles(("relation_of", "selector", "path-or-ref")),
+        "read_memory": _roles(
+            ("path", "source", "path-or-ref"),
+            ("unit_ref", "source", "ref"),
+        ),
+        "browse_memory": _roles(("path", "recursive-source", "path")),
+        "remember": _roles(("sources", "source", "path-or-ref-list")),
+        "edit_memory": _roles(("path", "source-destination", "path")),
+        "replace_memory": _roles(
+            ("old_path", "source", "path"),
+            ("sources", "source", "path-or-ref-list"),
+        ),
+        "compile_source": _roles(("sources", "source", "path-or-ref-list")),
+        "preserve_artifacts": _roles(("files", "external-source", "external-artifacts")),
+        "process_media": _roles(
+            ("path", "media-source", "path"),
+            ("paths", "media-source", "path-list"),
+        ),
+        "review_memory": _roles(
+            ("path", "source", "path-or-ref"),
+            ("ref", "source", "ref"),
+            ("sources", "source", "path-or-ref-list"),
+        ),
+        "review_item_context": _roles(("ref", "source", "ref")),
+        "triage_memory": (
+            *_roles(("ref", "source-destination", "ref")),
+            *_reference_roles(("source_path", "source", "path")),
+        ),
+        "connect_memory": _roles(
+            ("path", "source", "path-or-ref"),
+            ("target", "source", "path-or-ref"),
+            ("unit_ref", "source", "ref"),
+            ("ref", "source", "ref"),
+        ),
+        "adopt_vault": _roles(
+            ("path", "external-source", "external-path"),
+            ("manifest_path", "external-selector", "external-path"),
+            ("selected_paths", "external-selector", "external-path-list"),
+        ),
+        "adoption_studio": (
+            PathRole("path", "external-source", "external-path"),
+            # An include rule object is {path, source_kind?, domain?, ...}; see `adoption_run._rule_key`.
+            PathRole(
+                "include", "external-selector", "external-path-list", object_path_field="path"
+            ),
+            *_roles(
+                ("exclude", "external-selector", "external-path-list"),
+                ("only_paths", "external-selector", "external-path-list"),
+                ("sources", "source", "path-or-ref-list"),
+                ("ref", "source", "ref"),
+            ),
+            *_reference_roles(("paths", "external-selector", "external-path-list")),
+        ),
+        "maintain_memory": _reference_roles(
+            ("collection", "selector", "path-or-ref"),
+            ("refs", "source", "path-or-ref-list"),
+            ("paths", "source", "path-list"),
+        ),
+        "govern_memory": _roles(
+            ("selector_paths", "policy-selector", "path-list"),
+            ("path", "source", "path-or-ref"),
+            ("paths", "source", "path-or-ref-list"),
+        ),
+        "manage_memory_file": _roles(
+            ("path", "source-destination", "path"),
+            ("old_path", "source", "path"),
+            ("new_path", "destination", "path"),
+            ("trash_path", "recovery-source", "path"),
+            ("restore_path", "recovery-destination", "path"),
+        ),
+        "query_dataset": _roles(("path", "dataset", "path")),
+        "read_media": _roles(("path", "media-source", "path")),
+    }
+)
+
+
+def internal_state_registry() -> tuple[InternalStateDescriptor, ...]:
+    """Return the immutable version-1 descriptor registry."""
+
+    return _REGISTRY
+
+
+def external_state_descriptors() -> tuple[InternalStateDescriptor, ...]:
+    """The families whose canonical home is the external per-vault state root.
+
+    This classification — not a hand-copied name list — is what the one-time
+    migration moves and what the doctor leftover scan walks, so a new family
+    is placed correctly (or flagged) the moment it is registered.
+    """
+
+    return tuple(
+        descriptor
+        for descriptor in _REGISTRY
+        if descriptor.placement is StatePlacement.EXTERNAL_STATE
+    )
+
+
+def external_canonical_descriptors() -> tuple[InternalStateDescriptor, ...]:
+    """Canonical families under the external state root.
+
+    They share the state root and its resolver seam with external state, but
+    nothing that rebuilds, resets, wipes or migrates machine-local state may
+    touch them.
+    """
+
+    return tuple(
+        descriptor
+        for descriptor in _REGISTRY
+        if descriptor.placement is StatePlacement.EXTERNAL_CANONICAL
+    )
+
+
+def state_target_descriptor_id(vault_root: Path, target: Path) -> str | None:
+    """Classify one absolute private-state target against its placement anchor.
+
+    Vault-relative names and external state-root names classify through the
+    same closed registry, so a consumer deciding "is this my owner-bound
+    store?" gives the same answer wherever the placement seam put the file.
+    Returns ``None`` for a target under neither anchor or with no reserved
+    classification.
+    """
+
+    root = Path(os.path.abspath(vault_root))
+    resolved = Path(os.path.abspath(target))
+    from . import state_paths
+
+    # Check the state-dir anchor first because it is the declared external
+    # placement seam. state_paths already refuses any resolved overlap with
+    # the vault before this classification can reach owner I/O.
+    for anchor in (
+        Path(os.path.abspath(state_paths.vault_state_dir(vault_root))),
+        root,
+    ):
+        try:
+            relative = resolved.relative_to(anchor)
+        except ValueError:
+            continue
+        return classify_logical(relative.as_posix()).descriptor_id
+    return None
+
+
+def state_target_is_external(vault_root: Path, target: Path) -> bool:
+    """Whether one private target lives under the external per-vault state root.
+
+    Owner subsystems use this to skip the vault-alias identity-publication
+    ritual for stores the placement seam moved out of the vault: no
+    KB-relative spelling can reach them, so there is no alias to defend.
+    """
+
+    try:
+        return _owner_anchor(vault_root, target, operation="placement probe").external
+    except RuntimeError:
+        return False
+
+
+@dataclass(frozen=True, slots=True)
+class _OwnerRoute:
+    """One owner target's logical classification and held traversal route."""
+
+    trust_root: Path
+    held_relative: Path
+    logical_relative: Path
+    external: bool
+
+    def __post_init__(self) -> None:
+        if not self.trust_root.is_absolute():
+            raise RuntimeError("private owner route root is not absolute")
+        for relative in (self.held_relative, self.logical_relative):
+            if relative.is_absolute() or ".." in relative.parts:
+                raise RuntimeError("private owner route relative is unsafe")
+        if self.external:
+            if (
+                len(self.held_relative.parts) < 2
+                or self.held_relative.parts[1:] != self.logical_relative.parts
+            ):
+                raise RuntimeError("private external owner route is inconsistent")
+        elif self.held_relative != self.logical_relative:
+            raise RuntimeError("private vault owner route is inconsistent")
+
+    @property
+    def target(self) -> Path:
+        return self.trust_root / self.held_relative
+
+
+def _owner_anchor(
+    vault_root: Path,
+    target: Path,
+    *,
+    operation: str,
+) -> _OwnerRoute:
+    """Resolve one private target to its logical and physical owner route.
+
+    Machine-local families live under ``state_paths.vault_state_dir`` (the
+    single placement seam); every other reserved family remains vault-relative.
+    Both spellings classify through the same closed registry — external names
+    are bare (no KB prefix), which :func:`classify_logical` accepts — so the
+    name authority does not fork when the placement does.
+
+    External files are held from the shared state root through their named
+    per-vault state directory, rather than by acquiring that directory itself.
+    This keeps a root-level external leaf's parent named across a rename and
+    recreate exchange. Identity *coordination* stays keyed on the vault root
+    either way; owner-identity *publication* remains skipped for external
+    targets because no KB-relative spelling can reach them.
+    """
+
+    root = Path(os.path.abspath(vault_root))
+    resolved = Path(os.path.abspath(target))
+    from . import state_paths
+
+    # Check the state-dir anchor first because it is the declared external
+    # placement seam. state_paths has already rejected any resolved overlap
+    # with the vault before an owner can open this anchor.
+    state_dir = Path(os.path.abspath(state_paths.vault_state_dir(vault_root)))
+    try:
+        relative = resolved.relative_to(state_dir)
+    except ValueError:
+        pass
+    else:
+        external = True
+        _require_owner_placement(relative, external=external, operation=operation)
+        route = _OwnerRoute(
+            trust_root=state_dir.parent,
+            held_relative=Path(state_dir.name) / relative,
+            logical_relative=relative,
+            external=True,
+        )
+        if route.held_relative.parts[0] != state_dir.name or route.target != resolved:
+            raise RuntimeError("private external owner route does not reach its target")
+        return route
+    try:
+        relative = resolved.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError(f"private {operation} target is outside the vault") from error
+    external = False
+    _require_owner_placement(relative, external=external, operation=operation)
+    route = _OwnerRoute(
+        trust_root=root,
+        held_relative=relative,
+        logical_relative=relative,
+        external=False,
+    )
+    if route.target != resolved:
+        raise RuntimeError("private vault owner route does not reach its target")
+    return route
+
+
+def _require_owner_placement(relative: Path, *, external: bool, operation: str) -> None:
+    """Make the registry's declared placement authoritative at owner I/O."""
+
+    classification = classify_logical(relative.as_posix())
+    if classification.disposition is not PathDisposition.RESERVED:
+        return
+    descriptor_id = classification.descriptor_id
+    descriptor = _DESCRIPTOR_BY_ID.get(descriptor_id or "")
+    if descriptor is None:
+        raise RuntimeError(f"private {operation} target has no registered placement")
+    if descriptor.placement is StatePlacement.TARGET_ADJACENT:
+        return
+    expected_external = descriptor.placement in (
+        StatePlacement.EXTERNAL_STATE,
+        StatePlacement.EXTERNAL_CANONICAL,
+    )
+    if external != expected_external:
+        raise RuntimeError(
+            f"private {operation} target violates descriptor placement "
+            f"{descriptor.placement.value}"
+        )
+
+
+@contextmanager
+def _owner_authority_scope(command_name: str) -> Iterator[None]:
+    """Install the closed authority owned by one dispatcher command invocation."""
+
+    descriptor_ids = frozenset(
+        descriptor.id
+        for descriptor in _REGISTRY
+        if descriptor.authority_enabled and descriptor.owning_command == command_name
+    )
+    if not descriptor_ids:
+        yield
+        return
+    authority = _OwnerAuthority(_OWNER_AUTHORITY_SEAL, descriptor_ids)
+    token = _ACTIVE_OWNER_AUTHORITY.set(authority)
+    try:
+        yield
+    finally:
+        _ACTIVE_OWNER_AUTHORITY.reset(token)
+
+
+@contextmanager
+def _subsystem_authority_scope(owner: str) -> Iterator[None]:
+    """Install the exact closed authority for one registered private owner."""
+
+    descriptor_ids = frozenset(
+        descriptor.id
+        for descriptor in _REGISTRY
+        if descriptor.authority_enabled
+        and descriptor.owning_command is None
+        and descriptor.owner == owner
+    )
+    if not descriptor_ids:
+        yield
+        return
+    authority = _OwnerAuthority(_OWNER_AUTHORITY_SEAL, descriptor_ids)
+    token = _ACTIVE_OWNER_AUTHORITY.set(authority)
+    try:
+        yield
+    finally:
+        _ACTIVE_OWNER_AUTHORITY.reset(token)
+
+
+def path_roles_for_command(command_name: str) -> tuple[PathRole, ...]:
+    """Return the immutable path/ref roles for one canonical or product route."""
+
+    return _COMMAND_PATH_ROLES.get(command_name, ())
+
+
+def reference_values(role: PathRole, value: object) -> tuple[str, ...]:
+    """The paths and refs that one role's value carries, and nothing else.
+
+    Unlike `_role_values`, which feeds preflight only the vault-relative paths,
+    this keeps refs and external paths: each is something the caller named.
+    A list item counts when it is a string, or the `object_path_field` of an
+    object. The other fields of an object, and an artifact handle (a client
+    file record), are free text and never count.
+    """
+    if role.value_kind == "external-artifacts":
+        return ()
+    listed = role.value_kind.endswith("-list") and isinstance(value, (list, tuple))
+    found: list[str] = []
+    for item in value if listed else (value,):
+        if isinstance(item, Mapping) and role.object_path_field is not None:
+            item = item.get(role.object_path_field)
+        if isinstance(item, str):
+            found.append(item)
+    return tuple(found)
+
+
+def _role_values(role: PathRole, value: object) -> tuple[object, ...]:
+    if value is None or role.value_kind.startswith("external-"):
+        return ()
+    if role.value_kind == "ref":
+        return ()
+    if role.value_kind.endswith("-list") or role.value_kind == "path-list":
+        if not isinstance(value, (list, tuple)):
+            return ()
+        return tuple(value)
+    return (value,)
+
+
+def _reserved_after_bounded_dot_collapse(value: object) -> PathClassification | None:
+    """Route a latent reserved alias without accepting a non-canonical path.
+
+    The pure classifier continues to reject every dot segment.  Dispatcher
+    routing additionally needs to recognize ``Notes/../_Governance`` before a
+    leaf or lease is reached, while leaving ``../outside`` to the owning leaf's
+    stable outside-vault error.  Collapse only within the KB-relative boundary;
+    an attempted escape has no reserved routing result.
+    """
+
+    if not isinstance(value, (str, os.PathLike)):
+        return None
+    raw = os.fspath(value)
+    if not isinstance(raw, str) or not raw or "\x00" in raw:
+        return None
+    text = unicodedata.normalize("NFKC", raw).replace("\\", "/")
+    if text.startswith("/") or _DRIVE_RE.match(text) or ":" in text:
+        return None
+    parts = text.split("/")
+    if not parts or any(not part for part in parts):
+        return None
+    knowledge_base = unicodedata.normalize("NFKC", kb_dirname()).casefold()
+    if parts[0].casefold() == knowledge_base:
+        parts = parts[1:]
+    collapsed: list[str] = []
+    for part in parts:
+        if part == ".":
+            continue
+        if part == "..":
+            if not collapsed:
+                return None
+            collapsed.pop()
+            continue
+        collapsed.append(part)
+    if not collapsed:
+        return None
+    routed = classify_logical("/".join(collapsed))
+    return routed if routed.disposition is PathDisposition.RESERVED else None
+
+
+def reserved_preflight(command: object, kwargs: Mapping[str, object]) -> ReservedPathHit | None:
+    """Run existence-independent logical routing before dispatch or lease work.
+
+    Canonical references are classified after trusted reference resolution.  This
+    function never opens the reference index and therefore cannot turn preflight
+    into an existence oracle.
+    """
+
+    roles = getattr(command, "path_roles", ())
+    for role in roles:
+        if not isinstance(role, PathRole) or not role.preflight or role.argument not in kwargs:
+            continue
+        for value in _role_values(role, kwargs[role.argument]):
+            if isinstance(value, str) and value.casefold().startswith("exomem://"):
+                continue
+            classified = classify_logical(value)
+            if classified.disposition is PathDisposition.RESERVED:
+                return ReservedPathHit(role, classified)
+            if classified.disposition is PathDisposition.INVALID:
+                collapsed = _reserved_after_bounded_dot_collapse(value)
+                if collapsed is not None:
+                    return ReservedPathHit(role, collapsed)
+    return None
+
+
+def mutation_remediation(descriptor_id: str | None) -> str:
+    descriptor = next(
+        (descriptor for descriptor in _REGISTRY if descriptor.id == descriptor_id),
+        None,
+    )
+    if descriptor is not None and descriptor.owning_command == "govern_memory":
+        return "Use govern_memory's reviewed governance lifecycle."
+    if descriptor is not None and descriptor.owning_command == "consolidate_memory":
+        return "No public command owns consolidation state until consolidate_memory ships."
+    return "Use the owning subsystem's bounded control operation."
+
+
+def _leaf_spelling(value: object, *, physical: bool = False) -> tuple[str, str]:
+    classified = classify_logical(value)
+    if classified.disposition is PathDisposition.RESERVED:
+        raise ReservedPathLeafError("RESERVED_PATH")
+    if classified.disposition is PathDisposition.INVALID:
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    assert isinstance(value, (str, os.PathLike))
+    spelling = os.fspath(value)
+    if not physical:
+        spelling = unicodedata.normalize("NFKC", spelling)
+    relative = spelling.replace("\\", "/")
+    parent, separator, leaf = relative.rpartition("/")
+    if not separator:
+        parent, leaf = ".", relative
+    if not leaf:
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    return parent, leaf
+
+
+def _source_leaf_spelling(value: object, *, physical: bool) -> tuple[str, str]:
+    """Parse observed source names; their caller must witness literal colon entries."""
+    if not physical:
+        return _leaf_spelling(value)
+    parts = _normalized_parts(value, allow_colon=True)
+    classified = parts if isinstance(parts, PathClassification) else _classify_parts(parts)
+    if classified.disposition is PathDisposition.RESERVED:
+        raise ReservedPathLeafError("RESERVED_PATH")
+    if classified.disposition is PathDisposition.INVALID:
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    assert isinstance(value, (str, os.PathLike))
+    relative = os.fspath(value)
+    if "\\" in relative:
+        # An observed name keeps a backslash as one of its characters, which the vault's separators
+        # and Windows cannot keep; reading it as a separator would look for a file that is not there.
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    parent, separator, leaf = relative.rpartition("/")
+    return (parent, leaf) if separator else (".", relative)
+
+
+def _require_literal_source_entries(
+    filesystem: held_fs.HeldFilesystem, parent_path: str, leaf: str,
+    parent: held_fs.HeldDirectory, file: held_fs.HeldFile,
+) -> None:
+    """A colon may name a source only when an exact entry names its held identity."""
+    ancestors = () if parent_path == "." else tuple(parent_path.split("/"))
+    for index, component in enumerate((*ancestors, leaf)):
+        if ":" not in unicodedata.normalize("NFKC", component):
+            continue
+        container_path = "/".join(ancestors[:index]) or "."
+        with filesystem.parent(container_path).require() as container:
+            entries = filesystem.children(
+                container, name_filter=lambda name, expected=component: name == expected
+            ).require()
+            if len(entries) != 1:
+                raise ReservedPathLeafError("UNSAFE_PATH")
+            if index == len(ancestors):
+                identity = file.identity
+            elif index == len(ancestors) - 1:
+                identity = parent.identity
+            else:
+                with filesystem.parent("/".join(ancestors[: index + 1])).require() as ancestor:
+                    identity = ancestor.identity
+            if _identity_key(entries[0].identity) != _identity_key(identity):
+                raise ReservedPathLeafError("IDENTITY_CHANGED")
+
+
+def _physical_leaf_candidates(
+    filesystem: held_fs.HeldFilesystem,
+    parent: held_fs.HeldDirectory,
+    leaf: str,
+) -> tuple[str, ...]:
+    """Every physical file name under `parent` whose NFKC form is `leaf`.
+
+    A byte-exact filesystem (Linux ext4) stores a macOS-origin NFD name and its
+    NFKC form as different names, so the exact logical spelling and the actual
+    on-disk spelling can diverge -- and, rarer but real, two differently
+    normalized physical names can both collapse to the same logical spelling.
+    Filter names before acquiring child identities through the alias-safe
+    listing primitive. Every matching physical spelling remains eligible,
+    so a caller can require exactly one before trusting it.
+    """
+
+    children = filesystem.children(
+        parent,
+        name_filter=lambda name: unicodedata.normalize("NFKC", name) == leaf,
+    )
+    if not children.ok:
+        code = children.error.code if children.error is not None else "IO_REFUSED"
+        raise ReservedPathLeafError(code)
+    return tuple(
+        record.relative_path
+        for record in children.require()
+        if record.identity.kind == "file"
+    )
+
+
+def resolve_physical_relative(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue | None = None,
+) -> str:
+    """The vault-relative path that actually names `value`'s on-disk file.
+
+    `value` is ordinarily the NFKC spelling a caller supplied. On a byte-exact
+    filesystem that is a different name from a macOS-origin NFD file, so an
+    NFKC-only lookup reports MISSING for a page that demonstrably exists. This
+    looks in `value`'s parent directory for every physical name whose own NFKC
+    form matches `value`'s leaf -- including the leaf itself, when it happens
+    to already be the on-disk spelling -- and requires exactly one: refusing
+    (`AMBIGUOUS_PATH`) rather than guessing when two physical spellings of the
+    same logical name collide, even when one of them is the NFKC-exact name.
+
+    Returns the confirmed physical relative path. Open it downstream with
+    `physical=True` -- re-normalizing it to NFKC would undo this resolution.
+    This reads no bytes and decides no reserved/private-identity status beyond
+    the containing directory; the caller's own generic leaf operation (opened
+    against the string this returns) is what enforces that for the file
+    itself.
+    """
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        parent_path, leaf = _leaf_spelling(value)
+        acquired = held_fs.acquire(Path(vault_root))
+        if not acquired.ok:
+            raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+        with acquired.require() as filesystem:
+            parent_result = filesystem.parent(parent_path)
+            if not parent_result.ok:
+                code = (
+                    parent_result.error.code
+                    if parent_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with parent_result.require() as parent:
+                _refuse_private_identity(parent.identity, current)
+                _require_current_generic_directory(filesystem, parent)
+                matches = _physical_leaf_candidates(filesystem, parent, leaf)
+                if not matches:
+                    raise ReservedPathLeafError("MISSING")
+                if len(matches) > 1:
+                    raise ReservedPathLeafError("AMBIGUOUS_PATH")
+                physical_leaf = matches[0]
+                return (
+                    physical_leaf
+                    if parent_path in ("", ".")
+                    else f"{parent_path}/{physical_leaf}"
+                )
+
+
+def physical_spelling_refusal(vault_root: Path, value: object) -> tuple[str, str] | None:
+    """Why a write door must not act on `value` as named, or ``None``.
+
+    `("AMBIGUOUS_PATH", reason)` when more than one physical name collapses to
+    `value`'s NFKC leaf, even if one of them is the NFKC-exact name, and
+    `("NON_CANONICAL_NAME", reason)` when the one physical name is not its own
+    NFKC form. Renaming it would be a write, and a door resolves its path
+    before validation, authorization and any dry run, so the door refuses and
+    `move_file` onto the same path is the governed way to canonicalize. Any
+    other lookup outcome is ``None``: the door's own resolution reports a
+    missing or refused path exactly as before.
+    """
+
+    try:
+        physical = resolve_physical_relative(vault_root, value)
+    except ReservedPathLeafError as error:
+        if error.code == "AMBIGUOUS_PATH":
+            return (
+                "AMBIGUOUS_PATH",
+                f"{value} matches more than one on-disk spelling; refusing to guess which",
+            )
+        return None
+    if physical == unicodedata.normalize("NFKC", physical):
+        return None
+    return (
+        "NON_CANONICAL_NAME",
+        (
+            f"{value} is stored under a non-canonical Unicode spelling; "
+            "move_file it onto this same path to canonicalize its name, then retry"
+        ),
+    )
+
+
+def read_generic_bytes(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue | None = None,
+    physical: bool = False,
+) -> GenericFileSnapshot:
+    """Read one ordinary file through the retained no-follow leaf.
+
+    A generic path with multiple names is structurally ambiguous: one of those
+    names may be a private-state name, so generic acquisition refuses it even
+    when the caller supplied an ordinary-looking spelling. Named private
+    identities published by owners are refused independently of link count.
+
+    `physical=True` opens the spelling exactly as given rather than its NFKC
+    form, for a path a walk of the disk found: on a byte-exact file system a
+    macOS-origin NFD name and its NFKC form are different names, and only the
+    walked one exists. Classification is unchanged -- it still reads the NFKC,
+    case-folded form -- so a reserved name is refused under any spelling.
+    """
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        return _read_generic_bytes_held(
+            vault_root, value, identities=current, physical=physical
+        )
+
+
+def _read_generic_bytes_held(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue,
+    physical: bool = False,
+) -> GenericFileSnapshot:
+
+    parent_path, leaf = _leaf_spelling(value, physical=physical)
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    with acquired.require() as filesystem:
+        parent_result = filesystem.parent(parent_path)
+        if not parent_result.ok:
+            code = parent_result.error.code if parent_result.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        with parent_result.require() as parent:
+            _refuse_private_identity(parent.identity, identities)
+            file_result = filesystem.file(parent, leaf)
+            if not file_result.ok:
+                code = file_result.error.code if file_result.error is not None else "IO_REFUSED"
+                raise ReservedPathLeafError(code)
+            with file_result.require() as file:
+                _require_current_generic_directory(filesystem, parent)
+                descriptor_id = identities.descriptor_for(file.identity) if identities else None
+                if descriptor_id is not None or file.identity.link_count != 1:
+                    raise ReservedPathLeafError("RESERVED_PATH")
+                read_result = filesystem.read(file)
+                if not read_result.ok:
+                    code = read_result.error.code if read_result.error is not None else "IO_REFUSED"
+                    raise ReservedPathLeafError(code)
+                descriptor = getattr(file, "descriptor", None)
+                if not isinstance(descriptor, int):
+                    raise ReservedPathLeafError("IO_REFUSED")
+                try:
+                    mtime = os.fstat(descriptor).st_mtime
+                except OSError as error:
+                    raise ReservedPathLeafError("IO_REFUSED") from error
+                _require_current_generic_directory(filesystem, parent)
+                return GenericFileSnapshot(read_result.require(), file.identity, mtime)
+
+
+
+def _copy_deadline(deadline: float | None) -> None:
+    if deadline is not None and time.monotonic() >= deadline:
+        raise ReservedPathLeafError("IO_REFUSED")
+
+
+def _digest_descriptor(file, *, deadline: float | None, max_bytes: int | None) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    os.lseek(file.descriptor, 0, os.SEEK_SET)
+    while True:
+        _copy_deadline(deadline)
+        chunk = os.read(file.descriptor, 65536)
+        if not chunk:
+            return digest.hexdigest(), size
+        size += len(chunk)
+        if max_bytes is not None and size > max_bytes:
+            raise ReservedPathLeafError("IO_REFUSED")
+        digest.update(chunk)
+
+
+@contextmanager
+def _generic_copy_source(vault_root: Path, value: object, *, physical: bool = False):
+    # Private-identity inventory needs only a short acquisition scope, including Windows short-name checks.
+    with _generic_identity_catalogue_scope(vault_root, value) as identities:
+        pass
+    parent_path, leaf = _source_leaf_spelling(value, physical=physical)
+    with held_fs.acquire(Path(vault_root)).require() as filesystem:
+        with filesystem.parent(parent_path).require() as parent:
+            _refuse_private_identity(parent.identity, identities)
+            with filesystem.file(parent, leaf).require() as file:
+                _require_current_generic_directory(filesystem, parent)
+                if identities.descriptor_for(file.identity) is not None or file.identity.link_count != 1:
+                    raise ReservedPathLeafError("RESERVED_PATH")
+                if physical:
+                    _require_literal_source_entries(filesystem, parent_path, leaf, parent, file)
+                yield filesystem, parent, leaf, file
+                _require_current_generic_directory(filesystem, parent)
+                with _generic_identity_catalogue_scope(vault_root, value) as current_identities:
+                    _refuse_private_identity(parent.identity, current_identities)
+                    _refuse_private_identity(file.identity, current_identities)
+                    with filesystem.file(parent, leaf).require() as current:
+                        if current.identity != file.identity:
+                            raise ReservedPathLeafError("IO_REFUSED")
+
+
+@contextmanager
+def open_generic_binary(vault_root: Path, value: object, *, physical: bool = False):
+    """Retain one ordinary source and recheck its rooted name before releasing bytes.
+
+    Content comes only from the retained file. Reacquisition checks metadata, so
+    an exchanged ancestor cannot redirect a later read to another file.
+    """
+    try:
+        with _generic_copy_source(vault_root, value, physical=physical) as (
+            filesystem, parent, leaf, file
+        ):
+            version = file.version()
+            parent_path, _leaf = _source_leaf_spelling(value, physical=physical)
+
+            def require_current() -> None:
+                if file.version() != version:
+                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+                with _generic_identity_catalogue_scope(vault_root, value) as identities:
+                    _refuse_private_identity(file.identity, identities)
+                    with filesystem.parent(parent_path).require() as current_parent:
+                        _refuse_private_identity(current_parent.identity, identities)
+                        if _identity_key(current_parent.identity) != _identity_key(parent.identity):
+                            raise ReservedPathLeafError("IDENTITY_CHANGED")
+                        with filesystem.file(current_parent, leaf).require() as current:
+                            _refuse_private_identity(current.identity, identities)
+                            if physical:
+                                _require_literal_source_entries(
+                                    filesystem, parent_path, leaf, current_parent, current
+                                )
+                            if current.version() != version:
+                                raise ReservedPathLeafError("IDENTITY_CHANGED")
+
+            require_current()
+            with os.fdopen(os.dup(file.descriptor), "rb") as stream:
+                yield GenericBinarySource(stream, version, require_current)
+                require_current()
+    except held_fs.HeldFsError as error:
+        raise ReservedPathLeafError(error.code) from error
+    except OSError as error:
+        code = "IDENTITY_CHANGED" if error.errno == errno.ESTALE else "IO_REFUSED"
+        raise ReservedPathLeafError(code) from error
+
+
+@contextmanager
+def private_copy_directory():
+    """Own a temporary spool with the existing Windows DACL or POSIX mode owner."""
+    import tempfile
+
+    from .mutation_lock import prepare_windows_private_state_root
+
+    with tempfile.TemporaryDirectory(prefix="exomem-recovery-") as temporary:
+        private = Path(temporary) / "private"
+        if os.name == "nt":
+            prepare_windows_private_state_root(private)
+        else:
+            private.mkdir(mode=0o700)
+        yield private
+
+
+def copy_generic_file(vault_root: Path, value: object, private_path: Path, *,
+                      max_bytes: int | None = None, deadline: float | None = None) -> GenericFileCopy:
+    """Copy through retained no-follow owners; the caller owns private storage cleanup."""
+    private_path = Path(private_path)
+    try:
+        _copy_deadline(deadline)
+        with _generic_copy_source(vault_root, value) as (filesystem, parent, leaf, file):
+            before = file.version()
+            if max_bytes is not None and before.size > max_bytes:
+                raise ReservedPathLeafError("IO_REFUSED")
+            with held_fs.acquire(private_path.parent).require() as destination:
+                with destination.parent(".").require() as target:
+                    filesystem.copy(file, target, private_path.name, max_bytes=before.size if max_bytes is None else min(before.size, max_bytes), deadline=deadline).require()
+                    with destination.file(target, private_path.name).require() as copied:
+                        digest, size = _digest_descriptor(copied, deadline=deadline, max_bytes=max_bytes)
+                        private_identity = copied.identity
+            after = file.version()
+            if before != after or size != after.size:
+                raise ReservedPathLeafError("IO_REFUSED")
+            return GenericFileCopy(private_path, Path(vault_root), str(value), file.identity,
+                                   os.fstat(file.descriptor), digest, size, private_identity, after, deadline, max_bytes)
+    except (OSError, held_fs.HeldFsError) as error:
+        raise ReservedPathLeafError("IO_REFUSED") from error
+
+
+def require_current_generic_copy(copied: GenericFileCopy) -> None:
+    """Rehash retained source and private bytes before authorizing their first byte."""
+    try:
+        with _generic_copy_source(copied.vault_root, copied.relative_path) as (_, _, _, source):
+            before = source.version()
+            if before != copied.source_version:
+                raise ReservedPathLeafError("IO_REFUSED")
+            digest, size = _digest_descriptor(source, deadline=copied.deadline, max_bytes=copied.max_bytes)
+            if digest != copied.sha256 or size != copied.size or before != source.version():
+                raise ReservedPathLeafError("IO_REFUSED")
+        with held_fs.acquire(copied.private_path.parent).require() as filesystem:
+            with filesystem.parent(".").require() as parent:
+                with filesystem.file(parent, copied.private_path.name).require() as file:
+                    if file.identity != copied.private_identity or file.identity.link_count != 1:
+                        raise ReservedPathLeafError("IO_REFUSED")
+                    digest, size = _digest_descriptor(file, deadline=copied.deadline, max_bytes=copied.max_bytes)
+                    if digest != copied.sha256 or size != copied.size:
+                        raise ReservedPathLeafError("IO_REFUSED")
+    except (OSError, held_fs.HeldFsError) as error:
+        raise ReservedPathLeafError("IO_REFUSED") from error
+
+
+def require_generic_copy_source_version(copied: GenericFileCopy) -> held_fs.FileVersion:
+    """Check retained canonical identity and change time without reading its bytes."""
+    try:
+        _copy_deadline(copied.deadline)
+        with _generic_copy_source(copied.vault_root, copied.relative_path) as (_, _, _, source):
+            current = source.version()
+            if current != copied.source_version:
+                raise ReservedPathLeafError("IO_REFUSED")
+            return current
+    except (OSError, held_fs.HeldFsError) as error:
+        raise ReservedPathLeafError("IO_REFUSED") from error
+
+
+def inspect_generic_file(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue | None = None,
+    physical: bool = False,
+) -> held_fs.StableIdentity:
+    """Acquire and classify one generic regular file without reading its bytes.
+
+    `physical=True` matches `read_generic_bytes`: it opens `value` exactly as
+    given rather than its NFKC form, for a spelling already confirmed physical
+    (typically via `resolve_physical_relative`).
+    """
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        return _inspect_generic_file_held(
+            vault_root, value, identities=current, physical=physical
+        )
+
+
+def inspect_generic_path(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue | None = None,
+) -> held_fs.StableIdentity:
+    """Acquire and classify one generic file or directory without following aliases."""
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        parent_path, leaf = _leaf_spelling(value)
+        acquired = held_fs.acquire(Path(vault_root))
+        if not acquired.ok:
+            raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+        with acquired.require() as filesystem:
+            parent_result = filesystem.parent(parent_path)
+            if not parent_result.ok:
+                code = (
+                    parent_result.error.code
+                    if parent_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with parent_result.require() as parent:
+                _refuse_private_identity(parent.identity, current)
+                _require_current_generic_directory(filesystem, parent)
+                file_result = filesystem.file(parent, leaf)
+                if file_result.ok:
+                    with file_result.require() as file:
+                        _require_current_generic_directory(filesystem, parent)
+                        _refuse_private_identity(file.identity, current)
+                        return file.identity
+
+                assert isinstance(value, (str, os.PathLike))
+                relative = unicodedata.normalize(
+                    "NFKC", os.fspath(value)
+                ).replace("\\", "/")
+                directory_result = filesystem.parent(relative)
+                if directory_result.ok:
+                    with directory_result.require() as directory:
+                        _require_current_generic_directory(filesystem, directory)
+                        _refuse_private_identity(directory.identity, current)
+                        return directory.identity
+
+                file_code = (
+                    file_result.error.code
+                    if file_result.error is not None
+                    else "IO_REFUSED"
+                )
+                directory_code = (
+                    directory_result.error.code
+                    if directory_result.error is not None
+                    else "IO_REFUSED"
+                )
+                if file_code == directory_code == "MISSING":
+                    raise ReservedPathLeafError("MISSING")
+                raise ReservedPathLeafError(
+                    "UNSAFE_PATH"
+                    if "UNSAFE_PATH" in {file_code, directory_code}
+                    else "IO_REFUSED"
+                )
+
+
+def _note_census(
+    vault_root: Path, created: Iterable[str], *, removed: Iterable[str] = ()
+) -> None:
+    """Tell the free-text census about files this writer made, before the writer returns."""
+    from .governance import artifact_census
+
+    artifact_census.note_created(vault_root, created)
+    artifact_census.note_touched(vault_root, removed)
+
+
+def publish_generic_bytes(
+    vault_root: Path,
+    value: object,
+    data: bytes,
+    *,
+    expected_identity: held_fs.StableIdentity | None,
+    expected_sha256: str | None = None,
+    identities: IdentityCatalogue | None = None,
+) -> held_fs.StableIdentity:
+    """Publish one ordinary file through a retained parent and exact leaf CAS.
+
+    ``expected_identity=None`` is create-only.  Callers replacing a file must
+    first acquire it through :func:`inspect_generic_file` and provide that
+    exact identity; an appearance, disappearance, alias, or link-count change
+    between planning and publication is refused.
+    """
+
+    if not isinstance(data, bytes):
+        raise TypeError("generic byte publication requires bytes")
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        parent_path, leaf = _leaf_spelling(value)
+        acquired = held_fs.acquire(Path(vault_root))
+        if not acquired.ok:
+            raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+        with acquired.require() as filesystem:
+            parent_result = filesystem.parent(
+                parent_path,
+                create=True,
+            )
+            if not parent_result.ok:
+                code = (
+                    parent_result.error.code
+                    if parent_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with parent_result.require() as parent:
+                _refuse_private_identity(parent.identity, current)
+                _require_current_generic_directory(filesystem, parent)
+                existing = filesystem.file(parent, leaf)
+                if existing.ok:
+                    with existing.require() as file:
+                        _refuse_private_identity(file.identity, current)
+                        if (
+                            expected_identity is None
+                            or file.identity != expected_identity
+                        ):
+                            raise ReservedPathLeafError("IDENTITY_CHANGED")
+                elif existing.error is None or existing.error.code != "MISSING":
+                    code = (
+                        existing.error.code
+                        if existing.error is not None
+                        else "IO_REFUSED"
+                    )
+                    raise ReservedPathLeafError(code)
+                elif expected_identity is not None:
+                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+
+                _require_current_generic_directory(filesystem, parent)
+                published = held_fs.publish_bytes(
+                    filesystem,
+                    parent,
+                    leaf,
+                    data,
+                    expected_identity=expected_identity,
+                    expected_sha256=expected_sha256,
+                )
+                if not published.ok:
+                    code = (
+                        published.error.code
+                        if published.error is not None
+                        else "IO_REFUSED"
+                    )
+                    raise ReservedPathLeafError(code)
+                identity = published.require()
+                _refuse_private_identity(identity, current)
+                _require_current_generic_directory(filesystem, parent)
+                _note_census(vault_root, [leaf if parent_path == "." else f"{parent_path}/{leaf}"])
+                return identity
+
+
+def _inspect_generic_file_held(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue,
+    physical: bool = False,
+) -> held_fs.StableIdentity:
+
+    parent_path, leaf = _leaf_spelling(value, physical=physical)
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    with acquired.require() as filesystem:
+        parent_result = filesystem.parent(parent_path)
+        if not parent_result.ok:
+            code = parent_result.error.code if parent_result.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        with parent_result.require() as parent:
+            _refuse_private_identity(parent.identity, identities)
+            file_result = filesystem.file(parent, leaf)
+            if not file_result.ok:
+                code = file_result.error.code if file_result.error is not None else "IO_REFUSED"
+                raise ReservedPathLeafError(code)
+            with file_result.require() as file:
+                _require_current_generic_directory(filesystem, parent)
+                _refuse_private_identity(file.identity, identities)
+                return file.identity
+
+
+def unlink_generic_file(
+    vault_root: Path,
+    value: object,
+    *,
+    expected_identity: held_fs.StableIdentity | None = None,
+    identities: IdentityCatalogue | None = None,
+) -> None:
+    """Remove one exact ordinary file through its retained parent and leaf."""
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        _unlink_generic_file_held(
+            vault_root,
+            value,
+            expected_identity=expected_identity,
+            identities=current,
+        )
+
+
+def _unlink_generic_file_held(
+    vault_root: Path,
+    value: object,
+    *,
+    expected_identity: held_fs.StableIdentity | None,
+    identities: IdentityCatalogue,
+) -> None:
+
+    parent_path, leaf = _leaf_spelling(value)
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    with acquired.require() as filesystem:
+        parent_result = filesystem.parent(parent_path)
+        if not parent_result.ok:
+            code = (
+                parent_result.error.code
+                if parent_result.error is not None
+                else "IO_REFUSED"
+            )
+            raise ReservedPathLeafError(code)
+        with parent_result.require() as parent:
+            _refuse_private_identity(parent.identity, identities)
+            file_result = filesystem.file(parent, leaf, access="mutate")
+            if not file_result.ok:
+                code = (
+                    file_result.error.code
+                    if file_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with file_result.require() as file:
+                _require_current_generic_directory(filesystem, parent)
+                _refuse_private_identity(file.identity, identities)
+                if expected_identity is not None and file.identity != expected_identity:
+                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+                removed = filesystem.unlink(file)
+                if not removed.ok:
+                    code = (
+                        removed.error.code
+                        if removed.error is not None
+                        else "IO_REFUSED"
+                    )
+                    raise ReservedPathLeafError(code)
+            missing = filesystem.file(parent, leaf)
+            if missing.ok:
+                missing.require().close()
+                raise ReservedPathLeafError("IDENTITY_CHANGED")
+            if missing.error is None or missing.error.code != "MISSING":
+                raise ReservedPathLeafError("IO_REFUSED")
+            _require_current_generic_directory(filesystem, parent)
+
+
+def _refuse_private_identity(
+    identity: held_fs.StableIdentity,
+    identities: IdentityCatalogue | None,
+) -> None:
+    descriptor_id = identities.descriptor_for(identity) if identities else None
+    if descriptor_id is not None or (
+        identity.kind == "file" and identity.link_count != 1
+    ):
+        raise ReservedPathLeafError("RESERVED_PATH")
+
+
+def _require_current_generic_directory(
+    filesystem: held_fs.HeldFilesystem,
+    directory: held_fs.HeldDirectory,
+) -> None:
+    """Refuse an observable parent-name exchange at the generic leaf boundary."""
+
+    current = filesystem.validate_directory(
+        directory,
+        require_name=bool(getattr(directory, "named", False)),
+    )
+    if current.ok:
+        return
+    code = current.error.code if current.error is not None else "IO_REFUSED"
+    raise ReservedPathLeafError(code)
+
+
+def move_generic_path(
+    vault_root: Path,
+    source: object,
+    destination: object,
+    *,
+    source_kind: str,
+    identities: IdentityCatalogue | None = None,
+    physical: bool = False,
+    rollback: bool = False,
+) -> None:
+    """Move one generic file or directory through retained source/destination handles.
+
+    `physical=True` opens the *source* exactly as given rather than its NFKC
+    form -- for a spelling already confirmed physical, typically via
+    `resolve_physical_relative` -- and never applies to `destination`: a move
+    target is a name being written, not looked up, so it always takes the
+    ordinary NFKC spelling.
+    """
+
+    with _generic_identity_catalogue_scope(
+        vault_root, source, destination, identities=identities
+    ) as current:
+        arrived = _move_generic_path_held(
+            vault_root,
+            source,
+            destination,
+            source_kind=source_kind,
+            identities=current,
+            physical=physical,
+            rollback=rollback,
+        )
+    _note_census(vault_root, arrived, removed=[os.fspath(source)])
+
+
+def _move_generic_path_held(
+    vault_root: Path,
+    source: object,
+    destination: object,
+    *,
+    source_kind: str,
+    identities: IdentityCatalogue,
+    physical: bool = False,
+    rollback: bool = False,
+) -> list[str]:
+    """Move one path; return the vault-relative files that now exist at the destination."""
+    from . import writer_lease
+
+    source_parent_path, source_leaf = _leaf_spelling(source, physical=physical)
+    destination_parent_path, destination_leaf = _leaf_spelling(destination)
+    destination_relative = (
+        destination_leaf
+        if destination_parent_path == "."
+        else f"{destination_parent_path}/{destination_leaf}"
+    )
+    effects = [Path(vault_root) / source_parent_path / source_leaf,
+               Path(vault_root) / destination_parent_path / destination_leaf]
+    if source_kind not in {"file", "directory"}:
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    assert isinstance(source, (str, os.PathLike))
+    source_relative = unicodedata.normalize("NFKC", os.fspath(source)).replace("\\", "/")
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    with acquired.require() as filesystem:
+        if source_kind == "file":
+            source_parent_result = filesystem.parent(source_parent_path)
+            if not source_parent_result.ok:
+                code = (
+                    source_parent_result.error.code
+                    if source_parent_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with source_parent_result.require() as source_parent:
+                _refuse_private_identity(source_parent.identity, identities)
+                source_result = filesystem.file(source_parent, source_leaf, access="mutate")
+                if not source_result.ok:
+                    code = source_result.error.code if source_result.error is not None else "IO_REFUSED"
+                    raise ReservedPathLeafError(code)
+                with source_result.require() as source_file:
+                    _refuse_private_identity(source_file.identity, identities)
+                    _require_current_generic_directory(filesystem, source_parent)
+                    # An exact inverse must remain possible after a completed move loses its forward authority.
+                    if not rollback:
+                        writer_lease.validate_active_collection_file_paths(vault_root, effects)
+                    destination_parent_result = filesystem.parent(
+                        destination_parent_path, create=True
+                    )
+                    if not destination_parent_result.ok:
+                        code = (
+                            destination_parent_result.error.code
+                            if destination_parent_result.error is not None
+                            else "IO_REFUSED"
+                        )
+                        raise ReservedPathLeafError(code)
+                    with destination_parent_result.require() as destination_parent:
+                        _refuse_private_identity(destination_parent.identity, identities)
+                        _require_current_generic_directory(
+                            filesystem, destination_parent
+                        )
+                        destination_result = filesystem.file(
+                            destination_parent, destination_leaf
+                        )
+                        if destination_result.ok:
+                            with destination_result.require() as destination_file:
+                                _require_current_generic_directory(
+                                    filesystem, destination_parent
+                                )
+                                _refuse_private_identity(
+                                    destination_file.identity, identities
+                                )
+                            raise ReservedPathLeafError("DESTINATION_EXISTS")
+                        if (
+                            destination_result.error is None
+                            or destination_result.error.code != "MISSING"
+                        ):
+                            code = (
+                                destination_result.error.code
+                                if destination_result.error is not None
+                                else "IO_REFUSED"
+                            )
+                            raise ReservedPathLeafError(code)
+                        if not rollback:
+                            writer_lease.validate_active_collection_file_paths(vault_root, effects)
+                        moved = filesystem.rename(
+                            source_file, destination_parent, destination_leaf
+                        )
+                        if not moved.ok:
+                            code = moved.error.code if moved.error is not None else "IO_REFUSED"
+                            raise ReservedPathLeafError(code)
+                        _require_current_generic_directory(filesystem, source_parent)
+                        _require_current_generic_directory(
+                            filesystem, destination_parent
+                        )
+            return [destination_relative]
+
+        source_result = filesystem.parent(source_relative, access="mutate")
+        if not source_result.ok:
+            code = source_result.error.code if source_result.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        with source_result.require() as source_directory:
+            _refuse_private_identity(source_directory.identity, identities)
+            _require_current_generic_directory(filesystem, source_directory)
+            enumerated = filesystem.enumerate(source_directory)
+            if not enumerated.ok:
+                code = enumerated.error.code if enumerated.error is not None else "IO_REFUSED"
+                raise ReservedPathLeafError(code)
+            arrived = [
+                f"{destination_relative}/{record.relative_path}"
+                for record in enumerated.require()
+                if record.identity.kind == "file"
+            ]
+            for record in enumerated.require():
+                child = f"{source_relative.rstrip('/')}/{record.relative_path}"
+                if classify_logical(child).blocked:
+                    raise ReservedPathLeafError("RESERVED_PATH")
+                _refuse_private_identity(record.identity, identities)
+                effects.extend((effects[0] / record.relative_path, effects[1] / record.relative_path))
+            if not rollback:
+                writer_lease.validate_active_collection_file_paths(vault_root, effects)
+            destination_parent_result = filesystem.parent(
+                destination_parent_path, create=True
+            )
+            if not destination_parent_result.ok:
+                code = (
+                    destination_parent_result.error.code
+                    if destination_parent_result.error is not None
+                    else "IO_REFUSED"
+                )
+                raise ReservedPathLeafError(code)
+            with destination_parent_result.require() as destination_parent:
+                _refuse_private_identity(destination_parent.identity, identities)
+                _require_current_generic_directory(filesystem, source_directory)
+                _require_current_generic_directory(filesystem, destination_parent)
+                if not rollback:
+                    writer_lease.validate_active_collection_file_paths(vault_root, effects)
+                moved = filesystem.rename_directory(
+                    source_directory, destination_parent, destination_leaf
+                )
+                if not moved.ok:
+                    code = moved.error.code if moved.error is not None else "IO_REFUSED"
+                    raise ReservedPathLeafError(code)
+                _require_current_generic_directory(filesystem, destination_parent)
+    return arrived
+
+
+def read_generic_tree(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue | None = None,
+) -> tuple[GenericTreeFile, ...]:
+    """Enumerate and read an ordinary directory under one retained root anchor."""
+
+    with _generic_identity_catalogue_scope(
+        vault_root, value, identities=identities
+    ) as current:
+        return _read_generic_tree_held(vault_root, value, identities=current)
+
+
+def _read_generic_tree_held(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue,
+) -> tuple[GenericTreeFile, ...]:
+
+    classified = classify_logical(value)
+    if classified.disposition is PathDisposition.RESERVED:
+        raise ReservedPathLeafError("RESERVED_PATH")
+    if classified.disposition is PathDisposition.INVALID:
+        raise ReservedPathLeafError("UNSAFE_PATH")
+    assert isinstance(value, (str, os.PathLike))
+    relative = unicodedata.normalize("NFKC", os.fspath(value)).replace("\\", "/")
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    snapshots: list[GenericTreeFile] = []
+    with acquired.require() as filesystem:
+        source_result = filesystem.parent(relative)
+        if not source_result.ok:
+            code = source_result.error.code if source_result.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        with source_result.require() as source_directory:
+            _refuse_private_identity(source_directory.identity, identities)
+            _require_current_generic_directory(filesystem, source_directory)
+            enumerated = filesystem.enumerate(source_directory)
+            if not enumerated.ok:
+                code = enumerated.error.code if enumerated.error is not None else "IO_REFUSED"
+                raise ReservedPathLeafError(code)
+            for record in enumerated.require():
+                child = f"{relative.rstrip('/')}/{record.relative_path}"
+                if classify_logical(child).blocked:
+                    raise ReservedPathLeafError("RESERVED_PATH")
+                _refuse_private_identity(record.identity, identities)
+                if record.identity.kind != "file":
+                    continue
+                parent_path, leaf = _leaf_spelling(child)
+                parent_result = filesystem.parent(parent_path)
+                if not parent_result.ok:
+                    code = (
+                        parent_result.error.code
+                        if parent_result.error is not None
+                        else "IO_REFUSED"
+                    )
+                    raise ReservedPathLeafError(code)
+                with parent_result.require() as parent:
+                    file_result = filesystem.file(parent, leaf)
+                    if not file_result.ok:
+                        code = (
+                            file_result.error.code
+                            if file_result.error is not None
+                            else "IO_REFUSED"
+                        )
+                        raise ReservedPathLeafError(code)
+                    with file_result.require() as file:
+                        _require_current_generic_directory(filesystem, parent)
+                        if file.identity != record.identity:
+                            raise ReservedPathLeafError("IDENTITY_CHANGED")
+                        _refuse_private_identity(file.identity, identities)
+                        read_result = filesystem.read(file)
+                        if not read_result.ok:
+                            code = (
+                                read_result.error.code
+                                if read_result.error is not None
+                                else "IO_REFUSED"
+                            )
+                            raise ReservedPathLeafError(code)
+                        descriptor = getattr(file, "descriptor", None)
+                        if not isinstance(descriptor, int):
+                            raise ReservedPathLeafError("IO_REFUSED")
+                        try:
+                            mtime = os.fstat(descriptor).st_mtime
+                        except OSError as error:
+                            raise ReservedPathLeafError("IO_REFUSED") from error
+                        snapshots.append(
+                            GenericTreeFile(
+                                record.relative_path,
+                                GenericFileSnapshot(
+                                    read_result.require(), file.identity, mtime
+                                ),
+                            )
+                        )
+                        _require_current_generic_directory(filesystem, parent)
+            _require_current_generic_directory(filesystem, source_directory)
+    return tuple(snapshots)
+
+
+def _list_candidate_records(
+    filesystem: held_fs.HeldFilesystem,
+    source_directory: held_fs.HeldDirectory,
+    source_relative: str,
+    *,
+    identities: IdentityCatalogue | None,
+    require_complete: bool = False,
+    recursive: bool = True,
+) -> tuple[held_fs.SagaRecord, ...]:
+    """Walk safe ordinary children without following or exposing aliases."""
+
+    records: list[held_fs.SagaRecord] = []
+
+    def walk(directory: held_fs.HeldDirectory, prefix: str) -> None:
+        _require_current_generic_directory(filesystem, directory)
+        def admit_name(name: str) -> bool:
+            relative = f"{prefix}/{name}" if prefix else name
+            child = relative if source_relative == "." else f"{source_relative.rstrip('/')}/{relative}"
+            classification = classify_logical(child)
+            if classification.disposition is PathDisposition.INVALID:
+                raise ReservedPathLeafError("UNSAFE_PATH")
+            # Only registry-owned private paths are deliberate omissions from a complete census.
+            return classification.disposition is not PathDisposition.RESERVED
+
+        names = None
+        if require_complete:
+            names = {name for name in filesystem.iter_names(directory) if admit_name(name)}
+        children = filesystem.children(directory, name_filter=admit_name) if require_complete else filesystem.children(directory)
+        if not children.ok:
+            code = children.error.code if children.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        observed = children.require()
+        if names is not None and names != {record.relative_path for record in observed}:
+            raise ReservedPathLeafError("UNSAFE_PATH")
+        for record in observed:
+            relative = (
+                f"{prefix}/{record.relative_path}"
+                if prefix
+                else record.relative_path
+            )
+            records.append(held_fs.SagaRecord(relative, record.identity))
+            child = (
+                relative
+                if source_relative == "."
+                else f"{source_relative.rstrip('/')}/{relative}"
+            )
+            classification = classify_logical(child)
+            descriptor_id = identities.descriptor_for(record.identity) if identities else None
+            if require_complete and (
+                classification.disposition is PathDisposition.INVALID
+                or (descriptor_id is None and record.identity.kind == "file" and record.identity.link_count != 1)
+            ):
+                raise ReservedPathLeafError("UNSAFE_PATH")
+            blocked = (
+                classification.blocked
+                or descriptor_id is not None
+                or (record.identity.kind == "file" and record.identity.link_count != 1)
+            )
+            if not recursive or record.identity.kind != "directory" or blocked:
+                continue
+            retained = filesystem.parent(child)
+            if not retained.ok:
+                code = retained.error.code if retained.error is not None else "IO_REFUSED"
+                raise ReservedPathLeafError(code)
+            with retained.require() as child_directory:
+                if child_directory.identity != record.identity:
+                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+                _require_current_generic_directory(filesystem, child_directory)
+                walk(child_directory, relative)
+        if names is not None and names != {name for name in filesystem.iter_names(directory) if admit_name(name)}:
+            raise ReservedPathLeafError("IDENTITY_CHANGED")
+        _require_current_generic_directory(filesystem, directory)
+
+    walk(source_directory, "")
+    return tuple(records)
+
+
+def list_generic_tree(
+    vault_root: Path,
+    value: object,
+    *,
+    recursive: bool = True,
+    identities: IdentityCatalogue | None = None,
+    select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
+    require_complete: bool = False,
+) -> tuple[GenericTreeEntry, ...]:
+    """Enumerate an ordinary tree while structurally removing private state.
+
+    `select` receives every releasable `(relative_path, kind)` in walk order and
+    returns the relative paths to open, stat and read; None opens them all.
+    `require_complete` refuses ordinary omissions rather than reporting a partial census.
+    """
+
+    with open_generic_tree(
+        vault_root, value, recursive=recursive, identities=identities,
+        select=select, require_complete=require_complete,
+    ) as entries:
+        return tuple(entries)
+
+
+@contextmanager
+def open_generic_tree(
+    vault_root: Path,
+    value: object,
+    *,
+    recursive: bool = True,
+    identities: IdentityCatalogue | None = None,
+    select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
+    require_complete: bool = False,
+    markdown_header_limit: int | None = None,
+):
+    """Yield entries under one held walk; exhaust it before publishing a census."""
+    with _generic_identity_catalogue_scope(vault_root, value, identities=identities) as current:
+        entries = _iter_generic_tree_held(
+            vault_root, value, recursive=recursive, identities=current,
+            select=select, require_complete=require_complete,
+            markdown_header_limit=markdown_header_limit,
+        )
+        try:
+            yield entries
+        finally:
+            entries.close()
+
+
+def list_generic_names(
+    vault_root: Path,
+    value: object,
+    *,
+    recursive: bool = True,
+) -> tuple[tuple[str, str], ...]:
+    """The releasable `(relative_path, kind)` pairs of a tree, reading no file's bytes."""
+    names: list[tuple[str, str]] = []
+
+    def record(candidates: list[tuple[str, str]]) -> tuple[str, ...]:
+        names.extend(candidates)
+        return ()
+
+    list_generic_tree(vault_root, value, recursive=recursive, select=record)
+    return tuple(names)
+
+
+def _iter_generic_tree_held(
+    vault_root: Path,
+    value: object,
+    *,
+    recursive: bool,
+    identities: IdentityCatalogue,
+    select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
+    require_complete: bool = False,
+    markdown_header_limit: int | None = None,
+) -> Iterator[GenericTreeEntry]:
+
+    if value == ".":
+        relative = "."
+    else:
+        classified = classify_logical(value)
+        if classified.disposition is PathDisposition.RESERVED:
+            raise ReservedPathLeafError("RESERVED_PATH")
+        if classified.disposition is PathDisposition.INVALID:
+            raise ReservedPathLeafError("UNSAFE_PATH")
+        assert isinstance(value, (str, os.PathLike))
+        relative = unicodedata.normalize("NFKC", os.fspath(value)).replace("\\", "/")
+    acquired = held_fs.acquire(Path(vault_root))
+    if not acquired.ok:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    hidden_prefixes: list[str] = []
+    with acquired.require() as filesystem:
+        source_result = filesystem.parent(relative)
+        if not source_result.ok:
+            code = source_result.error.code if source_result.error is not None else "IO_REFUSED"
+            raise ReservedPathLeafError(code)
+        with source_result.require() as source_directory:
+            _refuse_private_identity(source_directory.identity, identities)
+            _require_current_generic_directory(filesystem, source_directory)
+            if recursive or require_complete:
+                records = _list_candidate_records(
+                    filesystem,
+                    source_directory,
+                    relative,
+                    identities=identities,
+                    require_complete=require_complete,
+                    recursive=recursive,
+                )
+            else:
+                enumerated = filesystem.children(source_directory)
+                if not enumerated.ok:
+                    code = (
+                        enumerated.error.code
+                        if enumerated.error is not None
+                        else "IO_REFUSED"
+                    )
+                    raise ReservedPathLeafError(code)
+                records = enumerated.require()
+            candidates: list[tuple[held_fs.SagaRecord, str]] = []
+            for record in records:
+                if any(
+                    record.relative_path == prefix
+                    or record.relative_path.startswith(f"{prefix}/")
+                    for prefix in hidden_prefixes
+                ):
+                    continue
+                child = (
+                    record.relative_path
+                    if relative == "."
+                    else f"{relative.rstrip('/')}/{record.relative_path}"
+                )
+                child_classification = classify_logical(child)
+                descriptor_id = identities.descriptor_for(record.identity) if identities else None
+                if child_classification.blocked or descriptor_id is not None or (
+                    record.identity.kind == "file" and record.identity.link_count != 1
+                ):
+                    if record.identity.kind == "directory":
+                        hidden_prefixes.append(record.relative_path)
+                    continue
+                candidates.append((record, child))
+            chosen = None if select is None else frozenset(
+                select([(record.relative_path, record.identity.kind) for record, _ in candidates])
+            )
+            selected_versions: dict[str, held_fs.FileVersion] = {}
+            for record, child in candidates:
+                if chosen is not None and record.relative_path not in chosen:
+                    continue
+                parent_path, leaf = _leaf_spelling(child)
+                if record.identity.kind == "directory":
+                    directory_result = filesystem.parent(child)
+                    if not directory_result.ok:
+                        raise ReservedPathLeafError(
+                            directory_result.error.code
+                            if directory_result.error is not None
+                            else "IO_REFUSED"
+                        )
+                    with directory_result.require() as directory:
+                        if directory.identity != record.identity:
+                            raise ReservedPathLeafError("IDENTITY_CHANGED")
+                        _require_current_generic_directory(filesystem, directory)
+                        descriptor = getattr(directory, "descriptor", None)
+                        try:
+                            mtime = (
+                                os.fstat(descriptor).st_mtime
+                                if isinstance(descriptor, int)
+                                else None
+                            )
+                        except OSError as error:
+                            raise ReservedPathLeafError("IO_REFUSED") from error
+                    yield GenericTreeEntry(
+                        record.relative_path,
+                        record.identity,
+                        None,
+                        mtime,
+                    )
+                    continue
+
+                parent_result = filesystem.parent(parent_path)
+                if not parent_result.ok:
+                    raise ReservedPathLeafError(
+                        parent_result.error.code
+                        if parent_result.error is not None
+                        else "IO_REFUSED"
+                    )
+                with parent_result.require() as parent:
+                    file_result = filesystem.file(parent, leaf)
+                    if not file_result.ok:
+                        raise ReservedPathLeafError(
+                            file_result.error.code
+                            if file_result.error is not None
+                            else "IO_REFUSED"
+                        )
+                    with file_result.require() as file:
+                        _require_current_generic_directory(filesystem, parent)
+                        if file.identity != record.identity:
+                            raise ReservedPathLeafError("IDENTITY_CHANGED")
+                        descriptor = getattr(file, "descriptor", None)
+                        if not isinstance(descriptor, int):
+                            raise ReservedPathLeafError("IO_REFUSED")
+                        version = file.version()
+                        if require_complete:
+                            selected_versions[child] = version
+
+                        def require_current(*, version=version, leaf=leaf) -> None:
+                            if file.version() != version:
+                                raise ReservedPathLeafError("IDENTITY_CHANGED")
+                            _require_current_generic_directory(filesystem, parent)
+                            with filesystem.file(parent, leaf).require() as current:
+                                if current.version() != version:
+                                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+
+                        try:
+                            info = os.fstat(descriptor)
+                        except OSError as error:
+                            raise ReservedPathLeafError("IO_REFUSED") from error
+                        markdown: bytes | None = None
+                        if leaf.casefold().endswith(".md") and markdown_header_limit is not None:
+                            from . import runtime_resources, vault
+
+                            with runtime_resources.parser_preparation(info.st_size) as preparation:
+                                preparation.reserve_source(0)
+                                preparation.reserve(preparation.reserved + io.DEFAULT_BUFFER_SIZE)
+                                with os.fdopen(os.dup(descriptor), "rb", buffering=io.DEFAULT_BUFFER_SIZE) as stream:
+                                    markdown = vault.read_frontmatter_header(
+                                        stream, markdown_header_limit, reserve=preparation.reserve_source,
+                                    )
+                                text = markdown.decode("utf-8")
+                                frontmatter = vault._FM_PATTERN.match(text)
+                                preparation.reserve_parser(
+                                    text, yaml_text=frontmatter.group(1) if frontmatter else None,
+                                )
+                                require_current()
+                                yield GenericTreeEntry(
+                                    record.relative_path, record.identity, info.st_size,
+                                    info.st_mtime, markdown,
+                                )
+                                require_current()
+                                del text, frontmatter, markdown
+                            continue
+                        if leaf.casefold().endswith(".md"):
+                            read_result = filesystem.read(file)
+                            if not read_result.ok:
+                                raise ReservedPathLeafError(
+                                    read_result.error.code
+                                    if read_result.error is not None
+                                    else "IO_REFUSED"
+                                )
+                            markdown = read_result.require()
+                        require_current()
+                        yield GenericTreeEntry(
+                            record.relative_path,
+                            record.identity,
+                            info.st_size,
+                            info.st_mtime,
+                            markdown,
+                        )
+                        require_current()
+            if require_complete:
+                current_records = _list_candidate_records(
+                    filesystem, source_directory, relative, identities=identities,
+                    require_complete=True, recursive=recursive,
+                )
+                if current_records != records:
+                    raise ReservedPathLeafError("IDENTITY_CHANGED")
+                for child, version in selected_versions.items():
+                    parent_path, leaf = _leaf_spelling(child)
+                    with filesystem.parent(parent_path).require() as parent:
+                        _refuse_private_identity(parent.identity, identities)
+                        _require_current_generic_directory(filesystem, parent)
+                        with filesystem.file(parent, leaf).require() as current_file:
+                            _refuse_private_identity(current_file.identity, identities)
+                            if current_file.version() != version:
+                                raise ReservedPathLeafError("IDENTITY_CHANGED")
+            _require_current_generic_directory(filesystem, source_directory)
+
+
+def _invalid(reason: str) -> PathClassification:
+    return PathClassification(PathDisposition.INVALID, reason=reason)
+
+
+def _normalized_parts(
+    value: object, *, allow_colon: bool = False
+) -> tuple[str, ...] | PathClassification:
+    if not isinstance(value, (str, os.PathLike)):
+        return _invalid("path is not textual")
+    raw = os.fspath(value)
+    if not isinstance(raw, str) or not raw or "\x00" in raw:
+        return _invalid("path spelling is invalid")
+    text = unicodedata.normalize("NFKC", raw)
+    if text != text.strip():
+        return _invalid("path spelling is non-canonical")
+    if text.startswith(("/", "\\")) or _DRIVE_RE.match(text):
+        return _invalid("absolute path spelling is forbidden")
+    text = text.replace("\\", "/")
+    if text.startswith("//") or "//" in text:
+        return _invalid("ambiguous separators are forbidden")
+    parts = tuple(text.split("/"))
+    if any(part in {"", ".", ".."} for part in parts):
+        return _invalid("dot or empty components are forbidden")
+    if not allow_colon and any(":" in part for part in parts):
+        return _invalid("alternate stream or URI spelling is forbidden")
+    if any(part.endswith((".", " ")) for part in parts):
+        return _invalid("platform-aliased components are forbidden")
+    folded = tuple(unicodedata.normalize("NFKC", part).casefold() for part in parts)
+    knowledge_base = unicodedata.normalize("NFKC", kb_dirname()).casefold()
+    if folded and folded[0] == knowledge_base:
+        folded = folded[1:]
+    return folded
+
+
+def classify_logical(value: object) -> PathClassification:
+    """Classify one KB-relative or vault-prefixed spelling without touching disk."""
+
+    if type(value) is str:
+        return _classify_logical_text(value, kb_dirname(), id(_REGISTRY))
+    return _classify_logical(value)
+
+
+# A whole-vault walk classifies every entry, and the answer depends only on the
+# spelling, the KB folder name and the registry, which the key carries.
+@functools.lru_cache(maxsize=65_536)
+def _classify_logical_text(value: str, _kb: str, _registry_id: int) -> PathClassification:
+    return _classify_logical(value)
+
+
+def _classify_logical(value: object) -> PathClassification:
+    parts = _normalized_parts(value)
+    if isinstance(parts, PathClassification):
+        return parts
+    return _classify_parts(parts)
+
+
+def _classify_parts(parts: tuple[str, ...]) -> PathClassification:
+    canonical = kb_dirname() if not parts else f"{kb_dirname()}/{'/'.join(parts)}"
+    replica = _DESCRIPTOR_BY_ID["collection-replica"]
+    if replica.matches(parts):
+        return PathClassification(
+            PathDisposition.RESERVED,
+            descriptor_id=replica.id,
+            canonical=canonical,
+            reason="path is reserved for an owning subsystem",
+        )
+    matches = tuple(descriptor for descriptor in _REGISTRY if descriptor.matches(parts))
+    if not matches:
+        return PathClassification(PathDisposition.ORDINARY, canonical=canonical)
+    if len(matches) != 1:
+        return _invalid("internal-state registry is ambiguous")
+    return PathClassification(
+        PathDisposition.RESERVED,
+        descriptor_id=matches[0].id,
+        canonical=canonical,
+        reason="path is reserved for an owning subsystem",
+    )
+
+
+_IdentityKey = tuple[int, int, str]
+
+
+def _identity_key(identity: held_fs.StableIdentity) -> _IdentityKey:
+    return identity.device, identity.inode, identity.kind
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityCatalogue:
+    """Stable identities published for currently reachable private state."""
+
+    identities: Mapping[_IdentityKey, str]
+    published_paths: Mapping[
+        _IdentityKey, tuple[tuple[str, str], ...]
+    ] | None = None
+    vault_root: Path | None = None
+    generation: str | None = None
+    """The reserved-identity token this inventory was proved against.
+
+    ``None`` means unproved: a raw scan nobody has bound to a generation yet, or
+    a working snapshot merged for one call.  Only a stamped inventory may be
+    carried across a change of this process's role, and only while
+    :func:`revalidate_identity_catalogue_generation` still agrees with it.
+    """
+    _components: tuple[IdentityCatalogue, ...] = ()
+
+    @classmethod
+    def from_vault(cls, vault_root: Path) -> IdentityCatalogue:
+        """Acquire current private identities through the no-follow substrate.
+
+        This constructor is for startup/recovery and tests.  Live owners publish
+        their identities while holding their own coordination primitive.
+        """
+
+        root = Path(vault_root)
+        acquired = held_fs.acquire(root)
+        if not acquired.ok:
+            raise RuntimeError("reserved identity catalogue could not acquire the vault")
+        published: dict[_IdentityKey, str] = {}
+        published_paths: dict[_IdentityKey, list[tuple[str, str]]] = {}
+
+        def add(
+            identity: held_fs.StableIdentity,
+            descriptor_id: str,
+            logical_name: str,
+        ) -> None:
+            key = _identity_key(identity)
+            prior = published.get(key)
+            if prior is not None and prior != descriptor_id:
+                raise RuntimeError("one private filesystem identity maps to multiple owners")
+            published[key] = descriptor_id
+            published_paths.setdefault(key, []).append(
+                (descriptor_id, logical_name)
+            )
+
+        def walk(
+            filesystem: held_fs.HeldFilesystem,
+            directory: held_fs.HeldDirectory,
+            prefix: str,
+            seen_directories: set[_IdentityKey],
+        ) -> None:
+            children = filesystem.children(directory)
+            if not children.ok:
+                raise RuntimeError(
+                    "reserved identity catalogue could not enumerate the KB"
+                )
+            for record in children.require():
+                relative = (
+                    f"{prefix}/{record.relative_path}"
+                    if prefix
+                    else record.relative_path
+                )
+                logical = classify_logical(relative)
+                if logical.disposition is PathDisposition.RESERVED:
+                    descriptor_id = logical.descriptor_id
+                    assert descriptor_id is not None
+                    add(
+                        record.identity,
+                        descriptor_id,
+                        f"{kb_dirname()}/{relative}",
+                    )
+                if record.identity.kind != "directory":
+                    continue
+                key = _identity_key(record.identity)
+                if key in seen_directories:
+                    raise RuntimeError(
+                        "reserved identity catalogue encountered a directory cycle"
+                    )
+                child = filesystem.parent(f"{kb_dirname()}/{relative}")
+                if not child.ok:
+                    raise RuntimeError(
+                        "reserved identity catalogue could not retain a KB directory"
+                    )
+                with child.require() as retained:
+                    if retained.identity != record.identity:
+                        raise RuntimeError(
+                            "reserved identity catalogue observed directory drift"
+                        )
+                    seen_directories.add(key)
+                    try:
+                        walk(filesystem, retained, relative, seen_directories)
+                    finally:
+                        seen_directories.remove(key)
+
+        with acquired.require() as filesystem:
+            kb_parent = filesystem.parent(kb_dirname())
+            if not kb_parent.ok:
+                if kb_parent.error is not None and kb_parent.error.code == "MISSING":
+                    return cls(
+                        MappingProxyType({}),
+                        MappingProxyType({}),
+                        Path(os.path.abspath(root)),
+                    )
+                raise RuntimeError("reserved identity catalogue could not acquire the KB")
+            with kb_parent.require() as knowledge_base:
+                walk(
+                    filesystem,
+                    knowledge_base,
+                    "",
+                    {_identity_key(knowledge_base.identity)},
+                )
+        return cls(
+            MappingProxyType(published),
+            MappingProxyType(
+                {key: tuple(values) for key, values in published_paths.items()}
+            ),
+            Path(os.path.abspath(root)),
+        )
+
+    def descriptor_for(self, identity: held_fs.StableIdentity) -> str | None:
+        if self._components:
+            descriptors = {
+                descriptor
+                for catalogue in self._components
+                if (descriptor := catalogue.descriptor_for(identity)) is not None
+            }
+            if len(descriptors) > 1:
+                raise RuntimeError("one private filesystem identity maps to multiple owners")
+            return next(iter(descriptors), None)
+        key = _identity_key(identity)
+        descriptor_id = self.identities.get(key)
+        if descriptor_id is None or self.published_paths is None:
+            return descriptor_id
+        root = self.vault_root
+        if root is None:
+            return None
+        for candidate_descriptor, logical_name in self.published_paths.get(key, ()):
+            try:
+                current = _lstat_identity(root / logical_name)
+            except (FileNotFoundError, OSError):
+                continue
+            if _identity_key(current) == key:
+                return candidate_descriptor
+        return None
+
+
+_PUBLISHED_IDENTITY_LOCK = threading.RLock()
+_PUBLISHED_OWNER_IDENTITIES: dict[
+    str, dict[str, dict[str, held_fs.StableIdentity]]
+] = {}
+_BASELINE_IDENTITY_CATALOGUES: dict[str, IdentityCatalogue] = {}
+
+
+@dataclass(slots=True)
+class _BaselineFlight:
+    """One cold inventory build, shared by every caller that arrives during it."""
+
+    done: threading.Event
+    catalogue: IdentityCatalogue | None = None
+    error: BaseException | None = None
+
+
+_BASELINE_IDENTITY_FLIGHTS: dict[str, _BaselineFlight] = {}
+
+#: How long a follower may wait on the one build already running.  Deliberately
+#: NOT the mutation-gate budget: a follower waits on an in-process Event, which
+#: holds no gate and blocks no writer, so a short cap prevents nothing and only
+#: buys refusals.  It is sized to the work it absorbs instead -- the cold walk
+#: that motivated this single-flight was measured at ~12 s -- so concurrent cold
+#: readers wait for the one build rather than being refused while it runs.
+#: The request-budget cap below is MCP-only: `request_budget.set_current` has
+#: one production caller, the MCP request context, so REST and CLI callers and
+#: reconcile-class MCP tools have no bound budget and can wait up to this
+#: ceiling.
+_FLIGHT_WAIT_SECONDS = 120.0
+#: What a follower leaves of the caller's budget for the write that follows:
+#: the guard's own acquire timeout. The delivery reserve is subtracted as well,
+#: so a follower never hands the write a budget that is already spent.
+_FOLLOWER_GUARD_RESERVE_SECONDS = 5.0
+
+
+def _flight_wait_seconds() -> float:
+    """The follower's budget, capped by the caller's own deadline when it has one.
+
+    An interactive caller must still get the typed unavailable outcome inside
+    its own request deadline rather than at this ceiling.  A caller with no
+    bound budget -- a background warm, a CLI -- waits for the build.
+    """
+
+    budget = request_budget.current()
+    if budget is None:
+        return _FLIGHT_WAIT_SECONDS
+    return min(
+        _FLIGHT_WAIT_SECONDS,
+        max(
+            0.0,
+            budget.remaining()
+            - request_budget.DELIVERY_RESERVE_SECONDS
+            - _FOLLOWER_GUARD_RESERVE_SECONDS,
+        ),
+    )
+
+
+@call_spans.timed("reserved.identity.baseline_wait")
+def _await_baseline_flight(
+    flight: _BaselineFlight,
+    timeout: float,
+) -> IdentityCatalogue:
+    """Wait a bounded time on the one build already running, then answer typed.
+
+    A follower never starts a duplicate scan.  It receives the leader's
+    inventory, re-raises the leader's failure so nothing weaker than the
+    fail-closed outcome escapes, or gives up inside the same budget the
+    coordination boundary itself uses and reports the boundary unavailable.
+    """
+
+    if not flight.done.wait(timeout):
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    if flight.error is not None:
+        raise flight.error
+    if flight.catalogue is None:
+        raise ReservedPathLeafError("CAPABILITY_UNAVAILABLE")
+    return flight.catalogue
+
+
+def _warm_baseline_identity_catalogue(vault_root: Path) -> IdentityCatalogue | None:
+    """Return the inventory this process already holds, or nothing at all.
+
+    Reads no directory and takes no coordination, so an interactive caller can
+    ask whether a snapshot exists without becoming the one that builds it.
+    """
+
+    with _PUBLISHED_IDENTITY_LOCK:
+        return _BASELINE_IDENTITY_CATALOGUES.get(_vault_identity_key(vault_root))
+
+
+def identity_catalogue_ready(vault_root: Path) -> bool:
+    """Whether a private-identity inventory is available without building one."""
+
+    return _warm_baseline_identity_catalogue(vault_root) is not None
+
+
+def revalidate_identity_catalogue_generation(vault_root: Path) -> bool:
+    """Prove a carried inventory against the vault's current identity generation.
+
+    A process that built its inventory in one role and serves in another -- a
+    standby that warmed caches and was then promoted -- carries a snapshot the
+    outgoing worker may have invalidated.  Publications made in another process
+    are invisible here, so the shared generation is the only evidence that the
+    carried inventory still covers the vault.  A mismatch, or an inventory that
+    was never bound to a generation at all, drops it: the next caller rebuilds
+    rather than reusing a snapshot proved under an older token.
+
+    This is deliberately a *promotion-time* check, not a per-reuse one, and that
+    scoping is unreviewed judgment rather than a derived requirement.  The
+    argument: every exact owner bumps the token on an ordinary publish, so
+    proving it on each warm reuse would invalidate the inventory constantly and
+    charge the next generic read a whole-vault walk -- reintroducing the stall
+    this single-flight exists to remove, on a far more frequent trigger.  Within
+    one process's role the live publication layer already covers cooperative
+    churn; what it cannot see is another process's publications, which is
+    exactly what changes hands at promotion.  If that reasoning is wrong, the
+    fix is to call this from every reuse site and fund the rebuild cost, not to
+    weaken what it refuses.
+
+    One window this does not close: between the moment a standby builds its
+    inventory and the moment it is promoted, the standby's own warm-time reads
+    use that inventory while the outgoing worker's publications are invisible to
+    it.  That is pre-existing and identical on base, and promotion is where it
+    ends, not where it never happened.
+    """
+
+    return identity_catalogue_refusal(vault_root) is None
+
+
+def identity_catalogue_refusal(vault_root: Path) -> str | None:
+    """Why the carried inventory was refused, or ``None`` when it still holds.
+
+    Same check and same effect as :func:`revalidate_identity_catalogue_generation`
+    -- this is the one that does the work -- but it names the cause so a
+    promotion record can distinguish a vault that moved from a gate that was
+    merely busy.  Both refuse identically; only the record differs.
+
+    ``absent``            nothing was carried, so there is nothing to prove.
+    ``token-unreadable``  the shared token could not be read or parsed.
+    ``gate-busy``         the coordination boundary refused admission.
+    ``unproved``          the inventory was never bound to a generation.
+    ``generation-moved``  the vault's token advanced under the inventory.
+    """
+
+    vault_key = _vault_identity_key(vault_root)
+    with _PUBLISHED_IDENTITY_LOCK:
+        cached = _BASELINE_IDENTITY_CATALOGUES.get(vault_key)
+    if cached is None:
+        return "absent"
+
+    cause: str | None = None
+    current: str | None = None
+    try:
+        # Read the token under the exclusive, non-advancing boundary so the
+        # comparison cannot race a bump.  One gate round trip, held across the
+        # read and nothing else, and only at promotion.
+        with _identity_coordination_scope(
+            vault_root, identity_may_change=False
+        ) as token:
+            current = token
+    except (RuntimeError, OSError):
+        # A token that cannot be read is not evidence of currency; it is a
+        # mismatch.  Raising here would escape into promotion after the writer
+        # lease was already taken, stranding a lease-holding process that never
+        # finished promoting, and every retry would repeat it.
+        cause = "token-unreadable"
+    except OpError:
+        # A gate we cannot enter is not evidence of currency either.  The named
+        # classes keep a programming error in this block surfacing instead of
+        # being swallowed as a refusal.
+        cause = "gate-busy"
+
+    if cause is None:
+        if cached.generation is None:
+            cause = "unproved"
+        elif current is None or cached.generation != current:
+            cause = "generation-moved"
+        else:
+            return None
+
+    with _PUBLISHED_IDENTITY_LOCK:
+        if _BASELINE_IDENTITY_CATALOGUES.get(vault_key) is cached:
+            del _BASELINE_IDENTITY_CATALOGUES[vault_key]
+    return cause
+
+
+def warm_identity_catalogue_before_boundary(vault_root: Path) -> None:
+    """Build a cold inventory now, on the caller's thread, before it takes the
+    mutation boundary.
+
+    The walk is whole-vault ("tens of seconds on a mature vault"). A write that
+    met it cold inside its boundary built it inline and held every other writer
+    stopped for that long, so a capture write calls this first: single-flighted,
+    a no-op when warm, and never refusing a write on an ordinary error -- a
+    failure here only means the write pays for the walk where it always did.
+    """
+
+    if identity_catalogue_ready(vault_root) or _identity_coordination_active(vault_root):
+        return
+    try:
+        _baseline_identity_catalogue(vault_root)
+    except AssertionError:
+        raise
+    except Exception as error:  # noqa: BLE001 - a best-effort warm never refuses a write
+        log.warning(
+            "identity catalogue pre-boundary warm failed: %s", type(error).__name__
+        )
+
+
+def schedule_identity_catalogue_warm(vault_root: Path) -> None:
+    """Single-flight a cold inventory build away from the request thread.
+
+    Promotion usually refuses the carried inventory, because a busy vault bumps
+    the shared token on every owner publish.  Without this the first interactive
+    caller after promotion pays the whole-vault walk, which is the stall this
+    lane exists to remove.  Starts nothing when an inventory is already warm or
+    a build is already running, and a caller that loses the race to either one
+    still cannot start a second walk: the flight registry, not this check, is
+    what makes construction single-flighted.
+    """
+
+    vault_key = _vault_identity_key(vault_root)
+    with _PUBLISHED_IDENTITY_LOCK:
+        if (
+            vault_key in _BASELINE_IDENTITY_CATALOGUES
+            or vault_key in _BASELINE_IDENTITY_FLIGHTS
+        ):
+            return
+
+    def _warm() -> None:
+        try:
+            _baseline_identity_catalogue(vault_root)
+        except BaseException as error:  # noqa: BLE001 - a background warm never raises
+            # Class only: a failure message can name a private reserved path,
+            # and this log is not inside the leaf boundary that hides them.
+            log.warning(
+                "identity catalogue background warm failed: %s",
+                type(error).__name__,
+            )
+
+    thread = threading.Thread(
+        target=_warm,
+        name="exomem-identity-catalogue-warm",
+        daemon=True,
+    )
+    try:
+        thread.start()
+    except Exception:  # noqa: BLE001 - a thread-start failure cannot fail a caller
+        log.warning("identity catalogue background warm could not start")
+
+
+def _install_baseline_identity_catalogue(
+    vault_key: str,
+    candidate: IdentityCatalogue,
+) -> IdentityCatalogue:
+    """Publish one built inventory, keeping whatever a racing build installed."""
+
+    with _PUBLISHED_IDENTITY_LOCK:
+        existing = _BASELINE_IDENTITY_CATALOGUES.get(vault_key)
+        if existing is not None:
+            return existing
+        _BASELINE_IDENTITY_CATALOGUES[vault_key] = candidate
+        return candidate
+
+
+def _stamp_identity_generation(
+    candidate: IdentityCatalogue,
+    generation: str | None,
+) -> IdentityCatalogue:
+    """Bind an inventory to the reserved-identity generation that proved it.
+
+    Only the token the coordinating scope itself yielded counts as proof.  A
+    build nested inside a boundary its caller already holds, or one coordinated
+    by a manager that publishes no token, leaves the inventory unproved rather
+    than reading a value it did not coordinate; an unproved inventory is one
+    :func:`revalidate_identity_catalogue_generation` refuses to carry.
+    """
+
+    return dataclass_replace(candidate, generation=generation)
+
+
+def _baseline_identity_catalogue(vault_root: Path) -> IdentityCatalogue:
+    """Return one coordinated inventory of private identities per vault/process.
+
+    Cold construction is single-flighted.  Concurrent startup readers used to
+    each walk the whole vault; the generation churn that crossed those walks
+    invalidated every optimistic scan and pushed one reader into the locked
+    all-domain fail-safe, which then stalled activation behind it.  Exactly one
+    caller builds, and the rest wait inside the coordination budget instead of
+    starting a scan of their own.
+    """
+
+    cached = _warm_baseline_identity_catalogue(vault_root)
+    if cached is not None:
+        return cached
+
+    vault_key = _vault_identity_key(vault_root)
+    if _identity_coordination_active(vault_root):
+        # This task already holds identity coordination, so it cannot wait on
+        # another task's build: the leader needs the same boundary to prove its
+        # snapshot.  Build inline under the boundary already held instead.
+        return _install_baseline_identity_catalogue(
+            vault_key, _build_baseline_identity_catalogue(vault_root)
+        )
+
+    # Registration happens inside the `try`, and `leading` is set before the
+    # entry is published, so every exit -- including an interruption landing
+    # between the two -- reaches the `finally` that releases the flight.  An
+    # orphaned entry would refuse every later caller in this process forever.
+    flight = _BaselineFlight(threading.Event())
+    leading = False
+    try:
+        with _PUBLISHED_IDENTITY_LOCK:
+            cached = _BASELINE_IDENTITY_CATALOGUES.get(vault_key)
+            if cached is not None:
+                return cached
+            running = _BASELINE_IDENTITY_FLIGHTS.get(vault_key)
+            if running is None:
+                leading = True
+                _BASELINE_IDENTITY_FLIGHTS[vault_key] = flight
+            else:
+                flight = running
+
+        if not leading:
+            return _await_baseline_flight(flight, _flight_wait_seconds())
+
+        flight.catalogue = _install_baseline_identity_catalogue(
+            vault_key, _build_baseline_identity_catalogue(vault_root)
+        )
+    except BaseException as error:
+        if leading:
+            flight.error = error
+        raise
+    finally:
+        if leading:
+            # Released before the waiters are woken, so a build that raised
+            # leaves the next caller free to retry rather than a flight nobody
+            # can finish.
+            with _PUBLISHED_IDENTITY_LOCK:
+                if _BASELINE_IDENTITY_FLIGHTS.get(vault_key) is flight:
+                    del _BASELINE_IDENTITY_FLIGHTS[vault_key]
+            flight.done.set()
+    return flight.catalogue
+
+
+@call_spans.timed("reserved.identity.baseline_build")
+def _build_baseline_identity_catalogue(vault_root: Path) -> IdentityCatalogue:
+    """Walk one vault's private identities and stamp the generation that proved it."""
+
+    vault_key = _vault_identity_key(vault_root)
+
+    # Walking the whole KB can take tens of seconds on a mature vault. Take two
+    # short all-domain snapshots around the unlocked walk instead of holding
+    # every owner stopped for that duration. Exact owners advance the shared
+    # token before their domain is released from the gate, so equal snapshots
+    # prove that no cooperative private identity publication crossed the walk.
+    # A busy startup gets two optimistic attempts, then the old locked scan as a
+    # bounded fail-safe: safety and eventual progress both survive contention.
+    for _attempt in range(2):
+        with _identity_coordination_scope(vault_root) as before:
+            pass
+        try:
+            candidate = IdentityCatalogue.from_vault(vault_root)
+        except RuntimeError:
+            # An owner can retire a listed name during the unlocked scan.
+            # Retry only when its publication invalidated this attempt.
+            with _identity_coordination_scope(vault_root) as after:
+                if before == after:
+                    raise
+            continue
+        with _identity_coordination_scope(vault_root) as after:
+            with _PUBLISHED_IDENTITY_LOCK:
+                cached = _BASELINE_IDENTITY_CATALOGUES.get(vault_key)
+            if cached is not None:
+                return cached
+            if before == after:
+                return _stamp_identity_generation(candidate, after)
+
+    with _identity_coordination_scope(vault_root) as generation:
+        with _PUBLISHED_IDENTITY_LOCK:
+            cached = _BASELINE_IDENTITY_CATALOGUES.get(vault_key)
+        if cached is not None:
+            return cached
+        candidate = IdentityCatalogue.from_vault(vault_root)
+        return _stamp_identity_generation(candidate, generation)
+
+
+def _publish_owner_identities(
+    vault_root: Path,
+    descriptor_id: str,
+    identities: Mapping[str, held_fs.StableIdentity],
+) -> None:
+    """Atomically replace one owner's published stable-identity set.
+
+    The caller must already hold both its exact opaque owner authority and the
+    cooperative identity boundary.  Logical names are evidence that the
+    identities belong to this descriptor; generic leaves consume only the
+    stable keys and never trust these names as an authorization path.
+    """
+
+    if not owner_authorized(descriptor_id):
+        raise RuntimeError("private identity publication lacks exact owner authority")
+    if not _identity_coordination_active(vault_root, descriptor_id):
+        raise RuntimeError("private identity publication lacks coordination")
+
+    published: dict[str, held_fs.StableIdentity] = {}
+    seen_keys: set[_IdentityKey] = set()
+    for logical_name, identity in identities.items():
+        classification = classify_logical(logical_name)
+        if (
+            classification.disposition is not PathDisposition.RESERVED
+            or classification.descriptor_id != descriptor_id
+        ):
+            raise RuntimeError("private identity publication does not match its descriptor")
+        if identity.kind not in {"file", "directory"} or (
+            identity.kind == "file" and identity.link_count != 1
+        ):
+            raise RuntimeError("private identity publication is ambiguous")
+        key = _identity_key(identity)
+        if key in seen_keys:
+            raise RuntimeError("private identity publication is ambiguous")
+        seen_keys.add(key)
+        published[logical_name] = identity
+
+    vault_key = _vault_identity_key(vault_root)
+    with _PUBLISHED_IDENTITY_LOCK:
+        owners = _PUBLISHED_OWNER_IDENTITIES.setdefault(vault_key, {})
+        owners[descriptor_id] = published
+
+
+def _published_identity_catalogue(vault_root: Path) -> IdentityCatalogue:
+    """Return currently reachable identities from process-local publications.
+
+    WAL/SHM and rebuild files can disappear when their last owner handle closes,
+    and their inode/file-id can be reused immediately.  Revalidate each
+    publication at its reserved no-follow spelling before admitting the key to
+    a generic-leaf snapshot; a stale ephemeral identity must never reserve an
+    unrelated later file.
+    """
+
+    vault_key = _vault_identity_key(vault_root)
+    with _PUBLISHED_IDENTITY_LOCK:
+        by_descriptor = {
+            descriptor_id: dict(identities)
+            for descriptor_id, identities in _PUBLISHED_OWNER_IDENTITIES.get(
+                vault_key, {}
+            ).items()
+        }
+
+    root = Path(os.path.abspath(vault_root))
+    merged: dict[_IdentityKey, str] = {}
+    published_paths: dict[_IdentityKey, list[tuple[str, str]]] = {}
+    for descriptor_id, identities in by_descriptor.items():
+        for logical_name, expected in identities.items():
+            key = _identity_key(expected)
+            prior = merged.get(key)
+            if prior is not None and prior != descriptor_id:
+                # A link-count-one identity can only move between names over
+                # time. Keep every candidate and let descriptor_for validate
+                # which reserved spelling still owns it now.
+                pass
+            else:
+                merged[key] = descriptor_id
+            published_paths.setdefault(key, []).append(
+                (descriptor_id, logical_name)
+            )
+    return IdentityCatalogue(
+        MappingProxyType(merged),
+        MappingProxyType(
+            {key: tuple(values) for key, values in published_paths.items()}
+        ),
+        root,
+    )
+
+
+def _reachable_owner_publications(
+    vault_root: Path,
+    descriptor_id: str,
+) -> dict[str, held_fs.StableIdentity]:
+    """Return one owner's still-reachable canonical publications.
+
+    SQLite WAL/SHM files disappear on last close and their filesystem identity
+    can be reused immediately.  Publication updates must therefore prune stale
+    logical rows before merging a newly installed identity; otherwise an inode
+    reused for the new primary can appear to alias an already-gone SHM entry and
+    make the owner's own atomic publish fail as ambiguous.
+    """
+    if not _identity_coordination_active(vault_root, descriptor_id):
+        raise RuntimeError("private identity refresh lacks coordination")
+
+    root = Path(os.path.abspath(vault_root))
+    vault_key = _vault_identity_key(root)
+    with _PUBLISHED_IDENTITY_LOCK:
+        candidates = dict(
+            _PUBLISHED_OWNER_IDENTITIES.get(vault_key, {}).get(
+                descriptor_id,
+                {},
+            )
+        )
+
+    current: dict[str, held_fs.StableIdentity] = {}
+    for logical_name, expected in candidates.items():
+        try:
+            observed = _lstat_identity(root / logical_name)
+        except (FileNotFoundError, OSError):
+            continue
+        if (
+            _identity_key(observed) != _identity_key(expected)
+            or observed.kind not in {"file", "directory"}
+            or (observed.kind == "file" and observed.link_count != 1)
+        ):
+            continue
+        current[logical_name] = observed
+    return current
+
+
+def _merge_identity_catalogues(
+    *catalogues: IdentityCatalogue,
+) -> IdentityCatalogue:
+    """Retain name evidence; probe only encountered identities or owner conflicts.
+
+    A merge is working evidence, not a stamped inventory or cached authority.
+    Resolving every private name here makes each ordinary page read pay for the
+    whole private tree, and freezes departed names into unconditional claims.
+    """
+    components = tuple(
+        component
+        for catalogue in catalogues
+        for component in (catalogue._components or (catalogue,))
+    )
+
+    def claims(catalogue: IdentityCatalogue, key: _IdentityKey) -> set[str]:
+        if catalogue.published_paths is None:
+            return {catalogue.identities[key]}
+        return {descriptor for descriptor, _name in catalogue.published_paths.get(key, ())}
+
+    conflicts: set[_IdentityKey] = set()
+    for index, catalogue in enumerate(components):
+        for prior in components[:index]:
+            for key in catalogue.identities.keys() & prior.identities.keys():
+                if len(claims(catalogue, key) | claims(prior, key)) > 1:
+                    conflicts.add(key)
+    merged = IdentityCatalogue(
+        MappingProxyType(ChainMap(*(catalogue.identities for catalogue in components))),
+        _components=components,
+    )
+    # Keep global fail-closed collision checks, including a stale first claim
+    # whose still-reachable name now belongs to a different published owner.
+    for key in conflicts:
+        merged.descriptor_for(held_fs.StableIdentity(key[0], key[1], key[2], 1))
+    return merged
+
+
+def _needs_fresh_physical_catalogue(values: tuple[object, ...]) -> bool:
+    """Whether a spelling may be a Windows short-name physical alias."""
+
+    if os.name != "nt":
+        return False
+    return any(
+        isinstance(value, (str, os.PathLike))
+        and "~" in unicodedata.normalize("NFKC", os.fspath(value))
+        for value in values
+    )
+
+
+@contextmanager
+def _generic_identity_catalogue_scope(
+    vault_root: Path,
+    *values: object,
+    identities: IdentityCatalogue | None = None,
+) -> Iterator[IdentityCatalogue]:
+    """Pin the cooperative boundary and one private-identity snapshot.
+
+    A caller that must not stall on a cold inventory asks
+    :func:`identity_catalogue_ready` first; this scope always supplies one.
+    """
+
+    needs_fresh = _needs_fresh_physical_catalogue(values)
+    if identities is None and not needs_fresh:
+        yield _merge_identity_catalogues(
+            _baseline_identity_catalogue(vault_root),
+            _published_identity_catalogue(vault_root),
+        )
+        return
+
+    with _identity_coordination_scope(vault_root):
+        current = identities or _merge_identity_catalogues(
+            _baseline_identity_catalogue(vault_root),
+            _published_identity_catalogue(vault_root),
+        )
+        if needs_fresh:
+            current = _merge_identity_catalogues(
+                current,
+                IdentityCatalogue.from_vault(vault_root),
+            )
+        yield current
+
+
+def _publish_sqlite_owner_family(
+    vault_root: Path,
+    database: Path,
+    descriptor_id: str,
+    connection: object,
+    *,
+    preserve_existing: bool = False,
+) -> None:
+    """Publish a canonical owner's reachable SQLite family before unlock."""
+
+    if not owner_authorized(descriptor_id):
+        raise RuntimeError("SQLite identity publication lacks exact owner authority")
+    if not _identity_coordination_active(vault_root, descriptor_id):
+        raise RuntimeError("SQLite identity publication lacks coordination")
+
+    route = _owner_anchor(
+        vault_root, database, operation="SQLite identity publication"
+    )
+    classification = classify_logical(route.logical_relative.as_posix())
+    if (
+        classification.disposition is not PathDisposition.RESERVED
+        or classification.descriptor_id != descriptor_id
+    ):
+        raise RuntimeError("SQLite identity publication target is not owner-bound")
+
+    if not callable(getattr(connection, "execute", None)):
+        raise RuntimeError("SQLite identity publication lacks a live connection")
+
+    if route.external:
+        # Identity publication exists so KB-relative generic reads refuse
+        # aliases of private state.  An external-store family has no
+        # KB-relative spelling to defend; the checks above still enforce the
+        # owner-authority and coordination contract for the caller.
+        return
+
+    root = route.trust_root
+    acquired = held_fs.acquire(root)
+    if not acquired.ok:
+        raise RuntimeError("SQLite identity publication cannot acquire the vault")
+    with acquired.require() as filesystem:
+        parent_relative = route.held_relative.parent.as_posix()
+        parent_result = filesystem.parent(
+            parent_relative if parent_relative != "." else "."
+        )
+        if not parent_result.ok:
+            raise RuntimeError("SQLite identity publication cannot retain its parent")
+        with parent_result.require() as parent:
+            prefix = (
+                ""
+                if route.logical_relative.parent == Path(".")
+                else f"{route.logical_relative.parent.as_posix()}/"
+            )
+
+            def publish(family: dict[str, held_fs.StableIdentity]) -> None:
+                installed = {f"{prefix}{name}": identity for name, identity in family.items()}
+                if preserve_existing:
+                    current = _reachable_owner_publications(root, descriptor_id)
+                    current.update(installed)
+                    installed = current
+                _publish_owner_identities(
+                    root,
+                    descriptor_id,
+                    installed,
+                )
+
+            for attempt in range(3):
+                wal_or_shm_reachable = False
+                for suffix in ("-wal", "-shm"):
+                    probe = filesystem.file(
+                        parent, f"{route.logical_relative.name}{suffix}"
+                    )
+                    if probe.ok:
+                        probe.require().close()
+                        wal_or_shm_reachable = True
+                    elif probe.error is None or probe.error.code != "MISSING":
+                        raise RuntimeError("SQLite identity family is unavailable")
+
+                if not wal_or_shm_reachable:
+                    break
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise RuntimeError(
+                        "SQLite identity publication parent changed"
+                    )
+                result = held_fs.publish_sqlite_identities(
+                    filesystem,
+                    parent,
+                    route.logical_relative.name,
+                    publish,
+                )
+                if result.ok:
+                    if not _owner_directory_is_current(filesystem, parent):
+                        raise RuntimeError(
+                            "SQLite identity publication parent changed"
+                        )
+                    return
+                if result.error is None or result.error.code not in {
+                    "MISSING",
+                    "IDENTITY_CHANGED",
+                }:
+                    raise RuntimeError(
+                        "SQLite WAL identity family is not completely reachable"
+                    )
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise RuntimeError(
+                        "SQLite identity publication parent changed"
+                    )
+                if attempt == 2:
+                    if result.error.code == "IDENTITY_CHANGED":
+                        raise SqliteIdentityBusyError(
+                            "SQLite WAL identity family changed during publication"
+                        )
+                    raise RuntimeError(
+                        "SQLite WAL identity family is not completely reachable"
+                    )
+
+            family: dict[str, held_fs.StableIdentity] = {}
+            for suffix in ("", "-journal", "-wal", "-shm"):
+                name = f"{route.logical_relative.name}{suffix}"
+                file_result = filesystem.file(parent, name)
+                if not file_result.ok:
+                    if suffix and file_result.error is not None and file_result.error.code == "MISSING":
+                        continue
+                    raise RuntimeError("SQLite identity family is unavailable")
+                with file_result.require() as file:
+                    family[name] = file.identity
+            if not _owner_directory_is_current(filesystem, parent):
+                raise RuntimeError("SQLite identity publication parent changed")
+            publish(family)
+
+
+def _publish_owner_bytes(
+    vault_root: Path,
+    path: Path,
+    descriptor_id: str,
+    data: bytes,
+) -> held_fs.StableIdentity:
+    """Create or replace one exact private owner file through held handles."""
+
+    if not owner_authorized(descriptor_id):
+        raise RuntimeError("private byte publication lacks exact owner authority")
+    if not isinstance(data, bytes):
+        raise TypeError("private byte publication requires bytes")
+
+    root = Path(os.path.abspath(vault_root))
+    route = _owner_anchor(
+        vault_root, path, operation="byte publication"
+    )
+    classification = classify_logical(route.logical_relative.as_posix())
+    if (
+        classification.disposition is not PathDisposition.RESERVED
+        or classification.descriptor_id != descriptor_id
+    ):
+        raise RuntimeError("private byte publication target is not owner-bound")
+
+    # The caller-provided anchor is the trust root, not a descendant selected
+    # by vault content.  Standalone first-write flows may not have
+    # materialized it yet; create that anchor, then let held_fs reject any
+    # unsafe/raced object before a private descendant is touched.  An
+    # external anchor is created through the placement seam so it carries the
+    # private-state posture from birth.
+    try:
+        if route.external:
+            from . import state_paths
+
+            state_paths.ensure_vault_state_dir(vault_root)
+        else:
+            route.trust_root.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise RuntimeError("private byte publication cannot create the vault") from error
+
+    with _identity_coordination_scope(
+        root,
+        descriptor_ids=(descriptor_id,),
+    ):
+        acquired = held_fs.acquire(route.trust_root)
+        if not acquired.ok:
+            raise RuntimeError("private byte publication cannot acquire the vault")
+        with acquired.require() as filesystem:
+            parent_text = route.held_relative.parent.as_posix()
+            parent_result = filesystem.parent(
+                parent_text if parent_text != "." else ".",
+                create=True,
+            )
+            if not parent_result.ok:
+                raise RuntimeError("private byte publication cannot retain its parent")
+            with parent_result.require() as parent:
+                expected: held_fs.StableIdentity | None = None
+                current = filesystem.file(parent, route.held_relative.name)
+                if current.ok:
+                    with current.require() as existing:
+                        if existing.identity.link_count != 1:
+                            raise RuntimeError(
+                                "private byte publication target is ambiguous"
+                            )
+                        expected = existing.identity
+                elif current.error is None or current.error.code != "MISSING":
+                    raise RuntimeError("private byte publication target is unsafe")
+
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise RuntimeError("private byte publication parent changed")
+
+                result = held_fs.publish_bytes(
+                    filesystem,
+                    parent,
+                    route.held_relative.name,
+                    data,
+                    expected_identity=expected,
+                )
+                if not result.ok:
+                    raise RuntimeError("private byte publication was refused")
+                identity = result.require()
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise RuntimeError("private byte publication parent changed")
+
+        if not route.external:
+            current = _reachable_owner_publications(root, descriptor_id)
+            current[route.logical_relative.as_posix()] = identity
+            _publish_owner_identities(root, descriptor_id, current)
+        return identity
+
+
+def _read_owner_bytes(
+    vault_root: Path,
+    path: Path,
+    descriptor_id: str,
+    *,
+    limit: int,
+) -> bytes:
+    """Read one exact private owner file through a retained no-follow handle."""
+
+    if not owner_authorized(descriptor_id):
+        raise RuntimeError("private byte read lacks exact owner authority")
+    if type(limit) is not int or limit < 0:
+        raise TypeError("private byte read requires a non-negative integer limit")
+
+    root = Path(os.path.abspath(vault_root))
+    target = Path(os.path.abspath(path))
+    route = _owner_anchor(
+        vault_root, path, operation="byte read"
+    )
+    classification = classify_logical(route.logical_relative.as_posix())
+    if (
+        classification.disposition is not PathDisposition.RESERVED
+        or classification.descriptor_id != descriptor_id
+    ):
+        raise RuntimeError("private byte read target is not owner-bound")
+
+    try:
+        route.trust_root.lstat()
+    except FileNotFoundError:
+        raise FileNotFoundError(target) from None
+    except OSError as error:
+        raise OSError("private byte read cannot inspect the vault") from error
+
+    with _identity_coordination_scope(
+        root,
+        descriptor_ids=(descriptor_id,),
+        identity_may_change=False,
+    ):
+        acquired = held_fs.acquire(route.trust_root)
+        if not acquired.ok:
+            raise OSError("private byte read cannot acquire the vault")
+        with acquired.require() as filesystem:
+            parent_text = route.held_relative.parent.as_posix()
+            parent_result = filesystem.parent(
+                parent_text if parent_text != "." else "."
+            )
+            if not parent_result.ok:
+                if parent_result.error is not None and parent_result.error.code == "MISSING":
+                    raise FileNotFoundError(target)
+                raise OSError("private byte read cannot retain its parent")
+            with parent_result.require() as parent:
+                file_result = filesystem.file(parent, route.held_relative.name)
+                if not file_result.ok:
+                    if file_result.error is not None and file_result.error.code == "MISSING":
+                        raise FileNotFoundError(target)
+                    raise OSError("private byte read target is unsafe")
+                with file_result.require() as file:
+                    if file.identity.link_count != 1:
+                        raise OSError("private byte read target is ambiguous")
+                    if not _owner_directory_is_current(filesystem, parent):
+                        raise OSError("private byte read parent changed")
+                    descriptor = getattr(file, "descriptor", None)
+                    if not isinstance(descriptor, int):
+                        raise OSError("private byte read target is unavailable")
+                    try:
+                        size = os.fstat(descriptor).st_size
+                    except OSError as error:
+                        raise OSError("private byte read target is unavailable") from error
+                    if size > limit:
+                        raise OSError("private byte read exceeds its limit")
+                    result = filesystem.read(file)
+                    if not result.ok:
+                        raise OSError("private byte read was refused")
+                    data = result.require()
+                    if len(data) > limit:
+                        raise OSError("private byte read exceeds its limit")
+                    identity = file.identity
+                    current = filesystem.file(parent, route.held_relative.name)
+                    if not current.ok:
+                        raise OSError("private byte read target changed")
+                    with current.require() as current_file:
+                        if current_file.identity != identity:
+                            raise OSError("private byte read target changed")
+                    if not _owner_directory_is_current(filesystem, parent):
+                        raise OSError("private byte read parent changed")
+
+        if not route.external:
+            current = _reachable_owner_publications(root, descriptor_id)
+            current[route.logical_relative.as_posix()] = identity
+            _publish_owner_identities(root, descriptor_id, current)
+        return data
+
+
+def _owner_relative_path(
+    vault_root: Path,
+    path: Path,
+    descriptor_id: str,
+    *,
+    operation: str,
+) -> _OwnerRoute:
+    if not owner_authorized(descriptor_id):
+        raise RuntimeError(f"private {operation} lacks exact owner authority")
+    route = _owner_anchor(
+        vault_root, path, operation=operation
+    )
+    classification = classify_logical(route.logical_relative.as_posix())
+    if (
+        classification.disposition is not PathDisposition.RESERVED
+        or classification.descriptor_id != descriptor_id
+    ):
+        raise RuntimeError(f"private {operation} target is not owner-bound")
+    return route
+
+
+def _owner_directory_is_current(
+    filesystem: held_fs.HeldFilesystem,
+    directory: held_fs.HeldDirectory,
+) -> bool:
+    current = filesystem.validate_directory(
+        directory,
+        require_name=bool(getattr(directory, "named", False)),
+    )
+    return current.ok
+
+
+@contextmanager
+def _sqlite_owner_target_scope(
+    vault_root: Path,
+    database: Path,
+    descriptor_id: str,
+    *,
+    create: bool,
+) -> Iterator[Path]:
+    """Retain one exact private SQLite leaf across open, setup, and publication.
+
+    SQLite's stdlib API accepts a pathname rather than an already-open file.
+    The cooperating command boundary therefore holds the no-follow vault and
+    parent handles, plus the existing leaf when present, while SQLite resolves
+    that pathname.  The same identity is re-opened and checked before the
+    coordination guard may be released.  No pathname-only fallback exists.
+    """
+
+    if not _identity_coordination_active(vault_root, descriptor_id):
+        raise RuntimeError("private SQLite target lacks coordination")
+    route = _owner_relative_path(
+        vault_root,
+        database,
+        descriptor_id,
+        operation="SQLite target",
+    )
+    if create:
+        try:
+            if route.external:
+                from . import state_paths
+
+                state_paths.ensure_vault_state_dir(vault_root)
+            else:
+                route.trust_root.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise RuntimeError("private SQLite target cannot create the vault") from error
+    else:
+        try:
+            route.trust_root.lstat()
+        except FileNotFoundError:
+            raise FileNotFoundError(database) from None
+        except OSError as error:
+            raise RuntimeError("private SQLite target cannot inspect the vault") from error
+
+    acquired = held_fs.acquire(route.trust_root)
+    if not acquired.ok:
+        raise RuntimeError("private SQLite target cannot acquire the vault")
+    with acquired.require() as filesystem:
+        parent_text = route.held_relative.parent.as_posix()
+        parent_result = filesystem.parent(
+            parent_text if parent_text != "." else ".",
+            create=create,
+            access="read",
+        )
+        if not parent_result.ok:
+            if (
+                not create
+                and parent_result.error is not None
+                and parent_result.error.code == "MISSING"
+            ):
+                raise FileNotFoundError(database)
+            raise RuntimeError("private SQLite target cannot retain its parent")
+        with parent_result.require() as parent:
+            # Retain identity without DELETE access: a live Windows SQLite
+            # handle does not necessarily share DELETE with another opener.
+            existing_result = filesystem.file(
+                parent,
+                route.held_relative.name,
+                access="read",
+            )
+            existing: held_fs.HeldFile | None = None
+            expected: held_fs.StableIdentity | None = None
+            if existing_result.ok:
+                existing = existing_result.require()
+                expected = existing.identity
+                if expected.kind != "file" or expected.link_count != 1:
+                    existing.close()
+                    raise RuntimeError("private SQLite target is ambiguous")
+            elif (
+                existing_result.error is None
+                or existing_result.error.code != "MISSING"
+                or not create
+            ):
+                if (
+                    not create
+                    and existing_result.error is not None
+                    and existing_result.error.code == "MISSING"
+                ):
+                    raise FileNotFoundError(database)
+                raise RuntimeError("private SQLite target is unsafe")
+
+            try:
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise RuntimeError("private SQLite target parent changed")
+                try:
+                    yield route.target
+                except BaseException:
+                    raise
+                else:
+                    if not _owner_directory_is_current(filesystem, parent):
+                        raise RuntimeError("private SQLite target parent changed")
+                    current_result = filesystem.file(
+                        parent,
+                        route.held_relative.name,
+                        access="read",
+                    )
+                    if not current_result.ok:
+                        raise RuntimeError("private SQLite target changed during open")
+                    with current_result.require() as current:
+                        if current.identity.kind != "file" or current.identity.link_count != 1:
+                            raise RuntimeError("private SQLite target is ambiguous")
+                        if expected is not None and _identity_key(current.identity) != _identity_key(
+                            expected
+                        ):
+                            raise RuntimeError("private SQLite target changed during open")
+            finally:
+                if existing is not None:
+                    existing.close()
+
+
+def _replace_published_owner_path(
+    vault_root: Path,
+    descriptor_id: str,
+    relative: Path,
+    identity: held_fs.StableIdentity | None,
+) -> None:
+    current = _reachable_owner_publications(vault_root, descriptor_id)
+    if identity is None:
+        current.pop(relative.as_posix(), None)
+    else:
+        current[relative.as_posix()] = identity
+    _publish_owner_identities(vault_root, descriptor_id, current)
+
+
+def _move_owner_file(
+    vault_root: Path,
+    source: Path,
+    source_descriptor_id: str,
+    destination: Path,
+    destination_descriptor_id: str,
+    *,
+    replace: bool,
+) -> held_fs.StableIdentity:
+    """Rename one exact private file between owner-bound names."""
+
+    source_route = _owner_relative_path(
+        vault_root,
+        source,
+        source_descriptor_id,
+        operation="move",
+    )
+    destination_route = _owner_relative_path(
+        vault_root,
+        destination,
+        destination_descriptor_id,
+        operation="move",
+    )
+    if (
+        destination_route.trust_root != source_route.trust_root
+        or source_route.external != destination_route.external
+    ):
+        raise RuntimeError("private move targets different vault roots")
+    root = Path(os.path.abspath(vault_root))
+
+    with _identity_coordination_scope(
+        root,
+        descriptor_ids=(source_descriptor_id, destination_descriptor_id),
+    ):
+        acquired = held_fs.acquire(source_route.trust_root)
+        if not acquired.ok:
+            raise OSError("private move cannot acquire the vault")
+        with acquired.require() as filesystem:
+            source_parent_text = source_route.held_relative.parent.as_posix()
+            destination_parent_text = destination_route.held_relative.parent.as_posix()
+            source_parent_result = filesystem.parent(
+                source_parent_text if source_parent_text != "." else ".",
+            )
+            if not source_parent_result.ok:
+                if (
+                    source_parent_result.error is not None
+                    and source_parent_result.error.code == "MISSING"
+                ):
+                    raise FileNotFoundError(source)
+                raise OSError("private move source parent is unsafe")
+            with source_parent_result.require() as source_parent:
+                destination_parent_result = filesystem.parent(
+                    destination_parent_text
+                    if destination_parent_text != "."
+                    else ".",
+                    create=True,
+                )
+                if not destination_parent_result.ok:
+                    raise OSError("private move destination parent is unsafe")
+                with destination_parent_result.require() as destination_parent:
+                    source_result = filesystem.file(
+                        source_parent,
+                        source_route.held_relative.name,
+                        access="mutate",
+                    )
+                    if not source_result.ok:
+                        if (
+                            source_result.error is not None
+                            and source_result.error.code == "MISSING"
+                        ):
+                            raise FileNotFoundError(source)
+                        raise OSError("private move source is unsafe")
+                    with source_result.require() as source_file:
+                        if source_file.identity.link_count != 1:
+                            raise OSError("private move source is ambiguous")
+                        destination_result = filesystem.file(
+                            destination_parent,
+                            destination_route.held_relative.name,
+                        )
+                        if destination_result.ok:
+                            with destination_result.require() as destination_file:
+                                if destination_file.identity.link_count != 1:
+                                    raise OSError(
+                                        "private move destination is ambiguous"
+                                    )
+                            if not replace:
+                                raise FileExistsError(destination)
+                        elif (
+                            destination_result.error is None
+                            or destination_result.error.code != "MISSING"
+                        ):
+                            raise OSError("private move destination is unsafe")
+
+                        if not _owner_directory_is_current(
+                            filesystem, source_parent
+                        ) or not _owner_directory_is_current(
+                            filesystem, destination_parent
+                        ):
+                            raise OSError("private move parent changed")
+
+                        moved = filesystem.rename(
+                            source_file,
+                            destination_parent,
+                            destination_route.held_relative.name,
+                            replace=replace,
+                        )
+                        if not moved.ok:
+                            raise OSError("private move was refused")
+                        expected = source_file.identity
+
+                    if not _owner_directory_is_current(
+                        filesystem, source_parent
+                    ) or not _owner_directory_is_current(
+                        filesystem, destination_parent
+                    ):
+                        raise OSError("private move parent changed")
+
+                    installed = filesystem.file(
+                        destination_parent,
+                        destination_route.held_relative.name,
+                    )
+                    if not installed.ok:
+                        raise OSError("private move destination is unavailable")
+                    with installed.require() as installed_file:
+                        if installed_file.identity != expected:
+                            raise OSError("private move destination changed")
+                        identity = installed_file.identity
+
+        if source_route.external:
+            pass
+        elif source_descriptor_id == destination_descriptor_id:
+            current = _reachable_owner_publications(root, source_descriptor_id)
+            current.pop(source_route.logical_relative.as_posix(), None)
+            current[destination_route.logical_relative.as_posix()] = identity
+            _publish_owner_identities(root, source_descriptor_id, current)
+        else:
+            _replace_published_owner_path(
+                root,
+                source_descriptor_id,
+                source_route.logical_relative,
+                None,
+            )
+            _replace_published_owner_path(
+                root,
+                destination_descriptor_id,
+                destination_route.logical_relative,
+                identity,
+            )
+        return identity
+
+
+def _remove_owner_file(
+    vault_root: Path,
+    path: Path,
+    descriptor_id: str,
+    *,
+    missing_ok: bool = False,
+) -> bool:
+    """Unlink one exact private file through its retained owner-bound handle."""
+
+    route = _owner_relative_path(
+        vault_root,
+        path,
+        descriptor_id,
+        operation="remove",
+    )
+    root = Path(os.path.abspath(vault_root))
+    with _identity_coordination_scope(root, descriptor_ids=(descriptor_id,)):
+        acquired = held_fs.acquire(route.trust_root)
+        if not acquired.ok:
+            if missing_ok:
+                return False
+            raise OSError("private remove cannot acquire the vault")
+        with acquired.require() as filesystem:
+            parent_text = route.held_relative.parent.as_posix()
+            parent_access = "flush"
+            parent_result = filesystem.parent(
+                parent_text if parent_text != "." else ".",
+                access=parent_access,
+            )
+            if not parent_result.ok:
+                if (
+                    missing_ok
+                    and parent_result.error is not None
+                    and parent_result.error.code == "MISSING"
+                ):
+                    if not route.external:
+                        _replace_published_owner_path(
+                            root, descriptor_id, route.logical_relative, None
+                        )
+                    return False
+                raise OSError("private remove parent is unsafe")
+            with parent_result.require() as parent:
+                file_result = filesystem.file(
+                    parent, route.held_relative.name, access="mutate"
+                )
+                if not file_result.ok:
+                    if (
+                        file_result.error is not None
+                        and file_result.error.code == "MISSING"
+                    ):
+                        if not missing_ok:
+                            raise FileNotFoundError(path)
+                        if not route.external:
+                            _replace_published_owner_path(
+                                root, descriptor_id, route.logical_relative, None
+                            )
+                        return False
+                    raise OSError("private remove target is unsafe")
+                with file_result.require() as file:
+                    if file.identity.link_count != 1:
+                        raise OSError("private remove target is ambiguous")
+                    if not _owner_directory_is_current(filesystem, parent):
+                        raise OSError("private remove parent changed")
+                    removed = filesystem.unlink(file)
+                    if not removed.ok:
+                        raise OSError("private remove was refused")
+                if parent_access == "flush":
+                    flushed = filesystem.flush_directory(parent)
+                    if not flushed.ok:
+                        raise OSError("private remove parent flush was refused")
+                current = filesystem.file(parent, route.held_relative.name)
+                if current.ok:
+                    current.require().close()
+                    raise OSError("private remove target changed")
+                if current.error is None or current.error.code != "MISSING":
+                    raise OSError("private remove target is unavailable")
+                if not _owner_directory_is_current(filesystem, parent):
+                    raise OSError("private remove parent changed")
+
+        if not route.external:
+            _replace_published_owner_path(
+                root, descriptor_id, route.logical_relative, None
+            )
+        return True
+
+
+def _lstat_identity(path: Path) -> held_fs.StableIdentity:
+    info = path.lstat()
+    if path.is_dir() and not path.is_symlink():
+        kind = "directory"
+    elif path.is_file() and not path.is_symlink():
+        kind = "file"
+    else:
+        kind = "other"
+    return held_fs.StableIdentity(info.st_dev, info.st_ino, kind, info.st_nlink)
+
+
+def classify_physical(
+    vault_root: Path,
+    value: object,
+    *,
+    identities: IdentityCatalogue,
+) -> PathClassification:
+    """Conservatively classify a stable pre-existing physical target.
+
+    This observes aliases for routing only.  The consuming leaf must still use
+    the same held handle for its operation; no result here authorizes a pathname
+    reopen.
+    """
+
+    logical = classify_logical(value)
+    if logical.blocked:
+        return logical
+    root = Path(vault_root)
+    assert isinstance(value, (str, os.PathLike))
+    physical_text = unicodedata.normalize("NFKC", os.fspath(value)).replace("\\", "/")
+    physical_parts = tuple(physical_text.split("/"))
+    if physical_parts[0].casefold() == unicodedata.normalize("NFKC", kb_dirname()).casefold():
+        physical_parts = (kb_dirname(), *physical_parts[1:])
+    else:
+        physical_parts = (kb_dirname(), *physical_parts)
+    candidate = root.joinpath(*physical_parts)
+
+    try:
+        relative_parts = candidate.relative_to(root).parts
+    except ValueError:
+        return _invalid("physical target is outside the vault")
+
+    current = root
+    for part in relative_parts:
+        current = current / part
+        try:
+            is_alias = current.is_symlink() or bool(
+                getattr(os.path, "isjunction", lambda _path: False)(current)
+            )
+        except OSError:
+            return _invalid("physical target could not be classified")
+        if not is_alias:
+            continue
+        try:
+            resolved = current.resolve(strict=True)
+            resolved_relative = resolved.relative_to(root.resolve()).as_posix()
+        except (OSError, ValueError):
+            return _invalid("physical alias is unsafe")
+        resolved_result = classify_logical(resolved_relative)
+        if resolved_result.disposition is PathDisposition.RESERVED:
+            return resolved_result
+        return _invalid("physical alias is unsupported by held traversal")
+
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved_relative = resolved.relative_to(root.resolve()).as_posix()
+    except FileNotFoundError:
+        return logical
+    except (OSError, ValueError):
+        return _invalid("physical target could not be resolved safely")
+    resolved_result = classify_logical(resolved_relative)
+    if resolved_result.disposition is PathDisposition.RESERVED:
+        return resolved_result
+
+    try:
+        identity = _lstat_identity(candidate)
+    except FileNotFoundError:
+        return logical
+    except OSError:
+        return _invalid("physical target identity is unavailable")
+    descriptor_id = identities.descriptor_for(identity)
+    if descriptor_id is not None:
+        return PathClassification(
+            PathDisposition.RESERVED,
+            descriptor_id=descriptor_id,
+            canonical=logical.canonical,
+            reason="filesystem identity belongs to private state",
+        )
+    return logical
+
+
+def _validate_registry() -> None:
+    ids = [descriptor.id for descriptor in _REGISTRY]
+    if (
+        len(ids) != len(set(ids))
+        or any(not descriptor.owner for descriptor in _REGISTRY)
+        or any(type(descriptor.placement) is not StatePlacement for descriptor in _REGISTRY)
+    ):
+        raise RuntimeError("internal-state registry is invalid")
+
+
+_validate_registry()

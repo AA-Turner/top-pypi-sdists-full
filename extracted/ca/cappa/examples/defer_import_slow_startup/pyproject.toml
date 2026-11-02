@@ -1,0 +1,26 @@
+[project]
+name = "defer-import"
+version = "0.0.1"
+dependencies = [
+    "pandas",
+    "cappa",
+]
+requires-python = ">=3.8,<4"
+
+[project.scripts]
+defer-import = "defer_import.main:main"
+
+[tool.uv.sources]
+cappa = {path = "../.."}
+
+[dependency-groups]
+dev = [
+    "mypy >= 1.0.0",
+    "pyright >= 1.1.398",
+    "basedpyright >= 1.29.1",
+    "pandas-stubs",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

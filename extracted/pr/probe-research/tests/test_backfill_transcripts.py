@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 
 _TAP_DIR = Path(__file__).resolve().parent.parent / "plugins" / "probe-research-tap"
 _PI_FIXTURES_DIR = _TAP_DIR / "tests" / "fixtures" / "pi"
@@ -155,9 +155,9 @@ def test_sessions_the_tap_already_tracks_are_excluded(roots) -> None:
 def test_sessions_switched_off_or_with_an_off_stretch_are_never_imported(roots) -> None:
     """Probe off means the session is not captured, and an import never
     backfills one: not a session whose switch reads off, and not one whose gap
-    file (`probe.service.capture_gate`) holds a stretch written while it was."""
+    file (`probe.service.sessions.capture_gate`) holds a stretch written while it was."""
     from probe.sdk import session_marker
-    from probe.service import capture_gate
+    from probe.service.sessions import capture_gate
 
     claude, _ = roots
     off, gapped, fresh = (
@@ -183,7 +183,7 @@ def test_a_machine_default_of_off_skips_no_session_from_an_import(roots, monkeyp
     whose `.state` was pruned: only a session's own `off`, or its gap file
     (one that does not read included), keeps it out."""
     from probe.sdk import session_marker
-    from probe.service import capture_gate
+    from probe.service.sessions import capture_gate
 
     claude, _ = roots
     plain, own_off, unreadable = (
@@ -409,13 +409,14 @@ def test_run_lane_includes_pi_by_default_when_it_is_paired(tmp_path, monkeypatch
     all -- the actual mechanism behind "N files found · N queued" landing
     nothing: `run_lane` never asked `discover()` for pi in the first place.
     """
-    from probe.cli import backfill_transcripts as transcripts_mod
-    from probe.cli import capabilities
+    from probe.cli.imports import transcripts as transcripts_mod
+    from probe.cli.wizard import state as capabilities
 
     paired = {bt.CLAUDE: ("tok-cc", "http://x"), bt.PI: ("tok-pi", "http://x")}
-    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: paired.get(s))
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda s=None: f"dev-{s}")
-    monkeypatch.setattr(capabilities, "tap_plugin_dir", lambda s=None: tmp_path / str(s))
+    monkeypatch.setattr(capabilities.capture_credentials, "resolved_capture_credential", lambda s=None: paired.get(s))
+    monkeypatch.setattr(capabilities.device_state, "resolved_capture_credential", lambda s=None: paired.get(s))
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda s=None: f"dev-{s}")
+    monkeypatch.setattr(capabilities.capture_credentials, "tap_plugin_dir", lambda s=None: tmp_path / str(s))
 
     seen: dict = {}
 
@@ -423,7 +424,8 @@ def test_run_lane_includes_pi_by_default_when_it_is_paired(tmp_path, monkeypatch
         seen["agents"] = list(agents)
         return bt.Census()
 
-    monkeypatch.setattr(transcripts_mod, "discover", fake_discover)
+    monkeypatch.setattr(transcripts_mod.discovery, "discover", fake_discover)
+    monkeypatch.setattr(transcripts_mod.lane, "discover", fake_discover)
 
     transcripts_mod.run_lane(client=object(), interactive=False)
 
@@ -436,7 +438,7 @@ def test_run_lane_reports_pi_unpaired_on_a_claude_paired_machine(tmp_path, monke
     in the CLI config. pi used to resolve THAT token, land in `posters`, and
     then 403 on every `/ingest/v1/sessions/pi` upload, failing the whole pi
     import. pi must resolve nothing and be reported unpaired instead."""
-    from probe.cli import backfill_transcripts as transcripts_mod
+    from probe.cli.imports import transcripts as transcripts_mod
 
     config = tmp_path / "probe" / "config.json"
     config.parent.mkdir(parents=True)
@@ -455,7 +457,8 @@ def test_run_lane_reports_pi_unpaired_on_a_claude_paired_machine(tmp_path, monke
         seen["agents"] = list(agents)
         return bt.Census()
 
-    monkeypatch.setattr(transcripts_mod, "discover", fake_discover)
+    monkeypatch.setattr(transcripts_mod.discovery, "discover", fake_discover)
+    monkeypatch.setattr(transcripts_mod.lane, "discover", fake_discover)
 
     transcripts_mod.run_lane(client=object(), interactive=False)
 
@@ -509,7 +512,7 @@ class _ProjectClient:
 def test_folder_unit_assignments_never_bind_standalone_conversations(tmp_path, monkeypatch, projects):
     """Directory proximity is not evidence of a conversation's entity ownership."""
     from probe.cli import backfill_run
-    from probe.cli.backfill_ledger import Unit
+    from probe.cli.imports.folder.upload.ledger import Unit
 
     units = [
         Unit(unit_id="a", project="alpha", paths=("alpha/train.py", "alpha/eval.py")),
@@ -517,7 +520,7 @@ def test_folder_unit_assignments_never_bind_standalone_conversations(tmp_path, m
     ]
     client = _ProjectClient(projects)
     seen = []
-    monkeypatch.setattr(bt, "run_lane", lambda **kwargs: seen.append(kwargs) or ["standalone"])
+    monkeypatch.setattr(bt.lane, "run_lane", lambda **kwargs: seen.append(kwargs) or ["standalone"])
     lines = backfill_run._run_transcript_lane(
         client_factory=lambda: client, folder=tmp_path, units=units,
         interactive=False, yes=True, budget_bytes=4096,
@@ -563,28 +566,35 @@ def lane(tmp_path, monkeypatch):
     covered next door; what these tests are about is what the lane DECIDES and
     what it says afterwards, and both are invisible from any smaller seam.
     """
-    from probe.cli import backfill_transcripts as transcripts_mod
-    from probe.cli import capabilities
+    from probe.cli.imports import transcripts as transcripts_mod
+    from probe.cli.wizard import state as capabilities
 
     monkeypatch.setattr(
-        capabilities, "resolved_capture_credential", lambda s=None: ("tok", "http://x")
+        capabilities.capture_credentials, "resolved_capture_credential", lambda s=None: ("tok", "http://x")
     )
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda s=None: f"dev-{s}")
-    monkeypatch.setattr(capabilities, "tap_plugin_dir", lambda s=None: tmp_path / str(s))
-    monkeypatch.setattr(transcripts_mod, "tap_tracked_sessions", lambda directory: set())
+    monkeypatch.setattr(
+        capabilities.device_state, "resolved_capture_credential", lambda s=None: ("tok", "http://x")
+    )
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda s=None: f"dev-{s}")
+    monkeypatch.setattr(capabilities.capture_credentials, "tap_plugin_dir", lambda s=None: tmp_path / str(s))
+    monkeypatch.setattr(transcripts_mod.discovery, "tap_tracked_sessions", lambda directory: set())
 
     transcript = _one_line_transcript(tmp_path, "s-1")
     monkeypatch.setattr(
-        transcripts_mod, "discover", lambda **kw: bt.Census(candidates=[transcript])
+        transcripts_mod.discovery, "discover", lambda **kw: bt.Census(candidates=[transcript])
+    )
+    monkeypatch.setattr(
+        transcripts_mod.lane, "discover", lambda **kw: bt.Census(candidates=[transcript])
     )
     ledger = bt.TranscriptLedger(tmp_path / "ledger.jsonl")
     monkeypatch.setattr(bt.TranscriptLedger, "for_device", classmethod(lambda cls: ledger))
-    monkeypatch.setattr(transcripts_mod, "exclude_ingested", lambda census, client, **kw: census)
-    monkeypatch.setattr(transcripts_mod, "fetch_ingest_state", lambda client, session_id: None)
+    monkeypatch.setattr(transcripts_mod.ledger, "exclude_ingested", lambda census, client, **kw: census)
+    monkeypatch.setattr(transcripts_mod.ledger, "fetch_ingest_state", lambda client, session_id: None)
+    monkeypatch.setattr(transcripts_mod.background, "fetch_ingest_state", lambda client, session_id: None)
     monkeypatch.setattr(
-        transcripts_mod, "saved_session_sources", lambda sources, **kwargs: tuple(sources)
+        transcripts_mod.lane, "saved_session_sources", lambda sources, **kwargs: tuple(sources)
     )
-    monkeypatch.setattr(transcripts_mod, "choose_sources", lambda available: available)
+    monkeypatch.setattr(transcripts_mod.lane, "choose_sources", lambda available: available)
 
     seen: dict = {}
 
@@ -592,7 +602,8 @@ def lane(tmp_path, monkeypatch):
         seen.update(kwargs)
         return bt.LaneOutcome(found=1, uploaded=1)
 
-    monkeypatch.setattr(transcripts_mod, "import_transcripts", fake_import)
+    monkeypatch.setattr(transcripts_mod.transcripts, "import_transcripts", fake_import)
+    monkeypatch.setattr(transcripts_mod.background, "import_transcripts", fake_import)
 
     def run(**kwargs):
         kwargs.setdefault("interactive", False)
@@ -604,7 +615,7 @@ def lane(tmp_path, monkeypatch):
 
 
 def test_saved_histories_are_detected_without_agent_binaries(roots, tmp_path, monkeypatch):
-    from probe.cli import backfill as bf
+    from probe.cli.imports import folder as bf
 
     claude, codex = roots
     _cc_session(claude, "-proj", "aaaa2222-9999-4999-8999-aaaa22223333", "/proj")
@@ -613,7 +624,10 @@ def test_saved_histories_are_detected_without_agent_binaries(roots, tmp_path, mo
         "type": "session_meta", "payload": {"id": session, "cwd": "/proj"},
     }])
     monkeypatch.setenv("PROBE_PI_SESSION_ROOTS", str(tmp_path / "pi"))
-    monkeypatch.setattr(bf, "which_agent", lambda agent: None)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: None)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: None)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: None)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: None)
 
     assert bt.saved_session_sources((bt.CLAUDE, bt.CODEX, bt.PI), plugin_dirs={}) == (
         bt.CLAUDE, bt.CODEX,
@@ -628,7 +642,7 @@ def test_empty_roots_and_sidechains_are_not_offered_as_saved_histories(roots):
 
 @pytest.mark.parametrize("selected", [(bt.CLAUDE,), (bt.CODEX,), (bt.CLAUDE, bt.CODEX)])
 def test_selected_histories_bound_discovery_preview_and_upload(lane, monkeypatch, selected):
-    from probe.cli import capabilities, tui
+    from probe.cli.wizard import state as capabilities, terminal as tui
 
     offered = []
     credentials = []
@@ -658,10 +672,12 @@ def test_selected_histories_bound_discovery_preview_and_upload(lane, monkeypatch
         assert "pi logs" not in text
         return "import"
 
-    monkeypatch.setattr(bt, "choose_sources", choose)
-    monkeypatch.setattr(bt, "discover", discover)
-    monkeypatch.setattr(capabilities, "resolved_capture_credential", credential)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(bt.lane, "choose_sources", choose)
+    monkeypatch.setattr(bt.discovery, "discover", discover)
+    monkeypatch.setattr(bt.lane, "discover", discover)
+    monkeypatch.setattr(capabilities.capture_credentials, "resolved_capture_credential", credential)
+    monkeypatch.setattr(capabilities.device_state, "resolved_capture_credential", credential)
+    monkeypatch.setattr(tui.forms, "review", review)
     seen, _lines = lane(interactive=True)
 
     assert offered == [(bt.CLAUDE, bt.CODEX, bt.PI, bt.KIMI)]
@@ -680,7 +696,7 @@ def test_the_history_step_offers_every_captured_agent(lane, monkeypatch):
 
     asked = []
     monkeypatch.setattr(
-        bt, "saved_session_sources", lambda sources, **kwargs: asked.append(tuple(sources)) or ()
+        bt.lane, "saved_session_sources", lambda sources, **kwargs: asked.append(tuple(sources)) or ()
     )
     lane(interactive=True)
     captured = tuple(h.id for h in get_registry().all() if h.captured)
@@ -705,12 +721,16 @@ def test_saved_kimi_sessions_are_offered(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("action", ["BACK", "SKIP"])
 def test_leaving_history_selection_does_not_scan_or_upload(lane, monkeypatch, action):
-    from probe.cli import capabilities, tui
+    from probe.cli.wizard import state as capabilities, terminal as tui
 
-    monkeypatch.setattr(bt, "choose_sources", lambda available: getattr(tui, action))
-    monkeypatch.setattr(bt, "discover", lambda **kwargs: pytest.fail("scanned after Back"))
+    monkeypatch.setattr(bt.lane, "choose_sources", lambda available: getattr(tui, action))
+    monkeypatch.setattr(bt.discovery, "discover", lambda **kwargs: pytest.fail("scanned after Back"))
+    monkeypatch.setattr(bt.lane, "discover", lambda **kwargs: pytest.fail("scanned after Back"))
     monkeypatch.setattr(
-        capabilities, "resolved_capture_credential", lambda source: pytest.fail("paired after Back")
+        capabilities.capture_credentials, "resolved_capture_credential", lambda source: pytest.fail("paired after Back")
+    )
+    monkeypatch.setattr(
+        capabilities.device_state, "resolved_capture_credential", lambda source: pytest.fail("paired after Back")
     )
     seen, lines = lane(interactive=True)
     assert seen == {}
@@ -724,7 +744,7 @@ def test_headless_explicit_sources_restrict_the_upload(lane):
 
 def test_source_picker_defaults_every_detected_history_to_checked(monkeypatch):
     import questionary
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     selected = (bt.CLAUDE, bt.CODEX)
     seen = {}
@@ -735,10 +755,12 @@ def test_source_picker_defaults_every_detected_history_to_checked(monkeypatch):
         return original(message, **kwargs)
 
     monkeypatch.setattr(questionary, "checkbox", checkbox)
-    monkeypatch.setattr(tui, "ask", lambda question, **kwargs: list(selected))
+    monkeypatch.setattr(tui.forms, "ask", lambda question, **kwargs: list(selected))
+    monkeypatch.setattr(tui.layout, "ask", lambda question, **kwargs: list(selected))
     # sectioned is the shared layout integration; selection defaults are
     # independent of the renderer and stay testable without a terminal.
-    monkeypatch.setattr(tui, "sectioned", lambda question, **kwargs: question, raising=False)
+    monkeypatch.setattr(tui.forms, "sectioned", lambda question, **kwargs: question, raising=False)
+    monkeypatch.setattr(tui.layout, "sectioned", lambda question, **kwargs: question, raising=False)
     assert bt.choose_sources(selected) == selected
     assert [row.value for row in seen["rows"]] == list(selected)
     assert all(row.checked for row in seen["rows"])
@@ -746,19 +768,21 @@ def test_source_picker_defaults_every_detected_history_to_checked(monkeypatch):
 
 @pytest.mark.parametrize("answer", ["import", "skip"])
 def test_background_handoff_queues_only_after_the_review_without_uploading(lane, monkeypatch, answer):
-    from probe.cli import import_jobs, tui
+    from probe.cli.imports import jobs as import_jobs
+    from probe.cli.wizard import terminal as tui
 
     queued = []
     monkeypatch.setattr(
-        import_jobs, "enqueue",
+        import_jobs.jobs, "enqueue",
         lambda kind, payload, label: queued.append((kind, payload, label)) or {"id": "job-1"},
     )
-    monkeypatch.setattr(bt, "_background_identity", lambda client: {
+    monkeypatch.setattr(bt.background, "_background_identity", lambda client: {
         "context": "default", "base_url": "http://x", "customer_id": "team", "user_id": "user",
         "workspace": None,
     })
-    monkeypatch.setattr(tui, "review", lambda *a, **k: answer)
-    monkeypatch.setattr(bt, "_execute_census", lambda *a, **k: pytest.fail("foreground upload"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: answer)
+    monkeypatch.setattr(bt.background, "_execute_census", lambda *a, **k: pytest.fail("foreground upload"))
+    monkeypatch.setattr(bt.lane, "_execute_census", lambda *a, **k: pytest.fail("foreground upload"))
     seen, lines = lane(interactive=True, background=True)
     assert seen == {}
     if answer == "skip":
@@ -775,23 +799,26 @@ def test_background_handoff_queues_only_after_the_review_without_uploading(lane,
 
 
 def test_headless_background_flag_preserves_foreground_execution(lane, monkeypatch):
-    monkeypatch.setattr(bt, "_background_payload", lambda *a, **k: pytest.fail("queued headless command"))
+    monkeypatch.setattr(bt.background, "_background_payload", lambda *a, **k: pytest.fail("queued headless command"))
+    monkeypatch.setattr(bt.lane, "_background_payload", lambda *a, **k: pytest.fail("queued headless command"))
     seen, _lines = lane(background=True)
     assert "poster" in seen
 
 
 @pytest.mark.parametrize("state,wording", [("failed", "needs attention"), ("succeeded", "already complete")])
 def test_repeated_transcript_approval_reports_the_existing_job_state(lane, monkeypatch, state, wording):
-    from probe.cli import import_jobs, tui
+    from probe.cli.imports import jobs as import_jobs
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.setattr(
-        import_jobs, "enqueue", lambda *a, **k: {
+        import_jobs.jobs, "enqueue", lambda *a, **k: {
             "id": "existing-job", "state": state,
             "error": "Restore the approved pairing." if state == "failed" else None,
         },
     )
-    monkeypatch.setattr(bt, "_background_payload", lambda *a, **k: {"approved": True})
-    monkeypatch.setattr(tui, "review", lambda *a, **k: "import")
+    monkeypatch.setattr(bt.background, "_background_payload", lambda *a, **k: {"approved": True})
+    monkeypatch.setattr(bt.lane, "_background_payload", lambda *a, **k: {"approved": True})
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: "import")
     seen, lines = lane(interactive=True, background=True)
     text = "\n".join(lines)
     assert seen == {}
@@ -803,15 +830,16 @@ def test_repeated_transcript_approval_reports_the_existing_job_state(lane, monke
 
 @pytest.mark.parametrize("response", ["skip", "escape"])
 def test_conversation_gate_skips_before_upload_or_ledger_write(lane, monkeypatch, tmp_path, response):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     def review(title, lines, choices):
         assert title == "Agent sessions on this machine"
         assert any(value == "skip" for _, value in choices)
         return tui.BACK if response == "escape" else response
 
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(bt, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
     seen, lines = lane(interactive=True)
     assert not seen
     assert lines == ["Skipped the agent sessions."]
@@ -819,17 +847,18 @@ def test_conversation_gate_skips_before_upload_or_ledger_write(lane, monkeypatch
 
 
 def test_conversation_gate_ctrl_c_aborts_before_upload(lane, monkeypatch, tmp_path):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "review", lambda *a: None)
-    monkeypatch.setattr(bt, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a: None)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", lambda *a: pytest.fail("read before consent"))
     with pytest.raises(KeyboardInterrupt):
         lane(interactive=True)
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
 def test_conversation_gate_import_requires_explicit_choice_and_shows_scope(lane, monkeypatch):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     def review(title, lines, choices):
         text = "\n".join(lines)
@@ -838,16 +867,16 @@ def test_conversation_gate_import_requires_explicit_choice_and_shows_scope(lane,
         assert choices[0] == ("Import these sessions", "import")
         return choices[0][1]  # Preserve Enter-to-import after reviewing the scope.
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     seen, _ = lane(interactive=True)
     assert seen["assignments"] == {}
 
 
 @pytest.mark.parametrize("interactive,yes", [(False, False), (False, True), (True, True)])
 def test_conversation_gate_preserves_headless_and_yes_behavior(lane, monkeypatch, interactive, yes):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "review", lambda *a: pytest.fail("unexpected prompt"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a: pytest.fail("unexpected prompt"))
     seen, _ = lane(interactive=interactive, yes=yes)
     assert "ledger" in seen
 
@@ -924,7 +953,8 @@ def test_two_config_dirs_are_both_walked(tmp_path, monkeypatch) -> None:
     roots = bt.transcript_roots(bt.CLAUDE, plugin)
     assert first in roots and second in roots
 
-    monkeypatch.setattr(bt, "claude_root", lambda: tmp_path / "nothing-here")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.transcripts.claude_root", lambda: tmp_path / "nothing-here")
+    monkeypatch.setattr(bt.roots, "claude_root", lambda: tmp_path / "nothing-here")
     census = bt.discover(plugin_dirs={bt.CLAUDE: plugin})
     assert census.sessions == 2, "a second config dir must not be invisible"
 
@@ -1084,7 +1114,8 @@ def test_a_relocated_dir_does_not_hide_the_original(tmp_path, monkeypatch) -> No
     _cc_session(original, "-old", "aaaa0009-0000-4000-8000-aaaa00000009", "/old")
     _cc_session(relocated, "-new", "aaaa000a-0000-4000-8000-aaaa0000000a", "/new")
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(relocated.parent))
-    monkeypatch.setattr(bt, "claude_root", lambda: original)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.transcripts.claude_root", lambda: original)
+    monkeypatch.setattr(bt.roots, "claude_root", lambda: original)
 
     roots = bt.transcript_roots(bt.CLAUDE, None)
 
@@ -1119,7 +1150,8 @@ def test_a_foreign_jsonl_beside_claude_sessions_is_not_a_session(tmp_path):
     crashed the whole run one server round-trip later ("malformed session
     id"). Non-uuid stems must die at discovery, like sidechains — this
     blocked the first real pi transcript re-run on 2026-08-29."""
-    from probe.cli.backfill_transcripts import CLAUDE, session_id_for
+    from probe.cli.imports.transcripts.roots import CLAUDE
+    from probe.cli.imports.transcripts.discovery import session_id_for
 
     assert session_id_for(tmp_path / "journal.jsonl", CLAUDE) is None
     assert session_id_for(tmp_path / "notes.jsonl", CLAUDE) is None

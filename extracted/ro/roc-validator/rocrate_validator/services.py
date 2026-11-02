@@ -1,0 +1,328 @@
+# Copyright (c) 2024-2026 CRS4
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+import copy
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
+
+from rocrate_validator.constants import HTTP_STATUS_BAD_REQUEST, HTTP_STATUS_GATEWAY_TIMEOUT
+from rocrate_validator.errors import ProfileNotFound
+from rocrate_validator.events import Subscriber
+from rocrate_validator.models import Profile, Severity, ValidationResult, ValidationSettings, Validator
+from rocrate_validator.models.profile_detection import ProfileDetectionResult
+from rocrate_validator.utils import log as logging
+from rocrate_validator.utils.http import HttpRequester
+from rocrate_validator.utils.paths import get_profiles_path
+from rocrate_validator.utils.uri import URI
+
+# set the default profiles path
+DEFAULT_PROFILES_PATH = get_profiles_path()
+
+# set up logging
+logger = logging.getLogger(__name__)
+
+
+def detect_profiles(settings: dict | ValidationSettings) -> list[Profile]:
+    """Detect profiles, preserving the historical list return type."""
+    return detect_profiles_detailed(settings).profiles
+
+
+def detect_profiles_detailed(settings: dict | ValidationSettings) -> ProfileDetectionResult:
+    """Detect profiles and return structured diagnostics and a confirmable suggestion."""
+    validator = __initialise_validator__(settings)
+    result = validator.detect_rocrate_profiles_detailed()
+    logger.debug("Detailed profile detection result: %s", result)
+    return result
+
+
+def suggest_profile_for_string_conforms_to(settings: dict | ValidationSettings) -> Profile | None:
+    """Return a unique available profile matching a malformed literal conformsTo value."""
+    return detect_profiles_detailed(settings).suggested_profile
+
+
+def validate_metadata_as_dict(
+    metadata_dict: dict, settings: dict | ValidationSettings, subscribers: list[Subscriber] | None = None
+) -> ValidationResult:
+    """
+    Validate the RO-Crate metadata only against a profile and return the validation result.
+    """
+    assert metadata_dict is not None, "Metadata dictionary cannot be None"
+    assert isinstance(metadata_dict, dict), "Metadata must be a dictionary"
+    parsed_settings = ValidationSettings.parse(settings)
+    validator = _build_validator(parsed_settings, subscribers)
+    # Use per-run input instead of mutating caller-owned settings. This shares
+    # the same prepared-validator path used for directory-based validation.
+    return validator.validate(metadata_dict=metadata_dict)
+
+
+def validate(settings: dict | ValidationSettings, subscribers: list[Subscriber] | None = None) -> ValidationResult:
+    """
+    Validate a RO-Crate against a profile and return the validation result
+
+    :param settings: the validation settings
+    :type settings: Union[dict, ValidationSettings]
+
+    :param subscribers: the list of subscribers
+    :type subscribers: Optional[list[Subscriber]]
+
+    :return: the validation result
+    :rtype: ValidationResult
+
+    """
+    # initialize the validator
+    validator = __initialise_validator__(settings, subscribers)
+    # validate the RO-Crate
+    result = validator.validate()
+    logger.debug("Validation completed: %s", result)
+    return result
+
+
+def _build_validator(settings: ValidationSettings, subscribers: list[Subscriber] | None) -> Validator:
+    """Create a validator for the given settings and register any subscribers."""
+    validator = Validator(settings)
+    logger.debug("Validator created. Starting validation...")
+    if subscribers:
+        for subscriber in subscribers:
+            validator.add_subscriber(subscriber)
+    return validator
+
+
+def _extract_and_validate(
+    settings: ValidationSettings, subscribers: list[Subscriber] | None, rocrate_path: Path
+) -> Validator:
+    """Extract a (local or downloaded) zipped RO-Crate to a temp dir and validate it."""
+    # The extracted package must outlive this function and remain available
+    # through Validator.validate(); its owner is retained by the validator.
+    temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+    try:
+        with zipfile.ZipFile(rocrate_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir.name)
+            logger.debug("RO-Crate extracted to temporary directory: %s", temp_dir.name)
+        effective_settings = copy.copy(settings)
+        effective_settings.rocrate_uri = URI(temp_dir.name)
+        effective_settings._source_rocrate_uri = settings.rocrate_uri
+        validator = _build_validator(effective_settings, subscribers)
+        # ValidationContext is created by Validator.validate(), after this
+        # function returns. Keep the extracted package alive until then.
+        validator._extracted_crate_directory = temp_dir
+        return validator
+    except Exception:
+        temp_dir.cleanup()
+        raise
+
+
+def _download_remote_rocrate(
+    settings: ValidationSettings, subscribers: list[Subscriber] | None, rocrate_path: URI
+) -> Validator:
+    """Download a remote (http/https/ftp) RO-Crate to a temp file, then extract and validate it."""
+    logger.debug("RO-Crate is a remote RO-Crate")
+    with tempfile.TemporaryDirectory() as download_dir:
+        download_path = Path(download_dir) / "download.zip"
+        requester = HttpRequester()
+        offline = bool(getattr(settings, "offline", False))
+        # In offline mode, the cache is the only source of truth. Otherwise,
+        # bypass the cache to refresh the stored copy so that subsequent
+        # offline runs validate against the latest known remote state.
+        if offline:
+            response = requester.get(rocrate_path.uri, stream=True, allow_redirects=True)
+        else:
+            response = requester.fetch_fresh(rocrate_path.uri, stream=True, allow_redirects=True)
+        with response as r:
+            if r.status_code >= HTTP_STATUS_BAD_REQUEST:
+                if offline and r.status_code == HTTP_STATUS_GATEWAY_TIMEOUT:
+                    raise FileNotFoundError(
+                        f"Remote RO-Crate '{rocrate_path.uri}' is not available in the HTTP cache. "
+                        f"Validate it online first, or run "
+                        f"`rocrate-validator cache warm --crate '{rocrate_path.uri}'`."
+                    )
+                raise FileNotFoundError(
+                    f"Failed to download remote RO-Crate '{rocrate_path.uri}' (status {r.status_code})."
+                )
+            with download_path.open("wb") as f:
+                shutil.copyfileobj(r.raw, f)
+        logger.debug("RO-Crate downloaded to temporary file: %s", download_path)
+        return _extract_and_validate(settings, subscribers, download_path)
+
+
+def _initialise_dict_metadata_validator(
+    settings: ValidationSettings, subscribers: list[Subscriber] | None
+) -> Validator:
+    """Build a validator for dictionary metadata, optionally using a package directory."""
+    if settings.package_root is not None:
+        if settings.packaging_mode == "detached":
+            raise ValueError("package_root cannot be combined with detached packaging_mode")
+        if not settings.package_root.is_dir():
+            raise ValueError(f"package_root is not a local directory: {settings.package_root}")
+    else:
+        if settings.packaging_mode == "attached" and not settings.metadata_only:
+            raise ValueError("Attached in-memory metadata requires metadata_only=True or package_root")
+        # A standalone dictionary has no payload backend, even when called
+        # through validate() rather than validate_metadata_as_dict().
+        settings.metadata_only = True
+    return _build_validator(settings, subscribers)
+
+
+def __initialise_validator__(  # noqa: C901, PLR0911  # pylint: disable=too-many-return-statements
+    settings: dict | ValidationSettings, subscribers: list[Subscriber] | None = None
+) -> Validator:
+    """
+    Validate a RO-Crate against a profile
+    """
+    # if settings is a dict, convert to ValidationSettings
+    settings = ValidationSettings.parse(settings)
+
+    if settings.package_root is not None and settings.metadata_dict is None:
+        raise ValueError("package_root requires metadata_dict")
+
+    if settings.metadata_dict is not None:
+        return _initialise_dict_metadata_validator(settings, subscribers)
+
+    # parse the rocrate path
+    assert settings.rocrate_uri is not None, "RO-Crate URI is required"
+    rocrate_path: URI = URI(str(settings.rocrate_uri))
+    logger.debug("Validating RO-Crate: %s", rocrate_path)
+
+    if (
+        settings.packaging_mode == "attached"
+        and not settings.metadata_only
+        and rocrate_path.is_remote_resource()
+        and (Path(rocrate_path.get_path()).suffix.lower() != ".zip")
+    ):
+        raise ValueError("Attached mode for a remote standalone document requires a package adapter")
+    if settings.packaging_mode == "detached" and (
+        rocrate_path.is_local_directory() or Path(rocrate_path.get_path()).suffix.lower() == ".zip"
+    ):
+        raise ValueError("Detached mode requires a standalone metadata document, not a directory or ZIP")
+
+    # check if the RO-Crate exists
+    if (
+        not getattr(settings, "metadata_only", False)
+        and getattr(settings, "metadata_dict", None) is None
+        and not rocrate_path.is_available()
+    ):
+        raise FileNotFoundError(f"RO-Crate not found: {rocrate_path}")
+
+    # check if remote validation is enabled
+    disable_remote_crate_download = settings.disable_remote_crate_download
+    logger.debug("Remote validation: %s", disable_remote_crate_download)
+    if disable_remote_crate_download:
+        return _build_validator(settings, subscribers)
+
+    # Resolve the RO-Crate source: remote URL, local ZIP, or local directory.
+    # We support http/https/ftp protocols to download a remote RO-Crate.
+    if rocrate_path.scheme in ("http", "https", "ftp"):
+        if Path(rocrate_path.get_path()).suffix.lower() != ".zip":
+            return _build_validator(settings, subscribers)
+        return _download_remote_rocrate(settings, subscribers, rocrate_path)
+    if rocrate_path.as_path().suffix == ".zip":
+        logger.debug("RO-Crate is a local ZIP file")
+        return _extract_and_validate(settings, subscribers, rocrate_path.as_path())
+    if rocrate_path.is_local_directory():
+        logger.debug("RO-Crate is a local directory")
+        settings.rocrate_uri = URI(str(rocrate_path.as_path()))
+        return _build_validator(settings, subscribers)
+    if rocrate_path.is_local_file() and rocrate_path.as_path().suffix.lower() in (".json", ".jsonld"):
+        return _build_validator(settings, subscribers)
+    raise ValueError(
+        f"Invalid RO-Crate URI: {rocrate_path}. It MUST be a local directory or a ZIP file (local or remote)."
+    )
+
+
+def get_profiles(
+    profiles_path: Path = DEFAULT_PROFILES_PATH,
+    extra_profiles_path: Path | None = None,
+    severity=Severity.OPTIONAL,
+    allow_requirement_check_override: bool = ValidationSettings.allow_requirement_check_override,
+) -> list[Profile]:
+    """
+    Get the list of profiles supported by the package.
+    The profile source path can be overridden by specifying ``profiles_path``.
+
+    :param profiles_path: the path to the profiles directory
+    :type profiles_path: Path
+
+    :param severity: the severity level
+    :type severity: Severity
+
+    :param allow_requirement_check_override: a flag to enable or disable
+        the requirement check override (default: ``True``).
+        If ``True``, the requirement check of a profile ``A`` can be overridden
+        by the requirement check of a direct profile extension ``B`` (i.e., when
+        ``B prof:isProfileOf A``) if they share the same name and severity.
+        If ``False``, a profile extension ``B`` can only
+        add new requirements to the profile ``A`` (i.e., checks whose name and severity
+        pair is not present in ``A``), and an error is raised if an override is found.
+    :type allow_requirement_check_override: bool
+
+    :return: the list of profiles
+    :rtype: list[Profile]
+    """
+    profiles = Profile.load_profiles(
+        profiles_path,
+        extra_profiles_path=extra_profiles_path,
+        severity=severity,
+        allow_requirement_check_override=allow_requirement_check_override,
+    )
+    logger.debug("Profiles loaded: %s", profiles)
+    return profiles
+
+
+def get_profile(
+    profile_identifier: str,
+    profiles_path: Path = DEFAULT_PROFILES_PATH,
+    extra_profiles_path: Path | None = None,
+    severity=Severity.OPTIONAL,
+    allow_requirement_check_override: bool = ValidationSettings.allow_requirement_check_override,
+) -> Profile:
+    """
+    Get the profile with the given identifier.
+    The profile source path can be overridden through ``profiles_path``.
+    The profile is loaded based on the given severity level and the requirement check override flag.
+
+    :param profile_identifier: the profile identifier
+    :type profile_identifier: str
+
+    :param profiles_path: the path to the profiles directory
+    :type profiles_path: Path
+
+    :param severity: the severity level
+    :type severity: Severity
+
+    :param allow_requirement_check_override: a flag to enable or disable
+        the requirement check override (default: ``True``).
+        If ``True``, the requirement check of a profile ``A`` can be overridden
+        by the requirement check of a direct profile extension ``B`` (i.e., when
+        ``B prof:isProfileOf A``) if they share the same name and severity.
+        If ``False``, a profile extension ``B`` can only
+        add new requirements to the profile ``A`` (i.e., checks whose name and severity
+        pair is not present in ``A``), and an error is raised if an override is found.
+    :type allow_requirement_check_override: bool
+
+    :return: the profile
+    :rtype: Profile
+
+    """
+    profiles = get_profiles(
+        profiles_path,
+        extra_profiles_path=extra_profiles_path,
+        severity=severity,
+        allow_requirement_check_override=allow_requirement_check_override,
+    )
+    profile = Profile.find_in_list(profiles, profile_identifier)
+    if profile is None:
+        raise ProfileNotFound(profile_identifier)
+    return profile

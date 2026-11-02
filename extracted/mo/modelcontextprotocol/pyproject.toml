@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modelcontextprotocol"
+version = "1.0.1"
+description = "CLI tool and utilities for scaffolding Model Context Protocol (MCP) projects with enhanced logging"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Dheeraj Pai", email = "dheerajmpaicmu@gmail.com"},
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "cli",
+    "scaffolding",
+    "boilerplate",
+    "anthropic",
+    "claude",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Code Generators",
+    "Environment :: Console",
+    "Typing :: Typed",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "jinja2>=3.1.0",
+    "loguru>=0.7.0",
+    "posthog>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/leanmcp/modelcontextprotocol"
+Documentation = "https://github.com/leanmcp/modelcontextprotocol#readme"
+Repository = "https://github.com/leanmcp/modelcontextprotocol"
+"Bug Tracker" = "https://github.com/leanmcp/modelcontextprotocol/issues"
+
+[project.scripts]
+modelcontextprotocol = "modelcontextprotocol.cli:main"
+mcp-create = "modelcontextprotocol.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelcontextprotocol"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

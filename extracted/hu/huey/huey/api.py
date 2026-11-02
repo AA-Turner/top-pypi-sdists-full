@@ -127,10 +127,6 @@ class Huey(object):
         self._tasks_in_flight = set()
         self._timeout_handler = None  # This is consumer-specific.
 
-    def set_timeout_handler(self, handler=None):
-        # Context-manager using appropriate primivites/signals for worker type.
-        self._timeout_handler = handler
-
     def get_task_wrapper_class(self):
         return TaskWrapper
 
@@ -325,15 +321,8 @@ class Huey(object):
         if not self.results:
             return
 
-        if task.on_complete:
-            current = task
-            results = []
-            while current is not None:
-                results.append(Result(self, current))
-                current = current.on_complete
-            return ResultGroup(results)
-        else:
-            return Result(self, task)
+        results = self._pipeline_results(task)
+        return ResultGroup(results) if len(results) > 1 else results[0]
 
     def _enqueue_chord(self, chord_obj):
         cid = str(uuid.uuid4())
@@ -352,9 +341,9 @@ class Huey(object):
             callback.extend_data(([],))
             self.enqueue(callback)
 
-        cb_result = Result(self, chord_obj.callback)
-        pipeline = self._build_pipeline_results(chord_obj.callback, cb_result)
-        return ChordResult(results, cb_result, pipeline)
+        pipeline = self._pipeline_results(chord_obj.callback)
+        return ChordResult(results, pipeline[0],
+                           ResultGroup(pipeline) if len(pipeline) > 1 else None)
 
     def _enqueue_chord_member(self, task, config):
         if isinstance(task, chord):
@@ -374,17 +363,12 @@ class Huey(object):
 
         return Result(self, tail)
 
-    def _build_pipeline_results(self, callback, callback_result):
-        if not callback.on_complete:
-            return
-
-        pipeline = [callback_result]
-        current = callback.on_complete
-        while current is not None:
-            pipeline.append(Result(self, current))
-            current = current.on_complete
-
-        return ResultGroup(pipeline)
+    def _pipeline_results(self, task):
+        results = []
+        while task is not None:
+            results.append(Result(self, task))
+            task = task.on_complete
+        return results
 
     def dequeue(self):
         data = self.storage.dequeue()
@@ -417,8 +401,7 @@ class Huey(object):
         return self.storage.delete_data(key)
 
     def _timeout_context(self, task):
-        if task.timeout is None or task.timeout <= 0 or \
-           self._timeout_handler is None:
+        if not task.timeout or self._timeout_handler is None:
             return noop_context()
 
         return self._timeout_handler(task.timeout)
@@ -460,7 +443,6 @@ class Huey(object):
         retry_eta = None
         task_value = None
 
-        # Set deadline for cooperative timeout.
         if task.timeout:
             task._deadline = start + task.timeout
 
@@ -470,8 +452,7 @@ class Huey(object):
                 with self._timeout_context(task):
                     task_value = task.execute()
             finally:
-                # discard(), as notify_interrupted_tasks() in the main thread
-                # may have popped the task during a non-graceful shutdown.
+                # notify_interrupted_tasks() may have already popped it.
                 self._tasks_in_flight.discard(task)
                 duration = time.monotonic() - start
         except TaskTimeout as exc:
@@ -523,68 +504,47 @@ class Huey(object):
             logger.info('%s executed in %0.3fs', task, duration)
 
         # Clear the flag if this instance of the task was revoked after it
-        # began executing. Delete rather than destructively read, as expiring
-        # storages implement pop_data as a non-destructive peek.
+        # began executing. Expiring storages implement pop_data as a peek.
         if not isinstance(task, PeriodicTask):
             self.delete(task.revoke_id)
 
+        store = self.results and not isinstance(task, PeriodicTask)
         if exception is None:
-            surface_error = False
-        elif not task.retries:
-            surface_error = True
-        else:
-            surface_error = (self.store_intermediate_errors and
-                             not isinstance(exception, RETRYING_EXCEPTIONS))
-
-        if self.results and not isinstance(task, PeriodicTask):
-            if surface_error:
-                error_data = self.build_error_result(task, exception)
-                self.put_result(task.id, Error(error_data))
-                next_task = task.on_complete if not task.retries else None
-                while next_task is not None:
-                    self.put_result(next_task.id, Error(error_data))
-                    next_task = next_task.on_complete
-            elif exception is None and (task_value is not None or
-                                        self.store_none):
+            if store and (task_value is not None or self.store_none):
                 self.put_result(task.id, task_value)
-
-        if self._post_execute:
             self._run_post_execute(task, task_value, exception)
-
-        if exception is None:
-            # Task executed successfully, send the COMPLETE signal.
             self._emit(S.SIGNAL_COMPLETE, task)
-
-        if task.on_complete and exception is None:
-            next_task = task.on_complete
-            next_task.extend_data(task_value)
-            self.enqueue(next_task)
-        elif task.on_error and surface_error:
-            # Fire with only this attempt's exception; copy so the append does
-            # not accumulate on the shared handler when the task is retried.
-            next_task = copy.copy(task.on_error)
-            next_task.extend_data(exception)
-            self.enqueue(next_task)
-
-        if exception is None:
-            # Only the task carrying the chord_config reports its success. An
-            # intermediate pipeline stage hands off to on_complete instead.
+            if task.on_complete:
+                task.on_complete.extend_data(task_value)
+                self.enqueue(task.on_complete)
             if task.chord_config is not None:
                 self._check_chord(task.chord_config, task_value)
-        elif not task.retries:
-            error = Error(self.build_error_result(task, exception))
-            self._abort_chord_member(task, error)
-
-        if exception is not None and task.retries:
-            self._emit(S.SIGNAL_RETRYING, task)
-            self._requeue_task(task, self._get_timestamp(), retry_eta)
+        else:
+            final = not task.retries
+            surface = final or (self.store_intermediate_errors and
+                                not isinstance(exception, RETRYING_EXCEPTIONS))
+            if surface:
+                error = Error(self.build_error_result(task, exception))
+                next_task = task if store else None
+                while next_task is not None:
+                    self.put_result(next_task.id, error)
+                    next_task = next_task.on_complete if final else None
+            self._run_post_execute(task, task_value, exception)
+            if surface and task.on_error:
+                # Copy, as on_error is shared across retries.
+                handler = copy.copy(task.on_error)
+                handler.extend_data(exception)
+                self.enqueue(handler)
+            if final:
+                self._abort_chord_member(task, error)
+            else:
+                self._emit(S.SIGNAL_RETRYING, task)
+                self._requeue_task(task, self._get_timestamp(), retry_eta)
 
         return task_value
 
     def _abort_chord_member(self, task, value):
-        # The dead task will never run its on_complete chain, so a chord
-        # config further down the pipeline would never fire. Find it and
-        # contribute the given value for the whole member.
+        # The rest of the pipeline won't run, so report to its chord here.
         while task is not None:
             if task.chord_config is not None:
                 return self._check_chord(task.chord_config, value)
@@ -598,8 +558,7 @@ class Huey(object):
         if self.storage.incr(chord_key) == cc.size:
             self.storage.delete_counter(chord_key)
 
-            # Read raw results w/o raising for errors, then delete explicitly
-            # as expiring storages implement pop_data as a peek.
+            # Expiring storages implement pop_data as a peek.
             results = []
             for idx in range(cc.size):
                 key = 'chord:%s:%s' % (cc.cid, idx)
@@ -620,8 +579,6 @@ class Huey(object):
             delay = datetime.timedelta(seconds=task.retry_delay)
             task.eta = timestamp + delay
             if task.retry_backoff:
-                # Grow the delay for the next attempt. The task is serialized
-                # with the updated value, so it persists across retries.
                 task.retry_delay *= task.retry_backoff
             self.add_schedule(task)
         else:
@@ -665,18 +622,16 @@ class Huey(object):
         }
 
     def _task_key(self, task_class, key):
+        if isinstance(task_class, TaskWrapper):
+            task_class = task_class.task_class
         return ':'.join((key, self._registry.task_to_string(task_class)))
 
     def revoke_all(self, task_class, revoke_until=None, revoke_once=False):
-        if isinstance(task_class, TaskWrapper):
-            task_class = task_class.task_class
         if revoke_until is not None:
             revoke_until = normalize_time(revoke_until, utc=self.utc)
         self.put(self._task_key(task_class, 'rt'), (revoke_until, revoke_once))
 
     def restore_all(self, task_class):
-        if isinstance(task_class, TaskWrapper):
-            task_class = task_class.task_class
         return self.delete(self._task_key(task_class, 'rt'))
 
     def revoke(self, task, revoke_until=None, revoke_once=False):
@@ -719,36 +674,26 @@ class Huey(object):
             # Task is still revoked. Do not restore.
             return True, False
 
-    def is_revoked(self, task, timestamp=None, peek=True):
-        if isinstance(task, TaskWrapper):
-            task = task.task_class
-        if inspect.isclass(task) and issubclass(task, Task):
-            data = self.storage.peek_data(self._task_key(task, 'rt'))
-            is_revoked, can_restore = self._check_revoked(data, timestamp, peek)
-            if can_restore:
-                self.restore_all(task)
-            return is_revoked
-
+    def _revoke_keys(self, task):
+        if isinstance(task, TaskWrapper) or inspect.isclass(task):
+            return [self._task_key(task, 'rt')]
         if isinstance(task, Result):
             task = task.task
-        by_id = not isinstance(task, Task)
-        if by_id:
-            task = Task(id=task)
+        if isinstance(task, Task):
+            return [task.revoke_id, self._task_key(type(task), 'rt')]
+        return [Task(id=task).revoke_id]
 
-        rt_key = self._task_key(type(task), 'rt')
-        keys = [task.revoke_id] if by_id else [task.revoke_id, rt_key]
+    def is_revoked(self, task, timestamp=None, peek=True):
+        keys = self._revoke_keys(task)
         data = self.storage.peek_many(keys)
-        is_revoked, can_restore = self._check_revoked(
-            data.get(task.revoke_id, EmptyData), timestamp, peek)
-        if can_restore:
-            self.restore(task)
-        if not is_revoked and not by_id:
-            is_revoked, can_restore = self._check_revoked(
-                data.get(rt_key, EmptyData), timestamp, peek)
-            if can_restore:
-                self.restore_all(type(task))
-
-        return is_revoked
+        for key in keys:
+            revoked, restore = self._check_revoked(
+                data.get(key, EmptyData), timestamp, peek)
+            if restore:
+                self.delete(key)
+            if revoked:
+                return True
+        return False
 
     def add_schedule(self, task):
         data = self.serialize_task(task)
@@ -951,24 +896,14 @@ class Task(object):
         if self.on_complete:
             self.on_complete.then(task, *args, **kwargs)
         else:
-            if isinstance(task, Task):
-                if args: task.extend_data(args)
-                if kwargs: task.extend_data(kwargs)
-            else:
-                task = task.s(*args, **kwargs)
-            self.on_complete = task
+            self.on_complete = _signature(task, args, kwargs)
         return self
 
     def error(self, task, *args, **kwargs):
         if self.on_error:
             self.on_error.error(task, *args, **kwargs)
         else:
-            if isinstance(task, Task):
-                if args: task.extend_data(args)
-                if kwargs: task.extend_data(kwargs)
-            else:
-                task = task.s(*args, **kwargs)
-            self.on_error = task
+            self.on_error = _signature(task, args, kwargs)
         return self
 
     def execute(self):
@@ -983,6 +918,14 @@ class Task(object):
             self.id == rhs.id and
             self.eta == rhs.eta and
             type(self) == type(rhs))
+
+
+def _signature(task, args=(), kwargs=None):
+    if not isinstance(task, Task):
+        return task.s(*args, **(kwargs or {}))
+    if args: task.extend_data(args)
+    if kwargs: task.extend_data(kwargs)
+    return task
 
 
 class PeriodicTask(Task):
@@ -1028,9 +971,7 @@ class TaskWrapper(object):
         def execute(self):
             args, kwargs = self.data
             if self.context:
-                # Inject the task instance into a copy of the kwargs so the
-                # original data is not polluted (e.g. when the task is
-                # re-serialized for retry).
+                # Copy, so a retry doesn't serialize the task into its kwargs.
                 kwargs = dict(kwargs, task=self)
             return func(*args, **kwargs)
 
@@ -1189,9 +1130,6 @@ class RateLimit(object):
 
         stored = self._huey.get(self._window_key, peek=True)
         if stored != window:
-            # Window rollover, reset counter and store the new window. If two
-            # workers concurrently hit this, both delete the counter and put
-            # the same window value.
             self._huey.storage.delete_counter(self._counter_key)
             self._huey.put(self._window_key, window)
 
@@ -1222,15 +1160,9 @@ class group(object):
         self.tasks = tasks
 
     def then(self, task, *args, **kwargs):
-        if isinstance(task, Task):
-            if args: task.extend_data(args)
-            if kwargs: task.extend_data(kwargs)
-        else:
-            task = task.s(*args, **kwargs)
-        return chord(self.tasks, task)
+        return chord(self.tasks, _signature(task, args, kwargs))
 
     def error(self, *args, **kwargs):
-        # Apply error handler to all tasks.
         for task in self.tasks:
             task.error(*args, **kwargs)
         return self
@@ -1238,10 +1170,8 @@ class group(object):
 
 class chord(object):
     def __init__(self, tasks, callback):
-        if isinstance(callback, TaskWrapper):
-            callback = callback.s()
         self.tasks = tasks
-        self.callback = callback
+        self.callback = _signature(callback)
 
     def then(self, task, *args, **kwargs):
         self.callback.then(task, *args, **kwargs)
@@ -1320,8 +1250,6 @@ class Result(object):
             if res is not EmptyData:
                 return res
 
-        # The wait timed out, hit a connection error, or the result was read
-        # by another caller. Never surface the EmptyData sentinel.
         if revoke_on_timeout:
             self.revoke()
         raise ResultTimeout('timed out waiting for result')

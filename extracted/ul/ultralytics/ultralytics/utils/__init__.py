@@ -72,6 +72,8 @@ FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLO
 ASSETS = ROOT / "assets"  # default images
 ASSETS_URL = "https://github.com/ultralytics/assets/releases/download/v0.0.0"  # assets GitHub URL
+# Hosts like upload.wikimedia.org reject the python-requests default User-Agent
+REQUEST_HEADERS = {"User-Agent": f"ultralytics/{__version__} (https://ultralytics.com)"}
 # Configurable Platform URL for debugging (e.g. ULTRALYTICS_PLATFORM_URL=http://localhost:3000)
 PLATFORM_URL = os.getenv("ULTRALYTICS_PLATFORM_URL", "https://platform.ultralytics.com").rstrip("/")
 DEFAULT_CFG_PATH = ROOT / "cfg/default.yaml"
@@ -189,6 +191,7 @@ os.environ["KINETO_LOG_LEVEL"] = "5"  # suppress verbose PyTorch profiler output
 
 # Centralized warning suppression
 warnings.filterwarnings("ignore", message="torch.distributed.reduce_op is deprecated")  # PyTorch deprecation
+warnings.filterwarnings("ignore", message="TRITON_DEFAULT_FP_FUSION is unset")  # torch 2.15 eager bmm, Triton 3.9
 warnings.filterwarnings("ignore", message="The figure layout has changed to tight")  # matplotlib>=3.7.2
 warnings.filterwarnings("ignore", category=FutureWarning, module="timm")  # mobileclip timm.layers deprecation
 warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)  # ONNX/TorchScript export tracer warnings
@@ -713,7 +716,7 @@ class YAML:
         if isinstance(v, int):
             return str(v)
         if isinstance(v, float):
-            s = {"nan": ".nan", "inf": ".inf", "-inf": "-.inf"}.get(repr(v), repr(v))
+            s = {"nan": ".nan", "inf": ".inf", "-inf": "-.inf"}.get(r := repr(float(v)), r)  # np.float64(x) -> x
             return s.replace("e", ".0e") if "e" in s and "." not in s else s  # '1.0e-05' so YAML 1.1 reads a float
         if isinstance(v, (dict, list, tuple)):
             return "{}" if isinstance(v, dict) else "[]"
@@ -777,7 +780,7 @@ class YAML:
         if c == "---" or c.startswith("--- "):  # document start, possibly with content on the same line
             self.lines[self.i] = c[4:]
             n, c = self._peek()
-        v = None if n < 0 else self._node(n, c)
+        v = None if n < 0 else self._node(n, c, -1)
         if (m := self._peek())[0] >= 0:  # a single document only, so '...' and later content raise
             self._error(f"unexpected {m[1]!r}")
         return v
@@ -813,14 +816,14 @@ class YAML:
             return None
         return cls._scalar(k), c[j + 1 :].strip(" \t")
 
-    def _node(self, n, c):
-        """Parse the block node whose first line has indent n and content c."""
+    def _node(self, n, c, p):
+        """Parse the block node whose first line has indent n and content c, inside a parent node at indent p."""
         if c == "-" or c.startswith("- "):
             return self._seq(n)
         if self._key(c):
             return self._map(n)
         self.i += 1
-        return self._value(c, n - 1)
+        return self._value(c, p)
 
     def _map(self, n):
         """Parse a block mapping at indent n."""
@@ -848,11 +851,11 @@ class YAML:
             if not rest or rest[0] == "#":  # empty item: a block indented under the dash, otherwise null
                 self.i += 1
                 m, c = self._peek()
-                out.append(self._node(m, c) if m > n else None)
+                out.append(self._node(m, c, n) if m > n else None)
             elif rest == "-" or rest.startswith("- ") or self._key(rest):
                 k = n + len(c) - len(rest)
                 self.lines[self.i] = " " * k + rest  # re-read '- key: v' and '- - x' as a node at the item's column
-                out.append(self._node(k, rest))
+                out.append(self._node(k, rest, n))
             else:
                 self.i += 1
                 out.append(self._value(rest, n))
@@ -861,7 +864,7 @@ class YAML:
         """Parse a value starting with text rest, on a line that belongs to a parent node at indent n."""
         if not rest or rest[0] == "#":  # nested block, indentless sequence or null
             m, c = self._peek()
-            return self._node(m, c) if m > n or (m == n and (c == "-" or c.startswith("- "))) else None
+            return self._node(m, c, n) if m > n or (m == n and (c == "-" or c.startswith("- "))) else None
         if rest[0] in "[{\"'":  # flow collection or quoted scalar, possibly spanning lines
             flow, i, k = rest[0] in "[{", self.i, 0
             while True:  # add following lines in doubling chunks so long multi-line values stay linear
@@ -893,9 +896,10 @@ class YAML:
 
     def _block_scalar(self, header, n):
         """Read a literal '|' or folded '>' block scalar with optional chomping and indentation indicators."""
-        h, lines, ind = header.split("#", 1)[0].strip(" \t"), [], None
+        h = header.split("#", 1)[0].strip(" \t")
         if not re.fullmatch(r"[|>]([1-9]?[+-]?|[+-][1-9])", h):
             self._error(f"invalid block scalar header {header!r}, quote values that start with '|' or '>'")
+        lines, ind = [], n + int(d[0]) if (d := re.search(r"\d", h)) else None  # an indicator fixes the content indent
         while self.i < len(self.lines):
             raw = self.lines[self.i]
             if raw.strip(" \t"):
@@ -905,10 +909,9 @@ class YAML:
                 ind = m if ind is None else ind
             lines.append(raw)
             self.i += 1
-        digits = "".join(x for x in h if x.isdigit())
-        ind = n + int(digits) if digits else ind or 0
+        ind = max(map(len, lines), default=0) if ind is None else ind  # no content line: every line is empty
         lines, trailing = [x[ind:] for x in lines], -(self.i == len(self.lines))  # '' after the final break is no line
-        while lines and not lines[-1].strip(" \t"):
+        while lines and not lines[-1]:  # only empty lines chomp, spaces past the indent are content
             lines.pop()
             trailing += 1
         text = "\n".join(lines)

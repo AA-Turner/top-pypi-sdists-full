@@ -30,8 +30,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import client, paths, procid
-from probe.service.protocol import Client, Method
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths, procid
+from probe.foundation.service_api.vocabularies import Client
+from probe.foundation.service_api.wire import Method
 
 
 #: The real Popen, taken before any test replaces it (`ps_passes`).
@@ -151,8 +153,8 @@ class ServiceHome:
             conn.hello(who, "test", keepalive=keepalive)
         return conn
 
-    def call(self, method: str, params: dict | None = None) -> object:
-        return client.call(method, params, client=Client.CLI, client_version="test")
+    def call(self, method: str, params: dict | None = None, *, timeout: float = client.TIMEOUT_S) -> object:
+        return client.call(method, params, client=Client.CLI, client_version="test", timeout=timeout)
 
     def status(self) -> dict | None:
         try:

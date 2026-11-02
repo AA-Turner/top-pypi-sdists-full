@@ -289,7 +289,6 @@ def test_no_disk_headroom_uploads_synchronously_instead_of_queueing(
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     run = Run(client, {"id": run_id})
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 1 << 60)  # nothing fits
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 1 << 60)  # nothing fits
 
     result = run.log_artifact("ckpt", path=_ckpt(tmp_path))
 

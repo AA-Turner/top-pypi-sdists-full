@@ -12,10 +12,10 @@ import pytest
 
 from backfill_plan_agent import filing
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as evidence
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as evidence
 from probe.cli import backfill_run as runner
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 
 
 class _Terminal(io.StringIO):
@@ -49,7 +49,7 @@ class _Board:
 @pytest.fixture
 def board(monkeypatch):
     _Board.instances = []
-    monkeypatch.setattr(tui, 'Board', _Board)
+    monkeypatch.setattr(tui.status_board, 'Board', _Board)
     return _Board
 
 
@@ -98,8 +98,11 @@ def test_parallel_surveys_are_bounded_and_naming_waits_for_every_ordered_result(
     tmp_path, monkeypatch, board,
 ):
     rows = [json.dumps({'path': f'{i}.py', 'sample': str(i)}) for i in range(1, 5)]
-    monkeypatch.setattr(evidence, 'chunk_lines', lambda _: [[row] for row in rows])
-    monkeypatch.setattr(runner, '_git_note', lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.walk.rows.chunk_lines", lambda _: [[row] for row in rows])
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.classify.chunked._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.classify.context._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units._git_note", lambda *_: '')
     barrier = threading.Barrier(2)
     lock = threading.Lock()
     active = peak = 0
@@ -140,7 +143,7 @@ def test_parallel_surveys_are_bounded_and_naming_waits_for_every_ordered_result(
         index = int(heading.split('slice ')[1].split()[0])
         return True, _answer({'assignments': [{'path': f'{index}.py', 'project': 'alpha'}]})
 
-    monkeypatch.setattr(bf, 'launch_agent', filing(launch))
+    monkeypatch.setattr(bf.agents.launch, 'launch_agent', filing(launch))
     walked = replace(_inputs(tmp_path), files=[
         evidence.FileEvidence(path=str(tmp_path / f'{i}.py'), size=10, mtime=0,
                               tier=evidence.Tier.EVIDENCE, sample=str(i))
@@ -164,7 +167,10 @@ def test_parallel_surveys_are_bounded_and_naming_waits_for_every_ordered_result(
 def test_single_classification_progress_does_not_claim_prompt_evidence_is_tool_reads(
     tmp_path, monkeypatch, board, success,
 ):
-    monkeypatch.setattr(runner, '_git_note', lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.classify.chunked._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.classify.context._git_note", lambda *_: '')
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units._git_note", lambda *_: '')
 
     def launch(folder, prompt, **kwargs):
         assert kwargs['total'] == 0
@@ -176,7 +182,7 @@ def test_single_classification_progress_does_not_claim_prompt_evidence_is_tool_r
             'assignments': [{'path': 'a.py', 'project': 'alpha'}],
         })
 
-    monkeypatch.setattr(bf, 'launch_agent', filing(launch))
+    monkeypatch.setattr(bf.agents.launch, 'launch_agent', filing(launch))
     plan, _, _ = runner.classify(
         tmp_path, _inputs(tmp_path), agent=bf.Agent.CLAUDE,
         existing=[], work_dir=tmp_path / 'work', stream=_Terminal(),
@@ -214,7 +220,11 @@ def test_ctrl_c_stops_classification_children_without_waiting_for_them(monkeypat
             shutdowns.append(kwargs)
 
     monkeypatch.setattr(runner, 'ThreadPoolExecutor', Pool)
-    monkeypatch.setattr(bf, 'stop_all', lambda: stopped.append(True))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.chunked.ThreadPoolExecutor", Pool)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.ThreadPoolExecutor", Pool)
+    monkeypatch.setattr(bf.agents.process, 'stop_all', lambda: stopped.append(True))
+    monkeypatch.setattr(bf.agents.digest, 'stop_all', lambda: stopped.append(True))
+    monkeypatch.setattr(bf.agents.launch_once, 'stop_all', lambda: stopped.append(True))
     with pytest.raises(KeyboardInterrupt):
         runner._classification_results(lambda _: None, [(1, []), (2, [])], workers=2)
     assert stopped == [True]
@@ -244,7 +254,10 @@ def test_installer_guidance_names_background_import_only_when_requested(board):
 def test_a_cancelled_launch_never_resolves_or_starts_an_agent(tmp_path, monkeypatch, agent):
     cancelled = threading.Event()
     cancelled.set()
-    monkeypatch.setattr(bf, 'which_agent', lambda *_: pytest.fail('cancelled before launch'))
+    monkeypatch.setattr(bf.agents.agents, 'which_agent', lambda *_: pytest.fail('cancelled before launch'))
+    monkeypatch.setattr(bf.agents.flags, 'which_agent', lambda *_: pytest.fail('cancelled before launch'))
+    monkeypatch.setattr(bf.agents.launch_once, 'which_agent', lambda *_: pytest.fail('cancelled before launch'))
+    monkeypatch.setattr(bf.flow.choices, 'which_agent', lambda *_: pytest.fail('cancelled before launch'))
     ok, detail = bf.launch_agent(tmp_path, 'prompt', agent=agent, cancel_event=cancelled)
     assert not ok and 'cancelled' in detail
 
@@ -260,13 +273,22 @@ def test_cancellation_during_spawn_stops_the_child_missed_by_stop_all(
     """
     import sys
 
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     cancelled = threading.Event()
     children = []
-    monkeypatch.setattr(bf, '_LIVE', set())
-    monkeypatch.setattr(bf, 'which_agent', lambda *_: sys.executable)
-    monkeypatch.setattr(bf, 'agent_argv', lambda *a, **kw: [
+    monkeypatch.setattr(bf.agents.process, '_LIVE', set())
+    monkeypatch.setattr(bf.agents.agents, 'which_agent', lambda *_: sys.executable)
+    monkeypatch.setattr(bf.agents.flags, 'which_agent', lambda *_: sys.executable)
+    monkeypatch.setattr(bf.agents.launch_once, 'which_agent', lambda *_: sys.executable)
+    monkeypatch.setattr(bf.flow.choices, 'which_agent', lambda *_: sys.executable)
+    monkeypatch.setattr(bf.agents.argv, 'agent_argv', lambda *a, **kw: [
+        sys.executable, '-c', 'import time; time.sleep(30)',
+    ])
+    monkeypatch.setattr(bf.agents.digest, 'agent_argv', lambda *a, **kw: [
+        sys.executable, '-c', 'import time; time.sleep(30)',
+    ])
+    monkeypatch.setattr(bf.agents.launch_once, 'agent_argv', lambda *a, **kw: [
         sys.executable, '-c', 'import time; time.sleep(30)',
     ])
     original_spawn = import_jobs.spawn_child
@@ -280,7 +302,7 @@ def test_cancellation_during_spawn_stops_the_child_missed_by_stop_all(
         assert proc.poll() is None  # the snapshot really missed this live child
         return proc
 
-    monkeypatch.setattr(import_jobs, 'spawn_child', spawn)
+    monkeypatch.setattr(import_jobs.workers, 'spawn_child', spawn)
     try:
         ok, detail = bf.launch_agent(
             tmp_path, 'prompt', agent=agent, stream=io.StringIO(), cancel_event=cancelled,
@@ -303,7 +325,7 @@ def test_pool_cancellation_is_carried_to_the_actual_agent_launch(tmp_path, monke
             progress.cancelled.set()
             return False, 'cancelled while launching'
 
-        monkeypatch.setattr(bf, 'launch_agent', filing(launch))
+        monkeypatch.setattr(bf.agents.launch, 'launch_agent', filing(launch))
         result, detail = runner._run_pass(
             tmp_path, 'prompt', agent=bf.Agent.CLAUDE, heading='Reading slice 1 of 1',
             work_dir=tmp_path, total=1, key='findings',
@@ -313,17 +335,22 @@ def test_pool_cancellation_is_carried_to_the_actual_agent_launch(tmp_path, monke
 
 @pytest.mark.parametrize('agent', [bf.Agent.CLAUDE, bf.Agent.CODEX, bf.Agent.PI])
 def test_cancellation_during_cli_preflight_prevents_spawn(tmp_path, monkeypatch, agent):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     cancelled = threading.Event()
-    monkeypatch.setattr(bf, 'which_agent', lambda *_: '/bin/unused')
+    monkeypatch.setattr(bf.agents.agents, 'which_agent', lambda *_: '/bin/unused')
+    monkeypatch.setattr(bf.agents.flags, 'which_agent', lambda *_: '/bin/unused')
+    monkeypatch.setattr(bf.agents.launch_once, 'which_agent', lambda *_: '/bin/unused')
+    monkeypatch.setattr(bf.flow.choices, 'which_agent', lambda *_: '/bin/unused')
 
     def argv(*args, **kwargs):
         cancelled.set()
         return ['/bin/unused']
 
-    monkeypatch.setattr(bf, 'agent_argv', argv)
-    monkeypatch.setattr(import_jobs, 'spawn_child', lambda *a, **kw: pytest.fail('late spawn'))
+    monkeypatch.setattr(bf.agents.argv, 'agent_argv', argv)
+    monkeypatch.setattr(bf.agents.digest, 'agent_argv', argv)
+    monkeypatch.setattr(bf.agents.launch_once, 'agent_argv', argv)
+    monkeypatch.setattr(import_jobs.workers, 'spawn_child', lambda *a, **kw: pytest.fail('late spawn'))
     ok, detail = bf.launch_agent(
         tmp_path, 'prompt', agent=agent, stream=io.StringIO(), cancel_event=cancelled,
     )

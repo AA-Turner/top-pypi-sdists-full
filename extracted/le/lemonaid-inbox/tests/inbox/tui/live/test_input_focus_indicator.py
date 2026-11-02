@@ -1,0 +1,134 @@
+"""The title bar identifies the tmux pane that will receive the next key."""
+
+import asyncio
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+from textual.color import Color
+from textual.widgets import Header
+
+from lemonaid.inbox.tui.app import LemonaidApp
+from lemonaid.inbox.tui.watchers import focus
+
+
+def test_tmux_focus_needs_selected_pane_window_and_attached_session(monkeypatch):
+    def response(values):
+        return subprocess.CompletedProcess([], 0, values, "")
+
+    monkeypatch.setattr(focus.subprocess, "run", lambda *a, **kw: response("1 1 1\n"))
+    assert focus.pane_receives_keys("%9") is True
+
+    for values in ("0 1 1\n", "1 0 1\n", "1 1 0\n"):
+        monkeypatch.setattr(
+            focus.subprocess, "run", lambda *a, values=values, **kw: response(values)
+        )
+        assert focus.pane_receives_keys("%9") is False
+
+    monkeypatch.setattr(focus.subprocess, "run", lambda *a, **kw: response("not tmux"))
+    assert focus.pane_receives_keys("%9") is None
+
+
+def test_scratch_header_changes_when_tmux_focus_changes(monkeypatch):
+    monkeypatch.setenv("TMUX_PANE", "%9")
+    active = False
+    monkeypatch.setattr(focus, "pane_receives_keys", lambda pane: active)
+
+    async def check():
+        nonlocal active
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 20)) as pilot:
+            await pilot.pause()
+            assert not app.has_class("-input-active")
+
+            active = True
+            app._attention.input_at = 0
+            app._refresh_notifications()
+            await pilot.pause()
+            assert app.has_class("-input-active")
+            assert app.query_one(Header).styles.background == Color.parse("#2bd9cf")
+            assert app.screen.styles.border_bottom[1] == Color.parse("#2bd9cf")
+
+            active = False
+            app._attention.input_at = 0
+            app._refresh_notifications()
+            await pilot.pause()
+            assert not app.has_class("-input-active")
+            assert app.screen.styles.border_bottom[1] != Color.parse("#2bd9cf")
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    ("configured", "background", "text"),
+    [
+        ("#ffd000", "#ffd000", "#000000"),
+        ("#102060", "#102060", "#ffffff"),
+        ("not a colour", "#2bd9cf", "#000000"),
+    ],
+)
+def test_the_focus_color_comes_from_config(monkeypatch, configured, background, text):
+    Path(os.environ["LEMONAID_CONFIG"]).write_text(f'[tui]\nfocus_color = "{configured}"\n')
+    monkeypatch.setenv("TMUX_PANE", "%9")
+    monkeypatch.setattr(focus, "pane_receives_keys", lambda pane: True)
+
+    async def check():
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 20)) as pilot:
+            await pilot.pause()
+            header = app.query_one(Header)
+            assert header.styles.background == Color.parse(background)
+            assert header.styles.color == Color.parse(text)
+            assert app.screen.styles.border_bottom[1] == Color.parse(background)
+
+    asyncio.run(check())
+
+
+def test_the_cursor_row_dims_only_while_tmux_says_the_pane_is_inactive(monkeypatch):
+    Path(os.environ["LEMONAID_CONFIG"]).write_text('[tui]\nactive_row_color = "#ff0000"\n')
+    monkeypatch.setenv("TMUX_PANE", "%9")
+    receives = True
+    monkeypatch.setattr(focus, "pane_receives_keys", lambda pane: receives)
+
+    async def check():
+        nonlocal receives
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 20)) as pilot:
+            await pilot.pause()
+            normal = app.get_css_variables()["active-row-color"]
+            dimmed = app.get_css_variables()["inactive-row-color"]
+            assert normal == "#FF0000" and dimmed != normal
+            assert not app.has_class("-input-inactive")
+
+            receives = False
+            app._attention.input_at = 0
+            app._refresh_notifications()
+            await pilot.pause()
+            assert app.has_class("-input-inactive")
+
+    asyncio.run(check())
+
+
+def test_the_dimmed_cursor_color_can_be_configured(monkeypatch):
+    Path(os.environ["LEMONAID_CONFIG"]).write_text('[tui]\ninactive_row_color = "#123456"\n')
+    app = LemonaidApp()
+    assert app.get_css_variables()["inactive-row-color"] == "#123456"
+
+
+def test_the_cursor_row_is_not_dimmed_outside_scratch_mode(monkeypatch):
+    async def check():
+        app = LemonaidApp()
+        async with app.run_test(size=(50, 20)) as pilot:
+            await pilot.pause()
+            app._refresh_notifications()
+            await pilot.pause()
+            assert not app.has_class("-input-inactive")
+
+    asyncio.run(check())
+
+
+def test_an_invalid_inactive_row_color_falls_back_to_the_blend():
+    Path(os.environ["LEMONAID_CONFIG"]).write_text('[tui]\ninactive_row_color = "nope"\n')
+    color = LemonaidApp().get_css_variables()["inactive-row-color"]
+    assert Color.parse(color) and color != "nope"

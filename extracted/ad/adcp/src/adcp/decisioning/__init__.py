@@ -1,0 +1,558 @@
+"""Decisioning Platform v6.0 — Protocol-driven adopter framework.
+
+The successor to ``adcp.server.ADCPHandler`` for adopters who want a
+hybrid sync/handoff return shape and per-specialism Protocol classes
+instead of inheriting + overriding methods on a base ABC. Lives inside
+the existing ``adcp`` package so adopters reuse the foundation primitives
+in ``adcp.signing`` / ``adcp._idempotency`` / ``adcp.server`` rather than
+spinning up parallel implementations.
+
+Quickstart::
+
+    from adcp.decisioning import (
+        DecisioningPlatform,
+        DecisioningCapabilities,
+        SingletonAccounts,
+        SalesPlatform,
+        create_adcp_server_from_platform,
+        serve,
+    )
+    from adcp.types import (
+        GetProductsRequest, GetProductsResponse,
+        CreateMediaBuyRequest, CreateMediaBuySuccess,
+    )
+
+
+    class HelloSeller(DecisioningPlatform):
+        capabilities = DecisioningCapabilities(
+            specialisms=["sales-non-guaranteed"],
+            channels=["display"],
+            pricing_models=["cpm"],
+        )
+        accounts = SingletonAccounts(account_id="hello")
+
+        def get_products(self, req: GetProductsRequest, ctx) -> GetProductsResponse:
+            return GetProductsResponse(products=[...])
+
+        def create_media_buy(
+            self, req: CreateMediaBuyRequest, ctx,
+        ) -> CreateMediaBuySuccess:
+            return CreateMediaBuySuccess(media_buy_id=f"mb_{req.idempotency_key}", ...)
+
+
+    serve(HelloSeller(), name="hello-seller")
+
+See ``examples/hello_seller.py`` for the runnable version.
+"""
+
+from __future__ import annotations
+
+from adcp.decisioning.account_mode import (
+    AccountMode,
+    assert_sandbox_account,
+    get_account_mode,
+    get_mock_upstream_url,
+    is_sandbox_or_mock_account,
+)
+from adcp.decisioning.account_projection import (
+    project_account_for_response,
+    project_business_entity_for_response,
+    to_wire_account,
+    to_wire_sync_accounts_row,
+    to_wire_sync_governance_row,
+)
+from adcp.decisioning.accounts import (
+    AccountStore,
+    AccountStoreList,
+    AccountStoreResolveForTask,
+    AccountStoreSyncGovernance,
+    AccountStoreUpsert,
+    AccountStoreUpsertRequest,
+    ExplicitAccounts,
+    FromAuthAccounts,
+    NaturalKeyAccounts,
+    ResolveContext,
+    SingletonAccounts,
+)
+from adcp.decisioning.compose import (
+    ShortCircuit,
+    compose_method,
+    require_account_match,
+    require_advertiser_match,
+    require_org_scope,
+)
+from adcp.decisioning.context import (
+    AuthInfo,
+    RequestContext,
+)
+from adcp.decisioning.derive_packages import derive_packages_from_proposal
+from adcp.decisioning.dispatch import validate_platform
+from adcp.decisioning.errors import (
+    AccountNotFoundError,
+    AuthRequiredError,
+    BillingNotPermittedForAgentError,
+    MediaBuyNotFoundError,
+    PermissionDeniedError,
+    RateLimitedError,
+    ServiceUnavailableError,
+    UnsupportedFeatureError,
+    ValidationError,
+)
+from adcp.decisioning.helpers import ref_account_id
+from adcp.decisioning.implementation_config import ProductConfigStore
+from adcp.decisioning.media_buy_store import (
+    InMemoryMediaBuyContextStore,
+    MediaBuyContexts,
+    MediaBuyContextStore,
+    MediaBuyStore,
+    create_media_buy_store,
+)
+from adcp.decisioning.mock_ad_server import (
+    InMemoryMockAdServer,
+    MockAdServer,
+)
+from adcp.decisioning.negotiation import (
+    RefinementProcessor,
+    RefinementTransactionFactory,
+    execute_refinement_batch,
+    preflight_refinement_batch_or_raise,
+    prepare_refinement_result,
+    snapshot_refinement_sources,
+    validate_finalize_source_states_or_raise,
+    validate_refinement_response_or_raise,
+)
+from adcp.decisioning.oauth_passthrough import (
+    create_oauth_passthrough_resolver,
+)
+from adcp.decisioning.platform import (
+    GOVERNANCE_SPECIALISMS,
+    DecisioningCapabilities,
+    DecisioningPlatform,
+)
+from adcp.decisioning.platform_router import LazyPlatformRouter, PlatformRouter
+from adcp.decisioning.property_list import (
+    PropertyListFetcher,
+    filter_products_by_property_list,
+    property_list_capability_enabled,
+    resolve_property_list,
+    validate_property_list_config,
+)
+from adcp.decisioning.proposal_manager import (
+    FinalizeProposalRequest,
+    FinalizeProposalSuccess,
+    MockProposalManager,
+    ProposalCapabilities,
+    ProposalManager,
+    SalesSpecialism,
+)
+from adcp.decisioning.proposal_store import (
+    InMemoryProposalStore,
+    ProposalRecord,
+    ProposalState,
+    ProposalStore,
+    create_dev_proposal_store,
+)
+from adcp.decisioning.recipe import CapabilityOverlap, Recipe
+from adcp.decisioning.refine import (
+    RefinementOutcome,
+    RefinementStatus,
+    RefineResult,
+    assert_buying_mode_consistent,
+    build_refinement_applied,
+    has_refine_support,
+    project_refine_response,
+)
+from adcp.decisioning.registry import (
+    ApiKeyCredential,
+    BillingMode,
+    BuyerAgent,
+    BuyerAgentDefaultTerms,
+    BuyerAgentRegistry,
+    BuyerAgentStatus,
+    Credential,
+    HttpSigCredential,
+    OAuthCredential,
+    bearer_only_registry,
+    mixed_registry,
+    signing_only_registry,
+    validate_billing_for_agent,
+)
+from adcp.decisioning.registry_cache import (
+    AuditingBuyerAgentRegistry,
+    CachingBuyerAgentRegistry,
+    RateLimitedBuyerAgentRegistry,
+)
+from adcp.decisioning.resolve import (
+    CollectionList,
+    Format,
+    LegacyFormatId,
+    PropertyList,
+    PropertyListReference,
+    ResourceResolver,
+)
+from adcp.decisioning.roster_store import (
+    create_roster_account_store,
+)
+from adcp.decisioning.serve import (
+    create_adcp_server_from_platform,
+    serve,
+)
+from adcp.decisioning.specialisms import (
+    AudiencePlatform,
+    BrandRightsPlatform,
+    CampaignGovernancePlatform,
+    CollectionListsPlatform,
+    CompactMediaBuyPlatform,
+    ContentStandardsPlatform,
+    CreativeAdServerPlatform,
+    CreativeBuilderPlatform,
+    OwnedSignalsPlatform,
+    PropertyListsPlatform,
+    SalesPlatform,
+    SignalsPlatform,
+)
+from adcp.decisioning.state import (
+    GovernanceContextJWS,
+    Proposal,
+    StateReader,
+    WorkflowObjectType,
+    WorkflowStep,
+)
+from adcp.decisioning.state_machines import (
+    CREATIVE_ASSET_TRANSITIONS,
+    MEDIA_BUY_TERMINAL_STATUSES,
+    MEDIA_BUY_TRANSITIONS,
+    OBSERVED_MEDIA_BUY_TRANSITIONS,
+    assert_creative_transition,
+    assert_media_buy_transition,
+    is_observable_media_buy_transition,
+    is_terminal_media_buy_status,
+)
+from adcp.decisioning.task_registry import (
+    InMemoryTaskRegistry,
+    ListableTaskRegistry,
+    TaskHandoffContext,
+    TaskLifecycleObserver,
+    TaskRegistry,
+    TaskState,
+    TaskTransition,
+    TaskWebhookAuthentication,
+)
+from adcp.decisioning.tenant_store import create_tenant_store
+from adcp.decisioning.time_budget import (
+    IncrementalGetProducts,
+    ProductsCheckpoint,
+    project_incomplete_response,
+    resolve_time_budget,
+)
+from adcp.decisioning.translation import (
+    TranslationMap,
+    create_translation_map,
+)
+from adcp.decisioning.types import (
+    Account,
+    AdcpError,
+    DiscoveryResult,
+    MaybeAsync,
+    SalesResult,
+    SyncAccountsResultRow,
+    SyncGovernanceEntry,
+    SyncGovernanceResultRow,
+    TaskHandoff,
+    WorkflowHandoff,
+)
+from adcp.decisioning.update_media_buy import (
+    SELF_SERVE_UPDATE_ACTION_MODES,
+    UNKNOWN_UPDATE_ACTION,
+    UpdateMediaBuyMutation,
+    decompose_update_media_buy,
+    disallowed_update_media_buy_mutations,
+    is_update_media_buy_mutation_allowed,
+    normalize_update_media_buy_allowed_actions,
+    requested_update_media_buy_actions,
+)
+from adcp.decisioning.upstream import (
+    ApiKey,
+    AuthContext,
+    DynamicBearer,
+    NoAuth,
+    StaticBearer,
+    UpstreamAuth,
+    UpstreamClientPool,
+    UpstreamHttpClient,
+    create_upstream_http_client,
+)
+from adcp.decisioning.validate_capabilities import (
+    validate_capabilities_response_shape,
+    validate_capabilities_response_shape_async,
+)
+from adcp.webhook_sender import (
+    ScopePermanentlyUnknown,
+    ScopeTransientlyUnavailable,
+    WebhookSenderResolution,
+    WebhookSenderResolver,
+)
+
+# Conditional import: PgTaskRegistry needs the [pg] extra. Always expose
+# the name — when psycopg isn't installed we fall through to a stub class whose
+# constructor raises ImportError with the install hint. Matches the pattern
+# used by adcp.signing for PgReplayStore.
+#
+# ``PostgresTaskRegistry`` is the pre-4.4 name and remains as a deprecated
+# alias through the 4.4.x line; renamed to ``PgTaskRegistry`` to match the
+# ``Pg*`` convention shared with PgReplayStore / PgBuyerAgentRegistry /
+# PgWebhookDeliverySupervisor.
+try:
+    from adcp.decisioning.pg import (  # noqa: F401
+        PgProposalStore,
+        PgTaskRegistry,
+        PgTaskWebhookOutbox,
+        PostgresTaskRegistry,
+        WebhookSigningScopeResolver,
+    )
+except ImportError:  # pragma: no cover — exercised by the [pg] extra tests
+    from typing import ClassVar as _ClassVar
+
+    class PgTaskRegistry:  # type: ignore[no-redef]
+        """Stub raised when ``adcp[pg]`` isn't installed.
+
+        Attempting to instantiate raises :class:`ImportError` with the
+        install-hint text from :mod:`adcp.decisioning.pg.task_registry`.
+        """
+
+        is_durable: _ClassVar[bool] = True
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            raise ImportError(
+                "PgTaskRegistry requires psycopg3 and psycopg-pool. "
+                "Install the 'pg' extra: `pip install 'adcp[pg]'` "
+                "(Poetry: `poetry add 'adcp[pg]'`)."
+            )
+
+    # Deprecated alias preserved through 4.4.x.
+    PostgresTaskRegistry: type[PgTaskRegistry] = PgTaskRegistry  # type: ignore[no-redef]
+
+    class PgProposalStore:  # type: ignore[no-redef]
+        """Stub raised when ``adcp[pg]`` isn't installed.
+
+        Attempting to instantiate raises :class:`ImportError` with the
+        install-hint text from :mod:`adcp.decisioning.pg.proposal_store`.
+        """
+
+        is_durable: _ClassVar[bool] = True
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            raise ImportError(
+                "PgProposalStore requires psycopg3 and psycopg-pool. "
+                "Install the 'pg' extra: `pip install 'adcp[pg]'` "
+                "(Poetry: `poetry add 'adcp[pg]'`)."
+            )
+
+    class PgTaskWebhookOutbox:  # type: ignore[no-redef]
+        """Stub raised when ``adcp[pg]`` isn't installed."""
+
+        delivery_state_is_durable: _ClassVar[bool] = True
+        supports_atomic_task_outbox: _ClassVar[bool] = True
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            raise ImportError(
+                "PgTaskWebhookOutbox requires psycopg3 and psycopg-pool. "
+                "Install the 'pg' extra: `pip install 'adcp[pg]'` "
+                "(Poetry: `poetry add 'adcp[pg]'`)."
+            )
+
+    from adcp.decisioning.pg.task_registry import WebhookSigningScopeResolver
+
+
+__all__ = [
+    "Account",
+    "AccountMode",
+    "AccountNotFoundError",
+    "AccountStore",
+    "AccountStoreList",
+    "AccountStoreSyncGovernance",
+    "AccountStoreUpsert",
+    "AccountStoreUpsertRequest",
+    "AdcpError",
+    "ApiKey",
+    "ApiKeyCredential",
+    "AuthContext",
+    "AudiencePlatform",
+    "AuditingBuyerAgentRegistry",
+    "AuthInfo",
+    "AuthRequiredError",
+    "BillingMode",
+    "BillingNotPermittedForAgentError",
+    "BrandRightsPlatform",
+    "BuyerAgent",
+    "BuyerAgentDefaultTerms",
+    "BuyerAgentRegistry",
+    "BuyerAgentStatus",
+    "CachingBuyerAgentRegistry",
+    "CampaignGovernancePlatform",
+    "CREATIVE_ASSET_TRANSITIONS",
+    "CollectionList",
+    "CollectionListsPlatform",
+    "CompactMediaBuyPlatform",
+    "ContentStandardsPlatform",
+    "Credential",
+    "CreativeAdServerPlatform",
+    "CreativeBuilderPlatform",
+    "DecisioningCapabilities",
+    "DecisioningPlatform",
+    "DiscoveryResult",
+    "DynamicBearer",
+    "ExplicitAccounts",
+    "NaturalKeyAccounts",
+    "AccountStoreResolveForTask",
+    "Format",
+    "LegacyFormatId",
+    "FromAuthAccounts",
+    "GOVERNANCE_SPECIALISMS",
+    "GovernanceContextJWS",
+    "HttpSigCredential",
+    "IncrementalGetProducts",
+    "InMemoryMediaBuyContextStore",
+    "InMemoryMockAdServer",
+    "InMemoryTaskRegistry",
+    "ListableTaskRegistry",
+    "MEDIA_BUY_TERMINAL_STATUSES",
+    "MEDIA_BUY_TRANSITIONS",
+    "MaybeAsync",
+    "MediaBuyNotFoundError",
+    "MediaBuyContextStore",
+    "MediaBuyContexts",
+    "MediaBuyStore",
+    "MockAdServer",
+    "MockProposalManager",
+    "NoAuth",
+    "OAuthCredential",
+    "OBSERVED_MEDIA_BUY_TRANSITIONS",
+    "OwnedSignalsPlatform",
+    "PermissionDeniedError",
+    "PgProposalStore",
+    "PgTaskRegistry",
+    "PgTaskWebhookOutbox",
+    "LazyPlatformRouter",
+    "PlatformRouter",
+    "PostgresTaskRegistry",
+    "Proposal",
+    "ProposalCapabilities",
+    "ProposalManager",
+    "ProposalRecord",
+    "ProposalState",
+    "ProposalStore",
+    "InMemoryProposalStore",
+    "FinalizeProposalRequest",
+    "FinalizeProposalSuccess",
+    "CapabilityOverlap",
+    "create_dev_proposal_store",
+    "PropertyList",
+    "PropertyListFetcher",
+    "PropertyListReference",
+    "ProductConfigStore",
+    "ProductsCheckpoint",
+    "property_list_capability_enabled",
+    "PropertyListsPlatform",
+    "filter_products_by_property_list",
+    "resolve_property_list",
+    "validate_property_list_config",
+    "RefineResult",
+    "RefinementOutcome",
+    "RefinementProcessor",
+    "RefinementStatus",
+    "RefinementTransactionFactory",
+    "assert_buying_mode_consistent",
+    "build_refinement_applied",
+    "has_refine_support",
+    "project_refine_response",
+    "RateLimitedBuyerAgentRegistry",
+    "RateLimitedError",
+    "Recipe",
+    "RequestContext",
+    "ResolveContext",
+    "ResourceResolver",
+    "SalesPlatform",
+    "SalesResult",
+    "SalesSpecialism",
+    "ServiceUnavailableError",
+    "ScopePermanentlyUnknown",
+    "ScopeTransientlyUnavailable",
+    "SignalsPlatform",
+    "SingletonAccounts",
+    "SELF_SERVE_UPDATE_ACTION_MODES",
+    "StateReader",
+    "StaticBearer",
+    "SyncAccountsResultRow",
+    "SyncGovernanceEntry",
+    "SyncGovernanceResultRow",
+    "TaskHandoff",
+    "TaskHandoffContext",
+    "TaskRegistry",
+    "TaskLifecycleObserver",
+    "TaskTransition",
+    "TaskState",
+    "TaskWebhookAuthentication",
+    "WebhookSenderResolver",
+    "WebhookSenderResolution",
+    "WebhookSigningScopeResolver",
+    "TranslationMap",
+    "UNKNOWN_UPDATE_ACTION",
+    "UnsupportedFeatureError",
+    "UpdateMediaBuyMutation",
+    "UpstreamAuth",
+    "UpstreamClientPool",
+    "UpstreamHttpClient",
+    "ValidationError",
+    "WorkflowHandoff",
+    "WorkflowObjectType",
+    "WorkflowStep",
+    "ShortCircuit",
+    "assert_creative_transition",
+    "assert_media_buy_transition",
+    "assert_sandbox_account",
+    "get_account_mode",
+    "get_mock_upstream_url",
+    "is_observable_media_buy_transition",
+    "is_sandbox_or_mock_account",
+    "is_terminal_media_buy_status",
+    "bearer_only_registry",
+    "compose_method",
+    "create_adcp_server_from_platform",
+    "create_media_buy_store",
+    "create_oauth_passthrough_resolver",
+    "create_roster_account_store",
+    "create_tenant_store",
+    "create_translation_map",
+    "create_upstream_http_client",
+    "decompose_update_media_buy",
+    "derive_packages_from_proposal",
+    "disallowed_update_media_buy_mutations",
+    "require_account_match",
+    "require_advertiser_match",
+    "require_org_scope",
+    "is_update_media_buy_mutation_allowed",
+    "mixed_registry",
+    "normalize_update_media_buy_allowed_actions",
+    "project_account_for_response",
+    "project_business_entity_for_response",
+    "project_incomplete_response",
+    "execute_refinement_batch",
+    "preflight_refinement_batch_or_raise",
+    "prepare_refinement_result",
+    "snapshot_refinement_sources",
+    "validate_finalize_source_states_or_raise",
+    "validate_refinement_response_or_raise",
+    "ref_account_id",
+    "resolve_time_budget",
+    "requested_update_media_buy_actions",
+    "serve",
+    "signing_only_registry",
+    "to_wire_account",
+    "to_wire_sync_accounts_row",
+    "to_wire_sync_governance_row",
+    "validate_billing_for_agent",
+    "validate_capabilities_response_shape",
+    "validate_capabilities_response_shape_async",
+    "validate_platform",
+]

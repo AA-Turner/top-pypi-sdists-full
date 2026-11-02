@@ -14,6 +14,9 @@ CODEC_BOMS = {
     'utf-16-be': codecs.BOM_UTF16_BE
 }
 
+# the codecs that always write a Byte Order Mark
+_BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
+
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
@@ -99,11 +102,20 @@ class FileWrapper:
         :returns: the encoding if BOM is found or None.
         """
         with open(file_path, mode='rb') as f:
-            first_bytes = f.read(4)
-            for encoding, bom in CODEC_BOMS.items():
-                if first_bytes.startswith(bom):
-                    return encoding
-        return None
+            return _bom_encoding(f.read(4))
+
+
+def _bom_encoding(data: bytes) -> typing.Optional[str]:
+    """
+    Return the encoding of the BOM at the start of the data.
+
+    :param data: the data, or its first bytes
+    :returns: the encoding if BOM is found or None.
+    """
+    for encoding, bom in CODEC_BOMS.items():
+        if data.startswith(bom):
+            return encoding
+    return None
 
 
 def _write_text_file(

@@ -1,34 +1,5 @@
-"""The detached outbox drainer: wake on enqueue, drain until empty, exit.
-
-Model (eng review 2026-07-29, 3A): the FIRST enqueue forks one detached worker; later
-enqueues see the live flock lease and skip, so a loop queueing hundreds of writes forks once
-per idle period, not per write. The worker loops with capped backoff until the journal is
-empty, then exits: no daemon to install or forget.
-
-Hard stops, so this never becomes the tap's zombie-uploader pitfall:
-  * 401/403 -> the drain reports auth-blocked, ops stay queued untouched, and the worker
-    EXITS (T2-A); it never retries with rejected credentials. EXCEPT a workspace-write
-    refusal (403 `workspace_write_denied`), which is per-DESTINATION, not per-credential:
-    that op dead-letters and the queue keeps flowing (`errors.WorkspaceLockedError` says why
-    parking there is wrong). The suppression is a COOLDOWN, not a permanent stop: one
-    re-probe every `_AUTH_RETRY_COOLDOWN_SECONDS`, so a rotated credential resumes on its
-    own instead of needing `probe outbox retry`. One attempt per five minutes is not a
-    zombie uploader; forever-silence with a growing queue was worse.
-  * `probe outbox pause` -> exits at the next loop turn. The outbox's OWN switch, not the
-    capture-consent killswitch.
-
-A worker that dies (crash, reboot) is re-kicked by the next probe command of any kind;
-`probe run end` remains the synchronous, run-scoped barrier.
-
-When a Probe service runs on the machine the fork goes to it (plan Q5, `service_handoff`): it
-starts this same module on the kicking process's interpreter as its own child; the lease, exit
-guard and every hard stop are unchanged. Credential queues, processes holding a credential in
-their environment, Windows and no service all fork as before.
-
-Lives in the SDK (parity F1, docs/2026-08-04-outbox-miles-parity.md) so CLI commands and
-``Client(async_writes=True)`` writers kick the same worker; ``probe.cli.outbox_worker`` stays
-as a runnable shim because workers spawned by older releases exec that module path.
-"""
+"""The outbox worker: started by the first enqueue (or the Probe service), it drains until the queue
+is empty, then exits; run as `python -m probe.sdk.outbox_worker`, a path kept for good (DESIGN.md)."""
 
 from __future__ import annotations
 
@@ -218,10 +189,7 @@ def run(directory: str | None = None) -> int:
 
 def _run_leased(journal) -> int:
     """`run`, while holding the lease (its handle stays open in `run`)."""
-    from .. import journal as journal_module
     from ... import redaction
-    from ..journal.journal import Journal
-    from .drain.lanes import LaneBackoff
     from .drain.drain import drain
 
     # The scrub cache, as in the training process that spawned this worker. The drain
@@ -230,92 +198,133 @@ def _run_leased(journal) -> int:
     # coalesced one-step writes, waited out by `finish()` behind the drain lock (0.9 s with
     # it). Off in multi-tenant processes (redaction.py); this drains one OS user's outbox.
     redaction.enable_scrub_cache()
+    episode = _WorkerEpisode(journal)
+    while True:
+        ended = episode.end_before_pass()
+        if ended is not None:
+            return ended
+        # Waits on the per-pass drain lock: a concurrent foreground `probe outbox drain`
+        # finishes, then this pass sees what remains.
+        before = _queued_names(journal)
+        episode.restart_lanes_after_sign_in()
+        report = drain(journal, skip_runs=episode.lanes.skip(), credential_queues=False, window=episode.window)
+        episode.count(report)
+        ended = episode.handle_report(report, before)
+        if ended is not None:
+            return ended
 
-    # The backend this journal's ops target, resolved ONCE before the first drain pass while
-    # the ops still exist. The worker delivers each op to the base_url pinned ON THAT OP
-    # (journal.drain reads `context.base_url`), so gating the report on ambient config would
-    # let a worker draining to a self-host endpoint report to the vendor. None disables the
-    # report: outbox_context fails closed on an unknown backend.
-    _gate_base_url = _pinned_base_url(journal)
-    if not journal.receipt_enabled and journal.dir.parent.name != journal_module.CREDENTIAL_NAMESPACE:
-        try:  # the root's worker tidies away idle credential queues (#2041 round 3)
-            relocated = journal_module.DiscardCounts()
-            journal_module.prune_credential_queues(journal.dir, counts=relocated)
-            from .... import analytics as _telemetry
 
-            _telemetry.emit_outbox_discarded(relocated, reason=_telemetry.DiscardReason.RELOCATED)
-        except Exception:  # noqa: BLE001 -- housekeeping never stops delivery
-            pass
-    # Every wait comes from the ONE backoff helper (plan 0.6), restarted after
-    # any pass that made progress.
-    delays = durable.backoff_delays(None)
-    # Per-run waits (plan 1.6): a run whose head op keeps failing backs off on
-    # its own while every other run on the machine keeps delivering.
-    lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
-    woken_at = _wake_stamp(journal)
-    started = time.monotonic()
-    delivered = dead_lettered = passes = waiting_passes = 0
-    #: The server's answer per dead letter, keyed as `sdk.delivery.summary` keys it, and how
-    #: many were "run not found": a write naming no run is the sender's mistake, and the
-    #: loss alert must tell it from ours.
-    dead_lettered_by_status: dict[str, int] = {}
-    dead_lettered_no_such_run = 0
-    remaining = 0
-    stalled_reported = False
+class _WorkerEpisode:
+    """One worker's run of passes over a queue: its backoff, its tally, and what each pass's
+    report makes it do next (another pass, a wait, or an exit code)."""
 
-    def _report(outcome: str) -> None:
+    def __init__(self, journal) -> None:
+        from .. import journal as journal_module
+        from .drain.lanes import LaneBackoff
+        from .drain.window import CollectWindow
+
+        self.journal = journal
+        # The backend this journal's ops target, resolved ONCE before the first drain pass while
+        # the ops still exist. The worker delivers each op to the base_url pinned ON THAT OP
+        # (journal.drain reads `context.base_url`), so gating the report on ambient config would
+        # let a worker draining to a self-host endpoint report to the vendor. None disables the
+        # report: outbox_context fails closed on an unknown backend.
+        self.gate_base_url = _pinned_base_url(journal)
+        if not journal.receipt_enabled and journal.dir.parent.name != journal_module.CREDENTIAL_NAMESPACE:
+            try:  # the root's worker tidies away idle credential queues (#2041 round 3)
+                relocated = journal_module.DiscardCounts()
+                journal_module.prune_credential_queues(journal.dir, counts=relocated)
+                from .... import analytics as _telemetry
+
+                _telemetry.emit_outbox_discarded(relocated, reason=_telemetry.DiscardReason.RELOCATED)
+            except Exception:  # noqa: BLE001 -- housekeeping never stops delivery
+                pass
+        # Every wait comes from the ONE backoff helper (plan 0.6), restarted after
+        # any pass that made progress.
+        self.delays = durable.backoff_delays(None)
+        # Per-run waits (plan 1.6): a run whose head op keeps failing backs off on
+        # its own while every other run on the machine keeps delivering.
+        self.lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
+        # Each writer's collect window (plan T2), stamped on its ops as `send_after`.
+        self.window = CollectWindow()
+        self.woken_at = _wake_stamp(journal)
+        self.started = time.monotonic()
+        self.delivered = self.dead_lettered = self.passes = self.waiting_passes = 0
+        #: The server's answer per dead letter, keyed as `sdk.delivery.summary` keys it, and how
+        #: many were "run not found": a write naming no run is the sender's mistake, and the
+        #: loss alert must tell it from ours.
+        self.dead_lettered_by_status: dict[str, int] = {}
+        self.dead_lettered_no_such_run = 0
+        self.remaining = 0
+        self.stalled_reported = False
+
+    def send_report(self, outcome: str) -> None:
         """Tell the fleet how this episode ended. Never raises or blocks the exit path:
         telemetry is a bystander to delivery."""
         try:
             from probe import analytics as telemetry
 
             telemetry.emit_outbox_drained(
-                base_url=_gate_base_url,
+                base_url=self.gate_base_url,
                 outcome=outcome,
-                delivered=delivered,
-                dead_lettered=dead_lettered,
-                dead_lettered_by_status=dead_lettered_by_status,
-                dead_lettered_no_such_run=dead_lettered_no_such_run,
-                remaining=remaining,
-                passes=passes,
-                duration_s=time.monotonic() - started,
+                delivered=self.delivered,
+                dead_lettered=self.dead_lettered,
+                dead_lettered_by_status=self.dead_lettered_by_status,
+                dead_lettered_no_such_run=self.dead_lettered_no_such_run,
+                remaining=self.remaining,
+                passes=self.passes,
+                duration_s=time.monotonic() - self.started,
             )
         except Exception:  # noqa: BLE001 -- a broken pipe must not strand the queue
             pass
 
-    while True:
+    def end_before_pass(self) -> int | None:
+        """The exit code when a newer producer asked this worker to stop or the outbox is paused."""
+        from ..journal.journal import Journal
+
+        journal = self.journal
         if _asked_to_stop(journal):
             # A newer SDK needs a worker that knows an op kind this one does
             # not (plan 1.11). Exit between passes; its next kick spawns one.
             print("stop requested by a newer producer; exiting", flush=True)
-            _report(OutboxOutcome.REPLACED)
+            self.send_report(OutboxOutcome.REPLACED)
             return 0
         if journal.paused:
-            if passes == 0:
+            if self.passes == 0:
                 # Exiting before any drain pass: the tally is still 0 and a `remaining`
                 # breakdown would show every paused queue as EMPTY, inverting the state a
                 # human acts on. Read the depth already on disk, not a zero never measured.
-                remaining = (Journal.read_status(str(journal.dir), credential_queues=False) or {}).get("pending") or 0
-            _report(OutboxOutcome.PAUSED)
+                self.remaining = (Journal.read_status(str(journal.dir), credential_queues=False) or {}).get("pending") or 0
+            self.send_report(OutboxOutcome.PAUSED)
             return 4
-        # Waits on the per-pass drain lock: a concurrent foreground `probe outbox drain`
-        # finishes, then this pass sees what remains.
-        before = _queued_names(journal)
-        if _wake_stamp(journal) != woken_at:
-            # A sign-in since the last pass: runs held for a credential are tried now, not
-            # when their backoff ends (#2041 round 5: 57 s, up to 300 s).
-            woken_at = _wake_stamp(journal)
-            lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
-        report = drain(journal, skip_runs=lanes.skip(), credential_queues=False)
-        lanes.record(report)
-        passes += 1
-        delivered += report.delivered
-        dead_lettered += report.dead_lettered
+        return None
+
+    def restart_lanes_after_sign_in(self) -> None:
+        """A sign-in since the last pass: runs held for a credential are tried now, not
+        when their backoff ends (#2041 round 5: 57 s, up to 300 s)."""
+        from .drain.lanes import LaneBackoff
+
+        if _wake_stamp(self.journal) != self.woken_at:
+            self.woken_at = _wake_stamp(self.journal)
+            self.lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
+
+    def count(self, report) -> None:
+        """Add one pass's report to the episode's tally."""
+        self.lanes.record(report)
+        self.passes += 1
+        self.delivered += report.delivered
+        self.dead_lettered += report.dead_lettered
         for record in report.dead_letter_records:
             code = str(record.get("status") or "none")
-            dead_lettered_by_status[code] = dead_lettered_by_status.get(code, 0) + 1
-            dead_lettered_no_such_run += bool(record.get("no_such_run"))
-        remaining = report.remaining
+            self.dead_lettered_by_status[code] = self.dead_lettered_by_status.get(code, 0) + 1
+            self.dead_lettered_no_such_run += bool(record.get("no_such_run"))
+        self.remaining = report.remaining
+
+    def handle_report(self, report, before: set) -> int | None:
+        """What a pass's report makes the worker do: an exit code, or None for another pass
+        (after any wait it takes here)."""
+        from .. import journal as journal_module
+
         if report.auth_stopped:
             # A refusal of an unstamped op (an older release queued it) stops
             # the queue: nothing tells its credential apart from the rest.
@@ -323,45 +332,14 @@ def _run_leased(journal) -> int:
                 f"auth-blocked; {report.remaining} op(s) kept queued ({journal_module.now_iso()})",
                 flush=True,
             )
-            _report(OutboxOutcome.AUTH_BLOCKED)
+            self.send_report(OutboxOutcome.AUTH_BLOCKED)
             return 3
         if report.remaining == 0:
-            # Exit-race guard (red team): an enqueue in this final stretch saw our lease held
-            # and skipped its spawn. Re-read status while holding the lease; anything new means
-            # another pass, not an exit stranding the tail op until some future CLI command.
-            fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
-            if _work_arrived(journal, fresh):
-                continue
-            if fresh.get("waiting") and waiting_passes < _WAITING_PASSES:
-                # An upload mid-enqueue (item locked while it copies) or one not promotable
-                # this pass. Look again shortly; never spin, never outlive a stuck item: the
-                # next kick, barrier or CLI command promotes it.
-                waiting_passes += 1
-                time.sleep(_EXIT_GRACE_SECONDS)
-                continue
-            # Linger (_LINGER_SECONDS): a writer's LAST op can land after that re-read, and if
-            # the writer dies there is no next command to re-kick (prod smoke 2026-08-06); a
-            # live writer queues its next op in a second or two, which this worker takes
-            # instead of exiting for the next kick to start another.
-            ended = _linger(journal, waiting=waiting_passes < _WAITING_PASSES)
-            if ended is None:
-                _report(OutboxOutcome.DRAINED)
-                return 0
-            if ended == LingerEnd.WAITING:
-                # An upload that arrived meanwhile, perhaps being scanned by a
-                # promote-only child that will not deliver it.
-                waiting_passes += 1
-            continue
-        if (
-            (report.credential_held or report.credential_refused or report.close_held)
-            and not (
-                report.delivered
-                or report.dead_lettered
-                or report.held_back
-                or report.stopped_transient
-            )
-            and lanes.next_wake() is None
-        ):
+            return self.handle_empty_queue()
+        if self.is_waiting_for_windows(report):
+            self.wait_for_windows(report, before)
+            return None
+        if self.is_held_for_credentials(report):
             # Held ops of a RUN stall its lane; the branch below backs that run off while this
             # worker stays up for the rest (no fork per kick). What is left here names no run.
             # Everything left was queued with a credential this worker lacks (#2035; another
@@ -372,71 +350,155 @@ def _run_leased(journal) -> int:
                 f"({journal_module.now_iso()})",
                 flush=True,
             )
-            _report(OutboxOutcome.STALLED)  # ops still queued; the next kick resumes
+            self.send_report(OutboxOutcome.STALLED)  # ops still queued; the next kick resumes
             return 0
         if report.held_back and not (report.delivered or report.dead_lettered):
-            # Everything left waits on an upload another process is scanning. Look again
-            # shortly, not in a tight loop, never outliving a stuck item. A pass that also
-            # skipped runs backing off does not count: exiting would throw their backoff
-            # away (review of #2051).
-            if not lanes.skip():
-                waiting_passes += 1
-            if waiting_passes >= _WAITING_PASSES:
-                _report(OutboxOutcome.STALLED)  # ops still queued; the next kick resumes
-                return 0
-            time.sleep(_EXIT_GRACE_SECONDS)
-            continue
+            return self.wait_for_held_back()
         if report.delivered or report.dead_lettered or report.in_progress:
             # Progress, a slice of a multipart upload's parts included (plan (g)): the worker
             # must not sleep to another lane's backoff or a 64-part upload crawls. Straight to
             # the next pass. Stalled runs wait out their own backoff via `skip_runs`; the rest
             # keep flowing, paced while some run backs off so a trickle of new writes cannot
             # make a pass per write (review of #2051).
-            delays = durable.backoff_delays(None)
-            if lanes.skip():
+            self.delays = durable.backoff_delays(None)
+            if self.lanes.skip():
                 time.sleep(_LANE_REPASS_SECONDS)
-            continue
-        wake = lanes.next_wake()
+            return None
+        wake = self.lanes.next_wake()
         if wake is not None and not report.unreachable:
-            # Nothing moved, and what is left belongs to runs backing off:
-            # sleep until the soonest of them may be tried again.
-            backoff = min(wake, _BACKOFF_CAP_SECONDS)
-            why = report.errors[-1] if report.errors else next(
-                (stall.error for stall in report.stalled_runs.values()), "?"
-            )
-            print(
-                f"{len(lanes.skip())} run(s) backing off, {report.remaining} left; "
-                f"next try in {backoff:.0f}s: {why}",
-                flush=True,
-            )
-            # ...unless another run queues something meanwhile: that must not
-            # wait out a stalled run's backoff (up to five minutes).
-            _sleep_until_new_work(journal, before, lanes, max(backoff, 0.05))
-            if lanes.at_ceiling() and not stalled_reported:
-                stalled_reported = True
-                _report(OutboxOutcome.STALLED)
-            continue
+            self.wait_for_backed_off_runs(report, before, wake)
+            return None
         if report.stopped_transient:
-            # At least as long as the server asked (`Retry-After` on a 503 or
-            # 429), never past the cap.
-            backoff = durable.honor_retry_after(
-                next(delays), report.retry_after, ceiling=_BACKOFF_CAP_SECONDS
-            )
-            print(
-                f"transient failure, {report.remaining} left; retrying in "
-                f"{backoff:.0f}s: {report.errors[-1] if report.errors else '?'}",
-                flush=True,
-            )
-            time.sleep(backoff)
-            # A worker retrying at the CAP has failed for minutes and may never exit, so it
-            # would report nothing. Report once per worker, on the way INTO that state (each
-            # capped pass would turn one wedged queue into a beacon).
-            if backoff >= _BACKOFF_CAP_SECONDS and not stalled_reported:
-                stalled_reported = True
-                _report(OutboxOutcome.STALLED)
+            self.wait_out_transient(report)
         else:
             # Progress was made (e.g. dead letters moved aside); reset backoff.
-            delays = durable.backoff_delays(None)
+            self.delays = durable.backoff_delays(None)
+        return None
+
+    def handle_empty_queue(self) -> int | None:
+        """The queue looked empty: exit once nothing new arrived and lingering found nothing."""
+        from ..journal.journal import Journal
+
+        journal = self.journal
+        # Exit-race guard (red team): an enqueue in this final stretch saw our lease held
+        # and skipped its spawn. Re-read status while holding the lease; anything new means
+        # another pass, not an exit stranding the tail op until some future CLI command.
+        fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
+        if _work_arrived(journal, fresh):
+            return None
+        if fresh.get("waiting") and self.waiting_passes < _WAITING_PASSES:
+            # An upload mid-enqueue (item locked while it copies) or one not promotable
+            # this pass. Look again shortly; never spin, never outlive a stuck item: the
+            # next kick, barrier or CLI command promotes it.
+            self.waiting_passes += 1
+            time.sleep(_EXIT_GRACE_SECONDS)
+            return None
+        # Linger (_LINGER_SECONDS): a writer's LAST op can land after that re-read, and if
+        # the writer dies there is no next command to re-kick (prod smoke 2026-08-06); a
+        # live writer queues its next op in a second or two, which this worker takes
+        # instead of exiting for the next kick to start another.
+        ended = _linger(journal, waiting=self.waiting_passes < _WAITING_PASSES)
+        if ended is None:
+            self.send_report(OutboxOutcome.DRAINED)
+            return 0
+        if ended == LingerEnd.WAITING:
+            # An upload that arrived meanwhile, perhaps being scanned by a
+            # promote-only child that will not deliver it.
+            self.waiting_passes += 1
+        return None
+
+    @staticmethod
+    def is_waiting_for_windows(report) -> bool:
+        """Everything that may go now went; the rest waits for its run's collect window (plan T2)."""
+        return bool(report.deferred and not (
+            report.delivered
+            or report.dead_lettered
+            or report.in_progress
+            or report.unreachable
+            or (report.stopped_transient and not report.stalled_runs)
+        ))
+
+    def wait_for_windows(self, report, before: set) -> None:
+        """Sleep until the soonest collect window or run backoff ends, waking for a write that must
+        go now (another writer's at window 0, a close, an upload, a full POST), never for each
+        `log()`: a pass per write is the cost the window removes."""
+        journal = self.journal
+        soonest = min(w for w in (report.send_in, self.lanes.next_wake()) if w is not None)
+        woke_from = self.woken_at
+        self.window.wait(
+            journal,
+            seconds=max(soonest, 0.05),
+            seen=before,
+            skip=self.lanes.skip(),
+            loads=report.deferred_loads,
+            asked=lambda: journal.paused
+            or _stop_path(journal).exists()
+            or _wake_stamp(journal) != woke_from,
+        )
+
+    def is_held_for_credentials(self, report) -> bool:
+        """Everything left waits for a credential this worker lacks or the API refused."""
+        return bool(
+            (report.credential_held or report.credential_refused or report.close_held)
+            and not (
+                report.delivered
+                or report.dead_lettered
+                or report.held_back
+                or report.stopped_transient
+            )
+            and self.lanes.next_wake() is None
+        )
+
+    def wait_for_held_back(self) -> int | None:
+        """Everything left waits on an upload another process is scanning. Look again
+        shortly, not in a tight loop, never outliving a stuck item. A pass that also
+        skipped runs backing off does not count: exiting would throw their backoff
+        away (review of #2051)."""
+        if not self.lanes.skip():
+            self.waiting_passes += 1
+        if self.waiting_passes >= _WAITING_PASSES:
+            self.send_report(OutboxOutcome.STALLED)  # ops still queued; the next kick resumes
+            return 0
+        time.sleep(_EXIT_GRACE_SECONDS)
+        return None
+
+    def wait_for_backed_off_runs(self, report, before: set, wake: float) -> None:
+        """Nothing moved, and what is left belongs to runs backing off:
+        sleep until the soonest of them may be tried again."""
+        backoff = min(wake, _BACKOFF_CAP_SECONDS)
+        why = report.errors[-1] if report.errors else next(
+            (stall.error for stall in report.stalled_runs.values()), "?"
+        )
+        print(
+            f"{len(self.lanes.skip())} run(s) backing off, {report.remaining} left; "
+            f"next try in {backoff:.0f}s: {why}",
+            flush=True,
+        )
+        # ...unless another run queues something meanwhile: that must not
+        # wait out a stalled run's backoff (up to five minutes).
+        _sleep_until_new_work(self.journal, before, self.lanes, max(backoff, 0.05))
+        if self.lanes.at_ceiling() and not self.stalled_reported:
+            self.stalled_reported = True
+            self.send_report(OutboxOutcome.STALLED)
+
+    def wait_out_transient(self, report) -> None:
+        """At least as long as the server asked (`Retry-After` on a 503 or
+        429), never past the cap."""
+        backoff = durable.honor_retry_after(
+            next(self.delays), report.retry_after, ceiling=_BACKOFF_CAP_SECONDS
+        )
+        print(
+            f"transient failure, {report.remaining} left; retrying in "
+            f"{backoff:.0f}s: {report.errors[-1] if report.errors else '?'}",
+            flush=True,
+        )
+        time.sleep(backoff)
+        # A worker retrying at the CAP has failed for minutes and may never exit, so it
+        # would report nothing. Report once per worker, on the way INTO that state (each
+        # capped pass would turn one wedged queue into a beacon).
+        if backoff >= _BACKOFF_CAP_SECONDS and not self.stalled_reported:
+            self.stalled_reported = True
+            self.send_report(OutboxOutcome.STALLED)
 
 
 def main(argv: list[str]) -> int:

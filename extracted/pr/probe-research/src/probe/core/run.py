@@ -33,7 +33,7 @@ desktop app can too. The contract is `probe wizard --json`'s:
             `codex_trust` approves Probe's own hooks in Codex as an update
             does and writes `{"outcome", "approved", "error"}`
             (`probe.shared.harness.harnesses.codex.hooks.heal`; the Probe service's healer,
-            `probe.service.codextrust`).
+            `probe.service.hooks.codex_trust`).
     stderr  everything else: the run's own text and its child processes'.
     exit    0 done, 1 failed, 2 usage (an unknown action or a request it
             refuses: `error{code: usage}` + `done`), 75 another setup holds
@@ -146,7 +146,8 @@ def _caller_session_refusal(action) -> str | None:
     import os
 
     from probe.sdk import agent_session
-    from probe.service import management, procid
+    from probe.service.actions import management
+    from probe.foundation.service_api import procid
 
     caller = os.environ.pop(management.CALLER_PID_ENV, "")
     started = os.environ.pop(management.CALLER_START_ENV, "")
@@ -205,9 +206,10 @@ def _desktop_refusal() -> str | None:
     exited since cannot be checked: refused."""
     import os
 
-    from probe.cli import write_gate
+    from probe.cli.lifecycle import write_gate
     from probe.sdk import agent_session
-    from probe.service import management, procid
+    from probe.service.actions import management
+    from probe.foundation.service_api import procid
 
     caller = os.environ.pop(management.CALLER_PID_ENV, "")
     started = os.environ.pop(management.CALLER_START_ENV, "")
@@ -228,7 +230,7 @@ def _desktop_refusal() -> str | None:
 def _desktop(source: TextIO | None) -> int:
     """`desktop`: one management request on stdin, its v1 envelope on stdout,
     and the exit status, exactly as `probe desktop request --json` (both are
-    `probe.cli.desktop.respond`), for the Probe service's `desktop.request`.
+    `probe.cli.imports.desktop.respond`), for the Probe service's `desktop.request`.
     Whatever else the request's code prints goes to stderr: stdout is the
     envelope alone. Like `probe desktop` (a read-only command), it walks no
     process ancestry of its own for a session (its parent is the service; the
@@ -237,12 +239,13 @@ def _desktop(source: TextIO | None) -> int:
     CLI, else answers busy (exit 75) with nothing loaded from replaced files."""
     import json
 
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     if not barrier.wait():
         sys.stdout.write(json.dumps({"v": 1, "ok": False, "error": f"{barrier.MESSAGE}."}) + "\n")
         return barrier.BUSY_EXIT_CODE
-    from probe.cli import desktop, write_gate
+    from probe.cli.imports import desktop
+    from probe.cli.lifecycle import write_gate
     from probe.core import events
     from probe.sdk import agent_session
 

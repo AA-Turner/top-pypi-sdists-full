@@ -1,0 +1,11 @@
+name: pylife
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - pylife[all]
+      - pyvista[all,jupyter]
+      - trame<3
+      - plotly
+      - xvfbwrapper
+      - ipyvtklink

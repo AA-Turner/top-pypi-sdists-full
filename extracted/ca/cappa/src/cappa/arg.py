@@ -1,0 +1,990 @@
+"""Define the external facing argument definition types provided by a user."""
+
+from __future__ import annotations
+
+import dataclasses
+import enum
+from functools import cached_property
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Literal,
+    Sequence,
+    Set,
+    TextIO,
+    Union,
+    cast,
+)
+
+from typing_extensions import TypeAlias
+
+from cappa.class_inspect import Field, extract_dataclass_metadata
+from cappa.completion.completers import complete_choices
+from cappa.completion.types import Completion
+from cappa.default import Default, DefaultFormatter, ValueFrom
+from cappa.invoke.types import Resolved
+from cappa.parse import (
+    Parser,
+    evaluate_parse,
+    parse_handler,
+    parse_literal,
+    parse_value,
+)
+from cappa.state import State
+from cappa.type_view import Empty, EmptyType, TypeView
+from cappa.typing import (
+    Doc,
+    DocType,
+    T,
+    detect_choices,
+    find_annotations,
+)
+
+if TYPE_CHECKING:
+    from cappa.destructure import Destructure
+
+
+@enum.unique
+class ArgAction(enum.Enum):
+    """`Arg` action typee.
+
+    Options:
+      - set: Stores the given CLI value directly.
+      - store_true: Stores a literal `True` value, causing options to not attempt to
+        consume additional CLI arguments
+      - store_false: Stores a literal `False` value, causing options to not attempt to
+        consume additional CLI arguments
+      - append: Produces a list, and accumulates the given value on top of prior values.
+      - count: Increments an integer starting at 0
+      - help: Cancels argument parsing and prints the help text
+      - version: Cancels argument parsing and prints the CLI version
+      - completion: Cancels argument parsing and enters "completion mode"
+    """
+
+    set = "store"
+    store_true = "store_true"
+    store_false = "store_false"
+    append = "append"
+    count = "count"
+
+    help = "help"
+    version = "version"
+    completion = "completion"
+
+    @classmethod
+    def meta_actions(cls) -> Set[ArgAction]:
+        return {cls.help, cls.version, cls.completion}
+
+    @classmethod
+    def is_custom(cls, action: ArgAction | Callable[..., Any] | None):
+        return action is not None and not isinstance(action, ArgAction)
+
+    @classmethod
+    def is_non_value_consuming(cls, action: ArgAction | Callable[..., Any] | None):
+        return action in {
+            ArgAction.store_true,
+            ArgAction.store_false,
+            ArgAction.count,
+            ArgAction.version,
+            ArgAction.help,
+        }
+
+    @property
+    def is_bool_action(self):
+        return self in {self.store_true, self.store_false}
+
+
+ArgActionType: TypeAlias = Union[ArgAction, Callable[..., Any]]
+
+
+@dataclasses.dataclass(frozen=True)
+class NumArgs:
+    """Control the number of values consumed for an argument, with optional-value support.
+
+    Note: The vast majority of uses of `Arg.num_args` should be covered by supplying an integer value,
+    or `NumArgs.unbounded()`.
+
+    When `required=False`, the argument can be supplied without a value (e.g. `--foo`
+    with no following value), yielding the `NumArgs.default` rather than the Arg's overall default.
+    This maps to argparse's `nargs='?'` / `const` behaviour or click' s `is_flag=True` / `flag_value` behavior.
+
+    Args:
+        n: Number of values to consume. ``-1`` means unbounded. Defaults to ``1``.
+        required: Whether a value is required when the option flag is present.
+            When ``False``, ``--foo`` (no value) yields ``default`` and ``--foo VAL``
+            yields the parsed ``VAL``. Defaults to ``True``.
+        default: Value used when the flag is present but no value follows.
+            Only meaningful when ``required=False``. Defaults to ``None``.
+
+    Example::
+
+        @dataclass
+        class Args:
+            # test.py          -> Args(foo=5)    (class default, flag not given)
+            # test.py --foo    -> Args(foo=None) (flag given, no value → NumArgs.default)
+            # test.py --foo 4  -> Args(foo=4)    (flag given with value)
+            foo: Annotated[
+                int | None, Arg(long=True, num_args=NumArgs(required=False))
+            ] = 5
+    """
+
+    n: int = 1
+    required: bool = True
+    default: Any = None
+
+    @classmethod
+    def unbounded(cls):
+        return cls(n=-1)
+
+    @classmethod
+    def infer(
+        cls,
+        type_view: TypeView[Any],
+        field_name: str,
+        arg: Arg[Any] | None = None,
+        action: ArgActionType | None = None,
+        long: list[str] | Literal[False] = False,
+    ) -> NumArgs:
+        if arg:
+            if arg.num_args is not None:
+                if isinstance(arg.num_args, NumArgs):
+                    return arg.num_args
+                return cls(n=arg.num_args)
+
+            if arg.parse:
+                return cls()
+
+            if ArgAction.is_non_value_consuming(action):
+                return cls(n=0)
+
+        if type_view.is_union:
+            # Recursively determine the `n` for each variant.  Accept the
+            # result only if all non-None variants agree on the same count.
+            distinct_n: set[int] = set()
+            n_variants: list[tuple[Any, int]] = []
+            for type_arg in type_view.inner_types:
+                if type_arg.is_none_type:
+                    continue
+                inferred = cls.infer(
+                    type_arg, field_name, arg=arg, action=action, long=long
+                )
+                distinct_n.add(inferred.n)
+                n_variants.append((type_arg.raw, inferred.n))
+
+            if len(distinct_n) == 1:
+                return cls(n=distinct_n.pop())
+
+            invalid_kinds = ", ".join(
+                [f"`{t}` produces `num_args={n}`" for t, n in n_variants]
+            )
+            raise ValueError(
+                f"On field '{field_name}', mismatch of arity between union variants. {invalid_kinds}."
+            )
+
+        if type_view.is_tuple and not type_view.is_variadic_tuple:
+            return cls(n=len(type_view.args))
+
+        is_positional = arg is None or (not arg.short and not long)
+        is_sequence = type_view.is_variadic_tuple or type_view.is_subclass_of(
+            (
+                list,
+                set,
+            )
+        )
+        if is_positional and is_sequence:
+            return cls.unbounded()
+
+        # Options whose outer type is a sequence derive count from the inner type.
+        if type_view.is_subclass_of((list, set, tuple)):
+            inner = cls.infer(type_view.inner_types[0], field_name)
+            return cls(n=inner.n)
+
+        return cls()
+
+    @staticmethod
+    def raw_n(num_args: int | NumArgs | None) -> int | None:
+        """Extract the integer count from a raw (pre-normalization) num_args value."""
+        if isinstance(num_args, NumArgs):
+            return num_args.n
+        return num_args
+
+    def __str__(self) -> str:
+        return str(self.n)
+
+
+@dataclasses.dataclass(frozen=True)
+class Group:
+    """Object used to control argument/subcommand grouping in generated help text.
+
+    Note, when implicit group syntax is used, exclusive groups are automatically inferred,
+    and the group identity is inferred to be the argument's `field_name`. E.g.
+    `foo: Annotated[bool, Arg(long="--foo"), Arg(long="--bar")]`.
+
+    Args:
+        order: A number representing the relative ordering among different argument
+            groups. Groups with the same order will be displayed alphabetically by
+            name.
+        name: The display name of the group in help text.
+        exclusive: Used to control whether items in the group are mutually exclusive with each other.
+            If `True`, the name of the group will be used to control group identity. If a string
+            is provided, items with the same exclusive string will be considered part of the same
+            exclusivity group.
+        section: A secondary level of ordering. Sections have a higher order precedence
+            than ``order``, in order to facilitate meta-ordering amongst kinds of groups
+            (such as "meta" arguments (``--help``, ``--version``, etc) and subcommands).
+            The default ``section`` for any normal argument/``Group`` is 0, for
+            ``Subcommand`` it is 1, and for "meta" arguments it is 2.
+
+    Examples:
+        A non-exclusive group which just affects helptext display grouping
+        >>> arg = Arg(group=Group(name="Colors"))
+
+        An exclusive group, in which all "Colors"-named arguments are mutually exclusive
+        >>> arg = Arg(group=Group(name="Colors", exclusive=True))
+
+        An exclusive group, in which all "colors"-identity arguments are mutually exclusive,
+        but whose helptext is grouped alongside all other "Options".
+        >>> arg = Arg(group=Group(name="Options", exclusive="colors"))
+    """
+
+    order: int = dataclasses.field(default=0, compare=False)
+    name: str = ""
+    exclusive: bool | str | None = dataclasses.field(default=None, compare=True)
+    section: int = 0
+    id: str = ""
+
+    @cached_property
+    def key(self):
+        return (self.section, self.order, self.name, bool(self.exclusive))
+
+    def diff(self, other: Group) -> str:
+        """Return a string showing only the attributes that differ between two Groups.
+
+        Returns a string in the format:
+        "Group(attr=value, ...) != Group(attr=other_value, ...)"
+        """
+        differing_attrs: list[str] = ["id"]
+        for field in dataclasses.fields(self):
+            if not field.compare and field.name != "id":
+                continue
+
+            self_value = getattr(self, field.name)
+            other_value = getattr(other, field.name)
+            if self_value != other_value:
+                differing_attrs.append(field.name)
+
+        self_parts = [f"{attr}={getattr(self, attr)!r}" for attr in differing_attrs]
+        other_parts = [f"{attr}={getattr(other, attr)!r}" for attr in differing_attrs]
+
+        return f"Group({', '.join(self_parts)}) != Group({', '.join(other_parts)})"
+
+    @classmethod
+    def infer(
+        cls,
+        arg: Arg[Any],
+        is_option: bool,
+        exclusive: bool | str = False,
+    ) -> Group:
+        order = 0
+        name = None
+        section = 0
+
+        if isinstance(arg.group, Group):
+            order = arg.group.order
+            section = arg.group.section
+
+            if arg.group.name:
+                name = arg.group.name
+            if arg.group.exclusive is not None:
+                exclusive = arg.group.exclusive
+
+        if isinstance(arg.group, str):
+            name = arg.group
+
+        if isinstance(arg.group, tuple):
+            order, name = arg.group
+
+        if name is None:
+            if is_option:
+                name = "Options"
+            else:
+                name = "Arguments"
+                order = 1
+
+        if isinstance(exclusive, str):
+            identity = exclusive
+        else:
+            identity = name
+
+        return cls(
+            name=name,
+            order=order,
+            exclusive=bool(exclusive),
+            section=section,
+            id=identity,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class Arg(Generic[T]):
+    """Describe a CLI argument.
+
+    Arguments:
+        value_name: Placeholder for the argument's value in the help message / usage.
+            Defaults to the name of the corresponding class field.
+        short: If `True`, uses first letter of the name to infer a (ex. `-s`) short
+            flag. If a string is supplied, that will be used instead. If a string is supplied,
+            it is split on '/' (forward slash), to support multiple options. Additionally
+            accepts a list of strings.
+        long: If `True`, uses first letter of the name to infer a (ex. `--long`) long
+            flag. If a string is supplied, that will be used instead. If a string is supplied,
+            it is split on '/' (forward slash), to support multiple options. Additionally
+            accepts a list of strings.
+        count: If `True` the resultant argument will count instances and accept zero
+            arguments.
+        default: An explicit default CLI value. When left unspecified, the default is
+            inferred from the class' default or the adapter default/default_factory.
+            Note, if the default value is used, it will not be coerced into the annotated
+            type through the `parse` method.
+        help: By default, the help text will be inferred from the containing class'
+            arguments' section, if it exists. Alternatively, you can directly supply
+            the help text here.
+        parse: Optional function(s) which accepts the raw argument as input and
+            return the parsed value. This can be either a single function, or a sequence of functions.
+            If a sequence is provided, they will be called (in order) with their return value
+            chained into the next function in the sequence.
+        parse_inference: Whether to include the default inferred parser for the annotated.
+
+        group: Optional group names for the argument. This affects how they're displayed
+            in the backend's help text. Note this can also be a `Group` instance in order
+            to control group order and/or group exclusivity.
+        hidden: Whether the argument should be hidden in help text. Defaults to False.
+
+        action: Generally automatically inferred from the data type. This allows to
+            override the default.
+        num_args: Generally automatically inferred from the data type. This allows to
+            override the default.
+        choices: Generally automatically inferred from the data type. This allows to
+            override the default.
+        completion: Used to provide custom completions. If specified, should be a function
+            which accepts a partial string value and returns a list of
+            [cappa.Completion](cappa.Completion) objects.
+        required: Defaults to automatically inferring requiredness, based on whether the
+            class's value has a default. By setting this, you can force a particular value.
+        field_name: The name of the class field to populate with this arg. In most usecases,
+            this field should be left unspecified and automatically inferred.
+        deprecated: If supplied, the argument will be marked as deprecated. If given `True`,
+            a default message will be generated, otherwise a supplied string will be
+            used as the deprecation message.
+        show_default: Whether to show the default value in help text. Defaults to `True`.
+        destructure: When set, destructures the annotated type into current-level arguments.
+            Generally prefer to use `field: Destructured[T]` syntax to setting this directly.
+            See `Arg.destructure`.
+        has_value: Whether the argument has a value that should be saved back to the destination
+            type. For most `Arg`, this will default to `True`, however `--help` is an example
+            of an `Arg` for which it is false.
+        propagate: Specifies that an argument can be matched to all child. Global arguments only
+            propagate down. When used at the top-level, in effect it creates a "global" argument.
+    """
+
+    def __hash__(self):
+        return id(self)
+
+    value_name: str | EmptyType = Empty
+    short: bool | str | list[str] | None = False
+    long: bool | str | list[str] | None = False
+    count: bool = False
+    default: Default | T | EmptyType | None = Empty
+    help: str | None = None
+    parse: Callable[..., T] | Sequence[Callable[..., Any]] | None = None
+    parse_inference: bool = True
+
+    group: str | tuple[int, str] | Group | EmptyType = Empty
+
+    hidden: bool = False
+    action: ArgActionType | None = None
+    num_args: int | NumArgs | None = None
+    choices: list[str] | None = None
+    completion: Callable[..., list[Completion]] | None = None
+    required: bool | None = None
+    field_name: str | EmptyType = Empty
+    deprecated: bool | str = False
+    show_default: bool | str | DefaultFormatter = True
+    propagate: bool = False
+
+    destructure: Destructure | bool | None = None
+    has_value: bool | None = None
+
+    type_view: TypeView[Any] | None = None
+
+    @classmethod
+    def collect(
+        cls,
+        field: Field,
+        type_view: TypeView[Any],
+        *,
+        fallback_help: str | None = None,
+        default_short: bool = False,
+        default_long: bool = False,
+        default_negate_bool: bool = False,
+        state: State[Any] | None = None,
+    ) -> list[FinalArg[Any] | FinalDestructure[Any]]:
+        args: list[Arg[Any]] = find_annotations(type_view, cls) or [Arg()]
+
+        exclusive = field.name if len(args) > 1 else False
+
+        docs: list[DocType] = find_annotations(type_view, Doc)
+        fallback_help = docs[0].documentation if docs else fallback_help
+
+        destructure_: list[Destructure] = find_annotations(type_view, Destructure)
+        destructure_annotation: Destructure | None = (
+            destructure_[0] if destructure_ else None
+        )
+
+        # Dataclass field metadata takes precedence if it exists.
+        field_metadata: list[Arg[Any]] = extract_dataclass_metadata(field, Arg)
+        if field_metadata:
+            args = field_metadata
+
+        result: list[FinalArg[Any] | FinalDestructure[Any]] = []
+        for i, arg in enumerate(args, start=1):
+            # field_name and default are evaluated outside `normalize` because they can
+            # potentially depend on the type's dataclass-like field information, whereas
+            # nothing else does.
+            field_name = infer_field_name(arg, field)
+            default = infer_default(arg, type_view, field, destructure_annotation)
+
+            normalized_arg = arg.normalize(
+                type_view,
+                fallback_help=fallback_help,
+                default_short=default_short,
+                default_long=default_long,
+                default_negate_bool=default_negate_bool,
+                exclusive=exclusive,
+                field_name=field_name,
+                default=default,
+                state=state,
+                destructure=destructure_annotation,
+                show_default=arg.show_default if i == len(args) else False,
+            )
+
+            if normalized_arg.destructure:
+                result.extend(normalized_arg.destructure.explode_args())
+            else:
+                result.append(normalized_arg)
+
+        return list(explode_negated_bool_args(result))
+
+    def normalize(
+        self,
+        type_view: TypeView[Any] | None = None,
+        *,
+        fallback_help: str | None = None,
+        action: ArgActionType | None = None,
+        default: Any = Empty,
+        field_name: str | None = None,
+        default_short: bool = False,
+        default_long: bool = False,
+        default_negate_bool: bool = False,
+        exclusive: bool | str = False,
+        state: State[Any] | None = None,
+        destructure: Destructure | bool | None = None,
+        show_default: bool | str | DefaultFormatter | None = None,
+    ) -> FinalArg[Any]:
+        if type_view is None:
+            type_view = TypeView(Any)
+
+        default = Default.fallback_from(default, self.default)
+
+        field_name = cast(str, field_name or self.field_name)
+
+        short = infer_short(self, field_name, default_short)
+        long = infer_long(
+            self,
+            type_view,
+            field_name,
+            default=default_long,
+            default_negate_bool=default_negate_bool,
+        )
+        choices = infer_choices(self, type_view)
+        action = action or infer_action(self, type_view, long, default)
+        num_args = NumArgs.infer(
+            type_view, field_name, arg=self, action=action, long=long
+        )
+
+        required = infer_required(self.required, num_args, self.num_args, default)
+
+        parse = infer_parse(self, type_view, state=state)
+        help = infer_help(self, fallback_help)
+        completion = infer_completion(self, choices)
+
+        group = Group.infer(self, bool(short or long), exclusive)
+
+        value_name = infer_value_name(self, field_name, num_args)
+        has_value = infer_has_value(self, action)
+
+        if self.propagate and not short and not long:
+            raise ValueError(
+                "`Arg.propagate` requires a non-positional named option (`short` or `long`)."
+            )
+
+        default_formatter: DefaultFormatter = DefaultFormatter.from_unknown(
+            show_default if show_default is not None else self.show_default
+        )
+
+        destructure = Destructure.collect(
+            field_name,
+            default,
+            destructure or self.destructure,
+            type_view,
+            default_short=default_short,
+            default_long=default_long,
+            default_negate_bool=default_negate_bool,
+        )
+        result: FinalArg[Any] = FinalArg(
+            # preserved from self
+            count=self.count,
+            hidden=self.hidden,
+            deprecated=self.deprecated,
+            propagate=self.propagate,
+            parse_inference=self.parse_inference,
+            # computed/narrowed
+            value_name=value_name,
+            short=short,
+            long=long,
+            default=default,
+            help=help,
+            parse=parse,
+            group=group,
+            action=action,
+            num_args=num_args,
+            choices=choices,
+            completion=completion,
+            required=required,
+            field_name=field_name,
+            show_default=default_formatter,
+            destructure=destructure,
+            has_value=has_value,
+            type_view=type_view,
+        )
+        verify_type_compatibility(
+            result, field_name, type_view, has_custom_parse=bool(self.parse)
+        )
+        return result
+
+    @classmethod
+    def destructured(cls):
+        """Mark a an argument as destructured. See also the shorter `Destructured` alias."""
+        return cls(destructure=Destructure())
+
+
+@dataclasses.dataclass(frozen=True)
+class FinalArg(Arg[T]):
+    """Post-normalization form of :class:`Arg` with narrowed field types.
+
+    Produced exclusively by :meth:`Arg.normalize`. After normalization all
+    previously-optional/Empty fields are guaranteed to be concrete values.
+    """
+
+    value_name: str = ""
+    short: list[str] | Literal[False] = False
+    long: list[str] | Literal[False] = False
+    default: Default = dataclasses.field(default_factory=Default)
+    group: Group = dataclasses.field(default_factory=Group)
+    action: ArgActionType = ArgAction.set
+    num_args: NumArgs = dataclasses.field(default_factory=NumArgs)
+    required: bool = False
+    field_name: str = ""
+    has_value: bool = True
+    type_view: TypeView[Any] = dataclasses.field(default_factory=lambda: TypeView(Any))
+    parse: Callable[..., Any] = dataclasses.field(default=parse_value)
+    show_default: DefaultFormatter = dataclasses.field(default_factory=DefaultFormatter)
+    destructure: FinalDestructure[Any] | None = None
+
+    def map_result(
+        self,
+        prog: str,
+        parsed_args: dict[str, Any],
+        state: State[Any] | None = None,
+        input: TextIO | None = None,
+    ) -> Resolved[T]:
+        field_name = self.field_name
+        if field_name in parsed_args:
+            is_parsed, value = False, parsed_args[field_name]
+        else:
+            is_parsed, value = self.default(state=state, input=input)
+        handler = parse_handler(self.parse, prog, value, self.names_str())
+        return Resolved(handler, args=(value, is_parsed))
+
+    def names(self, *, n: int = 0) -> list[str]:
+        result = (self.short or []) + (self.long or [])
+        return result[:n] if n else result
+
+    def names_str(self, delimiter: str = ", ", *, n: int = 0) -> str:
+        if self.short or self.long:
+            return delimiter.join(self.names(n=n))
+        return self.value_name
+
+    @cached_property
+    def is_option(self) -> bool:
+        return bool(self.short or self.long)
+
+
+def verify_type_compatibility(
+    arg: FinalArg[Any],
+    field_name: str,
+    type_view: TypeView[Any],
+    *,
+    has_custom_parse: bool = False,
+):
+    """Verify classes of annotations are compatible with one another.
+
+    Thus far:
+        * Sequence and scalar types should not be mixed, unless an explicit `parse`
+          is provided. Otherwise, they will always result in sequence-type results
+          which will not map correctly to scalar types.
+
+        * num_args!=1 should only be used with sequence types.
+        * ArgAction.append should only be used with sequence types.
+        * Non-required argument values with a None default must be Optional in the type annotation.
+    """
+    action = arg.action
+    if has_custom_parse or ArgAction.is_custom(action):
+        return
+
+    num_args = arg.num_args
+    if not num_args.required and num_args.default is None and not type_view.is_optional:
+        raise ValueError(
+            f"On field '{field_name}', `NumArgs(required=False, default=None)` requires the "
+            f"annotated type to include `None` (e.g. `{type_view.repr_type} | None`), "
+            "since the absent-value default of `None` is not assignable to the field type."
+        )
+
+    if type_view.is_union:
+        all_same_arity = {
+            ta.is_subclass_of((list, tuple, set))
+            for ta in type_view.strip_optional().inner_types
+        }
+        if len(all_same_arity) > 1:
+            raise ValueError(
+                f"On field '{field_name}', apparent mismatch of annotated type with `Arg` options. "
+                'Unioning "sequence" types with non-sequence types is not currently supported, '
+                "unless using `Arg(parse=...)` or `Arg(action=<callable>)`. "
+                "See [documentation](https://cappa.readthedocs.io/en/latest/annotation.html) for more details."
+            )
+        return
+
+    if type_view.is_subclass_of((list, tuple, set)):
+        if num_args.n in {0, 1} and action not in {ArgAction.append, None}:
+            raise ValueError(
+                f"On field '{field_name}', apparent mismatch of annotated type with `Arg` options. "
+                f"'{type_view.repr_type}' type produces a sequence, whereas `num_args=1`/`action={action}` do not. "
+                "See [documentation](https://cappa.readthedocs.io/en/latest/annotation.html) for more details."
+            )
+    else:
+        if num_args.n not in {None, 0, 1} or action is ArgAction.append:
+            raise ValueError(
+                f"On field '{field_name}', apparent mismatch of annotated type with `Arg` options. "
+                f"'{type_view.repr_type}' type produces a scalar, whereas `num_args={num_args}`/`action={action}` do not. "
+                "See [documentation](https://cappa.readthedocs.io/en/latest/annotation.html) for more details."
+            )
+
+
+def infer_field_name(arg: Arg[Any], field: Field) -> str:
+    if arg.field_name is not Empty:
+        raise ValueError("Arg 'name' cannot be set when using automatic inference.")
+
+    return field.name
+
+
+def infer_default(
+    arg: Arg[Any],
+    type_view: TypeView[Any],
+    field: Field | None = None,
+    destructure: Destructure | None = None,
+) -> Default:
+    if field:
+        inferred_default: Default = infer_default(
+            arg, type_view, destructure=destructure
+        )
+
+        if field.default is not Empty:
+            return inferred_default | field.default
+
+        if field.default_factory is not Empty:
+            return inferred_default | ValueFrom(field.default_factory)
+
+        return inferred_default
+
+    default = arg.default
+    if default is not Empty:
+        return Default.from_value(default)
+
+    if type_view.is_optional:
+        return Default(default=None)
+
+    if destructure:
+        return Default(ValueFrom(type_view.annotation))
+
+    if type_view.is_subclass_of(bool):
+        return Default(default=False)
+
+    return Default()
+
+
+def infer_required(
+    required: bool | None,
+    num_args: NumArgs,
+    raw_num_args: int | NumArgs | None,
+    default: Default,
+):
+    if required is True:
+        return True
+
+    if default.has_value:
+        if required is False:
+            raise ValueError(
+                "When specifying `required=False`, a default value must be supplied able to be "
+                "supplied through type inference, `Arg(default=...)`, or through class-level default"
+            )
+
+        # Only yield to "unbounded = optional" when the user *explicitly* set a negative
+        # num_args (e.g. Arg(num_args=-1) or Arg(num_args=NumArgs(n=-1))).  An inferred
+        # -1 (e.g. from list[str]) keeps the arg required (at-least-one semantics).
+        raw_n = NumArgs.raw_n(raw_num_args)
+        if raw_n is not None and raw_n < 0:
+            return False
+
+        return True
+    return False
+
+
+def infer_short(
+    arg: Arg[Any], name: str, default: bool = False
+) -> list[str] | Literal[False]:
+    short = arg.short or default
+    if not short:
+        return False
+
+    if isinstance(short, bool):
+        short_name = name[0]
+        return [f"-{short_name}"]
+
+    if isinstance(short, str):
+        short = short.split("/")
+    else:
+        short = short
+
+    return [item if item.startswith("-") else f"-{item}" for item in short]
+
+
+def infer_long(
+    arg: Arg[Any],
+    type_view: TypeView[Any],
+    name: str,
+    *,
+    default: bool,
+    default_negate_bool: bool = False,
+) -> list[str] | Literal[False]:
+    long = arg.long or default
+
+    if not long:
+        # bools get automatically coerced into flags, otherwise stay off.
+        if not type_view.is_subclass_of(bool):
+            return False
+
+        long = True
+
+    if isinstance(long, bool):
+        long = name.replace("_", "-")
+        if default_negate_bool and type_view.is_subclass_of(bool):
+            return [f"--{long}", f"--no-{long}"]
+        return [f"--{long}"]
+
+    if isinstance(long, str):
+        long = long.split("/")
+
+    return [item if item.startswith("--") else f"--{item}" for item in long]
+
+
+def infer_choices(arg: Arg[Any], type_view: TypeView[Any]) -> list[str] | None:
+    if arg.choices is None:
+        choices = detect_choices(type_view)
+    else:
+        choices = arg.choices
+
+    if not choices:
+        return None
+
+    return [str(c) for c in choices]
+
+
+def infer_action(
+    arg: Arg[Any],
+    type_view: TypeView[Any],
+    long: list[str] | Literal[False],
+    default: Default,
+) -> ArgActionType:
+    if arg.count:
+        return ArgAction.count
+
+    if arg.action is not None:
+        return arg.action
+
+    type_view = type_view.strip_optional()
+
+    # Coerce raw `bool` into flags by default
+    if type_view.is_subclass_of(bool):
+        if default.default is not Empty and bool(default.default):
+            return ArgAction.store_false
+
+        return ArgAction.store_true
+
+    has_custom_parse = arg.parse is not None
+    has_custom_num_args = arg.num_args is not None
+
+    is_positional = not arg.short and not long
+    raw_n = NumArgs.raw_n(arg.num_args)
+    is_unbounded = raw_n == -1
+
+    if (
+        has_custom_parse
+        or is_unbounded
+        or (is_positional and not has_custom_num_args)
+        or (has_custom_num_args and raw_n != 1)
+    ):
+        return ArgAction.set
+
+    if type_view.is_subtype_of((list, set)):
+        return ArgAction.append
+
+    if type_view.is_variadic_tuple:
+        return ArgAction.append
+
+    return ArgAction.set
+
+
+def infer_parse(
+    arg: Arg[Any], type_view: TypeView[Any], state: State[Any] | None = None
+) -> Callable[..., Any]:
+    parse: Parser[Any] | Sequence[Parser[Any]] = arg.parse  # type: ignore
+    default_parse = parse_value(type_view)
+
+    # This is the original arg choices, e.g. explicitly provided. Inferred choices
+    # need to be handled internally to the parsers.
+    parsers: Sequence[Parser[Any]] = []
+    if parse:
+        if isinstance(parse, Sequence):
+            parsers = [*cast(Sequence[Any], parse)]
+        else:
+            parsers = [parse]
+
+    if arg.choices:
+        literal_type = Literal[tuple(arg.choices)]  # type: ignore
+        literal_parse: Parser[Any] = parse_literal(literal_type)  # type: ignore
+        parsers = cast(Sequence[Parser[Any]], [*parsers, literal_parse])
+
+    if arg.parse_inference:
+        parsers = [*parsers, default_parse]
+
+    return evaluate_parse(parsers, type_view, state=state)
+
+
+def infer_help(arg: Arg[Any], fallback_help: str | None) -> str | None:
+    help = arg.help
+    if help is None:
+        help = fallback_help
+
+    return help
+
+
+def infer_completion(
+    arg: Arg[Any], choices: list[str] | None
+) -> Callable[[str], list[Completion]] | None:
+    if arg.completion:
+        return arg.completion
+
+    if choices:
+        return complete_choices(choices, help=arg.help)
+
+    return None
+
+
+def infer_value_name(arg: Arg[Any], field_name: str, num_args: NumArgs) -> str:
+    if arg.value_name is not Empty:
+        return arg.value_name
+
+    if num_args.n > 1:
+        return " ".join([field_name] * num_args.n)
+
+    return field_name
+
+
+def explode_negated_bool_args(
+    args: Sequence[FinalArg[Any] | FinalDestructure[Any]],
+) -> Iterable[FinalArg[Any] | FinalDestructure[Any]]:
+    """Expand `--foo/--no-foo` solo arguments into dual-arguments.
+
+    Acts as a transform from `Arg(long='--foo/--no-foo')` to
+    `Annotated[Arg(long='--foo', action=ArgAction.store_true), Arg(long='--no-foo', action=ArgAction.store_false)]`
+    """
+    for arg in args:
+        # Only args can *be* bool negatable args.
+        if not isinstance(arg, FinalArg):
+            yield arg
+            continue
+
+        yielded = False
+        if isinstance(arg.action, ArgAction) and arg.action.is_bool_action and arg.long:
+            long = arg.long
+
+            negatives = [item for item in long if "--no-" in item]
+            positives = [item for item in long if "--no-" not in item]
+            if negatives and positives:
+                assert isinstance(arg.default, Default)
+
+                disabled: DefaultFormatter = DefaultFormatter.disabled()
+                group = dataclasses.replace(
+                    arg.group,
+                    exclusive=True,
+                    id=arg.field_name,
+                )
+
+                positive_arg = dataclasses.replace(
+                    arg,
+                    long=positives,
+                    action=ArgAction.store_true,
+                    show_default=disabled,
+                    group=group,
+                    help=None,
+                )
+                negative_arg = dataclasses.replace(
+                    arg,
+                    long=negatives,
+                    action=ArgAction.store_false,
+                    show_default=arg.show_default,
+                    group=group,
+                )
+
+                yield positive_arg
+                yield negative_arg
+                yielded = True
+
+        if not yielded:
+            yield arg
+
+
+def infer_has_value(arg: Arg[Any], action: ArgActionType):
+    if arg.has_value is not None:
+        return arg.has_value
+
+    if isinstance(action, ArgAction) and action in ArgAction.meta_actions():
+        return False
+
+    return True
+
+
+from cappa.destructure import Destructure, FinalDestructure  # noqa: E402

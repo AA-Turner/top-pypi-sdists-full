@@ -1,0 +1,141 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# Team Specification: Automate Regulatory Reporting
+# Auto-extracted from agent spec automate-regulatory-reporting
+
+id: automate-regulatory-reporting
+version: 0.0.1
+name: Automate Regulatory Reporting Team
+description: 'A multi-agent team that automates end-to-end regulatory reporting for financial institutions.
+  Ingests data from trading systems, risk engines, and accounting platforms, reconciles positions, computes
+  risk metrics, validates against regulatory rules (Basel III/IV, MiFID II, SOX), and generates submission-ready
+  compliance reports with full audit trails.
+
+  '
+tags:
+- finance
+- compliance
+- regulatory
+- risk
+- banking
+- audit
+enabled: true
+icon: shield-check
+emoji: 🏦
+color: blue
+agent_spec_id: automate-regulatory-reporting:0.0.1
+orchestration_protocol: datalayer
+execution_mode: sequential
+supervisor:
+  name: Compliance Orchestrator Agent
+  model: openai:gpt-4.1
+routing_instructions: 'Start with Data Ingestion to pull positions and transactions, then Risk Calculator
+  for metric computation, then Reconciliation Agent to cross-check figures, then Validation Agent for
+  regulatory rule checks, then Report Generator for submission-ready output. Escalate any reconciliation
+  breaks above $10K immediately to the compliance team.
+
+  '
+validation:
+  timeout: 900s
+  retry_on_failure: true
+  max_retries: 2
+agents:
+- id: reg-1
+  name: Data Ingestion Agent
+  role: initiator
+  goal: Extract positions, transactions, and P&L from trading and accounting systems
+  model: openai:gpt-4.1
+  mcp_server: Trading Systems MCP
+  tools:
+  - Position Reader
+  - Transaction Fetcher
+  - P&L Extractor
+  trigger: 'Schedule: Monthly on the 3rd business day'
+  approval: auto
+- id: reg-2
+  name: Risk Calculator Agent
+  role: contributor
+  goal: Compute Basel III/IV risk-weighted assets, capital ratios, and VaR metrics
+  model: anthropic:claude-sonnet-4-20250514
+  mcp_server: Risk Engine MCP
+  tools:
+  - RWA Calculator
+  - VaR Engine
+  - Capital Ratio Computer
+  - Stress Test Runner
+  depends_on:
+  - reg-1
+  approval: auto
+- id: reg-3
+  name: Reconciliation Agent
+  role: contributor
+  goal: Cross-check computed figures against source systems and flag discrepancies
+  model: openai:gpt-4.1
+  mcp_server: Reconciliation MCP
+  tools:
+  - Position Reconciler
+  - Break Detector
+  - Audit Logger
+  depends_on:
+  - reg-2
+  approval: auto
+- id: reg-4
+  name: Validation Agent
+  role: contributor
+  goal: Validate all metrics against Basel III/IV, MiFID II, and SOX regulatory rules
+  model: openai:gpt-4.1
+  mcp_server: Compliance Rules MCP
+  tools:
+  - Basel Rule Validator
+  - MiFID II Checker
+  - SOX Control Verifier
+  depends_on:
+  - reg-3
+  approval: manual
+- id: reg-5
+  name: Report Generator Agent
+  role: finalizer
+  goal: Generate submission-ready regulatory reports with full data lineage and audit trail
+  model: openai:gpt-4.1
+  mcp_server: Document Generation MCP
+  tools:
+  - PDF Generator
+  - XBRL Formatter
+  - Email Sender
+  depends_on:
+  - reg-4
+  approval: auto
+reaction_rules:
+- id: rr-reg-1
+  trigger: 'compliance_violation_detected'
+  action: halt_and_escalate
+  auto: true
+  max_retries: 0
+  escalate_after_retries: 0
+  priority: critical
+- id: rr-reg-2
+  trigger: 'data_validation_failure'
+  action: retry_with_fallback
+  auto: true
+  max_retries: 3
+  escalate_after_retries: 3
+  priority: high
+health_monitoring:
+  heartbeat_interval: 15s
+  stale_threshold: 60s
+  unresponsive_threshold: 120s
+  stuck_threshold: 300s
+  max_restart_attempts: 2
+notifications:
+  on_start: true
+  on_completion: true
+  on_failure: true
+  on_escalation: true
+output:
+  formats:
+  - pdf
+  - xbrl
+  - json
+  template: Regulatory Submission Report
+  storage: s3://reports/regulatory-submissions/

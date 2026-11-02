@@ -1,0 +1,42 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# MCP Server Specification: Salesforce
+# Provides Salesforce CRM operations (queries, reports, objects, SOQL)
+
+id: salesforce
+version: 0.0.1
+name: Salesforce
+description: Salesforce CRM operations (queries, reports, objects, SOQL)
+
+command: npx
+args:
+  - "-y"
+  - "@anthropic/salesforce-mcp-server"
+
+transport: stdio
+enabled: false
+env:
+  SALESFORCE_ACCESS_TOKEN: "${SALESFORCE_ACCESS_TOKEN}"
+  SALESFORCE_INSTANCE_URL: "${SALESFORCE_INSTANCE_URL}"
+
+envvars:
+  - SALESFORCE_ACCESS_TOKEN:0.0.1
+  - SALESFORCE_INSTANCE_URL:0.0.1
+
+tags:
+  - crm
+  - sales
+  - analytics
+
+icon: "@primer/octicons-react:briefcase"
+emoji: ☁️
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: null
+  note: >-
+    Not read off the running server yet: its tools are unknown, and unknown is the most
+    restricted. Run the server, list its tools, and class each one here.
+  tools: {}

@@ -1,0 +1,733 @@
+//! Rewriting a schema into another schema.
+//!
+//! Everything here takes a node and gives back a node with one thing changed:
+//! an index moved to another validator's pool, a definition renumbered, a
+//! reference unfolded once, a record opened, a definitions table pruned of what
+//! nothing reaches. None of it decides anything about a value -- the shapes and
+//! the questions asked of them are the parent module's -- and none of it edits
+//! in place: a rewrite that changes nothing gives back `None` (or the node it
+//! was handed), which is what lets an unchanged subtree keep its `Arc` instead
+//! of being rebuilt beside itself.
+//!
+//! Every rewrite below is written against the child set
+//! [`Schema::map_children`] maps rather than against the variants a second
+//! time.
+
+use std::sync::Arc;
+
+use super::{
+    Attribute, Clauses, Constraint, Constraints, DefIx, DefShift, Fields, MapClause, Members,
+    Openness, OperandIx, Remap, Schema, SeqShape, already_said, canonical_clauses, clauses_over,
+    share_attributes, share_clauses, share_fields, share_members, share_node, with_field_buffer,
+    with_member_buffer,
+};
+
+/// Move a constraint list's indices, rebuilding it only where one moves -- and
+/// rebuilding it in the order [`Schema::refine`] gives it.
+///
+/// A refinement's constraints are a set, sorted by a key that reads the pool
+/// slot, so `Ge(3), Ge(5)` and `Ge(5), Ge(3)` are one list once each is built
+/// in its own pool. Interning one pool into another can send two slots past
+/// each other, and a list left in the order it held is then a second spelling
+/// of the refinement: `==` reads through the slots and calls the two equal,
+/// while a union compares terms and keeps both. Sorted again here, as
+/// [`mapped_member_set`] sorts a member set.
+fn remapped_constraints(constraints: &Constraints, remap: Remap<'_>) -> Option<Constraints> {
+    let mut rebuilt: Option<Vec<Constraint>> = None;
+    for (at, constraint) in constraints.iter().enumerate() {
+        match constraint.remapped_where_moved(remap) {
+            None => {
+                if let Some(buffer) = rebuilt.as_mut() {
+                    buffer.push(constraint.clone());
+                }
+            }
+            Some(moved) => {
+                let buffer = rebuilt.get_or_insert_with(|| {
+                    constraints.iter().take(at).cloned().collect::<Vec<_>>()
+                });
+                buffer.push(moved);
+            }
+        }
+    }
+    rebuilt.map(|mut buffer| {
+        buffer.sort();
+        buffer.dedup();
+        Constraints::from(&buffer[..])
+    })
+}
+
+/// Map a member list, rebuilding it only where `f` changed a member.
+///
+/// Nothing is allocated until a member actually changes: a list `f` has nothing
+/// to say about costs one call per member and no memory at all, which is the
+/// whole point of asking whether it changed.
+fn mapped_members(members: &Members, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<Members> {
+    // An empty list has nothing to map and needs no buffer: a homogeneous
+    // sequence's prefix is one, and every pass over one reaches here.
+    if members.is_empty() {
+        return None;
+    }
+    with_member_buffer(|buffer| {
+        // Shared rather than allocated: a list this walk has assembled before
+        // -- which a repeated transform over a repeated subtree assembles again
+        // -- is the handle the table gives back, and the buffer is dropped.
+        fill_mapped(buffer, members, f).then(|| share_members(buffer))
+    })
+}
+
+/// Fill `buffer` with `members` mapped through `f`, and say whether `f` changed
+/// any. Nothing is written until a member changes: a list `f` has nothing to
+/// say about costs one call per member and no memory at all.
+fn fill_mapped(
+    buffer: &mut Vec<Schema>,
+    members: &Members,
+    f: &impl Fn(&Schema) -> Option<Schema>,
+) -> bool {
+    let mut changed = false;
+    for (at, member) in members.iter().enumerate() {
+        match f(member) {
+            None => {
+                if changed {
+                    buffer.push(member.clone());
+                }
+            }
+            Some(mapped) => {
+                if !changed {
+                    buffer.extend(members.iter().take(at).cloned());
+                    changed = true;
+                }
+                buffer.push(mapped);
+            }
+        }
+    }
+    changed
+}
+
+/// Map a member **set**, rebuilding it only where `f` changed a member -- and
+/// rebuilding it canonical.
+///
+/// A join's or a meet's members are a set: the constructor sorts and
+/// deduplicates them, and a reader is entitled to that order -- a table of
+/// literals is read as the set it denotes by searching the list, and a search
+/// over an unordered one answers by where a member happens to sit. Renumbering
+/// is the one operation that puts a canonical list out of order: two
+/// validators' pools are interned into one, each constant takes the position
+/// it already has there or is given on arrival, and a table written the other
+/// way round arrives with its indices descending. So a list this rebuilt is
+/// sorted and deduplicated again, where the order it held is what `f` moved.
+///
+/// **Order is all a renumbering moves.** The table interning builds is
+/// one-to-one, because a pool holds one slot per constant, so two members are
+/// equal after it exactly when they were before, and a member stands beside
+/// its own complement after it exactly when it did before. No law construction
+/// settles has a new pair to fold, and putting each list back in order -- this
+/// one, a refinement's constraints and a map's clauses -- leaves the term the
+/// constructors would have built.
+///
+/// [`mapped_members`] is the positional half, for a sequence's prefix, where
+/// order *is* the shape and may not be touched.
+fn mapped_member_set(members: &Members, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<Members> {
+    if members.is_empty() {
+        return None;
+    }
+    with_member_buffer(|buffer| {
+        if !fill_mapped(buffer, members, f) {
+            return None;
+        }
+        buffer.sort();
+        buffer.dedup();
+        Some(share_members(buffer))
+    })
+}
+
+/// Map a field list, rebuilding it only where `f` changed a field's schema.
+///
+/// `f` is asked once per field, and the list is allocated only once a field has
+/// answered: asking twice -- once to find out and once to build -- would run a
+/// recursive transform twice per level, which is exponential in the depth.
+fn mapped_fields(fields: &Fields, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<Fields> {
+    with_field_buffer(|buffer| {
+        let mut changed = false;
+        for (at, field) in fields.iter().enumerate() {
+            match f(&field.schema) {
+                None => {
+                    if changed {
+                        buffer.push(field.clone());
+                    }
+                }
+                Some(schema) => {
+                    if !changed {
+                        buffer.extend(fields.iter().take(at).cloned());
+                        changed = true;
+                    }
+                    buffer.push(field.with_schema(schema));
+                }
+            }
+        }
+        changed.then(|| share_fields(buffer))
+    })
+}
+
+/// Map an attribute list, rebuilding it only where `f` changed an attribute's
+/// schema, asked once per attribute for the reason [`mapped_fields`] gives.
+fn mapped_attributes(
+    attributes: &Arc<[Attribute]>,
+    f: &impl Fn(&Schema) -> Option<Schema>,
+) -> Option<Arc<[Attribute]>> {
+    let mut rebuilt: Option<Vec<Attribute>> = None;
+    for (at, attribute) in attributes.iter().enumerate() {
+        match f(&attribute.schema) {
+            None => {
+                if let Some(buffer) = rebuilt.as_mut() {
+                    buffer.push(attribute.clone());
+                }
+            }
+            Some(schema) => {
+                let buffer = rebuilt
+                    .get_or_insert_with(|| attributes.iter().take(at).cloned().collect::<Vec<_>>());
+                buffer.push(attribute.with_schema(schema));
+            }
+        }
+    }
+    rebuilt.map(|mut buffer| share_attributes(&mut buffer))
+}
+
+/// Map a clause list, rebuilding it only where `f` changed a key or a value --
+/// and rebuilding it canonical.
+///
+/// Asked once per key and once per value, for the same reason as
+/// [`mapped_fields`]. A map's clauses are a set ordered by their schemas, a
+/// `Literal` key by its pool slot, so a rebuilt list is sorted and
+/// deduplicated again for the reason [`mapped_member_set`] gives.
+fn mapped_clauses(clauses: &Clauses, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<Clauses> {
+    let mut rebuilt: Option<Vec<MapClause>> = None;
+    for (at, clause) in clauses.iter().enumerate() {
+        let key = f(&clause.key);
+        let value = f(&clause.value);
+        if key.is_none() && value.is_none() {
+            if let Some(buffer) = rebuilt.as_mut() {
+                buffer.push(clause.clone());
+            }
+            continue;
+        }
+        let buffer =
+            rebuilt.get_or_insert_with(|| clauses.iter().take(at).cloned().collect::<Vec<_>>());
+        buffer.push(MapClause::of(
+            key.unwrap_or_else(|| clause.key.clone()),
+            value.unwrap_or_else(|| clause.value.clone()),
+        ));
+    }
+    rebuilt.map(|mut buffer| {
+        canonical_clauses(&mut buffer);
+        share_clauses(&mut buffer)
+    })
+}
+
+impl SeqShape {
+    /// The same, rebuilding only what `f` changed, and `None` when it changed
+    /// nothing: the sequence half of [`Schema::mapped_children`].
+    pub(crate) fn mapped_elems(&self, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<SeqShape> {
+        let prefix = mapped_members(&self.prefix, f);
+        let tail = self.tail.as_deref().map(f);
+        match (&prefix, &tail) {
+            (None, None | Some(None)) => None,
+            _ => Some(SeqShape {
+                prefix: prefix.unwrap_or_else(|| self.prefix.clone()),
+                tail: match (tail, &self.tail) {
+                    (Some(Some(mapped)), _) => Some(share_node(mapped)),
+                    (_, held) => held.clone(),
+                },
+            }),
+        }
+    }
+}
+
+/// Which side of an inclusion a schema is read on.
+///
+/// An unfolding cuts the reference no finite representation holds, and which
+/// lattice bound it cuts to depends on the side. Named rather than spelled as a
+/// `bool`, because the two members are what the soundness of a difference turns
+/// on and a call site reading `true` says nothing about which side that is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Polarity {
+    /// The subject's side: a cut reference becomes the top, so the lowered set
+    /// is at least the one the schema denotes.
+    Widen,
+    /// The supertype's side: a cut reference becomes the bottom, so the lowered
+    /// set is at most the one the schema denotes.
+    Narrow,
+}
+
+impl Polarity {
+    /// The side a complement puts the schema under it on, the polarity a
+    /// finite approximation reads off a path [AC93, §3.4].
+    #[must_use]
+    pub(crate) fn flipped(self) -> Polarity {
+        match self {
+            Polarity::Widen => Polarity::Narrow,
+            Polarity::Narrow => Polarity::Widen,
+        }
+    }
+}
+
+impl Schema {
+    /// This schema with its references unfolded, and the cut replaced by the
+    /// bound the position makes sound: an unfolding denotes what the reference
+    /// does [AC93, §3.2], and the cut is a finite approximation [AC93, §3.4].
+    ///
+    /// A set representation holds no cycle, so without this a recursive schema
+    /// could not be lowered at all and every relation over one would be left to
+    /// the structural rules -- including relations a single unfolding settles,
+    /// like a meet with a kind the body never admits. Unfolding `unfolds` times
+    /// and putting a *bound* where the reference would have been gives a schema
+    /// the descriptor can hold and an answer that still holds of the original,
+    /// provided the bound is chosen for the position.
+    ///
+    /// [`Polarity`] says which. Widening cuts to the top, so the result denotes
+    /// a superset: proving *that* empty proves the original empty. Narrowing --
+    /// under a complement -- cuts to the bottom and the result denotes a subset,
+    /// which is what keeps a difference sound. `Complement` is the only node
+    /// that flips the polarity: every other one is monotone in what it holds, a
+    /// map clause included, since widening a clause only makes more dicts
+    /// covered by it.
+    ///
+    /// **A cut widens the difference, so only an empty one proves anything.**
+    /// An inhabited reading of a cut difference names a value of the widened set
+    /// rather than of the real one, and refutes nothing; the caller that reads
+    /// the difference is where that condition is held.
+    ///
+    /// A schema with no reference is returned as it stands, so the caller pays
+    /// nothing for the common case.
+    #[must_use]
+    pub(crate) fn unfolded(
+        &self,
+        definitions: &[Schema],
+        unfolds: u32,
+        polarity: Polarity,
+    ) -> Schema {
+        let cut = || match polarity {
+            Polarity::Widen => Schema::ANYTHING,
+            Polarity::Narrow => Schema::Nothing,
+        };
+        match self {
+            Schema::Ref(index) => match definitions.get(index.get()) {
+                Some(body) if unfolds > 0 => body.unfolded(definitions, unfolds - 1, polarity),
+                // Out of unfoldings, or a reference to a definition this caller
+                // does not hold: the bound stands in for what is not read.
+                _ => cut(),
+            },
+            // A marker for a definition still being built. Nothing can be read
+            // from it, so the bound stands in for it too.
+            Schema::SelfRef(_) => cut(),
+            Schema::Complement(inner) => Schema::Complement(share_node(inner.unfolded(
+                definitions,
+                unfolds,
+                polarity.flipped(),
+            ))),
+            other => other.map_children(&|child| child.unfolded(definitions, unfolds, polarity)),
+        }
+    }
+
+    /// This schema with every definition index rewritten by `table`.
+    ///
+    /// An index the table drops cannot be reached from a schema this is called
+    /// on -- that is what made it droppable -- so it is left as it stands rather
+    /// than guessed at. A set is sorted and deduplicated again where an index
+    /// in it moved, so a table that sends no two indices to one keeps every set
+    /// canonical (`a_renumbered_set_is_canonical`).
+    #[must_use]
+    pub fn renumbered(&self, table: &[Option<DefIx>]) -> Schema {
+        if let Schema::Ref(index) = self {
+            return match table.get(index.get()).copied().flatten() {
+                Some(moved) => Schema::Ref(moved),
+                None => self.clone(),
+            };
+        }
+        self.map_children(&|child| child.renumbered(table))
+    }
+
+    /// Rebuild this node with every child schema mapped through `f`, leaving the
+    /// node's own payloads -- the container kind, a field's name and
+    /// required-ness, a pooled index, a constraint -- exactly as they are.
+    ///
+    /// **This is where a rewrite reads the child set of each variant**, and
+    /// `push_children` is where a reading does: the two walks that state it,
+    /// which `the_functor_and_the_traversal_describe_the_same_children` holds
+    /// to one set. A walk that only descends -- moving indices, resolving a
+    /// self-reference -- inherits the child set from here instead of spelling
+    /// the descent out per pass. Spelled per pass, the compiler forces an arm
+    /// without being able to check that the arm recursed into everything, and a
+    /// forgotten child is a silent stale subtree.
+    ///
+    /// A new variant carrying a child schema must map it here, or every pass
+    /// built on this drops it. A new variant carrying a *pooled index* must also
+    /// be handled in `remapped_where_moved`, behind
+    /// [`remapped_by`](Self::remapped_by), which is why that match takes no
+    /// wildcard.
+    pub(crate) fn map_children(&self, f: &impl Fn(&Schema) -> Schema) -> Schema {
+        self.mapped_children(&|child| Some(f(child)))
+            .unwrap_or_else(|| self.clone())
+    }
+
+    /// The same descent, rebuilding only what `f` actually changed.
+    ///
+    /// `f` answers `None` for a child it leaves alone, and this answers `None`
+    /// for a node every child of which came back that way -- so a pass over a
+    /// subtree it has nothing to say about allocates nothing and the caller
+    /// keeps the handle it already had. The pass that has something to say
+    /// about every node pays one comparison per child for the privilege, which
+    /// is the trade the shared representation makes worth taking: what it
+    /// saves is a rebuild of everything beneath the node, and what it costs is
+    /// an `Option` the optimizer sees through.
+    ///
+    /// [`map_children`](Self::map_children) is this with `f` that always
+    /// answers `Some`, so a rewrite of either kind reads one statement of the
+    /// child set.
+    fn mapped_children(&self, f: &impl Fn(&Schema) -> Option<Schema>) -> Option<Schema> {
+        match self {
+            Schema::Anything(_)
+            | Schema::Nothing
+            | Schema::NoneType
+            | Schema::Bool
+            | Schema::Int
+            | Schema::Float
+            | Schema::Str
+            | Schema::Bytes
+            | Schema::Literal(_)
+            | Schema::Instance(_)
+            | Schema::Ref(_)
+            | Schema::SelfRef(_) => None,
+            Schema::Seq { container, shape } => shape.mapped_elems(f).map(|shape| Schema::Seq {
+                container: *container,
+                shape,
+            }),
+            Schema::Coll { container, element } => f(element).map(|element| Schema::Coll {
+                container: *container,
+                element: share_node(element),
+            }),
+            Schema::Complement(inner) => {
+                f(inner).map(|inner| Schema::Complement(share_node(inner)))
+            }
+            Schema::Union(members) => mapped_member_set(members, f).map(Schema::Union),
+            Schema::Intersection(members) => {
+                mapped_member_set(members, f).map(Schema::Intersection)
+            }
+            Schema::KeyedMap { fields, defaults } => {
+                let mapped_fields = mapped_fields(fields, f);
+                let mapped_clauses = mapped_clauses(defaults, f);
+                if mapped_fields.is_none() && mapped_clauses.is_none() {
+                    return None;
+                }
+                Some(Schema::KeyedMap {
+                    fields: mapped_fields.unwrap_or_else(|| fields.clone()),
+                    defaults: mapped_clauses.unwrap_or_else(|| defaults.clone()),
+                })
+            }
+            Schema::AttrRecord { fields } => {
+                mapped_attributes(fields, f).map(|fields| Schema::AttrRecord { fields })
+            }
+            Schema::Refine { base, constraints } => f(base).map(|base| Schema::Refine {
+                base: share_node(base),
+                constraints: constraints.clone(),
+            }),
+        }
+    }
+
+    /// Rebuild this schema against another validator's pools, moving every
+    /// payload the way `remap` moves its index space.
+    ///
+    /// The arms here are exactly the nodes that *carry* an index; the structural
+    /// descent is [`map_children`](Self::map_children). The match in
+    /// [`remapped_where_moved`](Self::remapped_where_moved) deliberately takes
+    /// **no wildcard**: a variant that carries a pooled index and reaches
+    /// this by a catch-all would keep its index and read a real object of the
+    /// wrong kind, which is a plausible wrong verdict rather than a crash. Listing
+    /// the structural variants costs a line each and makes a new variant a
+    /// compile error here, where the decision belongs.
+    fn remapped_by(&self, remap: Remap<'_>) -> Schema {
+        self.remapped_where_moved(remap)
+            .unwrap_or_else(|| self.clone())
+    }
+
+    /// The same rebuild, answering `None` where no index below this node moves.
+    ///
+    /// Combining two validators shifts one side's indices and leaves the
+    /// other's where they are, so a rebuild of both would spend half of every
+    /// composition arriving at the tree it started from. An index that does not
+    /// move says so, and a node all of whose children said so is returned as
+    /// the handle the caller already held.
+    fn remapped_where_moved(&self, remap: Remap<'_>) -> Option<Schema> {
+        match self {
+            Schema::Literal(index) => {
+                let moved = index.remapped_by(remap);
+                (moved != *index).then_some(Schema::Literal(moved))
+            }
+            Schema::Instance(index) => {
+                let moved = index.remapped_by(remap);
+                (moved != *index).then_some(Schema::Instance(moved))
+            }
+            Schema::Ref(index) => {
+                let moved = index.remapped_by(remap);
+                (moved != *index).then_some(Schema::Ref(moved))
+            }
+            Schema::Refine { base, constraints } => {
+                let moved_base = base.remapped_where_moved(remap);
+                let moved_constraints = remapped_constraints(constraints, remap);
+                if moved_base.is_none() && moved_constraints.is_none() {
+                    return None;
+                }
+                Some(Schema::Refine {
+                    base: moved_base.map_or_else(|| Arc::clone(base), share_node),
+                    constraints: moved_constraints.unwrap_or_else(|| Arc::clone(constraints)),
+                })
+            }
+            // No payload of its own: descend through the child set the rewrite
+            // walk states. Spelled out rather than caught by `_` so a new
+            // variant with an index cannot arrive here silently.
+            Schema::Anything(_)
+            | Schema::Nothing
+            | Schema::NoneType
+            | Schema::Bool
+            | Schema::Int
+            | Schema::Float
+            | Schema::Str
+            | Schema::Bytes
+            | Schema::SelfRef(_)
+            | Schema::Seq { .. }
+            | Schema::Coll { .. }
+            | Schema::Complement(_)
+            | Schema::Union(_)
+            | Schema::Intersection(_)
+            | Schema::KeyedMap { .. }
+            | Schema::AttrRecord { .. } => self.mapped_children(&|s| s.remapped_where_moved(remap)),
+        }
+    }
+
+    /// Return a copy with pool indices remapped through `lit_map` and
+    /// definition references offset by `def_offset`.
+    ///
+    /// Used when composing two compiled validators: the second pool is
+    /// interned into the first, `lit_map` the old->new table that interning
+    /// builds, so identity-shared constants collapse to one index and the second
+    /// schema's `Literal`/`Instance`/`Refine` indices move to theirs, and the
+    /// definitions tables are concatenated, so its `Ref` indices move past the
+    /// first table's length.
+    #[must_use]
+    pub fn reindexed(&self, lit_map: &[usize], def_offset: DefShift) -> Schema {
+        self.remapped_by(Remap {
+            lit_map,
+            defs: def_offset,
+        })
+    }
+
+    /// Replace each `SelfRef(token)` with `Ref(ref_id)`, leaving other tokens
+    /// (from enclosing `recursive` definitions) untouched.
+    #[must_use]
+    pub fn resolve_self(&self, token: u64, ref_id: DefIx) -> Schema {
+        match self {
+            Schema::SelfRef(t) if *t == token => Schema::Ref(ref_id),
+            // Every other node keeps its payloads and passes the rewrite down. A
+            // wildcard is right here, unlike in `remapped_by`: this pass rewrites
+            // one marker and touches nothing else, so it is already correct for a
+            // variant that does not exist yet -- provided that variant's children
+            // are mapped in `map_children`, which is the one place to add them.
+            other => other.map_children(&|s| s.resolve_self(token, ref_id)),
+        }
+    }
+
+    /// Return a copy with every [`Schema::KeyedMap`] in the tree set to `open`:
+    /// under a field, a clause's key or value, a union, a meet or a complement.
+    ///
+    /// This backs the `open`/`close` methods. **Openness is the default of the
+    /// region no clause claims**, the open and closed records of [Cas23, §3.2]
+    /// read over key types [Cas23, §4.4], where a clause is a key-type region
+    /// carrying its own default, so the operators rewrite that one region and
+    /// leave every claimed one alone. A record claims none, which is why
+    /// opening it frees every key and closing it refuses every key -- the
+    /// record is the special case, not the general one. A mapping claims one,
+    /// so `dict[str, int]` opened still says what a `str` key maps to and frees
+    /// only the key-types beside it.
+    ///
+    /// It is a rewrite of the term, not an operation on the set: two terms for
+    /// one set may open, or close, to two. A meet of two open records and the
+    /// record of their fields are one set, and closing the meet closes each
+    /// record on its own, to two records no dict belongs to both of.
+    ///
+    /// **The labels are read on the semantic `dom` first.** Naming a key and
+    /// giving it exactly what the record already gives every key it does not
+    /// name says nothing, so `{"a?": nothing}` and `{}` are one record -- and
+    /// unless the redundant name is dropped they open to different ones, which
+    /// would part one record by how it was written.
+    #[must_use]
+    pub fn with_records_open(&self, open: Openness) -> Schema {
+        self.records_opened(open).unwrap_or_else(|| self.clone())
+    }
+
+    /// The same transform, answering `None` for a subtree it leaves alone.
+    ///
+    /// A schema with no record under it is returned to the caller as the handle
+    /// it already had: opening a list of integers rebuilt every node of it to
+    /// arrive back where it started, and a record whose catch-all already says
+    /// what the openness asks for is in the same position.
+    fn records_opened(&self, open: Openness) -> Option<Schema> {
+        match self {
+            // The one node this transform is about: every keyed map rewrites
+            // the default of the region its clauses leave over. Having no field
+            // does not make one a mapping, and having one does not exempt it --
+            // what a clause claims is a region, and the operator is about the
+            // rest.
+            Schema::KeyedMap { fields, defaults } => {
+                // The clauses are part of the tree as well: a mapping's value may
+                // be a record, `dict[str, {"b": int}]`, and that record is opened
+                // with the rest. Read first, because the region the clauses leave
+                // over is a property of the clauses as they stand afterwards.
+                let inner = mapped_clauses(defaults, &|schema| schema.records_opened(open));
+                let current = inner.as_ref().unwrap_or(defaults);
+                let wanted = clauses_over(current, open);
+                let opened = mapped_fields(fields, &|schema| schema.records_opened(open));
+                let updated = opened.as_ref().unwrap_or(fields);
+                // A name is judged as it stands afterwards too, against those
+                // clauses, and this one test decides both whether the node is
+                // rebuilt and which names the rebuilt node keeps. So whether a
+                // name survives turns on what that name says alone, never on
+                // another name beside it.
+                let dropping = updated.iter().any(|field| already_said(field, current));
+                if !dropping && opened.is_none() && *defaults == wanted {
+                    return None;
+                }
+                let updated = opened.unwrap_or_else(|| fields.clone());
+                if !dropping {
+                    // The names and their order are the ones this node already
+                    // had, so the list is canonical without being sorted again.
+                    return Some(Schema::KeyedMap {
+                        fields: updated,
+                        defaults: wanted,
+                    });
+                }
+                // A field a name says twice -- once as its own and once through
+                // the catch-all the openness adds -- is dropped, and the list
+                // has to be assembled again around the hole.
+                Some(with_field_buffer(|kept| {
+                    kept.extend(
+                        updated
+                            .iter()
+                            .filter(|field| !already_said(field, current))
+                            .cloned(),
+                    );
+                    Schema::keyed_map_from(kept, wanted)
+                }))
+            }
+            // Every other node carries the transform to its children and keeps
+            // its own payloads. Spelling the descent out here again is what let
+            // it end in a wildcard, where a new child-carrying variant would be
+            // cloned unopened rather than failing to compile.
+            // Refolded, because this transform can *make* a shape the
+            // constructors promise never survives them: opening the records in
+            // `{a: int} | ~{a: int}` maps both sides to one schema beside its own
+            // complement, and a rule downstream is entitled to assume no such
+            // shape exists. [`map_children`] itself stays raw -- reindexing uses
+            // it to relabel pool slots, and a relabeling that changed the shape
+            // would not be one.
+            _ => self
+                .mapped_children(&|s| s.records_opened(open))
+                .map(Schema::refolded),
+        }
+    }
+
+    /// This node rebuilt through its own smart constructor.
+    ///
+    /// The children are already whatever they should be; only the node itself
+    /// may have become a shape construction folds. Written as one step so a
+    /// transform can descend with [`map_children`](Self::map_children) and
+    /// still leave the tree in the shape the constructors guarantee.
+    fn refolded(self) -> Schema {
+        match self {
+            Schema::Union(members) => Schema::union(members.iter().cloned()),
+            Schema::Intersection(members) => Schema::meet(members.iter().cloned()),
+            Schema::Complement(inner) => Arc::unwrap_or_clone(inner).complement(),
+            other => other,
+        }
+    }
+}
+
+impl Constraint {
+    /// This constraint against another validator's pool.
+    ///
+    /// A length bound and a regex pattern are not pool indices and are carried
+    /// through untouched. The type says so for the length: a `usize` has no
+    /// `remapped_by`, so an arm that must not move an index cannot.
+    fn remapped_where_moved(&self, remap: Remap<'_>) -> Option<Constraint> {
+        let moved = |index: OperandIx| {
+            let moved = index.remapped_by(remap);
+            (moved != index).then_some(moved)
+        };
+        match self {
+            Constraint::Ge(index) => moved(*index).map(Constraint::Ge),
+            Constraint::Gt(index) => moved(*index).map(Constraint::Gt),
+            Constraint::Le(index) => moved(*index).map(Constraint::Le),
+            Constraint::Lt(index) => moved(*index).map(Constraint::Lt),
+            // Neither carries an index, so neither can move.
+            Constraint::MinLen(_) | Constraint::MaxLen(_) | Constraint::Regex(_) => None,
+            Constraint::MultipleOf(index) => moved(*index).map(Constraint::MultipleOf),
+            Constraint::Predicate(index) => {
+                let moved = index.remapped_by(remap);
+                (moved != *index).then_some(Constraint::Predicate(moved))
+            }
+        }
+    }
+}
+
+/// A schema and the definitions it can still reach, with the rest dropped.
+///
+/// A fold can leave a definition behind: `json | ~json` is the top and carries
+/// the fixpoint's body no reference names any more. Dead weight in itself, and
+/// worse than that for equality -- the definitions are part of what two
+/// validators are compared on, so the top built that way would not be the top
+/// built any other way if it were kept. Two schemas differ when their
+/// *reachable* definitions differ, which is what this makes true by leaving
+/// nothing else.
+///
+/// The traversal is the reachability of a graph whose edges are `Ref` nodes:
+/// what the schema names, what those name, and no further.
+#[must_use]
+pub fn pruned(schema: Schema, definitions: Vec<Schema>) -> (Schema, Vec<Schema>) {
+    let mut reachable = vec![false; definitions.len()];
+    let mut pending = vec![&schema];
+    while let Some(node) = pending.pop() {
+        // A definition's body may name another, so reaching one puts its body on
+        // the stack and the walk continues from there.
+        if let Schema::Ref(index) = node
+            && let Some(seen) = reachable.get_mut(index.get())
+            && !*seen
+        {
+            *seen = true;
+            if let Some(body) = definitions.get(index.get()) {
+                pending.push(body);
+            }
+        }
+        node.push_children(&mut pending);
+    }
+    if reachable.iter().all(|kept| *kept) {
+        return (schema, definitions);
+    }
+    // The kept definitions keep their relative order, so a validator that loses
+    // none is untouched and one that loses some reads the same way.
+    let mut next = 0;
+    let renumbered: Vec<Option<DefIx>> = reachable
+        .iter()
+        .map(|kept| {
+            kept.then(|| {
+                let moved = DefIx::new(next);
+                next += 1;
+                moved
+            })
+        })
+        .collect();
+    let bodies: Vec<Schema> = definitions
+        .iter()
+        .zip(&reachable)
+        .filter(|(_, kept)| **kept)
+        .map(|(body, _)| body.renumbered(&renumbered))
+        .collect();
+    (schema.renumbered(&renumbered), bodies)
+}

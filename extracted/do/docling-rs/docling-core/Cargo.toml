@@ -1,0 +1,49 @@
+[package]
+name = "docling-core"
+description = "Core DoclingDocument data model and serializers for docling.rs (a Rust port of docling)."
+version = "2.62.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/docling-project/docling.rs"
+homepage = "https://github.com/docling-project/docling.rs"
+readme = "README.md"
+keywords = ["docling", "document", "pdf", "markdown", "converter"]
+categories = ["text-processing", "parser-implementations"]
+# Lower floor than the workspace (no ort/pdfium here): bounded by the
+# edition-2024 deps in the lock (indexmap via serde_json/preserve_order).
+rust-version = "1.85"
+
+[dependencies]
+# serde_json builds the docling-core-compatible DoclingDocument JSON wire format
+# (export_to_json); the model itself stays plain (walked into `Value` by json.rs).
+# `preserve_order` keeps docling's field order (schema_name, version, …).
+serde_json = { version = "1", features = ["preserve_order"] }
+# `Serialize` for the export's typed items (`json::write_json` streams them
+# without building a `Value`).
+serde = { version = "1", features = ["derive"] }
+# Content hash for exported image asset names (assets/image_NNNNNN_<sha256>.png),
+# matching docling's referenced-image naming scheme.
+sha2 = "0.10"
+# Raw PNG samples for that hash: docling hashes the decoded pixels
+# (`PIL img.tobytes()`), not the file bytes (pixel_digest.rs). Pure Rust, the
+# same version the `image` crate already pulls in.
+png = "0.18"
+# The PII redaction pass's pattern detector (#621): e-mail, phone, card,
+# IBAN, IP and national-ID shapes plus the caller's own expressions. Pure
+# Rust, compiles for wasm; the same crate the `docling` backends use.
+regex = "1.11"
+# HuggingFace tokenizer for the HybridChunker (behind the `chunking` feature);
+# same flags as docling-rag's optional embedder to keep one build of the crate.
+tokenizers = { version = "0.20", default-features = false, features = ["onig"], optional = true }
+# Markdown parsing for the WindowChunker's heading-bounded sections (behind the
+# `chunking` feature); same flags as the docling crate's Markdown backend.
+pulldown-cmark = { version = "0.13", default-features = false, optional = true }
+
+# glibc's allocator controls (`memory.rs`, #669, #871).
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+libc = "0.2"
+
+[features]
+# Tokenization-aware chunking (HybridChunker's HuggingFaceTokenizer) and the
+# Markdown window chunker (WindowChunker).
+chunking = ["dep:tokenizers", "dep:pulldown-cmark"]

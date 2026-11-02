@@ -1,0 +1,46 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# MCP Server Specification: Kaggle
+# Provides access to Kaggle datasets, competitions, models, and notebooks
+
+id: kaggle
+version: 0.0.1
+name: Kaggle
+description: Kaggle datasets, models, competitions, and notebooks access
+
+# Kaggle's own hosted server, reached by the runtime itself over Streamable
+# HTTP: no command, the url and the headers sent with every request, the
+# token's `${KAGGLE_API_TOKEN}` expanded as it starts.
+transport: streamable-http
+url: "https://www.kaggle.com/mcp"
+headers:
+  Authorization: "Bearer ${KAGGLE_API_TOKEN}"
+
+# Whether the server is enabled by default
+enabled: false
+# Environment variable specifications
+envvars:
+  - KAGGLE_API_TOKEN:0.0.1
+
+# Optional environment variables to pass to the server process
+env: {}
+
+# Server capabilities/tags
+tags:
+  - data
+  - datasets
+  - competitions
+  - machine-learning
+
+icon: "@datalayer/icons-react:kaggle"
+emoji: "🏆"
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: null
+  note: >-
+    Not read off the running server yet: its tools are unknown, and unknown is the most
+    restricted. Run the server, list its tools, and class each one here.
+  tools: {}

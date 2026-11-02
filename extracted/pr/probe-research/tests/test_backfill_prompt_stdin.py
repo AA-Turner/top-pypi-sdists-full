@@ -15,7 +15,7 @@ import os
 
 import pytest
 
-from probe.cli import backfill
+from probe.cli.imports import folder as backfill
 
 
 @pytest.fixture
@@ -33,8 +33,13 @@ def echoing_agent(tmp_path):
 
 
 def _launch(binary, prompt, tmp_path, monkeypatch):
-    monkeypatch.setattr(backfill, "which_agent", lambda _agent: str(binary))
-    monkeypatch.setattr(backfill, "supported_flags", lambda *_a, **_k: frozenset())
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(backfill.agents.flags, "supported_flags", lambda *_a, **_k: frozenset())
+    monkeypatch.setattr(backfill.agents.launch, "supported_flags", lambda *_a, **_k: frozenset())
+    monkeypatch.setattr(backfill.agents.argv, "supported_flags", lambda *_a, **_k: frozenset())
     folder = tmp_path / "folder"
     folder.mkdir(exist_ok=True)
     return backfill.launch_agent(folder, prompt, progress=False, stream=None)
@@ -79,6 +84,9 @@ def test_the_prompt_file_is_not_left_behind(echoing_agent, tmp_path, monkeypatch
 def test_a_missing_binary_reports_instead_of_raising(tmp_path, monkeypatch):
     """The failure path still closes the staged prompt; it must not leak an
     open file handle or turn an ordinary 'not installed' into a traceback."""
-    monkeypatch.setattr(backfill, "which_agent", lambda _agent: None)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda _agent: None)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda _agent: None)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda _agent: None)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda _agent: None)
     ok, message = backfill.launch_agent(tmp_path, "p", progress=False)
     assert ok is False and "not on PATH" in message

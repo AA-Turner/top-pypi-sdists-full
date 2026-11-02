@@ -35,7 +35,7 @@ import pytest
 import typer
 
 from probe.shared.updates import handoff, installs, uninstall_barrier
-from probe.cli import bootstrap, install_pipeline, repair
+from probe.cli.install import bootstrap, install as install_pipeline, repair
 from tests.reinstall_harness import OLD_VERSION, reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 from tests.test_wizard_json_events import device  # noqa: F401 -- a fixture
 
@@ -144,7 +144,7 @@ def test_p1_repair_replaces_an_active_release_too_old_to_check(uv_machine, monke
 
 def test_p1_a_service_token_is_never_held_to_the_sign_in(monkeypatch):
     """P1.5: `/v1/me` refuses PROBE_SERVICE_TOKEN by design."""
-    from probe.cli import identity_check
+    from probe.cli.install import identity_check
     from probe.sdk.settings.settings import save_context
 
     save_context({"base_url": "https://api.example", "token": "probe_pat_mine"})
@@ -221,8 +221,9 @@ def test_p2_a_barrier_rewritten_between_read_and_unlink_is_kept(monkeypatch):
 
 
 def test_p2_the_in_place_update_and_daemon_install_honour_the_barrier(monkeypatch):
-    from probe.cli import daemon_cli, updater
-    from probe.service import procid
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.install import updater
+    from probe.foundation.service_api import procid
 
     _barrier(pid=os.getpid(), start=procid.start_time(os.getpid()), phase="stopping")
     result = updater.upgrade_cli(updater.Install(updater.Method.PIPX), "1.0.0", "1.0.1")
@@ -235,13 +236,14 @@ def test_p2_the_in_place_update_and_daemon_install_honour_the_barrier(monkeypatc
 
 def _real_daemon_install():
     """The command's own function (conftest swaps the module's name for a tripwire)."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     return next(c.callback for c in daemon_cli.daemon_app.registered_commands if c.name == "install")
 
 
 def test_p2_keeper_off_stays_while_an_uninstall_runs():
-    from probe.service import keeper, paths, procid
+    from probe.service import keeper
+    from probe.foundation.service_api import paths, procid
 
     off = paths.root_dir() / keeper.OFF_NAME
     off.parent.mkdir(parents=True, exist_ok=True)
@@ -279,7 +281,7 @@ def test_p2_identity_runs_before_the_same_version_check(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import identity_check
+    from probe.cli.install import identity_check
 
     main = importlib.import_module("probe.cli.main")
 
@@ -301,7 +303,7 @@ def test_p2_identity_runs_before_the_same_version_check(monkeypatch):
 
 @posix
 def test_p2_every_switch_writes_runtime_json(uv_machine):
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     m = uv_machine
     _layout("1.0.0", "1.0.1")
@@ -310,7 +312,8 @@ def test_p2_every_switch_writes_runtime_json(uv_machine):
 
 
 def test_p2_the_guard_tells_a_generation_by_its_env(monkeypatch):
-    from probe.service import client, guard
+    from probe.foundation import service_api as client
+    from probe.service import guard
 
     class Conn:
         def close(self):
@@ -351,7 +354,8 @@ def test_p2_a_shadowing_pip_probe_is_named_with_its_exact_uninstall(tmp_path, mo
 
 
 def test_p2_probe_repair_reports_a_disabled_plugin_and_leaves_it_off(tmp_path, monkeypatch):
-    from probe.cli import capabilities, integration_repair
+    from probe.cli.wizard import state as capabilities
+    from probe.cli.install.integrations import integrations as integration_repair
     from probe.shared.harness import plugins as plugin_cli
 
     claude = tmp_path / "claude"
@@ -464,13 +468,15 @@ def test_r2_p2_a_spawn_the_machine_refused_is_unknown(tmp_path, monkeypatch, cod
 def test_r2_p2_daemon_install_says_busy_and_waiting(monkeypatch, capsys):
     """`probe daemon install` read another update's lock and a switch that
     waits for a quiet machine as "the install did not end up working"."""
-    from probe.cli import daemon_cli, updater
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.install import updater
 
     outcome = {}
     monkeypatch.setattr(daemon_cli, "daemon_install", _real_daemon_install())
     monkeypatch.setattr(daemon_cli, "_installed_copy", lambda: None)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
     monkeypatch.setattr(install_pipeline, "install_cli", lambda *a, **kw: outcome["out"])
 
     outcome["out"] = install_pipeline.CliOutcome(ok=False, busy=install_pipeline.BUSY)
@@ -490,7 +496,7 @@ def test_r2_p2_daemon_install_says_busy_and_waiting(monkeypatch, capsys):
 def test_r2_p2_a_stale_barrier_is_unlinked_with_no_process_lookup_after_the_last_read(monkeypatch):
     """Between the last read and the unlink an uninstall could write its own
     barrier; a process lookup there widened that window for nothing."""
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     path = _barrier(pid=2 ** 22 - 3, start="1", phase="planned")
     lookups = []
@@ -514,8 +520,8 @@ def test_r2_p2_the_in_place_update_reads_the_barrier_again_inside_the_lock(monke
     install lock: nothing is installed in place under it."""
     import contextlib
 
-    from probe.cli import updater
-    from probe.service import procid
+    from probe.cli.install import updater
+    from probe.foundation.service_api import procid
 
     ran = []
 
@@ -524,11 +530,17 @@ def test_r2_p2_the_in_place_update_reads_the_barrier_again_inside_the_lock(monke
         _barrier(pid=os.getpid(), start=procid.start_time(os.getpid()), phase="stopping")
         yield
 
-    monkeypatch.setattr(updater, "_install_lock", lock)
-    monkeypatch.setattr(updater, "upgrade_side_by_side", lambda current, target: None)
-    monkeypatch.setattr(updater, "_upgrade_in_place", lambda current, target: ran.append("in place"))
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: ran.append(cmd))
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "_install_lock", lock)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "upgrade_side_by_side", lambda current, target: None)
+    monkeypatch.setattr(updater.cli_install, "upgrade_side_by_side", lambda current, target: None)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_upgrade_in_place", lambda current, target: ran.append("in place"))
+    monkeypatch.setattr(updater.cli_install, "_upgrade_in_place", lambda current, target: ran.append("in place"))
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: ran.append(cmd))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: ran.append(cmd))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: ran.append(cmd))
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     monkeypatch.delenv(updater.REQUIRE_SIDE_BY_SIDE_ENV, raising=False)
     install = updater.Install(updater.Method.UV_TOOL if method == "uv_tool" else updater.Method.UV_TOOL_LEGACY)
     result = updater.upgrade_cli(install, "1.0.0", "1.0.1")
@@ -542,7 +554,7 @@ def test_r2_p2_a_waiting_install_is_installed_and_configure_never_checks_the_old
 
     from typer.testing import CliRunner
 
-    from probe.cli import identity_check, upgrading
+    from probe.cli.install import identity_check, upgrade as upgrading
     from probe.core import events
 
     main = importlib.import_module("probe.cli.main")
@@ -615,7 +627,7 @@ def test_r2_p2_an_unreadable_pip_script_names_the_python_that_owns_it(tmp_path, 
 
 
 def _ensure_spy(monkeypatch, outcome="running") -> list[float]:
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     waits: list[float] = []
     monkeypatch.setattr(client, "ensure", lambda *, wait=0.0: waits.append(wait) or outcome)
@@ -645,20 +657,20 @@ def test_c5_a_service_that_cannot_start_is_one_line_and_never_a_failure(real_ser
     from probe.service import keeper
 
     boats = []
-    monkeypatch.setattr(keeper, "refresh_lifeboat", lambda: boats.append(1) or "installed")
+    monkeypatch.setattr(keeper.keeper, "refresh_lifeboat", lambda: boats.append(1) or "installed")
     _ensure_spy(monkeypatch, "confined")
     said = install_pipeline.start_service(wait_s=0)
     assert said and "no_new_privs" in said and "next agent session starts it" in said and boats == [1]
 
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
-    monkeypatch.setattr(keeper, "systemd_manager", lambda: False)
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.schedulers.systemd, "systemd_manager", lambda: False)
     _ensure_spy(monkeypatch, "running")
     expected = install_pipeline.NO_KEEPER if sys.platform.startswith("linux") else None
     assert install_pipeline.start_service(wait_s=0) == expected
 
 
 def test_c5_no_service_starts_while_an_uninstall_runs(real_service_start, monkeypatch):
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     _barrier(pid=os.getpid(), start=procid.start_time(os.getpid()), phase="stopping")
     waits = _ensure_spy(monkeypatch)
@@ -666,13 +678,15 @@ def test_c5_no_service_starts_while_an_uninstall_runs(real_service_start, monkey
 
 
 def test_c5_probe_daemon_install_starts_the_service(real_service_start, monkeypatch):
-    from probe.cli import daemon_cli, updater
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.install import updater
 
     monkeypatch.setattr(daemon_cli, "daemon_install", _real_daemon_install())
     monkeypatch.setattr(daemon_cli, "_installed_copy", lambda: None)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
     monkeypatch.setattr(daemon_cli, "_fresh_ai_libraries", lambda python: "2.51.0")
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
     monkeypatch.setattr(install_pipeline, "install_cli", lambda *a, **kw: install_pipeline.CliOutcome(
         ok=True, env=Path("/v/1.0.0+g2/probe-research"), version="1.0.0", changed=True))
     waits = _ensure_spy(monkeypatch)
@@ -698,8 +712,8 @@ def test_a_stopped_uninstall_names_its_finisher_only_once_it_is_there():
 def _two_teams(monkeypatch, *, daemon: bool = True, interactive: bool = False) -> list[str]:
     """`/v1/me` for each credential: team-a's sign-in and daemon key, team-b's
     sign-in. The revoked keys, as `setup._revoke` was asked."""
-    from probe.cli import identity_check
-    from probe.cli import setup as wizard
+    from probe.cli.install import identity_check
+    from probe.cli import wizard as wizard
 
     answers = {
         "probe_pat_a": ("ok", {"customer_id": "team-a", "user_id": "u-a"}),
@@ -714,7 +728,9 @@ def _two_teams(monkeypatch, *, daemon: bool = True, interactive: bool = False) -
     monkeypatch.setattr(identity_check, "_daemon_in_use", lambda: daemon)
     monkeypatch.setattr(identity_check, "_interactive", lambda: interactive)
     revoked: list[str] = []
-    monkeypatch.setattr(wizard, "_revoke", lambda key, *, base_url, what: revoked.append(key) or [f"revoked {what}"])
+    monkeypatch.setattr(wizard.account.sign_in, "_revoke", lambda key, *, base_url, what: revoked.append(key) or [f"revoked {what}"])
+    monkeypatch.setattr(wizard.account.sign_out, "_revoke", lambda key, *, base_url, what: revoked.append(key) or [f"revoked {what}"])
+    monkeypatch.setattr(wizard.apply.recorder, "_revoke", lambda key, *, base_url, what: revoked.append(key) or [f"revoked {what}"])
     return revoked
 
 
@@ -725,7 +741,7 @@ def test_vt2_daemon_install_holds_the_daemon_key_to_the_sign_in(monkeypatch, cap
     key, and daemon writes went to team-a."""
     import importlib
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.sdk.settings.settings import load_context, save_context
 
     main = importlib.import_module("probe.cli.main")

@@ -1,0 +1,42 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/config/toolchains/llvm.yaml
+# Purpose:   The default LLVM/Clang toolchain the runner image bakes, from apt.llvm.org
+#
+# Schema: the native-deps schema (see native-deps/rust.yaml), plus `bake:`
+# (see docs/runtime/runner-image.md).
+#
+# One major only: `${HYPERCI_LLVM_DEFAULT}`, which is versions.yaml
+# `runtimes.llvm`. Moving to a new LLVM is that one line, and the image
+# follows it on its next bake. The env var and `build.rust.llvm_version` do
+# not apply here, so where the bake runs cannot change what it bakes. A
+# project that designates another major gets bolt-NN, lld-NN and clang-NN at
+# job time from native-deps/rust.yaml.
+#
+# apt.llvm.org provides llvm-toolchain-{noble,trixie,resolute}-NN repos
+# per major. `${OS_CODENAME}` is resolved at load time from the
+# `$OS_CODENAME` env var or `lsb_release -cs`.
+
+- name: llvm-toolchain v${HYPERCI_LLVM_DEFAULT}
+  # Conditional triggers (ignored in --all): a Rust package or workspace root.
+  patterns:
+    - "[package]"
+    - "[workspace]"
+  manifest_files:
+    - Cargo.toml
+  dpkg_check: clang-${HYPERCI_LLVM_DEFAULT}
+  apt_repos:
+    - key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+      keyring: /usr/share/keyrings/llvm.gpg
+      # Published at https://apt.llvm.org/ -- a mismatch refuses the install.
+      key_fingerprint: 6084F3CF814B57C1CF12EFD515CF4D18AF4F7421
+      url: https://apt.llvm.org/${OS_CODENAME}/
+      codename: llvm-toolchain-${OS_CODENAME}-${HYPERCI_LLVM_DEFAULT}
+  apt_packages:
+    - clang-${HYPERCI_LLVM_DEFAULT}
+    - lld-${HYPERCI_LLVM_DEFAULT}
+    - llvm-${HYPERCI_LLVM_DEFAULT}
+    - llvm-${HYPERCI_LLVM_DEFAULT}-dev
+    - llvm-${HYPERCI_LLVM_DEFAULT}-tools
+    - libclang-${HYPERCI_LLVM_DEFAULT}-dev
+    - libclang-rt-${HYPERCI_LLVM_DEFAULT}-dev
+    - bolt-${HYPERCI_LLVM_DEFAULT}

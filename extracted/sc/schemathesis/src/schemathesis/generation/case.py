@@ -17,8 +17,7 @@ from schemathesis.checks import (
     run_checks,
     run_checks_for,
 )
-from schemathesis.config import SanitizationConfig
-from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, curl, media_types
+from schemathesis.core import NOT_SET, Body, NotSet, curl, media_types
 from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.failures import Failure, FailureGroup, failure_report_title, format_failures
 from schemathesis.core.jsonschema import make_validator
@@ -61,7 +60,6 @@ def _default_headers() -> CaseInsensitiveDict:
 
 
 _NOTSET_HASH = 0x7F3A9B2C
-_NO_SANITIZATION = SanitizationConfig(enabled=False)
 
 
 OperationT = TypeVar("OperationT", bound="APIOperation")
@@ -217,10 +215,7 @@ class Case(Generic[OperationT]):
         return f"{output})"
 
     def __hash__(self) -> int:
-        # Identity is the wire request with unmasked values; masked ones would make distinct cases collide.
-        request = prepare_request(self, {SCHEMATHESIS_TEST_CASE_HEADER: "0"}, config=_NO_SANITIZATION)
-        headers = tuple(sorted((name.lower(), value) for name, value in request.headers.items()))
-        return hash((request.method, request.url, headers, request.body))
+        return self.operation.schema.hash_case(self)
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -366,6 +361,16 @@ class Case(Generic[OperationT]):
     def freeze_metadata(self) -> None:
         object.__setattr__(self, "_freeze_metadata", True)
 
+    def settle_metadata(self) -> None:
+        """Fix metadata to the values about to be sent; later edits no longer revalidate it.
+
+        Reporters read sent cases from other threads, so a sent case must never revalidate on read.
+        """
+        self._check_modifications()
+        if self._meta and self._meta.is_dirty():
+            self._revalidate_metadata()
+        self.freeze_metadata()
+
     def derive(
         self,
         *,
@@ -379,6 +384,7 @@ class Case(Generic[OperationT]):
         Containers not passed are shallow-copied. Auth stays behind unless `keep_auth` is set, so a request
         derived to probe the API never inherits the original's credentials by accident.
         """
+        meta = self.meta
         derived = Case(
             operation=self.operation,
             method=self.method,
@@ -390,7 +396,7 @@ class Case(Generic[OperationT]):
             body=self.body.copy() if isinstance(self.body, (list, dict)) else self.body,
             media_type=self.media_type,
             multipart_content_types=self.multipart_content_types,
-            meta=self.meta,
+            meta=meta.copy() if meta is not None else None,
         )
         if keep_auth:
             derived._auth = self._auth
@@ -436,6 +442,12 @@ class Case(Generic[OperationT]):
             return f"{result.command}\n\n{warnings_text}"
         return result.command
 
+    def as_reproduction_command(
+        self, headers: Mapping[str, Any] | None = None, verify: bool = True, *, base_url: str | None = None
+    ) -> str:
+        """Command that reproduces this test case in the schema's own tooling, e.g. curl for HTTP APIs."""
+        return self.operation.schema.as_reproduction_command(self, headers=headers, verify=verify, base_url=base_url)
+
     def as_transport_kwargs(self, base_url: str | None = None, headers: dict[str, str] | None = None) -> dict[str, Any]:
         return self.operation.schema.transport.serialize_case(self, base_url=base_url, headers=headers)
 
@@ -466,14 +478,7 @@ class Case(Generic[OperationT]):
         self._sync_validated_hashes()
         dispatch_before_call(GLOBAL_HOOK_DISPATCHER, context=hook_context, case=self, kwargs=kwargs)
 
-        # Detect in-place container edits the hook made, then revalidate before freezing so
-        # stale generation-time metadata reflects the values actually sent.
-        self._check_modifications()
-        if self._meta and self._meta.is_dirty():
-            self._revalidate_metadata()
-
-        # Freeze metadata to prevent revalidation after request preparation transforms the body
-        self.freeze_metadata()
+        self.settle_metadata()
         object.__setattr__(self, "_base_url", base_url)
 
         if self.operation.app is not None:
@@ -496,7 +501,7 @@ class Case(Generic[OperationT]):
             # Add reproduction code for check failures and app errors (e.g., ASGI/WSGI internal errors)
             verify = kwargs.get("verify", True)
             try:
-                curl = self.as_curl_command(headers=headers, verify=verify)
+                curl = self.as_reproduction_command(headers=headers, verify=verify)
                 exc.add_note(f"\nReproduce with:\n\n    {curl}")
             except Exception:
                 # Curl generation can fail for the same reason as the original error
@@ -624,7 +629,7 @@ class Case(Generic[OperationT]):
         if failures:
             _failures = list(failures)
             message = failure_report_title(_failures) + "\n"
-            curl = self.as_curl_command(
+            curl = self.as_reproduction_command(
                 headers=dict(response.request.headers), verify=response.verify, base_url=sent_base_url
             )
             message += format_failures(

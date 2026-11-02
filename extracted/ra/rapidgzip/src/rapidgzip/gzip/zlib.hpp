@@ -154,6 +154,11 @@ public:
     setWindow( VectorView<uint8_t> const& window )
     {
         m_setWindowSize = window.size();
+        /* zlib requires a non-null dictionary pointer even for a zero-size dictionary. An empty window is
+         * valid at a gzip/zlib stream start and there is nothing to set. */
+        if ( window.empty() ) {
+            return;
+        }
         if ( inflateSetDictionary( &m_stream, window.data(), window.size() ) != Z_OK ) {
             throw std::runtime_error( "Failed to set back-reference window in zlib!" );
         }
@@ -399,9 +404,6 @@ ZlibInflateWrapper::readStream( uint8_t* const output,
         const auto progressedOutput = m_stream.total_out != oldTotalOut;
 
         if ( errorCode == Z_STREAM_END ) {
-            if ( ( m_stream.total_out == 0 ) && !progressedBits ) {
-                break;
-            }
             decodedSize += m_stream.total_out;
 
             /* If we started with raw deflate, then we also have to skip over the gzip footer.
@@ -442,10 +444,13 @@ ZlibInflateWrapper::readBytes()
             m_stream.next_in += stillToRemove;
             stillToRemove = 0;
         } else {
-            std::memcpy( buffer.data() + footerSize, m_stream.next_in, m_stream.avail_in );
-            footerSize += m_stream.avail_in;
+            if ( m_stream.avail_in > 0 ) {
+                std::memcpy( buffer.data() + footerSize, m_stream.next_in, m_stream.avail_in );
+                footerSize += m_stream.avail_in;
 
-            stillToRemove -= m_stream.avail_in;
+                stillToRemove -= m_stream.avail_in;
+                m_stream.next_in += m_stream.avail_in;
+            }
             m_stream.avail_in = 0;
             refillBuffer();
             if ( m_stream.avail_in == 0 ) {
@@ -583,11 +588,12 @@ ZlibInflateWrapper::readHeader()
     }
     case FileType::ZLIB:
     {
-        const auto& [header, error] = zlib::readHeader( [this] () {
-            return static_cast<uint64_t>( readBytes<1U>().front() );
-        } );
+        const auto& [header, error] = zlib::readHeader(
+            [this] () { return static_cast<uint64_t>( readBytes<1U>().front() ); } );
         if ( error == Error::END_OF_FILE ) {
-            return;
+            /* Still reset the stream below. Else, it would stay in the DONE state and inflate would return
+             * Z_STREAM_END again without making any progress. */
+            break;
         }
         if ( error != Error::NONE ) {
             std::stringstream message;

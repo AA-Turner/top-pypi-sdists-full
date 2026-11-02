@@ -1,0 +1,21 @@
+- output:
+    args: [cat, hello.txt]
+  job: v1.0/cat-job.json
+  tool: v1.0/cat1-testcli.cwl
+  id: cl_optional_inputs_missing
+  doc: Test command line with optional input (missing)
+  tags: [ required, command_line_tool ]
+
+- output:
+    args: [cat, -n, hello.txt]
+  job: v1.0/cat-n-job.json
+  tool: v1.0/cat1-testcli.cwl
+  id: cl_optional_bindings_provided
+  doc: Test command line with optional input (provided)
+  tags: [ command_line_tool ]
+
+- tool: v1.0/null-expression2-tool.cwl
+  should_fail: true
+  id: expression_any_nodefaultany
+  doc: Test Any without defaults cannot be unspecified.
+  tags: [ required, inline_javascript, expression_tool ]

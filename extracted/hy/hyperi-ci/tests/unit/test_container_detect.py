@@ -1,0 +1,339 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_container_detect.py
+# Purpose:   Tests for containerisable artefact detection
+#
+# License:   BUSL-1.1
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from hyperi_ci.container.detect import detect
+from hyperi_ci.languages.rust import targets
+
+
+def _write_cargo_toml(project: Path, body: str) -> None:
+    (project / "Cargo.toml").write_text(body)
+
+
+def _write_pyproject(project: Path, body: str) -> None:
+    (project / "pyproject.toml").write_text(body)
+
+
+def _write_package_json(project: Path, body: dict) -> None:
+    (project / "package.json").write_text(json.dumps(body))
+
+
+# --- Rust ----------------------------------------------------------------
+
+
+def test_rust_library_only_skips(tmp_path: Path) -> None:
+    _write_cargo_toml(
+        tmp_path,
+        '[package]\nname = "mylib"\nversion = "0.1.0"\n[lib]\n',
+    )
+    decision = detect(language="rust", project_dir=tmp_path)
+    assert decision.build is False
+    assert "library-only" in decision.reason
+
+
+def test_rust_binary_with_dockerfile_uses_custom_mode(tmp_path: Path) -> None:
+    _write_cargo_toml(
+        tmp_path,
+        '[package]\nname = "myapp"\nversion = "0.1.0"\n',
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.rs").write_text("fn main() {}\n")
+    (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+    decision = detect(language="rust", project_dir=tmp_path)
+    assert decision.build is True
+
+
+@pytest.mark.parametrize("deps", ["", '[dependencies]\nscalo = "2.9"\n'])
+def test_rust_binary_without_dockerfile_skips_with_a_notice(
+    tmp_path: Path, deps: str
+) -> None:
+    # A scalo dep is not a build source; only the Dockerfile is.
+    _write_cargo_toml(
+        tmp_path,
+        f'[package]\nname = "myapp"\nversion = "0.1.0"\n{deps}',
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.rs").write_text("fn main() {}\n")
+    decision = detect(language="rust", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is True
+    assert "builds images only from a repo Dockerfile" in decision.reason
+
+
+def test_rust_workspace_with_bin_target(tmp_path: Path) -> None:
+    _write_cargo_toml(
+        tmp_path,
+        '[package]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[[bin]]\nname = "myapp"\npath = "src/cli.rs"\n',
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "cli.rs").write_text("fn main() {}\n")
+    (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+    decision = detect(language="rust", project_dir=tmp_path)
+    assert decision.build is True
+
+
+# --- Python --------------------------------------------------------------
+
+
+def test_python_library_only_skips(tmp_path: Path) -> None:
+    _write_pyproject(
+        tmp_path,
+        '[project]\nname = "mylib"\nversion = "0.1.0"\n',
+    )
+    decision = detect(language="python", project_dir=tmp_path)
+    assert decision.build is False
+
+
+def test_python_with_console_script_and_dockerfile(tmp_path: Path) -> None:
+    _write_pyproject(
+        tmp_path,
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n',
+    )
+    (tmp_path / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    decision = detect(language="python", project_dir=tmp_path)
+    assert decision.build is True
+
+
+def test_python_with_console_script_no_dockerfile_is_library(tmp_path: Path) -> None:
+    # A console-script is NOT a "ship a container" signal (issue #51) -
+    # the common Python shape is a library that also exposes a CLI. With
+    # no Dockerfile and no explicit opt-in, it is library-only and skips.
+    _write_pyproject(
+        tmp_path,
+        '[project]\nname = "myapp"\nversion = "0.1.0"\n'
+        '[project.scripts]\nmyapp = "myapp.cli:main"\n',
+    )
+    decision = detect(language="python", project_dir=tmp_path)
+    assert decision.build is False
+    assert "library-only" in decision.reason
+
+
+def test_python_uv_build_backend_library_with_cli_skips(tmp_path: Path) -> None:
+    # The exact logreducer shape from issue #51: a uv_build-backend
+    # library that ships a console-script. Must NOT auto-containerise.
+    _write_pyproject(
+        tmp_path,
+        '[project]\nname = "logreducer"\nversion = "3.4.0"\n'
+        '[project.scripts]\nlogreducer = "logreducer.cli:main"\n'
+        "[build-system]\n"
+        'requires = ["uv_build>=0.8.0,<1"]\n'
+        'build-backend = "uv_build"\n',
+    )
+    decision = detect(language="python", project_dir=tmp_path)
+    assert decision.build is False
+
+
+# --- TypeScript ----------------------------------------------------------
+
+
+def test_typescript_library_only_skips(tmp_path: Path) -> None:
+    _write_package_json(
+        tmp_path,
+        {"name": "mylib", "version": "0.1.0", "main": "dist/lib.js"},
+    )
+    # main field doesn't match server/main/index heuristic in the
+    # detector -- explicit lib name path
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is False
+
+
+def test_typescript_with_bin_and_no_dockerfile_skips_with_a_notice(
+    tmp_path: Path,
+) -> None:
+    _write_package_json(
+        tmp_path,
+        {"name": "mycli", "version": "0.1.0", "bin": {"mycli": "dist/cli.js"}},
+    )
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is True
+
+
+def test_typescript_with_start_script_and_no_dockerfile_skips(tmp_path: Path) -> None:
+    _write_package_json(
+        tmp_path,
+        {
+            "name": "myserver",
+            "version": "0.1.0",
+            "scripts": {"start": "node dist/server.js"},
+        },
+    )
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is True
+
+
+def test_typescript_library_with_dockerfile_builds_custom(tmp_path: Path) -> None:
+    # A library-shaped root (no bin/start, main -> dist/lib.js) that
+    # nonetheless ships a Dockerfile must build -- the explicit Dockerfile
+    # wins over the library heuristic (issue #45).
+    _write_package_json(
+        tmp_path,
+        {"name": "mylib", "version": "0.1.0", "main": "dist/lib.js"},
+    )
+    (tmp_path / "Dockerfile").write_text("FROM node:22-alpine\n")
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is True
+
+
+def test_typescript_monorepo_root_with_dockerfile_builds(tmp_path: Path) -> None:
+    # Turborepo root: runnable start lives in a workspace, root has no
+    # start script -- but a root Dockerfile must still trigger the build.
+    _write_package_json(
+        tmp_path,
+        {"name": "root", "private": True, "workspaces": ["apps/*", "packages/*"]},
+    )
+    (tmp_path / "Dockerfile").write_text("FROM node:22-alpine\n")
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is True
+
+
+def test_typescript_monorepo_root_is_not_library(tmp_path: Path) -> None:
+    # A `workspaces` root with no Dockerfile is a monorepo, not a plain
+    # library, so its skip carries the notice.
+    _write_package_json(
+        tmp_path,
+        {"name": "root", "private": True, "workspaces": ["apps/*"]},
+    )
+    decision = detect(language="typescript", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is True
+
+
+# --- Go ------------------------------------------------------------------
+
+
+def test_go_with_main_package_and_dockerfile(tmp_path: Path) -> None:
+    (tmp_path / "go.mod").write_text("module example.com/myapp\ngo 1.22\n")
+    (tmp_path / "main.go").write_text("package main\n\nfunc main() {}\n")
+    (tmp_path / "Dockerfile").write_text("FROM golang:1.22-alpine\n")
+    decision = detect(language="golang", project_dir=tmp_path)
+    assert decision.build is True
+
+
+def test_go_library_only_skips(tmp_path: Path) -> None:
+    (tmp_path / "go.mod").write_text("module example.com/mylib\ngo 1.22\n")
+    (tmp_path / "lib.go").write_text("package mylib\n")
+    decision = detect(language="golang", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is False
+
+
+def test_go_package_mainframe_is_a_library(tmp_path: Path) -> None:
+    (tmp_path / "go.mod").write_text("module example.com/mylib\ngo 1.22\n")
+    (tmp_path / "lib.go").write_text("package mainframe\n")
+    decision = detect(language="golang", project_dir=tmp_path)
+    assert decision.build is False
+    assert decision.notice is False
+
+
+# --- Unknown languages ---------------------------------------------------
+
+
+def test_unknown_language_with_dockerfile_uses_custom(tmp_path: Path) -> None:
+    (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+    decision = detect(language="bash", project_dir=tmp_path)
+    assert decision.build is True
+
+
+def test_unknown_language_without_dockerfile_skips(tmp_path: Path) -> None:
+    decision = detect(language="bash", project_dir=tmp_path)
+    assert decision.build is False
+
+
+# --- Custom dockerfile path ---------------------------------------------
+
+
+def test_custom_dockerfile_path_honoured(tmp_path: Path) -> None:
+    _write_cargo_toml(
+        tmp_path,
+        '[package]\nname = "myapp"\nversion = "0.1.0"\n',
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.rs").write_text("fn main() {}\n")
+    (tmp_path / "container").mkdir()
+    (tmp_path / "container" / "Dockerfile.runtime").write_text("FROM scratch\n")
+
+    decision = detect(
+        language="rust",
+        project_dir=tmp_path,
+        dockerfile="container/Dockerfile.runtime",
+    )
+    assert decision.build is True
+
+
+@pytest.mark.parametrize("dockerfile_name", ["Dockerfile", "Containerfile.app"])
+def test_dockerfile_at_named_path(tmp_path: Path, dockerfile_name: str) -> None:
+    _write_cargo_toml(
+        tmp_path,
+        '[package]\nname = "myapp"\nversion = "0.1.0"\n',
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.rs").write_text("fn main() {}\n")
+    (tmp_path / dockerfile_name).write_text("FROM scratch\n")
+
+    decision = detect(language="rust", project_dir=tmp_path, dockerfile=dockerfile_name)
+    assert decision.build is True
+
+
+class TestCargoMissingDoesNotCrashTheResolve:
+    """The container job installs no Rust toolchain, so `cargo` is genuinely
+    absent there. `subprocess.run` RAISES on a missing binary rather than
+    returning a code, and the guard only checked the code -- so resolve-only
+    died with FileNotFoundError instead of taking the filesystem fallback that
+    was written for exactly this case (issue #207)."""
+
+    @staticmethod
+    def _rust_lib(tmp_path: Path) -> Path:
+        (tmp_path / "Cargo.toml").write_text(
+            '[package]\nname = "lib"\nversion = "0.1.0"\n', encoding="utf-8"
+        )
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "lib.rs").write_text("pub fn f() {}\n", encoding="utf-8")
+        return tmp_path
+
+    def test_a_missing_cargo_falls_back_rather_than_raising(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _absent(*args: object, **kwargs: object) -> None:
+            raise FileNotFoundError(2, "No such file or directory: 'cargo'")
+
+        monkeypatch.setattr(targets, "run_cmd", _absent)
+        root = self._rust_lib(tmp_path)
+        assert targets.cargo_metadata(root) is None
+        assert targets.rust_is_library(root) is True
+
+    def test_a_binary_is_still_recognised_without_cargo(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fallback has to get the ANSWER right, not just avoid crashing."""
+
+        def _absent(*args: object, **kwargs: object) -> None:
+            raise FileNotFoundError(2, "No such file or directory: 'cargo'")
+
+        monkeypatch.setattr(targets, "run_cmd", _absent)
+        root = self._rust_lib(tmp_path)
+        (root / "src" / "main.rs").write_text("fn main() {}\n", encoding="utf-8")
+        assert targets.rust_is_library(root) is False
+
+    def test_a_failing_cargo_is_still_handled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The pre-existing non-zero path must not regress."""
+        monkeypatch.setattr(
+            targets,
+            "run_cmd",
+            lambda *a, **k: SimpleNamespace(returncode=1, stdout=""),
+        )
+        assert targets.cargo_metadata(tmp_path) is None

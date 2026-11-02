@@ -12,7 +12,7 @@ name".
 WHAT IS ASSERTED HERE, AND WHAT IS NOT. These tests assert what the client puts
 ON THE WIRE. They deliberately do NOT assert what the server does with it --
 that lock, its monotonicity and its one-way-ness live in
-`tests/unit/test_authorship.py` and `tests/integration/test_authorship_routes.py`
+`tests/unit/shared/vocab/test_authorship.py` and `tests/integration/projects/experiments/test_authorship_routes.py`
 against the real routes. Re-asserting them here would only prove the fake
 agrees with itself, which is the exact failure mode `_owns_field`'s truth table
 below exists to catch.
@@ -91,7 +91,7 @@ class TestTheDefaultReadsTheEnvironmentAndNothingElse:
         docstring claims this test pins it; without the assertion a third
         `Authorship` value would be missing from `--authored-by` with nothing
         failing."""
-        from probe.cli.main import AuthoredBy
+        from probe.cli.commands.entity_text import AuthoredBy
 
         assert {m.value for m in AuthoredBy} == {m.value for m in Authorship}
 

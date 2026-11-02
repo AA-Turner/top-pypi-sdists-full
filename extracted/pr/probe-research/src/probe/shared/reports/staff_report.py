@@ -119,7 +119,7 @@ def _scrubbed_facts(facts: dict) -> dict:
 
 def _service_view() -> dict:
     """The service's own allowlisted summary (`probe doctor`'s, `service_calls.view`)."""
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     return redact_tree(service_calls.view(timeout=STAFF_SOURCE_BUDGET_S), Scope.STAFF)
 

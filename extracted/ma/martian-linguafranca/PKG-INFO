@@ -1,0 +1,469 @@
+Metadata-Version: 2.4
+Name: martian-linguafranca
+Version: 0.3.16
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Typing :: Typed
+Requires-Dist: pytest>=7.0 ; extra == 'dev'
+Requires-Dist: maturin>=1.0,<2.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.9 ; extra == 'dev'
+Requires-Dist: datamodel-code-generator==0.55.0 ; extra == 'dev'
+Requires-Dist: frfr>=0.1.1 ; python_full_version >= '3.12' and extra == 'dev'
+Provides-Extra: dev
+License-File: LICENSE
+Summary: LLM API format converter with Rust core and Python bindings
+Keywords: llm,openai,anthropic,api,converter
+Author-email: Artem Bakuta <artem@withmartian.com>
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/withmartian/linguafranca
+Project-URL: Issues, https://github.com/withmartian/linguafranca/issues
+Project-URL: Repository, https://github.com/withmartian/linguafranca
+
+# linguafranca
+
+LLM API format converter with a Rust core and Python bindings.
+
+Converts requests, responses, and streaming events between:
+- **OpenAI Chat Completions**
+- **Anthropic Messages**
+- **Open Responses**
+
+Also supports within-format conversions: collect a stream into a single
+response, or decompose a response into stream events.
+
+## Installation
+
+```bash
+# Python
+pip install martian-linguafranca
+# or
+uv add martian-linguafranca
+# Installs as 'martian-linguafranca', import as 'linguafranca'
+```
+
+```bash
+# Rust
+cargo add linguafranca
+```
+
+## Supported formats
+
+| `FormatName`                         | API                          |
+| ------------------------------------ | ---------------------------- |
+| `FormatName.OPENAI_CHAT_COMPLETIONS` | OpenAI Chat Completions      |
+| `FormatName.ANTHROPIC_MESSAGES`      | Anthropic Messages           |
+| `FormatName.OPEN_RESPONSES`          | Open Responses               |
+
+Every pair is supported in both directions for requests and responses.
+Within-format collect (stream → response) and decompose (response → stream)
+are supported for all three formats.
+
+## Quick start
+
+```python
+import linguafranca as lf
+
+# Convert a Chat Completions request to Anthropic Messages
+result = lf.convert_request_json(
+    {"model": "gpt-4.1-mini", "messages": [{"role": "user", "content": "hello"}]},
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+
+result.value     # converted dict
+result.warnings  # list of lossy conversion warnings (dropped/modified fields)
+```
+
+## Converting requests
+
+```python
+import linguafranca as lf
+
+# OpenAI Chat Completions -> Anthropic Messages
+result = lf.convert_request_json(
+    {
+        "model": "gpt-4.1-mini",
+        "messages": [{"role": "user", "content": "hello"}],
+        "temperature": 0.7,
+    },
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+print(result.value)
+# {"model": "gpt-4.1-mini", "max_tokens": 4096, "messages": [...], ...}
+
+# Anthropic Messages -> OpenAI Chat Completions
+result = lf.convert_request_json(
+    {
+        "model": "claude-3-5-sonnet",
+        "max_tokens": 64,
+        "messages": [{"role": "user", "content": "hello"}],
+    },
+    source_format=lf.FormatName.ANTHROPIC_MESSAGES,
+    target_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+)
+```
+
+### Convenience wrappers
+
+When you always target the same format, convenience wrappers save some typing:
+
+```python
+# Convert anything -> Anthropic Messages
+result = lf.to_messages_request(
+    openai_request,
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+)
+
+# Convert anything -> OpenAI Chat Completions
+result = lf.to_chat_completions_request(
+    anthropic_request,
+    source_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+```
+
+The same pattern works for responses with `to_messages_response` and `to_chat_completions_response`.
+
+## Converting responses
+
+```python
+result = lf.convert_response_json(
+    {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "model": "gpt-4.1-mini",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": "Hello!"},
+            "finish_reason": "stop",
+        }],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    },
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+print(result.value)
+```
+
+## Streaming
+
+### Sync streaming with httpx
+
+```python
+import json
+import httpx
+import linguafranca as lf
+
+def parse_sse(response: httpx.Response):
+    """Yield parsed JSON objects from an SSE stream."""
+    for line in response.iter_lines():
+        if line.startswith("data: ") and line != "data: [DONE]":
+            yield json.loads(line[6:])
+
+headers = {"Authorization": "Bearer YOUR_KEY", "Content-Type": "application/json"}
+payload = {
+    "model": "gpt-4.1-mini",
+    "messages": [{"role": "user", "content": "hello"}],
+    "stream": True,
+}
+
+with httpx.stream("POST", "https://api.openai.com/v1/chat/completions",
+                   headers=headers, json=payload) as resp:
+    stream = lf.convert_response_stream_json(
+        parse_sse(resp),
+        source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+        target_format=lf.FormatName.OPEN_RESPONSES,
+    )
+    for event in stream:
+        print(event)
+
+    # Check warnings after the stream is fully consumed
+    for w in stream.take_warnings():
+        print(f"{w.field}: {w.message}")
+```
+
+### Async streaming with httpx
+
+```python
+import json
+import httpx
+import linguafranca as lf
+
+async def parse_sse(response: httpx.Response):
+    async for line in response.aiter_lines():
+        if line.startswith("data: ") and line != "data: [DONE]":
+            yield json.loads(line[6:])
+
+async def main():
+    headers = {"Authorization": "Bearer YOUR_KEY", "Content-Type": "application/json"}
+    payload = {
+        "model": "gpt-4.1-mini",
+        "messages": [{"role": "user", "content": "hello"}],
+        "stream": True,
+    }
+
+    async with httpx.AsyncClient() as client:
+        async with client.stream("POST",
+                                 "https://api.openai.com/v1/chat/completions",
+                                 headers=headers, json=payload) as resp:
+            stream = lf.aconvert_response_stream(
+                parse_sse(resp),
+                source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+                target_format=lf.FormatName.OPEN_RESPONSES,
+            )
+            async for event in stream:
+                print(event)
+```
+
+## Collecting & decomposing streams
+
+Besides converting streams *between* formats, you can convert *within* a
+format: collect streaming events into a single response, or decompose a
+response into the stream events a server would have produced.
+
+All three formats are supported.
+
+### Collect: stream → response
+
+```python
+import json
+import httpx
+import linguafranca as lf
+
+def parse_sse(response: httpx.Response):
+    for line in response.iter_lines():
+        if line.startswith("data: ") and line != "data: [DONE]":
+            yield json.loads(line[6:])
+
+headers = {"Authorization": "Bearer YOUR_KEY", "Content-Type": "application/json"}
+payload = {
+    "model": "gpt-4.1-mini",
+    "messages": [{"role": "user", "content": "hello"}],
+    "stream": True,
+}
+
+with httpx.stream("POST", "https://api.openai.com/v1/chat/completions",
+                   headers=headers, json=payload) as resp:
+    result = lf.collect_response_stream_json(
+        parse_sse(resp),
+        format_name=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    )
+    print(result.value)     # complete response dict
+    print(result.warnings)  # any issues during collection
+```
+
+The events iterable is consumed lazily — you can pass a generator, list, or
+any iterator.
+
+### Decompose: response → stream
+
+```python
+import linguafranca as lf
+
+result = lf.decompose_response_to_stream_json(
+    response_dict,
+    format_name=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+for event in result.value:
+    print(event["type"])  # message_start, content_block_start, ...
+```
+
+### Async variants
+
+```python
+import linguafranca as lf
+
+# Async collect
+result = await lf.acollect_response_stream_json(
+    async_sse_events,
+    format_name=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+)
+```
+
+### Typed event variants
+
+The non-`_json` variants (`collect_response_stream`,
+`decompose_response_to_stream`) accept dataclasses and Pydantic models in
+addition to plain dicts:
+
+```python
+result = lf.collect_response_stream(
+    typed_events,
+    format_name=lf.FormatName.OPEN_RESPONSES,
+)
+```
+
+## Typed payloads (recommended)
+
+The package ships auto-generated `@dataclass` definitions for all three
+formats via `linguafranca.types`. Using them gives you IDE autocompletion,
+type checking, and catches mistakes before the payload hits the converter.
+
+```python
+import linguafranca as lf
+from linguafranca.types import (
+    ChatCompletionsOpenAiRequest,
+    ChatCompletionsMessageUser,
+)
+
+request = ChatCompletionsOpenAiRequest(
+    model="gpt-4.1-mini",
+    messages=[
+        ChatCompletionsMessageUser(content="hello", role="user"),
+    ],
+    temperature=0.7,
+)
+
+result = lf.convert_request(
+    request,
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+print(result.value)
+```
+
+The non-`_json` variants (`convert_request`, `convert_response`,
+`convert_response_stream`) accept any of:
+- **`linguafranca.types` dataclasses** (recommended)
+- **plain dicts**
+- **Pydantic models** — serialised via `model.model_dump()`
+
+The `_json` variants (`convert_request_json`, `convert_response_json`,
+`convert_response_stream_json`) accept and return plain dicts only.
+
+## Conversion config
+
+Request conversions accept an optional `config` parameter to control conversion behavior.
+
+### Stripping encrypted reasoning
+
+When forwarding requests between providers, thinking/reasoning blocks carry provider-specific signatures that the target API will reject. Use `strip_encrypted_reasoning` to clean them:
+
+```python
+import linguafranca as lf
+
+result = lf.convert_request_json(
+    anthropic_request_with_thinking,
+    source_format=lf.FormatName.ANTHROPIC_MESSAGES,
+    target_format=lf.FormatName.OPEN_RESPONSES,
+    config=lf.ConversionConfig(strip_encrypted_reasoning=True),
+)
+```
+
+You can also pass a plain dict:
+
+```python
+result = lf.convert_request_json(
+    ...,
+    config={"strip_encrypted_reasoning": True},
+)
+```
+
+When `strip_encrypted_reasoning` is enabled:
+- **Anthropic -> Open Responses**: Thinking blocks keep their summary text but `encrypted_content` is removed. Redacted thinking blocks (no summary) are dropped entirely.
+- **Open Responses -> Anthropic**: All reasoning items are dropped from the message history.
+- The reasoning/thinking *config* (whether the model should think) is always preserved.
+
+## Namespaced tools
+
+Open Responses `namespace` tools have no equivalent in Chat Completions or Anthropic Messages.
+Conversion to those formats flattens each tool in a namespace to `{namespace}--{name}`, prepends
+the namespace description to the tool description, and encodes calls from earlier turns the same way.
+Conversion back to Open Responses splits a tool name at its first `--` into `namespace` and `name`,
+so clients that dispatch by namespace (for example Codex) receive the original identity. Anthropic
+tool search results are regrouped into `namespace` tools the same way.
+
+- Conversion fails if a namespace is empty, contains `--`, ends with `-`, or a flattened name collides
+  with another tool.
+- A plain tool whose name contains `--` produces a warning: calls to it are reported as namespaced in
+  Open Responses output.
+- Flattened names longer than 128 characters produce a warning because targets may reject them.
+
+## Warnings
+
+Conversions between formats can be lossy — some fields exist in one format but
+not another. When this happens, the library returns warnings instead of failing:
+
+```python
+result = lf.convert_request_json(
+    request,
+    source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+    target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+)
+
+for w in result.warnings:
+    print(f"{w.field}: {w.message}")
+    # e.g. "frequency_penalty: field not supported in Anthropic Messages, dropped"
+```
+
+For streaming, call `stream.take_warnings()` after the stream is consumed.
+
+## Error handling
+
+All errors inherit from `ConversionError`:
+
+```python
+import linguafranca as lf
+
+# Invalid payload structure
+try:
+    lf.convert_request_json(
+        {"not": "a valid request"},
+        source_format=lf.FormatName.OPENAI_CHAT_COMPLETIONS,
+        target_format=lf.FormatName.ANTHROPIC_MESSAGES,
+    )
+except lf.SchemaValidationError as e:
+    print(e)  # payload doesn't match the source format schema
+
+# Unsupported conversion pair (streaming only)
+try:
+    lf.convert_response_stream_json(
+        events,
+        source_format=lf.FormatName.OPEN_RESPONSES,
+        target_format=lf.FormatName.OPEN_RESPONSES,
+    )
+except lf.UnsupportedConversionError as e:
+    print(e)
+```
+
+## All available types
+
+All request, response, and streaming event types for each format are available
+under `linguafranca.types`:
+
+```python
+from linguafranca.types import (
+    # OpenAI Chat Completions
+    ChatCompletionsOpenAiRequest,
+    ChatCompletionsMessageUser,
+    ChatCompletionsMessageSystem,
+    ChatCompletionsMessageAssistant,
+    ChatCompletionsResponse,
+    ChatCompletionsStreamChunk,
+    # Anthropic Messages
+    AnthropicRequest,
+    AnthropicMessage,
+    AnthropicResponse,
+    # Open Responses
+    OpenResponsesRequest,
+    OpenResponsesResponse,
+    # ... and all nested types (content parts, tool calls, etc.)
+)
+```
+
+These are standard `@dataclass` definitions generated from the Rust schemas.
+See [Typed payloads](#typed-payloads-recommended) for usage examples.
+
+## License
+
+MIT
+

@@ -17,7 +17,7 @@ class ListRolesResponseBody(DaraModel):
     ):
         # Indicates whether the response is truncated.
         self.is_truncated = is_truncated
-        # This parameter is returned only when `IsTruncated` is `true`. If the value of `IsTruncated` is `true`, call this operation again and use `Marker` to retrieve the truncated content.
+        # This parameter is returned only when `IsTruncated` is set to `true`. If `true` is returned, you must call this operation again and use the `Marker` parameter to retrieve the remaining results.
         self.marker = marker
         # The request ID.
         self.request_id = request_id

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from .... import errors
 from .....foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.routes import WriteOp, path_for
 
 if TYPE_CHECKING:
     from ....client.client import Client
@@ -66,6 +67,8 @@ def deliver_create(journal: Journal, client: Client, op: dict) -> dict:
     via = "offline"
     try:
         path = create.get("path") or _home_path(client, create, key)
+        if path == UNFILED_CREATE_PATH:
+            raise _no_home(key)
         try:
             row = _create_with_policy(client, path, create)
         except errors.RosError as gone:
@@ -110,9 +113,24 @@ def _post(client: Client, path: str, body: dict) -> dict:
     return client.transport.request("POST", path, json_body=body, idempotent=True).json()
 
 
+#: Where an older CLI sent a run with no home. Never sent again: every run has a project.
+UNFILED_CREATE_PATH = "/v1/runs"
+
+
+def _no_home(key: str) -> errors.ValidationError:
+    """An older CLI queued this create with no project: refused here, refiled by the researcher."""
+    return errors.ValidationError(
+        f"offline run {local_ref(key)} was recorded with no project, and every run needs one. "
+        "File it: `probe sync <its folder> --project <slug>` (and `--experiment <slug>`).",
+        status=422,
+    )
+
+
 def _home_path(client: Client, create: dict, key: str) -> str:
     project, experiment = create.get("project"), create.get("experiment")
     question = create.get("question")
+    if not project and not experiment:
+        raise _no_home(key)
     try:
         project_id = None
         if project:
@@ -138,9 +156,7 @@ def _home_path(client: Client, create: dict, key: str) -> str:
             # The experiment API's run create: under the project it is filed
             # in (an experiment row always names it).
             return f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs"
-        if project_id:
-            return f"/v1/projects/{project_id}/runs"
-        return "/v1/runs"
+        return f"/v1/projects/{project_id}/runs"
     except errors.NotFoundError as exc:
         where = f"project {project!r}" + (f", experiment {experiment!r}" if experiment else "")
         raise errors.ValidationError(
@@ -215,7 +231,7 @@ def _mark_supersede(client: Client, row: dict, incumbent: str | None, attempt: i
     try:
         client.transport.request(
             "PATCH",
-            f"/v1/runs/{row['id']}",
+            path_for(WriteOp.RUN_PATCH, row['id']),
             json_body={"foreign_keys": {"retry_of": str(incumbent), "retry_attempt": attempt}},
             idempotent=True,
         )
@@ -223,7 +239,7 @@ def _mark_supersede(client: Client, row: dict, incumbent: str | None, attempt: i
         if old.get("status") in client._DEAD_RUN_STATUSES:
             tags = sorted({*(old.get("tags") or []), "superseded"})
             client.transport.request(
-                "PATCH", f"/v1/runs/{incumbent}", json_body={"tags": tags}, idempotent=True
+                "PATCH", path_for(WriteOp.RUN_PATCH, incumbent), json_body={"tags": tags}, idempotent=True
             )
     except errors.RosError as exc:
         _diagnostics.warn(

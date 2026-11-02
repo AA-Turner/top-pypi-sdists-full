@@ -1,0 +1,83 @@
+# Whole ages imply a 6 April birthday. Targeted provision begins in September
+# after the second birthday; after the third birthday it continues through
+# the summer term until universal provision starts (DfE guidance A1.4).
+- name: Child under 2 (ineligible) 
+  period: 2024
+  input:
+    people:
+      child:
+        age: 1
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: False
+  output:
+    targeted_childcare_entitlement: 0.0
+
+- name: Child aged 2 (eligible)
+  period: 2024
+  input:
+    people:
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: True
+  output:
+    targeted_childcare_entitlement: 3_146.40
+
+- name: Child aged 3 keeps the targeted summer term before universal starts
+  period: 2024
+  input:
+    people:
+      child:
+        age: 3
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: True
+  output:
+    targeted_childcare_entitlement: 1_573.20
+
+- name: Child using fewer hours than maximum entitlement
+  period: 2024
+  input:
+    people:
+      child:
+        age: 2
+        max_free_entitlement_hours_used: 10
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: True
+  output:
+    targeted_childcare_entitlement: 2_097.60
+
+- name: Child using exactly maximum entitlement
+  period: 2024
+  input:
+    people:
+      child:
+        age: 2
+        max_free_entitlement_hours_used: 15
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: True
+  output:
+    targeted_childcare_entitlement: 3_146.40
+
+- name: Child using more than maximum entitlement (capped)
+  period: 2024
+  input:
+    people:
+      child:
+        age: 2
+        max_free_entitlement_hours_used: 20
+    benunits:
+      benunit:
+        members: [child]
+        targeted_childcare_entitlement_eligible: True
+  output:
+    targeted_childcare_entitlement: 3_146.40

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add ``Interpreter.version_info`` function to get interpreter version as a (major, minor, patch) tuple.

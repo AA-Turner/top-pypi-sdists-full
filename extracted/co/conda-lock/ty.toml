@@ -1,0 +1,40 @@
+# ty configuration file
+# https://docs.astral.sh/ty/configuration/
+
+[src]
+# Exclude vendored code and test fixtures that cause issues
+# Patterns are anchored relative to project root (per docs)
+# Use directory/ syntax to match directories
+exclude = [
+    "conda_lock/_vendor/",
+    "conda_lock/scripts/vendor_poetry/",
+    "tests/test-local-pip/setup.py",
+    "tests/test-pip-repositories/fake-private-package-*/setup.py",
+]
+
+[analysis]
+allowed-unresolved-imports = ["conda.*", "conda.plugins.*"]
+# Prefer conservative narrowing across dynamic boundaries.
+strict-generic-narrowing = true
+strict-equality-semantics = true
+
+[rules]
+blanket-ignore-comment = "error"
+unsound-yield = "error"
+unsupported-dynamic-base = "error"
+
+[terminal]
+# Preserve enforcement of default warning rules, including unused ignores.
+error-on-warning = true
+
+# The content-hash schemas already pass these stronger checks.
+[[overrides]]
+include = [
+    "conda_lock/content_hash.py",
+    "conda_lock/content_hash_types.py",
+    "conda_lock/models/dry_run_install.py",
+]
+[overrides.rules]
+missing-type-argument = "error"
+unsound-assignment = "error"
+unsound-return-statement = "error"

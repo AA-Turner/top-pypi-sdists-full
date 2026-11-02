@@ -1,0 +1,676 @@
+"""Helper utilities for generating creative preview URLs for grid rendering."""
+
+# mypy: disable-error-code="arg-type,attr-defined,call-arg,unused-ignore,union-attr"
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+from collections import OrderedDict
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from adcp.client import ADCPClient
+    from adcp.types import CreativeManifest, Format, Product
+    from adcp.types.legacy import LegacyFormatId as FormatId
+
+logger = logging.getLogger(__name__)
+
+
+def _dump_preview_metadata(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return cast(dict[str, Any], model_dump(mode="json", exclude_none=True))
+    return None
+
+
+def _preview_render_data(render: Any) -> dict[str, Any]:
+    """Project a preview render without discarding its security metadata."""
+
+    def field(name: str) -> Any:
+        if isinstance(render, dict):
+            return render.get(name)
+        return getattr(render, name, None)
+
+    raw_url = field("preview_url")
+    preview_url = str(raw_url) if raw_url is not None else None
+    preview_html = field("preview_html")
+    policy: dict[str, Any] = {
+        "sandbox": "",
+        "caller_restrictive_csp_required": True,
+        "provider_metadata_advisory": True,
+    }
+    if preview_url is not None:
+        policy["preview_url_container"] = "cross_origin_iframe"
+    if preview_html is not None:
+        policy["preview_html_container"] = "iframe_srcdoc"
+
+    return {
+        "preview_url": preview_url,
+        "preview_html": preview_html,
+        "render_id": field("render_id"),
+        "embedding": _dump_preview_metadata(field("embedding")),
+        "renderer": _dump_preview_metadata(field("renderer")),
+        "rendering_policy": policy,
+    }
+
+
+def _make_manifest_cache_key(
+    format_id: Any, manifest_dict: dict[str, Any], output_format: str = "url"
+) -> str:
+    """
+    Create a cache key for a format_id and manifest.
+
+    Args:
+        format_id: Format identifier (FormatId object or string)
+        manifest_dict: Creative manifest dict
+
+    Returns:
+        Cache key string
+    """
+    # Convert FormatId to string representation
+    if isinstance(format_id, str):
+        format_id_str = format_id
+    else:
+        # FormatId is a Pydantic model with agent_url and id
+        if hasattr(format_id, "agent_url"):
+            format_id_str = f"{format_id.agent_url}:{format_id.id}"
+        else:
+            format_id_str = (
+                f"{getattr(format_id, 'format_option_id', '')}:"
+                f"{getattr(format_id, 'format_kind', '')}:"
+                f"{getattr(format_id, 'params', {})}"
+            )
+
+    manifest_str = str(sorted(manifest_dict.items()))
+    combined = f"{output_format}:{format_id_str}:{manifest_str}"
+    return hashlib.sha256(combined.encode()).hexdigest()[:16]
+
+
+class PreviewURLGenerator:
+    """Helper class for generating preview URLs from creative agents."""
+
+    def __init__(
+        self,
+        creative_agent_client: ADCPClient,
+        *,
+        max_cache_entries: int = 256,
+        max_preview_bytes: int = 1_048_576,
+    ):
+        """
+        Initialize preview URL generator.
+
+        Args:
+            creative_agent_client: ADCPClient configured to talk to a creative agent
+            max_cache_entries: Maximum retained previews; oldest entries are evicted first
+            max_preview_bytes: Maximum serialized size accepted for one preview
+        """
+        if max_cache_entries < 1:
+            raise ValueError("max_cache_entries must be at least 1")
+        if max_preview_bytes < 1:
+            raise ValueError("max_preview_bytes must be at least 1")
+        self.creative_agent_client = creative_agent_client
+        self.max_cache_entries = max_cache_entries
+        self.max_preview_bytes = max_preview_bytes
+        self._preview_cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+    @staticmethod
+    def _is_expired(preview_data: dict[str, Any]) -> bool:
+        expires_at = preview_data.get("expires_at")
+        if not isinstance(expires_at, str) or not expires_at:
+            return False
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        return expiry <= datetime.now(timezone.utc)
+
+    def _get_cached(self, cache_key: str) -> dict[str, Any] | None:
+        preview_data = self._preview_cache.get(cache_key)
+        if preview_data is None:
+            return None
+        if self._is_expired(preview_data):
+            del self._preview_cache[cache_key]
+            return None
+        self._preview_cache.move_to_end(cache_key)
+        return preview_data
+
+    def _store_preview(self, cache_key: str, preview_data: dict[str, Any]) -> bool:
+        encoded = json.dumps(preview_data, default=str, ensure_ascii=False).encode("utf-8")
+        if len(encoded) > self.max_preview_bytes or self._is_expired(preview_data):
+            return False
+        self._preview_cache[cache_key] = preview_data
+        self._preview_cache.move_to_end(cache_key)
+        while len(self._preview_cache) > self.max_cache_entries:
+            self._preview_cache.popitem(last=False)
+        return True
+
+    async def get_preview_data_for_manifest(
+        self, format_id: Any, manifest: CreativeManifest
+    ) -> dict[str, Any] | None:
+        """
+        Generate preview data for a creative manifest.
+
+        Returns untrusted preview data plus the mandatory iframe rendering
+        policy. Callers must never inject ``preview_html`` into the host DOM.
+
+        Args:
+            format_id: Format identifier
+            manifest: Creative manifest
+
+        Returns:
+            Preview data with preview_url and metadata, or None if generation fails
+        """
+        from adcp.types.legacy import LegacyPreviewCreativeRequest
+
+        cache_key = _make_manifest_cache_key(format_id, manifest.model_dump(exclude_none=True))
+
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            request_payload: dict[str, Any] = dict(
+                request_type="single",
+                creative_manifest=manifest.model_dump(mode="json", exclude_none=True),
+            )
+            if hasattr(format_id, "agent_url"):
+                request_payload["format_id"] = format_id
+            request = LegacyPreviewCreativeRequest(**request_payload)
+            result = await self.creative_agent_client.preview_creative_legacy(request)
+
+            if result.success and result.data and result.data.previews:
+                preview = result.data.previews[0]
+                first_render = preview.renders[0] if preview.renders else None
+
+                if first_render:
+                    render = first_render
+                    preview_data = {
+                        "preview_id": preview.preview_id,
+                        "input": preview.input.model_dump(),
+                        "expires_at": (
+                            str(result.data.expires_at)
+                            if result.data.expires_at is not None
+                            else None
+                        ),
+                        **_preview_render_data(render),
+                    }
+
+                    if not self._store_preview(cache_key, preview_data):
+                        logger.warning(
+                            "Preview rejected because it is oversized or already expired"
+                        )
+                        return None
+                    return preview_data
+
+        except Exception as e:
+            logger.warning(f"Failed to generate preview for format {format_id}: {e}", exc_info=True)
+
+        return None
+
+    async def get_preview_data_batch(
+        self,
+        requests: list[tuple[Any, CreativeManifest]],
+        output_format: str = "url",
+    ) -> list[dict[str, Any] | None]:
+        """
+        Generate preview data for multiple manifests in one API call (batch mode).
+
+        This is 5-10x faster than individual requests for multiple previews.
+
+        Args:
+            requests: List of (format_id, manifest) tuples to preview
+            output_format: "url" for iframe URLs, "html" for untrusted iframe
+                ``srcdoc`` content
+
+        Returns:
+            List of preview data dicts (or None for failures), in same order as requests
+        """
+        from pydantic import TypeAdapter
+
+        from adcp.types.legacy import LegacyPreviewCreativeRequest
+
+        _pcr_adapter: TypeAdapter[Any] = TypeAdapter(LegacyPreviewCreativeRequest)
+
+        if not requests:
+            return []
+
+        # Check cache first
+        cache_keys = [
+            _make_manifest_cache_key(
+                fid, manifest.model_dump(exclude_none=True), output_format=output_format
+            )
+            for fid, manifest in requests
+        ]
+
+        # Separate cached vs uncached requests
+        uncached_indices: list[int] = []
+        uncached_requests: list[dict[str, Any]] = []
+        results: list[dict[str, Any] | None] = [None] * len(requests)
+
+        for idx, (cache_key, (format_id, manifest)) in enumerate(zip(cache_keys, requests)):
+            cached = self._get_cached(cache_key)
+            if cached is not None:
+                results[idx] = cached
+            else:
+                uncached_indices.append(idx)
+                entry = {"creative_manifest": manifest.model_dump(exclude_none=True)}
+                if hasattr(format_id, "agent_url"):
+                    entry["format_id"] = format_id.model_dump(mode="json")
+                uncached_requests.append(entry)
+
+        # If everything was cached, return early
+        if not uncached_requests:
+            return results
+
+        # Make batch API call for uncached items
+        try:
+            # Batch requests in chunks of 50 (API limit)
+            batch_size = 50
+            for chunk_start in range(0, len(uncached_requests), batch_size):
+                chunk_end = min(chunk_start + batch_size, len(uncached_requests))
+                chunk_requests = uncached_requests[chunk_start:chunk_end]
+                chunk_indices = uncached_indices[chunk_start:chunk_end]
+
+                batch_request = _pcr_adapter.validate_python(
+                    {
+                        "request_type": "batch",
+                        "requests": chunk_requests,
+                        "output_format": output_format,
+                        "context": None,
+                    }
+                )
+                result = await self.creative_agent_client.preview_creative_legacy(batch_request)
+
+                if result.success and result.data and result.data.results:
+                    # Process batch results
+                    for result_idx, batch_result in enumerate(result.data.results):
+                        batch_result = (
+                            batch_result
+                            if isinstance(batch_result, dict)
+                            else batch_result.model_dump(mode="json", exclude_none=True)
+                        )
+                        original_idx = chunk_indices[result_idx]
+                        cache_key = cache_keys[original_idx]
+
+                        if batch_result.get("success") and batch_result.get("response"):
+                            response = batch_result["response"]
+                            if response.get("previews"):
+                                preview = response["previews"][0]
+                                renders = preview.get("renders", [])
+                                first_render = renders[0] if renders else {}
+                                preview_data = {
+                                    "preview_id": preview.get("preview_id"),
+                                    "input": preview.get("input", {}),
+                                    "expires_at": response.get("expires_at"),
+                                    **_preview_render_data(first_render),
+                                }
+                                if self._store_preview(cache_key, preview_data):
+                                    results[original_idx] = preview_data
+                                else:
+                                    logger.warning(
+                                        "Batch preview %s rejected because it is oversized "
+                                        "or already expired",
+                                        original_idx,
+                                    )
+                        else:
+                            # Request failed
+                            error = batch_result.get("error", {})
+                            logger.warning(
+                                f"Batch preview failed for request {original_idx}: "
+                                f"{error.get('message', 'Unknown error')}"
+                            )
+
+        except Exception as e:
+            logger.warning(f"Batch preview generation failed: {e}", exc_info=True)
+
+        return results
+
+
+async def add_preview_urls_to_formats(
+    formats: list[Any],
+    creative_agent_client: ADCPClient,
+    use_batch: bool = True,
+    output_format: str = "url",
+) -> list[dict[str, Any]]:
+    """
+    Add preview URLs to each format by generating sample manifests.
+
+    Uses batch API for 5-10x better performance when previewing multiple formats.
+
+    Args:
+        formats: List of Format objects
+        creative_agent_client: Client for the creative agent
+        use_batch: If True, use batch API (default). Set False to use individual requests.
+        output_format: "url" for iframe URLs, "html" for untrusted iframe
+            ``srcdoc`` content
+
+    Returns:
+        List of format dicts with added preview_data fields
+    """
+    if not formats:
+        return []
+
+    generator = PreviewURLGenerator(creative_agent_client)
+
+    # Prepare all requests
+    format_requests = []
+    for fmt in formats:
+        sample_manifest = _create_sample_manifest_for_format(fmt)
+        if sample_manifest:
+            format_requests.append((fmt, sample_manifest))
+
+    if not format_requests:
+        return [fmt.model_dump(exclude_none=True) for fmt in formats]
+
+    # Use batch API if requested and we have multiple formats
+    if use_batch and len(format_requests) > 1:
+        # Batch mode - much faster!
+        batch_requests = [(fmt, manifest) for fmt, manifest in format_requests]
+        preview_data_list = await generator.get_preview_data_batch(
+            batch_requests, output_format=output_format
+        )
+
+        # Merge preview data back with formats
+        result = []
+        preview_idx = 0
+        for fmt in formats:
+            format_dict = fmt.model_dump(exclude_none=True)
+            # Check if this format had a manifest
+            if preview_idx < len(format_requests) and format_requests[preview_idx][0] == fmt:
+                preview_data = preview_data_list[preview_idx]
+                if preview_data:
+                    format_dict["preview_data"] = preview_data
+                preview_idx += 1
+            result.append(format_dict)
+        return result
+    else:
+        # Fallback to individual requests (for single format or when batch disabled)
+        import asyncio
+
+        async def process_format(fmt: Format) -> dict[str, Any]:
+            """Process a single format and add preview data."""
+            format_dict = fmt.model_dump(exclude_none=True)
+
+            try:
+                sample_manifest = _create_sample_manifest_for_format(fmt)
+                if sample_manifest:
+                    preview_data = await generator.get_preview_data_for_manifest(
+                        fmt, sample_manifest
+                    )
+                    if preview_data:
+                        format_dict["preview_data"] = preview_data
+            except Exception as e:
+                logger.warning(f"Failed to add preview data for format {fmt}: {e}")
+
+            return format_dict
+
+        return await asyncio.gather(*[process_format(fmt) for fmt in formats])
+
+
+async def add_preview_urls_to_products(
+    products: list[Any],
+    creative_agent_client: ADCPClient,
+    use_batch: bool = True,
+    output_format: str = "url",
+) -> list[dict[str, Any]]:
+    """
+    Add preview URLs to products for their supported formats.
+
+    Uses batch API for 5-10x better performance when previewing many product formats.
+
+    Args:
+        products: List of Product objects
+        creative_agent_client: Client for the creative agent
+        use_batch: If True, use batch API (default). Set False to use individual requests.
+        output_format: "url" for iframe URLs, "html" for untrusted iframe
+            ``srcdoc`` content
+
+    Returns:
+        List of product dicts with added format_previews field
+    """
+    if not products:
+        return []
+
+    generator = PreviewURLGenerator(creative_agent_client)
+
+    # Collect all unique format_id + manifest combinations across all products
+    all_requests: list[tuple[Product, Format, CreativeManifest]] = []
+    for product in products:
+        for declaration in product.format_options:
+            sample_manifest = _create_sample_manifest_for_format(declaration)
+            if sample_manifest:
+                all_requests.append((product, declaration, sample_manifest))
+
+    if not all_requests:
+        return [p.model_dump(exclude_none=True) for p in products]
+
+    # Use batch API if requested and we have multiple requests
+    if use_batch and len(all_requests) > 1:
+        # Batch mode - much faster!
+        batch_requests = [(declaration, manifest) for _, declaration, manifest in all_requests]
+        preview_data_list = await generator.get_preview_data_batch(
+            batch_requests, output_format=output_format
+        )
+
+        # Map results back to products
+        # Build a mapping from product_id -> format_id -> preview_data
+        product_previews: dict[str, dict[str, dict[str, Any]]] = {}
+        for (product, declaration, _), preview_data in zip(all_requests, preview_data_list):
+            if preview_data:
+                if product.product_id not in product_previews:
+                    product_previews[product.product_id] = {}
+                key = declaration.format_option_id or declaration.format_kind
+                product_previews[product.product_id][key] = preview_data
+
+        # Add preview data to products
+        result = []
+        for product in products:
+            product_dict = cast(dict[str, Any], product.model_dump(exclude_none=True))
+            if product.product_id in product_previews:
+                product_dict["format_previews"] = product_previews[product.product_id]
+            result.append(product_dict)
+        return result
+    else:
+        # Fallback to individual requests (for single product/format or when batch disabled)
+        import asyncio
+
+        async def process_product(product: Product) -> dict[str, Any]:
+            """Process a single product and add preview data for all its formats."""
+            product_dict = product.model_dump(exclude_none=True)
+
+            async def process_format(declaration: Format) -> tuple[str, dict[str, Any] | None]:
+                """Process a single format for this product."""
+                try:
+                    sample_manifest = _create_sample_manifest_for_format(declaration)
+                    if sample_manifest:
+                        preview_data = await generator.get_preview_data_for_manifest(
+                            declaration, sample_manifest
+                        )
+                        key = declaration.format_option_id or declaration.format_kind
+                        return (key, preview_data)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to generate preview for product {product.product_id}, "
+                        f"format {declaration}: {e}"
+                    )
+                key = declaration.format_option_id or declaration.format_kind
+                return (key, None)
+
+            format_tasks = [process_format(item) for item in product.format_options]
+            format_results = await asyncio.gather(*format_tasks)
+            format_previews = {fid: data for fid, data in format_results if data is not None}
+
+            if format_previews:
+                product_dict["format_previews"] = format_previews
+
+            return product_dict
+
+        return await asyncio.gather(*[process_product(product) for product in products])
+
+
+def _create_sample_manifest_for_format(fmt: Any) -> Any | None:
+    """
+    Create a sample manifest for a format.
+
+    Args:
+        fmt: Format object
+
+    Returns:
+        Sample CreativeManifest, or None if unable to create one
+    """
+    from adcp.types import CreativeManifest, ImageContent, UrlContent
+    from adcp.types._generated import CreativeManifest as LegacyCreativeManifest
+    from adcp.utils.format_assets import get_required_assets
+
+    required_assets = get_required_assets(fmt)
+    if not required_assets and not hasattr(fmt, "format_kind"):
+        return None
+
+    assets: dict[str, Any] = {}
+    if not required_assets:
+        width = int(getattr(fmt, "params", {}).get("width", 300))
+        height = int(getattr(fmt, "params", {}).get("height", 250))
+        assets = {
+            "primary_asset": ImageContent(
+                url="https://example.com/sample-image.jpg",
+                width=width,
+                height=height,
+            ),
+            "clickthrough_url": UrlContent(url="https://example.com"),
+        }
+
+    for asset in required_assets:
+        if isinstance(asset, dict):
+            # Handle dict input
+            asset_id = asset.get("asset_id")
+            asset_type = asset.get("asset_type")
+
+            if asset_id:
+                assets[asset_id] = _create_sample_asset(asset_type)
+        else:
+            # Handle Pydantic model - check for individual vs repeatable_group
+            item_type = getattr(asset, "item_type", "individual")
+
+            if item_type == "individual":
+                asset_id = asset.asset_id
+                has_value = hasattr(asset.asset_type, "value")
+                asset_type = asset.asset_type.value if has_value else str(asset.asset_type)
+                assets[asset_id] = _create_sample_asset(asset_type)
+            elif item_type == "repeatable_group":
+                # For repeatable groups, create sample assets for each asset in the group
+                group_assets = getattr(asset, "assets", [])
+                for group_asset in group_assets:
+                    if isinstance(group_asset, dict):
+                        asset_id = str(group_asset.get("asset_id", ""))
+                        asset_type = group_asset.get("asset_type")
+                    else:
+                        asset_id = group_asset.asset_id
+                        if hasattr(group_asset.asset_type, "value"):
+                            asset_type = group_asset.asset_type.value
+                        else:
+                            asset_type = str(group_asset.asset_type)
+
+                    if asset_id:
+                        assets[asset_id] = _create_sample_asset(asset_type)
+
+    if not assets:
+        return None
+
+    if hasattr(fmt, "format_kind") and not hasattr(fmt, "format_id"):
+        option_id = getattr(fmt, "format_option_id", None)
+        option_ref = {"scope": "product", "format_option_id": option_id} if option_id else None
+        return CreativeManifest(
+            format_kind=fmt.format_kind,
+            format_option_ref=option_ref,
+            assets=assets,
+        )
+    # The aggregate legacy manifest schema inlines its own asset classes. A
+    # public standalone ImageAsset (etc.) is wire-compatible but is not the
+    # same Python class after 3.2 code generation, so cross the boundary via
+    # the JSON-shaped payload instead of asking Pydantic for class identity.
+    legacy_assets = {
+        asset_id: (
+            asset.model_dump(mode="json", exclude_none=True)
+            if hasattr(asset, "model_dump")
+            else asset
+        )
+        for asset_id, asset in assets.items()
+    }
+    return LegacyCreativeManifest.model_validate(
+        {"format_id": fmt.format_id, "assets": legacy_assets}
+    )
+
+
+def _create_sample_manifest_for_format_id(format_id: FormatId, product: Product) -> Any | None:
+    """
+    Create a sample manifest for a format ID referenced by a product.
+
+    Args:
+        format_id: Format identifier
+        product: Product that references this format
+
+    Returns:
+        Sample CreativeManifest with placeholder assets
+    """
+    from adcp.types import ImageContent, UrlContent
+    from adcp.types._generated import CreativeManifest
+
+    assets = {
+        "primary_asset": ImageContent(
+            url="https://example.com/sample-image.jpg",
+            width=300,
+            height=250,
+        ),
+        "clickthrough_url": UrlContent(url="https://example.com"),
+    }
+
+    return CreativeManifest(format_id=format_id, promoted_offering=product.name, assets=assets)
+
+
+def _create_sample_asset(asset_type: str | None) -> Any:
+    """
+    Create a sample asset value based on asset type.
+
+    Args:
+        asset_type: Type of asset (image, video, text, url, etc.)
+
+    Returns:
+        Sample asset object (Pydantic model)
+    """
+    from adcp.types import (
+        HtmlContent,
+        ImageContent,
+        TextContent,
+        UrlContent,
+        VideoContent,
+    )
+
+    if asset_type == "image":
+        return ImageContent(
+            url="https://via.placeholder.com/300x250.png",
+            width=300,
+            height=250,
+        )
+    elif asset_type == "video":
+        return VideoContent(
+            url="https://example.com/sample-video.mp4",
+            width=1920,
+            height=1080,
+        )
+    elif asset_type == "text":
+        return TextContent(content="Sample advertising text")
+    elif asset_type == "url":
+        return UrlContent(url="https://example.com")
+    elif asset_type == "html":
+        return HtmlContent(content="<div>Sample HTML</div>")
+    else:
+        return UrlContent(url="https://example.com/sample-asset")

@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import base64
+import copy
 import enum
 import json
 import re
 import string
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeGuard, get_args, overload
 
-from schemathesis.core import NOT_SET, media_types
-from schemathesis.core.errors import MalformedMediaType
+from schemathesis.core import NOT_SET
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 
 # HTTP headers in wire form: lowercased name -> list of values. The list shape
@@ -69,15 +70,6 @@ def response_content_type(response: Response) -> str | None:
     return values[0] if values else None
 
 
-def is_event_stream(content_type: str | None) -> bool:
-    if content_type is None:
-        return False
-    try:
-        return media_types.is_sse(content_type)
-    except MalformedMediaType:
-        return False
-
-
 def read_event_stream(
     chunks: Iterable[bytes], timeout: float | tuple[float, float] | None, max_events: int = DEFAULT_MAX_STREAM_EVENTS
 ) -> tuple[bytes, bool]:
@@ -98,6 +90,26 @@ def read_event_stream(
     except TimeoutError:
         return buffer.complete_events, True
     return bytes(buffer.content), False
+
+
+@dataclass(slots=True)
+class RequestSettings:
+    """Timeout, TLS and proxy settings for requests to the API under test."""
+
+    # `None` leaves the choice to the caller: in-process apps run without a timeout.
+    timeout: float | int | None
+    verify: bool | str | None
+    cert: str | tuple[str, str] | None
+    proxy: str | None
+
+    @property
+    def network_timeout(self) -> float | int:
+        """Timeout for requests sent over the network, where none would let a request hang forever."""
+        return DEFAULT_RESPONSE_TIMEOUT if self.timeout is None else self.timeout
+
+    @property
+    def proxies(self) -> dict[str, str] | None:
+        return None if self.proxy is None else {"all": self.proxy}
 
 
 class EventStreamBuffer:
@@ -189,6 +201,8 @@ class CallOutcome(enum.Enum):
     REJECTED = "rejected"
     # Says nothing about whether the data was acceptable, e.g. an auth failure or a server error.
     UNINFORMATIVE = "uninformative"
+    # The server does not serve the operation at this address, whatever the data.
+    NOT_SERVED = "not_served"
 
 
 def is_uninformative_status(status_code: int) -> bool:
@@ -230,6 +244,10 @@ class Response:
     stream_cut_short: bool
     """Whether an event stream was read only up to `max-stream-events` or the request timeout."""
     _override: Override | None
+    # Turns `content` into display text for failure output, for bodies that are not text.
+    render_content: Callable[[bytes], str | None] | None
+    # Replaces "[<code>] <reason>" in failure output, for responses whose status is not an HTTP status.
+    status_line: str | None
 
     __slots__ = (
         "status_code",
@@ -246,6 +264,8 @@ class Response:
         "stream_cut_short",
         "_encoded_body",
         "_override",
+        "render_content",
+        "status_line",
     )
 
     def __init__(
@@ -262,6 +282,8 @@ class Response:
         content_size: int | None = None,
         stream_cut_short: bool = False,
         _override: Override | None = None,
+        render_content: Callable[[bytes], str | None] | None = None,
+        status_line: str | None = None,
     ):
         self.status_code = status_code
         self.headers = {key.lower(): value for key, value in headers.items()}
@@ -278,6 +300,8 @@ class Response:
         self.encoding = encoding
         self.stream_cut_short = stream_cut_short
         self._override = _override
+        self.render_content = render_content
+        self.status_line = status_line
 
     @overload
     @classmethod
@@ -434,20 +458,12 @@ class Response:
 
     def truncated(self, limit: int) -> Response:
         """A copy keeping at most `limit` bytes of the body; `body_size` still reports the full size."""
-        return Response(
-            status_code=self.status_code,
-            headers=self.headers,
-            content=self.content[:limit] if self.content else self.content,
-            request=self.request,
-            elapsed=self.elapsed,
-            verify=self.verify,
-            message=self.message,
-            http_version=self.http_version,
-            encoding=self.encoding,
-            content_size=self.content_size,
-            stream_cut_short=self.stream_cut_short,
-            _override=self._override,
-        )
+        response = copy.copy(self)
+        response.content = self.content[:limit] if self.content else self.content
+        # Values derived from the full body must not leak into the copy.
+        response._deserialized = NOT_SET
+        response._encoded_body = None
+        return response
 
     @property
     def is_truncated(self) -> bool:

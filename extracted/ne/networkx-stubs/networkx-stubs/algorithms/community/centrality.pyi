@@ -1,6 +1,0 @@
-from collections.abc import Generator
-from typing import Any
-
-def girvan_newman(
-    G, most_valuable_edge: Any | None = ...
-) -> Generator[Any, None, Any]: ...

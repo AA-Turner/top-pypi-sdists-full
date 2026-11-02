@@ -1,0 +1,130 @@
+use pyo3::pyclass;
+use pyo3::pymethods;
+
+/// Overall constraint status of a sketch.
+#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[allow(clippy::enum_variant_names)] // Variant names mirror kcl_lib::ConstraintKind for 1:1 Python API mapping.
+#[pyclass(eq, eq_int, from_py_object)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConstraintKind {
+    FullyConstrained,
+    UnderConstrained,
+    OverConstrained,
+    Error,
+}
+
+impl From<kcl_lib::ConstraintKind> for ConstraintKind {
+    fn from(kind: kcl_lib::ConstraintKind) -> Self {
+        match kind {
+            kcl_lib::ConstraintKind::FullyConstrained => Self::FullyConstrained,
+            kcl_lib::ConstraintKind::UnderConstrained => Self::UnderConstrained,
+            kcl_lib::ConstraintKind::OverConstrained => Self::OverConstrained,
+            kcl_lib::ConstraintKind::Error => Self::Error,
+        }
+    }
+}
+
+/// Per-sketch summary of constraint freedom analysis.
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone)]
+pub struct SketchConstraintStatus {
+    /// Name of the variable the sketch was assigned to. Empty when the sketch
+    /// has no enclosing variable declaration, and shared between entries when
+    /// two sketches resolve to the same declaration. This name can be passed
+    /// to `ExecOutcome.render_sketch_png`, with instance_index for duplicates.
+    #[pyo3(get)]
+    pub name: String,
+    /// Zero-based creation order among sketches with this name. Obtain a
+    /// fresh report for the same entrypoint after editing the project.
+    #[pyo3(get)]
+    pub instance_index: usize,
+    #[pyo3(get)]
+    pub status: ConstraintKind,
+    #[pyo3(get)]
+    pub free_count: usize,
+    #[pyo3(get)]
+    pub conflict_count: usize,
+    #[pyo3(get)]
+    pub total_count: usize,
+}
+
+impl From<kcl_lib::SketchConstraintStatus> for SketchConstraintStatus {
+    fn from(s: kcl_lib::SketchConstraintStatus) -> Self {
+        Self {
+            name: s.name,
+            instance_index: s.instance_index,
+            status: s.status.into(),
+            free_count: s.free_count,
+            conflict_count: s.conflict_count,
+            total_count: s.total_count,
+        }
+    }
+}
+
+/// Full KCL error details associated with an incomplete report.
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone)]
+pub struct KclErrorInfo {
+    #[pyo3(get)]
+    pub phase: String,
+    #[pyo3(get)]
+    pub text: String,
+}
+
+/// Grouped report of all sketches by constraint status.
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone)]
+pub struct SketchConstraintReport {
+    #[pyo3(get)]
+    pub fully_constrained: Vec<SketchConstraintStatus>,
+    #[pyo3(get)]
+    pub under_constrained: Vec<SketchConstraintStatus>,
+    #[pyo3(get)]
+    pub over_constrained: Vec<SketchConstraintStatus>,
+    #[pyo3(get)]
+    pub errors: Vec<SketchConstraintStatus>,
+    /// Rendered non-fatal KCL execution warnings collected while computing
+    /// the constraint report.
+    #[pyo3(get)]
+    pub warnings: Vec<String>,
+    /// Rendered non-fatal KCL execution errors collected while computing the
+    /// constraint report.
+    #[pyo3(get)]
+    pub execution_errors: Vec<String>,
+    /// Rendered fatal KCL execution issues collected while computing the
+    /// constraint report.
+    #[pyo3(get)]
+    pub execution_fatals: Vec<String>,
+    #[pyo3(get)]
+    pub is_complete: bool,
+    #[pyo3(get)]
+    pub kcl_error: Option<KclErrorInfo>,
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pymethods]
+impl SketchConstraintReport {
+    /// Total number of sketches across all categories.
+    fn total_sketches(&self) -> usize {
+        self.fully_constrained.len() + self.under_constrained.len() + self.over_constrained.len() + self.errors.len()
+    }
+}
+
+impl From<kcl_lib::SketchConstraintReport> for SketchConstraintReport {
+    fn from(r: kcl_lib::SketchConstraintReport) -> Self {
+        Self {
+            fully_constrained: r.fully_constrained.into_iter().map(Into::into).collect(),
+            under_constrained: r.under_constrained.into_iter().map(Into::into).collect(),
+            over_constrained: r.over_constrained.into_iter().map(Into::into).collect(),
+            errors: r.errors.into_iter().map(Into::into).collect(),
+            warnings: Vec::new(),
+            execution_errors: Vec::new(),
+            execution_fatals: Vec::new(),
+            is_complete: true,
+            kcl_error: None,
+        }
+    }
+}

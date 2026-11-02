@@ -1,0 +1,61 @@
+[package]
+name = "egobox"
+authors.workspace = true
+version = "1.0.0"
+license.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "A python binding for egobox crates"
+readme = "README.md"
+
+[lib]
+name = "egobox"
+crate-type = ["cdylib", "rlib"]
+doctest = false                 # do not doctest as doc uses Python style for Python API doc
+
+[features]
+default = []
+# Use cobyla crate (C-ported NLopt COBYLA) instead of basin COBYLA
+c-cobyla = [
+    "egobox-ego/c-cobyla",
+    "egobox-gp/c-cobyla",
+    "egobox-moe/c-cobyla",
+    "egobox-gpx/c-cobyla",
+]
+# Use slsqp crate (C-ported NLopt SLSQP) instead of basin SLSQP
+c-slsqp = ["egobox-ego/c-slsqp"]
+
+serializable-gp = ["egobox-gp/serializable"]
+blas = ["ndarray/blas", "egobox-gp/blas", "egobox-moe/blas", "egobox-ego/blas"]
+
+[dependencies]
+egobox-doe = { version = "0.35.2", path = "../crates/doe" }
+egobox-gp = { version = "0.37.1", path = "../crates/gp" }
+egobox-moe = { version = "0.36.2", path = "../crates/moe" }
+egobox-ego = { version = "0.42.0", path = "../crates/ego" }
+egobox-gpx = { version = "0.6.0", path = "../crates/gpx" }
+
+
+pyo3 = { version = "0.29.0" }
+numpy = "0.29.0"
+
+linfa.workspace = true
+ndarray.workspace = true
+ndarray-rand.workspace = true
+
+rand_xoshiro.workspace = true
+env_logger.workspace = true
+log.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+ctrlc.workspace = true
+
+argmin_testfunctions.workspace = true
+pyo3-stub-gen = { version = "0.23.0", features = ["numpy"] }
+bincode.workspace = true
+
+[[bin]]
+name = "stub_gen"
+doc = false

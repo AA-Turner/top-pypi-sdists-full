@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import protocol as p
+from probe.foundation import service_api as p
 
 SNAPSHOT = json.loads((Path(__file__).parent / "fixtures" / "service_api_v1_contract.json").read_text())
 

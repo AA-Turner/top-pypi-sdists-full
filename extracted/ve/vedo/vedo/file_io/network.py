@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+"""Network and filesystem utilities for file I/O."""
+
+import os
+import time
+from tempfile import NamedTemporaryFile
+
+import vedo
+from vedo import settings
+
+__docformat__ = "google"
+__all__ = ["download", "gunzip", "file_info"]
+
+
+def download(url: str, force=False, verbose=True) -> str:
+    """
+    Retrieve a file from a URL, save it locally and return its path.
+    Use `force=True` to force a reload and discard cached copies.
+    """
+    if not url.startswith("https://"):
+        # assume it's a file so no need to download
+        return url
+    url = url.replace("www.dropbox", "dl.dropbox")
+
+    if "github.com" in url:
+        url = url.replace("/blob/", "/raw/")
+
+    basename = os.path.basename(url)
+
+    if "?" in basename:
+        basename = basename.split("?")[0]
+
+    home_directory = os.path.expanduser("~")
+    cachedir = os.path.join(home_directory, settings.cache_directory, "vedo")
+    fname = os.path.join(cachedir, basename)
+    # Create the directory if it does not exist
+    if not os.path.exists(cachedir):
+        os.makedirs(cachedir)
+
+    if not force and os.path.exists(fname):
+        if verbose:
+            vedo.logger.info(f"Reusing cached file: {fname}")
+        return fname
+
+    try:
+        from urllib.request import urlopen, Request
+
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        if verbose:
+            vedo.logger.info(
+                f"Reading {basename} from {url.split('/')[2][:40]}..."
+            )
+
+    except ImportError:
+        import urllib2  # type: ignore
+        import contextlib
+
+        def urlopen(url_):
+            return contextlib.closing(urllib2.urlopen(url_))
+
+        req = url
+        if verbose:
+            vedo.logger.info(
+                f"Reading {basename} from {url.split('/')[2][:40]}..."
+            )
+
+    with urlopen(req) as response, open(fname, "wb") as output:
+        output.write(response.read())
+
+    return fname
+
+
+########################################################################
+def gunzip(filename: str) -> str:
+    """Unzip a `.gz` file to a temporary file and returns its path."""
+    if not filename.endswith(".gz"):
+        # colors.printc("gunzip() error: file must end with .gz", c='r')
+        return filename
+
+    import gzip
+
+    tmp_file = NamedTemporaryFile(delete=False)
+    tmp_file.name = os.path.join(
+        os.path.dirname(tmp_file.name), os.path.basename(filename).replace(".gz", "")
+    )
+    inF = gzip.open(filename, "rb")
+    with open(tmp_file.name, "wb") as outF:
+        outF.write(inF.read())
+    inF.close()
+    return tmp_file.name
+
+
+########################################################################
+def file_info(file_path: str) -> tuple[str, str]:
+    """Return the file size and creation time of input file"""
+    siz, created = "", ""
+    if os.path.isfile(file_path):
+        f_info = os.stat(file_path)
+        num = f_info.st_size
+        for x in ["B", "KB", "MB", "GB", "TB"]:
+            if num < 1024.0:
+                break
+            num /= 1024.0
+        siz = "%3.1f%s" % (num, x)
+        created = time.ctime(os.path.getmtime(file_path))
+    return siz, created

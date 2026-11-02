@@ -14,17 +14,17 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities as caps_mod
+from probe.cli.wizard import state as caps_mod
 from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 from probe.shared.harness.harnesses import pi as pi_config
-from probe.cli.capabilities import (
+from probe.cli.wizard.state.state import (
     DAEMON_PLUGIN_NAME,
     TRACKING_PLUGIN_NAME,
     Capabilities,
+    McpState)
+from probe.shared.harness.mcp import (
     McpCheck,
-    McpCredential,
-    McpState,
-)
+    McpCredential)
 from probe.foundation.harness_registry import get_registry
 from probe.foundation.harness_registry import harness_registry as reg
 
@@ -42,7 +42,7 @@ def isolate(tmp_path, monkeypatch):
     (tmp_path / "home").mkdir()
     monkeypatch.chdir(tmp_path / "home")
     # The process-wide token verdict never leaks between tests.
-    monkeypatch.setattr(caps_mod, "_MCP_TOKEN_VERDICT", None)
+    monkeypatch.setattr(caps_mod.mcp_checks, "_MCP_TOKEN_VERDICT", None)
     return tmp_path
 
 
@@ -101,11 +101,15 @@ def test_state_precedence_and_words(kw, state, words):
 
 def test_the_daemon_profile_reads_as_the_daemon_not_as_on(monkeypatch):
     """The daemon plugin carries no MCP; it read "MCP on" before."""
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
     caps = _caps(mcp_check=McpCheck(McpCredential.MISSING))
     assert caps.mcp_state == McpState.DAEMON
     assert caps.mcp_status() == "off: the daemon reads for this agent"
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
     assert caps.mcp_state == McpState.LOGIN_NEEDED
 
 
@@ -121,7 +125,7 @@ def test_the_cli_token_resolves_env_first_like_the_helper(isolate, monkeypatch):
     assert caps_mod.cli_mcp_token() == "from-config"
     monkeypatch.setenv("PROBE_MCP_TOKEN", "from-env")
     assert caps_mod.cli_mcp_token() == "from-env"
-    helper = (Path(caps_mod.__file__).parents[3] / "plugins" / "probe-research" / "bin" / "probe-mcp-headers").read_text()
+    helper = (Path(caps_mod.__file__).parents[5] / "plugins" / "probe-research" / "bin" / "probe-mcp-headers").read_text()
     assert helper.index("PROBE_MCP_TOKEN") < helper.index("mcp_token")
 
 
@@ -225,7 +229,7 @@ def test_codex_on_its_own_oauth_login_is_not_the_refused_token(refused, monkeypa
 
 def test_the_wizard_re_authorizes_a_refused_token(refused):
     """Presence used to count as held, so `probe wizard` was a no-op."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     caps = _caps(mcp_token_held=True)
     selection = wizard.Selection(tracking=True, capture=False, auto_update=False, agent_rules=False)
@@ -250,9 +254,11 @@ def test_no_token_asks_nothing(isolate, monkeypatch):
 
 
 def test_the_wizard_header_prints_each_agents_mcp_answer(monkeypatch):
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
     lines = wizard.describe_state({
         "claude_code": _caps(),
         "kimi_code": _caps(agent_source="kimi_code", mcp_kind=reg.MCP_PLUGIN_MANIFEST,
@@ -270,9 +276,11 @@ def test_the_wizard_header_prints_each_agents_mcp_answer(monkeypatch):
 def test_the_wizard_header_shows_only_installed_agents(monkeypatch):
     """Richard 2026-10-05: "only show the harness if its actually detected as
     installed on the device"."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
     caps = {"claude_code": _caps(), "pi": _caps(agent_source="pi", mcp_kind=reg.MCP_EXTENSION_BRIDGE)}
     lines = wizard.describe_state(caps, installed=("claude_code",))
     assert lines[0].strip().startswith("Claude Code") and lines[1] == ""
@@ -282,7 +290,7 @@ def test_the_wizard_header_shows_only_installed_agents(monkeypatch):
 
 
 def test_every_installable_agent_has_a_logo():
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     for harness in get_registry().installable():
         logo = wizard.agent_logo(harness.id)
@@ -293,10 +301,12 @@ def test_every_installable_agent_has_a_logo():
 def test_a_terminal_that_draws_images_gets_logos_and_hover_names(monkeypatch):
     """Richard 2026-10-06: the real logos, and the name on hover. Kitty replies
     are switched off (q=2): a reply lands on stdin, where the menu reads keys."""
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: TRACKING_PLUGIN_NAME)
     caps = {"claude_code": _caps(), "codex": _caps(agent_source="codex")}
     rows = wizard.describe_state(caps, images=tui.ImageProtocol.KITTY)[:2]
     assert [row.hover for row in rows] == ["Claude Code", "Codex"]
@@ -308,9 +318,11 @@ def test_a_terminal_that_draws_images_gets_logos_and_hover_names(monkeypatch):
 
 
 def test_doctor_prints_the_mcp_answer(monkeypatch):
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
-    monkeypatch.setattr(caps_mod, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.agent_identity, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.plugins, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
+    monkeypatch.setattr(caps_mod.state, "tracking_plugin_name", lambda source=None: DAEMON_PLUGIN_NAME)
     text = doctor.render(_caps())
     assert "off: the daemon reads for this agent" in text
 
@@ -321,7 +333,7 @@ def test_only_a_refusal_re_authorizes(isolate, monkeypatch, verdict):
     """An unreachable API is not a refused token: no browser approval for it."""
     import importlib
 
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     _config_token(isolate, "tok")
     cli_main = importlib.import_module("probe.cli.main")
@@ -334,9 +346,10 @@ def test_only_a_refusal_re_authorizes(isolate, monkeypatch, verdict):
 
 def test_a_codex_bearer_the_device_has_replaced_is_a_login_needed(monkeypatch):
     """`codex mcp list` answers bearer_token for a dead header too."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
-    monkeypatch.setattr(wizard, "codex_mcp_token_drifted", lambda: True)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.codex_mcp_token_drifted", lambda: True)
+    monkeypatch.setattr(wizard.apply.authorize, "codex_mcp_token_drifted", lambda: True)
     assert caps_mod.check_mcp("codex", codex_auth=True)[1].credential == McpCredential.MISSING
 
 

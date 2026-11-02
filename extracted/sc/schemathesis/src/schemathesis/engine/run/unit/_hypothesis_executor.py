@@ -16,6 +16,7 @@ from schemathesis.engine.run import TESTING_PHASES, PhaseName
 from schemathesis.engine.run.unit._case import ServerWentAway
 from schemathesis.engine.run.unit._errors import classify_test_exception
 from schemathesis.engine.run.unit._scenario import Scenario, iter_closing_events, start_scenario
+from schemathesis.generation.hypothesis import add_database_key
 from schemathesis.generation.hypothesis.builder import MissingPathParameters
 from schemathesis.generation.hypothesis.reporting import ignore_hypothesis_output
 
@@ -57,7 +58,9 @@ def run_test(
     except BudgetExpired:
         # The operation ran out of its share, not the whole run — keep whatever it already produced,
         # errors included: running out of time does not undo them.
-        status, skip_reason, stored = _settle_stopped(scenario, errors, skip_reason="Time limit reached")
+        status, skip_reason, stored = _settle_stopped(
+            scenario, errors, skip_reason=StopReason.MAX_TIME.skip_explanation
+        )
         if stored is not None:
             yield stored
     except ServerWentAway:
@@ -112,4 +115,5 @@ def setup_hypothesis_database_key(test: Callable, operation: APIOperation, gener
     if generation.database is not None and generation.database.lower() == "none":
         test._hypothesis_internal_database_key = None  # type: ignore[attr-defined]
         return
-    test.hypothesis.inner_test._hypothesis_internal_add_digest = operation.label.encode("utf8")  # type: ignore[attr-defined]
+    # Hypothesis-decorated tests expose the wrapped test as `hypothesis.inner_test`.
+    add_database_key(test.hypothesis.inner_test, operation.label)  # type: ignore[attr-defined]

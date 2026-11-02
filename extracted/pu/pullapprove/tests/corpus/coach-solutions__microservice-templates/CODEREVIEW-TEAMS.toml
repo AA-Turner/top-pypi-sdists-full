@@ -1,0 +1,42 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+template = true
+
+[aliases]
+backend = [
+  "mozerov",
+  "johannesmols",
+  "hua-dit-alkistis",
+  "hvassup",
+  "lundemann",
+  "paris-ch",
+  "Jannik-coachsolutions",
+]
+backend-interested = ["bferraro78", "lianulloa", "timmarschall-coach", "eaecoach"]
+frontend = ["lianulloa", "timmarschall-coach"]
+frontend-interested = [
+  "mozerov",
+  "johannesmols",
+  "hvassup",
+  "Jannik-coachsolutions",
+  "eaecoach",
+  "abicoachsolutions",
+]
+test-automation = ["eaecoach", "lsmcoach", "abicoachsolutions"]
+test-automation-interested = [
+  "mozerov",
+  "johannesmols",
+  "bferraro78",
+  "hvassup",
+  "Jannik-coachsolutions",
+]
+dev-ops = ["bferraro78", "automationpi"]
+dev-ops-interested = [
+  "mozerov",
+  "johannesmols",
+  "lianulloa",
+  "hvassup",
+  "lundemann",
+  "timmarschall-coach",
+  "Jannik-coachsolutions",
+]

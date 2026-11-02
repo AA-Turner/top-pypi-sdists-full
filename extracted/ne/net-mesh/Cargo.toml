@@ -1,0 +1,863 @@
+[workspace]
+members = [".", "wire", "sdk", "sdk-macros", "payments", "adapters/mcp", "bindings/python"]
+
+[workspace.package]
+# THE version of every crate in this workspace (each member inherits it with
+# `version.workspace = true`). Bump it here; the version-consistency check
+# (.github/scripts/check-versions.py) fails CI on any published manifest,
+# internal dependency or package file that disagrees.
+version = "0.46.0"
+
+[package]
+name = "net-mesh"
+version.workspace = true
+edition = "2021"
+description = "High-performance, schema-agnostic, backend-agnostic event bus"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ai-2070/net"
+keywords = ["event-bus", "high-performance", "streaming"]
+categories = ["asynchronous", "concurrency", "data-structures"]
+
+[lints.rust]
+# `loom` is a custom cfg activated via RUSTFLAGS="--cfg loom"
+# for `tests/loom_models.rs` (FAILURE_PATH_HARDENING_PLAN
+# Stage 2). Declaring it here suppresses the stable-compiler
+# `unexpected_cfgs` warning without affecting default builds.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
+[lints.clippy]
+# Panic-hygiene + unsafe-documentation lints — closing-state per Stage 4
+# of PANIC_AUDIT_AND_LINT_HARDENING_PLAN.md.
+#
+# Held at "warn" rather than "deny" because Cargo applies the `[lints]`
+# table AFTER command-line lint flags, which means a package-level
+# "deny" cannot be overridden by `-A` on `cargo clippy --all-targets`.
+# That matters for the test surface: ~5000 test-code unwraps would
+# block CI if the lint were forced to deny everywhere.
+#
+# Enforcement is split across two CI clippy steps in
+# `.github/workflows/ci.yml`:
+#   - `--lib --bins -- -D warnings`  -> production code, strict
+#   - `--all-targets -- -D warnings -A clippy::unwrap_used ...`
+#     -> tests / benches / examples, with allowed unwraps
+#
+# Devs running plain `cargo clippy` locally see these as warnings,
+# which is the right signal density during normal development.
+unwrap_used                   = "warn"
+expect_used                   = "warn"
+undocumented_unsafe_blocks    = "warn"
+multiple_unsafe_ops_per_block = "warn"
+
+[lib]
+# Keep the crate name as `net` so internal `use net::...` paths and
+# every dependent that aliases via `net = { package = "net-mesh", ... }`
+# resolve without code changes. The published artifact is
+# `net-mesh` on crates.io.
+name = "net"
+# NOT `cdylib`. `bindings/go/net-ffi` is what emits `libnet`, because it is
+# the only crate that can link this one together with the seven C-ABI
+# surfaces. Two cdylibs both carrying `net::ffi` is the bug that hung Go CI:
+# link order unifies the duplicate functions, never the `static`s, and
+# `parking_lot_core`'s parked-thread registry is one of those.
+crate-type = ["lib", "staticlib"]
+
+[features]
+# Test/bench-only fixture helpers that bypass a production invariant.
+#
+# `capability_bridge::apply_legacy_announcement` applies an announcement to a
+# fold WITHOUT the live revocation floors, and `MeshNode::capability_fold()` is
+# `pub` — so in a release build any consumer could pair the two and install an
+# ownership projection for a certificate already below a live floor, outside
+# the revocation-aware ingest path and with no callback left to retract it
+# (§12 residual, Kyra).
+#
+# A Cargo feature rather than `#[cfg(test)]` alone: benches AND integration
+# tests link the library as an external crate and cannot see `#[cfg(test)]`
+# items. Off by default, so a downstream `cargo add net-mesh` cannot reach it
+# at all.
+fixtures = []
+# Out-of-the-box `cargo add net-mesh` ships the same stack the
+# Python wheel and Node npm package ship by default — mesh transport
+# + NAT traversal + CortEX (folded state) + NetDb + RedEX disk +
+# MeshDB query layer + MeshOS daemon-authoring + Dataforts blob
+# storage. `redis`, `jetstream`, `port-mapping`, `cli` stay opt-in:
+# external service deps / niche audiences / +1.4 MB router-poking
+# crate / binary-only surface. `compute` and `groups` aren't
+# core-crate features — they live in `net-sdk` and only the bindings
+# expose them.
+default = [
+    "net",
+    "nat-traversal",
+    "cortex",
+    "meshdb",
+    "meshos",
+    "dataforts",
+]
+redis = ["dep:redis"]
+jetstream = ["dep:async-nats"]
+net = [
+    "dep:chacha20poly1305",
+    "dep:ring",
+    "dep:snow",
+    "dep:getrandom",
+    "dep:dashmap",
+    "dep:crossbeam-queue",
+    "dep:socket2",
+    "dep:hex",
+    "dep:libc",
+    "dep:blake2",
+    # Sensing-interest digests (`behavior::sensing`,
+    # SENSING_INTEREST_COALESCING_PLAN §3.2) are blake3 with
+    # derive_key domain separation — already in the tree via
+    # meshos/dataforts; the sensing plane makes it a `net` dep.
+    "dep:blake3",
+    "dep:ed25519-dalek",
+    "dep:x25519-dalek",
+    # Constant-time byte compares for the bearer-secret newtypes
+    # (`GroupId` / `SubnetId`); already in the tree via the dalek stack.
+    "dep:subtle",
+    # postcard is the canonical wire codec for the
+    # `behavior::{fold, group, subnet}` modules — `SubnetId` /
+    # `GroupId` round-trip + the fold dispatch / wire types both
+    # encode through it. Always pulled with `net` (was previously
+    # only reachable via the `redex` transitive activation).
+    "dep:postcard",
+]
+# `regex` gates `TagMatcher::Regex` capability-query matching + the
+# safety-predicate precompiled-pattern cache. Off by default — the
+# regex crate adds ~500 KiB to release artifacts and most consumers
+# never construct a `Regex` matcher. With the feature off,
+# `TagMatcher::Regex` still parses on the wire (kept in the enum for
+# format compat) but routes through the existing
+# "invalid → matches nothing" fail-closed path on the receiver side.
+# Batched ingress (NRPC_RECV_LOOP_BATCHING_PLAN) — compile the mesh
+# receive loop's Linux `recvmmsg` batched-ingress path and its
+# measurement instrument at all. Two-level gate: this build flag decides
+# whether the batching code is *included*; `MeshNodeConfig::batched_ingress`
+# (only present with this feature) decides whether it's *enabled* at
+# runtime. Off by default — batched ingress is pending the c128 latency
+# measurement, and the per-packet path stays the only one in default builds.
+# Depends on `net` (the adapter the gated code lives in) so enabling it
+# alone is self-contained rather than a silent no-op.
+batched-ingress = ["net"]
+regex = ["dep:regex"]
+# AI tool-calling surface — gates the `cortex::tool` module
+# (`ToolDescriptor` discovery shape + `ToolEvent` streaming envelope)
+# and the SDK-side `serve_tool` / `list_tools` / `call_tool` helpers.
+# Off by default — consumers who don't ship LLM-tool agents skip the
+# small extra surface. The wire-level pieces this composes against
+# (`ToolCapability` in `behavior::capability`, the capability fold,
+# `call_service_streaming`) compile unconditionally so peers without
+# the feature still exchange `ToolCapability` announcements.
+#
+# Requires `cortex` because `ToolDescriptor` + the future
+# `tool.metadata.fetch` RPC live alongside the existing typed-call
+# infrastructure.
+tool = ["cortex"]
+ffi = []
+redex = ["net", "dep:tokio-stream", "dep:postcard"]
+redex-disk = ["redex"]
+cortex = ["redex"]
+netdb = ["cortex"]
+# MeshDB (Atomic Playboys) — federated query layer above the
+# capability-query primitives + CortEX folds. AST + planner
+# + executor for time-travel / lineage / cross-chain joins /
+# streaming aggregates across many nodes and chains.
+# Disabled by default; activation requires a concrete consumer
+# workload (telemetry + Deck metrics are the named
+# candidates). See `docs/internal/plans/MESHDB_PLAN.md`.
+meshdb = ["cortex"]
+# MeshOS (Atomic Playboys, follows MeshDB) — cluster-behavior
+# engine. One canonical event loop per node that reconciles
+# desired vs actual state, supervises daemons, enforces replica
+# placement, applies admin intent (drain / cordon /
+# maintenance), and folds the result into a behavior snapshot
+# for Deck. Phase A ships the skeleton (event mux + pure-sync
+# reconcile no-op + action executor); later phases fill in
+# supervision (B), replica enforcement (C), locality + admin
+# events (D), maintenance state machine (E), behavior snapshot
+# fold (F), and backpressure (G). See `docs/internal/plans/MESHOS_PLAN.md`.
+meshos = ["cortex", "dep:blake3"]
+# Dataforts (Rebel Yell) — compile the dataforts module surface,
+# which covers every phase the plan calls runtime-toggleable:
+# greedy-LRU caching (Phase 1), data-gravity heat counters
+# (Phase 4), and the surfaces that compose against them. Each
+# phase exposes its own `enable_*` / `disable_*` operator
+# methods on `Redex`; toggling at runtime is the cluster-policy
+# control surface, not a Cargo-feature decision. See
+# `docs/internal/misc/DATAFORTS_PLAN.md` for the per-phase wiring + the
+# rationale for the single compile-time gate.
+dataforts = [
+    "redex",
+    "redex-disk",
+    "dep:blake3",
+    "dep:fastcdc",
+    "dep:reed-solomon-erasure",
+    # Unicode normalization for the dir-transfer symlink-composition
+    # check: default macOS APFS compares filenames normalization- AND
+    # case-insensitively, so the lexical traversal check must fold both
+    # to avoid an NFC/NFD bypass (see `dir::fold_component`).
+    "dep:unicode-normalization",
+]
+# NAT traversal — reflex probe + classification + rendezvous punch.
+# Stages 1–3 of `docs/NAT_TRAVERSAL_PLAN.md`. No new deps; rides
+# the existing mesh + subprotocol surface. Sits on top of `net`.
+nat-traversal = ["net"]
+# Stage 3 of BROWSER_NATIVE_WEBRTC_TRANSPORT_PLAN.md: the native
+# WebRTC DataChannel transport — a dedicated UDP socket, one driver
+# task owning every `str0m::Rtc`, and `PeerAddr::Rtc` endpoints.
+#
+# **Off by default, and it is the only feature with a C build-time
+# dependency.** `str0m`'s `rust-crypto` stack still pulls
+# `aws-lc-rs`/`aws-lc-sys`, whose build needs cmake plus a C compiler
+# (MSVC or clang) and NASM on x86_64 — S0b measured this; see
+# CONTRIBUTING.md. A default `cargo build` remains C-free.
+#
+# Implies `nat-traversal`: ICE candidate classification reuses the
+# traversal pair logic (`PairAction::Ice`).
+webrtc = ["nat-traversal", "dep:str0m", "net-mesh-wire/webrtc"]
+# Opportunistic port mapping via UPnP-IGD / NAT-PMP / PCP.
+# Stage 4 of the plan. Adds two external deps; off by default
+# because port mapping modifies state on the user's router and
+# some environments forbid it.
+port-mapping = ["nat-traversal", "dep:igd-next"]
+# NB: NAT-PMP wire format is inlined in
+# `adapter/net/traversal/portmap/natpmp.rs` per plan decision 10
+# — no `rust-natpmp` dep. UPnP-IGD SOAP / SSDP is complex
+# enough to justify pulling in `igd-next` (stage 4b-3).
+# Operator CLI surface (`net-blob` bin). Pulls in `clap` for
+# subcommand + arg parsing. Composes against `dataforts` +
+# `redex-disk` so the bin can open a persistent Redex handle
+# and drive the MeshBlobAdapter directly — no daemon / IPC
+# dependency. Gated behind its own feature so library consumers
+# don't pay the clap build cost.
+cli = ["dataforts", "redex-disk", "dep:clap"]
+
+[dependencies]
+# The wire layer (Stage 2 extraction): packet protocol, Noise
+# handshake, packet AEAD, reliability, sessions, the routing envelope.
+# tokio-free and wasm32-clean; the core re-exports every module of it
+# under its previous path.
+net-mesh-wire = { version = "0.46.0", path = "wire", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "net", "io-util"] }
+
+# JSON handling (schema-agnostic)
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["raw_value"] }
+
+# High-performance primitives
+crossbeam-utils = "0.8"
+parking_lot = "0.13"
+
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# Zero-copy bytes
+bytes = "1"
+
+# Timestamp generation
+quanta = "0.13"
+
+# Base64 encoding for cursors
+base64 = "0.23"
+
+# Async utilities
+async-trait = "0.1"
+futures = "0.3"
+
+# Error handling
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+arc-swap = "1.7.1"
+
+# Net adapter (optional)
+chacha20poly1305 = { version = "0.11", optional = true, features = ["zeroize"] }
+# Packet-path AEAD (RFC 8439 ChaCha20-Poly1305) — CRYPTO SPIKE
+# (2026-06-11). The RustCrypto chacha20poly1305 stack pays ~700 ns
+# of per-MESSAGE fixed cost in poly1305 0.8's AVX2 backend
+# (Poly1305::new re-derives the r^1..r^4 key powers per call),
+# dominating small-packet encrypt/decrypt (975 ns at 64 B vs
+# ~0.47 ns/B marginal). ring's asm implementation has both low
+# fixed cost and higher bulk rate. Wire format is unchanged —
+# both implement RFC 8439, so ciphertexts are byte-identical and
+# mixed-version meshes interoperate (pinned by the cross-impl
+# round-trip tests in crypto.rs). chacha20poly1305 stays for the
+# IdentityEnvelope XChaCha sealed-box and as the cross-impl test
+# oracle.
+ring = { version = "0.17", optional = true }
+snow = { version = "0.10.0", optional = true }
+# Sans-IO WebRTC: ICE + DTLS + SCTP + DataChannel state machines with
+# no runtime of their own, which is why the driver can own the socket.
+# `default-features = false, features = ["rust-crypto"]` is the exact
+# pin S0b validated.
+str0m = { version = "0.24.0", optional = true, default-features = false, features = [
+    "rust-crypto",
+] }
+getrandom = { version = "0.4.2", optional = true }
+dashmap = { version = "6", optional = true }
+crossbeam-queue = { version = "0.3", optional = true }
+socket2 = { version = "0.6", features = ["all"], optional = true }
+hex = { version = "0.4", optional = true }
+libc = { version = "0.2", optional = true }
+# BLAKE2s-MAC — the KDF/derivation primitive behind EntityId::node_id,
+# the identity envelope, route-hop MACs and the subnet cred-set hash.
+# 0.11 rides digest 0.11: `digest::generic_array` is gone (use
+# `digest::consts`) and `new_from_slice` lives on `KeyInit`, not `Mac`.
+# `snow` 0.10 still pins ^0.10, so two blake2 copies coexist in the
+# lock — a compile-time-only duplicate, both are pure Rust.
+blake2 = { version = "0.11", optional = true }
+# BLAKE3 — content-addressed hash for the Dataforts blob surface
+# (Phase 3). Locked by `DATAFORTS_PLAN.md` as the only blob hash
+# algorithm; a 1-byte version field reserved in the encoded form
+# lets future migrations land without breaking BlobRef wire compat.
+blake3 = { version = "1", optional = true }
+# FastCDC content-defined chunker for the Dataforts blob v0.3 Phase B
+# CDC path. Pinned to the v4.0.x patch series (FastCDC-2020 /
+# normalized-chunking variant) — FastCDC determinism is load-bearing
+# for cross-producer content-address dedup, and the crate's gear
+# table / mask-bit derivation could shift between minor releases. A
+# 4.0 → 4.1 bump would silently invalidate every CDC-stored blob
+# across the cluster. The v2020 module exposes
+# `FastCDC::new(buf, min, avg, max)` returning a chunk iterator; we
+# drive it incrementally over an accumulated buffer in
+# `super::dataforts::blob::cdc::CdcStreamChunker`. Boundaries are
+# content-defined, so the same input always lands on the same chunk
+# boundaries, enabling dedup-after-edit.
+fastcdc = { version = "~5.0.0", optional = true, default-features = false }
+# Reed-Solomon erasure coding for the Dataforts blob v0.3 Phase C
+# storage-cost-reduction path. Pinned to v6.x — provides
+# `ReedSolomon<galois_8::Field>` over `GF(2^8)` with systematic
+# encoding (data chunks pass through; m parity chunks generated by
+# matrix multiply). `reconstruct_data` recovers any subset of
+# missing data chunks given enough total survivors (data + parity)
+# to reach k. Pure Rust by default; the `simd-accel` feature
+# pulls in a `cc` C-build for x86-64/aarch64 SIMD — left off here
+# so library consumers don't need a C toolchain. The default
+# implementation already saturates ~3 GB/s on a single core for
+# (10, 4) on modern CPUs, plenty for the v0.3 throughput targets.
+reed-solomon-erasure = { version = "6", optional = true, default-features = false, features = ["std"] }
+# O(1) LRU cache for `super::dataforts::blob::blob_tree_cache::TreeNodeCache`.
+# Pre-fix the cache implemented its own VecDeque-of-keys MRU ordering, which
+# made every hit O(N) over the order vec (~13 K compares at the 64 MiB default
+# cap). The `lru` crate's doubly-linked-list implementation makes get / put /
+# remove all O(1). Pinned to the 0.16 line — same major as the version
+# already pulled transitively, no second copy in the resolver graph.
+lru = "0.19"
+smallvec = "1.16"
+foldhash = "0.2"
+# Capability-fold inverted-index buckets (CAPABILITY_FOLD_SCALE_PLAN.md
+# Slice 7): compressed bitmaps over dense per-entry slots. `std` only; the
+# nightly `simd` feature stays off. Receiver-local, never a wire format.
+roaring = { version = "0.12", default-features = false, features = ["std"] }
+ed25519-dalek = { version = "3", features = ["rand_core", "zeroize"], optional = true }
+# X25519 DH for the `IdentityEnvelope` sealed-box construction used
+# by daemon migration. We derive an ephemeral pubkey, DH against the
+# target's static X25519 pubkey, and key an XChaCha20-Poly1305 AEAD
+# to seal the 32-byte ed25519 seed under the target's key — the
+# construction mirrors libsodium's `crypto_box_seal` but uses the
+# XChaCha AEAD already in-tree rather than pulling in XSalsa20.
+x25519-dalek = { version = "3", features = ["static_secrets", "zeroize"], optional = true }
+# Audited, optimizer-resistant constant-time primitives. Used for the
+# bearer-secret newtype compares (`GroupId` / `SubnetId`); already
+# compiled in transitively via the dalek/curve25519 stack, so a direct
+# (optional) dep adds nothing to the build.
+subtle = { version = "2", optional = true }
+# Unicode normalization (NFC) for the dir-transfer symlink-composition
+# check — see the `dataforts` feature. Small, dependency-free crate from
+# the unicode-rs team.
+unicode-normalization = { version = "0.1", optional = true }
+# Regex for `TagMatcher::Regex` (Phase 6c-C) + the safety predicate
+# match path in `behavior::safety`. Optional — gated behind the
+# `regex` Cargo feature. Off by default keeps ~500 KiB out of the
+# release wheel; consumers who construct `TagMatcher::Regex`
+# matchers turn it on. The wire format keeps the `Regex` variant
+# unconditionally so peers can still exchange it; receivers built
+# without the feature fail the match closed (existing "invalid
+# pattern → matches nothing" contract).
+regex = { version = "1", optional = true }
+
+# Semver-range matching for `TagMatcher::VersionRange` (Phase 6c-C).
+# Small (~50KB), no transitive load — pulled in unconditionally so
+# the aggregation surface ships uniformly across binaries.
+semver = "1"
+
+# UPnP-IGD client (optional). Behind `port-mapping` — used by
+# `adapter/net/traversal/portmap/upnp.rs`. NAT-PMP's wire format
+# is inlined directly (see `portmap/natpmp.rs`); UPnP involves
+# SSDP discovery + SOAP XML + URL dispatch, which is
+# considerably more ceremony than is worth re-implementing.
+igd-next = { version = "0.18", default-features = false, features = ["aio_tokio"], optional = true }
+
+# Redis adapter (optional)
+redis = { version = "1.2", features = ["tokio-comp", "connection-manager"], optional = true }
+
+# JetStream adapter (optional)
+async-nats = { version = "0.51", optional = true }
+
+# RedEX adapter (optional)
+tokio-stream = { version = "0.1", optional = true, features = ["sync"] }
+postcard = { version = "1", features = ["alloc"], optional = true, default-features = false }
+
+# Operator CLI dep (`net-blob` bin). Optional + gated behind the
+# `cli` feature so library consumers don't pay the clap build
+# cost. v4 derive macros give us the typed Subcommand surface
+# the bin uses for routing.
+clap = { version = "4", features = ["derive", "env"], optional = true }
+
+[dev-dependencies]
+# The wire crate's own surface, for `tests/cross_lang_wire.rs`: the
+# AEAD golden vector is asserted against the seam directly, so the
+# fixture pins the backend rather than only the packet path above it.
+net-mesh-wire = { version = "0.46.0", path = "wire", features = ["json", "test-vectors"] }
+tokio = { version = "1", features = ["full", "test-util"] }
+# `heartbeat_api_drift_check`'s workspace-layout classifier is
+# witnessed over synthetic trees (a packaged crate, the same tree
+# under a foreign `.git`, a stray `wire/` directory).
+tempfile = "3"
+criterion = { version = "0.8", features = ["async_tokio"] }
+# `examples/natsim_node.rs` only. The natsim scenarios run helper nodes
+# inside network namespaces, and the rendezvous drop paths they need to
+# be debugged through log at trace/debug — with no subscriber installed
+# those lines go nowhere and a failed punch is indistinguishable from a
+# punch that was never attempted. Already in the workspace tree (cli,
+# payments, aggregator-daemon all depend on it), so this adds no new
+# third-party surface.
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# Custom-main latency benches (CPB capability-propagation suite) print
+# p50…p99.9 tails; Criterion is mediocre at p99.9. Same recipe as the
+# SDK crate's nrpc_tail/nrpc_churn benches.
+hdrhistogram = "7"
+rand = "0.10"
+# Already normal (feature-gated) deps; declared here too so the
+# `dir_transfer` integration test can hand-craft a manifest blob to
+# drive fetch_dir's failure path (atomic-reconstruction tests).
+blake3 = "1"
+postcard = { version = "1", features = ["use-std"] }
+# Loom only enters the dep graph when tests are built with
+# `RUSTFLAGS="--cfg loom"`. Gating via cfg so the default
+# `cargo test` / `cargo build` paths don't pay its build cost.
+# `SO_EXCLUSIVEADDRUSE` on the mesh UDP socket (`adapter::net::transport`),
+# which socket2 has no setter for: without it another process can bind the
+# same port and split the node's traffic. Already in the lock via tokio.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
+
+[target.'cfg(loom)'.dev-dependencies]
+loom = "0.7"
+
+[[bin]]
+name = "net-blob"
+path = "src/bin/net-blob.rs"
+required-features = ["cli"]
+
+# The subnet-auth evidence binaries gate their whole contents on
+# feature cfgs, so without an explicit target declaration a runner
+# that omits a load-bearing feature gets a 0-test binary and exit 0 —
+# a vacuous green that `--no-tests=fail` catches only in workflows
+# that pass it. `required-features` moves that contract into the
+# target itself: an invocation missing a feature now skips (or, with
+# an explicit `--test` request, refuses) rather than passing empty.
+# `fixtures` is load-bearing for the e2e suite — the harness drives
+# paced publication and admission internals that only exist behind it.
+[[test]]
+name = "subnet_auth_e2e"
+required-features = ["net", "cortex", "fixtures"]
+
+# The protected server-streaming estate (tests/org_rpc_streaming.rs). Its
+# whole body is gated `#![cfg(all(feature = "net", feature = "cortex",
+# feature = "fixtures"))]`, so a feature-incomplete invocation built a 0-test
+# binary and exited 0 — the entire witness estate silently vanishing into a
+# vacuous green (TESTS-7). `required-features` moves that contract into the
+# target: an invocation missing a feature now SKIPS (or, with an explicit
+# `--test` request, refuses) instead of passing empty.
+[[test]]
+name = "org_rpc_streaming"
+required-features = ["net", "cortex", "fixtures"]
+
+# The cross-process org-scoped proof (tests/org_scoped_cross_process.rs)
+# carries the same vanish hazard as TESTS-7 above: its whole body is gated
+# `#![cfg(all(feature = "net", feature = "cortex"))]`, so a
+# feature-incomplete invocation built a 0-test binary and exited 0. The
+# contract lives in the target: an invocation missing a feature now skips
+# (or, with an explicit `--test` request, refuses) instead of passing empty.
+[[test]]
+name = "org_scoped_cross_process"
+required-features = ["net", "cortex"]
+
+[[test]]
+name = "handshake_retry_resync"
+required-features = ["net"]
+
+[[test]]
+name = "subnet_gateway_local_auth"
+required-features = ["net"]
+
+[[test]]
+name = "subnet_control_facts"
+required-features = ["net"]
+
+# `SubnetPolicy::assign` allocates one borrowed view, not one String
+# per tag (PERF_AUDIT_2026_08_04_SUBNET_PATHS §2). One test per binary
+# — it installs a `#[global_allocator]`.
+[[test]]
+name = "subnet_assign_alloc"
+required-features = ["net"]
+
+# The production-path relay allocation witness. `fixtures` is
+# load-bearing twice over: the measured-section marker in
+# `relay_protected_hop` and the `alloc_probe` module it reads are both
+# compiled only behind it, and the harness drives admission through
+# the fixtures-gated witness seams. One test per binary — it installs
+# a `#[global_allocator]`.
+[[test]]
+name = "subnet_relay_alloc_e2e"
+required-features = ["net", "fixtures"]
+
+[[bench]]
+name = "ingestion"
+harness = false
+
+[[bench]]
+name = "parallel"
+harness = false
+
+[[bench]]
+name = "net"
+harness = false
+required-features = ["net", "fixtures"]
+
+[[bench]]
+name = "mesh"
+harness = false
+required-features = ["net"]
+
+[[bench]]
+name = "reliability"
+harness = false
+required-features = ["net"]
+
+[[bench]]
+name = "cortex"
+harness = false
+required-features = ["cortex", "netdb"]
+
+[[bench]]
+name = "redex"
+harness = false
+required-features = ["redex"]
+
+[[bench]]
+name = "auth_guard"
+harness = false
+required-features = ["net"]
+
+[[bench]]
+name = "placement"
+harness = false
+required-features = ["net", "fixtures"]
+
+[[bench]]
+name = "origin_cache_bench"
+harness = false
+required-features = ["net"]
+
+# SI-1d (SENSING_INTEREST_COALESCING_PLAN): attestation sign/verify
+# cost at the 50 ms cadence floor. `wire.rs` needs only `net`
+# (rendezvous alone rides `redex`).
+[[bench]]
+name = "sensing_signature"
+harness = false
+required-features = ["net"]
+
+# OA-1 §1.6 (ORG_CAPABILITY_AUTH_PLAN): uncached org cert / floors
+# verification cost at fold ingest — the number any future
+# verified-cert cache must justify itself against.
+[[bench]]
+name = "org_signature"
+harness = false
+required-features = ["net"]
+
+# CPB — capability propagation benchmark suite (custom main + hdrhistogram).
+# See docs/internal/plans/CAPABILITY_PROPAGATION_BENCHMARK_PLAN.md.
+[[bench]]
+name = "capability_propagation"
+harness = false
+required-features = ["net"]
+
+# CPB-2 exercises the gang island matcher + scheduler-input plane, which
+# ride the redex-gated island topology fold (mirrors sensing_scheduler_bridge).
+[[bench]]
+name = "capability_scheduler_reaction"
+harness = false
+required-features = ["net", "redex"]
+
+# CPB-4 drives real tool-registry mutations (RT-3) + explicit announces (RT-1).
+[[bench]]
+name = "capability_burst"
+harness = false
+required-features = ["net", "tool"]
+
+# Capability-fold scale baseline (CAPABILITY_FOLD_SCALE_PLAN.md, Slice 0).
+# Criterion timings: apply, translate, sweep.
+[[bench]]
+name = "fold_scale"
+harness = false
+required-features = ["net", "fixtures"]
+
+# Custom main + counting allocator: footprint, cache outcomes, sweep
+# visit counts, mixed 1M workload.
+[[bench]]
+name = "fold_scale_report"
+harness = false
+required-features = ["net", "fixtures"]
+
+# Cold start: keypair → node build → start → first peer visible; plus
+# cold-start → first nRPC reply and drop → reconnect → first nRPC.
+# Custom main + hdrhistogram (per-stage rows plus decomposed totals).
+[[bench]]
+name = "cold_start"
+harness = false
+required-features = ["net", "cortex"]
+
+# ICB-0 harness self-test (island/gang claim benchmark). Not a measurement
+# bench — asserts the counting-router / delivery / exact-read witnesses.
+[[bench]]
+name = "island_claim_harness"
+harness = false
+required-features = ["net"]
+
+# ICB-1 ordinary matcher scaling: match_islands over a static fixture.
+[[bench]]
+name = "island_claim_match"
+harness = false
+required-features = ["net"]
+
+# ICB-2 single-claimant claim boundaries: local commit / API return /
+# remote visibility, from one common start (+ required witnesses).
+[[bench]]
+name = "island_claim_boundaries"
+harness = false
+required-features = ["net"]
+
+# ICB-3 distributed simultaneous-claim divergence diagnostic (2/4/8/16
+# claimants; right-censored agreement reporting + required witnesses).
+[[bench]]
+name = "island_claim_divergence"
+harness = false
+required-features = ["net"]
+
+# ICB-4 known-state fallback (SINGLE CLAIMANT): claim loop walks past one
+# pre-converged held island to the next free one; nine per-sample assertions.
+[[bench]]
+name = "island_claim_fallback"
+harness = false
+required-features = ["net"]
+
+# ICB-5 sensed selection / fallback (SINGLE CLAIMANT): 5a on-demand re-selection
+# + 5b reservation fallback over the real claim_island_sensed path; opposing
+# load/sensed seed.
+[[bench]]
+name = "island_claim_sensed"
+harness = false
+required-features = ["net", "redex"]
+
+# ICB-6 deadline-enabled takeover + runtime-entry expiry: two separately-labeled
+# recovery groups (foreign takeover CAS after a lapsed deadline; short-TTL entry
+# sweep) + the M5 short-TTL diagnostic.
+[[bench]]
+name = "island_claim_recovery"
+harness = false
+required-features = ["net"]
+
+[[test]]
+name = "integration_redis"
+path = "tests/integration_redis.rs"
+required-features = ["redis"]
+
+[[test]]
+name = "integration_jetstream"
+path = "tests/integration_jetstream.rs"
+required-features = ["jetstream"]
+
+[[test]]
+name = "integration_net"
+path = "tests/integration_net.rs"
+required-features = ["net"]
+
+[[test]]
+name = "integration_redex"
+path = "tests/integration_redex.rs"
+required-features = ["redex"]
+
+[[test]]
+name = "integration_cortex_adapter"
+path = "tests/integration_cortex_adapter.rs"
+required-features = ["cortex"]
+
+[[test]]
+name = "integration_cortex_tasks"
+path = "tests/integration_cortex_tasks.rs"
+required-features = ["cortex"]
+
+[[test]]
+name = "integration_cortex_memories"
+path = "tests/integration_cortex_memories.rs"
+required-features = ["cortex"]
+
+[[test]]
+name = "integration_netdb"
+path = "tests/integration_netdb.rs"
+required-features = ["netdb"]
+
+[[test]]
+# Cross-binding nRPC wire-format compatibility — Phase B7.
+# Loads the shared `tests/cross_lang_nrpc/golden_vectors.json` fixture
+# and asserts the canonical `cross_lang_echo_sum` service round-trips
+# correctly through the Rust runtime. The same fixture drives the
+# binding-side compat tests in `bindings/{node,python}`.
+name = "integration_nrpc_cross_lang"
+path = "tests/integration_nrpc_cross_lang.rs"
+required-features = ["cortex"]
+
+[[test]]
+# End-to-end: predicate → `net-where:` request header
+# (Phase 9b) → server-side `predicate_from_rpc_headers` decode +
+# stateless evaluator (Phase 9c) over a real two-node mesh.
+# Composes the two SDK surfaces that ship the predicate envelope
+# and the predicate evaluator; per-piece unit tests cover them in
+# isolation but the full nRPC round-trip lives here.
+name = "integration_nrpc_predicate_header"
+path = "tests/integration_nrpc_predicate_header.rs"
+required-features = ["cortex"]
+
+[[test]]
+# End-to-end: register a custom `PlacementFilter` via the
+# process-global registry, score across a populated
+# `CapabilityIndex` with `StandardPlacement::with_custom_filter_id`,
+# verify the filter's verdict reaches the composed score and that
+# unregister-mid-flight collapses to a hard veto.
+name = "integration_placement_filter_callback"
+path = "tests/integration_placement_filter_callback.rs"
+required-features = ["net"]
+
+[[test]]
+# `net-blob` CLI integration test. Spawns the bin against a
+# temp persistent dir, exercises put / get / stat / exists /
+# ls / pin / gc / metrics subcommands, and asserts on the
+# observable shape (exit codes, stdout JSON, file bytes).
+# Gated on the same `cli` feature as the bin itself.
+name = "net_blob_cli"
+path = "tests/net_blob_cli.rs"
+required-features = ["cli"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+
+# The profile the published Python wheel is built with.
+#
+# Identical to `release` except that it unwinds. A Python extension is
+# loaded into a host process it does not own — a Jupyter kernel, a web
+# worker, an orchestrator — and `panic = "abort"` means an internal Rust
+# panic kills that process, along with every other extension and task in
+# it, with no traceback. pyo3's boundary machinery is built around
+# unwindable panics; shipping with `abort` disables that recovery model
+# wholesale.
+#
+# This is deliberately NOT a change to `[profile.release]`. The CLI, the
+# daemon, and the Node/Go/C artifacts own their processes and keep
+# `abort`, where failing fast is the right call.
+#
+# Build the wheel with `--profile python-release`, and test the wheel
+# that was built that way — a `maturin develop` (debug, unwind) run does
+# not exercise the shipped configuration, so panics that only matter in
+# the shipped one are invisible.
+#
+# That mismatch is the reason for the profile; do not read more into it.
+# A tokio runtime dropped in an async context was found here, but when
+# it was observed on a `--release` wheel the process survived — which an
+# effective abort profile cannot do. Whether the shipped extension
+# really used abort, and whether that panic caused the `0xC0000409`
+# termination that started the investigation, are both unestablished.
+#
+# What this does NOT do: make every panic a Python exception. It makes a
+# panic crossing a pyo3-invoked boundary containable, lets `catch_unwind`
+# work, and turns a panicking background tokio task into a `JoinError`
+# rather than an abort. A detached task that nobody joins still fails
+# silently — every task whose result matters needs its `JoinHandle`
+# observed and turned into a real error.
+[profile.python-release]
+inherits = "release"
+panic = "unwind"
+
+# `python-release` with symbols, for diagnosing panics in the shipped
+# configuration.
+#
+# A release backtrace is useless here: every frame resolves to the
+# nearest exported symbol, so a stack of thirty frames prints
+# `net_validate_capabilities` thirty times. That was tried.
+#
+# Use this when a panic reproduces only against an installed wheel —
+# same optimisation and the same panic strategy as what ships, but with
+# full debug info and nothing stripped, so `RUST_BACKTRACE=full` names
+# real functions. It is not a published profile.
+#
+#   maturin build --profile python-diagnostic --out dist --features …
+#   pip install <wheel> into a clean venv
+#   RUST_BACKTRACE=full PYTHONFAULTHANDLER=1 pytest -s
+[profile.python-diagnostic]
+inherits = "python-release"
+debug = 2
+strip = "none"
+
+[profile.bench]
+lto = true
+codegen-units = 1
+# The `bench` profile inherits its defaults from `release`, which sets
+# `panic = "abort"`. A libtest/Criterion harness must unwind, so the
+# bench binary is forced to `unwind` while the inherited `abort` still
+# governs the lib deps (`net`, `thiserror`, `bytes`, …) — producing
+# "requires panic strategy `abort` … incompatible with `unwind`" link
+# errors under `cargo bench` (and `cargo test --release`). Pin the whole
+# bench build graph back to `unwind`; the real release binaries keep
+# `abort` via `[profile.release]`.
+panic = "unwind"
+
+# Fast compile times for development.
+#
+# `debug = "line-tables-only"` rather than `true`: this workspace links ~170
+# integration test binaries against one large crate, and full DWARF/PDB is the
+# dominant cost in both link time and artifact mass. Measured on a 24-core
+# workstation (rustc 1.98.1, warm lib, `tests/three_node_integration.rs`):
+# relink 3.18 s -> 1.68 s (-47%), and `target/debug/deps` carried 6.9 GB of
+# `.pdb` against 667 MB of executables before the change. Test EXECUTION is
+# unchanged (5.21 s -> 5.21 s for the same 66 tests), and panics still resolve
+# to file:line, so no assertion or witness changes meaning.
+#
+# What is lost: variable inspection in a debugger. When you need it, override
+# per invocation without editing this file:
+#
+#   cargo --config 'profile.dev.debug=2' test --lib --features "..."
+#   CARGO_PROFILE_DEV_DEBUG=2 cargo nextest run --test <name>
+#
+# (Both rebuild the crates they touch, so use them on a focused target.)
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"
+
+# Release with debug symbols for profiling
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+
+# Maximum performance for local benchmarks
+# Use: RUSTFLAGS="-C target-cpu=native" cargo build --profile native
+[profile.native]
+inherits = "release"
+lto = "thin"  # Faster link times than full LTO

@@ -1,0 +1,225 @@
+"""TUI utilities and helpers."""
+
+import sys
+
+from rich.text import Text
+from textual.widgets import Static
+
+from ... import window_status
+from ...brief import colors
+from ...config import Config
+
+
+def same_cell(old: object, new: object) -> bool:
+    """Whether a table cell would draw the same; Rich's `Text ==` ignores the base style."""
+    if isinstance(old, Text) and isinstance(new, Text):
+        return (
+            old.plain == new.plain
+            and old.style == new.style
+            and old.spans == new.spans
+            and (old.justify, old.overflow, old.no_wrap, old.end)
+            == (new.justify, new.overflow, new.no_wrap, new.end)
+        )
+
+    return old == new
+
+
+def update_static(widget: Static, content: str | Text) -> None:
+    """Update *widget* only if its content changes: an update lays out and repaints the screen."""
+    if not same_cell(widget.content, content):
+        widget.update(content)
+
+
+def set_terminal_title(title: str) -> None:
+    """Set the terminal/pane title via OSC escape sequence."""
+    # OSC 0 sets both icon name and window title
+    sys.stdout.write(f"\033]0;{title}\007")
+    sys.stdout.flush()
+
+
+# What each field is, rather than what state its session is in. Colour carries the
+# field's identity so the eye can find one without reading the others; read/unread
+# is carried by weight and the marker, which leaves it free to say something else.
+FIELD_STYLES = {
+    "time": "green",
+    # A timestamp more than a day old, which reads as a date. Grey rather than
+    # the live green: the column says "when" either way, and the colour says
+    # whether it is still worth reacting to.
+    "time_old": "bright_black",
+    "backend": "bright_black",
+    "name": "cyan",
+    "branch": "magenta",
+    "cwd": "blue",
+    "project": "blue",  # the cwd's stand-in, so it keeps the cwd's colour
+    "message": "default",
+    "tty": "bright_black",
+}
+# A soft lemon rather than warning red: unread means "ready for you", not an
+# error. One value feeds both the marker and the table's attention bar.
+ATTENTION_COLOR = colors.ATTENTION_COLOR
+# Links in a brief: a sky blue, lighter than the blue that marks a directory.
+LINK_COLOR = "#6cb6ff"
+
+# The colours above are text colours chosen for a dark background, where they
+# read at 10:1 or better; on a light one they fall to 2:1 or less. Text takes
+# these darker ones under a light theme instead. A fill, a colour behind black
+# or white text, reads on either and keeps its colour.
+ATTENTION_TEXT_LIGHT = colors.ATTENTION_TEXT_LIGHT
+LINK_COLOR_LIGHT = "#1f62b8"
+
+_light_theme = False
+
+
+def use_light_theme(light: bool) -> None:
+    """Draw text for a light theme's background, or a dark one's. Set by the app from its theme."""
+    global _light_theme
+    _light_theme = light
+
+
+def light_theme() -> bool:
+    return _light_theme
+
+
+def attention_text() -> str:
+    """The attention colour as text on the plain background."""
+    return ATTENTION_TEXT_LIGHT if _light_theme else ATTENTION_COLOR
+
+
+def unread_marker_style() -> str:
+    """The unread dot, and what a lemon needs from you, on the plain background."""
+    return f"bold {attention_text()}"
+
+
+# Fields that stay plain even when a row is demanding attention.
+_NEVER_BOLD = frozenset({"message"})
+
+# History is a record rather than a queue, so its timestamps are the settled
+# kind. Green is the live colour and belongs to the inbox.
+HISTORY_FIELD_STYLES = {**FIELD_STYLES, "time": "yellow", "time_old": "bright_black"}
+
+
+def styled_cell(
+    value: str,
+    is_unread: bool,
+    field: str = "message",
+    *,
+    history: bool = False,
+    neutral_timing: bool = False,
+) -> Text:
+    """Colour a cell by which field it is, weighted by whether it wants attention.
+
+    Read rows are plain rather than dim. Most of the inbox is read most of the
+    time, and `dim` on a dark background costs enough contrast that the majority
+    of the pane stops being readable - which is a high price for a distinction
+    the bold unread rows already make on their own.
+
+    The message is never bold. It is the one field that reads as prose rather
+    than as a value to pick out, and a wrapped bold paragraph is harder to read
+    than the plain one beside it - the weight costs more than the emphasis buys.
+    """
+    styles = HISTORY_FIELD_STYLES if history else FIELD_STYLES
+    style = (
+        "bright_black"
+        if neutral_timing and field in {"time", "time_old"}
+        else styles.get(field, "default")
+    )
+    if is_unread and field not in _NEVER_BOLD:
+        return Text(value, style=f"bold {style}")
+
+    return Text(value, style=style)
+
+
+def project_color(name: str) -> str:
+    """Use the same stable palette and directory overrides as tmux window labels."""
+    return window_status.get_color(name)
+
+
+def styled_project_cell(
+    value: str, project_name: str, is_unread: bool, *, history: bool = False
+) -> Text:
+    """Style a project label while retaining the row's unread emphasis."""
+    text = styled_cell(value, is_unread, "project", history=history)
+    text.stylize(project_color(project_name), 0, len(project_name))
+    return text
+
+
+# Ten rows get a digit; 1-9 then 0, so the key's position on the keyboard runs
+# in the same direction as the list. Past that you scroll: a second digit would
+# need a timeout to tell "1" from "12", and the wait would be felt on every jump.
+JUMP_DIGITS = "1234567890"
+JUMP_GUTTER_STYLE = "bright_black"
+
+# The pane you are looking at right now, which tmux reports rather than the
+# inbox remembering: a switch made outside lemonaid moves you just the same, and
+# a remembered answer would be wrong until the next one made through it.
+#
+# A bar down the left edge rather than a glyph or a fill. It marks the row
+# without tinting the text, which leaves the field colours and the row cursor's
+# own background to say what they already say.
+GUTTER_WIDTH = 2  # the narrowest gutter: a one-character key, or the bar, and a space
+# Two marks for the same thing, because the two layouts give it different room.
+# A column row is one line tall, so it spends its single cell on a full block to
+# be visible at that size. A card draws a half block instead, which reads as an
+# edge over the height of the card where the full block would read as a slab,
+# and matches the rail a group draws beside it.
+HERE_BLOCK = "\u2588"
+HERE_BAR = "\u258c"
+
+
+def here_bar_style() -> str:
+    """The theme's own text colour, near white or near black: no group's colour is either."""
+    return "#1c1c1c" if _light_theme else "#f2f2f2"
+
+
+# Square, where the unread marker is round: the two sit near each other and say
+# different things. It shares the backend column rather than taking one of its
+# own - on its own line under the label in a card, which has the height for it,
+# and in the trailing cell beside the label in a single-line row, which does not.
+PIN_MARK = "\u25aa"  # ▪
+PIN_MARK_STYLE = "yellow"
+
+
+def backend_cell(label: Text, is_pinned: bool, *, stacked: bool = False) -> Text:
+    """The backend label, with the pin mark when the session is pinned.
+
+    `stacked` puts the mark on its own line under the label, which only a card
+    has the height for. A single-line row takes the label column's trailing cell
+    instead.
+
+    The mark is a span rather than the Text's own style: concatenating takes the
+    left operand's base style for the whole result, so a style set here would
+    run on under whatever follows.
+    """
+    if not is_pinned:
+        return label
+
+    cell = label + Text(f"\n{PIN_MARK}" if stacked else PIN_MARK)
+    cell.stylize(PIN_MARK_STYLE, len(label.plain), len(cell.plain))
+    return cell
+
+
+def jump_gutter(key: str, is_here: bool = False, width: int = GUTTER_WIDTH) -> Text:
+    """The grove key that prefixes a session's name, as `5s`, padded to *width* so names stay
+    aligned.
+
+    The focused session takes the marker instead of its key: it is the one row
+    you have no reason to jump to, so the slot is free to say where you are.
+
+    The style is a span rather than the Text's own: concatenating takes the left
+    operand's base style for the whole result, so a background set here would
+    run on under the name that follows it.
+    """
+    if is_here:
+        gutter = Text(HERE_BLOCK.ljust(width))
+        gutter.stylize(here_bar_style(), 0, len(HERE_BLOCK))
+        return gutter
+
+    text = key.ljust(width)
+    gutter = Text(text)
+    gutter.stylize(JUMP_GUTTER_STYLE, 0, len(text))
+    return gutter
+
+
+def undo_key(config: Config) -> str:
+    keys = config.tui.keybindings.undo
+    return keys[0] if keys else "Z"

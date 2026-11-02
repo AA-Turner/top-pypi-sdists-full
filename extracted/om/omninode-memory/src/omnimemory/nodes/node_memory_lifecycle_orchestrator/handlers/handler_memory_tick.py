@@ -48,7 +48,7 @@ import logging
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from omnibase_core.enums import EnumMessageCategory, EnumNodeKind
 from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
@@ -59,16 +59,15 @@ from omnimemory.adapters.adapter_concurrency import (
     CircuitBreakerOpenError,
 )
 from omnimemory.enums import EnumLifecycleState
+from omnimemory.models.config.model_lifecycle_timeout_settings import (
+    ModelLifecycleTimeoutSettings,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.container import ModelONEXContainer
-    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
     from omnibase_infra.runtime.models.model_runtime_tick import ModelRuntimeTick
 
 logger = logging.getLogger(__name__)
-
-# Timeout for projection reader calls (seconds)
-_PROJECTION_READER_TIMEOUT_SECONDS: float = 10.0
 
 
 # =============================================================================
@@ -465,16 +464,22 @@ class HandlerMemoryTick:
         ...     scheduler_id="runtime-001",
         ...     tick_interval_ms=1000,
         ... )
-        >>> output = await handler.handle(envelope)
+        >>> output = await handler.handle(tick)
         >>> # Output events: ModelMemoryExpiredEvent, ModelMemoryArchiveInitiated
     """
 
-    def __init__(self, container: ModelONEXContainer) -> None:
+    def __init__(
+        self,
+        container: ModelONEXContainer,
+        settings: ModelLifecycleTimeoutSettings | None = None,
+    ) -> None:
         """Initialize HandlerMemoryTick with ONEX container for dependency injection.
 
         Args:
             container: ONEX container providing dependency injection for
                 services, configuration, and runtime context.
+            settings: Projection-reader and circuit-breaker recovery timeouts.
+                ``None`` resolves ``descriptor`` from the node contract (OMN-21623).
 
         Note:
             The container is stored for interface compliance with the standard ONEX
@@ -483,6 +488,11 @@ class HandlerMemoryTick:
             configure the handler with its dependencies before use.
         """
         self._container = container
+        self._settings = (
+            settings
+            if settings is not None
+            else ModelLifecycleTimeoutSettings.from_node_contract()
+        )
         self._projection_reader: ProtocolMemoryLifecycleProjectionReader | None = None
         self._batch_size: int = 100
         self._circuit_breaker: CircuitBreaker | None = None
@@ -513,7 +523,7 @@ class HandlerMemoryTick:
         # cascading failures when the projection reader is unavailable
         self._circuit_breaker = circuit_breaker or CircuitBreaker(
             failure_threshold=5,
-            recovery_timeout=30.0,
+            recovery_timeout=self._settings.tick_circuit_breaker_recovery_seconds,
             success_threshold=2,
         )
         self._initialized = True
@@ -625,7 +635,7 @@ class HandlerMemoryTick:
 
     async def handle(
         self,
-        envelope: ModelEventEnvelope[ModelRuntimeTick],
+        request: ModelRuntimeTick,
     ) -> ModelHandlerOutput[None]:
         """Process runtime tick and emit lifecycle transition events.
 
@@ -636,7 +646,7 @@ class HandlerMemoryTick:
         Uses projection emission markers to prevent duplicate events.
 
         Args:
-            envelope: The event envelope containing the runtime tick event.
+            request: The runtime tick event.
 
         Returns:
             ModelHandlerOutput containing lifecycle events (ModelMemoryExpiredEvent,
@@ -649,12 +659,11 @@ class HandlerMemoryTick:
         """
         start_time = time.perf_counter()
 
-        # Extract from envelope
-        tick = envelope.payload
+        tick = request
         # Use tick.now (injected time) for consistent evaluation across distributed
-        # deployments and deterministic testing - NOT envelope_timestamp
+        # deployments and deterministic testing
         now = tick.now
-        correlation_id = envelope.correlation_id or uuid4()
+        correlation_id = tick.correlation_id
 
         events: list[BaseModel] = []
 
@@ -700,7 +709,7 @@ class HandlerMemoryTick:
 
         # Return handler output (ORCHESTRATOR: events only, no result)
         return ModelHandlerOutput.for_orchestrator(
-            input_envelope_id=envelope.envelope_id,
+            input_envelope_id=tick.tick_id,
             correlation_id=correlation_id,
             handler_id=self.handler_id,
             events=tuple(events),
@@ -766,7 +775,7 @@ class HandlerMemoryTick:
                     correlation_id=correlation_id,
                     limit=self._batch_size,
                 ),
-                timeout=_PROJECTION_READER_TIMEOUT_SECONDS,
+                timeout=self._settings.projection_reader_timeout_seconds,
             )
             self._circuit_breaker.record_success()
         except TimeoutError:
@@ -775,7 +784,7 @@ class HandlerMemoryTick:
                 "Projection reader timeout during expiration check",
                 extra={
                     "correlation_id": str(correlation_id),
-                    "timeout_seconds": _PROJECTION_READER_TIMEOUT_SECONDS,
+                    "timeout_seconds": self._settings.projection_reader_timeout_seconds,
                 },
             )
             return []
@@ -895,7 +904,7 @@ class HandlerMemoryTick:
                     correlation_id=correlation_id,
                     limit=self._batch_size,
                 ),
-                timeout=_PROJECTION_READER_TIMEOUT_SECONDS,
+                timeout=self._settings.projection_reader_timeout_seconds,
             )
             self._circuit_breaker.record_success()
         except TimeoutError:
@@ -904,7 +913,7 @@ class HandlerMemoryTick:
                 "Projection reader timeout during archive check",
                 extra={
                     "correlation_id": str(correlation_id),
-                    "timeout_seconds": _PROJECTION_READER_TIMEOUT_SECONDS,
+                    "timeout_seconds": self._settings.projection_reader_timeout_seconds,
                 },
             )
             return []

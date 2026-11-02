@@ -1,0 +1,707 @@
+"""Functional implementations of dithering algorithms for color depth reduction."""
+
+import functools
+from typing import Any, cast
+
+import numpy as np
+from albucore import float32_io, sz_lut
+
+from albumentations.augmentations.pixel._functional_shared import (
+    MULTICHANNEL_LUT_LARGE_IMAGE_PIXELS,
+    MULTICHANNEL_LUT_MEDIUM_IMAGE_PIXELS,
+)
+from albumentations.augmentations.pixel.functional import to_gray_average, to_gray_weighted_average
+from albumentations.core.type_definitions import ImageFloat32, ImageType, ImageUInt8
+
+# Error diffusion kernels
+FLOYD_STEINBERG_KERNEL = {
+    "offsets": [(1, 0), (-1, 1), (0, 1), (1, 1)],
+    "weights": [7 / 16, 3 / 16, 5 / 16, 1 / 16],
+}
+
+JARVIS_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-2, 1),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+        (-2, 2),
+        (-1, 2),
+        (0, 2),
+        (1, 2),
+        (2, 2),
+    ],
+    "weights": [
+        7 / 48,
+        5 / 48,
+        3 / 48,
+        5 / 48,
+        7 / 48,
+        5 / 48,
+        3 / 48,
+        1 / 48,
+        3 / 48,
+        5 / 48,
+        3 / 48,
+        1 / 48,
+    ],
+}
+
+STUCKI_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-2, 1),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+        (-2, 2),
+        (-1, 2),
+        (0, 2),
+        (1, 2),
+        (2, 2),
+    ],
+    "weights": [
+        8 / 42,
+        4 / 42,
+        2 / 42,
+        4 / 42,
+        8 / 42,
+        4 / 42,
+        2 / 42,
+        1 / 42,
+        2 / 42,
+        4 / 42,
+        2 / 42,
+        1 / 42,
+    ],
+}
+
+ATKINSON_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (0, 2),
+    ],
+    "weights": [
+        1 / 8,
+        1 / 8,
+        1 / 8,
+        1 / 8,
+        1 / 8,
+        1 / 8,
+    ],
+}
+
+BURKES_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-2, 1),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+    ],
+    "weights": [
+        8 / 32,
+        4 / 32,
+        2 / 32,
+        4 / 32,
+        8 / 32,
+        4 / 32,
+        2 / 32,
+    ],
+}
+
+SIERRA_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-2, 1),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+        (-1, 2),
+        (0, 2),
+        (1, 2),
+    ],
+    "weights": [
+        5 / 32,
+        3 / 32,
+        2 / 32,
+        4 / 32,
+        5 / 32,
+        4 / 32,
+        2 / 32,
+        2 / 32,
+        3 / 32,
+        2 / 32,
+    ],
+}
+
+SIERRA_2ROW_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (2, 0),
+        (-2, 1),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+    ],
+    "weights": [
+        4 / 16,
+        3 / 16,
+        1 / 16,
+        2 / 16,
+        3 / 16,
+        2 / 16,
+        1 / 16,
+    ],
+}
+
+SIERRA_LITE_KERNEL = {
+    "offsets": [
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+    ],
+    "weights": [
+        2 / 4,
+        1 / 4,
+        1 / 4,
+    ],
+}
+
+ERROR_DIFFUSION_KERNELS = {
+    "floyd_steinberg": FLOYD_STEINBERG_KERNEL,
+    "jarvis": JARVIS_KERNEL,
+    "stucki": STUCKI_KERNEL,
+    "atkinson": ATKINSON_KERNEL,
+    "burkes": BURKES_KERNEL,
+    "sierra": SIERRA_KERNEL,
+    "sierra_2row": SIERRA_2ROW_KERNEL,
+    "sierra_lite": SIERRA_LITE_KERNEL,
+}
+
+
+@functools.lru_cache(maxsize=16)
+def generate_bayer_matrix(size: int) -> np.ndarray:
+    """Generate Bayer threshold matrix for ordered dithering (cached). size in {2,4,8,16}.
+    Returns matrix in [0, 1]. Tiled to image size in ordered-dither paths.
+
+    Args:
+        size (int): Size of the matrix (2, 4, 8, or 16).
+
+    Returns:
+        np.ndarray: Bayer matrix normalized to [0, 1] range.
+
+    """
+    if size == 2:
+        matrix = np.array([[0, 2], [3, 1]], dtype=np.float32)
+    elif size == 4:
+        matrix = np.array(
+            [
+                [0, 8, 2, 10],
+                [12, 4, 14, 6],
+                [3, 11, 1, 9],
+                [15, 7, 13, 5],
+            ],
+            dtype=np.float32,
+        )
+    elif size == 8:
+        # Generate 8x8 from 4x4
+        base = generate_bayer_matrix(4) * 4
+        matrix = np.zeros((8, 8), dtype=np.float32)
+        matrix[:4, :4] = base
+        matrix[:4, 4:] = base + 2
+        matrix[4:, :4] = base + 3
+        matrix[4:, 4:] = base + 1
+    elif size == 16:
+        # Generate 16x16 from 8x8
+        base = generate_bayer_matrix(8) * 4
+        matrix = np.zeros((16, 16), dtype=np.float32)
+        matrix[:8, :8] = base
+        matrix[:8, 8:] = base + 2
+        matrix[8:, :8] = base + 3
+        matrix[8:, 8:] = base + 1
+    else:
+        msg = f"Unsupported Bayer matrix size: {size}"
+        raise ValueError(msg)
+
+    # Normalize to [0, 1]
+    result = matrix / (size * size)
+    # Return copy to prevent cache pollution since numpy arrays are mutable
+    return result.copy()
+
+
+def quantize_value(value: float, n_levels: int) -> float:
+    """Quantize a single value in [0, 1] to n_levels discrete levels. Used in error diffusion
+    and other dithering paths. Returns value in [0, 1].
+
+    Args:
+        value (float): Input value in [0, 1] range.
+        n_levels (int): Number of discrete levels.
+
+    Returns:
+        float: Quantized value in [0, 1] range.
+
+    """
+    if n_levels == 2:
+        return 1.0 if value >= 0.5 else 0.0
+
+    # Scale to [0, n_levels-1], round, then scale back
+    scaled = value * (n_levels - 1)
+    quantized = round(scaled)
+    return quantized / (n_levels - 1)
+
+
+def quantize_array(arr: np.ndarray, n_levels: int) -> np.ndarray:
+    """Quantize array in [0, 1] to n_levels levels (vectorized). Returns float32. Used when
+    full-image quantization is needed without error diffusion.
+
+    Args:
+        arr (np.ndarray): Input array in [0, 1] range.
+        n_levels (int): Number of discrete levels.
+
+    Returns:
+        np.ndarray: Quantized array in [0, 1] range.
+
+    """
+    if n_levels == 2:
+        return (arr >= 0.5).astype(np.float32)
+
+    # Vectorized quantization
+    # Scale to [0, n_levels-1], round, then scale back
+    scaled = arr * (n_levels - 1)
+    quantized = np.round(scaled) / (n_levels - 1)
+    return quantized.astype(np.float32)
+
+
+def random_dither_uint8(
+    img: ImageUInt8,
+    n_colors: int,
+    noise_range: tuple[float, float],
+    random_generator: np.random.Generator | None = None,
+    random_noise: np.ndarray | None = None,
+) -> ImageUInt8:
+    """Random dithering for uint8: add noise then quantize with LUT. n_colors, noise_range,
+    random_generator. Fast path for Dithering transform when input is uint8.
+
+    Args:
+        img (ImageUInt8): Input uint8 image with shape (H, W, C) in [0, 255] range.
+        n_colors (int): Number of colors per channel after quantization.
+        noise_range (tuple[float, float]): Range of noise to add (min_noise, max_noise) in [0, 1] range.
+        random_generator (np.random.Generator | None): Random source when a pre-sampled noise map is unavailable.
+        random_noise (np.ndarray | None): Pre-sampled int16 noise values for replayable transform execution.
+
+    Returns:
+        ImageUInt8: Dithered uint8 image in [0, 255] range.
+
+    """
+    # Add random noise (scale noise_range to uint8 range)
+    if random_noise is None:
+        if random_generator is None:
+            msg = "random dithering requires random_noise or random_generator"
+            raise ValueError(msg)
+        noise_uint8 = random_generator.uniform(
+            noise_range[0] * 255,
+            noise_range[1] * 255,
+            size=img.shape,
+        ).astype(np.int16)
+    else:
+        noise_uint8 = random_noise
+
+    # Add noise and clip to valid range
+    noisy = np.clip(img.astype(np.int16) + noise_uint8, 0, 255).astype(np.uint8)
+
+    # Quantize using LUT for maximum performance
+    if n_colors == 2:
+        lut_binary = np.zeros(256, dtype=np.uint8)
+        lut_binary[128:] = 255
+        return sz_lut(noisy, lut_binary, inplace=False)
+
+    lut = np.round(np.arange(256) * (n_colors - 1) / 255) / (n_colors - 1) * 255
+    lut = lut.astype(np.uint8)
+
+    return sz_lut(noisy, lut, inplace=False)
+
+
+def random_dither(
+    img: ImageFloat32,
+    n_colors: int,
+    noise_range: tuple[float, float],
+    random_generator: np.random.Generator | None = None,
+    random_noise: np.ndarray | None = None,
+) -> ImageFloat32:
+    """Random dithering for float32: add noise then quantize to n_colors. noise_range and
+    random_generator control the dither. Float32 input and output in [0, 1].
+
+    Args:
+        img (ImageFloat32): Input float32 image with shape (H, W, C) in [0, 1] range.
+        n_colors (int): Number of colors per channel after quantization.
+        noise_range (tuple[float, float]): Range of noise to add (min_noise, max_noise).
+        random_generator (np.random.Generator | None): Random source when a pre-sampled noise map is unavailable.
+        random_noise (np.ndarray | None): Pre-sampled noise values for replayable transform execution.
+
+    Returns:
+        ImageFloat32: Dithered float32 image in [0, 1] range.
+
+    """
+    # Add random noise
+    if random_noise is None:
+        if random_generator is None:
+            msg = "random dithering requires random_noise or random_generator"
+            raise ValueError(msg)
+        noisy = random_generator.uniform(noise_range[0], noise_range[1], size=img.shape)
+    else:
+        noisy = random_noise.copy()
+    np.add(noisy, img, out=noisy)
+    np.clip(noisy, 0, 1, out=noisy)
+
+    # Quantize using vectorized numpy operations
+    if n_colors == 2:
+        return (noisy >= 0.5).astype(np.float32)
+
+    # Vectorized quantization for float32
+    np.multiply(noisy, n_colors - 1, out=noisy)
+    np.round(noisy, out=noisy)
+    np.divide(noisy, n_colors - 1, out=noisy)
+    return noisy.astype(np.float32)
+
+
+def _floyd_steinberg_binary_uint8(img: ImageUInt8) -> ImageUInt8:
+    """Apply binary Floyd-Steinberg dithering to a single-channel uint8 image without
+    dtype-wrapper dispatch overhead in the default grayscale path.
+    """
+    channel = img[:, :, 0].astype(np.float32) * (1.0 / 255.0)
+    height, width = channel.shape
+
+    for row_idx in range(height):
+        next_row_idx = row_idx + 1
+        has_next_row = next_row_idx < height
+        for col_idx in range(width):
+            old_val = channel[row_idx, col_idx]
+            new_val = 1.0 if old_val >= 0.5 else 0.0
+            channel[row_idx, col_idx] = new_val
+            error = old_val - new_val
+
+            next_col_idx = col_idx + 1
+            if next_col_idx < width:
+                channel[row_idx, next_col_idx] += error * (7.0 / 16.0)
+
+            if has_next_row:
+                if col_idx > 0:
+                    channel[next_row_idx, col_idx - 1] += error * (3.0 / 16.0)
+                channel[next_row_idx, col_idx] += error * (5.0 / 16.0)
+                if next_col_idx < width:
+                    channel[next_row_idx, next_col_idx] += error * (1.0 / 16.0)
+
+    np.clip(channel, 0, 1, out=channel)
+    return (channel[:, :, np.newaxis] * 255).astype(np.uint8)
+
+
+def _should_vectorize_ordered_dither(height: int, width: int, num_channels: int) -> bool:
+    num_pixels = height * width
+    return (
+        num_channels > 3 and num_pixels >= MULTICHANNEL_LUT_MEDIUM_IMAGE_PIXELS
+    ) or num_pixels >= MULTICHANNEL_LUT_LARGE_IMAGE_PIXELS
+
+
+def ordered_dither_uint8(
+    img: ImageUInt8,
+    n_colors: int,
+    matrix_size: int = 4,
+) -> ImageUInt8:
+    """Ordered (Bayer) dithering for uint8: threshold vs tiled Bayer. n_colors, matrix_size
+    (2,4,8,16). Fast path for Dithering transform.
+
+    Args:
+        img (ImageUInt8): Input uint8 image with shape (H, W, C).
+        n_colors (int): Number of colors per channel.
+        matrix_size (int): Size of Bayer matrix (2, 4, 8, or 16).
+
+    Returns:
+        ImageUInt8: Dithered uint8 image.
+
+    """
+    # Generate Bayer matrix scaled to [0, 255]
+    bayer = (generate_bayer_matrix(matrix_size) * 255).astype(np.uint8)
+
+    # Tile the matrix to cover the image
+    height, width = img.shape[:2]
+    tiles_height = (height + matrix_size - 1) // matrix_size
+    tiles_width = (width + matrix_size - 1) // matrix_size
+    tiled = np.tile(bayer, (tiles_height, tiles_width))[:height, :width]
+
+    if n_colors == 2:
+        return ((img > tiled[:, :, np.newaxis]) * 255).astype(np.uint8)
+    # Multi-level: Create LUT once outside channel loop
+    levels = np.linspace(0, 255, n_colors).astype(np.uint8)
+
+    lut = levels[np.minimum(np.arange(256) * n_colors // 256, n_colors - 1)]
+
+    if _should_vectorize_ordered_dither(height, width, img.shape[2]):
+        dithered = img.astype(np.int16)
+        dithered += ((tiled.astype(np.int16) - 128) // n_colors)[:, :, np.newaxis]
+        np.clip(dithered, 0, 255, out=dithered)
+        return sz_lut(dithered.astype(np.uint8), lut, inplace=False)
+
+    result = np.zeros_like(img)
+    for channel_idx in range(img.shape[2]):
+        channel = img[:, :, channel_idx]
+        # Add dither pattern and quantize
+        dithered = channel.astype(np.int16) + (tiled.astype(np.int16) - 128) // n_colors
+        np.clip(dithered, 0, 255, out=dithered)
+
+        # Reuse the same LUT for all channels
+        result[:, :, channel_idx] = sz_lut(dithered.astype(np.uint8), lut, inplace=False)
+
+    return result
+
+
+def ordered_dither(
+    img: ImageFloat32,
+    n_colors: int,
+    matrix_size: int = 4,
+) -> ImageFloat32:
+    """Ordered (Bayer) dithering for float32: add Bayer threshold pattern then quantize.
+    matrix_size in {2,4,8,16}. Float32 images in [0, 1].
+
+    Args:
+        img (ImageFloat32): Input image in [0, 1] range with shape (H, W, C).
+        n_colors (int): Number of colors per channel.
+        matrix_size (int): Size of Bayer matrix (2, 4, 8, or 16).
+
+    Returns:
+        ImageFloat32: Dithered image in [0, 1] range.
+
+    """
+    # Generate Bayer matrix
+    bayer = generate_bayer_matrix(matrix_size)
+
+    # Tile the matrix to cover the image
+    height, width = img.shape[:2]
+    tiles_height = (height + matrix_size - 1) // matrix_size
+    tiles_width = (width + matrix_size - 1) // matrix_size
+    tiled = np.tile(bayer, (tiles_height, tiles_width))[:height, :width]
+
+    # Expand for color channels
+    tiled = np.expand_dims(tiled, axis=2)
+
+    if n_colors == 2:
+        return (img > tiled).astype(np.float32)
+
+    # For multiple levels, use the Bayer matrix to add noise then quantize
+    # The Bayer matrix values are in [0, 1], center them around 0
+    dither_noise = (tiled - 0.5) / n_colors
+
+    # Add dither noise to the image
+    dithered = img + dither_noise
+    np.clip(dithered, 0, 1, out=dithered)
+
+    # Quantize to n_colors levels using vectorized numpy operations
+    # Since @float32_io guarantees float32 input, use direct numpy operations
+    quantized = np.floor(dithered * n_colors) / n_colors
+    return np.clip(quantized, 0, (n_colors - 1) / n_colors).astype(np.float32)
+
+
+@float32_io
+def error_diffusion_dither(
+    img: ImageType,
+    n_colors: int,
+    algorithm: str = "floyd_steinberg",
+    serpentine: bool = False,
+) -> ImageType:
+    """Error diffusion dithering (e.g. Floyd-Steinberg): quantize and diffuse error. algorithm,
+    serpentine. Per-channel processing.
+
+    Args:
+        img (ImageType): Input image in [0, 1] range with shape (H, W, C).
+        n_colors (int): Number of colors per channel.
+        algorithm (str): Error diffusion algorithm name.
+        serpentine (bool): Use serpentine (back-and-forth) scanning.
+
+    Returns:
+        ImageType: Dithered image in [0, 1] range.
+
+    """
+    if algorithm not in ERROR_DIFFUSION_KERNELS:
+        msg = f"Unknown error diffusion algorithm: {algorithm}"
+        raise ValueError(msg)
+
+    kernel = ERROR_DIFFUSION_KERNELS[algorithm]
+    offsets: list[tuple[int, int]] = cast("list[tuple[int, int]]", kernel["offsets"])
+    weights: list[float] = cast("list[float]", kernel["weights"])
+
+    # Work on a copy
+    result = img.copy()
+    height, width = img.shape[:2]
+    num_channels = img.shape[2]
+    is_binary = n_colors == 2
+    max_level = n_colors - 1
+
+    # Process each channel independently
+    for channel_idx in range(num_channels):
+        channel = result[:, :, channel_idx].copy()
+
+        # Process pixels
+        for row_idx in range(height):
+            # Determine scan direction
+            if serpentine and row_idx % 2 == 1:
+                col_range = range(width - 1, -1, -1)
+                x_offsets = [(-ox, oy) for ox, oy in offsets]
+            else:
+                col_range = range(width)
+                x_offsets = offsets
+
+            for col_idx in col_range:
+                old_val = channel[row_idx, col_idx]
+
+                # Quantize
+                new_val = (1.0 if old_val >= 0.5 else 0.0) if is_binary else round(old_val * max_level) / max_level
+                channel[row_idx, col_idx] = new_val
+
+                error = old_val - new_val
+
+                # Distribute error to neighbors
+                for (offset_x, offset_y), weight in zip(x_offsets, weights, strict=True):
+                    neighbor_x, neighbor_y = col_idx + offset_x, row_idx + offset_y
+                    if 0 <= neighbor_x < width and 0 <= neighbor_y < height:
+                        channel[neighbor_y, neighbor_x] += error * weight
+
+        # Clip to valid range
+        np.clip(channel, 0, 1, out=channel)
+        result[:, :, channel_idx] = channel
+
+    return result
+
+
+def _apply_dithering_to_grayscale(
+    img: ImageType,
+    method: str,
+    n_colors: int,
+    **kwargs: Any,
+) -> ImageType:
+    """Convert to grayscale, apply dithering, then broadcast to original channel count.
+    Grayscale path: one channel dithered then expanded.
+    """
+    # Store original number of channels
+    original_channels = img.shape[2]
+
+    if img.shape[2] == 3:
+        gray = to_gray_weighted_average(img)
+    elif img.shape[2] == 1:
+        gray = img
+    else:
+        gray = to_gray_average(img)
+
+    if gray.ndim == 2:
+        gray = gray[:, :, np.newaxis]
+
+    dithered = _apply_single_dithering_method(gray, method, n_colors, **kwargs)
+
+    # Expand back to original number of channels (handle both 2D and 3D cases)
+    if dithered.ndim == 2:
+        dithered = dithered[:, :, np.newaxis]
+    return cast("ImageType", np.repeat(dithered, original_channels, axis=2))
+
+
+def _apply_single_dithering_method(
+    img: ImageType,
+    method: str,
+    n_colors: int,
+    **kwargs: Any,
+) -> ImageType:
+    """Dispatch to ordered_dither, random_dither, or error_diffusion_dither by method. Uses uint8
+    paths when img is uint8. Called by apply_dithering.
+    """
+    # Choose optimized uint8 versions when possible
+    if img.dtype == np.uint8 and method == "ordered":
+        return ordered_dither_uint8(cast("ImageUInt8", img), n_colors, kwargs.get("matrix_size", 4))
+    if img.dtype == np.uint8 and method == "random":
+        random_noise = kwargs.get("random_noise")
+        random_generator = kwargs.get("random_generator")
+        if random_noise is None and random_generator is None:
+            msg = "random dithering requires random_noise or random_generator"
+            raise ValueError(msg)
+        return random_dither_uint8(
+            cast("ImageUInt8", img),
+            n_colors,
+            kwargs.get("noise_range", (-0.5, 0.5)),
+            random_generator,
+            random_noise,
+        )
+    if (
+        img.dtype == np.uint8
+        and method == "error_diffusion"
+        and n_colors == 2
+        and kwargs.get("error_diffusion_algorithm", "floyd_steinberg") == "floyd_steinberg"
+        and not kwargs.get("serpentine", False)
+        and img.shape[2] == 1
+    ):
+        return _floyd_steinberg_binary_uint8(cast("ImageUInt8", img))
+
+    # Use float32 versions
+    float_img = cast("ImageFloat32", img)
+    if method == "random":
+        random_noise = kwargs.get("random_noise")
+        random_generator = kwargs.get("random_generator")
+        if random_noise is None and random_generator is None:
+            msg = "random dithering requires random_noise or random_generator"
+            raise ValueError(msg)
+        return random_dither(
+            float_img,
+            n_colors,
+            kwargs.get("noise_range", (-0.5, 0.5)),
+            random_generator,
+            random_noise,
+        )
+    if method == "ordered":
+        return ordered_dither(float_img, n_colors, kwargs.get("matrix_size", 4))
+    if method == "error_diffusion":
+        return error_diffusion_dither(
+            img,
+            n_colors,
+            kwargs.get("error_diffusion_algorithm", "floyd_steinberg"),
+            kwargs.get("serpentine", False),
+        )
+
+    msg = f"Unknown dithering method: {method}"
+    raise ValueError(msg)
+
+
+def apply_dithering(
+    img: ImageType,
+    method: str,
+    n_colors: int,
+    color_mode: str = "per_channel",
+    **kwargs: Any,
+) -> ImageType:
+    """Apply dithering (ordered, random, or error_diffusion) to image. method, n_colors,
+    color_mode, **kwargs. Entry point for Dithering transform.
+
+    Args:
+        img (ImageType): Input image in [0, 1] range with shape (H, W, C).
+        method (str): Dithering method to use.
+        n_colors (int): Number of colors per channel.
+        color_mode (str): How to handle colors ("grayscale", "per_channel", "rgb").
+        **kwargs (Any): Additional parameters for specific methods.
+
+    Returns:
+        ImageType: Dithered image in [0, 1] range with shape (H, W, C).
+
+    """
+    if color_mode == "grayscale":
+        return _apply_dithering_to_grayscale(img, method, n_colors, **kwargs)
+
+    return _apply_single_dithering_method(img, method, n_colors, **kwargs)

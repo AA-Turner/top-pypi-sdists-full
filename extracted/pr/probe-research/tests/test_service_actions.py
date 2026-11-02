@@ -22,8 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import client, paths
-from probe.service.protocol import ErrorCode, Method
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.foundation.service_api.wire import ErrorCode, Method
 from tests.service_fakes import FakeCore, events_until
 from tests.service_harness import pid_running, service_home as service_home, wait_for
 
@@ -147,7 +148,7 @@ time.sleep(120)
 
 
 def _in_process_actions(tmp_path, monkeypatch):
-    from probe.service import actions, loginenv
+    from probe.service.actions import actions, loginenv
 
     for name, sub in (("HOME", "home"), ("XDG_STATE_HOME", "state"), ("XDG_CONFIG_HOME", "config"),
                       ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"), ("PI_CODING_AGENT_DIR", "pi")):
@@ -173,7 +174,7 @@ def test_an_action_past_its_time_limit_is_stopped_and_fails(tmp_path, monkeypatc
     (`client.ENV_ALLOWLIST`)."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     actions = _in_process_actions(tmp_path, monkeypatch)
     pidfile = tmp_path / "child.pid"
@@ -200,7 +201,7 @@ def test_a_child_an_earlier_service_left_running_gets_the_time_limit_too(tmp_pat
     limit, counted from the action's acceptance, that child is stopped too."""
     import asyncio
 
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     actions = _in_process_actions(tmp_path, monkeypatch)
     child = subprocess.Popen([sys.executable, "-c", _HANG, str(tmp_path / "child.pid"), "hangs"],
@@ -244,8 +245,8 @@ def test_actions_queued_behind_an_update_run_in_order_and_a_stopped_service_neve
     the next one reads them as stopped, never as run."""
     import asyncio
 
-    from probe.service import children
-    from probe.service.protocol import RpcError
+    from probe.service.actions import children
+    from probe.foundation.service_api.wire import RpcError
 
     actions = _in_process_actions(tmp_path, monkeypatch)
     monkeypatch.setenv(actions.ACTION_TIMEOUT_ENV, "60")  # real children: never cut short
@@ -319,7 +320,7 @@ def test_actions_queued_behind_an_update_run_in_order_and_a_stopped_service_neve
 
 def test_the_queue_behind_an_update_is_bounded(tmp_path, monkeypatch):
     """Past MAX_QUEUED_ACTIONS waiting, `action.run` is busy again, and nothing is journaled for it."""
-    from probe.service.protocol import RpcError
+    from probe.foundation.service_api.wire import RpcError
 
     actions = _in_process_actions(tmp_path, monkeypatch)
     monkeypatch.setattr(actions, "MAX_QUEUED_ACTIONS", 2)
@@ -339,7 +340,7 @@ def test_a_recovered_child_s_time_limit_counts_from_its_start_not_its_wait(tmp_p
     none of its time."""
     import asyncio
 
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     actions = _in_process_actions(tmp_path, monkeypatch)
     monkeypatch.setenv(actions.ACTION_TIMEOUT_ENV, "600")
@@ -399,7 +400,7 @@ def test_an_action_whose_acceptance_cannot_be_journaled_never_runs(service_home,
     `accepted` line that did not reach the disk refuses the action instead."""
     import errno
 
-    from probe.service import actions
+    from probe.service.actions import actions
 
     manager = actions.ActionManager(emit=lambda *_: None, changed=lambda: None, holder=lambda: None)
 
@@ -718,8 +719,8 @@ def test_the_context_names_every_harness_s_session_and_home_variables():
     session-id variable, read from the registry), and a client with its own
     agent homes must reach them: every harness's `session_env` and `home.env`."""
     from probe.foundation.harness_registry import get_registry
-    from probe.service.protocol import CONTEXT_ENV
-    from probe.service.server import session_env_names
+    from probe.foundation.service_api.env import CONTEXT_ENV
+    from probe.service.server.policy import session_env_names
 
     sessions = {h.session_env for h in get_registry().all() if h.session_env}
     registry = json.loads((Path(__file__).resolve().parent.parent / "src" / "probe" / "foundation" / "harness_registry" / "harnesses.json").read_text())

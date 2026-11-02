@@ -6,7 +6,6 @@ import threading
 from typing import Any
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from .journal.journal import Journal
-from .transport.deadlines import without_patience
 
 # Eager, not lazy (review of #2056): first importing a module during
 # interpreter finalization made an uncaught Ctrl-C exit 1 instead of
@@ -213,22 +212,10 @@ class DeliveryNoticesMixin:
             pass
 
     def _report_delivery(self, *, final: bool = False) -> None:
-        """Send this process's delivery counts since its last report to our
-        telemetry (plan 1.12): counts only, never a key, body, name or path;
-        nothing when the telemetry opt-out is set or the backend is not ours,
-        and never for a queue only `probe sync` drains (an offline run, plan
-        2.12, which must not touch the network). Skipped when there is
-        nothing to say, except at a close.
-
-        A periodic report goes out from a daemon thread (its first send
-        imports the telemetry module and resolves an identity, which must not
-        cost the training loop). A CLOSE's report is handed to the telemetry
-        sender on the CALLING thread, after re-reading the outbox's status:
-        the interpreter often shuts down milliseconds after `finish()`, too
-        soon for a thread to start or register the sender's exit flush, and
-        the 15 s poll's numbers can be stale (review of #2056). During
-        interpreter exit (the auto-close at exit) it is flushed right away,
-        since the sender's own exit flush may already have run."""
+        """Send this process's delivery counts since its last report (plan 1.12): counts only, never a
+        key, body, name or path; nothing when telemetry is off, the backend is not ours, or the queue is
+        offline. Periodic reports go from a daemon thread; a close's on the calling thread, since the
+        interpreter may exit milliseconds after `finish()`."""
         if getattr(self, "_drains_by_hand", False):
             return
         try:
@@ -282,25 +269,7 @@ class DeliveryNoticesMixin:
             pass
 
     def _after_enqueue(self) -> None:
-        """Wake delivery for a just-journaled op (F1/F2). A DEAD exporter is
-        not respawned: the only thing that kills one is an auth block, and
-        respawning per write would retry rejected credentials forever -- the
-        zombie-uploader pitfall. Re-login + `probe outbox retry` resumes."""
+        """Wake delivery for a just-journaled op (F1/F2): the drainer this client
+        picked at construction (`pick_drainer`) decides how."""
         self._poll_delivery()
-        if self._drain_interval is not None:
-            exporter = self._exporter
-            if exporter is None:
-                with self._exporter_lock:
-                    exporter = self._exporter
-                    if exporter is None:
-                        from .outbox.drainers.in_process import OutboxExporter
-
-                        # Its thread outlives any patience scope a write here
-                        # happens inside (init); see `_wrap_run`.
-                        with without_patience():
-                            exporter = OutboxExporter(self, self._drain_interval)
-                            self._learn_identity()
-                        self._exporter = exporter
-            exporter.wake()
-            return
-        self._kick_drainer()
+        self._drainer.wake()

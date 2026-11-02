@@ -1,0 +1,454 @@
+# SPDX-License-Identifier: MIT
+
+from collections.abc import Iterator, Sequence
+from typing import Optional
+
+from htmlcompare.compare_css import compare_css, compare_stylesheet
+from htmlcompare.elements import is_self_closing_significant
+from htmlcompare.nodes import (
+    Comment,
+    ConditionalComment,
+    ConditionalCommentMarker,
+    Doctype,
+    Document,
+    Element,
+    Node,
+    TextNode,
+)
+from htmlcompare.normalize import normalize_tree
+from htmlcompare.options import CompareOptions
+from htmlcompare.parser import parse_html
+from htmlcompare.result import ComparisonResult, Difference, DifferenceType
+
+
+__all__ = ['compare_html']
+
+
+def compare_html(
+    expected_html: str,
+    actual_html: str,
+    options: Optional[CompareOptions] = None,
+) -> ComparisonResult:
+    """
+    Compare two HTML strings for equality.
+
+    This implementation uses a tree-based approach with normalization
+    to handle insignificant whitespace between block elements.
+    """
+    if options is None:
+        options = CompareOptions()
+    expected_tree = parse_html(expected_html)
+    actual_tree = parse_html(actual_html)
+
+    # normalize trees to remove insignificant whitespace
+    expected_normalized = normalize_tree(expected_tree, options)
+    actual_normalized = normalize_tree(actual_tree, options)
+    return _compare_trees(expected_normalized, actual_normalized, options)
+
+
+def _compare_trees(
+    expected: Document,
+    actual: Document,
+    options: CompareOptions,
+) -> ComparisonResult:
+    differences: list[Difference] = []
+    if options.compare_document_prefix:
+        differences += _compare_document_prefixes(expected.prefix, actual.prefix)
+    differences += _compare_doctype_declarations(expected.doctype, actual.doctype)
+    _compare_node_lists(expected.children, actual.children, "", differences, parent_tag=None)
+    _documents_are_equal = (len(differences) == 0)
+    return ComparisonResult(is_equal=_documents_are_equal, differences=differences)
+
+
+def _compare_document_prefixes(expected: str, actual: str) -> Iterator[Difference]:
+    """
+    Compare the content preceding the DOCTYPE, e.g. template metadata.
+
+    Only reached with "compare_document_prefix=True". The point of keeping the
+    prefix is exact preservation, so it is compared literally - "normalize_tree()"
+    has already stripped the whitespace separating it from the DOCTYPE.
+    """
+    if expected == actual:
+        return
+    yield Difference(
+        type=DifferenceType.DOCUMENT_PREFIX_MISMATCH,
+        path='PREFIX',
+        expected=expected,
+        actual=actual,
+    )
+
+
+def _compare_doctype_declarations(
+    expected: Optional[Doctype],
+    actual: Optional[Doctype],
+) -> Iterator[Difference]:
+    if actual is None:
+        if expected is None:
+            return
+        difference = Difference(
+            type=DifferenceType.DOCTYPE_MISSING,
+            path='DOCTYPE',
+            expected=_doctype_summary(expected),
+            actual=None,
+            message=f"missing DOCTYPE: {_doctype_summary(expected)}",
+        )
+        yield difference
+    elif expected is None:
+        difference = Difference(
+            type=DifferenceType.DOCTYPE_EXTRA,
+            path='DOCTYPE',
+            expected=None,
+            actual=_doctype_summary(actual),
+            message=f"unexpected DOCTYPE: {_doctype_summary(actual)}",
+        )
+        yield difference
+    elif expected != actual:
+        difference = Difference(
+            type=DifferenceType.DOCTYPE_MISMATCH,
+            path='DOCTYPE',
+            expected=_doctype_summary(expected),
+            actual=_doctype_summary(actual),
+            message="DOCTYPE mismatch",
+        )
+        yield difference
+
+
+def _doctype_summary(doctype: Doctype) -> str:
+    """Generate a summary string for a DOCTYPE."""
+    if doctype.public_id and doctype.system_id:
+        return f'<!DOCTYPE {doctype.name} PUBLIC "{doctype.public_id}" "{doctype.system_id}">'
+    elif doctype.public_id:
+        return f'<!DOCTYPE {doctype.name} PUBLIC "{doctype.public_id}">'
+    elif doctype.system_id:
+        return f'<!DOCTYPE {doctype.name} SYSTEM "{doctype.system_id}">'
+    else:
+        return f'<!DOCTYPE {doctype.name}>'
+
+
+def _compare_node_lists(
+    expected: Sequence[Node],
+    actual: Sequence[Node],
+    path: str,
+    differences: list[Difference],
+    *,
+    parent_tag: Optional[str] = None,
+) -> None:
+    max_len = max(len(expected), len(actual))
+
+    for i in range(max_len):
+        child_path = f"{path}[{i}]" if path else f"[{i}]"
+
+        if i >= len(expected):
+            # Extra node in actual
+            actual_node = actual[i]
+            differences.append(Difference(
+                type=DifferenceType.CHILD_EXTRA,
+                path=child_path,
+                expected=None,
+                actual=_node_summary(actual_node),
+                message=f"unexpected node: {_node_summary(actual_node)}",
+            ))
+            continue
+
+        if i >= len(actual):
+            # Missing node in actual
+            expected_node = expected[i]
+            differences.append(Difference(
+                type=DifferenceType.CHILD_MISSING,
+                path=child_path,
+                expected=_node_summary(expected_node),
+                actual=None,
+                message=f"missing node: {_node_summary(expected_node)}",
+            ))
+            continue
+
+        _compare_nodes(expected[i], actual[i], child_path, differences, parent_tag=parent_tag)
+
+
+def _compare_nodes(
+    expected: Node,
+    actual: Node,
+    path: str,
+    differences: list[Difference],
+    *,
+    parent_tag: Optional[str] = None,
+) -> None:
+    if type(expected) is not type(actual):
+        differences.append(Difference(
+            type=DifferenceType.NODE_TYPE_MISMATCH,
+            path=path,
+            expected=type(expected).__name__,
+            actual=type(actual).__name__,
+        ))
+        return
+
+    if isinstance(expected, Element):
+        assert isinstance(actual, Element)
+        _compare_elements(expected, actual, path, differences)
+    elif isinstance(expected, TextNode):
+        assert isinstance(actual, TextNode)
+        _compare_text_nodes(expected, actual, path, differences, parent_tag=parent_tag)
+    elif isinstance(expected, Comment):
+        assert isinstance(actual, Comment)
+        _compare_comments(expected, actual, path, differences)
+    elif isinstance(expected, ConditionalComment):
+        assert isinstance(actual, ConditionalComment)
+        _compare_conditional_comments(expected, actual, path, differences)
+    elif isinstance(expected, ConditionalCommentMarker):
+        assert isinstance(actual, ConditionalCommentMarker)
+        _compare_conditional_comment_markers(expected, actual, path, differences)
+
+
+def _compare_elements(
+    expected: Element,
+    actual: Element,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    element_path = f"{path} > {expected.tag}" if path else expected.tag
+
+    # check tag names
+    if expected.tag != actual.tag:
+        differences.append(Difference(
+            type=DifferenceType.TAG_MISMATCH,
+            path=element_path,
+            expected=expected.tag,
+            actual=actual.tag,
+        ))
+        return  # don't compare children if tags differ
+
+    is_self_closing_different = (expected.is_self_closing != actual.is_self_closing)
+    if is_self_closing_different and is_self_closing_significant(expected.tag):
+        expected_form = _html_tag(expected.tag, expected.is_self_closing)
+        actual_form = _html_tag(actual.tag, actual.is_self_closing)
+        differences.append(Difference(
+            type=DifferenceType.SELF_CLOSING_MISMATCH,
+            path=element_path,
+            expected=expected_form,
+            actual=actual_form,
+            message=f"self-closing syntax differs: expected {expected_form}, got {actual_form}",
+        ))
+
+    _compare_attributes(expected.attributes, actual.attributes, element_path, differences)
+    # compare children, passing tag name for context-aware comparison (e.g., CSS in <style> tags)
+    _compare_node_lists(
+        expected.children,
+        actual.children,
+        element_path,
+        differences,
+        parent_tag=expected.tag,
+    )
+
+
+def _html_tag(tag: str, is_self_closing) -> str:
+    if is_self_closing:
+        return f"<{tag} ... />"
+    return f"<{tag} ...>"
+
+
+def _compare_attributes(
+    expected: dict[str, str],
+    actual: dict[str, str],
+    path: str,
+    differences: list[Difference],
+) -> None:
+    expected_normalized = _normalize_attributes(expected)
+    actual_normalized = _normalize_attributes(actual)
+    all_keys = set(expected_normalized) | set(actual_normalized)
+    for key in sorted(all_keys):
+        if key not in expected_normalized:
+            differences.append(Difference(
+                type=DifferenceType.ATTRIBUTE_EXTRA,
+                path=f"{path}@{key}",
+                expected=None,
+                actual=actual_normalized[key],
+                message=f"unexpected attribute '{key}'",
+            ))
+        elif key not in actual_normalized:
+            differences.append(Difference(
+                type=DifferenceType.ATTRIBUTE_MISSING,
+                path=f"{path}@{key}",
+                expected=expected_normalized[key],
+                actual=None,
+                message=f"missing attribute '{key}'",
+            ))
+        elif key == 'class':
+            _compare_class_attribute(
+                expected_normalized[key], actual_normalized[key], path, differences
+            )
+        elif key == 'style':
+            _compare_style_attribute(
+                expected_normalized[key], actual_normalized[key], path, differences
+            )
+        elif expected_normalized[key] != actual_normalized[key]:
+            differences.append(Difference(
+                type=DifferenceType.ATTRIBUTE_MISMATCH,
+                path=f"{path}@{key}",
+                expected=expected_normalized[key],
+                actual=actual_normalized[key],
+            ))
+
+
+def _normalize_attributes(attrs: dict[str, str]) -> dict[str, str]:
+    """Normalize attributes, removing empty class/style attributes."""
+    result = {}
+    for key, value in attrs.items():
+        # an empty class attribute is same as absent
+        if key == 'class' and not value.strip():
+            continue
+        # an empty style attribute is same as absent
+        if key == 'style' and not value.strip():
+            continue
+        result[key] = value
+    return result
+
+
+def _compare_class_attribute(
+    expected: str,
+    actual: str,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    expected_classes = set(expected.split())
+    actual_classes = set(actual.split())
+
+    missing = expected_classes - actual_classes
+    extra = actual_classes - expected_classes
+
+    if missing:
+        differences.append(Difference(
+            type=DifferenceType.CLASS_MISSING,
+            path=f"{path}@class",
+            expected=sorted(missing),
+            actual=None,
+            message=f"missing classes: {sorted(missing)}",
+        ))
+    if extra:
+        differences.append(Difference(
+            type=DifferenceType.CLASS_EXTRA,
+            path=f"{path}@class",
+            expected=None,
+            actual=sorted(extra),
+            message=f"unexpected classes: {sorted(extra)}",
+        ))
+
+
+def _compare_style_attribute(
+    expected: str,
+    actual: str,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    """Compare style attributes using CSS-aware comparison."""
+    if compare_css(expected, actual):
+        return  # styles are equivalent
+
+    differences.append(Difference(
+        type=DifferenceType.STYLE_MISMATCH,
+        path=f"{path}@style",
+        expected=expected,
+        actual=actual,
+    ))
+
+
+def _compare_text_nodes(
+    expected: TextNode,
+    actual: TextNode,
+    path: str,
+    differences: list[Difference],
+    *,
+    parent_tag: Optional[str] = None,
+) -> None:
+    if parent_tag == 'style':
+        if compare_stylesheet(expected.content, actual.content):
+            return  # CSS is semantically equivalent
+        differences.append(Difference(
+            type=DifferenceType.TEXT_MISMATCH,
+            path=path,
+            expected=expected.content,
+            actual=actual.content,
+        ))
+        return
+
+    if expected.content != actual.content:
+        differences.append(Difference(
+            type=DifferenceType.TEXT_MISMATCH,
+            path=path,
+            expected=expected.content,
+            actual=actual.content,
+        ))
+
+
+def _compare_comments(
+    expected: Comment,
+    actual: Comment,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    if expected.content != actual.content:
+        differences.append(Difference(
+            type=DifferenceType.COMMENT_MISMATCH,
+            path=path,
+            expected=expected.content,
+            actual=actual.content,
+        ))
+
+
+def _compare_conditional_comments(
+    expected: ConditionalComment,
+    actual: ConditionalComment,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    cc_path = f"{path} > <!--[if {expected.condition}]>" if path else f"<!--[if {expected.condition}]>"  # noqa: E501
+
+    # Compare conditions
+    if expected.condition != actual.condition:
+        differences.append(Difference(
+            type=DifferenceType.CONDITIONAL_COMMENT_CONDITION_MISMATCH,
+            path=cc_path,
+            expected=expected.condition,
+            actual=actual.condition,
+        ))
+        return  # don't compare children if conditions differ
+
+    # Compare children
+    _compare_node_lists(expected.children, actual.children, cc_path, differences)
+
+
+def _compare_conditional_comment_markers(
+    expected: ConditionalCommentMarker,
+    actual: ConditionalCommentMarker,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    if expected == actual:
+        return
+    differences.append(Difference(
+        type=DifferenceType.CONDITIONAL_COMMENT_MARKER_MISMATCH,
+        path=path,
+        expected=_marker_summary(expected),
+        actual=_marker_summary(actual),
+    ))
+
+
+def _marker_summary(marker: ConditionalCommentMarker) -> str:
+    if marker.is_start:
+        return f"<!--[if {marker.condition}]><!-->"
+    return "<!--<![endif]-->"
+
+
+def _node_summary(node: Node) -> str:
+    if isinstance(node, Element):
+        return f"<{node.tag}>"
+    elif isinstance(node, TextNode):
+        content = node.content[:20] + "..." if len(node.content) > 20 else node.content
+        return f"text({content!r})"
+    elif isinstance(node, Comment):
+        content = node.content[:20] + "..." if len(node.content) > 20 else node.content
+        return f"comment({content!r})"
+    elif isinstance(node, ConditionalComment):
+        return f"<!--[if {node.condition}]>..."
+    elif isinstance(node, ConditionalCommentMarker):
+        return _marker_summary(node)
+    return str(type(node).__name__)

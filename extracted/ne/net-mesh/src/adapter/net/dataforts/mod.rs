@@ -1,0 +1,71 @@
+//! Dataforts — the Rebel Yell compositional layer above the
+//! Warriors substrate primitives.
+//!
+//! Each Dataforts phase ships behind its own Cargo feature flag
+//! and composes against the substrate's tag taxonomy, capability
+//! index, replication runtime, and placement filter. See
+//! `docs/internal/plans/DATAFORTS_PLAN.md` for the activation gates per
+//! phase and the locked design decisions per remaining phase.
+//!
+//! Currently exported phases:
+//!
+//! - [`greedy`] — per-node speculative caching of in-scope chains
+//!   observed via the tail-subscription path. Phase 1.
+
+#[cfg(feature = "dataforts")]
+pub mod blob;
+
+/// On-demand cross-peer directory transfer over router streams — pulls
+/// a whole tree from a known source via the blob-transfer primitive.
+#[cfg(feature = "dataforts")]
+pub mod dir;
+
+#[cfg(feature = "dataforts")]
+pub mod greedy;
+
+#[cfg(feature = "dataforts")]
+pub mod gravity;
+
+#[cfg(feature = "dataforts")]
+pub use greedy::{
+    should_admit, synthesize_cache_channel_name, AdmissionInputs, AdmissionVerdict,
+    AdmitRejectReason, ColocationPolicy, DispatchOutcome, EvictedEntry, EvictionSweep,
+    GreedyCacheEntry, GreedyCacheRegistry, GreedyChannelMetrics, GreedyChannelMetricsAtomic,
+    GreedyClusterMetrics, GreedyClusterMetricsAtomic, GreedyConfig, GreedyConfigError,
+    GreedyMetricsRegistry, GreedyMetricsSnapshot, GreedyObserver, GreedyRuntime, IntentMatchPolicy,
+    ScopeLabel,
+};
+
+#[cfg(feature = "dataforts")]
+pub use gravity::{
+    should_emit_heat, BlobHeatRegistry, BlobHeatSink, DataGravityPolicy, DataGravityPolicyError,
+    EmissionDecision, HeatCounter, HeatEmission, HeatRegistry, HeatSink,
+};
+
+#[cfg(feature = "dataforts")]
+pub use blob::{
+    auth_allows_blob_op, byte_range_to_chunks, chunk_payload, classify_payload,
+    drive_blob_migration_tick, drive_blob_migration_tick_arc,
+    drive_blob_migration_tick_with_manifest_resolver, evaluate_health_gate,
+    global_blob_adapter_registry, parse_blob_heat_tag, publish_blob, publish_blob_ref,
+    publish_with_blob, resolve_payload, run_conformance_suite, should_migrate_blob_to,
+    should_pull_blob, should_sweep, store_blob_reader, BlobAdapter, BlobAdapterRegistry,
+    BlobAdapterRegistryError, BlobDurability, BlobError, BlobInventoryEntry, BlobListOptions,
+    BlobMetrics, BlobMetricsSnapshot, BlobMigrationCandidate, BlobMigrationController,
+    BlobMigrationTickReport, BlobRef, BlobRefcountTable, BlobStat, ChunkRangeRequest, ChunkRef,
+    ChunkedPayload, Encoding, EventPayload, FileSystemAdapter, HealthGateAction, ManifestSiblings,
+    MeshBlobAdapter, MigrateBlobReject, MigrateBlobVerdict, NoopAdapter, OverflowConfig,
+    OverflowMetricsSnapshot, PublishWithBlobReceipt, PullBlobReject, PullBlobVerdict,
+    RefcountEntry, BLOB_CHUNK_SIZE_BYTES, BLOB_MANIFEST_BODY_VERSION, BLOB_MANIFEST_MAX_CHUNKS,
+    BLOB_REF_DISCRIMINATOR, BLOB_REF_MAGIC, BLOB_REF_MAX_SIZE, BLOB_REF_SMALL_HEADER_LEN,
+    BLOB_REF_VERSION_V1, BLOB_REF_VERSION_V2_MANIFEST, DEFAULT_BLOB_HEAT_HALF_LIFE,
+    DEFAULT_OVERFLOW_HIGH_WATER_RATIO, DEFAULT_OVERFLOW_LOW_WATER_RATIO,
+    DEFAULT_OVERFLOW_MAX_PUSHES_PER_TICK, DEFAULT_OVERFLOW_TICK_INTERVAL_MS,
+    DEFAULT_RETENTION_FLOOR, HEALTH_GATE_CLEAR_THRESHOLD, HEALTH_GATE_EMIT_THRESHOLD,
+};
+
+#[cfg(feature = "dataforts")]
+pub use dir::{
+    fetch_dir, store_dir, DirEntry, DirError, DirManifest, DirStats, EntryKind,
+    DEFAULT_FETCH_CONCURRENCY, DIR_MANIFEST_VERSION,
+};

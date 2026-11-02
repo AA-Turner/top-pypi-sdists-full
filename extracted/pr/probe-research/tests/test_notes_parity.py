@@ -32,7 +32,7 @@ import pytest
 
 from probe import cli
 from probe.foundation.skills import skills as skill_versions
-from probe.cli import first_touch
+from probe.cli.commands.notes import first_touch
 from probe.shared.notes import owed, summary as summary_cli
 from probe.daemon.worker.bite import bite
 from probe.daemon.agent import tools

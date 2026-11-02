@@ -1,0 +1,214 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from .test_plan import main, TestPlan, TestTarget
+
+PLAN = {
+    "schemes": {
+        "FBControlCore": ["FBControlCoreTests"],
+        "FBControlCoreTests": ["FBControlCoreTests"],
+        "FBSimulatorControl": [
+            "FBSimulatorControlSmokeTests",
+            "FBSimulatorControlUnitTests",
+        ],
+        "FBSimulatorControlSmokeTests": ["FBSimulatorControlSmokeTests"],
+        "FBSimulatorControlUnitTests": ["FBSimulatorControlUnitTests"],
+    },
+    "testTargets": {
+        "FBControlCoreTests": {
+            "bootedSimulator": False,
+            "prerequisites": [],
+            "runner": "standard",
+        },
+        "FBSimulatorControlSmokeTests": {
+            "bootedSimulator": True,
+            "prerequisites": ["fbsimulatorcontrol_resources"],
+            "runner": "large",
+        },
+        "FBSimulatorControlUnitTests": {
+            "bootedSimulator": False,
+            "prerequisites": ["fbsimulatorcontrol_resources", "fixtures"],
+            "runner": "standard",
+        },
+    },
+}
+
+
+class TestPlanTest(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.path = directory / "TestPlan.json"
+        self.path.write_text(json.dumps(PLAN))
+
+    def _run(self, *arguments: str) -> tuple[int, str]:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = main(["--plan", str(self.path), *arguments])
+        return status, output.getvalue()
+
+    def test_a_scheme_needs_every_step_any_of_its_bundles_does_once(self) -> None:
+        plan = TestPlan.load(self.path)
+        self.assertEqual(
+            plan.prerequisites("FBSimulatorControl"),
+            ["fbsimulatorcontrol_resources", "fixtures"],
+        )
+        self.assertEqual(
+            plan.prerequisites("FBSimulatorControlSmokeTests"),
+            ["fbsimulatorcontrol_resources"],
+        )
+        self.assertEqual(plan.prerequisites("FBControlCore"), [])
+
+    def test_a_test_target_runs_from_the_generated_project_unless_the_plan_names_another(
+        self,
+    ) -> None:
+        document = json.loads(json.dumps(PLAN))
+        document["schemes"]["CompanionTests"] = ["CompanionTests"]
+        document["testTargets"]["CompanionTests"] = {
+            "bootedSimulator": False,
+            "runner": "standard",
+            "prerequisites": ["companion_tests"],
+            "project": "Companion/idb_companion.xcodeproj",
+        }
+        self.path.write_text(json.dumps(document))
+        self.assertEqual(
+            self._run("project", "FBControlCore"), (0, "FBSimulatorControl.xcodeproj\n")
+        )
+        self.assertEqual(
+            self._run("project", "CompanionTests"),
+            (0, "Companion/idb_companion.xcodeproj\n"),
+        )
+
+    def test_a_test_target_runs_on_the_mac_unless_the_plan_names_a_simulator(
+        self,
+    ) -> None:
+        document = json.loads(json.dumps(PLAN))
+        document["schemes"]["SimulatorFrameworkBridgeLibTests"] = [
+            "SimulatorFrameworkBridgeLibTests"
+        ]
+        document["testTargets"]["SimulatorFrameworkBridgeLibTests"] = {
+            "bootedSimulator": False,
+            "runner": "standard",
+            "prerequisites": [],
+            "project": "SimulatorFrameworkBridge/SimulatorFrameworkBridge.xcodeproj",
+            "platform": "iOS Simulator",
+        }
+        self.path.write_text(json.dumps(document))
+        self.assertEqual(self._run("platform", "FBControlCore"), (0, "macOS\n"))
+        self.assertEqual(
+            self._run("platform", "SimulatorFrameworkBridgeLibTests"),
+            (0, "iOS Simulator\n"),
+        )
+
+    def test_a_scheme_spanning_two_platforms_is_refused(self) -> None:
+        document = json.loads(json.dumps(PLAN))
+        document["testTargets"]["FBSimulatorControlSmokeTests"]["platform"] = (
+            "iOS Simulator"
+        )
+        self.path.write_text(json.dumps(document))
+        with self.assertRaises(ValueError):
+            TestPlan.load(self.path).platform("FBSimulatorControl")
+
+    def test_a_test_target_that_generates_the_grpc_sources_asks_its_job_for_codegen(
+        self,
+    ) -> None:
+        document = json.loads(json.dumps(PLAN))
+        document["schemes"]["CompanionTests"] = ["CompanionTests"]
+        document["testTargets"]["CompanionTests"] = {
+            "bootedSimulator": False,
+            "runner": "large",
+            "prerequisites": ["companion_tests"],
+            "project": "Companion/idb_companion.xcodeproj",
+        }
+        self.path.write_text(json.dumps(document))
+        status, output = self._run("matrix")
+        self.assertEqual(status, 0)
+        codegen = {
+            job["target"]: job["codegen"]
+            for job in json.loads(output.removeprefix("targets="))
+        }
+        self.assertEqual(
+            codegen,
+            {
+                "CompanionTests": True,
+                "FBControlCoreTests": False,
+                "FBSimulatorControlSmokeTests": False,
+                "FBSimulatorControlUnitTests": False,
+            },
+        )
+
+    def test_a_scheme_spanning_two_projects_is_refused(self) -> None:
+        document = json.loads(json.dumps(PLAN))
+        document["testTargets"]["FBSimulatorControlSmokeTests"]["project"] = (
+            "Other.xcodeproj"
+        )
+        self.path.write_text(json.dumps(document))
+        with self.assertRaises(ValueError):
+            TestPlan.load(self.path).project("FBSimulatorControl")
+
+    def test_the_matrix_has_one_job_per_test_target(self) -> None:
+        status, output = self._run("matrix")
+        self.assertEqual(status, 0)
+        self.assertTrue(output.startswith("targets="))
+        self.assertEqual(
+            json.loads(output.removeprefix("targets=")),
+            [
+                {
+                    "name": "FBControlCore",
+                    "target": "FBControlCoreTests",
+                    "bootedSimulator": False,
+                    "codegen": False,
+                    "runsOn": "macos-26",
+                },
+                {
+                    "name": "FBSimulatorControl Smoke",
+                    "target": "FBSimulatorControlSmokeTests",
+                    "bootedSimulator": True,
+                    "codegen": False,
+                    "runsOn": "macos-26-xlarge",
+                },
+                {
+                    "name": "FBSimulatorControl Unit",
+                    "target": "FBSimulatorControlUnitTests",
+                    "bootedSimulator": False,
+                    "codegen": False,
+                    "runsOn": "macos-26",
+                },
+            ],
+        )
+
+    def test_a_test_target_no_framework_prefixes_is_named_for_itself(self) -> None:
+        plan = TestPlan(
+            schemes={"SimulatorIPCTests": ("SimulatorIPCTests",)},
+            test_targets={
+                "SimulatorIPCTests": TestTarget(
+                    "SimulatorIPCTests", False, (), "standard"
+                )
+            },
+        )
+        self.assertEqual(plan.display_name("SimulatorIPCTests"), "SimulatorIPC")
+
+    def test_lists_schemes_and_test_targets_one_per_line(self) -> None:
+        self.assertEqual(self._run("schemes")[1].split(), sorted(PLAN["schemes"]))
+        self.assertEqual(
+            self._run("test-targets")[1].split(), sorted(PLAN["testTargets"])
+        )
+
+    def test_lists_a_schemes_prerequisites_one_per_line(self) -> None:
+        self.assertEqual(
+            self._run("prerequisites", "FBSimulatorControl")[1].split(),
+            ["fbsimulatorcontrol_resources", "fixtures"],
+        )
+        self.assertEqual(self._run("prerequisites", "FBControlCore"), (0, "\n"))
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self._run("prerequisites", "Unknown")

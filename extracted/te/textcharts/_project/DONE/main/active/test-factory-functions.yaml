@@ -1,0 +1,76 @@
+id: test-factory-functions
+title: "Add direct tests for all public factory functions"
+worktree: main
+priority: High
+status: Completed
+completed_date: "2026-03-07"
+category: "Testing and Quality Assurance"
+description: |
+  Nine factory functions are part of the public API (exported in __all__) but have
+  zero direct test coverage. They are only exercised indirectly through golden-output
+  tests. Factory functions contain data transformation logic (type coercion, default
+  assignment, validation) that should be tested explicitly.
+
+  Untested factories: from_bar_data, from_distribution_series, from_time_series_points,
+  from_cost_performance_points, from_comparison_data, from_regression_data, from_matrix,
+  from_metrics, from_phase_data.
+
+  Partially tested: from_query_latency_data (1 test), from_normalized_results (2 tests),
+  from_heatmap_data (validation only, no happy path), cdf_from_query_results (0 direct),
+  percentile_from_query_results (0 direct).
+
+work:
+  - id: w1
+    summary: "Create test_factory_functions.py with tests for all 14 factory functions — happy path, return type, data passthrough"
+    status: done
+    notes: |
+      For each factory function, test:
+      1. Returns the correct chart class instance
+      2. Data passes through correctly (spot-check key fields)
+      3. Options are forwarded to the chart
+      Group by module: bar, histogram, heatmap, box_plot, line, scatter,
+      comparison, diverging, percentile, normalized_speedup, stacked, sparkline,
+      cdf, rank_table
+
+  - id: w2
+    summary: "Add edge-case factory tests — empty data, single item, mismatched types"
+    needs: [w1]
+    status: done
+    notes: |
+      Test boundary conditions for factories that do data transformation:
+      - from_bar_data with empty list
+      - from_distribution_series with single-value series
+      - from_matrix with 1x1 matrix
+      - from_metrics with no sparkline data
+
+must_preserve:
+  - "All 72 existing tests continue to pass"
+  - "Factory function signatures remain unchanged"
+
+approach: |
+  Create a single test_factory_functions.py file. Import each factory from
+  textcharts (the public API), construct minimal valid inputs, call the factory,
+  and assert the return type and key data fields. Follow the import style in
+  test_import.py. Use parametrize where multiple factories share similar patterns.
+
+verification:
+  - description: "All tests pass"
+    command: "uv run python -m pytest --override-ini=addopts='' tests/test_factory_functions.py -v"
+    expected_output: "all tests pass"
+  - description: "Factory-related coverage gaps closed"
+    command: "COVERAGE_FILE=/tmp/textcharts-factory.coverage uv run python -m pytest --override-ini=addopts='' --cov=textcharts.bar_chart --cov=textcharts.box_plot --cov=textcharts.cdf_chart --cov=textcharts.comparison_bar --cov=textcharts.diverging_bar --cov=textcharts.heatmap --cov=textcharts.histogram --cov=textcharts.line_chart --cov=textcharts.normalized_speedup --cov=textcharts.percentile_ladder --cov=textcharts.rank_table --cov=textcharts.scatter_plot --cov=textcharts.sparkline_table --cov=textcharts.stacked_bar --cov-report=term-missing tests/test_factory_functions.py -q"
+    expected_output: "selected factory modules show direct coverage from test_factory_functions.py"
+
+scope_limit:
+  only_modify:
+    - "tests/"
+  do_not_modify:
+    - "src/"
+
+metadata:
+  tags:
+    - testing
+    - coverage
+    - public-api
+  estimated_effort: "1 day"
+  created_date: "2026-03-07"

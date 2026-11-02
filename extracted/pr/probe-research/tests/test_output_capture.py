@@ -1213,7 +1213,7 @@ def test_a_childs_own_ignore_reaches_the_launchers_sweep(client, app, work, shar
     (`share_ignore`), which the sweep re-reads. Control: not shared, swept."""
     run = open_run(client, experiment="cap-ign-child", capture_outputs=False)
     share = (
-        "from probe.sdk import ignore, outputs\n"
+        "from probe.sdk.capture import outputs\nfrom probe.sdk.recording_rules import ignore\n"
         "assert outputs.share_ignore(os.environ['PROBE_RUN_ID'], ignore.load(os.getcwd(), extra=['*.ckpt'])) == 1\n"
         if shared
         else ""

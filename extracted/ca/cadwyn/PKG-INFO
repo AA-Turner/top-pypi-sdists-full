@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cadwyn
-Version: 8.1.1
+Version: 8.2.0
 Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
 Project-URL: Source code, https://github.com/zmievsa/cadwyn
 Project-URL: Documentation, https://docs.cadwyn.dev
@@ -84,3 +84,7 @@ Whether you are a newbie in API versioning, a pro looking for a sophisticated to
 ## Get started
 
 The [documentation](https://docs.cadwyn.dev) has everything you need to succeed.
+
+## Author
+
+Cadwyn is created and maintained by [Stanislav Zmiev](https://zmievsa.org) ([blog](https://zmievsa.org), [X](https://x.com/zmievsa)).

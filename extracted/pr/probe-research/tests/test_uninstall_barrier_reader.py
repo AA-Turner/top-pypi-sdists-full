@@ -15,7 +15,7 @@ import time
 import pytest
 
 from probe.shared.updates import uninstall_barrier as barrier
-from probe.service import procid
+from probe.foundation.service_api import procid
 
 GONE_PID = 2 ** 22 - 3  # above the default pid_max: no process has it
 

@@ -63,7 +63,7 @@ not see the private index -- which is exactly the bug the run then reports:
               `probe-live=<stub>/simple/` is exported in the scratch HOME's login
               profiles (~/.profile, ~/.bash_profile, ~/.zprofile, ~/.zshenv) and in
               every session's env. The Probe service starts with a clean env
-              (`probe.service.client.ENV_ALLOWLIST`), so its scheduled update child
+              (`probe.foundation.service_api.start.ENV_ALLOWLIST`), so its scheduled update child
               sees UV_INDEX only once R1's D11 (login-shell import of the
               allowlisted variables) is in. Before that, the child resolves
               probe-research from PyPI: the run sees a version that is not one of
@@ -139,10 +139,10 @@ PLUGIN_IDS = (f"{MAIN_PLUGIN}@{MARKETPLACE}", f"{TAP_PLUGIN}@{MARKETPLACE}")
 DIST = "probe-research"
 INDEX_NAME = "probe-live"
 WINDOWS = os.name == "nt"
-#: `probe.service.barrier.WAIT_S`: how long a `probe` started under the update
+#: `probe.service.updater.quiet.barrier.WAIT_S`: how long a `probe` started under the update
 #: barrier may wait for the update before it gives up.
 BARRIER_WAIT_S = 10.0
-#: `probe.service.updater.CHECK_NOW_COOLDOWN_S`: a check_now within this of the
+#: `probe.service.updater.settings.CHECK_NOW_COOLDOWN_S`: a check_now within this of the
 #: last finished cycle answers `recent`.
 CHECK_NOW_COOLDOWN_S = 15 * 60
 MARKER_RE = re.compile(r"LIVE-RUN-MARK ([a-z]\d+) L(\d{6})")
@@ -359,7 +359,7 @@ class Layout:
         self.cache = self.home / ".cache"
         self.local_bin = self.home / ".local" / "bin"
         self.probe_state = self.state / "probe"
-        # Windows (R3): `%LOCALAPPDATA%\probe\service` (`probe.service.paths.root_dir`).
+        # Windows (R3): `%LOCALAPPDATA%\probe\service` (`probe.foundation.service_api.paths.root_dir`).
         self.service_dir = (self.home / "AppData" / "Local" / "probe" / "service") if WINDOWS \
             else self.probe_state / "service"
         self.tap_state = self.claude / "plugins" / TAP_PLUGIN
@@ -1193,7 +1193,7 @@ class Run:
             return
         sys.path.insert(0, str(TAP_ROOT))
         try:
-            from tap.service import client  # the checkout's copy of probe.service.client
+            from tap.service import client  # the checkout's copy of probe.foundation.service_api
             from tap.service.protocol import Client, Method
         except Exception as exc:  # noqa: BLE001
             self.harness_errors.append(f"cannot import the tap's service client: {exc!r}")

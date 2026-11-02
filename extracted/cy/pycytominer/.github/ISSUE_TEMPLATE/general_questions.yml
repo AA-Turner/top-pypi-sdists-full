@@ -1,0 +1,32 @@
+name: General Questions
+description: Provide general questions or feedback regarding Pycytominer.
+title: "Question: "
+labels: [question]
+
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: >
+            I can confirm that this question/issue does not fall under any of the existing three issue types currently available.
+  - type: textarea
+    id: question
+    attributes:
+      label: General question or description
+      description: >
+        Please provide the question or a description of the issue.
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution-interest
+    attributes:
+      label: Contribution interest
+      description: >
+        If you would like to help follow up on this issue, we would be happy to
+        support you. This is completely optional, but it helps us know when
+        someone is interested in contributing.
+      options:
+        - label: >
+            I would be interested in submitting a pull request to help resolve this issue.

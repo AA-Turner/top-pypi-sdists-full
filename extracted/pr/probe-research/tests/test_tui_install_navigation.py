@@ -2,7 +2,8 @@
 
 import pytest
 
-from probe.cli import setup, tui
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
 from tests.test_tui_review import _run
 
 pytestmark = pytest.mark.tui
@@ -35,7 +36,10 @@ def test_confirmation_navigation_returns_only_install_back_or_cancel(monkeypatch
 def test_unavailable_picker_falls_back_to_explicit_install_and_back_choices(monkeypatch, keys, expected):
     import questionary
 
-    monkeypatch.setattr(setup, "_wire_picker", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup.screens.picker_keys, "_wire_picker", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup.screens.agent_picker, "_wire_picker", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup.screens.confirm, "_wire_picker", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup.settings.defaults, "_wire_picker", lambda *args, **kwargs: None)
     select = tui.select
     prompts = []
 
@@ -43,7 +47,7 @@ def test_unavailable_picker_falls_back_to_explicit_install_and_back_choices(monk
         prompts.append((message, kwargs["choices"]))
         return select(message, **kwargs)
 
-    monkeypatch.setattr(tui, "select", capture)
+    monkeypatch.setattr(tui.choices, "select", capture)
     answer, _frames = _run(monkeypatch, keys, render=_confirm)
     assert answer is expected
     message, choices = prompts[-1]

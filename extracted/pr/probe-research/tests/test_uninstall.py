@@ -27,8 +27,9 @@ from pathlib import Path
 import pytest
 
 from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-from probe.cli import uninstall, uninstall_plan
-from probe.cli import uninstall_procs
+from probe.cli.install import uninstall
+from probe.cli.install.uninstall import plan as uninstall_plan
+from probe.cli.install.uninstall import processes as uninstall_procs
 from tests.reinstall_harness import reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 
 #: The real approval: conftest stands one in for every test (`_no_real_codex_hook_approval`).
@@ -108,10 +109,10 @@ def researcher_files(home: Path) -> None:
 
 def install_probe(home: Path) -> dict:
     """A Probe install as the side-by-side installer and the wizard leave it."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
     from probe.shared.harness.harnesses.claude_code import statusline
     from probe.sdk.settings.settings import save_context
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     share = Path(os.environ["XDG_DATA_HOME"]) / "uv"
     tools = Path(os.environ["UV_TOOL_DIR"])
@@ -287,7 +288,7 @@ class FakeServer:
 @pytest.fixture
 def server(monkeypatch):
     fake = FakeServer()
-    monkeypatch.setattr(uninstall, "_client", fake.client)
+    monkeypatch.setattr(uninstall.phases.server, "_client", fake.client)
 
     def ids(*, device_id=None):
         if fake.down:
@@ -301,7 +302,7 @@ def server(monkeypatch):
         fake.calls.append(("capture", token))
         return None if fake.down else True
 
-    monkeypatch.setattr("probe.cli.capabilities.revoke_capture_token", revoke_capture)
+    monkeypatch.setattr("probe.cli.wizard.state.capture_credentials.revoke_capture_token", revoke_capture)
     return fake
 
 
@@ -309,7 +310,7 @@ def server(monkeypatch):
 def no_exec(monkeypatch):
     """Run the finisher in this process instead of exec'ing it."""
     from probe.shared.updates import finisher
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     finished = {}
 
@@ -321,7 +322,8 @@ def no_exec(monkeypatch):
         finished["code"] = finisher.run(str(paths.uninstall_plan_path()))
         return finished["code"]
 
-    monkeypatch.setattr(uninstall, "_phase_finishing", finish)
+    monkeypatch.setattr(uninstall.phases.finishing, "_phase_finishing", finish)
+    monkeypatch.setattr(uninstall.uninstall, "_phase_finishing", finish)
     return finished
 
 
@@ -432,7 +434,7 @@ def test_refuses_while_probe_is_in_use_and_force_goes_on(home, server, no_exec, 
     monkeypatch.setattr(uninstall_procs, "live_users", lambda: users)
     assert _uninstall() == 2
     assert "session abc" in capsys.readouterr().err
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     assert not paths.uninstall_dir().exists() and (home / ".local" / "share" / "uv" / "probe-versions").exists()
     assert _uninstall(force=True) == 0
@@ -452,7 +454,7 @@ def test_refuses_inside_a_recorded_session_even_with_force(home, server, no_exec
 
 
 def test_a_shared_home_keeps_the_other_machines_service_folder(home, server, no_exec, capsys):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     install_probe(home)
@@ -501,11 +503,11 @@ def _queue_one(home: Path) -> None:
 def test_unsent_research_stops_a_yes_run(home, server, no_exec, monkeypatch, capsys):
     install_probe(home)
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)  # the server takes nothing
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)  # the server takes nothing
     assert _uninstall() == 2
     err = capsys.readouterr().err
     assert "1 queued write(s)" in err and "--discard-unsent" in err
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     assert not paths.uninstall_dir().exists()  # cancelled before the point of no return
     assert not any(call[0] == "revoke" for call in server.calls)
@@ -514,10 +516,11 @@ def test_unsent_research_stops_a_yes_run(home, server, no_exec, monkeypatch, cap
 
 def test_unsent_research_can_be_saved_to_a_backup_file(home, server, no_exec, monkeypatch):
     install_probe(home)
-    monkeypatch.setattr(uninstall, "_confirm", lambda run: None)  # the person said Remove
+    monkeypatch.setattr(uninstall.preparation, "_confirm", lambda run: None)  # the person said Remove
+    monkeypatch.setattr(uninstall.uninstall, "_confirm", lambda run: None)  # the person said Remove
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
-    monkeypatch.setattr(uninstall, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.BACKUP)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.BACKUP)
     from probe.core import events
 
     with events.session(False):
@@ -533,15 +536,16 @@ def test_unsent_research_can_be_saved_to_a_backup_file(home, server, no_exec, mo
 
 def test_the_interactive_cancel_changes_nothing(home, server, no_exec, monkeypatch):
     install_probe(home)
-    monkeypatch.setattr(uninstall, "_confirm", lambda run: None)  # the person said Remove
+    monkeypatch.setattr(uninstall.preparation, "_confirm", lambda run: None)  # the person said Remove
+    monkeypatch.setattr(uninstall.uninstall, "_confirm", lambda run: None)  # the person said Remove
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
-    monkeypatch.setattr(uninstall, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.CANCEL)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.CANCEL)
     from probe.core import events
 
     with events.session(False):
         assert uninstall.run(uninstall.Options(interactive=True)) == 2
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     assert not paths.uninstall_dir().exists()
     assert (Path(os.environ["UV_TOOL_DIR"]) / "probe-research").is_symlink()
@@ -554,7 +558,7 @@ def test_the_interactive_cancel_changes_nothing(home, server, no_exec, monkeypat
 def test_killed_in_any_phase_a_rerun_finishes(home, server, no_exec, monkeypatch, phase):
     """A kill inside a phase leaves the barrier at it; a rerun (the owner gone)
     finishes from there, or (before the point of no return) starts again."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     before = snapshot(home)
@@ -580,7 +584,7 @@ def test_killed_in_any_phase_a_rerun_finishes(home, server, no_exec, monkeypatch
 def test_an_unreadable_barrier_is_finished_from_the_first_phase(home, server, no_exec, monkeypatch):
     """A barrier nothing can be read of (a disk error, a hand edit) is LIVE:
     the rerun takes it over and runs every phase again, which is safe."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     before = snapshot(home)
@@ -601,7 +605,8 @@ def test_an_unreadable_barrier_is_finished_from_the_first_phase(home, server, no
 
 def test_a_barrier_past_the_point_of_no_return_is_live_without_its_owner(home):
     from probe.shared.updates import uninstall_barrier
-    from probe.service import client, paths
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api import paths
 
     paths.private_dir(paths.uninstall_dir())
     paths.uninstall_barrier_path().write_text(json.dumps(
@@ -624,7 +629,7 @@ def test_a_lost_retire_answer_is_finished_by_the_rerun(home, server, no_exec, ca
     install_probe(home)
     server.lose_retire_answer = True
     server.calls.clear()
-    import probe.cli.uninstall as module
+    import probe.cli.install.uninstall as module
 
     original = module.SERVER_TRIES
     module.SERVER_TRIES = 1
@@ -633,7 +638,7 @@ def test_a_lost_retire_answer_is_finished_by_the_rerun(home, server, no_exec, ca
     finally:
         module.SERVER_TRIES = original
     assert not any(call[0] == "revoke" for call in server.calls)  # the account's revokes waited
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     barrier = json.loads(paths.uninstall_barrier_path().read_text())
     assert barrier["phase"] == "server"
@@ -650,7 +655,7 @@ def test_a_lost_retire_answer_is_finished_by_the_rerun(home, server, no_exec, ca
 
 def test_killed_in_the_finisher_the_copy_finishes_by_hand(home, server, monkeypatch):
     from probe.shared.updates import finisher
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     before = snapshot(home)
@@ -660,7 +665,8 @@ def test_killed_in_the_finisher_the_copy_finishes_by_hand(home, server, monkeypa
         shutil.copyfile(finisher.__file__, paths.uninstall_dir() / uninstall.FINISHER_NAME)
         raise Killed
 
-    monkeypatch.setattr(uninstall, "_phase_finishing", stop_before_finishing)
+    monkeypatch.setattr(uninstall.phases.finishing, "_phase_finishing", stop_before_finishing)
+    monkeypatch.setattr(uninstall.uninstall, "_phase_finishing", stop_before_finishing)
     with pytest.raises(Killed):
         _uninstall()
     copy = paths.uninstall_dir() / uninstall.FINISHER_NAME
@@ -745,7 +751,7 @@ def test_a_capture_uploader_is_known_by_its_pid_file_its_command_and_its_start(h
 
 def _dirty_notes(home: Path) -> None:
     """A team-note edit and an entity-note edit no Stop hook sent."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     state = paths.state_dir()
     team = state / "team-note"
@@ -762,10 +768,10 @@ def _dirty_notes(home: Path) -> None:
 def test_unsynced_note_edits_are_unsent_research(home, server, no_exec, monkeypatch, capsys):
     install_probe(home)
     _dirty_notes(home)
-    monkeypatch.setattr("probe.cli.uninstall_notes.send", lambda deadline, lines: None)  # nothing reached
+    monkeypatch.setattr("probe.cli.install.uninstall.unsent_notes.send", lambda deadline, lines: None)  # nothing reached
     assert _uninstall() == 2
     assert "2 unsynced note edit(s)" in capsys.readouterr().err
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     assert (paths.state_dir() / "team-note" / "probe-team-note.md").exists()
     assert not paths.uninstall_dir().exists()
@@ -775,7 +781,7 @@ def test_unsynced_note_edits_are_unsent_research(home, server, no_exec, monkeypa
 def test_note_edits_that_were_sent_hold_nothing_back(home, server, no_exec, monkeypatch):
     install_probe(home)
     _dirty_notes(home)
-    from probe.cli import uninstall_notes
+    from probe.cli.install.uninstall import unsent_notes as uninstall_notes
 
     def sent(deadline, lines):  # what a landed push leaves: the base is the document
         for edit in uninstall_notes.unsynced():
@@ -792,9 +798,10 @@ def test_unsynced_note_edits_go_into_the_backup_file(home, server, no_exec, monk
 
     install_probe(home)
     _dirty_notes(home)
-    monkeypatch.setattr("probe.cli.uninstall_notes.send", lambda deadline, lines: None)
-    monkeypatch.setattr(uninstall, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.BACKUP)
-    monkeypatch.setattr(uninstall, "_confirm", lambda run: None)
+    monkeypatch.setattr("probe.cli.install.uninstall.unsent_notes.send", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "_ask_unsent", lambda unsent, **_: uninstall.UnsentChoice.BACKUP)
+    monkeypatch.setattr(uninstall.preparation, "_confirm", lambda run: None)
+    monkeypatch.setattr(uninstall.uninstall, "_confirm", lambda run: None)
     from probe.core import events
 
     with events.session(False):
@@ -846,7 +853,7 @@ def test_an_uninstall_in_a_sandbox_touches_nothing_outside_it(home, server, no_e
 
 
 def _killed_at(phase: str, monkeypatch) -> None:
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     def killed(run):
         raise Killed
@@ -874,7 +881,7 @@ def test_an_installer_finishes_an_uninstall_that_stopped_halfway_then_goes_on(ho
 
 
 def test_an_uninstall_running_now_is_never_taken_over(home, server, no_exec):
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     install_probe(home)
     owner = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
@@ -904,7 +911,7 @@ def test_an_uninstall_that_stopped_before_the_server_is_no_installers_business(h
 @pytest.fixture
 def restarts(monkeypatch):
     """`client.ensure` as the call-off runs it: recorded, nothing spawned."""
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     calls = []
 
@@ -924,14 +931,14 @@ def test_a_refusal_for_unsent_research_puts_everything_back(home, server, no_exe
     """Exit 2 with unsent research: capture still on (no killswitch, its key
     kept), import jobs kept, the service started again, no barrier, and the
     line says what was stopped meanwhile."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _queue_one(home)
     job = paths.state_dir() / "import-jobs" / "0123456789abcdef0123456789abcdef"
     job.mkdir(parents=True)
     (job / "job.json").write_text("{}")
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
 
     def stopped(plan, *, force, lines, stopped=None):
         if stopped is not None:
@@ -954,14 +961,14 @@ def test_a_refusal_for_unsent_research_puts_everything_back(home, server, no_exe
 @pytest.mark.parametrize("signal_", ["ctrl-c", "sigterm"])
 def test_ctrl_c_or_sigterm_before_the_server_puts_everything_back(home, server, no_exec, monkeypatch, restarts,
                                                                   signal_):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
 
     def interrupted(deadline, lines):
         raise KeyboardInterrupt if signal_ == "ctrl-c" else uninstall.Terminated(15)
 
-    monkeypatch.setattr(uninstall, "drain", interrupted)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", interrupted)
     assert _uninstall() == 2
     assert not paths.uninstall_dir().exists() and restarts
     assert not (_tap(home) / ".disabled").exists()
@@ -970,7 +977,7 @@ def test_ctrl_c_or_sigterm_before_the_server_puts_everything_back(home, server, 
 
 def test_ctrl_c_after_the_server_leaves_the_barrier_for_the_rerun(home, server, no_exec, monkeypatch, restarts,
                                                                  capsys):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     before = snapshot(home)
@@ -1011,7 +1018,7 @@ def test_a_custom_outbox_is_kept_not_deleted(home, server, no_exec, monkeypatch,
     monkeypatch.setenv("PROBE_OUTBOX_DIR", str(custom))
     install_probe(home)
     Journal(default_root()).append_http("POST", "/v1/runs", {"name": "r"})
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
     assert _uninstall() == 0
     out = capsys.readouterr().out
     assert "Kept 1 unsent item(s)" in out and "Deleting" not in out
@@ -1019,7 +1026,7 @@ def test_a_custom_outbox_is_kept_not_deleted(home, server, no_exec, monkeypatch,
 
 
 def test_a_rerun_offline_at_the_server_keeps_the_barrier(home, server, no_exec, monkeypatch, capsys):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("server", monkeypatch)
@@ -1030,18 +1037,18 @@ def test_a_rerun_offline_at_the_server_keeps_the_barrier(home, server, no_exec, 
 
 
 def test_what_is_left_in_integrations_or_state_ends_partial_and_resumable(home, server, no_exec, monkeypatch):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     researcher_files(home)
     before = snapshot(home)
     install_probe(home)
     stuck = paths.state_dir() / "team-note"
     real = uninstall._remove_path
-    monkeypatch.setattr(uninstall, "_remove_path", lambda path: False if Path(path) == stuck else real(path))
+    monkeypatch.setattr(uninstall.phases.state, "_remove_path", lambda path: False if Path(path) == stuck else real(path))
     assert _uninstall() == 1
     assert json.loads(paths.uninstall_barrier_path().read_text())["phase"] == "state"
     assert (Path(os.environ["UV_TOOL_DIR"]) / "probe-research").is_symlink()  # the finisher did not run
-    monkeypatch.setattr(uninstall, "_remove_path", real)
+    monkeypatch.setattr(uninstall.phases.state, "_remove_path", real)
     barrier = json.loads(paths.uninstall_barrier_path().read_text())
     barrier["pid"] = 999999999
     paths.uninstall_barrier_path().write_text(json.dumps(barrier))
@@ -1056,7 +1063,7 @@ def test_the_finisher_runs_on_this_interpreter_or_one_that_proves_it_starts(home
     # This interpreter inside an env being deleted: only a candidate that
     # starts may run the finisher; none does here, so it runs in-process.
     plan["env_generations"].append(os.path.dirname(os.path.dirname(os.path.realpath(sys.executable))))
-    monkeypatch.setattr(uninstall, "_python_works", lambda python: False)
+    monkeypatch.setattr(uninstall.phases.finishing, "_python_works", lambda python: False)
     assert uninstall.base_python(plan) is None
     del laid
 
@@ -1071,7 +1078,7 @@ def _live_owner():
 
 def _their_barrier(owner, phase: str = "draining") -> dict:
     """Run A's barrier and plan, as A leaves them while it waits at the D1 question."""
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     paths.private_dir(paths.uninstall_dir())
     record = {"v": 1, "pid": owner.pid, "start": procid.start_time(owner.pid), "at": 0, "phase": phase,
@@ -1082,7 +1089,7 @@ def _their_barrier(owner, phase: str = "draining") -> dict:
 
 
 def _their_plan() -> None:
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     paths.private_dir(paths.uninstall_dir())
     paths.uninstall_plan_path().write_text(json.dumps({"v": 1, "paths": [], "theirs": True}))
@@ -1097,7 +1104,7 @@ def test_a_second_run_never_calls_off_the_first_runs_uninstall(home, server, no_
     A holds: B calls off only what B wrote, so A's barrier and plan stay and
     nothing restarts the service under A."""
     from probe.shared.updates import handoff
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     owner = _live_owner()
@@ -1137,7 +1144,7 @@ def test_a_resumed_run_that_is_refused_leaves_the_uninstall_half_done_and_says_h
     never calls off: the barrier stays LIVE (also once this run is gone), the
     service is not started again, and it says the uninstall is half-done."""
     from probe.shared.updates import uninstall_barrier
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("server", monkeypatch)
@@ -1147,7 +1154,7 @@ def test_a_resumed_run_that_is_refused_leaves_the_uninstall_half_done_and_says_h
         record = json.loads(paths.uninstall_barrier_path().read_text())
         paths.uninstall_barrier_path().write_text(json.dumps({**record, "phase": "a-later-releases-phase"}))
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)  # the server takes nothing
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)  # the server takes nothing
     capsys.readouterr()
     assert _uninstall() == 2
     err = capsys.readouterr().err
@@ -1168,7 +1175,7 @@ def test_a_resumed_run_that_is_refused_leaves_the_uninstall_half_done_and_says_h
 
 def _summary_draft(home: Path) -> Path:
     """A session's summary draft that differs from its base: never sent from here."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     folder = paths.state_dir() / "summaries" / "run" / "22222222-2222-2222-2222-222222222222"
     folder.mkdir(parents=True)
@@ -1182,7 +1189,7 @@ def test_summary_drafts_are_counted_apart_and_a_rerun_online_is_not_the_advice(h
                                                                                 capsys):
     install_probe(home)
     _summary_draft(home)
-    monkeypatch.setattr("probe.cli.uninstall_notes.send", lambda deadline, lines: None)
+    monkeypatch.setattr("probe.cli.install.uninstall.unsent_notes.send", lambda deadline, lines: None)
     unsent = uninstall.count_unsent()
     assert (unsent.drafts, unsent.notes, unsent.sendable) == (1, 0, 0)
     assert _uninstall() == 2
@@ -1199,8 +1206,8 @@ def test_summary_drafts_are_counted_apart_and_a_rerun_online_is_not_the_advice(h
 def test_a_parked_team_note_counts_once_not_once_per_sidecar(home):
     """`park()` leaves the copy with its `.owner`, `.base` and `.meta`: one edit."""
     from probe.shared.notes import team_note as team_note_file
-    from probe.cli import uninstall_notes
-    from probe.service import paths
+    from probe.cli.install.uninstall import unsent_notes as uninstall_notes
+    from probe.foundation.service_api import paths
 
     team = paths.state_dir() / "team-note"
     (team / "abcd").mkdir(parents=True)
@@ -1245,7 +1252,7 @@ def test_a_resumed_run_refused_at_the_lock_or_offline_says_what_finishes_it(home
     """Nothing unsent, so no --discard-unsent advice: the lock is held (an
     update, or another uninstall), or the server cannot be reached."""
     from probe.shared.updates import handoff, uninstall_barrier
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("server", monkeypatch)
@@ -1265,25 +1272,27 @@ def test_a_resumed_run_refused_at_the_lock_or_offline_says_what_finishes_it(home
 
 
 def test_a_resumed_runs_question_offers_stop_here_not_cancel(home, server, no_exec, monkeypatch, restarts, capsys):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from probe.core import events
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("server", monkeypatch)
     paths.uninstall_barrier_path().write_text("{not json")
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
     asked = []
 
     def review(title, body, options):
         asked.append([label for label, _value in options])
         return uninstall.UnsentChoice.CANCEL
 
-    monkeypatch.setattr(tui, "window", lambda enabled: contextlib.nullcontext())
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "leave_window", lambda: None)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.terminal, "window", lambda enabled: contextlib.nullcontext())
+    monkeypatch.setattr(tui.choices, "window", lambda enabled: contextlib.nullcontext())
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "leave_window", lambda: None)
+    monkeypatch.setattr(tui.forms, "review", review)
     with events.session(False):
         assert uninstall.run(uninstall.Options(interactive=True)) == 2
     assert asked and asked[0][0] == uninstall.STOP_HERE_LABEL
@@ -1308,8 +1317,9 @@ def test_probe_repair_finishes_an_uninstall_killed_in_integrations_then_installs
 
     import probe
     from probe.shared.updates import installs, uninstall_barrier
-    from probe.cli import install_pipeline, repair
-    from probe.service import keeper, paths
+    from probe.cli.install import install as install_pipeline, repair
+    from probe.service import keeper
+    from probe.foundation.service_api import paths
 
     m = uv_machine
     for name in ("CLAUDE_CODE_SESSION_ID", "PI_SESSION_ID", "PROBE_KIMI_SESSION_ID", "PROBE_TOKEN",
@@ -1328,7 +1338,7 @@ def test_probe_repair_finishes_an_uninstall_killed_in_integrations_then_installs
     monkeypatch.setattr(repair, "repair_identity", lambda: repair.Part(lines=["held"]))
     monkeypatch.setattr(repair, "repair_service", lambda out: repair.Part(lines=["the Probe service runs 1.0.1"]))
     asked = []
-    monkeypatch.setattr(keeper, "install", lambda env: asked.append(env) or "installed the keeper and the lifeboat")
+    monkeypatch.setattr(keeper.keeper, "install", lambda env: asked.append(env) or "installed the keeper and the lifeboat")
     capsys.readouterr()
     code = 0
     try:
@@ -1347,17 +1357,27 @@ def test_probe_repair_finishes_an_uninstall_killed_in_integrations_then_installs
 def test_an_installer_entry_finishes_only_a_dead_owners_uninstall(home, monkeypatch):
     """`install_pipeline.refusal` (every install entry asks it first): a LIVE
     barrier whose owner is gone is finished; a running owner refuses."""
-    from probe.cli import daemon_cli, install_pipeline
-    from probe.service import paths, procid
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.install import install as install_pipeline
+    from probe.foundation.service_api import paths, procid
 
     paths.private_dir(paths.uninstall_dir())
     paths.uninstall_barrier_path().write_text(json.dumps(
         {"v": 1, "pid": os.getpid(), "start": procid.start_time(os.getpid()), "at": 0, "phase": "integrations",
          "plan": ""}))
-    monkeypatch.setattr(uninstall, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.uninstall, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.barrier, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.draining, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.finishing, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.integrations, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.server, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.state, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.phases.stopping, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.preparation, "run", lambda options: pytest.fail("never taken over while its owner runs"))
+    monkeypatch.setattr(uninstall.telemetry, "run", lambda options: pytest.fail("never taken over while its owner runs"))
     assert "running" in install_pipeline.refusal(finish=True)
     finished = []
-    monkeypatch.setattr(uninstall, "finish_interrupted",
+    monkeypatch.setattr(uninstall.barrier, "finish_interrupted",
                         lambda: finished.append(1) or (uninstall.Interrupted.FINISHED, ""))
     record = json.loads(paths.uninstall_barrier_path().read_text())
     paths.uninstall_barrier_path().write_text(json.dumps({**record, "pid": 999999999}))
@@ -1414,7 +1434,7 @@ def test_backup_unsent_saves_the_backup_and_goes_on(home, server, no_exec, monke
 
     install_probe(home)
     _queue_one(home)
-    monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
+    monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
     assert _uninstall() == 2  # --yes with neither flag still stops
     assert "--backup-unsent" in capsys.readouterr().err
     assert _uninstall(backup_unsent=True) == 0
@@ -1458,13 +1478,13 @@ def _json_uninstall(**kwargs) -> tuple[int, dict]:
 @pytest.mark.parametrize("why", ["unsent_research", "live_users", "in_session", "offline", "busy", "partial", "done"])
 def test_the_json_result_says_why_as_data(home, server, no_exec, monkeypatch, why):
     from probe.shared.updates import handoff
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     want: dict = {}
     if why == "unsent_research":
         _queue_one(home)
-        monkeypatch.setattr(uninstall, "drain", lambda deadline, lines: None)
+        monkeypatch.setattr(uninstall.phases.draining, "drain", lambda deadline, lines: None)
         want = {"code": "unsent_research", "resumed": False, "total": 1, "sending_can_help": True,
                 "counts": {"queued_writes": 1, "offline_runs": 0, "transcript_pieces": 0, "note_edits": 0,
                            "summary_drafts": 0}}
@@ -1485,7 +1505,7 @@ def test_the_json_result_says_why_as_data(home, server, no_exec, monkeypatch, wh
     elif why == "partial":
         stuck = paths.state_dir() / "team-note"
         real = uninstall._remove_path
-        monkeypatch.setattr(uninstall, "_remove_path", lambda path: False if Path(path) == stuck else real(path))
+        monkeypatch.setattr(uninstall.phases.state, "_remove_path", lambda path: False if Path(path) == stuck else real(path))
         want = {"code": "partial", "resumed": False, "resume": "probe uninstall", "phase": "state"}
     code, result = _json_uninstall()
     if why == "done":
@@ -1506,7 +1526,8 @@ def test_probe_daemon_install_after_a_halfway_uninstall_ends_with_the_cli_on_pat
 
     import probe
     from probe.shared.updates import installs, uninstall_barrier
-    from probe.cli import daemon_cli, install_pipeline
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.install import install as install_pipeline
 
     m = uv_machine
     for name in ("CLAUDE_CODE_SESSION_ID", "PI_SESSION_ID", "PROBE_KIMI_SESSION_ID", "PROBE_TOKEN"):
@@ -1550,7 +1571,7 @@ def test_a_resumed_interactive_run_asks_about_what_was_queued_since(home, server
     _killed_at("integrations", monkeypatch)
     _queue_one(home)
     asked = []
-    monkeypatch.setattr(uninstall, "_ask_unsent",
+    monkeypatch.setattr(uninstall.phases.draining, "_ask_unsent",
                         lambda unsent, **kw: asked.append((unsent.ops, kw)) or uninstall.UnsentChoice.DELETE)
     from probe.core import events
 
@@ -1562,7 +1583,7 @@ def test_a_resumed_interactive_run_asks_about_what_was_queued_since(home, server
 @pytest.mark.parametrize("left", ["unreadable", "resuming", "a-later-releases-phase"])
 def test_an_installer_never_runs_an_uninstall_it_cannot_place(home, server, monkeypatch, left):
     """P2-3: how far it got is unknown: only `probe uninstall` runs it."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("server", monkeypatch)
@@ -1571,14 +1592,23 @@ def test_an_installer_never_runs_an_uninstall_it_cannot_place(home, server, monk
     else:
         record = json.loads(paths.uninstall_barrier_path().read_text())
         paths.uninstall_barrier_path().write_text(json.dumps({**record, "phase": left}))
-    monkeypatch.setattr(uninstall, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.uninstall, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.barrier, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.draining, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.finishing, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.integrations, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.server, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.state, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.phases.stopping, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.preparation, "run", lambda options: pytest.fail("never from an installer"))
+    monkeypatch.setattr(uninstall.telemetry, "run", lambda options: pytest.fail("never from an installer"))
     found, said = uninstall.finish_interrupted()
     assert found is uninstall.Interrupted.RUNNING and "finish it with `probe uninstall`" in said
 
 
 def test_the_uninstall_never_goes_on_without_the_install_lock(home, server, no_exec, monkeypatch):
     from probe.shared.updates import handoff
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     installed = snapshot(home)
@@ -1599,7 +1629,7 @@ def test_an_owner_on_another_machine_is_never_cleared_resumed_or_finished(home, 
     import socket
 
     from probe.shared.updates import uninstall_barrier
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     install_probe(home)
     _killed_at("draining", monkeypatch)  # reversible: STALE if it were this machine's
@@ -1617,11 +1647,11 @@ def test_only_an_install_entry_finishes_a_halfway_uninstall(home, server, monkey
     """P2-6: the bootstrap finishes one only for an install (`finish_uninstall`);
     `npx probe-research backfill` and every other wizard action refuse with
     the reader's line."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     install_probe(home)
     _killed_at("integrations", monkeypatch)
-    monkeypatch.setattr(uninstall, "finish_interrupted", lambda: pytest.fail("not an install entry"))
+    monkeypatch.setattr(uninstall.barrier, "finish_interrupted", lambda: pytest.fail("not an install entry"))
     boot = bootstrap.ensure_persistent_install()
     assert boot.refused and "must be finished first: run `probe uninstall`" in boot.message
 
@@ -1725,7 +1755,7 @@ def test_a_new_hostname_on_the_same_machine_never_keeps_a_dead_uninstall_alive(h
     decides; the hostname only for a record without one; and where the key
     cannot be read (the tap's copy), the pid check alone."""
     from probe.shared.updates import uninstall_barrier
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     paths.private_dir(paths.uninstall_dir())
     record = {"v": 1, "pid": 999999999, "start": "1", "at": 0, "plan": "", "phase": "planned",
@@ -1757,7 +1787,7 @@ def test_only_an_update_a_person_asked_for_finishes_a_halfway_uninstall(home, mo
     import typer
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     main = importlib.import_module("probe.cli.main")
     monkeypatch.delenv("PROBE_AUTOUPDATE_TRIGGER", raising=False)
@@ -1813,7 +1843,7 @@ def _claude_files(home: Path, *, settings=None, ledger=None, known=None) -> dict
 
 
 def test_hollow_cleanup_a_never_through_a_link(home, tmp_path):
-    from probe.cli import uninstall_agents
+    from probe.cli.install.uninstall import agent_traces as uninstall_agents
 
     dotfiles = tmp_path / "dotfiles"
     dotfiles.mkdir()
@@ -1835,7 +1865,7 @@ def test_hollow_cleanup_a_never_through_a_link(home, tmp_path):
 
 
 def test_hollow_cleanup_b_another_plugins_key_is_content(home):
-    from probe.cli import uninstall_agents
+    from probe.cli.install.uninstall import agent_traces as uninstall_agents
 
     files = _claude_files(home, settings={"enabledPlugins": {"other@mkt": {}}})
     uninstall_agents.remove_hollow()
@@ -1843,7 +1873,7 @@ def test_hollow_cleanup_b_another_plugins_key_is_content(home):
 
 
 def test_hollow_cleanup_c_the_ledger_stays_while_another_marketplace_is_cloned(home):
-    from probe.cli import uninstall_agents
+    from probe.cli.install.uninstall import agent_traces as uninstall_agents
 
     files = _claude_files(home, ledger={"version": 2, "plugins": {}})  # known_marketplaces.json missing
     (files["ledger"].parent / "marketplaces" / "someone-else").mkdir(parents=True)
@@ -1855,7 +1885,7 @@ def test_hollow_cleanup_c_the_ledger_stays_while_another_marketplace_is_cloned(h
 
 
 def test_hollow_cleanup_d_an_empty_settings_file_goes(home):
-    from probe.cli import uninstall_agents
+    from probe.cli.install.uninstall import agent_traces as uninstall_agents
 
     files = _claude_files(home, settings={})
     lines = uninstall_agents.remove_hollow()

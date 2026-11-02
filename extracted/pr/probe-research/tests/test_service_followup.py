@@ -1,6 +1,6 @@
 """After an update, the Probe service moves what open sessions read to the installed copy (plan C9).
 
-`probe.service.followup` (the status-line renderer, the contexts the managed
+`probe.service.updater.followup` (the status-line renderer, the contexts the managed
 block is refreshed in) and `recorders.installed_tap` (the tap a session's agent
 has installed now). The cycle that runs them is in tests/test_service_updater.py
 (`test_after_an_update_open_sessions_read_the_installed_copy`).
@@ -17,7 +17,8 @@ from pathlib import Path
 import pytest
 
 from probe.shared.harness.harnesses.claude_code import statusline as cli_statusline
-from probe.service import followup, recorders
+from probe.service.updater import followup
+from probe.service.sessions import recorders
 
 AGENT = Path(__file__).resolve().parents[1]
 MARKET = "research-os-agent"

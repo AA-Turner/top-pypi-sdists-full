@@ -1,0 +1,97 @@
+Metadata-Version: 2.4
+Name: google-cloud-agentplatform
+Version: 2.7.0
+Summary: Google Cloud Agent Platform Client Library
+Author-email: Google LLC <googleapis-packages@google.com>
+License: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: google-auth
+Requires-Dist: google-api-core
+Requires-Dist: proto-plus
+Requires-Dist: protobuf
+Requires-Dist: packaging
+Requires-Dist: pydantic<3
+Requires-Dist: typing_extensions
+Requires-Dist: google-genai
+Provides-Extra: agent-engines
+Requires-Dist: packaging>=24.0; extra == "agent-engines"
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == "agent-engines"
+Requires-Dist: google-cloud-storage<4.0.0,>=1.32.0; extra == "agent-engines"
+Requires-Dist: opentelemetry-sdk<2; extra == "agent-engines"
+Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "agent-engines"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "agent-engines"
+Requires-Dist: opentelemetry-instrumentation-google-genai<2.0.0,>=0.3b0; extra == "agent-engines"
+Requires-Dist: pydantic<3,>=2.11.1; extra == "agent-engines"
+Provides-Extra: a2a
+Requires-Dist: google-cloud-agentplatform[agent_engines]; extra == "a2a"
+Requires-Dist: a2a-sdk[http-server]>=1.0.0; extra == "a2a"
+Provides-Extra: adk
+Requires-Dist: google-cloud-agentplatform[agent_engines]; extra == "adk"
+Requires-Dist: google-adk<3.0.0,>=1.27.0; extra == "adk"
+Requires-Dist: aiohttp; extra == "adk"
+Provides-Extra: langchain
+Requires-Dist: google-cloud-agentplatform[agent_engines]; extra == "langchain"
+Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langchain"
+Requires-Dist: langchain-classic; extra == "langchain"
+Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langchain"
+Requires-Dist: langchain-google-genai<4.2.3,>=4.0.0; extra == "langchain"
+Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langchain"
+Requires-Dist: openinference-instrumentation-langchain<0.2,>=0.1.19; extra == "langchain"
+Provides-Extra: ag2
+Requires-Dist: google-cloud-agentplatform[agent_engines]; extra == "ag2"
+Requires-Dist: autogen[gemini]<1,>=0.14.1; extra == "ag2"
+Requires-Dist: openinference-instrumentation-autogen<0.2,>=0.1.6; extra == "ag2"
+Provides-Extra: llama-index
+Requires-Dist: google-cloud-agentplatform[agent_engines]; extra == "llama-index"
+Requires-Dist: llama-index; extra == "llama-index"
+Requires-Dist: llama-index-llms-google-genai; extra == "llama-index"
+Requires-Dist: openinference-instrumentation-llama-index<4.0,>=3.0; extra == "llama-index"
+Provides-Extra: evaluation
+Requires-Dist: pandas>=1.0.0; extra == "evaluation"
+Requires-Dist: tqdm>=4.23.0; extra == "evaluation"
+Requires-Dist: pyyaml; extra == "evaluation"
+Requires-Dist: litellm<1.86.0,>=1.83.7; python_version < "3.14" and extra == "evaluation"
+Requires-Dist: litellm<1.97.0,>=1.93.0; python_version >= "3.14" and extra == "evaluation"
+Requires-Dist: google-cloud-storage<4.0.0,>=1.32.0; extra == "evaluation"
+Provides-Extra: bigquery
+Requires-Dist: google-cloud-bigquery<4.0.0,>=1.15.0; extra == "bigquery"
+Requires-Dist: bigframes; extra == "bigquery"
+Requires-Dist: pandas>=1.0.0; extra == "bigquery"
+Provides-Extra: live
+Requires-Dist: websockets; extra == "live"
+Provides-Extra: all
+Requires-Dist: google-cloud-agentplatform[a2a,adk,ag2,agent_engines,bigquery,evaluation,langchain,live,llama_index]; extra == "all"
+Dynamic: license-file
+
+# Gemini Enterprise Agent Platform
+
+Gemini Enterprise Agent Platform Client Library.
+
+## Installation
+
+```bash
+# Core installation
+pip install google-cloud-agentplatform
+
+# With specific extras
+pip install google-cloud-agentplatform[agent_engines]
+pip install google-cloud-agentplatform[a2a]
+pip install google-cloud-agentplatform[adk]
+pip install google-cloud-agentplatform[langchain]
+pip install google-cloud-agentplatform[ag2]
+pip install google-cloud-agentplatform[llama_index]
+pip install google-cloud-agentplatform[evaluation]
+pip install google-cloud-agentplatform[bigquery]
+pip install google-cloud-agentplatform[live]
+pip install google-cloud-agentplatform[all]

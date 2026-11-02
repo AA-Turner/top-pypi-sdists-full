@@ -1,5 +1,6 @@
 """MetricsResource (client.metrics, typed reads) and RunMetricsMixin, Client's methods: per-run
-metrics, grouped and wide reads merged page by page, export, coordinates (twin: app/metrics)."""
+metrics, grouped and wide reads merged page by page, export, coordinates
+(twin: app/runs/metrics)."""
 
 from __future__ import annotations
 import builtins

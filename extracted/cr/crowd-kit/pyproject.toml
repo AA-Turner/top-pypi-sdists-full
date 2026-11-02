@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crowd-kit"
+description = "Computational Quality Control for Crowdsourcing"
+keywords = ["crowdsourcing", "data labeling", "answer aggregation", "truth inference", "learning from crowds", "machine learning", "quality control", "data quality"]
+license = {text = "Apache-2.0"}
+authors = [{name = "Toloka"}]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+requires-python = ">= 3.8"
+dependencies = [
+    "attrs",
+    "nltk",
+    "numpy",
+    "pandas >= 1.1.0",
+    "pyarrow",
+    "scikit-learn",
+    "tqdm",
+    "transformers",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+"Homepage" = "https://github.com/Toloka/crowd-kit"
+"Bug Tracker" = "https://github.com/Toloka/crowd-kit/issues"
+"Documentation" = "https://crowd-kit.readthedocs.io/"
+"API Reference" = "https://crowd-kit.readthedocs.io/"
+"Source Code" = "https://github.com/Toloka/crowd-kit"
+"Release Notes" = "https://github.com/Toloka/crowd-kit/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "build",
+    "codecov",
+    "flake8",
+    "ipywidgets",
+    "isort",
+    "mypy",
+    "nbqa",
+    "notebook",
+    "pandas-stubs",
+    "pre-commit",
+    "pytest",
+    "pyupgrade",
+    "twine",
+    "types-tqdm"
+]
+docs = [
+    "mkdocs-material",
+    "mkdocstrings-python"
+]
+learning = [
+    "torch >= 1.6.0,< 2.5.0; python_version < '3.9'",
+    "torch >= 2.5.0; python_version >= '3.9'",
+    "transformers >= 4.0.0"
+]
+
+[tool.setuptools]
+zip-safe = true
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["crowdkit*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "crowdkit.__version__"}
+
+[tool.mypy]
+ignore_missing_imports = true
+strict = true
+
+[tool.isort]
+profile = "black"
+src_paths = ["crowdkit", "tests"]
+
+[tool.pyupgrade]
+py38-plus = true

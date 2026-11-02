@@ -1,0 +1,568 @@
+"""FastMCP adapter for durable Exomem-owned OAuth sessions."""
+
+from __future__ import annotations
+
+import logging
+import secrets
+import time
+from typing import Any, ClassVar
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+import httpx
+from fastmcp.server.auth.auth import AccessToken
+from fastmcp.server.auth.oauth_proxy import OAuthProxy
+from fastmcp.server.auth.oauth_proxy.models import (
+    DEFAULT_AUTH_CODE_EXPIRY_SECONDS,
+    HTTP_TIMEOUT_SECONDS,
+    ClientCode,
+)
+from fastmcp.server.auth.oauth_proxy.ui import create_error_html
+from fastmcp.server.auth.redirect_validation import build_client_redirect
+from mcp.server.auth.provider import AuthorizationCode, RefreshToken, TokenError
+from mcp.server.auth.routes import create_protected_resource_routes
+from mcp.server.auth.settings import RevocationOptions
+from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
+from pydantic import PrivateAttr
+from starlette.middleware import Middleware
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.routing import Route
+from typing_extensions import override
+
+from . import local_ingress
+from .auth_sessions import (
+    ACCESS_TOKEN_TTL_SECONDS,
+    InvalidRefreshToken,
+    SessionAuthority,
+    SessionIdentity,
+    SessionStoreUnavailable,
+)
+from .governance.principal import OriginSessionBinding
+
+logger = logging.getLogger(__name__)
+
+OAUTH_AUTHORIZATION_SCOPES = ("offline_access", "exomem:read", "exomem:write")
+OAUTH_RESOURCE_SCOPES = ("exomem:read", "exomem:write")
+
+
+class ExomemSessionAccessToken(AccessToken):
+    """An access token this install's durable session authority validated.
+
+    The marker is the token's provenance: only `load_access_token` below
+    returns this type, so principal resolution can tell a verified session
+    from a raw bearer header, another verifier, or copied claims.
+    """
+
+    EXOMEM_SESSION_PROVENANCE: ClassVar[bool] = True
+    origin_session: OriginSessionBinding | None = None
+    # The authority that verified this bearer, so the request revalidates its
+    # origin through the same store and stale-grace cache. Never serialized.
+    _verifier: Any = PrivateAttr(default=None)
+
+
+class SessionStoreUnavailableMiddleware:
+    """Map only authoritative session-store failures to retryable HTTP 503."""
+
+    def __init__(self, app: Any):
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        try:
+            await self.app(scope, receive, send)
+        except SessionStoreUnavailable:
+            if scope.get("type") != "http":
+                raise
+            logger.warning("durable auth session store unavailable")
+            response = JSONResponse(
+                {
+                    "error": "temporarily_unavailable",
+                    "error_description": (
+                        "The authentication session store is temporarily unavailable; retry shortly."
+                    ),
+                },
+                status_code=503,
+                headers={"Retry-After": "5"},
+            )
+            await response(scope, receive, send)
+
+
+class ExomemSessionOAuthProxy(OAuthProxy):
+    """Use GitHub once for identity, then issue and validate Exomem sessions."""
+
+    def __init__(
+        self,
+        *,
+        session_authority: SessionAuthority,
+        github_cleanup_transport: httpx.AsyncBaseTransport | None = None,
+        local_verifier: Any = None,
+        **kwargs: Any,
+    ):
+        if kwargs.get("upstream_revocation_endpoint") is not None:
+            raise ValueError(
+                "durable sessions use local RFC 7009 revocation, not an upstream endpoint"
+            )
+        kwargs["upstream_revocation_endpoint"] = None
+        super().__init__(**kwargs)
+        self._session_authority = session_authority
+        self._github_cleanup_transport = github_cleanup_transport
+        #: Set only on a supervisor-owned worker: arms the local-ingress gate.
+        self._local_verifier = local_verifier
+        self.revocation_options = RevocationOptions(enabled=True)
+
+    @override
+    async def exchange_authorization_code(
+        self,
+        client: OAuthClientInformationFull,
+        authorization_code: AuthorizationCode,
+    ) -> OAuthToken:
+        code_model = await self._code_store.get(key=authorization_code.code)
+        if code_model is None:
+            raise TokenError("invalid_grant", "Authorization code not found")
+        if code_model.client_id != client.client_id:
+            raise TokenError("invalid_grant", "Authorization code client mismatch")
+
+        consumed = await self._code_store.delete(key=authorization_code.code)
+        if not consumed:
+            raise TokenError("invalid_grant", "Authorization code not found")
+
+        proof = code_model.idp_tokens.get("exomem_identity")
+        if not isinstance(proof, dict):
+            raise TokenError("invalid_grant", "Authorization identity proof is missing")
+        try:
+            raw_user_id = proof["github_user_id"]
+            if isinstance(raw_user_id, bool):
+                raise ValueError("boolean identity IDs are invalid")
+            identity = SessionIdentity(
+                github_user_id=int(raw_user_id),
+                github_login=str(proof["github_login"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise TokenError(
+                "invalid_grant", "Authorization identity proof is invalid"
+            ) from error
+
+        if client.client_id is None:
+            raise TokenError("invalid_client", "Client ID is required")
+        scopes = list(code_model.scopes)
+        refresh_token: str | None = None
+        if "offline_access" in scopes:
+            bearer, _, refresh_token = await self._session_authority.issue_offline(
+                client_id=client.client_id,
+                scopes=scopes,
+                identity=identity,
+            )
+            expires_in: int | None = ACCESS_TOKEN_TTL_SECONDS
+        else:
+            bearer, _ = await self._session_authority.issue(
+                client_id=client.client_id,
+                scopes=scopes,
+                identity=identity,
+            )
+            expires_in = None
+        return OAuthToken(
+            access_token=bearer,
+            token_type="Bearer",
+            expires_in=expires_in,
+            scope=" ".join(scopes) or None,
+            refresh_token=refresh_token,
+        )
+
+    @override
+    async def load_access_token(self, token: str) -> AccessToken | None:
+        if local_ingress.current_grant() is not None:
+            # Local ingress: the gate already verified this request's bearer
+            # against the local audience. Only that exact bearer is accepted,
+            # so an OAuth session presented there is refused.
+            return local_ingress.access_token_for(token)
+        # This is the only place a presented credential reaches validation, so
+        # its absence from the log is what distinguishes "the client sent a
+        # token we rejected" from "the client sent no token at all". Both
+        # surface as an identical `POST /mcp 401` in the access log, and they
+        # are different problems with different fixes: the first is a session
+        # dying server-side, the second is a client that has stopped
+        # presenting one. Without this line, silence is ambiguous rather than
+        # reassuring.
+        record = await self._session_authority.validate(token)
+        if record is None:
+            logger.info("event=credential_presented outcome=rejected")
+            return None
+        logger.debug("event=credential_presented outcome=accepted")
+        verified = ExomemSessionAccessToken(
+            token=token,
+            client_id=record.client_id,
+            origin_session=OriginSessionBinding(
+                session_id=record.session_id, generation=record.generation, audience=record.audience,
+            ),
+            scopes=list(record.scopes),
+            expires_at=(
+                None if record.expires_at is None else int(record.expires_at)
+            ),
+            resource=record.audience,
+            claims={
+                "sub": str(record.github_user_id),
+                "github_user_id": record.github_user_id,
+                "github_login": record.github_login,
+                "iss": record.issuer,
+                "aud": record.audience,
+            },
+        )
+        verified._verifier = self._session_authority
+        return verified
+
+    @override
+    async def load_refresh_token(
+        self,
+        client: OAuthClientInformationFull,
+        refresh_token: str,
+    ) -> RefreshToken | None:
+        """Load only an Exomem-owned refresh grant, never FastMCP legacy state."""
+        if client.client_id is None:
+            return None
+        # Whether the client even attempts a refresh is the other half of the
+        # picture: a client that re-authorizes from scratch every hour looks
+        # the same from the access log as one whose refresh is being refused.
+        grant = await self._session_authority.validate_refresh(
+            refresh_token,
+            client_id=client.client_id,
+        )
+        if grant is None:
+            logger.info("event=refresh_attempted outcome=rejected")
+            return None
+        logger.info("event=refresh_attempted outcome=accepted")
+        return RefreshToken(
+            token=refresh_token,
+            client_id=grant.client_id,
+            scopes=list(grant.scopes),
+            expires_at=None,
+        )
+
+    @override
+    async def exchange_refresh_token(
+        self,
+        client: OAuthClientInformationFull,
+        refresh_token: RefreshToken,
+        scopes: list[str],
+    ) -> OAuthToken:
+        """Rotate an Exomem refresh token through the shared session authority."""
+        if client.client_id is None:
+            raise TokenError("invalid_client", "Client ID is required")
+        normalized_scopes = list(dict.fromkeys(scopes))
+        try:
+            access, record, next_refresh = await self._session_authority.rotate_refresh(
+                refresh_token.token,
+                client_id=client.client_id,
+                scopes=normalized_scopes,
+            )
+        except InvalidRefreshToken as error:
+            # Rotation refusals name their own cause already; surfacing it here
+            # is what tells an operator a refresh loop is failing rather than
+            # never being tried.
+            logger.info("event=refresh_rotated outcome=refused reason=%s", error)
+            raise TokenError("invalid_grant", str(error)) from error
+        logger.info("event=refresh_rotated outcome=ok")
+        return OAuthToken(
+            access_token=access,
+            token_type="Bearer",
+            expires_in=ACCESS_TOKEN_TTL_SECONDS,
+            scope=" ".join(record.scopes) or None,
+            refresh_token=next_refresh,
+        )
+
+    @override
+    async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
+        await self._session_authority.revoke_bearer(
+            token.token,
+            reason="oauth-client-revocation",
+        )
+
+    @override
+    def get_middleware(self) -> list:
+        # The local-ingress gate must run before FastMCP authentication, and
+        # this list is the only one FastMCP installs ahead of it.
+        local_gate = (
+            [
+                Middleware(
+                    local_ingress.LocalIngressMiddleware, verifier=self._local_verifier
+                )
+            ]
+            if self._local_verifier is not None
+            else []
+        )
+        return [
+            *local_gate,
+            Middleware(SessionStoreUnavailableMiddleware),
+            *super().get_middleware(),
+        ]
+
+    @override
+    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Keep protocol-only scopes out of protected-resource metadata."""
+        routes = super().get_routes(mcp_path)
+        if self._resource_url is None or self.issuer_url is None:
+            return routes
+        resource_routes = create_protected_resource_routes(
+            resource_url=self._resource_url,
+            authorization_servers=[self.issuer_url],
+            scopes_supported=list(OAUTH_RESOURCE_SCOPES),
+        )
+        replacements = {route.path: route for route in resource_routes}
+        return [replacements.get(route.path, route) for route in routes]
+
+    @override
+    def _build_upstream_authorize_url(
+        self,
+        txn_id: str,
+        transaction: dict[str, Any],
+    ) -> str:
+        """Keep Exomem protocol scopes out of the GitHub identity request."""
+        upstream = super()._build_upstream_authorize_url(
+            txn_id,
+            {**transaction, "scopes": []},
+        )
+        parts = urlsplit(upstream)
+        query = urlencode(
+            [(key, value) for key, value in parse_qsl(parts.query) if key != "scope"]
+        )
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
+
+    @override
+    def _prepare_scopes_for_token_exchange(self, scopes: list[str]) -> list[str]:
+        """GitHub proves identity only; downstream Exomem scopes stay local."""
+        del scopes
+        return []
+
+    async def _cleanup_github_token(self, access_token: str) -> None:
+        if self._upstream_client_secret is None:
+            logger.warning("GitHub OAuth token cleanup skipped: missing application secret")
+            return
+        endpoint = (
+            "https://api.github.com/applications/"
+            f"{self._upstream_client_id}/token"
+        )
+        try:
+            async with httpx.AsyncClient(
+                timeout=HTTP_TIMEOUT_SECONDS,
+                transport=self._github_cleanup_transport,
+            ) as client:
+                response = await client.request(
+                    "DELETE",
+                    endpoint,
+                    auth=(
+                        self._upstream_client_id,
+                        self._upstream_client_secret.get_secret_value(),
+                    ),
+                    json={"access_token": access_token},
+                    headers={"Accept": "application/vnd.github+json"},
+                )
+            if response.status_code in {204, 404}:
+                return
+            logger.warning(
+                "GitHub OAuth token cleanup failed with status %d",
+                response.status_code,
+            )
+        except httpx.HTTPError as error:
+            logger.warning(
+                "GitHub OAuth token cleanup failed due to %s",
+                type(error).__name__,
+            )
+
+    @staticmethod
+    def _verified_identity_proof(verified: AccessToken | None) -> dict[str, Any] | None:
+        if verified is None:
+            return None
+        claims = verified.claims or {}
+        login = str(claims.get("login") or "").strip().casefold()
+        raw_user_id = claims.get("sub") or verified.client_id
+        if isinstance(raw_user_id, bool):
+            return None
+        try:
+            user_id = int(raw_user_id)
+        except (TypeError, ValueError):
+            return None
+        if not login or user_id <= 0:
+            return None
+        return {
+            "exomem_identity": {
+                "github_user_id": user_id,
+                "github_login": login,
+            }
+        }
+
+    @staticmethod
+    def _error_response(message: str, *, status_code: int) -> HTMLResponse:
+        return HTMLResponse(
+            content=create_error_html(
+                error_title="OAuth Error",
+                error_message=message,
+            ),
+            status_code=status_code,
+        )
+
+    @override
+    async def _handle_idp_callback(
+        self, request: Request
+    ) -> HTMLResponse | RedirectResponse:
+        """Exchange, verify, dispose, and retain only a minimal identity proof."""
+        try:
+            idp_code = request.query_params.get("code")
+            txn_id = request.query_params.get("state")
+            error = request.query_params.get("error")
+
+            if not idp_code and not error:
+                return self._error_response(
+                    "Missing authorization code or transaction ID from the identity provider.",
+                    status_code=400,
+                )
+
+            transaction_model = (
+                await self._transaction_store.get(key=txn_id) if txn_id else None
+            )
+
+            if error:
+                error_description = request.query_params.get("error_description")
+                if transaction_model:
+                    client_redirect_uri = transaction_model.client_redirect_uri
+                    if not self._validate_client_redirect_uri(client_redirect_uri):
+                        return self._error_response(
+                            "Invalid redirect URI",
+                            status_code=400,
+                        )
+                    error_params: dict[str, str] = {
+                        "error": error,
+                        "state": transaction_model.client_state,
+                    }
+                    if error_description:
+                        error_params["error_description"] = error_description
+                    return RedirectResponse(
+                        url=build_client_redirect(
+                            client_redirect_uri,
+                            error_params,
+                            iss=str(self.issuer_url),
+                        ),
+                        status_code=302,
+                    )
+                return self._error_response(
+                    f"Authentication failed: {error_description or 'Unknown error'}",
+                    status_code=400,
+                )
+
+            if not txn_id or transaction_model is None:
+                return self._error_response(
+                    "Invalid or expired authorization transaction. Please try authenticating again.",
+                    status_code=400,
+                )
+            if not self._validate_client_redirect_uri(
+                transaction_model.client_redirect_uri
+            ):
+                return self._error_response("Invalid redirect URI", status_code=400)
+
+            if self._require_authorization_consent in (True, "remember"):
+                consent_token = transaction_model.consent_token
+                if not consent_token:
+                    return self._error_response(
+                        "Invalid authorization flow. Please try authenticating again.",
+                        status_code=403,
+                    )
+                if not self._verify_consent_binding_cookie(
+                    request, txn_id, consent_token
+                ):
+                    return self._error_response(
+                        "Authorization session mismatch. Please try authenticating again.",
+                        status_code=403,
+                    )
+
+            transaction = transaction_model.model_dump()
+            idp_redirect_uri = f"{str(self.base_url).rstrip('/')}{self._redirect_path}"
+            token_params: dict[str, Any] = {
+                "url": self._upstream_token_endpoint,
+                "code": idp_code,
+                "redirect_uri": idp_redirect_uri,
+            }
+            proxy_code_verifier = transaction.get("proxy_code_verifier")
+            if proxy_code_verifier:
+                token_params["code_verifier"] = proxy_code_verifier
+            exchange_scopes = self._prepare_scopes_for_token_exchange(
+                transaction.get("scopes") or []
+            )
+            if exchange_scopes:
+                token_params["scope"] = " ".join(exchange_scopes)
+            token_params.update(self._extra_token_params)
+
+            try:
+                async with self._upstream_oauth_client() as oauth_client:
+                    idp_tokens: dict[str, Any] = await oauth_client.fetch_token(
+                        **token_params
+                    )
+            except Exception as exchange_error:  # noqa: BLE001 - OAuth callback boundary
+                logger.error(
+                    "IdP token exchange failed due to %s",
+                    type(exchange_error).__name__,
+                )
+                return self._error_response(
+                    "Token exchange with identity provider failed.",
+                    status_code=500,
+                )
+
+            raw_access_token = idp_tokens.get("access_token")
+            if not isinstance(raw_access_token, str) or not raw_access_token:
+                idp_tokens.clear()
+                return self._error_response(
+                    "Identity provider returned no usable access token.",
+                    status_code=403,
+                )
+
+            proof: dict[str, Any] | None = None
+            try:
+                verified = await self._token_validator.verify_token(raw_access_token)
+                proof = self._verified_identity_proof(verified)
+            except Exception as verification_error:  # noqa: BLE001 - reject verifier failures
+                logger.warning(
+                    "GitHub identity verification failed due to %s",
+                    type(verification_error).__name__,
+                )
+            finally:
+                await self._cleanup_github_token(raw_access_token)
+                idp_tokens.clear()
+
+            if proof is None:
+                return self._error_response(
+                    "The authorized GitHub identity is not permitted.",
+                    status_code=403,
+                )
+
+            client_code = secrets.token_urlsafe(32)
+            code_expires_at = int(time.time() + DEFAULT_AUTH_CODE_EXPIRY_SECONDS)
+            await self._code_store.put(
+                key=client_code,
+                value=ClientCode(
+                    code=client_code,
+                    client_id=transaction["client_id"],
+                    redirect_uri=transaction["client_redirect_uri"],
+                    code_challenge=transaction["code_challenge"],
+                    code_challenge_method=transaction["code_challenge_method"],
+                    scopes=transaction["scopes"],
+                    idp_tokens=proof,
+                    expires_at=code_expires_at,
+                    created_at=time.time(),
+                ),
+                ttl=DEFAULT_AUTH_CODE_EXPIRY_SECONDS,
+            )
+            await self._transaction_store.delete(key=txn_id)
+
+            callback_url = build_client_redirect(
+                transaction["client_redirect_uri"],
+                {"code": client_code, "state": transaction["client_state"]},
+                iss=str(self.issuer_url),
+            )
+            response = RedirectResponse(url=callback_url, status_code=302)
+            self._clear_consent_binding_cookie(request, response, txn_id)
+            return response
+        except Exception as callback_error:  # noqa: BLE001 - preserve callback error page
+            logger.error(
+                "OAuth callback processing failed due to %s",
+                type(callback_error).__name__,
+            )
+            return self._error_response(
+                "Internal server error during OAuth callback processing. Please try again.",
+                status_code=500,
+            )

@@ -1,0 +1,284 @@
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Optional
+
+import typer
+from punq import Container
+
+from teddy_executor.core.domain.models import (
+    ExecutionReport,
+    RunStatus,
+    RunSummary,
+)
+from teddy_executor.core.domain.models.plan import Plan
+from teddy_executor.core.ports.inbound.plan_parser import IPlanParser, InvalidPlanError
+from teddy_executor.core.ports.inbound.run_plan_use_case import IRunPlanUseCase
+from teddy_executor.core.ports.outbound.markdown_report_formatter import (
+    IMarkdownReportFormatter,
+)
+from teddy_executor.core.services.plan_validator import ValidationError
+
+logger = logging.getLogger(__name__)
+
+
+def find_project_root() -> Path:
+    """
+    Locates the project root by climbing up from the CWD until a .teddy directory is found.
+    Falls back to CWD if not found.
+    """
+    current = Path.cwd().resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / ".teddy").is_dir():
+            return parent
+    return current
+
+
+def normalize_context_values(
+    values: Optional[List[str]],
+) -> Optional[List[str]]:
+    """Normalizes a repeatable and comma-separated context option.
+
+    Each occurrence is split on commas, every fragment is stripped, and empty
+    fragments are dropped. A falsy option returns ``None`` so callers can
+    distinguish "no value supplied" from an explicitly empty list.
+    """
+    if not values:
+        return None
+    return [
+        path.strip()
+        for occurrence in values
+        for path in occurrence.split(",")
+        if path.strip()
+    ]
+
+
+def echo_and_copy(
+    content: str,
+    no_copy: bool = False,
+    confirmation_message: str = "Output copied to clipboard.",
+    content_to_copy: Optional[str] = None,
+):
+    """Prints content to stdout and copies it to the clipboard unless disabled."""
+    import threading
+    import os
+
+    if content:
+        typer.echo(content)
+
+    if not no_copy:
+        to_copy = content_to_copy if content_to_copy is not None else content
+        if os.getenv("TEDDY_DEBUG"):
+            typer.echo("DEBUG: Attempting clipboard copy...", err=True)
+        try:
+            # Completely detached thread. We do NOT join it at all to ensure
+            # the main process can exit even if the clipboard provider hangs.
+            def _copy():
+                import pyperclip
+
+                try:
+                    pyperclip.copy(to_copy)
+                except Exception as e:
+                    logger.debug("Background clipboard copy failed: %s", e)
+
+            thread = threading.Thread(target=_copy, daemon=True)
+            thread.start()
+            # Give the thread a small window to complete. 0.1s is enough for
+            # most healthy clipboard providers (pbcopy/xclip) without being
+            # a noticeable delay for the user.
+            thread.join(timeout=0.1)
+            typer.secho(f"\n{confirmation_message}", fg=typer.colors.GREEN, err=True)
+        except Exception as e:
+            logger.debug("Main thread clipboard handler failed: %s", e)
+
+
+def get_plan_content(plan_content_str: Optional[str], plan_file: Optional[Path]) -> str:
+    """
+    Retrieves the plan content from one of three sources, in order of priority:
+    1. A direct string via --plan-content.
+    2. A file path.
+    3. The system clipboard.
+    Exits with an error if the final source is invalid or empty.
+    """
+    if plan_content_str:
+        return plan_content_str
+
+    if plan_file:
+        if not plan_file.is_file():
+            typer.echo(f"Error: Plan file not found at '{plan_file}'", err=True)
+            raise typer.Exit(code=1)
+        return plan_file.read_text(encoding="utf-8")
+
+    import pyperclip
+
+    try:
+        plan_from_clipboard = pyperclip.paste()
+        if not plan_from_clipboard.strip():
+            typer.echo(
+                "Error: No plan provided via file or --plan-content, and clipboard is empty.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        return plan_from_clipboard
+    except Exception as e:
+        typer.echo(f"Error accessing clipboard: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+def create_failure_report(
+    e: Exception,
+    start_time: datetime,
+    container: Container,
+    plan_content: Optional[str] = None,
+) -> ExecutionReport:
+    """
+    Creates a rich ExecutionReport for a failure that occurred before or during execution.
+    """
+    error_messages = [str(e)]
+
+    if isinstance(e, InvalidPlanError) and plan_content:
+        try:
+            plan_parser = container.resolve(IPlanParser)
+            temp_plan = plan_parser.parse(plan_content)
+
+            errors_to_report = getattr(e, "validation_errors", [])
+            if errors_to_report:
+                return handle_validation_failure(
+                    temp_plan, errors_to_report, start_time
+                )
+
+            return ExecutionReport(
+                plan_title=temp_plan.title,
+                run_summary=RunSummary(
+                    status=RunStatus.VALIDATION_FAILED,
+                    start_time=start_time,
+                    end_time=datetime.now(timezone.utc),
+                    error=str(e),
+                ),
+                validation_result=error_messages,
+            )
+        except Exception as report_err:
+            logger.debug("Failed to create rich failure report: %s", report_err)
+
+    return ExecutionReport(
+        plan_title="Execution Error",
+        run_summary=RunSummary(
+            status=RunStatus.FAILURE
+            if isinstance(e, NotImplementedError)
+            else RunStatus.VALIDATION_FAILED,
+            start_time=start_time,
+            end_time=datetime.now(timezone.utc),
+            error=str(e),
+        ),
+        validation_result=error_messages,
+    )
+
+
+def handle_validation_failure(
+    plan: Plan, validation_errors: List[ValidationError], start_time: datetime
+) -> ExecutionReport:
+    """Creates an ExecutionReport for a validation failure."""
+    failed_resources: dict[str, str] = {}
+    error_messages: list[str] = []
+    for error in validation_errors:
+        error_messages.append(error.message)
+        if error.file_path:
+            try:
+                path = Path(error.file_path)
+                if path.exists():
+                    failed_resources[error.file_path] = path.read_text(encoding="utf-8")
+            except OSError as os_err:
+                logger.debug(
+                    "Failed to read failed resource %s: %s", error.file_path, os_err
+                )
+
+    return ExecutionReport(
+        plan_title=plan.title,
+        rationale=plan.rationale,
+        original_actions=plan.actions,
+        run_summary=RunSummary(
+            status=RunStatus.VALIDATION_FAILED,
+            start_time=start_time,
+            end_time=datetime.now(timezone.utc),
+        ),
+        validation_result=error_messages,
+        failed_resources=failed_resources if failed_resources else None,
+    )
+
+
+def execute_valid_plan(
+    container: Container,
+    plan: Plan,
+    interactive_mode: bool,
+    plan_meta: Optional[dict] = None,
+) -> ExecutionReport:
+    """Executes a plan that has already been parsed and validated."""
+    import sys
+
+    orchestrator = container.resolve(IRunPlanUseCase)
+    print(f"DEBUG CLI: Resolved orchestrator: {type(orchestrator)}", file=sys.stderr)
+    meta = plan_meta or {}
+    execution_report = orchestrator.execute(
+        plan=plan,
+        interactive=interactive_mode,
+        plan_path=meta.get("plan_path"),
+        plan_content=meta.get("plan_content"),
+    )
+    return execution_report
+
+
+def handle_report_output(
+    container: Container,
+    report: Optional[ExecutionReport],
+    no_copy: bool,
+    silent: bool = False,
+    exit_on_failure: bool = True,
+) -> None:
+    """Formats the report, echoes/copies it, and exits with non-zero if failed."""
+    if report:
+        report_formatter = container.resolve(IMarkdownReportFormatter)
+        formatted_report = report_formatter.format(report)
+
+        if silent:
+            # In silent mode (sessions), we don't print to stdout or copy to clipboard
+            # (R-10-12: The report is already saved to file in the session dir)
+            echo_and_copy(
+                "",
+                content_to_copy=formatted_report,
+                no_copy=True,
+            )
+        else:
+            echo_and_copy(
+                formatted_report,
+                no_copy=no_copy,
+            )
+
+        if exit_on_failure and report.run_summary.status in (
+            RunStatus.FAILURE,
+            RunStatus.VALIDATION_FAILED,
+        ):
+            raise typer.Exit(code=1)
+
+
+def prewarm_imports() -> None:
+    """
+    Pre-warm heavy imports to reduce first-run latency.
+    Extracted from __main__.py init command for reuse by update command.
+    """
+    try:
+        import litellm  # noqa: F401
+        import trafilatura  # noqa: F401
+        import pyperclip  # noqa: F401
+        from bs4 import BeautifulSoup  # noqa: F401
+        from ddgs import DDGS  # noqa: F401
+        import tiktoken  # noqa: F401
+
+        try:
+            tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            logger.warning(
+                "Failed to prewarm tiktoken encoding (best-effort)",
+                exc_info=True,
+            )
+    except ImportError:
+        pass

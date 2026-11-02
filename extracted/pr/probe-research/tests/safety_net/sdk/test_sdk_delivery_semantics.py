@@ -23,7 +23,7 @@ import probe
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings
 from probe.sdk.delivery.journal.journal import Journal
-from probe.sdk.delivery.sinks.offline import OfflineClient
+from probe.sdk.delivery.offline.client import OfflineClient
 from probe.sdk.delivery.transport.transport import Transport
 
 from tests.safety_net.sdk.sdk_session import close_open_runs
@@ -258,3 +258,105 @@ def test_disabled_mode_records_nothing(tmp_path, monkeypatch, baseline):
         if state.exists() else []
     close_open_runs()
     baseline("delivery_semantics_disabled", table)
+
+
+# -- failure policy, beyond the five answers above (plan sdk-typed-write-ops T10/T11) --------------
+#: Recorded before DirectSink became Sender + one policy resolver: every answer the classifier
+#: (`ops/classify.py`) sorts differently, a 2xx that is not JSON, a client whose transport was
+#: injected (forced sync, as hosted MCP), and a CLI client whose `raise_permanent` is set after
+#: construction (`cli/connection.py`).
+POLICY_OUTCOMES = {
+    "unauthorized": lambda request: httpx.Response(401, json={"detail": "bad token"}),
+    "forbidden": lambda request: httpx.Response(403, json={"detail": "missing scope"}),
+    "timeout": lambda request: httpx.Response(408, json={"detail": "slow"}),
+    "throttled": lambda request: httpx.Response(429, json={"detail": "slow down"}, headers={"Retry-After": "0"}),
+    "not_implemented": lambda request: httpx.Response(501, json={"detail": "no"}),
+    "html": lambda request: httpx.Response(200, text="<html>gateway</html>", headers={"content-type": "text/html"}),
+    "empty": lambda request: httpx.Response(204),
+}
+POLICY_MODES = ("direct", "journaled", "offline", "injected")
+
+
+class _PolicyServer(_Server):
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.sent.append(f"{request.method} {request.url.path}")
+        if self.outcome == "bug":
+            raise RuntimeError("a bug of ours in the transport")
+        answer = POLICY_OUTCOMES.get(self.outcome) or OUTCOMES[self.outcome]
+        if answer is None:
+            raise httpx.ConnectError("unreachable", request=request)
+        return answer(request)
+
+
+def _policy_client(mode: str, server: _Server, folder: Path, *, fail_open: bool) -> Client:
+    if mode != "injected":
+        return _client(mode, server, folder, fail_open=fail_open)
+    settings = _settings()
+    journal = Journal(str(folder), context={"name": None, "base_url": settings.base_url})
+    transport = Transport(
+        settings, client=httpx.Client(base_url="http://test", transport=httpx.MockTransport(server)), max_retries=0)
+    # async_writes left to the client: an injected transport makes it sync (hosted MCP).
+    return Client(settings=settings, transport=transport, journal=journal, fail_open=fail_open, auto_drain=False)
+
+
+def _policy_cell(tmp_path: Path, name: str, mode: str, outcome: str, call, *, fail_open: bool, prepare=None) -> dict:
+    folder = tmp_path / name
+    server = _PolicyServer(outcome)
+    client = _policy_client(mode, server, folder, fail_open=fail_open)
+    try:
+        if prepare is not None:
+            prepare(client)
+        cell = _outcome(client, server, folder, call)
+        cell["async_writes"] = client.async_writes
+        return cell
+    finally:
+        client.close()
+
+
+def _cli_raise_permanent(client: Client) -> None:
+    client.raise_permanent = True  # the CLI sets it after construction
+
+
+def test_each_failure_policy_does_what_it_did(tmp_path, baseline):
+    table: dict[str, Any] = {}
+    n = 0
+    flags = list(itertools.product(STRICT, (False, True), (None, True)))
+    outcomes = [*POLICY_OUTCOMES, "bug"]
+    for mode, fail_open in itertools.product(POLICY_MODES, (True, False)):
+        for outcome in (outcomes if mode != "injected" else [*outcomes, *OUTCOMES]):
+            for strict, sync, raise_permanent in flags:
+                n += 1
+                table[f"{mode} fail_open={fail_open} server={outcome} strict={strict} sync={sync} "
+                      f"raise_permanent={raise_permanent}"] = _policy_cell(
+                    tmp_path, f"p{n}", mode, outcome,
+                    _write(strict=strict, sync=sync, raise_permanent=raise_permanent), fail_open=fail_open)
+            for label, call, prepare in (
+                ("durable=False", _write(durable=False), None),
+                ("client raise_permanent", _write(), _cli_raise_permanent),
+                ("client raise_permanent sync=True", _write(sync=True), _cli_raise_permanent),
+                ("client raise_permanent strict=False", _write(strict=False), _cli_raise_permanent),
+            ):
+                n += 1
+                table[f"{mode} fail_open={fail_open} server={outcome} {label}"] = _policy_cell(
+                    tmp_path, f"p{n}", mode, outcome, call, fail_open=fail_open, prepare=prepare)
+        for outcome in ("ok", "transient", "permanent"):
+            n += 1
+            table[f"{mode} fail_open={fail_open} server={outcome} client raise_permanent"] = _policy_cell(
+                tmp_path, f"p{n}", mode, outcome, _write(), fail_open=fail_open, prepare=_cli_raise_permanent)
+        for strict, sync in itertools.product(STRICT, (False, True)):
+            n += 1
+            # An experiment write is addressed by whether it will be queued (`_journals`).
+            table[f"{mode} fail_open={fail_open} journals strict={strict} sync={sync}"] = _policy_cell(
+                tmp_path, f"p{n}", mode, "ok",
+                lambda client, s=strict, y=sync: client._journals(strict=s, sync=y), fail_open=fail_open)
+    n += 1
+
+    def queue_only_write(client: Client):
+        from probe.sdk.delivery.sinks.direct import queue_only  # where the snapshot gate imports it
+
+        with queue_only():
+            return client.write("POST", PATH, dict(BODY))
+
+    table["journaled server=ok below the floor inside queue_only"] = _policy_cell(
+        tmp_path, f"p{n}", "journaled", "ok", queue_only_write, fail_open=True, prepare=_below_floor)
+    baseline("delivery_semantics_policy", table)

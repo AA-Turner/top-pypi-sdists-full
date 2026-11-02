@@ -1,0 +1,207 @@
+name: Continuous Integration
+on:
+  push:
+  release:
+    types: [released]
+permissions:
+  contents: read
+jobs:
+  # Run linters and unit tests on all supported Python versions.
+  checks:
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: false
+        activate-environment: true
+
+    - name: Install dependencies with apt
+      run: |
+        sudo apt-get install nginx openssl
+
+    - name: Install Python dependencies
+      run: |
+        uv pip install --group dev
+
+    - name: Check formatting
+      run: |
+        make format-check
+
+    - name: Run linters
+      run: |
+        make lint
+
+    - name: Run mypy
+      run: |
+        make mypy-check
+
+    - name: Run zizmor
+      run: |
+        make zizmor-check
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download tusd
+      run: |
+        make tusd
+
+    - name: Create test certificates
+      run: |
+        make tests/nginx.key tests/selfsigned.crt
+
+    - name: Run pytest (1st try)
+      id: pytest1
+      run: |
+        PYTHONPATH=. pytest --cov=aiotus --cov-report=xml:coverage/coverage-${{ matrix.python-version }}.xml tests
+      continue-on-error: true
+
+    - name: Run pytest (2nd try)
+      id: pytest2
+      if: steps.pytest1.outcome == 'failure'
+      run: |
+        PYTHONPATH=. pytest --cov=aiotus --cov-report=xml:coverage/coverage-${{ matrix.python-version }}.xml tests
+      continue-on-error: true
+
+    - name: Run pytest (3rd try)
+      if: steps.pytest2.outcome == 'failure'
+      run: |
+        PYTHONPATH=. pytest --cov=aiotus --cov-report=xml:coverage/coverage-${{ matrix.python-version }}.xml tests
+
+    - name: Upload coverage information artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: coverage-${{ matrix.python-version }}
+        path: coverage/coverage-*.xml
+
+    - name: Generate documentation
+      if: matrix.python-version != '3.11'
+      run: |
+        make doc
+
+  # Upload coverage information to external services. A separate job is used because
+  # SonarCloud does not like to be triggered multiple times for the same commit.
+  upload-coverage:
+    needs: checks
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+
+    - uses: actions/checkout@v7
+      with:
+        # Get the complete history so that SonarCloud can figure out what has
+        # changed on a feature branch compared to the main branch.
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Download coverage information artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: coverage-*
+        path: coverage/
+        merge-multiple: true
+
+    - name: Run SonarCloud scan
+      uses: SonarSource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    - name: Upload coverage information to Codecov
+      uses: codecov/codecov-action@v7
+      with:
+        directory: coverage/
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Package the code on the lowest supported Python version.
+  package:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v7
+      with:
+        # Get the complete history so that setuptools-scm works properly.
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: false
+        activate-environment: true
+
+    - name: Install dependencies
+      run: |
+        uv pip install build
+
+    - name: Package
+      run: |
+        python -m build
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: packages
+        path: dist/
+
+  # Publish packages built from the master branch to TestPyPi.
+  publish-testpypi:
+    if: (github.ref == 'refs/heads/master') || (github.event_name == 'release' && github.event.action == 'released')
+    needs: package
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/aiotus
+    permissions:
+      id-token: write
+    steps:
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v8
+      with:
+        name: packages
+        path: dist/
+
+    - name: Publish to TestPyPi
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+
+  # Publish releases to PyPi.
+  publish-pypi:
+    if: github.event_name == 'release' && github.event.action == 'released'
+    needs: package
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/aiotus
+    permissions:
+      id-token: write
+    steps:
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v8
+      with:
+        name: packages
+        path: dist/
+
+    - name: Publish to PyPi
+      uses: pypa/gh-action-pypi-publish@release/v1

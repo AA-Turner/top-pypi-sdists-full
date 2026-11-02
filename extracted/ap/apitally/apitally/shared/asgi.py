@@ -1,0 +1,384 @@
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable, Iterable
+from typing import Any
+
+from opentelemetry.trace import Status, StatusCode
+
+from apitally.shared import metrics, server_errors, validation_errors
+from apitally.shared.config import (
+    BODY_TOO_LARGE,
+    MAX_BODY_SIZE,
+    get_config,
+    is_allowed_content_type,
+    is_supported_content_encoding,
+)
+from apitally.shared.consumers import (
+    emit_consumer_update_if_changed,
+    get_consumer_identifier,
+    init_consumer,
+    reset_consumer,
+)
+from apitally.shared.context import get_server_span, get_server_span_processor, is_server_span_kept
+from apitally.shared.helpers import capture_exception
+from apitally.shared.validation_errors import ValidationError
+
+
+logger = logging.getLogger(__name__)
+
+Scope = dict[str, Any]
+Message = dict[str, Any]
+Receive = Callable[[], Awaitable[Message]]
+Send = Callable[[Message], Awaitable[None]]
+ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+
+
+def group_headers(headers: Iterable[tuple[bytes, bytes]]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for name, value in headers:
+        grouped.setdefault(name.decode("latin-1").lower(), []).append(value.decode("latin-1"))
+    return grouped
+
+
+class ApitallyASGIMiddleware:
+    """Transport middleware. Accesses the SERVER span only in the receive/send/finish callbacks,
+    so it works both inside the instrumentor's span and wrapped around the instrumented stack."""
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        resolve_route: Callable[[Scope], str | None] | None = None,
+        use_scope_client_address: bool = False,
+        validation_error_status: int | None = None,
+        validation_error_extractor: Callable[[object], list[ValidationError]] | None = None,
+    ) -> None:
+        self.app = app
+        self.resolve_route = resolve_route or resolve_route_from_scope
+        self.use_scope_client_address = use_scope_client_address
+        self.validation_error_status = validation_error_status
+        self.validation_error_extractor = validation_error_extractor
+        self.config = get_config()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        config = self.config
+        start_time = time.perf_counter()
+        # Routing into a mounted sub-app appends the mount prefix to root_path; the value
+        # saved here at request entry restores the prefix that route resolvers leave out
+        initial_root_path = str(scope.get("root_path") or "")
+        request_headers = scope.get("headers") or []
+        request_size: int | None = None
+        request_body = bytearray()
+        request_body_length = 0
+        request_body_complete = False
+        request_too_large = False
+        capture_request_body = False
+        status = 0
+        response_started = False
+        response_size: int | None = None
+        response_size_counter = 0
+        response_headers: list[tuple[bytes, bytes]] | None = None
+        response_content_type: bytes | None = None
+        response_content_encoding: bytes | None = None
+        response_body = bytearray()
+        response_body_complete = False
+        response_too_large = False
+        capture_response_body = False
+        inspect_validation_response = False
+        completed = False
+        deferred_span_id: int | None = None
+        route: str | None = None
+
+        init_consumer()
+        exception_holder = server_errors.init_exception_holder()
+        try:
+            request_size = parse_int(get_header(request_headers, b"content-length"))
+            capture_request_body = (
+                config.capture_request_body
+                and is_allowed_content_type(get_header(request_headers, b"content-type"))
+                and is_supported_content_encoding(get_header(request_headers, b"content-encoding"))
+            )
+            request_too_large = capture_request_body and request_size is not None and request_size > MAX_BODY_SIZE
+        except Exception:  # pragma: no cover
+            logger.exception("Error in Apitally ASGI middleware")
+
+        async def receive_wrapper() -> Message:
+            nonlocal request_body, request_body_length, request_body_complete, request_too_large, capture_request_body
+            message = await receive()
+            try:
+                if message["type"] == "http.request":
+                    if capture_request_body and not is_server_span_kept():
+                        capture_request_body = False
+                        request_body = bytearray()
+                    body = message.get("body", b"")
+                    request_body_length += len(body)
+                    if capture_request_body and not request_too_large:
+                        request_body += body
+                        if len(request_body) > MAX_BODY_SIZE:
+                            request_too_large = True
+                            request_body = bytearray()
+                    if not message.get("more_body", False):
+                        request_body_complete = True
+            except Exception:  # pragma: no cover
+                logger.exception("Error in Apitally ASGI middleware")
+            return message
+
+        def resolve_route_and_update_span() -> str | None:
+            try:
+                route = self.resolve_route(scope)
+            except Exception:  # pragma: no cover
+                logger.exception("Error resolving route in Apitally ASGI middleware")
+                return None
+            if route:
+                root_path = str(scope.get("root_path") or "")
+                if root_path.startswith(initial_root_path):
+                    route = root_path[len(initial_root_path) :] + route
+                span = get_server_span()
+                if span is not None and span.is_recording():
+                    # Overwrites the instrumentor's raw route so spans and metrics agree on the template
+                    span.set_attribute("http.route", route)
+                    span.update_name(f"{scope.get('method', '')} {route}".strip())
+            return route
+
+        def finish() -> None:
+            nonlocal completed, route
+            if completed:
+                return
+            completed = True
+            duration = time.perf_counter() - start_time
+            final_request_size = request_size
+            if final_request_size is None and request_body_complete:
+                final_request_size = request_body_length
+            final_response_size = response_size
+            if final_response_size is None and response_started:
+                final_response_size = response_size_counter
+            try:
+                if not response_started:
+                    route = resolve_route_and_update_span()
+                consumer = get_consumer_identifier()
+                span = get_server_span()
+                processor = get_server_span_processor()
+                if (
+                    is_server_span_kept()
+                    and span is not None
+                    and span.context is not None
+                    and processor is not None
+                    and (span.is_recording() or deferred_span_id is not None)
+                ):
+                    extra_attributes: dict[str, str | int] = {}
+                    if self.use_scope_client_address:
+                        client = scope.get("client")
+                        if isinstance(client, (list, tuple)) and client and isinstance(client[0], str) and client[0]:
+                            extra_attributes["client.address"] = client[0]
+                    if final_request_size is not None:
+                        extra_attributes["http.request.body.size"] = final_request_size
+                    if final_response_size is not None:
+                        extra_attributes["http.response.body.size"] = final_response_size
+                    # Partial buffers from aborted requests/responses are never exported
+                    stash_request_headers = group_headers(request_headers) if config.capture_request_headers else None
+                    stash_response_headers = group_headers(response_headers) if response_headers is not None else None
+                    stash_request_body = (
+                        BODY_TOO_LARGE
+                        if request_too_large
+                        else (
+                            bytes(request_body)
+                            if capture_request_body and request_body and request_body_complete
+                            else None
+                        )
+                    )
+                    stash_response_body = (
+                        BODY_TOO_LARGE
+                        if capture_response_body and response_too_large
+                        else (
+                            bytes(response_body)
+                            if capture_response_body and response_body and response_body_complete
+                            else None
+                        )
+                    )
+                    if stash_request_headers or stash_request_body or stash_response_headers or stash_response_body:
+                        processor.update_stash(
+                            span.context.span_id,
+                            request_headers=stash_request_headers,
+                            request_body=stash_request_body,
+                            response_headers=stash_response_headers,
+                            response_body=stash_response_body,
+                            request_content_encoding=(get_header(request_headers, b"content-encoding") or b"").decode(
+                                "latin-1"
+                            ),
+                            response_content_encoding=(response_content_encoding or b"").decode("latin-1"),
+                        )
+                    if deferred_span_id is not None:
+                        try:
+                            loop = asyncio.get_running_loop() if status == 500 else None
+                        except RuntimeError:  # pragma: no cover
+                            loop = None
+                        if loop is not None:
+                            # Hold through synchronous exception unwinding so Sentry can capture the event ID.
+                            loop.call_soon(processor.finish_export, deferred_span_id, extra_attributes or None)
+                        else:
+                            processor.finish_export(deferred_span_id, extra_attributes or None)
+                    else:
+                        for key, value in extra_attributes.items():
+                            span.set_attribute(key, value)
+                method = str(scope.get("method", ""))
+                if (
+                    inspect_validation_response
+                    and response_body_complete
+                    and not response_too_large
+                    and self.validation_error_extractor is not None
+                ):
+                    validation_errors.record_validation_response(
+                        consumer,
+                        method,
+                        route,
+                        bytes(response_body),
+                        response_content_type,
+                        response_content_encoding,
+                        self.validation_error_extractor,
+                    )
+                if status == 500:
+                    # Runs after exception unwinding, so outer Sentry middleware has already set the event ID
+                    asyncio.get_running_loop().call_soon(
+                        server_errors.add_server_error, consumer, method, route, exception_holder
+                    )
+                metrics.record_request(
+                    method=method,
+                    route=route or "",
+                    status_code=status,
+                    consumer=consumer,
+                    duration=duration,
+                    request_size=final_request_size,
+                    response_size=final_response_size,
+                )
+                emit_consumer_update_if_changed()
+            finally:
+                reset_consumer()
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status, response_started, response_size, response_size_counter, response_headers
+            nonlocal response_content_type, response_content_encoding, response_body, response_body_complete
+            nonlocal response_too_large
+            nonlocal capture_response_body, inspect_validation_response, deferred_span_id, route
+            try:
+                if message["type"] == "http.response.start":
+                    response_started = True
+                    status = message["status"]
+                    # Routing is done and the SERVER span is still recording, also on the exception path
+                    route = resolve_route_and_update_span()
+                    headers = message.get("headers") or []
+                    content_length = parse_int(get_header(headers, b"content-length"))
+                    if content_length is not None and get_header(headers, b"transfer-encoding") != b"chunked":
+                        response_size = content_length
+                    kept = is_server_span_kept()
+                    response_content_type = get_header(headers, b"content-type")
+                    response_content_encoding = get_header(headers, b"content-encoding")
+                    capture_response_body = (
+                        kept
+                        and config.capture_response_body
+                        and is_allowed_content_type(response_content_type)
+                        and is_supported_content_encoding(response_content_encoding)
+                    )
+                    inspect_validation_response = (
+                        self.validation_error_extractor is not None
+                        and status == self.validation_error_status
+                        and validation_errors.is_json_content_type(response_content_type)
+                    )
+                    response_too_large = response_size is not None and response_size > MAX_BODY_SIZE
+                    if kept and config.capture_response_headers:
+                        response_headers = headers
+                    if kept:
+                        # The instrumentor may end the span before finish runs on the exception path,
+                        # so commit to a finish_export that can attach attributes after the span has ended
+                        span = get_server_span()
+                        processor = get_server_span_processor()
+                        if span is not None and span.context is not None and processor is not None:
+                            deferred_span_id = span.context.span_id
+                            processor.defer_export(deferred_span_id)
+                elif message["type"] == "http.response.body":
+                    body = message.get("body", b"")
+                    response_size_counter += len(body)
+                    if (capture_response_body or inspect_validation_response) and not response_too_large:
+                        response_body += body
+                        if len(response_body) > MAX_BODY_SIZE:
+                            response_too_large = True
+                            response_body = bytearray()
+                    if not message.get("more_body", False):
+                        response_body_complete = True
+                        if status != 500:
+                            finish()
+            except Exception:  # pragma: no cover
+                logger.exception("Error in Apitally ASGI middleware")
+            await send(message)
+
+        # Count bodies without Content-Length even when they are not captured
+        wrapped_receive = (
+            receive_wrapper if request_size is None or (capture_request_body and not request_too_large) else receive
+        )
+        try:
+            await self.app(scope, wrapped_receive, send_wrapper)
+        except BaseException as exc:
+            if isinstance(exc, Exception):
+                server_errors.set_exception(exc, exception_holder)
+                if not response_started:
+                    status = 500
+            raise
+        finally:
+            try:
+                finish()
+            except Exception:  # pragma: no cover
+                logger.exception("Error in Apitally ASGI middleware")
+            # Outer Sentry middleware may add its event ID after this response is finalized.
+            if status != 500:
+                server_errors.reset_exception_holder()
+
+
+class ExceptionRecordingMiddleware:
+    """Records unhandled exceptions before ServerErrorMiddleware sends the 500 response,
+    which ends the SERVER span."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await self.app(scope, receive, send)
+        except Exception as exc:
+            capture_exception(exc)
+            span = get_server_span()
+            if span is not None and span.is_recording():
+                span.set_status(Status(StatusCode.ERROR, f"{type(exc).__name__}: {exc}"))
+            raise
+
+
+def get_default_span_details(scope: Scope) -> tuple[str, dict[str, Any]]:
+    # The request is not routed yet when the SERVER span starts; ApitallyASGIMiddleware sets
+    # http.route and the span name when the request finishes
+    if scope["type"] == "websocket":
+        return "WS", {}
+    return str(scope.get("method", "")), {}
+
+
+def resolve_route_from_scope(scope: Scope) -> str | None:
+    route = scope.get("route")
+    path = getattr(route, "path", route)
+    return path if isinstance(path, str) else None
+
+
+def get_header(headers: Iterable[tuple[bytes, bytes]], name: bytes) -> bytes | None:
+    for key, value in headers:
+        if key.lower() == name:
+            return value
+    return None
+
+
+def parse_int(value: bytes | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value.decode("latin-1"))
+    except ValueError:  # pragma: no cover
+        return None

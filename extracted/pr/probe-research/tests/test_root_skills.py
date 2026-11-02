@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from probe.foundation.skills import root_skills_core as core
-from probe.cli import root_skills
+from probe.cli.wizard.apply import root_skills
 
 
 def _plugin(tmp_path, *slugs, name="probe-research"):

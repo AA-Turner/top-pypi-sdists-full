@@ -1,0 +1,2172 @@
+from __future__ import annotations
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+ANSI-capable table and matrix formatter with Unicode borders, color, and
+multiple output formats (Markdown, HTML, LaTeX, CSV, RST, wikitable, Pandas).
+
+Original author: Peter Corke
+"""
+import builtins
+import os
+from pathlib import Path
+from typing import Any, Callable, Literal, TextIO, TYPE_CHECKING, cast, get_args
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    import pandas as pd
+
+try:
+    from colored import fore, back, style
+    from colored.library import Library
+    from colored.exceptions import InvalidColor, InvalidHexColor
+    from colored.hexadecimal import Hex
+    from colored.utilities import Utilities
+
+    _color_available = True
+    _color_utils = Utilities()
+    _hex = Hex()
+except ImportError:
+    _color_available = False
+
+_color_enabled = _color_available
+
+# _unicode use box characters for table edges and separators
+_unicode = True
+
+Align = Literal["<", "^", ">"]
+Style = Literal["bold", "dim", "underlined", "blink", "reverse"]
+Border = Literal["ascii", "thin", "round", "thick", "double"]
+ExportFormat = Literal["text", "markdown", "rest", "csv", "html", "latex", "wikitable"]
+_EXPORT_FORMATS = get_args(ExportFormat)
+
+# file extension -> export format, used when export() is given a path but no format
+_EXPORT_EXTENSIONS: dict[str, ExportFormat] = {
+    ".txt": "text",
+    ".md": "markdown",
+    ".markdown": "markdown",
+    ".rst": "rest",
+    ".csv": "csv",
+    ".html": "html",
+    ".htm": "html",
+    ".tex": "latex",
+    ".wiki": "wikitable",
+}
+
+
+def _check_color(name: str | None) -> None:
+    """
+    Validate a color specifier
+
+    :param name: color name, 256-color number, or ``#rrggbb``/``#rgb`` hex
+        string, defaults to None
+    :raises ValueError: if the ``colored`` package is installed and ``name``
+        is not a color it would accept
+
+    Applies the same rules ``colored`` uses when it actually renders the
+    color, so a bad name is reported immediately -- e.g. when a
+    :class:`Column`, :class:`Cell`, or table row is created -- rather than
+    only when the table is printed. Does nothing if ``name`` is ``None`` or
+    ``colored`` is not installed.
+    """
+    if name is None or not _color_available:
+        return
+    name = str(name).lower()
+    try:
+        if name.startswith("#"):
+            _hex.find(name)
+        else:
+            _color_utils.is_color_exist(name)
+    except (InvalidColor, InvalidHexColor) as e:
+        raise ValueError(str(e)) from e
+
+
+def _check_style(name: str | None) -> None:
+    """
+    Validate a text style specifier
+
+    :param name: style name, defaults to None
+    :raises ValueError: if ``name`` is not one of the supported styles
+
+    Checked eagerly, e.g. when a :class:`Column`, :class:`Cell`, or table row
+    is created, rather than deferred until :meth:`ANSITable.print`.
+    """
+    if name is None:
+        return
+    if name not in styledict:
+        raise ValueError(
+            f"invalid style {name!r}, must be one of {', '.join(styledict)}"
+        )
+
+
+def options(use_unicode: bool, color: bool | None = None) -> None:
+    """
+    Control ANSI/Unicode generation
+
+    :param use_unicode: enable generation of Unicode characters
+    :param color: enable generation of ANSI color control sequences. If ``None``,
+        follow ``use_unicode`` and package availability, defaults to None.
+
+    ANSItable by default uses Unicode characters to create nice table outlines
+    and the colored package to allow colored text and fields.  For some
+    applications it is useful to turn this off globally, rather than on a
+    table by table basis.
+
+    Unicode and ANSI color can be controlled individually.  Calling this function
+    updates module-level settings used by both current and future table/matrix
+    objects.
+
+    If only one parameter is given then:
+
+    * ``ansitable.options(True)`` enable Unicode, and ANSI characters if colored
+      package is installed.
+    * ``ansitable.options(False)`` disable Unicode, and ANSI characters
+
+    If ``use_unicode=False`` and a border is specified it is set to ``"ascii"``.
+
+    """
+    global _color_enabled, _unicode
+
+    _unicode = use_unicode
+    if color is None:
+        _color_enabled = use_unicode and _color_available
+    else:
+        _color_enabled = bool(color) and _color_available
+
+
+# ------------------------------------------------------------------------- #
+
+
+class Cell:
+    text: str
+    fgcolor: str | None
+    bgcolor: str | None
+    style: Style | None
+    column: Column | None
+    row: int | None
+
+    def __init__(
+        self,
+        text: Any,
+        fgcolor: str | None = None,
+        bgcolor: str | None = None,
+        style: Style | None = None,
+    ) -> None:
+        """Override the color and style of a cell
+
+        :param text: cell text, converted to ``str`` if not already
+        :param fgcolor: foreground color, defaults to None
+        :param bgcolor: background color, defaults to None
+        :param style: text style, one of ``"bold"``, ``"dim"``, ``"underlined"``,
+            ``"blink"``, ``"reverse"``, defaults to None
+        :raises ValueError: if fgcolor, bgcolor, or style is not valid
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable, Cell
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row(Cell("ccccccc", bgcolor="red"), 8.8, -9)
+            >>> table.print()
+
+        Will print a table with the first cell in the last row having a red background.  The colors and style override those specified when the column was created
+        or specified for a row.
+        """
+        _check_color(fgcolor)
+        _check_color(bgcolor)
+        _check_style(style)
+        self.text = str(text)
+        self.fgcolor = fgcolor
+        self.bgcolor = bgcolor
+        self.style = style
+        self.column = None
+        self.row = None
+
+    def __str__(self) -> str:
+        return self.text
+
+
+_align_chars = "<^>"
+
+
+def _parse_alignment_prefix(name: str) -> tuple[str, Align | None, Align | None]:
+    """
+    Parse a leading alignment marker from a column name
+
+    :param name: raw column/header name, possibly with a leading ``{X}``
+        or ``{XY}`` alignment marker, or an escaped ``\\{`` literal
+    :return: name with any marker or escape removed, header alignment
+        (or None if not specified), column alignment (or None if not
+        specified)
+
+    A name beginning with ``\\{`` is unescaped to a literal ``{`` and is
+    never treated as a marker. Otherwise, a name beginning with ``{X}``
+    where ``X`` is one of ``"<"``, ``"^"``, ``">"`` sets both the header
+    and column alignment to ``X``; a name beginning with ``{XY}`` sets
+    the header alignment to ``X`` and the column alignment to ``Y``. Any
+    other leading ``{...}`` is left untouched, since it doesn't match
+    the marker pattern.
+    """
+    if name.startswith("\\{"):
+        return name[1:], None, None
+
+    if name.startswith("{"):
+        end = name.find("}")
+        if end != -1:
+            marker = name[1:end]
+            if 1 <= len(marker) <= 2 and all(c in _align_chars for c in marker):
+                align: list[Align] = [cast(Align, c) for c in marker]
+                rest = name[end + 1 :]
+                if len(align) == 1:
+                    return rest, align[0], align[0]
+                return rest, align[0], align[1]
+
+    return name, None, None
+
+
+class Column:
+    name: str
+    fmt: str | Callable[[Any], str] | None
+    formatted: list[str | None]
+    fgcolor: list[str | None]
+    bgcolor: list[str | None]
+    style: list[Style | None]
+    table: ANSITable | None
+    colcolor: str | None
+    colbgcolor: str | None
+    colstyle: Style | None
+    colalign: Align
+    headcolor: str | None
+    headbgcolor: str | None
+    headstyle: Style | None
+    headalign: Align
+    width: int | None
+    maxwidth: int
+
+    def __init__(
+        self,
+        name: str,
+        fmt: str | Callable[[Any], str] | None = "{}",
+        width: int | None = None,
+        colcolor: str | None = None,
+        colbgcolor: str | None = None,
+        colstyle: Style | None = None,
+        colalign: Align = ">",
+        headcolor: str | None = None,
+        headbgcolor: str | None = None,
+        headstyle: Style | None = None,
+        headalign: Align | None = ">",
+        na_rep: str | None = None,
+    ) -> None:
+        r"""
+        Create a table column
+
+        :param name: Name of column, also the column heading. May begin with an
+            alignment shorthand marker, see below, defaults to right-aligned
+        :param fmt: Python format string, defaults to "{}"
+        :param width: Column width, defaults to auto-fit
+        :param colcolor: Color of column text, defaults to None
+        :param colbgcolor: Color of column background, defaults to None
+        :param colstyle: Column text style, see table below, defaults to None
+        :param colalign: Column data alignment, see table below, defaults to ">"
+        :param headcolor: Color of heading text, defaults to None
+        :param headbgcolor: Color of heading background, defaults to None
+        :param headstyle: Heading text style, see table below, defaults to None
+        :param headalign: Heading text alignment, see table below, defaults to ">"
+        :param na_rep: Text shown for a missing value (``None``) in this column,
+            ``fmt`` is not applied to it.  Defaults to None, which uses the
+            table's ``na_rep``
+        :raises ValueError: if a color or style argument is not valid
+
+        The :class:`Column` object can passed to the :class:`ANSITable` constructor
+        or to :meth:`~ANSITable.addcolumn` to specify the format of a column in a table.
+
+        For header or data cell alignment:
+
+        ===========   =======================
+        Alignment     Description
+        ===========   =======================
+        "<"           Left
+        "^"           Centre
+        ">"           Right (default)
+        ===========   =======================
+
+        For header or data cell alignment text style:
+
+        ===========   =============================================
+        Style         Description
+        ===========   =============================================
+        bold          bold font
+        dim           low brightness font
+        underlined    text is underlined
+        blink         text is blinking
+        reverse       text and background colors are reversed
+        ===========   =============================================
+
+        The implementation of these options depends heavily on the terminal emulator
+        used.
+
+        Alignment shorthand
+        --------------------
+
+        ``name`` can begin with a marker that sets alignment without needing
+        ``colalign``/``headalign`` keyword arguments, or a full :class:`Column`
+        object -- handy when using :class:`ANSITable`'s quick string-based
+        constructor:
+
+        - ``"{X}Name"`` sets both header and column alignment to ``X``
+        - ``"{XY}Name"`` sets header alignment to ``X`` and column alignment to ``Y``
+
+        where ``X``/``Y`` are one of ``"<"``, ``"^"``, ``">"``, e.g.
+        ``Column("{<^}Name")`` left-aligns the header and centres the column data.
+        An explicit ``colalign``/``headalign`` argument takes precedence over the
+        marker for that axis.
+
+        A name that must literally start with ``{`` (and isn't meant as a marker)
+        needs a single leading backslash in the resulting string *value*. ``\{``
+        is not itself a valid Python escape sequence, so in ordinary (non-raw)
+        source that means doubling the backslash, e.g. ``Column("\\{note}")``;
+        with a raw string it's just ``Column(r"\{note}")``. Either way, the
+        column's name is ``"{note}"``. Anything else in the name is left
+        untouched -- there's nothing else to escape.
+
+        """
+        _check_color(colcolor)
+        _check_color(colbgcolor)
+        _check_style(colstyle)
+        _check_color(headcolor)
+        _check_color(headbgcolor)
+        _check_style(headstyle)
+
+        name, marker_headalign, marker_colalign = _parse_alignment_prefix(name)
+        if marker_colalign is not None and colalign == ">":
+            colalign = marker_colalign
+        if marker_headalign is not None and headalign == ">":
+            headalign = marker_headalign
+
+        self.name = name
+        self.fmt = fmt
+        self.formatted = []
+        self.fgcolor = []
+        self.bgcolor = []
+        self.style = []
+        self.table = None
+
+        self.colcolor = colcolor
+        self.colbgcolor = colbgcolor
+        self.colstyle = colstyle
+        self.colalign = colalign
+
+        self.headcolor = headcolor
+        self.headbgcolor = headbgcolor
+        self.headstyle = headstyle
+        self.headalign = colalign if headalign is None else headalign
+
+        self.na_rep = na_rep
+        self.width = width
+        self.maxwidth = len(name)
+
+    def _setstyle(self, header: bool) -> str:
+        if header:
+            color = self.headcolor
+            bgcolor = self.headbgcolor
+            style = self.headstyle
+        else:
+            color = self.colcolor
+            bgcolor = self.colbgcolor
+            style = self.colstyle
+
+        text = ""
+        table = self.table
+        if table is None:
+            return text
+        if color is not None:
+            text += table._FG(color)
+        if bgcolor is not None:
+            text += table._BG(bgcolor)
+        if style is not None:
+            text += table._ATTR(styledict[style])
+        return text
+
+    def __repr__(self) -> str:
+        s = "Column[{}({})], fmt={}({}), width={}".format(
+            self.name, self.headalign, self.fmt, self.colalign, self.width
+        )
+        return s
+
+    def _formatcolumn(
+        self,
+        text: Any,
+        header: bool,
+        plain: bool = False,
+        fgcolor: str | None = None,
+        bgcolor: str | None = None,
+        style: str | None = None,
+    ) -> str:
+        """
+        Format text in a column
+
+        :param text: text to be formatted
+        :type text: Any
+        :param header: format as header row if True
+        :type header: bool
+        :param plain: suppress color and style (for plain-text output formats), defaults to False
+        :type plain: bool, optional
+        :param fgcolor: override foreground color, defaults to None
+        :type fgcolor: str, optional
+        :param bgcolor: override background color, defaults to None
+        :type bgcolor: str, optional
+        :param style: override text style, defaults to None
+        :type style: str, optional
+        :raises ValueError: if the column has not been added to a table
+        :return: aligned and ANSI-formatted string
+        :rtype: str
+        """
+        if header:
+            fgcolor = fgcolor or self.headcolor
+            bgcolor = bgcolor or self.headbgcolor
+            style = style or self.headstyle
+            align = self.headalign
+        else:
+            fgcolor = fgcolor or self.colcolor
+            bgcolor = bgcolor or self.colbgcolor
+            style = style or self.colstyle
+            align = self.colalign
+
+        if plain:
+            fgcolor = None
+            bgcolor = None
+
+        # normalise text to string
+        if text is None:
+            text = ""
+        else:
+            text = str(text)
+
+        gap = (self.width or 0) - len(text)  # amount of padding required
+        table = self.table
+        colsep_val = table.colsep if table is not None else 0
+        if align == "<":
+            # left justified, spaces after text
+            gap1 = _spaces(colsep_val)
+            gap2 = _spaces(gap + colsep_val)
+        elif align == ">":
+            # right justified, spaces before text
+            gap1 = _spaces(gap + colsep_val)
+            gap2 = _spaces(colsep_val)
+        elif align == "^":
+            # centred, split the gap
+            g1 = gap // 2  # left side gap
+            g2 = gap - g1  # right side gap
+            gap1 = _spaces(g1 + colsep_val)
+            gap2 = _spaces(g2 + colsep_val)
+
+        table = self.table
+        if table is None:
+            raise ValueError("Column is not part of a table")
+
+        if style == "underlined":
+            text = table._ATTR(styledict[style]) + text + table._ATTR(0)
+
+        text = gap1 + text + gap2
+
+        # fgcolor, bgcolor and non-underline style all apply to the whole
+        # padded cell, so they're combined into a single on/off pair rather
+        # than each wrapping their own reset -- an inner reset would
+        # otherwise clear formatting applied by an outer one before the end
+        # of the cell is reached (e.g. fgcolor's reset wiping out bgcolor
+        # partway through the padding).
+        prefix = ""
+        if bgcolor:
+            prefix += table._BG(bgcolor)
+        if fgcolor:
+            prefix += table._FG(fgcolor)
+        if style and style != "underlined":
+            prefix += table._ATTR(styledict[style])
+        if prefix:
+            text = prefix + text + table._ATTR(0)
+
+        return text
+
+
+def _spaces(n):
+    """
+    return n spaces
+
+    :param n: number of spaces
+    :type n: int
+    :return: string containing spaces
+    :rtype: str
+    """
+    return " " * n
+
+
+"""
+gap  FG text OFF gap
+BG gap FG text BG gap OFF
+STYLE gap FG text gap OFF
+STYLE BG gap FG text BG gap OFF
+"""
+
+# unicode box drawing characters, see https://en.wikipedia.org/wiki/Box-drawing_character
+#       ascii, thin, thin+round, thick, double
+_tl = [ord("+"), 0x250C, 0x256D, 0x250F, 0x2554]  # top left
+_tr = [ord("+"), 0x2510, 0x256E, 0x2513, 0x2557]  # top right
+_bl = [ord("+"), 0x2514, 0x2570, 0x2517, 0x255A]  # bottom left
+_br = [ord("+"), 0x2518, 0x256F, 0x251B, 0x255C]  # bottom right
+_lj = [ord("+"), 0x251C, 0x251C, 0x2523, 0x2560]  # left join
+_rj = [ord("+"), 0x2524, 0x2524, 0x252B, 0x2563]  # right join
+_tj = [ord("+"), 0x252C, 0x252C, 0x2533, 0x2566]  # top join
+_bj = [ord("+"), 0x2534, 0x2534, 0x253B, 0x2569]  # bottom join
+_xj = [ord("+"), 0x253C, 0x253C, 0x254B, 0x256C]  # allway join
+_hl = [ord("-"), 0x2500, 0x2500, 0x2501, 0x2550]  # horizontal line
+_vl = [ord("|"), 0x2502, 0x2502, 0x2503, 0x2551]  # vertical line
+
+borderdict = {
+    "ascii": 0,
+    "thin": 1,
+    "round": 2,
+    "thick": 3,
+    "double": 4,
+}
+styledict = {"bold": 1, "dim": 2, "underlined": 4, "blink": 5, "reverse": 7}
+
+# CSS declarations for the SGR styles in styledict that have a direct CSS
+# equivalent. "reverse" is deliberately absent: it isn't a standalone
+# declaration, it swaps the resolved foreground/background colors -- see
+# _cell_style_css().
+_css_styledict = {
+    "bold": "font-weight:bold;",
+    "dim": "opacity:0.6;",
+    "underlined": "text-decoration:underline;",
+    # deprecated/unsupported by every modern browser, but still valid CSS
+    # and kept for parity with the terminal renderer's "blink" style
+    "blink": "text-decoration:blink;",
+}
+
+
+def _css_color(name: str | None) -> str | None:
+    """
+    Translate a ``colored``-style color specifier to a CSS color value
+
+    :param name: color name, 256-color number, or ``#rrggbb``/``#rgb`` hex
+        string as accepted by the ``colored`` package, or None
+    :return: a ``#rrggbb`` hex string, or None if ``name`` is None
+
+    ``colored``'s 256-color palette names (e.g. ``"grey_37"``) and bare
+    color numbers (e.g. ``"196"``) are not CSS color keywords -- only the
+    16 or so basic names (``"red"``, ``"black"``, ...) happen to also be
+    valid CSS/SVG keywords, by coincidence rather than by design. Writing
+    an unrecognised name like ``"grey_37"`` straight into a ``style``
+    attribute produces a CSS declaration the browser can't parse, which it
+    silently drops rather than erroring -- so the color just doesn't show
+    up, with no visible sign of why.
+
+    This looks the name up in ``colored``'s own 256-color table
+    (``colored.library.Library``) and returns the palette hex value
+    instead, so :meth:`ANSITable.html` renders the same color the
+    terminal does for the same name via :meth:`Column._formatcolumn`. A
+    literal ``#rrggbb``/``#rgb`` hex string is returned unchanged --
+    that's already valid CSS, and more precise than snapping it to the
+    nearest of the 256 palette entries the way the terminal renderer must.
+    Anything neither recognised by ``colored`` nor a hex string (e.g. a
+    CSS-only color word ``colored`` doesn't know, such as
+    ``"rebeccapurple"``) is also passed through unchanged, on the
+    assumption it's a literal CSS value the caller intended -- ``html()``
+    has never validated color names the way the terminal renderer does at
+    print time.
+    """
+    if name is None:
+        return None
+    if not _color_available:
+        return name
+    name = str(name).lower()
+    if name.startswith("#"):
+        return name
+    code = Library.COLORS.get(name)
+    if code is None and name in Library.HEX_COLORS:
+        # name is already a bare palette number, e.g. "196"
+        code = name
+    if code is None:
+        return name
+    return Library.HEX_COLORS[code]
+
+
+def _cell_style_css(
+    fgcolor: str | None, bgcolor: str | None, style: str | None
+) -> str:
+    """
+    Build the color/style portion of a table cell's inline CSS
+
+    :param fgcolor: foreground color specifier, or None
+    :param bgcolor: background color specifier, or None
+    :param style: one of ``styledict``'s keys, or None
+    :return: CSS declarations (each ending in ``;``), possibly ""
+
+    Shared by :meth:`ANSITable.html`'s header and data cell rendering, so
+    the color/style translation only needs explaining once. Colors go
+    through :func:`_css_color` -- see there for why they can't be written
+    through as-is. ``reverse`` swaps the already-resolved foreground and
+    background colors rather than adding a declaration of its own,
+    mirroring the terminal renderer's "reverse video" SGR code; the other
+    styles map onto CSS via ``_css_styledict``.
+    """
+    css_fgcolor = _css_color(fgcolor)
+    css_bgcolor = _css_color(bgcolor)
+    if style == "reverse":
+        css_fgcolor, css_bgcolor = css_bgcolor, css_fgcolor
+    css = ""
+    if css_fgcolor is not None:
+        css += f"color:{css_fgcolor};"
+    if css_bgcolor is not None:
+        css += f"background-color:{css_bgcolor};"
+    if style is not None:
+        css += _css_styledict.get(style, "")
+    return css
+
+
+# ------------------------------------------------------------------------- #
+
+
+class ANSIMatrix:
+
+    def __init__(
+        self, style: Border = "thin", fmt: builtins.str = "{:< 10.3g}", squish: int = 100
+    ) -> None:
+        """
+        Create a matrix formatter
+
+        :param style: Bracket format, defaults to "thin"
+        :param fmt: number format string, defaults to "{:< 10.3g}"
+        :param squish: elements smaller than this times eps are displayed as
+                       zero, defaults to 100
+
+        Creates a formatter, or template, for formatting matrices.
+
+        ===========   ==========================================================
+        Border        Description
+        ===========   ==========================================================
+        ascii         Use ASCII +-| characters
+        thin          Use ANSI thin box-drawing characters
+        round         Use ANSI thin box-drawing characters with rounded corners
+        thick         Use ANSI thick box-drawing characters
+        double        Use ANSI double-line box-drawing characters
+        ===========   ==========================================================
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSIMatrix
+            >>> import numpy as np
+            >>> np.random.seed(0)
+            >>> formatter = ANSIMatrix(style="ascii")
+            >>> m = np.random.rand(4, 4) - 0.5
+            >>> formatter.print(m)
+        """
+
+        # TODO: add colored fields, specify by tuples (rowstart, rowend, colstart, colend, color)
+
+        import numpy as np  # only import if matrix is used
+
+        if not _unicode:
+            style = "ascii"
+        self.style = borderdict[style]
+        self.fmt = fmt
+        self.width = len(fmt.format(1))
+        if squish == 0:
+            self.squish = None
+        else:
+            self.squish = squish * np.finfo(float).eps
+
+    def str(
+        self,
+        matrix: NDArray,
+        suffix_super: builtins.str = "",
+        suffix_sub: builtins.str = "",
+    ) -> builtins.str:
+        """
+        Output the table as a string
+
+        :param matrix: NumPy matrix to format
+        :type matrix: ndarray(n,) or ndarray(m,n)
+        :param suffix_super: Right superscript, defaults to ''
+        :param suffix_sub: Right subscript, defaults to ''
+        :raises ValueError: if the array has more than 2 dimensions
+
+        ``suffix_super`` is where the transpose, inverse, pseudo-inverse, etc. symbol
+        is shown.  ``suffix_sub`` is where the matrix name is typically shown.
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSIMatrix
+            >>> import numpy as np
+            >>> np.random.seed(0)
+            >>> formatter = ANSIMatrix(style="ascii")
+            >>> m = np.random.rand(4, 4) - 0.5
+            >>> print(formatter.str(m))
+        """
+
+        import numpy as np  # only import if matrix is used
+
+        if len(matrix.shape) == 1:
+            ncols = matrix.shape[0]
+            matrix = matrix.reshape((1, -1))
+        elif len(matrix.shape) == 2:
+            ncols = matrix.shape[1]
+        else:
+            raise ValueError("Only 1D and 2D arrays supported")
+
+        mwidth = ncols * self.width + (ncols - 1)
+        if self.squish is None:
+            m2 = matrix
+        else:
+            m2 = np.where(abs(matrix) < self.squish, 0, matrix)
+        b = self.style
+
+        s = chr(_tl[b]) + " " * mwidth + chr(_tr[b]) + suffix_super + "\n"
+        for row in m2:
+            s += (
+                chr(_vl[b])
+                + " ".join([self.fmt.format(x) for x in row])
+                + chr(_vl[b])
+                + "\n"
+            )
+        s += chr(_bl[b]) + " " * mwidth + chr(_br[b]) + suffix_sub
+        return s
+
+    def print(
+        self, matrix: NDArray, *pos: Any, file: TextIO | None = None, **kwargs: Any
+    ) -> None:
+        """
+        Print the matrix
+
+        :param file: Print the matrix to this file, defaults to stdout
+
+        .. note:: Accepts the same arguments as ``str``.
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSIMatrix
+            >>> import numpy as np
+            >>> np.random.seed(0)
+            >>> formatter = ANSIMatrix(style="ascii")
+            >>> m = np.random.rand(4, 4) - 0.5
+            >>> formatter.print(m, suffix_super="T", suffix_sub="3")
+        """
+
+        print(self.str(matrix, *pos, **kwargs), file=file)
+
+
+# ------------------------------------------------------------------------- #
+
+
+class ANSITable:
+    def __init__(
+        self,
+        *pos: str | Column,
+        colsep: int = 1,
+        offset: int = 0,
+        border: Border | None = None,
+        bordercolor: str | None = None,
+        ellipsis: bool = True,
+        columns: int | None = None,
+        header: bool = True,
+        color: bool = True,
+        na_rep: str = "",
+    ) -> None:
+        """
+        Create a table object
+
+        :param colsep: Blank padding on each side of column separator, defaults to 1
+        :param offset: Horizontal offset of the whole table, defaults to 0
+        :param border: Type of border, see table below, defaults to None
+        :param bordercolor: Name of color to draw border in, defaults to None
+        :param ellipsis: cells wider than a column's explicit ``width`` are cut
+            short and shown with an ellipsis, otherwise they are simply cut, defaults
+            to True.  Columns without a ``width`` fit their widest cell and nothing
+            is ever truncated
+        :param columns: if no positional column names/:class:`Column` objects are
+            given, create this many empty placeholder columns instead, defaults to None
+        :param header: Show table header, defaults to True
+        :param color: enable color output for this table instance (also gated by
+            global ``options()`` settings), defaults to True
+        :param na_rep: text shown for a missing value (``None``), the column's
+            ``fmt`` is not applied to it.  Can be overridden per column with
+            :class:`Column`'s ``na_rep``, defaults to ""
+        :raises TypeError: if a positional argument is not a ``str`` or :class:`Column`
+        :raises ValueError: if bordercolor is not a valid color
+
+        A table can be created in several different ways::
+
+            table = ANSITable("col1", "column 2 has a big header", "column 3")
+
+            table = ANSITable(
+                Column("col1"),
+                Column("column 2 has a big header", "{:.3g}"),
+                Column("column 3", "{:-10.4f}")
+            )
+
+            table = ANSITable()
+            table.addcolumn("col1")
+            table.addcolumn("column 2 has a big header", fmt="{:.3g}")
+            table.addcolumn("column 3", fmt="{:-10.4f}")
+
+        The first option is quick and easy, and by default both header and column
+        data are right-aligned. Formatting options like ``fmt`` need the second or
+        third form, using :class:`Column` objects, but header/column alignment can
+        still be set in the quick string form with a leading marker, see
+        :class:`Column` for details::
+
+            table = ANSITable("{<}col1", "{^}column 2 has a big header", "column 3")
+
+        left-aligns ``col1``, centres ``column 2 has a big header``, and leaves
+        ``column 3`` at the default right alignment.
+
+        Add data with :meth:`row` and :meth:`rule`.  There are two kinds of output:
+
+        - :meth:`print` writes the table to a terminal (or ``file=``), and
+          ``str(table)`` returns the same text.
+        - the exporters return a string with no side effects:
+          :meth:`markdown`, :meth:`rest`, :meth:`csv`, :meth:`html`,
+          :meth:`latex`, :meth:`wikitable` and :meth:`pandas` (a DataFrame).
+          :meth:`export` is a single entry point to all of these, which can also
+          write to a file.
+
+        ===========   ==========================================================
+        Border        Description
+        ===========   ==========================================================
+        ascii         Use ASCII +-| characters
+        thin          Use ANSI thin box-drawing characters
+        round         Use ANSI thin box-drawing characters with rounded corners
+        thick         Use ANSI thick box-drawing characters
+        double        Use ANSI double-line box-drawing characters
+        ===========   ==========================================================
+
+        """
+        _check_color(bordercolor)
+        self.colsep = colsep
+        self.offset = offset
+        self.ellipsis = ellipsis
+        self.bordercolor = bordercolor
+        self.header = header
+        self.color = bool(color)
+        self.na_rep = na_rep
+
+        if border is not None and not _unicode:
+            border = "ascii"
+        self.border = border
+
+        self.nrows = 0
+        self.columns = []
+        for c in pos:
+            if isinstance(c, str):
+                c = Column(c)
+                c.table = self
+                self.columns.append(c)
+            elif isinstance(c, Column):
+                c.table = self
+                self.columns.append(c)
+            else:
+                raise TypeError("expecting a lists of Column objects")
+        if len(self.columns) == 0 and columns is not None:
+            for _ in range(columns):
+                # create empty Column placeholders rather than raw strings
+                c = Column("")
+                c.table = self
+                self.columns.append(c)
+
+    def __repr__(self) -> str:
+        s = "ANSITable: " + str(len(self)) + " x " + str(len(self.columns)) + ": "
+        s += " " + "; ".join(column.name for column in self.columns)
+        return s
+
+    def addcolumn(self, name: str, **kwargs: Any) -> None:
+        """
+        Add a column to the table
+
+        :param name: column heading
+
+        An alternative way to create a table, column at a time.
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable()
+            >>> table.addcolumn("col1")
+            >>> table.addcolumn("column 2 has a big header", fmt="{:.3g}")
+            >>> table.addcolumn("column 3", fmt="{:-10.4f}")
+
+        .. note:: Additional arguments are passed directly to ``Column``.
+
+        """
+        c = Column(name, **kwargs)
+        c.table = self
+        self.columns.append(c)
+
+    def row(
+        self,
+        *values: Any,
+        fgcolor: str | None = None,
+        bgcolor: str | None = None,
+        style: Style | None = None,
+    ) -> None:
+        """
+        Add a row of data
+
+        :param values: data items for the row.  These can be of any type that can be converted to a string for display, eg. numbers, strings or objects with a ``__str__`` method. The :class:`Cell` encapsulates a value and allows the color or style defaults of the row or column to be overriden.
+        :param fgcolor: foreground color override for all columns in the row, defaults to None
+        :param bgcolor: background color override for all columns in the row, defaults to None
+        :param style: style override for all columns in the row, defaults to None
+        :raises ValueError: invalid format string for the data provided, or fgcolor,
+            bgcolor, style, or an inline ``"<<color>>"`` specifier is not valid
+
+        ``table.row(d1, d2, ... dN)`` add data items that comprise a row of the
+        table.  ``N`` is the number of columns.
+
+        The data items can be any type, but the format string specified at
+        table creation must be compatible.
+
+        The column data is formatted with the color and style given when the ``Column``
+        was created, but it can be overridden for a specific row by specifying the
+        options ``fgcolor``, ``bgcolor``, or ``style``.
+
+        :class:`Cell` overrides the color and style of a cell specified for a column and a row.
+        """
+        if len(values) != len(self.columns):
+            raise ValueError(
+                "wrong number of data items added: expected {}, got {}".format(
+                    len(self.columns), len(values)
+                )
+            )
+
+        _check_color(fgcolor)
+        _check_color(bgcolor)
+        _check_style(style)
+
+        for value, c in zip(values, self.columns):
+
+            if isinstance(value, Cell):
+                # cell object, use its attributes
+                _fgcolor = value.fgcolor or fgcolor
+                _bgcolor = value.bgcolor or bgcolor
+                _style = value.style or style
+                value = value.text
+            else:
+                _fgcolor = fgcolor
+                _bgcolor = bgcolor
+                _style = style
+
+            if value is None:
+                # missing value, shown as na_rep without going through fmt
+                s = c.na_rep if c.na_rep is not None else self.na_rep
+            elif c.fmt is None:
+                s = value
+            elif isinstance(c.fmt, str):
+                s = c.fmt.format(value)
+            elif callable(c.fmt):
+                s = c.fmt(value)
+            else:
+                raise ValueError("fmt must be valid format string or callable")
+
+            # ensure s is a string then handle a FG color specifier
+            if s is None:
+                s = ""
+            else:
+                s = str(s)
+
+            if s.startswith("<<"):
+                # color specifier is given
+                end = s.find(">>")
+                _fgcolor = s[2:end]
+                _check_color(_fgcolor)
+                s = s[end + 2 :]
+
+            if c.width is not None and len(s) > c.width:
+                if self.ellipsis:
+                    s = s[: c.width - 1] + "\u2026"
+                else:
+                    s = s[: c.width]
+            c.maxwidth = max(c.maxwidth, len(s))
+
+            c.formatted.append(s)
+            c.fgcolor.append(_fgcolor)
+            c.bgcolor.append(_bgcolor)
+            c.style.append(_style)
+        self.nrows += 1
+
+    def __len__(self) -> int:
+        """Length of table
+
+        :return: Number of rows in the table
+        """
+        return self.nrows
+
+    def rule(self) -> None:
+        """
+        Add a horizontal rule to the table
+
+        This is a horizontal line across all columns, used to delineate parts
+        of the table.
+        """
+        for c in self.columns:
+            c.formatted.append(None)
+            c.fgcolor.append(None)
+            c.bgcolor.append(None)
+            c.style.append(None)
+        self.nrows += 1
+
+    def sort(
+        self,
+        column: str | int,
+        key: Callable[[str], Any] | None = None,
+        reverse: bool = False,
+    ) -> ANSITable:
+        """
+        Sort the table rows by a column, in place
+
+        :param column: column to sort by, either the column name or its zero-based index
+        :param key: callable applied to each formatted cell value before comparison,
+            defaults to None (lexicographic order on the formatted string)
+        :param reverse: sort in descending order, defaults to False
+        :raises ValueError: if ``column`` is a string that does not match any column name
+        :raises IndexError: if ``column`` is an integer index out of range
+        :return: the table, to allow chaining
+
+        Rows inserted with :meth:`rule` (horizontal rules) are silently dropped
+        from the sorted output, as they have no meaningful position after reordering.
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("name", "score")
+            >>> table.row("alice", 3)
+            >>> table.row("bob", 1)
+            >>> table.row("carol", 2)
+            >>> table.sort("score", key=int)
+            >>> table.print()
+
+        """
+        if isinstance(column, int):
+            col = self.columns[column]
+        else:
+            matches = [c for c in self.columns if c.name == column]
+            if not matches:
+                raise ValueError(f"no column named {column!r}")
+            col = matches[0]
+
+        # collect indices of data rows only (rule rows have None in formatted)
+        data_indices = [i for i in range(self.nrows) if self.columns[0].formatted[i] is not None]
+
+        if key is not None:
+            sort_key = lambda i: key(col.formatted[i])  # noqa: E731
+        else:
+            sort_key = lambda i: col.formatted[i]  # noqa: E731
+
+        sorted_indices = sorted(data_indices, key=sort_key, reverse=reverse)
+
+        for c in self.columns:
+            c.formatted = [c.formatted[i] for i in sorted_indices]
+            c.fgcolor = [c.fgcolor[i] for i in sorted_indices]
+            c.bgcolor = [c.bgcolor[i] for i in sorted_indices]
+            c.style = [c.style[i] for i in sorted_indices]
+
+        self.nrows = len(sorted_indices)
+        return self
+
+    def _topline(self):
+        """
+        Create the top line of the table
+
+        :return: ansi code for the top line
+        :rtype: str
+        """
+        return self._line(_tl, _tj, _tr)
+
+    def _midline(self):
+        """
+        Create a middle line of the table
+
+        :return: ansi code for the middle line
+        :rtype: str
+        """
+        return self._line(_lj, _xj, _rj)
+
+    def _bottomline(self):
+        """
+        Create the bottom line of the table
+
+        :return: ansi code for the bottom line
+        :rtype: str
+        """
+        return self._line(_bl, _bj, _br)
+
+    def _line(self, left, mid, right):
+        """
+        Create a general horizontal line in the table
+
+        :param left: left hand side character (list of Unicode code points)
+        :type left: list of int
+        :param mid: column join characters (list of Unicode code points)
+        :type mid: list of int
+        :param right: right hand side character (list of Unicode code points)
+        :type right: list of int
+        :return: ansi code for line
+        :rtype: str
+
+        The line's color is specified by the ```bordercolor``` property.
+        """
+        if self.borderdict is None:
+            return ""
+        else:
+            b = self.borderdict
+            text = _spaces(self.offset - 1)
+            if self.bordercolor is not None:
+                text += self._FG(self.bordercolor)
+            text += chr(left[b])
+            for c in self.columns:
+                text += chr(_hl[b]) * (c.width + 2 * self.colsep)
+                if not c.last:
+                    text += chr(mid[b])
+            text += chr(right[b])
+            if self.bordercolor is not None:
+                text += self._ATTR(0)
+            return text + "\n"
+
+    def _vline(self):
+        """
+        Vertical line string
+
+        :return: ansi code for the vertical line
+        :rtype: str
+
+        A vertical line occurs on the left- and right-hand side of every
+        cell in the table.  Its color is specified by the ``bordercolor``
+        property.
+        """
+        if self.borderdict is not None:
+            # set color
+            if self.bordercolor is not None:
+                text = self._FG(self.bordercolor)
+            else:
+                text = ""
+
+            # get vertical line from dict
+            b = self.borderdict
+            text += chr(_vl[b])
+
+            # turn off color
+            if self.bordercolor is not None:
+                text += self._ATTR(0)
+            return text
+        # ensure a string is always returned
+        return ""
+
+    def _row(self, row=None):
+        """
+        Format a row of the table
+
+        :param row: row number starting at 0, defaults to None
+        :type row: int, optional
+        :return: unicode string for the row
+        :rtype: str
+
+        The row can be the header row (``row=None``) or a data row
+        """
+
+        if row is not None and self.columns[0].formatted[row] is None:
+            # it's a horizontal rule
+            return self._midline()
+
+        if self.borderdict is not None:
+            # has border
+
+            # add left-hand edge of table
+            text = _spaces(self.offset - 1) + self._vline()
+
+            # add each column
+            for c in self.columns:
+
+                if row is None:
+                    # header
+                    text += c._formatcolumn(
+                        c.name,
+                        header=True,
+                    )
+                else:
+                    # table row proper
+                    text += c._formatcolumn(
+                        c.formatted[row],
+                        header=False,
+                        fgcolor=c.fgcolor[row],
+                        bgcolor=c.bgcolor[row],
+                        style=c.style[row],
+                    )
+
+                text += self._vline()
+
+                # if c.last:
+                #     # last cell on row
+                #     text += _spaces(c2) + self._vline()
+                # else:
+                #     text += _spaces(c2) + self._vline() + _spaces(c1)
+        else:
+            # no border
+            text = _spaces(self.offset)
+
+            for c in self.columns:
+                # ansi = c._setstyle(row is None)
+                # text += ansi
+                if row is None:
+                    # header
+                    text += c._formatcolumn(
+                        c.name,
+                        header=True,
+                    )
+                else:
+                    # table row proper
+                    text += c._formatcolumn(
+                        c.formatted[row],
+                        header=False,
+                        fgcolor=c.fgcolor[row],
+                        bgcolor=c.bgcolor[row],
+                        style=c.style[row],
+                    )
+
+                # if len(ansi) > 0:
+                #     text += self._ATTR(0)
+                text += _spaces(self.colsep)
+
+        return text + "\n"
+
+    def print(self, file: TextIO | None = None) -> None:
+        """
+        Print the table
+
+        :param file: Print the table to this file, defaults to stdout
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3", border="ascii")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> table.print()
+
+        """
+
+        try:
+            print(str(self), file=file)
+        except UnicodeEncodeError:
+            self.border = "ascii"
+            print(str(self), file=file)
+
+    def export(
+        self,
+        format: ExportFormat | None = None,
+        file: str | os.PathLike[str] | TextIO | None = None,
+        **kwargs: Any,
+    ) -> str | None:
+        """
+        Export the table in the given format
+
+        :param format: output format, one of ``"text"``, ``"markdown"``, ``"rest"``,
+            ``"csv"``, ``"html"``, ``"latex"`` or ``"wikitable"``.  If None it is
+            inferred from the extension of ``file``
+        :param file: file name, :class:`~pathlib.Path` or open text stream to write
+            to, defaults to None which returns the text instead
+        :param kwargs: passed to the exporter method, eg. ``delimiter`` for ``"csv"``
+        :raises ValueError: if the format is unknown or cannot be inferred
+        :return: the exported text if ``file`` is None, otherwise None
+
+        This is a single entry point to the output methods :meth:`__str__`,
+        :meth:`markdown`, :meth:`rest`, :meth:`csv`, :meth:`html`, :meth:`latex` and
+        :meth:`wikitable`.  A file name is opened for writing as UTF-8 and closed,
+        a stream is written to but left open.
+
+        Example::
+
+            table.export("markdown")                  # returns a string
+            table.export("csv", "results.csv", delimiter=";")
+            table.export(file="table.md")             # format from the extension
+            table.export("rest", sys.stdout)
+
+        .. note::
+            - ``"text"`` is the same as ``str(table)`` and includes ANSI escape
+              codes if color is enabled, use :meth:`print` to display it.
+            - use :meth:`pandas` for a DataFrame.
+        """
+        valid = ", ".join(f'"{f}"' for f in _EXPORT_FORMATS)
+        if format is None:
+            if file is None or hasattr(file, "write"):
+                raise ValueError(f"format is required, one of {valid}")
+            ext = Path(file).suffix.lower()  # type: ignore[arg-type]
+            if ext not in _EXPORT_EXTENSIONS:
+                raise ValueError(
+                    f"cannot infer format from file extension {ext!r}, "
+                    f"give format as one of {valid}"
+                )
+            format = _EXPORT_EXTENSIONS[ext]
+
+        if format == "text":
+            if kwargs:
+                raise TypeError("export format 'text' takes no extra arguments")
+            text = str(self)
+        elif format in _EXPORT_FORMATS:
+            text = getattr(self, format)(**kwargs)
+        else:
+            raise ValueError(f"unknown export format {format!r}, one of {valid}")
+
+        if file is None:
+            return text
+        if hasattr(file, "write"):
+            file.write(text)  # type: ignore[union-attr]
+        else:
+            with open(file, "w", encoding="utf-8") as f:  # type: ignore[arg-type]
+                f.write(text)
+        return None
+
+    def _findwidths(self):
+        # find the width of each column and flag if it is
+        # the last column in the table
+        for i, c in enumerate(self.columns):
+            c.width = c.width or c.maxwidth
+            c.last = i == len(self.columns) - 1
+
+    def __str__(self) -> str:
+        """
+        Output the table as a string
+
+        :return: ANSI string
+        """
+
+        if self.border is not None:
+            # printing borders, adjust some other parameters
+            if self.offset == 0:
+                self.offset = 1
+            # self.colsep |= 1  # make it odd
+
+            border_style = "ascii" if not _unicode else self.border
+            self.borderdict = borderdict[border_style]
+        else:
+            self.borderdict = None
+
+        self._findwidths()
+
+        text = ""
+
+        # heading
+        text += self._topline()
+        if self.header:
+            text += self._row()  # add the headers
+            text += self._midline()  # add a separator line
+
+        # rows
+        for i in range(self.nrows):
+            text += self._row(i)  # add a row
+
+        # footer
+        text += self._bottomline()
+
+        return text
+
+    def markdown(self) -> str:
+        """
+        Output the table in MarkDown markup format
+
+        :return: ASCII markdown text
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.markdown())
+
+        This can be used inside a Jupyter notebook cell to display a table::
+
+            from IPython.display import Markdown
+            Markdown(table.markdown())
+
+        .. note::
+            - supports column alignment
+            - does not support header alignment, same as column
+            - rows added with :meth:`rule` are omitted from the output
+        """
+
+        self._findwidths()
+
+        # Cell padding is supplied by the "| " ... " " delimiters, so suppress colsep
+        # and make every column at least 3 wide, the minimum for a separator cell.
+        colsep = self.colsep
+        widths = [c.width for c in self.columns]
+        self.colsep = 0
+        for c in self.columns:
+            c.width = max(c.width, 3)
+
+        try:
+            # markdown table setup
+            s = ""
+
+            # column headers
+            for c in self.columns:
+                s += "| " + c._formatcolumn(c.name, header=True, plain=True) + " "
+            s += "|\n"
+
+            for c in self.columns:
+                if c.headalign == "<":
+                    bar = ":" + "-" * (c.width - 1)
+                elif c.headalign == "^":
+                    bar = ":" + "-" * (c.width - 2) + ":"
+                else:
+                    bar = "-" * (c.width - 1) + ":"
+                s += "| " + bar + " "
+            s += "|\n"
+
+            # rows
+            for i in range(self.nrows):
+                if self.columns[0].formatted[i] is None:
+                    # rule row, not supported in markdown
+                    continue
+                for c in self.columns:
+                    s += (
+                        "| "
+                        + c._formatcolumn(c.formatted[i], header=False, plain=True)
+                        + " "
+                    )
+                s += "|\n"
+        finally:
+            self.colsep = colsep
+            for c, w in zip(self.columns, widths):
+                c.width = w
+
+        return s
+
+    def rest(self) -> str:
+        """
+        Output the table in ReST "simple table" markup format
+
+        :return: ASCII text for a ReST "simple table"
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.rest())
+
+        .. note::
+            - does not support header or column alignment
+            - rows added with :meth:`rule` are omitted from the output
+        """
+
+        self._findwidths()
+        colsep = self.colsep
+        self.colsep = 0
+
+        # markdown table setup
+        s = ""
+
+        # column headers
+        divider = ""
+        for c in self.columns:
+            divider += "=" * c.width + "  "
+
+        s += divider + "\n"
+
+        for c in self.columns:
+            s += c._formatcolumn(c.name, header=True, plain=True) + "  "
+        s += "\n"
+        s += divider + "\n"
+
+        # rows
+        for i in range(self.nrows):
+            if self.columns[0].formatted[i] is None:
+                # rule row, not supported in ReST simple tables
+                continue
+            for c in self.columns:
+                s += c._formatcolumn(c.formatted[i], header=False, plain=True) + "  "
+            s += "\n"
+        s += divider + "\n"
+        self.colsep = colsep
+        return s
+
+    def wikitable(self) -> str:
+        """
+        Output the table in wikitable markup format
+
+        This is the markup format for tables in Wikipedia.
+
+        :return: wikitable markup text
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.wikitable())
+
+        .. note::
+            - supports column alignment
+            - does not support header alignment, always centred for ``wikitable`` class
+            - rows added with :meth:`rule` are omitted from the output
+        """
+
+        self._findwidths()
+
+        # Wikipedia table setup
+        s = '{| class="wikitable"'
+
+        for i, c in enumerate(self.columns):
+            if c.headalign == "<":
+                s += " col%dleft" % (i + 1)
+            elif c.headalign == "^":
+                s += " col%dcenter" % (i + 1)
+            elif c.headalign == ">":
+                s += " col%dright" % (i + 1)
+        s += "\n"
+
+        # column headers
+        s += "|-\n"
+        first = True
+        for c in self.columns:
+            if first:
+                s += "! " + c._formatcolumn(c.name, header=True, plain=True) + " "
+                first = False
+            else:
+                s += "!! " + c._formatcolumn(c.name, header=True, plain=True) + " "
+
+        s += "\n"
+        # rows
+        for i in range(self.nrows):
+            if self.columns[0].formatted[i] is None:
+                # rule row, not supported in wikitable markup
+                continue
+            s += "|-\n"
+            first = True
+            for c in self.columns:
+                if first:
+                    s += (
+                        "| "
+                        + c._formatcolumn(c.formatted[i], header=False, plain=True)
+                        + " "
+                    )
+                    first = False
+                else:
+                    s += (
+                        "|| "
+                        + c._formatcolumn(c.formatted[i], header=False, plain=True)
+                        + " "
+                    )
+            s += "\n"
+        s += "|}\n"
+
+        return s
+
+    def html(
+        self,
+        td: str = "",
+        th: str = "",
+        trd: str = "",
+        trh: str = "",
+        table: str = "",
+    ) -> str:
+        r"""
+        Output the table in HTML format
+
+        :param td: CSS style for table data cells, defaults to ""
+        :param th: CSS style for table header cells, defaults to ""
+        :param trd: CSS style for table data rows, defaults to ""
+        :param trh: CSS style for table header rows, defaults to ""
+        :param table: CSS style for the table, defaults to ""
+        :return: table rendered in HTML
+
+        The table is rendered as a table between `<table>` and `</table>` tags.
+        Table color and style options are supported.
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.html())
+
+        CSS options defined in the document will apply.  These can be overridden for
+        various table elements by passed arguments strings. For example, to create a
+        simple gridded table::
+
+            table.html(
+                td="border: 1px solid;",
+                th="border: 1px solid;",
+                table="border-collapse: collapse;",
+            )
+
+        The CSS style strings must end with a semi-colon.
+
+        .. warning::
+            ``td``/``th``/``trd``/``trh`` are concatenated *after* the color
+            and style declarations computed from ``fgcolor``/``bgcolor``/
+            ``style`` (and their column/header equivalents), all in the same
+            ``style`` attribute. Within one ``style`` attribute, the last
+            declaration of a given CSS property wins -- so a ``th``/``td``
+            string that itself sets ``color``/``background-color`` (or the
+            ``background`` shorthand, which includes ``background-color``)
+            silently overrides whatever color the table computed, with no
+            error or warning. If a colored header or cell isn't showing the
+            color you set, check whether ``th``/``td`` is also setting a
+            color for the same cells. Restrict these arguments to properties
+            the table itself never sets (border, padding, font-weight of
+            unstyled cells, etc.) to avoid this.
+
+        .. note::
+            - supports column alignment
+            - supports header alignment
+            - support color and style options in the table
+            - rows added with :meth:`rule` are rendered as a ``<hr>`` spanning
+              all columns
+
+        """
+        self._findwidths()
+
+        # HTML table setup with border attributes
+        table_attrs = ""
+        
+        # Add border attribute based on border type
+        if self.border is not None:
+            border_width_map = {
+                "thick": "3",
+                "double": "2",
+                "thin": "1",
+                "round": "1",
+                "ascii": "1",
+            }
+            border_width = border_width_map.get(self.border, "1")
+            table_attrs += f' border="{border_width}"'
+        
+        # Add bordercolor attribute if set
+        if self.bordercolor is not None:
+            table_attrs += f' bordercolor="{self.bordercolor}"'
+        
+        # Add any additional table CSS styling
+        if table:
+            table_attrs += f' style="{table}"'
+        
+        s = f"<table{table_attrs}>\n"
+
+        align = {"<": "left;", "^": "center;", ">": "right;"}
+
+        # column headers
+        s += "  <tr style='" + trh + "'>\n"
+        for c in self.columns:
+            cell_css = "text-align:" + align[c.headalign]
+            cell_css += _cell_style_css(c.headcolor, c.headbgcolor, c.headstyle)
+            s += "    <th style='" + cell_css + th + "'>" + c.name + "</th>\n"
+        s += "  </tr>\n"
+
+        # rows
+        for i in range(self.nrows):
+            if self.columns[0].formatted[i] is None:
+                # rule row, rendered as a horizontal divider spanning all columns
+                s += (
+                    f"  <tr><td colspan=\"{len(self.columns)}\"><hr></td></tr>\n"
+                )
+                continue
+            s += "  <tr style='" + trd + "'>\n"
+            for c in self.columns:
+                cell_css = "text-align:" + align[c.colalign]
+                fgcolor = c.fgcolor[i] or c.colcolor
+                bgcolor = c.bgcolor[i] or c.colbgcolor
+                cellstyle = c.style[i] or c.colstyle
+                cell_css += _cell_style_css(fgcolor, bgcolor, cellstyle)
+                s += (
+                    "    <td style='"
+                    + cell_css
+                    + td
+                    + "'>"
+                    + c.formatted[i].replace(
+                        "\u2026", "&hellip;"
+                    )  # replace unicode ellipsis with HTML entity
+                    + "</td>\n"
+                )
+            s += "  </tr>\n"
+        s += "</table>\n"
+        return s
+
+    def latex(self) -> str:
+        r"""
+        Output the table in LaTeX format
+
+        :return: LaTeX tabular markup
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.latex())
+
+        .. note::
+            - supports column alignment
+            - supports header alignment
+            - rows added with :meth:`rule` are rendered as ``\\hline``
+        """
+        self._findwidths()
+
+        # LaTeX tabular setup
+        s = "\\begin{tabular}{ |"
+        for c in self.columns:
+            if c.colalign == "<":
+                s += "l|"
+            elif c.colalign == "^":
+                s += "c|"
+            elif c.colalign == ">":
+                s += "r|"
+        s += " }\\hline\n"
+
+        # column headers
+        first = True
+        for c in self.columns:
+            if first:
+                first = False
+            else:
+                s += " & "
+
+            s += "\\multicolumn{1}{"
+            if c.headalign == "<":
+                s += "|l|"
+            elif c.headalign == "^":
+                s += "|c|"
+            elif c.headalign == ">":
+                s += "|r|"
+            s += "}{" + c.name + "}"
+
+        s += "\\\\\\hline\\hline\n"
+        # rows
+        for i in range(self.nrows):
+            if self.columns[0].formatted[i] is None:
+                # rule row, rendered as a horizontal line
+                s += "\\hline\n"
+                continue
+            first = True
+            for c in self.columns:
+                if first:
+                    first = False
+                else:
+                    s += " & "
+                s += c.formatted[i]
+            s += " \\\\\n"
+        s += "\\hline\n"
+        s += "\\end{tabular}\n"
+        return s
+
+    def csv(self, delimiter: str = ",") -> str:
+        r"""
+        Output the table in comma separated column (CSV) format
+
+        :param delimiter: column delimiter, defaults to ","
+        :return: ASCII CSV text
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> print(table.csv())
+
+        .. note::
+            - does not support header or column alignment
+            - rows added with :meth:`rule` are omitted from the output
+        """
+
+        self._findwidths()
+
+        # column headers
+
+        first = True
+        s = ""
+        for c in self.columns:
+            if first:
+                first = False
+            else:
+                s += delimiter
+            s += c.name
+        s += "\n"
+
+        # rows
+        for i in range(self.nrows):
+            if self.columns[0].formatted[i] is None:
+                # rule row, not supported in CSV export
+                continue
+            first = True
+            for c in self.columns:
+                if first:
+                    first = False
+                else:
+                    s += delimiter
+                s += c.formatted[i]
+            s += "\n"
+
+        return s
+
+    def pandas(self, underscores: bool = True) -> pd.DataFrame:
+        r"""
+        Convert the table to a Pandas dataframe
+
+        :param underscores: replace spaces in column names with underscores, defaults to True
+        :return: Pandas dataframe
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> from ansitable import ANSITable
+            >>> table = ANSITable("col1", "column 2 has a big header", "column 3")
+            >>> table.row("aaaaaaaaa", 2.2, 3)
+            >>> table.row("bbbbbbbbbbbbb", -5.5, 6)
+            >>> table.row("ccccccc", 8.8, -9)
+            >>> df = table.pandas()
+            >>> print(df)
+
+        .. note::
+            - does not support header or column alignment
+            - ANSItable column headings can contain spaces, but Pandas column names
+              with spaces cannot be used as attributes. By default spaces are replaced
+              with underscores, but this can be disabled by passing ``underscores=False``.
+            - rows added with :meth:`rule` are omitted from the output
+        """
+
+        try:
+            import pandas as pd
+        except ImportError:
+            raise ImportError("pandas is not installed: pip install pandas")
+
+        data_indices = [
+            i for i in range(self.nrows) if self.columns[0].formatted[i] is not None
+        ]
+
+        data = {}
+        for c in self.columns:
+            if underscores:
+                colname = c.name.replace(" ", "_")
+            else:
+                colname = c.name
+            data[colname] = [c.formatted[i] for i in data_indices]
+        return pd.DataFrame(data)
+
+    @staticmethod
+    def Pandas(df: pd.DataFrame, **kwargs: Any) -> ANSITable:
+        """
+        Create an ANSITable from a Pandas dataframe
+
+        :param df: Pandas dataframe
+        :param kwargs: additional arguments to pass to the ANSITable constructor
+        :return: an ansitable object
+
+        Example:
+
+        .. runblock:: pycon
+
+            >>> import pandas as pd
+            >>> from ansitable import ANSITable
+            >>> df = pd.DataFrame({"calories": [420, 380, 390], "duration": [50, 40, 45]})
+            >>> table = ANSITable.Pandas(df, border="thin")
+            >>> table.print()
+
+        .. note::
+            - options for header and column alignment and format are not supported
+        """
+        table = ANSITable(*list(df.columns), **kwargs)
+        for i in range(len(df)):
+            table.row(*df.iloc[i])
+        return table
+
+    def _FG(self, c):
+        if _unicode and _color_enabled and self.color and c is not None:
+            return fore(c)
+        else:
+            return ""
+
+    def _BG(self, c):
+        if _unicode and _color_enabled and self.color and c is not None:
+            return back(c)
+        else:
+            return ""
+
+    def _ATTR(self, c):
+        if _unicode and _color_enabled and self.color and c is not None:
+            return style(c)
+        else:
+            return ""
+
+
+if __name__ == "__main__":
+
+    import numpy as np
+
+    _unicode = False
+
+    # -------------------------------- test ANSIMatrix
+    m = np.arange(16).reshape((4, 4)) / 10 - 0.8
+    m[0, 0] = 1.23456e-14
+    print(m)
+    print(np.array2string(m))
+
+    formatter = ANSIMatrix(style="thick", squish=True)
+
+    formatter.print(m)
+
+    formatter.print(m, suffix_super="T", suffix_sub="3")
+
+    m = np.arange(4) / 4 - 0.5
+    formatter.print(m, "T")
+
+    # -------------------------------- test ANSITable
+
+    table = ANSITable("col1", "column 2 has a big header", "column 3", color=False)
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable("col1", "column 2 has a big header", "column 3")
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("<<red>>bbbbbbbbbbbbb", 5.5, 6)
+    table.row("<<blue>>ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable("col1", "column 2 has a big header", "column 3")
+    table.row("aaaaaaaaa", 2.2, 3, bgcolor="green")
+    table.row(Cell("bbbbbbbbbbbbb", bgcolor="red"), 5.5, 6)
+    table.row(Cell("ccccccc", fgcolor="blue"), 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1"), Column("column 2 has a big header"), Column("column 3")
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1"),
+        Column("column 2 has a big header", "{:.3g}"),
+        Column("column 3", "{:-10.4f}"),
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", width=10),
+        Column("column 2 has a big header", "{:.3g}"),
+        Column("column 3", "{:-10.4f}"),
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1"),
+        Column("column 2 has a big header"),
+        Column("column 3"),
+        border="ascii",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1"),
+        Column("column 2 has a big header"),
+        Column("column 3"),
+        border="thick",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.rule()
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1"),
+        Column("column 2 has a big header", colalign="^"),
+        Column("column 3"),
+        border="thick",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<"),
+        Column("column 2 has a big header", colalign="^"),
+        Column("column 3", colalign="<"),
+        border="thick",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<"),
+        Column("column 2 has a big header", colalign="^", colstyle="reverse"),
+        Column("column 3", colalign="<"),
+        border="thick",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<", colcolor="red", headstyle="underlined"),
+        Column("column 2 has a big header", colalign="^", colstyle="reverse"),
+        Column("column 3", colalign="<", colbgcolor="green", fmt="{: d}"),
+        border="thick",
+        bordercolor="blue",
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.rule()
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="^", colcolor="red", headstyle="underlined"),
+        Column("column 2 has a big header", colalign="^"),
+        Column("column 3", colalign="<", colbgcolor="green", fmt="{: d}"),
+        border="thick",
+        bordercolor="blue",
+        colsep=2,
+    )
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+    print(table.html())
+
+    # markdown/latex/html example
+    table = ANSITable("col1", "column 2 has a big header", "column 3")
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+    print(table.latex())
+    print(table.markdown())
+    print(table.csv())
+    print(table.html())
+    print(table.rest())
+    print(table.wikitable())
+
+    df = table.pandas()
+    print(df)
+    print(df.column_2_has_a_big_header.to_string())
+
+    import pandas as pd
+
+    df = pd.DataFrame({"calories": [420, 380, 390], "duration": [50, 40, 45]})
+    table = ANSITable.Pandas(df, border="thin")
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<", headstyle="underlined"),  # CHANGE
+        Column("column 2 has a big header", colalign="^", colstyle="bold"),  # CHANGE
+        Column("column 3", colalign="<", colbgcolor="green"),  # CHANGE
+        border="thick",
+        bordercolor="blue",  # CHANGE
+    )
+
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6)
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<", headstyle="underlined"),  # CHANGE
+        Column("column 2 has a big header", colalign="^", colstyle="bold"),  # CHANGE
+        Column("column 3", colalign="<", colbgcolor="green"),  # CHANGE
+        border="thick",
+        bordercolor="blue",  # CHANGE
+    )
+
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row("bbbbbbbbbbbbb", -5.5, 6, bgcolor="yellow")  # CHANGE
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    table = ANSITable(
+        Column("col1", headalign="<", headstyle="underlined"),  # CHANGE
+        Column("column 2 has a big header", colalign="^", colstyle="bold"),  # CHANGE
+        Column("column 3", colalign="<", colbgcolor="green"),  # CHANGE
+        border="thick",
+        bordercolor="blue",  # CHANGE
+    )
+
+    table.row("aaaaaaaaa", 2.2, 3)
+    table.row(
+        "bbbbbbbbbbbbb", Cell(-5.5, bgcolor="blue"), 6, bgcolor="yellow"
+    )  # CHANGE
+    table.row("ccccccc", 8.8, -9)
+    table.print()
+
+    ##
+    table = ANSITable(
+        Column("col1", headalign="<", headstyle="underlined"),  # CHANGE
+        Column("column 2 has a big header", colalign="^", colstyle="bold"),  # CHANGE
+        Column("column 3", colalign="<"),  # CHANGE
+        border="thin",
+    )
+
+    table.row("aaaaaaaaa", "<<blue>>aaa", "")
+    table.row(
+        "bbbbbbbbbbbbb",
+        "<<blue>>blue",
+        6,
+    )  # CHANGE
+    table.row("ccccccc", 8.8, -9)
+    table.print()

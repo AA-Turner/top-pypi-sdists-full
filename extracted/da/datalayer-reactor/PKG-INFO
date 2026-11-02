@@ -1,0 +1,108 @@
+Metadata-Version: 2.1
+Name: datalayer_reactor
+Version: 1.3.4
+Summary: FastAPI + pluggy extension reactor for modular SaaS applications
+License: BSD-3-Clause
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: pluggy>=1.5.0
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: typer>=0.12.0
+Requires-Dist: uvicorn>=0.30.0
+Provides-Extra: agui
+Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'agui'
+Provides-Extra: dev
+Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'dev'
+Requires-Dist: hatch-nodejs-version>=0.3.2; extra == 'dev'
+Requires-Dist: hatchling>=1.21; extra == 'dev'
+Requires-Dist: httpx>=0.27.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24.0; extra == 'dev'
+Requires-Dist: pytest>=8.3.0; extra == 'dev'
+Provides-Extra: repl
+Requires-Dist: prompt-toolkit>=3.0.0; extra == 'repl'
+Description-Content-Type: text/markdown
+
+[![Datalayer](https://images.datalayer.io/legacy/datalayer-25.svg)](https://datalayer.ai)
+
+[![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+
+# ⚛️ Reactor
+
+Application builders hit a wall when a feature spans the browser and the
+server: frontend and backend plugin systems usually disagree about discovery,
+dependencies, lifecycle, compatibility, and enablement. Teams duplicate those
+contracts, hard-wire optional features into the host, and must coordinate
+rebuilds and deployments just to add, remove, or replace one capability.
+
+Reactor gives JavaScript frontends and Python backends one extensibility model,
+inspired by VS Code, Eclipse (OSGi), and other proven plugin systems.
+
+[![Reactor Example Music](https://images.datalayer.io/products/reactor/reactor-example-music.png)](https://reactor.datalayer.tech)
+
+Reactor provides two sibling packages:
+
+- `@datalayer/reactor` (TypeScript): Plugin runtime with a framework-agnostic core and separate React integration.
+- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular extensibility.
+
+Both tiers implement the same architecture. That is the point of writing it down
+once: a host that lists, describes, groups or draws plugins should never have to
+ask which side of the wire one came from.
+
+## 📖 Documentation
+
+**[reactor.datalayer.tech](https://reactor.datalayer.tech)** — everything is
+there, and only there. Source in [`docs/`](./docs).
+
+| | |
+| --- | --- |
+| [Why Reactor](https://reactor.datalayer.tech/overview/why) | what this targets that a hook callback does not |
+| [Architecture](https://reactor.datalayer.tech/overview/architecture) | the seven constructs, and the two distinctions the model rests on |
+| [Get started in TypeScript](https://reactor.datalayer.tech/getting-started/typescript) · [in Python](https://reactor.datalayer.tech/getting-started/python) | install, and a plugin running |
+| [TypeScript runtime](https://reactor.datalayer.tech/typescript-plugins/) | plugins, lifecycle, contribution points, extensions, activation, lazy loading, remote plugins, allowed origins, React bindings, signals |
+| [Python runtime](https://reactor.datalayer.tech/python-plugins/) | manifests, contribution points, extensions, tenants, the HTTP API |
+| [Across the tiers](https://reactor.datalayer.tech/cross-tier-dependencies/) | what a plugin may declare about its counterpart, and why it is not enforced |
+| [Federation](https://reactor.datalayer.tech/federation/) | plugins that arrive from a URL, containers, and where one is allowed to come from |
+| [Python-packaged extensions](https://reactor.datalayer.tech/python-packaged-extensions/) | one `pip install` shipping both tiers, the frontend built into the wheel |
+
+### 🎵 The music store, running in the page
+
+**[reactor.datalayer.tech/examples/music/demo](https://reactor.datalayer.tech/examples/music/demo)**
+— a store assembled entirely from plugins, with a switch per plugin on both
+tiers. Untick one and watch what it contributed leave.
+
+## Repository layout
+
+| Path | What is in it |
+| --- | --- |
+| `src/` | TypeScript package source for `@datalayer/reactor` |
+| `reactor/` | Python package source for `datalayer_reactor` |
+| `plugins/` | reusable plugins shipped alongside the runtime — the [manager](https://reactor.datalayer.tech/core-plugins/manager) and the [graph](https://reactor.datalayer.tech/core-plugins/graph) |
+| `examples/` | the demos, including [the music store](./examples/music) |
+| `docs/` | the documentation site |
+
+## Develop
+
+```bash
+# TypeScript: the runtime and the bundled plugins.
+npm install
+npm run build
+npm test
+npm run typecheck
+
+# Python.
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python -m reactor
+
+# The music example, both tiers.
+make music
+
+# The documentation site.
+cd docs && make install && make start
+```
+
+## Release
+
+See [RELEASE.md](./RELEASE.md).

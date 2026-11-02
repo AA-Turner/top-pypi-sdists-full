@@ -64,7 +64,7 @@ def install_facts() -> dict:
     except Exception as exc:  # noqa: BLE001
         facts["versions"] = {"cli": _cli_version(), "error": type(exc).__name__}
     try:
-        from probe.cli import updater
+        from probe.cli.install import updater
 
         facts["install_method"] = updater.detect_install().method
     except Exception:  # noqa: BLE001
@@ -80,7 +80,7 @@ def install_facts() -> dict:
     except Exception:  # noqa: BLE001
         facts["installs"] = None
     try:
-        from probe.cli.daemon_cli import located_ai_libraries
+        from probe.cli.commands.daemon.daemon import located_ai_libraries
 
         facts["ai_libraries"] = located_ai_libraries() or "missing"
     except Exception:  # noqa: BLE001

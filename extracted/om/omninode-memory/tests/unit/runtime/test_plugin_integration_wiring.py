@@ -207,7 +207,6 @@ class TestNavigationHistoryWiring:
                 qdrant_host="test-qdrant",
                 qdrant_port=6333,
                 embedding_url="http://test-embedding:8100",
-                embedding_model="test-model",
             )
 
             # Factory called with navigation handler
@@ -343,7 +342,7 @@ class TestHandlerMemoryLifecycle:
 
     @pytest.mark.asyncio
     async def test_startup_reports_components(self) -> None:
-        """handle_startup returns status dict for all provided components."""
+        """initialize returns status dict for all provided components."""
         lifecycle = HandlerMemoryLifecycle(
             graph_memory_adapter=MagicMock(),
             intent_graph_adapter=MagicMock(),
@@ -351,7 +350,7 @@ class TestHandlerMemoryLifecycle:
             semantic_handler=MagicMock(),
         )
 
-        statuses = await lifecycle.handle_startup()
+        statuses = await lifecycle.initialize()
 
         assert statuses == {
             "graph_memory": "initialized",
@@ -363,24 +362,24 @@ class TestHandlerMemoryLifecycle:
 
     @pytest.mark.asyncio
     async def test_startup_with_no_components(self) -> None:
-        """handle_startup returns empty dict when no components provided."""
+        """initialize returns empty dict when no components provided."""
         lifecycle = HandlerMemoryLifecycle()
 
-        statuses = await lifecycle.handle_startup()
+        statuses = await lifecycle.initialize()
 
         assert statuses == {}
         assert lifecycle.is_started()
 
     @pytest.mark.asyncio
     async def test_shutdown(self) -> None:
-        """handle_shutdown sets started to False."""
+        """shutdown sets started to False."""
         lifecycle = HandlerMemoryLifecycle(
             graph_memory_adapter=MagicMock(),
         )
-        await lifecycle.handle_startup()
+        await lifecycle.initialize()
         assert lifecycle.is_started()
 
-        await lifecycle.handle_shutdown()
+        await lifecycle.shutdown()
         assert not lifecycle.is_started()
 
     def test_component_count(self) -> None:

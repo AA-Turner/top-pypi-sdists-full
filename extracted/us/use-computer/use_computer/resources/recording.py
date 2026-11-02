@@ -1,0 +1,98 @@
+from __future__ import annotations
+
+import httpx
+
+from use_computer.core.models import RecordingInfo
+
+
+class Recording:
+    def __init__(self, http: httpx.Client, prefix: str):
+        self._http = http
+        self._prefix = prefix
+
+    def start(self, name: str | None = None) -> RecordingInfo:
+        payload: dict = {}
+        if name:
+            payload["name"] = name
+        resp = self._http.post(f"{self._prefix}/recording/start", json=payload)
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    def stop(self, recording_id: str) -> RecordingInfo:
+        resp = self._http.post(
+            f"{self._prefix}/recording/stop",
+            json={"id": recording_id, "recording_id": recording_id},
+        )
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    def list_all(self) -> list[RecordingInfo]:
+        resp = self._http.get(f"{self._prefix}/recordings")
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get("recordings", []) if isinstance(data, dict) else data
+        return [RecordingInfo.from_dict(r) for r in items]
+
+    def get(self, recording_id: str) -> RecordingInfo:
+        resp = self._http.get(f"{self._prefix}/recordings/{recording_id}")
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    def download(self, recording_id: str, local_path: str, timeout: float = 30.0) -> None:
+        download_url = f"{self._prefix}/recordings/{recording_id}/download"
+        with self._http.stream("GET", download_url, timeout=timeout) as resp:
+            resp.raise_for_status()
+            with open(local_path, "wb") as f:
+                for chunk in resp.iter_bytes(chunk_size=65536):
+                    f.write(chunk)
+
+    def delete(self, recording_id: str) -> None:
+        resp = self._http.delete(f"{self._prefix}/recordings/{recording_id}")
+        resp.raise_for_status()
+
+
+class AsyncRecording:
+    def __init__(self, http: httpx.AsyncClient, prefix: str):
+        self._http = http
+        self._prefix = prefix
+
+    async def start(self, name: str | None = None) -> RecordingInfo:
+        payload: dict = {}
+        if name:
+            payload["name"] = name
+        resp = await self._http.post(f"{self._prefix}/recording/start", json=payload)
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    async def stop(self, recording_id: str) -> RecordingInfo:
+        resp = await self._http.post(
+            f"{self._prefix}/recording/stop",
+            json={"id": recording_id, "recording_id": recording_id},
+        )
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    async def list_all(self) -> list[RecordingInfo]:
+        resp = await self._http.get(f"{self._prefix}/recordings")
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get("recordings", []) if isinstance(data, dict) else data
+        return [RecordingInfo.from_dict(r) for r in items]
+
+    async def get(self, recording_id: str) -> RecordingInfo:
+        resp = await self._http.get(f"{self._prefix}/recordings/{recording_id}")
+        resp.raise_for_status()
+        return RecordingInfo.from_dict(resp.json())
+
+    async def download(self, recording_id: str, local_path: str, timeout: float = 30.0) -> None:
+        async with self._http.stream(
+            "GET", f"{self._prefix}/recordings/{recording_id}/download", timeout=timeout
+        ) as resp:
+            resp.raise_for_status()
+            with open(local_path, "wb") as f:
+                async for chunk in resp.aiter_bytes(chunk_size=65536):
+                    f.write(chunk)
+
+    async def delete(self, recording_id: str) -> None:
+        resp = await self._http.delete(f"{self._prefix}/recordings/{recording_id}")
+        resp.raise_for_status()

@@ -72,7 +72,7 @@ def _metric(value: Any) -> dict | None:
     return {k: value[k] for k in ("key", "goal", "reduce") if value.get(k) is not None}
 
 
-def _metric_id(value: Any) -> tuple | None:
+def _get_metric_id(value: Any) -> tuple | None:
     metric = _metric(value)
     return None if metric is None else (metric.get("key"), metric.get("goal"), metric.get("reduce"))
 
@@ -135,7 +135,7 @@ def _standing(standing: Any, refs: _Refs) -> dict | None:
     return out
 
 
-def _main_metric(body: dict) -> dict | None:
+def _get_main_metric(body: dict) -> dict | None:
     """The metric the header's leader is ranked on: a project's own, or a
     workspace's one metric when its branches share one."""
     scope = body.get("scope") or {}
@@ -172,7 +172,7 @@ def header(body: dict, *, workspace: bool = False, full: bool = False) -> dict:
     metric says so on its own row (`metric`, `rank`, `of`), so a page carries
     only the groups of its own rows."""
     refs = _Refs(body)
-    main = _main_metric(body)
+    main = _get_main_metric(body)
     out: dict[str, Any] = {}
     scope = body.get("scope") or {}
     if workspace:
@@ -263,7 +263,7 @@ def _harnesses(rows: Any) -> str | None:
     return " · ".join(f"{name} {n}" for name, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
-def _dead_lines(body: dict) -> set[str]:
+def _get_dead_lines(body: dict) -> set[str]:
     """The lines every branch of which is a dead end."""
     return {
         str(line["line"])
@@ -286,7 +286,7 @@ def compact_branch(
         if str(branch["line"]) in dead_lines:
             out["line_dead_end"] = True
     metric = _metric(branch.get("metric"))
-    other = metric is not None and (main is None or _metric_id(metric) != _metric_id(main))
+    other = metric is not None and (main is None or _get_metric_id(metric) != _get_metric_id(main))
     if other:
         out["metric"] = metric
     best = _value(branch.get("best"), refs)
@@ -329,7 +329,7 @@ def _top(rows: Any) -> str | None:
     return " · ".join(f"{r.get('harness') or 'unknown'} {r['agent_h']}h" for r in top) or None
 
 
-def _session_ref(row: dict) -> str:
+def _get_session_ref(row: dict) -> str:
     sid, harness = row.get("session"), row.get("harness")
     return f"session:{harness}/{sid}" if harness else f"session:{sid}"
 
@@ -337,14 +337,14 @@ def _session_ref(row: dict) -> str:
 def _split(rows: Any) -> list[dict]:
     """Sessions as `{session, agent_h}`: who, and for how long."""
     return [
-        {"session": _session_ref(r), "agent_h": r.get("agent_h")}
+        {"session": _get_session_ref(r), "agent_h": r.get("agent_h")}
         for r in rows or []
         if isinstance(r, dict) and r.get("session")
     ]
 
 
 def _session(row: dict) -> dict:
-    out: dict[str, Any] = {"session": _session_ref(row)}
+    out: dict[str, Any] = {"session": _get_session_ref(row)}
     for key in ("title", "person"):
         if row.get(key):
             out[key] = row[key]
@@ -438,7 +438,7 @@ def detail_branch(branch: dict, refs: _Refs) -> tuple[dict, list[dict]]:
             row["relation"] = e.get("relation")
         row["created_at"] = _minute(e.get("created_at"))
         own = _metric(e.get("metric"))
-        if own is not None and _metric_id(own) != _metric_id(metric):
+        if own is not None and _get_metric_id(own) != _get_metric_id(metric):
             row["metric"] = own
         value = e.get("value")
         if isinstance(value, dict) and value.get("value") is not None:
@@ -509,16 +509,16 @@ def project(body: dict, *, branch: Any = None, after: str | None = None, workspa
     refs = _Refs(body)
     if branch is not None:
         chosen = _chosen(body, refs, branch)
-        full, rows = detail_branch(chosen, refs)
-        if str(chosen.get("line")) in _dead_lines(body):
-            full["line_dead_end"] = True
+        is_full, rows = detail_branch(chosen, refs)
+        if str(chosen.get("line")) in _get_dead_lines(body):
+            is_full["line_dead_end"] = True
         return Projected(
-            payload={**header(body, workspace=workspace, full=True), "branch": full},
+            payload={**header(body, workspace=workspace, full=True), "branch": is_full},
             rows=_after(rows, after, "experiment"),
             rows_key="experiments",
         )
-    main = _main_metric(body)
-    dead_lines = _dead_lines(body)
+    main = _get_main_metric(body)
+    dead_lines = _get_dead_lines(body)
     rows = [compact_branch(b, refs, main, dead_lines) for b in _branches(body)]
     return Projected(payload=header(body, workspace=workspace), rows=_after(rows, after, "branch"))
 

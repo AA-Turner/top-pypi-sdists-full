@@ -1,0 +1,120 @@
+from django import VERSION
+import pytest
+import re
+import warnings
+
+from django.test import RequestFactory, override_settings
+
+from django_rusty_templates import RustyTemplates
+
+
+factory = RequestFactory()
+
+
+def test_csrf_token_context_processor(render_output):
+    request = factory.get("/")
+    rendered = render_output(
+        template="{% csrf_token %}",
+        context={},
+        request=request,
+    )
+
+    assert (
+        re.fullmatch(
+            r'^<input type="hidden" name="csrfmiddlewaretoken" value="([a-zA-Z0-9]{64})">$',
+            rendered,
+        )
+        is not None
+    )
+
+
+def test_csrf_token_basic(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": "test123"},
+        expected='<input type="hidden" name="csrfmiddlewaretoken" value="test123">',
+    )
+
+
+def test_csrf_token_not_provided(assert_render, template_engine):
+    if VERSION >= (6, 0) and not isinstance(template_engine, RustyTemplates):
+        pytest.xfail("Django's NOTPROVIDED branch calls format_html without arguments")
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": "NOTPROVIDED"},
+        expected="",
+    )
+
+
+def test_csrf_token_missing(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={},
+        expected="",
+    )
+
+
+def test_csrf_token_escaping(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": 'test"with<quotes>&amp;'},
+        expected='<input type="hidden" name="csrfmiddlewaretoken" value="test&quot;with&lt;quotes&gt;&amp;amp;">',
+    )
+
+
+def test_csrf_token_empty_string(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": ""},
+        expected="",
+    )
+
+
+def test_csrf_token_none_value(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": None},
+        expected="",
+    )
+
+
+def test_csrf_token_numeric_value(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": 12345},
+        expected='<input type="hidden" name="csrfmiddlewaretoken" value="12345">',
+    )
+
+
+def test_csrf_token_zero_value(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": 0},
+        expected="",
+    )
+
+
+def test_csrf_token_false_value(assert_render):
+    assert_render(
+        template="{% csrf_token %}",
+        context={"csrf_token": False},
+        expected="",
+    )
+
+
+@override_settings(DEBUG=True)
+def test_csrf_token_missing_debug_warning(template_engine):
+    template = template_engine.from_string("{% csrf_token %}")
+
+    if isinstance(template_engine, RustyTemplates):
+        expected = "A {% csrf_token %} was used in a template, but the context did not provide the value.  This is usually caused by not providing a request."
+    else:
+        expected = "A {% csrf_token %} was used in a template, but the context did not provide the value.  This is usually caused by not using RequestContext."
+
+    if VERSION >= (6, 0) and not isinstance(template_engine, RustyTemplates):
+        expected = expected.replace("value.  This", "value. This")
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert template.render({}) == ""
+        assert len(w) == 1
+        assert str(w[0].message) == expected

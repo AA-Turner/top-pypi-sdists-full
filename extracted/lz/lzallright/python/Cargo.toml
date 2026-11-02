@@ -1,0 +1,25 @@
+[package]
+name = "lzallright-python"
+publish = false
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+
+[lib]
+crate-type = [
+  "cdylib",
+  "rlib"
+]
+
+[dependencies]
+lzallright = { path = "../lzallright" }
+pyo3 = "0.29"
+
+[dev-dependencies]
+criterion.workspace = true

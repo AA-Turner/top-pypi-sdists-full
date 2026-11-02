@@ -1,0 +1,183 @@
+/**
+ * @file kspace.hpp
+ * @brief Integrate piecewise-linear gradients, after each block's rotation, into k-space.
+ *
+ * Excitation resets k-space and refocusing reverses it at the RF centre.
+ */
+
+#ifndef PULSEQ_KSPACE_HPP
+#define PULSEQ_KSPACE_HPP
+
+#include <array>
+#include <vector>
+
+#include "pulseq/sequence.hpp"
+#include "pulseq/waveforms.hpp"
+
+namespace pulseq
+{
+
+    /** Parameters the k-space trajectory is integrated under. */
+    struct KspaceOptions
+    {
+        /**
+         * Timing correction in seconds, subtracted from gradient times (positive advances).
+         */
+        std::array<double, 3> delay{{0.0, 0.0, 0.0}};
+        /** A background gradient per axis, in Hz/m. */
+        std::array<double, 3> offset{{0.0, 0.0, 0.0}};
+
+        /** Blocks to follow, 1-based inclusive; 0 for the last means the end. */
+        int first_block = 1;
+        int last_block = 0;
+
+        double b0 = 1.5;
+        double gamma = 42576000.0;
+
+        /**
+         * Omit the full trajectory grid and return only ADC-sampled positions.
+         * Analytic integration between corners gives the same ADC positions in both modes.
+         */
+        bool samples_only = false;
+    };
+
+    /** The k-space trajectory and the quantities derived from it. */
+    struct Kspace
+    {
+        /** Times in seconds at which the trajectory is evaluated. */
+        std::vector<double> times;
+        /** Per axis, the trajectory position at each of those times, in 1/m. */
+        std::array<std::vector<double>, 3> position;
+
+        /** Per axis, the k-space location of each ADC sample, in 1/m, and its time. */
+        std::array<std::vector<double>, 3> sampled;
+        std::vector<double> adc_times;
+        std::vector<double> adc_modulation;
+
+        std::vector<double> excitation_times;
+        std::vector<double> refocusing_times;
+
+        /** Per axis, the slice position each excitation selected. */
+        std::array<std::vector<double>, 3> slice_position;
+
+        /**
+         * The gradient each axis played, padded to the whole span: the
+         * corners the trajectory was integrated from, for a caller that wants
+         * them as a spline.
+         */
+        std::array<std::vector<double>, 3> gradient_times;
+        std::array<std::vector<double>, 3> gradient_values;
+
+        std::vector<std::string> warnings;
+    };
+
+    /**
+     * Follow @p seq into k-space.
+     *
+     * @param seq      The sequence to follow.
+     * @param options  Delays, background gradients and which blocks to follow.
+     */
+    Kspace calculate_kspace(const Sequence& seq, const KspaceOptions& options);
+
+    /**
+     * Per readout, the axes its k-space moves along and the samples nearest
+     * the centre of k-space, one entry per block that acquires, in play order.
+     *
+     * k-space is integrated as calculate_kspace() integrates it, after each
+     * block's rotation. To bound memory it is integrated a range of blocks at
+     * a time, a range ending before an excitation, or a pulse with no use
+     * recorded, in a block that does not acquire once the range holds 2^17
+     * samples; such a pulse resets k-space, so each sample is where
+     * calculate_kspace() puts it. An axis moves when the readout's k-space
+     * spans more than 1e-6 of its widest span along it.
+     */
+    struct AdcEchoes
+    {
+        /** 1-based block of each readout. */
+        std::vector<int32_t> block;
+        std::vector<int32_t> num_samples;
+        /** Index of the readout's first sample among all ADC samples. */
+        std::vector<int64_t> first_sample;
+        /** Readouts x 3: 1 where the readout moves along x, y or z. */
+        std::vector<uint8_t> moving;
+        /**
+         * Readouts x 2: the first and last 0-based sample no further from the
+         * centre, over the moving axes, than the nearest sample plus 1% of the
+         * larger k step beside it; -1 for a readout that does not move or has
+         * fewer than two samples.
+         */
+        std::vector<int32_t> echo;
+        /**
+         * Readouts x 3: k-space at each readout's first sample, in 1/m. With
+         * `sweep` and `sweeps`, filled only when k-space is followed block by
+         * block and at most one readout in 16 has a path of its own, and
+         * empty otherwise.
+         */
+        std::vector<double> origin;
+        /** Index into `sweeps` of each readout. */
+        std::vector<int32_t> sweep;
+        /**
+         * Each distinct k-space path from a readout's first sample to each of
+         * its samples, axis by axis, before the block's rotation, so that
+         * sample i of readout r is at origin[r] + R sweeps[sweep[r]][.][i],
+         * R being rotations[rotation[r]], or the identity where that is -1.
+         */
+        std::vector<std::array<std::vector<double>, 3>> sweeps;
+        /** Index into `rotations` of each readout, -1 for an unrotated one. */
+        std::vector<int32_t> rotation;
+        /** Each distinct block rotation a readout plays under, row-major 3 x 3. */
+        std::vector<double> rotations;
+    };
+
+    /** Find where each readout passes nearest the centre of k-space. */
+    AdcEchoes adc_echoes(const Sequence& seq, const KspaceOptions& base);
+
+    /**
+     * The moving axes, as AdcEchoes defines them, of the @p n samples from
+     * @p offset of @p k, written to @p moving (3).
+     */
+    void moving_axes(
+        const std::array<std::vector<double>, 3>& k, size_t offset, int n, uint8_t* moving);
+
+    /**
+     * The moving axes and echo samples, as AdcEchoes defines them, of the
+     * @p n samples from @p offset of @p k, written to @p moving (3) and
+     * @p echo (2). @p distance is scratch.
+     */
+    void find_echo(
+        const std::array<std::vector<double>, 3>& k,
+        size_t offset,
+        int n,
+        uint8_t* moving,
+        int32_t* echo,
+        std::vector<double>& distance);
+
+    /** The k-space location of the ADC samples of a run of readouts. */
+    struct ReadoutKspace
+    {
+        /** Per axis, the location of each sample, in 1/m. */
+        std::array<std::vector<double>, 3> sampled;
+        std::vector<std::string> warnings;
+    };
+
+    /**
+     * The k-space location of each ADC sample of readouts @p first to before
+     * @p stop, counted from 0 over the blocks that acquire, in play order.
+     *
+     * k-space is integrated as calculate_kspace() integrates it, with the
+     * delays, background gradients and field of @p base, from the last block
+     * before readout @p first that plays an excitation, or a pulse with no use
+     * recorded, and does not acquire -- or from the first block. That pulse
+     * resets k-space, so each sample is where calculate_kspace() over the
+     * whole sequence puts it, unless a trajectory delay moves the gradient of
+     * an earlier block past the pulse's centre.
+     *
+     * @throws std::invalid_argument unless 0 <= @p first <= @p stop <= the
+     *         number of readouts.
+     */
+    ReadoutKspace readout_kspace(
+        const Sequence& seq, const KspaceOptions& base, int64_t first, int64_t stop);
+
+} // namespace pulseq
+
+#endif /* PULSEQ_KSPACE_HPP */

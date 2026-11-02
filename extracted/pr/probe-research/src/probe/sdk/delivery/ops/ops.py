@@ -8,34 +8,17 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ... import routes
+
 if TYPE_CHECKING:
     from probe.sdk.delivery.journal.journal import Journal
 
 
 SCHEMA = "probe.outbox/1"
 
-#: Op kinds this release's drain delivers (plan 1.11). A worker advertises them in its
-#: caps file (`outbox_worker`); an op of any OTHER kind (queued by a newer SDK sharing
-#: this outbox) is held in its run's lane, never attempted or dead-lettered, until a
-#: worker that knows it drains the queue. Older releases dead-lettered an unknown kind
-#: as permanent, so a producer asks the live worker first (`outbox_worker.ready_for`).
-#:
-#: `create_run`: an OFFLINE run's create (plan 2.12), queued only in
-#: `<outbox>/offline/<key>/`, which only `probe sync` drains, so no older worker meets
-#: it and no `ready_for` handshake is needed; this drain must still list it or it holds the create
-#: and every write of the run behind it forever.
-#:
-#: `multipart_upload`: an artifact over 64 MiB (plan item (g),
-#: `sdk/artifact/storage_handlers/multipart/multipart.py`), staged then sent in parts
-#: to object storage, in its own lane (`op["lane"]`) so minutes of transfer never hold
-#: the run's metrics. Queued in `<outbox>/multipart/ops/`, which no earlier release
-#: reads (an older worker neither holds nor dead-letters it); the producer still asks
-#: `outbox_worker.ready_for` so such a worker steps aside for a current one.
-#:
-#: `catalog_manifest`: a folder dataset's manifest (data catalog, Q9), gzip JSON sent as
-#: raw bytes, so it cannot ride `http`'s JSON body. Bytes wait in
-#: `<outbox>/catalog/<op_id>.json.gz`; the op names them and rides the no-run lane AHEAD
-#: of the registration that needs it. An older 1.11+ worker holds it (unknown kind).
+#: Op kinds this release's drain delivers (plan 1.11), advertised in each worker's caps file; an
+#: op of another kind (a newer SDK's) is held in its run's lane, never attempted or dead-lettered.
+#: Why each kind is here, and where it is queued: DESIGN.md.
 CATALOG_MANIFEST = "catalog_manifest"
 OP_KINDS = frozenset(
     {"http", "upload", "rejected_http", "create_run", "multipart_upload", CATALOG_MANIFEST}
@@ -50,8 +33,6 @@ CREDENTIAL_NAMESPACE = "credential-v1"
 DELIVERY_SCHEMA = "probe.outbox.delivery/1"
 
 
-_RUN_PATH = re.compile(r"^/v1/runs/([^/]+)(?:/|$)")
-
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -59,10 +40,11 @@ def _safe_component(value: str) -> str:
     return _SAFE_COMPONENT.sub("_", value)[:120] or "producer"
 
 
-def run_ref_for_path(path: str) -> str | None:
-    """The run a v1 path addresses, when it addresses one. Barrier scoping key."""
-    match = _RUN_PATH.match(path)
-    return match.group(1) if match else None
+#: Old names of `probe.sdk.routes` functions, kept one release for importers of this module.
+run_ref_for_path = routes.run_ref_of
+is_ingest_path = routes.is_ingest
+unplaced_experiment_path = routes.unplaced_experiment_path
+UNPLACED_PROJECT = routes.UNPLACED_PROJECT
 
 
 def _is_uuid(ref: str) -> bool:
@@ -119,12 +101,6 @@ def queued_ops(queue: "Journal") -> list[tuple[Path, dict]]:
     return queue.pending() + queue._read_dir(queue.dir / "multipart" / "ops")
 
 
-def is_ingest_path(path: str | None) -> bool:
-    """Whether a request goes out with the INGEST token (`Transport._auth_headers`)."""
-    return bool(path) and str(path).startswith("/ingest")
-
-_RUN_CLOSE_PATH = re.compile(r"/v1/runs/[^/]+")
-_RUN_RELEASE_PATH = re.compile(r"/v1/runs/[^/]+/writers/[^/]+/release")
 _TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "crashed", "canceled", "untracked"})
 
 
@@ -136,10 +112,13 @@ def _is_run_close(op: dict) -> bool:
     completed without them)."""
     if op.get("kind") != "http":
         return False
-    path = str(op.get("path") or "")
-    if op.get("method") == "PATCH" and _RUN_CLOSE_PATH.fullmatch(path):
-        return (op.get("body") or {}).get("status") in _TERMINAL_RUN_STATUSES
-    return op.get("method") == "POST" and bool(_RUN_RELEASE_PATH.fullmatch(path))
+    write = routes.classify(str(op.get("method") or ""), str(op.get("path") or "")).op
+    if op.get("method") == "PATCH" and write is routes.WriteOp.RUN_PATCH:
+        body = op.get("body")
+        status = body.get("status") if isinstance(body, dict) else None
+        # A hand-edited or corrupt status (a list) is not a close, never a crash of every pass.
+        return isinstance(status, str) and status in _TERMINAL_RUN_STATUSES
+    return op.get("method") == "POST" and write is routes.WriteOp.WRITER_RELEASE
 
 
 def _write_epoch_of(op: dict) -> int | None:
@@ -202,27 +181,6 @@ def _queued_bucket(op: dict) -> int | None:
     except (ValueError, OverflowError, OSError):
         return None
 
-
-#: The project segment of an experiment child path journaled before its project is known:
-#: `/v1/projects/~/experiments/{E}/...` (light experiments X21). Children are addressed
-#: under the project the experiment is filed in, which a move changes; the queue names the
-#: experiment alone and the drain asks where it is (`_placed`). `~` cannot be a project
-#: slug or id, so a drainer older than this sends it to a 404 and dead-letters it.
-UNPLACED_PROJECT = "~"
-_UUID_SEGMENT = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-_PLACED_EXPERIMENT_PATH = re.compile(
-    rf"/v1/projects/{_UUID_SEGMENT}/experiments/({_UUID_SEGMENT})((?:/[^?#]*)?)"
-)
-_UNPLACED_EXPERIMENT_PATH = re.compile(r"/v1/projects/~/experiments/([^/?#]+)((?:/[^?#]*)?)")
-
-
-def unplaced_experiment_path(path: str) -> str:
-    """``path`` with an experiment child route's project replaced by
-    :data:`UNPLACED_PROJECT`; any other path unchanged."""
-    match = _PLACED_EXPERIMENT_PATH.fullmatch(path or "")
-    if match is None:
-        return path
-    return f"/v1/projects/{UNPLACED_PROJECT}/experiments/{match.group(1)}{match.group(2)}"
 
 #: The client an op is delivered with, by name: the drain builds one per credential, the
 #: dead-letter checks one to ask the server. Loaded on build so delivery never imports

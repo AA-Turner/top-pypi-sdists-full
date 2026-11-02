@@ -1,8 +1,6 @@
-'''
-A croos platform clipboard read/write library.
+"""Cross-platform clipboard access, provided by pyperclip."""
 
-...well, as I were trying to implement this.
-I realize that everything is already in the pyperclip module.
+from pyperclip import copy as copy
+from pyperclip import paste as paste
 
-'''
-from pyperclip import copy, paste
+VERSION = "0.0.5"

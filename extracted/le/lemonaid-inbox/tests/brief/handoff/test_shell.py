@@ -1,0 +1,197 @@
+"""A suspended harness can return to its shell and launch its replacement there."""
+
+import argparse
+import signal
+import subprocess
+import sys
+import time
+from contextlib import nullcontext
+from unittest.mock import Mock
+
+import pytest
+
+from lemonaid.brief.handoff import cli as handoff_cli
+from lemonaid.brief.handoff import shell as handoff_shell
+from lemonaid.brief.handoff import state as handoff_state
+
+
+def test_source_job_signal_requires_same_pid_group_tty_and_start(monkeypatch):
+    sent = Mock()
+    monkeypatch.setattr(handoff_shell.os, "getpgrp", lambda: 99)
+    monkeypatch.setattr(handoff_shell.os, "killpg", sent)
+    monkeypatch.setattr(
+        handoff_shell,
+        "_job_process",
+        lambda *_: (401, "ttys2", "T", "Mon Oct 5 20:00:00 2026", "/usr/bin/claude"),
+    )
+    assert handoff_shell.stopped_job(400, "/dev/ttys2", "claude") == (
+        401,
+        "ttys2",
+        "Mon Oct 5 20:00:00 2026",
+    )
+    with pytest.raises(ValueError, match="not a stopped process"):
+        handoff_shell.stopped_job(400, "/dev/ttys3", "claude")
+    with pytest.raises(ValueError, match="not the outgoing harness"):
+        handoff_shell.stopped_job(400, "/dev/ttys2", "codex")
+    assert not handoff_shell.stop_job_if_same(400, 402, "ttys2", "Mon Oct 5 20:00:00 2026")
+    assert not handoff_shell.stop_job_if_same(400, 401, "ttys3", "Mon Oct 5 20:00:00 2026")
+    assert not handoff_shell.stop_job_if_same(400, 401, "ttys2", "old start")
+    sent.assert_not_called()
+    assert handoff_shell.stop_job_if_same(400, 401, "ttys2", "Mon Oct 5 20:00:00 2026")
+    sent.assert_called_once_with(401, signal.SIGTERM)
+
+
+def test_source_job_process_requires_harness_before_launch(monkeypatch):
+    monkeypatch.setattr(handoff_shell.os, "getpgrp", lambda: 99)
+    monkeypatch.setattr(
+        handoff_shell,
+        "_job_process",
+        lambda *_: (401, "ttys2", "T", "Mon Oct 5 20:00:00 2026", "/usr/bin/python"),
+    )
+    with pytest.raises(ValueError, match="not the outgoing harness"):
+        handoff_shell.stopped_job(400, "/dev/ttys2", "claude")
+
+
+def test_process_identity_parses_ps_start_and_executable(monkeypatch):
+    monkeypatch.setattr(
+        handoff_shell.subprocess,
+        "run",
+        lambda *_args, **_kwargs: argparse.Namespace(
+            returncode=0,
+            stdout="401 ttys2 T Mon Oct  5 20:00:00 2026 /opt/bin/claude\n",
+        ),
+    )
+    assert handoff_shell._job_process(400) == (
+        401,
+        "ttys2",
+        "T",
+        "Mon Oct 5 20:00:00 2026",
+        "/opt/bin/claude",
+    )
+
+
+def test_target_command_uses_system_shell_not_callers_shell(monkeypatch):
+    run = Mock(return_value=argparse.Namespace(returncode=0))
+    monkeypatch.setattr(handoff_shell.subprocess, "run", run)
+    monkeypatch.setenv("SHELL", "/usr/local/bin/fish")
+
+    assert handoff_shell._run("codex --no-daemon") == 0
+    run.assert_called_once_with(["/bin/sh", "-c", "codex --no-daemon"], check=False)
+
+
+def test_expired_same_terminal_request_is_retired_before_retry(setup):
+    conn, path = setup
+    old = handoff_state.request(
+        conn,
+        path,
+        "claude:old",
+        "codex",
+        "",
+        "",
+        "",
+        "",
+        str(path.parent),
+        time.time() - 1,
+    )
+
+    assert handoff_cli.request._pending_handoff(conn, path, time.time()) is None
+    retired = handoff_state.get(conn, old["token"])
+    assert retired["phase"] == "failed"
+    assert "superseded" in retired["error"]
+
+    retried = handoff_state.request(
+        conn,
+        path,
+        "claude:old",
+        "codex",
+        "",
+        "",
+        "",
+        "",
+        str(path.parent),
+        time.time() + 600,
+    )
+    assert retried["token"] != old["token"]
+
+
+def test_live_same_terminal_request_remains_pending(setup):
+    conn, path = setup
+    row = handoff_state.request(
+        conn,
+        path,
+        "claude:old",
+        "codex",
+        "",
+        "",
+        "",
+        "",
+        str(path.parent),
+        time.time() + 600,
+    )
+    assert handoff_cli.request._pending_handoff(conn, path, time.time())["token"] == row["token"]
+
+
+def test_codex_handoff_request_mentions_escalated_permissions():
+    message = handoff_cli.request._request_message("codex:old", "token", True)
+    assert "escalated permissions" in message
+    assert "exit this harness normally" in message
+
+
+def test_claude_handoff_request_omits_codex_permissions():
+    message = handoff_cli.request._request_message("claude:old", "token", False)
+    assert "escalated permissions" not in message
+    assert "exit this harness normally" not in message
+
+
+def test_watch_ends_stopped_job_only_after_brief_readiness(tmp_path, monkeypatch):
+    reports = iter(({"phase": "requested"}, {"phase": "launched"}, {"phase": "complete"}))
+    row = {"deadline": time.time() + 60, "error": ""}
+    stopped = Mock(return_value=True)
+    monkeypatch.setattr(handoff_cli.db, "get_db_path", lambda: tmp_path / "inbox.db")
+    monkeypatch.setattr(handoff_cli.db, "connect", lambda: nullcontext(None))
+    monkeypatch.setattr(handoff_cli.handoff_state, "get", lambda *_: row)
+    monkeypatch.setattr(handoff_cli.handoff_coordinator, "advance", lambda *_: next(reports))
+    monkeypatch.setattr(handoff_cli.handoff_shell, "stop_job_if_same", stopped)
+    monkeypatch.setattr(handoff_cli.time, "sleep", lambda *_: None)
+    args = argparse.Namespace(
+        action="status",
+        token="token",
+        watch=True,
+        source_pid=400,
+        source_pgid=401,
+        source_tty="ttys2",
+        source_start="start",
+    )
+
+    handoff_cli._cmd(args)
+    stopped.assert_called_once_with(400, 401, "ttys2", "start")
+
+
+@pytest.mark.parametrize("ignores_sigterm", [False, True], ids=["terminates", "killed"])
+def test_end_source_stops_a_harness_that_will_not_exit(monkeypatch, ignores_sigterm: bool):
+    code = "import signal, time; " + (
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); " if ignores_sigterm else ""
+    )
+    proc = subprocess.Popen(
+        [sys.executable, "-c", code + "print('up', flush=True); time.sleep(60)"],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+    )
+    try:
+        assert proc.stdout.readline() == b"up\n"  # signal handler is installed
+        monkeypatch.setattr(handoff_shell, "process_group_on_tty", lambda *_: proc.poll() is None)
+        handoff_shell._end_source(proc.pid, "/dev/ttys9", grace=0.5)
+        assert proc.wait(timeout=5) == (-signal.SIGKILL if ignores_sigterm else -signal.SIGTERM)
+    finally:
+        proc.kill()
+        proc.stdout.close()
+
+
+def test_handoff_section_still_ends_at_a_heading_after_an_unmatched_backtick():
+    text = "# T\n\n## Handoff\n\n- Note with a stray ` tick.\n\n## Next\n\n- y\n"
+    assert handoff_state.section(text) == "## Handoff\n\n- Note with a stray ` tick."
+
+
+def test_handoff_section_ends_at_a_heading_right_after_an_unmatched_backtick():
+    text = "# T\n\n## Handoff\n\n- Note with a stray ` tick.\n## Next\n\n- y\n"
+    assert handoff_state.section(text) == "## Handoff\n\n- Note with a stray ` tick."

@@ -1,0 +1,611 @@
+"""Tests for recall-memory.py (UserPromptSubmit recall hook). All content ASCII."""
+
+import io
+import json
+import sys
+
+import pytest
+
+import recall_memory as R
+import self_improve_signals as sig
+
+
+@pytest.fixture(autouse=True)
+def home(tmp_path, monkeypatch):
+    h = tmp_path / "home"
+    (h / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(h))
+    monkeypatch.setenv("USERPROFILE", str(h))
+    return h
+
+
+def _mem(proj, name, text):
+    d = sig.memory_dir(proj)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / name).write_text(text, encoding="utf-8")
+    return d
+
+
+def run(monkeypatch, capsys, prompt, cwd="/p/cur", sid="t1"):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+        {"prompt": prompt, "cwd": cwd, "session_id": sid})))
+    rc = R.main()
+    return rc, capsys.readouterr().out
+
+
+def test_surfaces_relevant_note_from_another_project(monkeypatch, capsys):
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    rc, out = run(monkeypatch, capsys, "run make test")
+    assert rc == 0
+    payload = json.loads(out)
+    ctx = payload["hookSpecificOutput"]["additionalContext"]
+    assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert "make-test" in ctx and "VIRTUAL_ENV" in ctx      # the other tree's body is drawn in
+    assert payload.get("suppressOutput") is True
+
+
+def test_surfaces_sibling_claude_md(monkeypatch, capsys, tmp_path, home):
+    # cross-project rules still live in CLAUDE.md (conversion phase) -> recall must search them too.
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "CLAUDE.md").write_text("workspace root rules", encoding="utf-8")
+    cur = ws / "cur"
+    cur.mkdir()
+    (cur / "CLAUDE.md").write_text("current project rules", encoding="utf-8")
+    sib = ws / "sib"
+    sib.mkdir()
+    (sib / "CLAUDE.md").write_text(
+        "To drive the widget frobnicator, set FROB_LEVEL=9 in the service unit.", encoding="utf-8")
+    rc, out = run(monkeypatch, capsys, "how do I set the frobnicator frob level", cwd=str(cur))
+    assert rc == 0
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "sib/CLAUDE.md" in ctx and "frobnicator" in ctx   # sibling CLAUDE.md surfaced + labelled
+    assert "cur/CLAUDE.md" not in ctx                         # current chain excluded (already loaded)
+
+
+def test_excludes_current_project(monkeypatch, capsys):
+    _mem("/p/cur", "current-make.md", "make test current only secret")
+    _mem("/p/other", "make-test.md", "make test elsewhere")
+    rc, out = run(monkeypatch, capsys, "run make test", cwd="/p/cur")
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "make-test" in ctx            # other project surfaced
+    assert "current-make" not in ctx     # our own memory is NOT redrawn (dedup with current)
+
+
+def test_per_session_dedup_then_new_session(monkeypatch, capsys):
+    _mem("/p/other", "make-test.md", "make test note")
+    _, out1 = run(monkeypatch, capsys, "make test", sid="s1")
+    assert "make-test" in out1
+    _, out2 = run(monkeypatch, capsys, "make test again", sid="s1")
+    assert out2 == ""                    # same session -> already surfaced -> silent
+    _, out3 = run(monkeypatch, capsys, "make test", sid="s2")
+    assert "make-test" in out3           # new session -> surfaces again
+
+
+def test_no_match_no_output(monkeypatch, capsys):
+    _mem("/p/other", "make-test.md", "make test note")
+    rc, out = run(monkeypatch, capsys, "completely unrelated zzzqqq topic")
+    assert rc == 0 and out == ""
+
+
+def test_rarity_drops_common_only_matches(monkeypatch, capsys):
+    monkeypatch.setattr(R, "SPECIFIC_MAX", 1)        # treat a keyword in >1 candidate as "common"
+    _mem("/p/r", "rare.md", "alpha config note")     # matches a rare term (alpha) + the common one
+    _mem("/p/b", "b.md", "config only here")         # common-only
+    _mem("/p/c", "c.md", "config only there")        # common-only
+    rc, out = run(monkeypatch, capsys, "alpha config")
+    assert "alpha config note" in out                 # rare / multi-keyword note surfaces (its body)
+    assert "config only here" not in out and "config only there" not in out  # common-only dropped
+
+
+def test_single_rare_keyword_still_surfaces(monkeypatch, capsys):
+    # a lone specific keyword (matches few notes) is a STRONG signal - must surface (not dropped)
+    _mem("/p/x", "bindsnap-note.md", "bindsnap divert shim details")
+    rc, out = run(monkeypatch, capsys, "bindsnap")
+    assert "bindsnap-note" in out
+
+
+def test_corpus_common_keyword_is_dropped(monkeypatch, capsys):
+    # a word present in a LARGE fraction of the whole store carries no signal for THIS user
+    # (e.g. "memory" in a memory-centric store) - it must not drive recall, even though it is not
+    # generic-English filler. A note matching ONLY such words is dropped; a rare term still surfaces.
+    for i in range(8):
+        _mem("/p/o%d" % i, "n%d.md" % i, "widget gadget item number %d" % i)  # 'widget' in 9 notes
+    _mem("/p/rare", "frob.md", "widget gadget frobnitz special")              # also a RARE term
+    rc, out = run(monkeypatch, capsys, "widget frobnitz")
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "frob" in ctx                                  # the note with the rare term surfaces
+    assert "n0" not in ctx and "n7" not in ctx            # widget-only notes dropped (corpus-common)
+
+
+def test_no_keywords_no_output(monkeypatch, capsys):
+    _mem("/p/other", "make-test.md", "make test note")
+    rc, out = run(monkeypatch, capsys, "do it")     # all stopwords/short
+    assert rc == 0 and out == ""
+
+
+def test_filler_only_prompt_no_output(monkeypatch, capsys):
+    # the reported bug: a conversational prompt of pure filler must surface NOTHING.
+    _mem("/p/other", "make-test.md", "make test note")
+    rc, out = run(monkeypatch, capsys,
+                  "i got again hits on my previous answer - is that normal again")
+    assert rc == 0 and out == ""
+
+
+def test_unknown_keywords_are_queued_for_the_dream(monkeypatch, capsys):
+    # per prompt we do NOT classify (no model); we queue not-yet-classified keywords for the dream,
+    # keyed to the CURRENT project (cwd="/p/cur").
+    _mem("/p/other", "bindsnap.md", "bindsnap divert shim")
+    run(monkeypatch, capsys, "bindsnap divert details")
+    assert {"bindsnap", "divert", "details"} <= set(sig.load_pending_keywords("/p/cur"))
+
+
+def test_known_topical_keyword_not_requeued(monkeypatch, capsys):
+    sig.add_topical_words(["bindsnap"], "/p/cur")              # known-topical for THIS project
+    _mem("/p/other", "bindsnap.md", "bindsnap divert shim")
+    run(monkeypatch, capsys, "bindsnap divert")
+    pending = sig.load_pending_keywords("/p/cur")
+    assert "bindsnap" not in pending and "divert" in pending   # known-topical skipped, new queued
+
+
+def test_malformed_stdin_exits_zero(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert R.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_label_curated_memory_and_facts():
+    import recall_memory as R
+    assert R._label("/x/projZ/.claude-bx-selflearning/index.md") == "projZ/memory"
+    assert R._label("/x/projZ/.claude-bx-selflearning/facts/foo.md") == "foo"
+    assert R._label("/x/projZ/CLAUDE.md") == "projZ/CLAUDE.md"
+
+
+def test_snippet_strips_scope_block(tmp_path):
+    import recall_memory as R
+    m = tmp_path / "index.md"
+    m.write_text("<!-- bitranox:self-learning -->\nSCOPE DESCRIPTOR TEXT\n<!-- /bitranox:self-learning -->\n\n"
+                 "# Memory index\n\n- [X](#x) - a keyword fact\n", encoding="utf-8")
+    snip = R._snippet(str(m), ["keyword"], 10000)
+    assert "SCOPE DESCRIPTOR TEXT" not in snip and "keyword fact" in snip
+
+
+def test_label_central_uuid_store_body_named_by_owning_tree():
+    p = "/x/projZ/.claude-memory/facts/ab/abcd1234-0000-5000-8000-000000000000.md"
+    assert R._label(p) == "projZ/memory"
+
+
+# ---- cross_tree_search knob: recall scope across independent knowledge trees --------------------
+
+def _cfg_write(home_dir, **kv):
+    import json as _json
+    p = home_dir / ".claude" / ".bitranox-memory.json"
+    p.write_text(_json.dumps(kv), encoding="utf-8")
+
+
+def _plant_curated(proj, title, hook, body):
+    import memory_engine as ME
+    ME.add_or_update_entry(str(proj), title, hook, body=body, scope_default="lvl")
+
+
+def test_cross_tree_search_off_blocks_other_tree(monkeypatch, capsys, home, two_trees):
+    # discovery_roots COVERS tree B, so the wall (not invisibility) must do the blocking
+    _plant_curated(two_trees.proj_b, "Frobnicator level",
+                   "set FROB_LEVEL=9 for the widget frobnicator", "widget frobnicator detail")
+    _cfg_write(home, cross_tree_search=False, discovery_roots=[str(two_trees.root)])
+    rc, out = run(monkeypatch, capsys, "how do I set the widget frobnicator frob level",
+                  cwd=str(two_trees.proj_a))
+    assert rc == 0
+    assert not out.strip() or "frobnicator" not in out       # the other TREE stays invisible
+
+
+def test_cross_tree_search_off_keeps_same_tree(monkeypatch, capsys, home, two_trees):
+    sib = two_trees.top_a / "campaigns" / "proj2"
+    sib.mkdir(parents=True, exist_ok=True)
+    (sib / "CLAUDE.md").write_text("sib\n", encoding="utf-8")
+    _plant_curated(sib, "Frobnicator level",
+                   "set FROB_LEVEL=9 for the widget frobnicator", "widget frobnicator detail")
+    _cfg_write(home, cross_tree_search=False)
+    rc, out = run(monkeypatch, capsys, "how do I set the widget frobnicator frob level",
+                  cwd=str(two_trees.proj_a))
+    assert rc == 0 and "frobnicator" in out                  # same tree still recalled
+
+
+def test_cross_tree_search_default_on_scans_discovery_roots(monkeypatch, capsys, home, two_trees):
+    # default ON + a discovery root covering the other tree -> its store is recalled.
+    # (Trees outside $HOME are reachable ONLY via discovery_roots; the derived default
+    # covers $HOME, and the fixture deliberately builds the trees outside it.)
+    _plant_curated(two_trees.proj_b, "Frobnicator level",
+                   "set FROB_LEVEL=9 for the widget frobnicator", "widget frobnicator detail")
+    _cfg_write(home, discovery_roots=[str(two_trees.root)])  # cross_tree_search stays default true
+    rc, out = run(monkeypatch, capsys, "how do I set the widget frobnicator frob level",
+                  cwd=str(two_trees.proj_a))
+    assert rc == 0 and "frobnicator" in out                  # cross-tree hit via discovery_roots
+
+
+def test_cross_tree_default_on_home_tree_recalled_without_config(monkeypatch, capsys, home, two_trees):
+    # the DERIVED default root is $HOME: a tree under home is cross-recalled with NO config file
+    top = home / "hometree"
+    proj = top / "proj1"
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("home tree\n", encoding="utf-8")
+    (proj / "CLAUDE.md").write_text("proj\n", encoding="utf-8")
+    _plant_curated(proj, "Frobnicator level",
+                   "set FROB_LEVEL=9 for the widget frobnicator", "widget frobnicator detail")
+    rc, out = run(monkeypatch, capsys, "how do I set the widget frobnicator frob level",
+                  cwd=str(two_trees.proj_a))
+    assert rc == 0 and "frobnicator" in out                  # derived $HOME root, no config needed
+
+
+def test_stray_claude_md_at_tempdir_does_not_hijack_workspace(monkeypatch, capsys, tmp_path, home):
+    # a stray CLAUDE.md at the system temp root must not widen the workspace walk to all of tempdir
+    import gather_scan as GS
+    import tempfile as TF
+    fake_tmp = tmp_path                       # treat the pytest tmp base as the "system temp dir"
+    (fake_tmp / "CLAUDE.md").write_text("stray junk altitude", encoding="utf-8")
+    import self_improve_signals as SIG
+    real_excluded = SIG._excluded_anchor_dirs()   # keep the REAL tempdir excluded too, or the
+    monkeypatch.setenv("TMPDIR", str(fake_tmp))   # walk escapes the fixture into the live /tmp
+    monkeypatch.setattr(TF, "gettempdir", lambda: str(fake_tmp))
+    monkeypatch.setattr(SIG, "_excluded_anchor_dirs",
+                        lambda: real_excluded | {fake_tmp})
+    ws = tmp_path / "ws"
+    (ws / "cur").mkdir(parents=True)
+    (ws / "CLAUDE.md").write_text("workspace root rules", encoding="utf-8")
+    (ws / "cur" / "CLAUDE.md").write_text("cur", encoding="utf-8")
+    root = GS._workspace_root(str(ws / "cur"))
+    assert root == ws                          # NOT fake_tmp, despite its CLAUDE.md
+
+
+# --- credential-bearing bodies are not spread into unrelated sessions -------------------------
+# Recall injects another project's memory body on a keyword match. A body holding real service
+# passwords therefore reaches every session whose prompt happens to match, and its transcript.
+# Measured on a real store: a native memory note carried test AND production URLs and passwords.
+
+def test_a_credential_bearing_body_is_withheld(monkeypatch, capsys):
+    _mem("/p/other", "gizmo-deploy.md",
+         "Gizmo deploy runbook\n"
+         "- URL: https://gizmo.example.invalid/admin\n"
+         "- Password: fake-not-a-real-secret\n")
+    rc, out = run(monkeypatch, capsys, "gizmo deploy runbook")
+    assert rc == 0
+    assert out, "the planted note did not match at all; the fixture, not the hook, is wrong"
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "fake-not-a-real-secret" not in ctx
+    assert "gizmo-deploy" in ctx                     # still NAMED, so it can be opened deliberately
+    assert "withheld" in ctx.lower()
+
+
+def test_a_url_with_inline_credentials_is_withheld(monkeypatch, capsys):
+    _mem("/p/other", "widget-sync.md",
+         "Widget sync endpoint\npostgres://widgetuser:fake-inline-pw@db.example.invalid/widgets\n")
+    rc, out = run(monkeypatch, capsys, "widget sync endpoint")
+    assert rc == 0
+    assert out, "the planted note did not match at all; the fixture, not the hook, is wrong"
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "fake-inline-pw" not in ctx
+    assert "withheld" in ctx.lower()
+
+
+# The two controls below must pass BEFORE and AFTER the fix: they prove the detector
+# discriminates rather than suppressing anything that says "password".
+
+def test_a_note_merely_discussing_passwords_is_still_injected(monkeypatch, capsys):
+    _mem("/p/other", "gadget-policy.md",
+         "Gadget policy: never commit a password to the repository, load it at runtime instead\n")
+    rc, out = run(monkeypatch, capsys, "gadget policy")
+    assert rc == 0
+    assert out, "the planted note did not match at all; the fixture, not the hook, is wrong"
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "never commit a password" in ctx
+
+
+def test_an_ordinary_note_is_unaffected(monkeypatch, capsys):
+    _mem("/p/other", "sprocket-build.md", "Sprocket build runs with VIRTUAL_ENV unset\n")
+    rc, out = run(monkeypatch, capsys, "sprocket build")
+    assert rc == 0
+    assert out, "the planted note did not match at all; the fixture, not the hook, is wrong"
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "VIRTUAL_ENV unset" in ctx
+
+
+# ---- what the shadow classifier is shown of each note ---------------------------------------
+# A reranker shown the window centred on the matched keyword repeats the keyword ranking's error
+# (a DNS note mentioning "shadow" looked relevant to a prompt about a shadow log). It is shown
+# what the note is ABOUT instead.
+
+def test_note_view_of_a_frontmatter_note_is_its_name_and_description(tmp_path):
+    m = tmp_path / "split-dns.md"
+    m.write_text("---\nname: split-dns-hosts\ndescription: When mail servers resolve internal "
+                 "names, use addn-hosts.\nmetadata:\n  type: reference\n---\n\n"
+                 + "filler line\n" * 80 + "the shadow entries override the zone\n",
+                 encoding="utf-8")
+    view = R._note_view(str(m), ["shadow"], 600)
+    assert view == "split-dns-hosts: When mail servers resolve internal names, use addn-hosts."
+
+
+def test_note_view_strips_quotes_around_a_yaml_description(tmp_path):
+    m = tmp_path / "api.md"
+    m.write_text('---\nname: fastapi-api-design\ndescription: "central HTTP surface"\n---\nbody\n',
+                 encoding="utf-8")
+    assert R._note_view(str(m), ["http"], 600) == "fastapi-api-design: central HTTP surface"
+
+
+def test_note_view_of_a_claude_md_is_the_matched_section_from_its_heading(tmp_path):
+    m = tmp_path / "proj" / "CLAUDE.md"
+    m.parent.mkdir()
+    m.write_text("# Proj\n\nIntro text.\n\n## Conventions\n\nRule one.\n" + "padding line\n" * 60
+                 + "the kvm shim routes VMs\n\n## Later\n\nOther.\n", encoding="utf-8")
+    view = R._note_view(str(m), ["shim"], 300)
+    header = "proj/CLAUDE.md > ## Conventions\n"
+    assert view.startswith(header + "Rule one.")
+    assert len(view) <= len(header) + 300
+    assert "## Later" not in view
+
+
+def test_note_view_without_a_match_or_frontmatter_is_the_file_head(tmp_path):
+    m = tmp_path / "notes.md"
+    m.write_text("First line.\n" + "x\n" * 500, encoding="utf-8")
+    assert R._note_view(str(m), ["absent"], 40).startswith("notes: First line.")
+
+
+# ---- recall takes the same input as the skill router, so it has the same defect -------------------
+
+def test_a_machine_generated_turn_recalls_nothing(monkeypatch, capsys):
+    _mem("/p/other", "frobnicator.md", "The frobnicator widgets need FROB_LEVEL=9 set")
+    rc, out = run(monkeypatch, capsys,
+                  "<task-notification>done: /tmp/frobnicator/widgets/a.output</task-notification>")
+    assert rc == 0 and out == ""
+
+
+def test_words_inside_a_path_do_not_recall_a_note(monkeypatch, capsys):
+    _mem("/p/other", "frobnicator.md", "The frobnicator widgets need FROB_LEVEL=9 set")
+    rc, out = run(monkeypatch, capsys, "have a look at /tmp/frobnicator/widgets/a.output")
+    assert rc == 0 and out == ""
+    # the same words as prose still reach the note, so the guard removed a path and not the signal
+    rc, out = run(monkeypatch, capsys, "have a look at the frobnicator widgets", sid="t2")
+    assert "frobnicator" in out
+
+
+# ---- one bad file must not silence recall for every other note ----------------------------------
+# gather_scan.scan() raised on the first non-UTF-8 file and main()'s blanket except turned that
+# into "no recall" on every prompt, machine-wide, with nothing logged.
+
+def _skip_log(home):
+    return home / ".claude" / "self-improve-audit" / R.SKIPPED_LOG
+
+
+def test_one_undecodable_note_does_not_silence_the_others(monkeypatch, capsys, home):
+    d = _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    (d / "latin1.md").write_bytes(b"make test caf\xe9 in latin-1")
+    rc, out = run(monkeypatch, capsys, "run make test")
+    assert rc == 0
+    assert "VIRTUAL_ENV" in json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    log = _skip_log(home).read_text(encoding="utf-8")
+    assert "latin1.md" in log and "UnicodeDecodeError" in log
+
+
+def test_an_undecodable_sibling_claude_md_does_not_silence_recall(monkeypatch, capsys, tmp_path):
+    ws = tmp_path / "ws"
+    for sub, body in (("cur", b"current"), ("bad", b"frobnicator caf\xe9"),
+                      ("sib", b"To drive the widget frobnicator, set FROB_LEVEL=9.")):
+        (ws / sub).mkdir(parents=True)
+        (ws / sub / "CLAUDE.md").write_bytes(body)
+    (ws / "CLAUDE.md").write_text("workspace root", encoding="utf-8")
+    rc, out = run(monkeypatch, capsys, "set the widget frobnicator level", cwd=str(ws / "cur"))
+    assert rc == 0 and "FROB_LEVEL=9" in out
+
+
+def test_a_clean_run_writes_no_skip_log(monkeypatch, capsys, home):
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    run(monkeypatch, capsys, "run make test")
+    assert not _skip_log(home).exists()
+
+
+def test_walled_recall_through_a_symlinked_cwd_keeps_its_own_tree(monkeypatch, capsys, home,
+                                                                    two_trees):
+    # The store sits BELOW the tree top, so only the (symlink-resolving) workspace walk finds it;
+    # the tree-top store is reached under the cwd's own spelling and would pass either way.
+    import os
+    sib = two_trees.top_a / "campaigns" / "proj2"
+    facts = sib / ".claude-memory" / "facts"
+    facts.mkdir(parents=True)
+    (sib / "CLAUDE.md").write_text("sib\n", encoding="utf-8")
+    (facts / "frob.md").write_text("set FROB_LEVEL=9 for the widget frobnicator", encoding="utf-8")
+    link = two_trees.root / "marketing-link"
+    try:
+        os.symlink(str(two_trees.top_a), str(link), target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable here")
+    _cfg_write(home, cross_tree_search=False)
+    rc, out = run(monkeypatch, capsys, "how do I set the widget frobnicator frob level",
+                  cwd=str(link / "campaigns" / "proj1"))
+    assert rc == 0 and "FROB_LEVEL=9" in out
+
+
+def test_note_view_reads_frontmatter_behind_a_bom(tmp_path):
+    m = tmp_path / "bom.md"
+    m.write_bytes(b"\xef\xbb\xbf---\nname: bom-note\ndescription: carries a BOM\n---\nbody\n")
+    assert R._note_view(str(m), ["bom"], 600) == "bom-note: carries a BOM"
+
+
+def test_a_line_separator_char_does_not_start_a_fake_heading():
+    text = "# Real\n\nthe shim line\u2028# not a heading\nmore shim text\n"
+    heading, body = R._matched_section(text, ["shim"])
+    assert heading == "# Real"
+    assert "more shim text" in body
+
+
+# The keywords reach _snippet / _matched_section already folded the way scan() matched them (NFC
+# then casefold), so a sharp s arrives as "ss" and a decomposed umlaut as the composed one. The
+# window must be found by the same folding, or a note that matched shows only its head.
+def _street_keyword():
+    import gather_scan as gs
+    (kw,) = gs.extract_keywords("Hauptstra\u00dfe")
+    assert kw == "hauptstrasse"
+    return kw
+
+
+def test_snippet_centres_on_a_sharp_s_keyword_match(tmp_path):
+    m = tmp_path / "note.md"
+    m.write_text("filler line\n" * 400 + "Die Hauptstra\u00dfe 5 ist die Adresse.\n" + "tail\n" * 50,
+                 encoding="utf-8")
+    snip = R._snippet(str(m), [_street_keyword()], 300)
+    assert "Hauptstra\u00dfe 5" in snip
+
+
+def test_snippet_offsets_stay_valid_when_folding_lengthens_the_text_before_the_match(tmp_path):
+    # every sharp s before the match folds to two characters, so a folded offset used on the
+    # original text would land about 600 characters past the match
+    m = tmp_path / "note.md"
+    m.write_text("Ma\u00dfe Stra\u00dfe Gr\u00fc\u00dfe\n" * 200 + "MARKER Hauptstra\u00dfe MARKER\n"
+                 + "Gru\u00df\n" * 300, encoding="utf-8")
+    snip = R._snippet(str(m), [_street_keyword()], 300)
+    assert "MARKER Hauptstra\u00dfe MARKER" in snip
+
+
+def test_snippet_matches_a_decomposed_umlaut_against_the_composed_keyword(tmp_path):
+    import gather_scan as gs
+    m = tmp_path / "note.md"
+    m.write_text("filler line\n" * 400 + "Das Buero in Mu\u0308nchen.\n" + "tail\n" * 50,
+                 encoding="utf-8")
+    snip = R._snippet(str(m), gs.extract_keywords("M\u00fcnchen"), 300)
+    assert "nchen" in snip and "Buero" in snip
+
+
+def test_matched_section_finds_a_sharp_s_keyword_behind_folding_sections():
+    text = ("# Masse\n\n" + "Ma\u00dfe und Gr\u00fc\u00dfe\n" * 100
+            + "# Adresse\n\nDie Hauptstra\u00dfe 5.\n\n# Danach\n\nnothing\n")
+    assert R._matched_section(text, [_street_keyword()]) == ("# Adresse", "Die Hauptstra\u00dfe 5.")
+
+
+# scan() matches a keyword only at a word boundary, so "test" matches the note because of "test
+# suite" and not because of "latest". The window and the section must centre on that same word
+# match; a substring search stops at the earlier "latest" and shows the wrong part of the note.
+def test_snippet_centres_on_the_word_match_not_an_earlier_substring(tmp_path):
+    m = tmp_path / "note.md"
+    m.write_text("The latest build notes.\n" + "filler line about nothing\n" * 130
+                 + "RULE: run the test suite with -x\n", encoding="utf-8")
+    snip = R._snippet(str(m), ["test"], 300)
+    assert "RULE: run the test suite with -x" in snip
+    assert "latest" not in snip
+
+
+def test_snippet_control_without_the_substring_decoy_finds_the_same_rule(tmp_path):
+    m = tmp_path / "note.md"
+    m.write_text("The newest build notes.\n" + "filler line about nothing\n" * 130
+                 + "RULE: run the test suite with -x\n", encoding="utf-8")
+    assert "RULE: run the test suite with -x" in R._snippet(str(m), ["test"], 300)
+
+
+def test_matched_section_skips_a_substring_decoy_in_an_earlier_section():
+    text = ("# Releases\n\nthe latest release notes\n\n"
+            "# Testing\n\nrun the test suite with -x\n")
+    assert R._matched_section(text, ["test"]) == ("# Testing", "run the test suite with -x")
+
+
+def test_first_match_has_no_hit_when_the_keyword_only_occurs_inside_words():
+    assert R._first_match("the latest contest attestation", ["test"]) == -1
+
+
+def test_first_match_treats_hyphen_and_underscore_as_separators_like_scan():
+    text = "latest; make_test runs"
+    assert R._first_match(text, ["test"]) == text.index("test runs")
+
+
+# cross_tree_search=False walls recall into the CURRENT tree. With no resolvable anchor there is no
+# tree to wall into, and recall is OFF for that prompt: nothing is injected, the native tier (notes
+# under ~/.claude, which have no tree attribution) included. This pins the current behaviour; keeping
+# the native tier instead would be a design change, not a fix.
+def test_walled_recall_with_no_anchor_recalls_nothing_not_even_native_notes(
+        monkeypatch, capsys, home, tmp_path):
+    loose = tmp_path / "loose" / "cwd"
+    loose.mkdir(parents=True)
+    assert sig.resolve_anchor(str(loose)) is None
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    _cfg_write(home, cross_tree_search=False)
+    rc, out = run(monkeypatch, capsys, "run make test", cwd=str(loose))
+    assert rc == 0 and out == ""
+
+
+def test_control_the_same_native_note_is_recalled_for_that_cwd_when_not_walled(
+        monkeypatch, capsys, home, tmp_path):
+    loose = tmp_path / "loose" / "cwd"
+    loose.mkdir(parents=True)
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    rc, out = run(monkeypatch, capsys, "run make test", cwd=str(loose))
+    assert rc == 0 and "VIRTUAL_ENV" in out
+
+
+# ---- a scheduled prompt is not somebody asking ---------------------------------------------------
+# A CronCreate/ScheduleWakeup fire reaches this hook as bare text with a typed prompt's payload, so
+# the only way to know is the scheduling call earlier in the same transcript (probed on 2.1.283:
+# recall injected 4 notes into a cron tick). Identical prompt and store in both arms.
+
+def _cron_transcript(tmp_path, prompt):
+    call = {"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "toolu_01", "name": "CronCreate",
+         "input": {"cron": "0 9 * * *", "prompt": prompt, "recurring": True}}]}}
+    t = tmp_path / "session.jsonl"
+    t.write_text(json.dumps(call) + "\n", encoding="utf-8")
+    return str(t)
+
+
+def test_a_scheduled_prompt_recalls_nothing(monkeypatch, capsys, tmp_path):
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+        {"prompt": "run make test", "cwd": "/p/cur", "session_id": "t1",
+         "transcript_path": _cron_transcript(tmp_path, "run make test")})))
+    assert R.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_control_the_same_prompt_typed_is_recalled(monkeypatch, capsys, tmp_path):
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+        {"prompt": "run make test", "cwd": "/p/cur", "session_id": "t1",
+         "transcript_path": _cron_transcript(tmp_path, "run a different job")})))
+    assert R.main() == 0
+    assert "VIRTUAL_ENV" in capsys.readouterr().out
+
+
+
+# ---- this project's handover / backlog: no cross-project block -----------------------------------
+# A user read the recall block on "read handover and continue" as the handover skill reading other
+# projects' handovers. The control is the same store with a prompt that uses the word in another
+# sense: that one must still recall, or the suppression proves nothing about the matcher.
+
+def _handover_note():
+    _mem("/p/other", "handover-howto.md",
+         "When you read handover and continue, check what next in OPEN-WORK first; handover function "
+         "for the API gateway lives in gateway/handover.py")
+
+
+# Each of these recalls the note before the fix ("what next" alone has no keyword left after the
+# filler list, so it recalls nothing either way and would pass vacuously here; prompt_text's own
+# tests cover it).
+@pytest.mark.parametrize("prompt", ["read handover and continue", "- read handover and continue",
+                                    "Task: read the handover", "what is open?",
+                                    "what\u2019s still open"])
+def test_no_cross_project_block_on_a_prompt_resuming_this_projects_handover(monkeypatch, capsys,
+                                                                            prompt):
+    _handover_note()
+    rc, out = run(monkeypatch, capsys, prompt)
+    assert rc == 0
+    assert out == ""
+
+
+def test_handover_in_another_sense_still_recalls(monkeypatch, capsys):
+    _handover_note()
+    rc, out = run(monkeypatch, capsys, "write a handover function for the API gateway")
+    assert rc == 0
+    assert "handover-howto" in out
+
+
+def test_the_block_says_it_is_cross_project_memory_not_this_projects_handover(monkeypatch, capsys):
+    _mem("/p/other", "make-test.md", "Run make test with VIRTUAL_ENV=$PWD/.venv before committing")
+    _rc, out = run(monkeypatch, capsys, "run make test")
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    heading = ctx.split("\n", 1)[0]
+    assert "CROSS-PROJECT" in heading
+    assert "not this project's handover" in heading.lower()

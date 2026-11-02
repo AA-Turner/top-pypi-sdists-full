@@ -5,12 +5,13 @@ import threading
 from typing import TYPE_CHECKING
 
 from schemathesis.engine import Status, events
-from schemathesis.engine.run import Phase, PhaseName, PhaseSkipReason
+from schemathesis.engine.run import Phase, PhaseName, PhaseProgress, relay_events, report_outage
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
 
 if TYPE_CHECKING:
     from schemathesis.engine.context import EngineContext
+    from schemathesis.generation.stateful.state_machine import APIStateMachine
 
 EVENT_QUEUE_TIMEOUT = 0.01
 
@@ -23,76 +24,72 @@ def _stateful_feedback(engine: EngineContext) -> FeedbackSources:
     )
 
 
-def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
+def _run_state_machines(
+    *, state_machine: type[APIStateMachine], event_queue: queue.Queue, engine: EngineContext, crashes: list[Exception]
+) -> None:
     from schemathesis.engine.run.stateful._executor import execute_state_machine_loop
 
+    try:
+        execute_state_machine_loop(state_machine=state_machine, event_queue=event_queue, engine=engine)
+    except Exception as exc:
+        crashes.append(exc)
+
+
+def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
     try:
         state_machine = engine.schema.build_state_machine(
             feedback=_stateful_feedback(engine), link_calibration=engine.link_calibration
         )
     except Exception as exc:
-        yield events.NonFatalError(error=exc, phase=phase.name, label=STATEFUL_TESTS_LABEL, related_to_operation=False)
-        yield events.PhaseFinished(phase=phase, status=Status.ERROR, payload=None)
+        yield from events.fail_phase(phase, exc, label=STATEFUL_TESTS_LABEL)
         return
 
     event_queue: queue.Queue = queue.Queue()
+    crashes: list[Exception] = []
 
     thread = threading.Thread(
-        target=execute_state_machine_loop,
-        kwargs={"state_machine": state_machine, "event_queue": event_queue, "engine": engine},
+        target=_run_state_machines,
+        kwargs={"state_machine": state_machine, "event_queue": event_queue, "engine": engine, "crashes": crashes},
         name="schemathesis_stateful_tests",
     )
-    status: Status | None = None
-    is_executed = False
-    checks_ran = False
+    progress = PhaseProgress()
 
     thread.start()
     try:
-        while True:
-            try:
-                event = event_queue.get(timeout=EVENT_QUEUE_TIMEOUT)
-                is_executed = True
-                # Set the run status based on the suite status
-                # ERROR & INTERRUPTED statuses are terminal, therefore they should not be overridden
-                if (
-                    isinstance(event, events.SuiteFinished)
-                    and event.status != Status.SKIP
-                    and (status is None or status < event.status)
-                ):
-                    status = event.status
-                if isinstance(event, events.ScenarioFinished):
-                    checks_ran = checks_ran or any(event.recorder.checks.values())
-                yield event
-            except queue.Empty:
-                # The producer may put its final events and exit between this thread's
-                # get(timeout=...) raising Empty and the liveness check below.
-                # Stop only when the producer exited AND there is nothing left to drain.
-                if not thread.is_alive() and event_queue.empty():
-                    break
+        for event in relay_events(event_queue, [thread], timeout=EVENT_QUEUE_TIMEOUT):
+            progress.is_executed = True
+            _fold_event(event, progress)
+            yield event
     except KeyboardInterrupt:
         # Immediately notify the engine thread to stop, even though that the event will be set below in `finally`
         engine.stop()
-        status = Status.INTERRUPTED
+        progress.status = Status.INTERRUPTED
         yield events.Interrupted(phase=PhaseName.STATEFUL_TESTING)
-    except GeneratorExit:
+    except BaseException:
         engine.stop()
         raise
     finally:
         if thread is not threading.current_thread():
             thread.join()
 
-    outage = engine.server.take_report(phase.name)
-    if outage is not None:
-        is_executed = True
-        status = Status.ERROR
-        yield outage
+    # A crash outside a suite leaves no suite status behind, so it must not read as a skipped phase.
+    for error in crashes:
+        progress.record_error()
+        yield events.NonFatalError(
+            error=error, phase=phase.name, label=STATEFUL_TESTS_LABEL, related_to_operation=False
+        )
 
-    if not is_executed:
-        phase.skip_reason = PhaseSkipReason.NOTHING_TO_TEST
-        status = Status.SKIP
-    elif status is None:
-        status = Status.SKIP
-    elif status == Status.SUCCESS and not checks_ran:
-        phase.skip_reason = PhaseSkipReason.NO_CHECKS_RAN
-        status = Status.SKIP
-    yield events.PhaseFinished(phase=phase, status=status, payload=None)
+    yield from report_outage(engine, phase.name, progress)
+    yield events.PhaseFinished(phase=phase, status=progress.final_status(phase), payload=None)
+
+
+def _fold_event(event: events.EngineEvent, progress: PhaseProgress) -> None:
+    # ERROR & INTERRUPTED statuses are terminal, therefore they should not be overridden
+    if (
+        isinstance(event, events.SuiteFinished)
+        and event.status != Status.SKIP
+        and (progress.status is None or progress.status < event.status)
+    ):
+        progress.status = event.status
+    if isinstance(event, events.ScenarioFinished):
+        progress.checks_ran = progress.checks_ran or any(event.recorder.checks.values())

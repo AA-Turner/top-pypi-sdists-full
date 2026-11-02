@@ -1,0 +1,49 @@
+name: conda-release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+    - name: Set up miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        channels: conda-forge
+        auto-activate: true
+        activate-environment: ""
+    - name: update conda
+      run: |
+        conda update conda
+        conda --version
+    - name: Install build tools
+      run: |
+        conda install -c conda-forge conda-build anaconda-client conda-verify grayskull
+    - name: Generate conda recipe
+      run: |
+        grayskull pypi https://github.com/haasad/PyPardiso --sections {package,source,build,requirements,about} --strict-conda-forge
+    - name: Upload recipe
+      uses: actions/upload-artifact@v5
+      with:
+        name: meta.yaml
+        path: PyPardiso/meta.yaml
+    - name: setuptools-scm work-around
+      run: |
+        VERSION=$(grep "set version" PyPardiso/meta.yaml | cut -d '"' -f2)
+        cat > PyPardiso/recipe_append.yaml <<EOF
+        build:
+          script_env:
+            - SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+        EOF
+        cat PyPardiso/recipe_append.yaml
+    - name: Build conda package
+      run: |
+        conda build PyPardiso
+    - name: Upload to haasad conda channel
+      run: |
+        anaconda -t ${{ secrets.CONDA_TOKEN }} upload /usr/share/miniconda/conda-bld/noarch/*.tar.bz2

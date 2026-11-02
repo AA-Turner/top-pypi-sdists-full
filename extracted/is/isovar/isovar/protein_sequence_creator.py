@@ -1,0 +1,595 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from __future__ import annotations
+
+import inspect
+from typing import Iterable, TYPE_CHECKING
+from numbers import Integral
+
+from .default_parameters import (
+    MIN_TRANSCRIPT_PREFIX_LENGTH,
+    MAX_REFERENCE_TRANSCRIPT_MISMATCHES,
+    COUNT_MISMATCHES_AFTER_VARIANT,
+    PROTEIN_CONTEXT_PEPTIDE_LENGTH,
+    PROTEIN_SEQUENCE_PREFERENCE,
+    MIN_PROTEIN_SEQUENCE_SUPPORT_FRACTION,
+    MAX_PROTEIN_SEQUENCES_PER_VARIANT,
+    MIN_VARIANT_SEQUENCE_COVERAGE,
+    VARIANT_SEQUENCE_ASSEMBLY,
+    MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+    protein_sequence_length_for_peptide_length,
+)
+
+from .assembly import merge_identical_sequences
+from .genetic_code import translate_cdna
+from .protein_sequence_helpers import (
+    sort_protein_sequences,
+    group_equivalent_translations,
+    validate_protein_sequence_preference,
+)
+from .reference_context_helpers import reference_contexts_for_variant
+from .reference_context import ReferenceContext
+from .translation import Translation
+from .translation_helpers import find_mutant_amino_acid_interval
+from .variant_sequence_creator import VariantSequenceCreator
+from .variant_sequence import VariantSequence
+from .variant_sequence_helpers import initial_variant_sequences_from_reads, trim_variant_sequences
+from .variant_read_assessment import AssemblyMode, VariantReadAssessment, assemble_variant_reads
+
+if TYPE_CHECKING:
+    from varcode import Variant
+    from .allele_read import AlleleRead
+    from .protein_sequence import ProteinSequence
+from .variant_orf_helpers import match_variant_sequence_to_reference_context
+from .variant_helpers import require_literal_variant
+
+from .logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class ProteinSequenceCreator(object):
+    """
+    Creates ProteinSequence objects for each variant by translating
+    cDNA into one or more Translation objects and then grouping them
+    by identical amino acid sequences. Each Translation comes from the
+    combination of a variant cDNA sequence with the reading frames of
+    annotated reference transcripts.
+    """
+
+    def __init__(
+            self,
+            protein_sequence_length=None,
+            min_variant_sequence_coverage=MIN_VARIANT_SEQUENCE_COVERAGE,
+            min_transcript_prefix_length=MIN_TRANSCRIPT_PREFIX_LENGTH,
+            max_transcript_mismatches=MAX_REFERENCE_TRANSCRIPT_MISMATCHES,
+            count_mismatches_after_variant=COUNT_MISMATCHES_AFTER_VARIANT,
+            max_protein_sequences_per_variant=MAX_PROTEIN_SEQUENCES_PER_VARIANT,
+            variant_sequence_assembly=VARIANT_SEQUENCE_ASSEMBLY,
+            min_assembly_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+            protein_sequence_preference=PROTEIN_SEQUENCE_PREFERENCE,
+            protein_context_peptide_length=PROTEIN_CONTEXT_PEPTIDE_LENGTH,
+            min_protein_sequence_support_fraction=MIN_PROTEIN_SEQUENCE_SUPPORT_FRACTION):
+        """
+        Parameters
+        ----------
+        protein_sequence_length : int or None
+            Try to translate protein sequences of this length, though sometimes
+            we'll have to return something shorter (depending on the RNAseq data,
+            and presence of stop codons). None chooses 2 * peptide length - 1:
+            49 aa for a single changed residue and every overlapping 25mer.
+
+        min_variant_sequence_coverage : int
+            Trim variant sequences to positions supported by at least this number
+            of RNA read objects (default 2). This absolute per-base floor is
+            independent of the relative compatible read-name support budget.
+            Raising it may shorten context or leave no mutant sequence; the
+            protein selection policy never lowers it to meet a length target.
+
+        min_transcript_prefix_length : int
+            Minimum number of bases we need to try matching between the reference
+            context and variant sequence.
+
+        max_transcript_mismatches : int
+            Don't try to determine the reading frame for a transcript if more
+            than this number of bases differ.
+
+        count_mismatches_after_variant : bool
+            Include mismatches after the variant locus in the count compared
+            against max_transcript_mismatches.
+
+        max_protein_sequences_per_variant : int
+            Number of ranked protein sequences to keep for each variant;
+            0 or None keeps all of them.
+
+        variant_sequence_assembly : bool
+            If True, then assemble variant cDNA sequences based on overlap of
+            RNA reads. If False, then variant cDNA sequences must be fully spanned
+            and contained within RNA reads.
+
+        min_assembly_overlap_size : int
+            Minimum number of nucleotides that two reads need to overlap before they
+            can be merged into a single coding sequence.
+
+        protein_sequence_preference : str
+            balanced (default) maximizes mutation-containing peptide windows
+            within the support budget. support assembles one context length and
+            ranks by read support first. context maximizes windows without that
+            relative budget; it can select substantially weaker RNA evidence.
+
+        protein_context_peptide_length : int
+            Length of vaccine peptides for evaluating available context. This
+            counts sequence windows, not predicted binders or immunogenicity.
+
+        min_protein_sequence_support_fraction : float
+            In balanced mode, retain at least this fraction of the best mutant
+            candidate's compatible read-name support (default 0.85). This is
+            not a fraction of minimum per-base coverage. Total allele
+            support is retained separately in ReadEvidence. This is a selection
+            tolerance, not a confidence probability. Absolute RNA filters remain.
+        """
+        validate_protein_sequence_preference(
+            protein_sequence_preference, protein_context_peptide_length,
+            min_protein_sequence_support_fraction)
+        if protein_sequence_length is None:
+            protein_sequence_length = protein_sequence_length_for_peptide_length(protein_context_peptide_length)
+        if (isinstance(protein_sequence_length, bool)
+                or not isinstance(protein_sequence_length, Integral) or protein_sequence_length < 0):
+            raise ValueError("protein_sequence_length must be a non-negative integer or None")
+        self.protein_sequence_preference = protein_sequence_preference
+        self.protein_context_peptide_length = protein_context_peptide_length
+        self.min_protein_sequence_support_fraction = min_protein_sequence_support_fraction
+        self.protein_sequence_length = protein_sequence_length
+        self.min_variant_sequence_coverage = min_variant_sequence_coverage
+        self.min_transcript_prefix_length = min_transcript_prefix_length
+        self.max_transcript_mismatches = max_transcript_mismatches
+        self.count_mismatches_after_variant = count_mismatches_after_variant
+        self.variant_sequence_assembly = variant_sequence_assembly
+        self.min_assembly_overlap_size = min_assembly_overlap_size
+
+        # Two extra bases suffice for a partial leading codon and center odd
+        # SNV windows in every phase; support mode keeps three.
+        extra_bases = 3 if protein_sequence_preference == "support" else 2
+        self._cdna_sequence_length = self.protein_sequence_length * 3 + extra_bases
+        self._variant_sequence_creator = self._make_variant_sequence_creator(self._cdna_sequence_length)
+        self.max_protein_sequences_per_variant = max_protein_sequences_per_variant
+
+    def settings(self):
+        """
+        Effective values of every constructor parameter, as a dict.
+
+        A derived value is reported as used, so ``protein_sequence_length``
+        is the target length computed from the peptide size when it was
+        not given explicitly.
+        """
+        return {name: getattr(self, name)
+                for name in inspect.signature(ProteinSequenceCreator).parameters}
+
+    def _make_variant_sequence_creator(self, cdna_length):
+        return VariantSequenceCreator(
+            min_variant_sequence_coverage=self.min_variant_sequence_coverage,
+            preferred_sequence_length=cdna_length,
+            variant_sequence_assembly=self.variant_sequence_assembly,
+            min_assembly_overlap_size=self.min_assembly_overlap_size,
+            min_flanking_sequence_length=self.min_transcript_prefix_length)
+
+    def candidate_context_lengths(self):
+        """A bounded ladder keeps short-context support available for ranking."""
+        target, peptide = self.protein_sequence_length, self.protein_context_peptide_length
+        if self.protein_sequence_preference == "support" or target <= peptide:
+            return [target]
+        # Six increments at most, plus the 20-aa fallback and peptide length.
+        # Default 25/49: 20,25,29,33,37,41,45,49. No unbounded repeated passes.
+        step = max(1, (target - peptide + 5) // 6)
+        return sorted({min(20, target), peptide, target, *range(peptide, target, step)})
+
+    @staticmethod
+    def _transcript_read_groups(reads):
+        """Group transcript IDs which have exactly the same supporting reads."""
+        unclassified_indices = set()
+        indices_by_transcript = {}
+        for index, read in enumerate(reads):
+            transcript_ids = read.compatible_transcript_ids
+            if transcript_ids is None:
+                unclassified_indices.add(index)
+            else:
+                for transcript_id in transcript_ids:
+                    indices_by_transcript.setdefault(transcript_id, set()).add(index)
+        if not indices_by_transcript:
+            return None
+
+        transcript_ids_by_indices = {}
+        for transcript_id, indices in indices_by_transcript.items():
+            membership = frozenset(indices.union(unclassified_indices))
+            transcript_ids_by_indices.setdefault(membership, set()).add(transcript_id)
+
+        return [
+            (
+                frozenset(transcript_ids),
+                [
+                    reads[index].with_compatible_transcript_ids(transcript_ids)
+                    for index in sorted(indices)
+                ],
+            )
+            for indices, transcript_ids in transcript_ids_by_indices.items()
+        ]
+
+    def _variant_sequences_from_compatible_reads(self, variant, reads):
+        """Retain multiple context sizes; merge only identical RNA sequences.
+
+        A shorter context may match the reference when longer noisy flanks do
+        not. Supporting reads are set unions of the same original objects,
+        never duplicated counts or incompatible extensions of a short sequence.
+        Alternative placements of the same segment remain separate candidates,
+        using the same compatibility rule as the underlying assembler.
+        """
+        reads = list(reads)
+        if not reads:
+            return []
+        if self.protein_sequence_preference == "support":
+            # One context length, in the creator's own candidate order
+            # (protein support ties are stable).
+            return self._variant_sequence_creator.reads_to_variant_sequences(variant, reads)
+        sequences = []
+        for length in self.candidate_context_lengths():
+            creator = (self._variant_sequence_creator if length == self.protein_sequence_length
+                       else self._make_variant_sequence_creator(3 * length + 2))
+            sequences.extend(creator.reads_to_variant_sequences(variant, reads))
+        return merge_identical_sequences(sequences)
+
+    def variant_sequences_from_reads(
+            self, variant: Variant | None, reads: Iterable[AlleleRead], *,
+            mode: AssemblyMode = "configured") -> list[VariantSequence]:
+        """Assemble compatible transcript groups or retain bounded read contexts.
+
+        ``configured`` uses this creator's assembly and context-length policy.
+        ``read_contexts`` retains original read contexts without overlap
+        extension, using the configured maximum length and coverage floor.
+        Both modes preserve alternative placements and transcript labels.
+        """
+        # Sequence-only callers can assemble reads without a nominated variant.
+        if variant is not None:
+            require_literal_variant(variant)
+        reads = list(reads)
+        if mode not in ("configured", "read_contexts"):
+            raise ValueError("assembly mode must be 'configured' or 'read_contexts'")
+        if mode == "read_contexts":
+            if not reads:
+                return []
+            before, after = self._variant_sequence_creator.flanking_sequence_lengths(len(reads[0].allele))
+            sequences = initial_variant_sequences_from_reads(
+                reads, max_nucleotides_before_variant=before, max_nucleotides_after_variant=after)
+            return trim_variant_sequences(sequences, self.min_variant_sequence_coverage)
+        transcript_read_groups = self._transcript_read_groups(reads)
+        if transcript_read_groups is None:
+            return self._variant_sequences_from_compatible_reads(variant, reads)
+
+        sequences = []
+        for _transcript_ids, compatible_reads in transcript_read_groups:
+            sequences.extend(self._variant_sequences_from_compatible_reads(
+                variant, compatible_reads))
+        return merge_identical_sequences(sequences)
+
+    def translation_from_variant_sequence_and_reference_context(
+                self,
+                variant_sequence,
+                reference_context):
+        """
+        Attempt to translate a single VariantSequence using the reading frame
+        from a single ReferenceContext.
+
+        Parameters
+        ----------
+        variant_sequence : VariantSequence
+
+        reference_context : ReferenceContext
+
+        Returns either a Translation object or None if the number of
+        mismatches between the RNA and reference transcript sequences exceeds
+        given threshold.
+        """
+
+        logger.debug(
+            "Full mutant cDNA sequence: %s (len=%d)",
+            variant_sequence.sequence,
+            len(variant_sequence))
+        variant_orf = match_variant_sequence_to_reference_context(
+            variant_sequence,
+            reference_context,
+            min_transcript_prefix_length=self.min_transcript_prefix_length,
+            max_transcript_mismatches=self.max_transcript_mismatches,
+            count_mismatches_after_variant=self.count_mismatches_after_variant)
+
+        if variant_orf is None:
+            logger.debug("Unable to determine reading frame for %s", variant_sequence)
+            return None
+
+        cdna_sequence = variant_orf.cdna_sequence
+        cdna_codon_offset = variant_orf.offset_to_first_complete_codon
+        logger.debug(
+            "Untrimmed cDNA sequence: %s, offset to first codon = %d, len=%d",
+            cdna_sequence,
+            cdna_codon_offset,
+            len(cdna_sequence))
+        # get the offsets into the cDNA sequence which pick out the variant nucleotides
+        cdna_variant_start_offset = variant_orf.variant_cdna_interval_start
+        cdna_variant_end_offset = variant_orf.variant_cdna_interval_end
+
+        in_frame_cdna_sequence = cdna_sequence[cdna_codon_offset:]
+        logger.debug("Translating '%s' (len=%d, expected AA length=%d)",
+            in_frame_cdna_sequence,
+            len(in_frame_cdna_sequence),
+            len(in_frame_cdna_sequence) // 3)
+        # The first codon is never treated as a start codon, so a
+        # non-AUG start such as CUG translates as leucine.
+        amino_acids, ends_with_stop_codon = translate_cdna(
+            in_frame_cdna_sequence,
+            first_codon_is_start=False,
+            translation_table=reference_context.translation_table)
+        logger.debug(
+            "Translated amino acids: %s, ends_with_stop=%s, len=%d",
+            amino_acids,
+            ends_with_stop_codon,
+            len(amino_acids))
+        mutation_start_idx, mutation_end_idx, frameshift = \
+            find_mutant_amino_acid_interval(
+                cdna_sequence=cdna_sequence,
+                cdna_first_codon_offset=cdna_codon_offset,
+                cdna_variant_start_offset=cdna_variant_start_offset,
+                cdna_variant_end_offset=cdna_variant_end_offset,
+                n_ref=len(reference_context.sequence_at_variant_locus),
+                n_amino_acids=len(amino_acids))
+
+        if self.protein_sequence_length:
+            if len(amino_acids) > self.protein_sequence_length:
+                # if the protein is too long then shorten it, which implies
+                # we're no longer stopping due to a stop codon and that the variant
+                # amino acids might need a new stop index
+                amino_acids = amino_acids[:self.protein_sequence_length]
+                mutation_end_idx = min(
+                    mutation_end_idx,
+                    self.protein_sequence_length)
+                ends_with_stop_codon = False
+
+        if mutation_end_idx == mutation_start_idx:
+            # a deletion only counts as mutated if the amino acids on
+            # either side are in the sequence
+            contains_mutation = (0 < mutation_start_idx < len(amino_acids))
+        else:
+            contains_mutation = len(amino_acids) > mutation_start_idx
+
+        translation = Translation(
+            amino_acids=amino_acids,
+            contains_mutation=contains_mutation,
+            frameshift=frameshift,
+            ends_with_stop_codon=ends_with_stop_codon,
+            mutation_start_idx=mutation_start_idx,
+            mutation_end_idx=mutation_end_idx,
+            untrimmed_variant_sequence=variant_sequence,
+            reference_context=reference_context,
+            variant_orf=variant_orf)
+
+        logger.debug(
+            "Translation from:\n-- cDNA = %s\n-- context = %s\n-- translation = %s",
+            variant_sequence,
+            reference_context,
+            translation)
+
+        return translation
+
+    def all_pairs_translations(
+            self,
+            variant_sequences,
+            reference_contexts):
+        """
+        Given all a list of VariantSequence objects for a particular variant
+        and all the ReferenceContext objects for that locus, attempt to
+        translate all pairs of sequences and reference contexts.
+
+        Parameters
+        ----------
+        variant_sequences : list of VariantSequence
+
+        reference_contexts : list of ReferenceContext
+
+        Return list of Translation objects.
+        """
+        translations = []
+        for reference_context in reference_contexts:
+            for variant_sequence in variant_sequences:
+                sequence_reference_context = reference_context
+                compatible_ids = variant_sequence.compatible_transcript_ids
+                if compatible_ids is not None:
+                    compatible_transcripts = tuple(
+                        transcript
+                        for transcript in reference_context.transcripts
+                        if transcript.id in compatible_ids)
+                    if not compatible_transcripts:
+                        continue
+                    if len(compatible_transcripts) != len(reference_context.transcripts):
+                        sequence_reference_context = ReferenceContext.from_reference_coding_sequence_key(
+                            reference_context,
+                            reference_context.variant,
+                            compatible_transcripts)
+                translation = self.translation_from_variant_sequence_and_reference_context(
+                    variant_sequence=variant_sequence,
+                    reference_context=sequence_reference_context)
+                if translation is not None:
+                    translations.append(translation)
+        return translations
+
+    def assess_variant_reads(
+            self, variant: Variant, variant_reads: Iterable[AlleleRead],
+            transcript_id_whitelist: set[str] | None = None, *,
+            assembly_mode: AssemblyMode = "configured") -> VariantReadAssessment:
+        """Retain ALT RNA independently of ordinary-CDS frame assignment.
+
+        Parameters
+        ----------
+        variant : varcode.Variant
+            Literal variant whose trimmed ALT allele the reads carry.
+        variant_reads : iterable of AlleleRead
+            Original ALT observations. An iterator is consumed once.
+        transcript_id_whitelist : set of str, optional
+            Limit coding-frame hypotheses, without dropping unmatched RNA.
+        assembly_mode : {"configured", "read_contexts"}
+            Use this creator's assembly policy or bounded direct read contexts.
+            The latter is suitable for very deep loci and does not extend reads.
+
+        Returns
+        -------
+        VariantReadAssessment
+            Compatible and unmatched RNA, reference contexts, and every retained
+            translation before protein selection. Missing frames carry an
+            explicit state; no sequence is filled from reference annotation.
+        """
+        require_literal_variant(variant)
+        reads = list(variant_reads)
+        contexts = reference_contexts_for_variant(
+            variant, context_size=max(self._cdna_sequence_length, self.min_transcript_prefix_length),
+            transcript_id_whitelist=transcript_id_whitelist) if reads else []
+        transcripts = {transcript.id: transcript for context in contexts for transcript in context.transcripts}
+        assembly = assemble_variant_reads(
+            variant, reads, transcripts.values(), creator=self, mode=assembly_mode)
+        # Explicit ReferenceContext providers may supply a frame without a
+        # transcript path. Preserve that API: its sequence match can supply a
+        # conditional frame, but cannot certify genomic splice compatibility.
+        sequences = assembly.compatible_sequences if transcripts else assembly.unmatched_sequences
+        translations = self.all_pairs_translations(sequences, contexts)
+        return VariantReadAssessment(assembly, tuple(contexts), tuple(translations))
+
+    def translate_variant_reads(
+            self, variant: Variant, variant_reads: Iterable[AlleleRead],
+            transcript_id_whitelist: set[str] | None = None) -> list[Translation]:
+        """Return ordinary-CDS translations of observed ALT RNA.
+
+        This compatibility interface returns a list. Use ``assess_variant_reads``
+        to retain unmatched RNA and explicit reasons a frame was not assigned.
+        The transcript whitelist limits frame hypotheses, not RNA collection.
+        """
+        return list(self.assess_variant_reads(
+            variant, variant_reads, transcript_id_whitelist).translations)
+
+    def translate_variants(
+            self,
+            variants_with_read_evidence_generator,
+            transcript_id_whitelist=None):
+        """
+        Translates each coding variant in a collection to one or more protein
+        fragment sequences (if the variant is not filtered and its spanning RNA
+        sequences can be given a reading frame).
+
+        Parameters
+        ----------
+        variants_with_read_evidence_generator : sequence or generator
+            Each item of this sequence should be a pair containing a varcode.Variant
+            and a ReadEvidence object
+
+        transcript_id_whitelist : set, optional
+            If given, expected to be a set of transcript IDs which we should use
+            for determining the reading frame around a variant. If omitted, then
+            try to use all overlapping reference transcripts.
+
+        Yields pairs of a Variant and a sequence of all its candidate
+        Translation objects.
+        """
+        for variant, read_evidence in variants_with_read_evidence_generator:
+            translations = self.translate_variant_reads(
+                variant=variant,
+                variant_reads=read_evidence.alt_reads,
+                transcript_id_whitelist=transcript_id_whitelist)
+            yield variant, translations
+
+    def sorted_protein_sequences_for_variant(
+            self,
+            variant,
+            read_evidence,
+            transcript_id_whitelist=None):
+        """
+        Translates a coding variant and its overlapping RNA reads into Translation
+        objects, which are aggregated into ProteinSequence objects by their
+        amino acid sequence (when they have equivalent coding sequences).
+
+        Parameters
+        ----------
+        variant : varcode.Variant
+
+        read_evidence : ReadEvidence object
+
+        transcript_id_whitelist : set, optional
+            If given, expected to be a set of transcript IDs which we should use
+            for determining the reading frame around a variant. If omitted, then
+            try to use all overlapping reference transcripts.
+
+        Returns a list of ProteinSequence objects
+        """
+        translations = self.translate_variant_reads(
+            variant=variant,
+            variant_reads=read_evidence.alt_reads,
+            transcript_id_whitelist=transcript_id_whitelist)
+
+        return self._rank_translations(translations)
+
+    def protein_sequences_from_assessment(
+            self, assessment: VariantReadAssessment) -> list[ProteinSequence]:
+        """Rank and cap an existing assessment without repeating RNA assembly.
+
+        Selection uses this creator's preference, peptide length, support budget
+        and protein-count cap. The assessment retains all RNA/frame alternatives.
+        """
+        return self._rank_translations(assessment.translations)
+
+    def _rank_translations(self, translations: Iterable[Translation]) -> list[ProteinSequence]:
+        """One selection policy for the list API and the assessment API."""
+        # group distinct cDNA translations into ProteinSequence objects
+        # by their amino acid sequence
+        protein_sequences = group_equivalent_translations(translations)
+
+        # sort protein sequences before returning the top results
+        protein_sequences = sort_protein_sequences(
+            protein_sequences,
+            preference=self.protein_sequence_preference,
+            peptide_length=self.protein_context_peptide_length,
+            min_support_fraction=self.min_protein_sequence_support_fraction)
+
+        if self.max_protein_sequences_per_variant:
+            protein_sequences = protein_sequences[:self.max_protein_sequences_per_variant]
+        return protein_sequences
+
+    def protein_sequences_from_read_evidence_generator(
+            self,
+            read_evidence_generator,
+            transcript_id_whitelist=None):
+        """
+        Create ranked protein sequences for each variant's read evidence.
+
+        Parameters
+        ----------
+        read_evidence_generator : generator of (varcode.Variant, ReadEvidence)
+            Generator which yields sequence of Variant objects paired with
+            their corresponding ReadEvidence
+
+        transcript_id_whitelist : set of str or None
+            Transcripts which may establish a reading frame for identified
+            cDNA sequences.
+
+        Generates sequence of (varcode.Variant, ProteinSequence list) pairs.
+        """
+        for variant, read_evidence in read_evidence_generator:
+            protein_sequences = \
+                self.sorted_protein_sequences_for_variant(
+                    variant=variant,
+                    read_evidence=read_evidence,
+                    transcript_id_whitelist=transcript_id_whitelist)
+            yield variant, protein_sequences

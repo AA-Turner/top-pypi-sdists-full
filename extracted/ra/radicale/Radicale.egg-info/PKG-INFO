@@ -1,0 +1,96 @@
+Metadata-Version: 2.4
+Name: Radicale
+Version: 3.9.0
+Summary: CalDAV and CardDAV Server
+Author-email: Guillaume Ayoub <guillaume.ayoub@kozea.fr>, Unrud <unrud@outlook.com>, Peter Bieringer <pb@bieringer.de>
+License: GNU GPL v3
+Project-URL: Homepage, https://radicale.org/
+Keywords: calendar,addressbook,CalDAV,CardDAV
+Platform: Any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Office/Business :: Groupware
+Requires-Python: >=3.9.0
+Description-Content-Type: text/markdown
+License-File: COPYING.md
+Requires-Dist: defusedxml
+Requires-Dist: libpass>=1.9.3
+Requires-Dist: vobject>=0.9.6
+Requires-Dist: pika>=1.1.0
+Requires-Dist: requests
+Provides-Extra: test
+Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: waitress; extra == "test"
+Requires-Dist: bcrypt; extra == "test"
+Requires-Dist: argon2-cffi; extra == "test"
+Requires-Dist: pam; extra == "test"
+Requires-Dist: ldap3; extra == "test"
+Requires-Dist: hypercorn>=0.17; extra == "test"
+Provides-Extra: h2
+Requires-Dist: hypercorn>=0.17; extra == "h2"
+Provides-Extra: bcrypt
+Requires-Dist: bcrypt; extra == "bcrypt"
+Provides-Extra: argon2
+Requires-Dist: argon2-cffi; extra == "argon2"
+Provides-Extra: ldap
+Requires-Dist: ldap3; extra == "ldap"
+Provides-Extra: pam
+Requires-Dist: pam; extra == "pam"
+Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-playwright; extra == "dev"
+Requires-Dist: html5validator; extra == "dev"
+Provides-Extra: caldav-test
+Requires-Dist: pytest>=7; extra == "caldav-test"
+Requires-Dist: caldav==3.5.0; python_version >= "3.10" and extra == "caldav-test"
+Requires-Dist: caldav-server-tester==1.4.0; python_version >= "3.10" and extra == "caldav-test"
+Requires-Dist: icalendar==7.3.0; python_version >= "3.10" and extra == "caldav-test"
+Requires-Dist: icalendar-searcher==1.2.0; python_version >= "3.10" and extra == "caldav-test"
+Requires-Dist: recurring-ical-events==3.8.2; python_version >= "3.10" and extra == "caldav-test"
+Dynamic: license-file
+
+# Radicale
+
+[![Test](https://github.com/Kozea/Radicale/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/Kozea/Radicale/actions/workflows/test.yml)
+[![Coverage Status](https://coveralls.io/repos/github/Kozea/Radicale/badge.svg?branch=master)](https://coveralls.io/github/Kozea/Radicale?branch=master)
+
+Radicale is a small but powerful CalDAV (calendars, to-do lists) and CardDAV
+(contacts) server, that:
+
+* Shares calendars and contact lists through CalDAV, CardDAV and HTTP.
+* Supports events, todos, journal entries and business cards.
+* Works out-of-the-box, no complicated setup or configuration required.
+* Can limit access by authentication.
+* Can secure connections with TLS.
+* Works with many CalDAV and CardDAV clients
+* Stores all data on the file system in a simple folder structure.
+* Can be extended with plugins.
+* Is GPLv3-licensed free software.
+
+For the complete documentation, please visit
+[Radicale master Documentation](https://radicale.org/master.html).
+
+Additional hints can be found
+* [Radicale Wiki](https://github.com/Kozea/Radicale/wiki)
+* [Radicale Issues](https://github.com/Kozea/Radicale/issues)
+* [Radicale Discussions](https://github.com/Kozea/Radicale/discussions)
+
+Before reporting an issue, please check
+* [Radicale Wiki / Reporting Issues](https://github.com/Kozea/Radicale/wiki/01-‐-Reporting-Issues)

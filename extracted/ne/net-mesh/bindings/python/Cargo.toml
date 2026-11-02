@@ -1,0 +1,303 @@
+[package]
+name = "net-python"
+version.workspace = true
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Python bindings for Net event bus"
+# Quiets cargo's "manifest has no documentation, homepage or
+# repository" warning, which `cargo package --list` prints into
+# every maturin sdist build log even though this crate never goes
+# to crates.io.
+repository = "https://github.com/ai-2070/net"
+# Distributed via PyPI as `net-mesh` (see pyproject.toml), not via
+# crates.io. Block accidental `cargo publish`.
+publish = false
+readme = "README.md"
+
+[lib]
+name = "_net"
+# `rlib` is needed alongside `cdylib` so in-crate `#[cfg(test)] mod
+# tests` blocks compile — cargo requires rlib to link the unit-test
+# harness. The published Python wheel still ships the `.so/.dylib`
+# cdylib; the rlib is a build artifact only.
+crate-type = ["cdylib", "rlib"]
+
+# The same-org live-scenario minter the Python witnesses shell out to
+# (tests/test_org_live.py). `required-features` keeps a featureless
+# `cargo test` from trying to compile it — it only exists over the
+# `org` SDK surface.
+[[example]]
+name = "gen_org_same_scenario"
+required-features = ["org"]
+
+[features]
+# Out-of-the-box `pip install net-mesh-sdk` ships the full
+# distributed-agent stack: mesh transport + NAT traversal +
+# typed nRPC + capability-based service discovery + daemon
+# supervision + replica/fork/standby coordination + MeshOS
+# daemon-authoring + dataforts blob storage + MeshDB federated
+# query plane + Redis dedup helper. Python devs can't rebuild
+# the wheel — whatever PyPI shipped is what they have, so
+# every primitive a harness vendor would plausibly want is on
+# by default.
+#
+# `jetstream` / `port-mapping` stay opt-in: the NATS-specific
+# adapter (+1.3 MB, niche audience that knows it wants NATS),
+# and the UPnP/SOAP +1.4 MB outlier.
+default = [
+    "net",
+    "nat-traversal",
+    "cortex",
+    "compute",
+    "groups",
+    "meshos",
+    "dataforts",
+    "meshdb",
+    "redis",
+    "aggregator",
+    "tool",
+    "consent",
+    "mcp",
+    "delegation",
+    "publish",
+    "a2a",
+    "payments",
+    "payments-http",
+]
+# pyo3's optional-extension-module pattern (pyo3 FAQ). The importable
+# cdylib must NOT link libpython — the host interpreter supplies the
+# C-API symbols at import time — so every wheel-shaped build enables
+# this feature explicitly: `[tool.maturin] features` in pyproject.toml
+# (covers sdist installs and bare `maturin develop`), the `--features`
+# args in release-python.yml, and the python-tests `maturin develop`
+# in ci.yml. Deliberately NOT a default feature: plain `cargo build` /
+# `cargo test` link the host libpython like any normal crate, so the
+# unit-test binary resolves the C-API symbols at link time and runs
+# standalone — no unresolved-symbol linker flags, no LD_PRELOAD.
+extension-module = ["pyo3/extension-module"]
+# A deliberately panicking export, used to prove what panic strategy a
+# BUILT extension actually has.
+#
+# The question it answers cannot be answered from Cargo logs: `cargo
+# build -v` shows what was requested, not what the loaded `.pyd`/`.so`
+# does. Invoking this in a child process settles it — abort kills the
+# child, unwind lets pyo3 raise `PanicException` and the child prints a
+# sentinel and exits 0.
+#
+# Off by default and never in the published feature set. When the
+# feature is absent the item is not compiled, so there is no symbol and
+# no callable in a shipped wheel — `check-python-wheel-features.py`
+# enforces that against both workflows, and the probe job asserts an
+# ordinary wheel has no such attribute.
+#
+# Deliberately NOT used to investigate the intermittent runtime-drop
+# panic: that panic's ownership and containment path are exactly what
+# is unknown, so it cannot serve as its own probe.
+panic-probe = []
+# Pulls in `net-sdk` at its `redis` sub-feature for the
+# `RedisStreamDedup` consumer helper. The dedup helper is a thin
+# PyO3 wrapper around the canonical Rust implementation.
+#
+# Each Python feature opts in explicitly via its own
+# `net-sdk/<sub>` activation; the `[dependencies]` line clears
+# the dep's default features so a Redis-only consumer build does
+# not transitively compile the net + compute + groups surfaces.
+redis = ["net/redis", "dep:net-sdk", "net-sdk/redis"]
+jetstream = ["net/jetstream"]
+net = ["net/net", "dep:hex"]
+# NAT traversal — reflex probes, classification, rendezvous-
+# coordinated hole-punch, and the stats surface. Exposes
+# `nat_type`, `reflex_addr`, `probe_reflex`, `reclassify_nat`,
+# `traversal_stats`, and `connect_direct` on `NetMesh`. Off by
+# default — the routed-handshake path reaches every peer
+# regardless of this feature. Framing (plan §5): traversal is
+# an optimization, not a connectivity requirement.
+nat-traversal = ["net", "net/nat-traversal"]
+# Port mapping — opportunistic UPnP / NAT-PMP / PCP. Exposes
+# `try_port_mapping=None` as a `NetMesh.__init__` kwarg. Builds
+# on `nat-traversal`.
+port-mapping = ["nat-traversal", "net/port-mapping"]
+cortex = ["net/netdb", "net/redex-disk", "dep:async-trait"]
+# AI tool calling — exposes MeshNode::list_tools() through the
+# pyo3 NetMesh as `mesh.list_tools()`. Includes the substrate's
+# `tool::*` types (ToolDescriptor, ToolEvent, ToolMetadataRegistry,
+# tool.metadata.fetch RPC). On by default; binary cost is small.
+# See AGENT_TOOLS.md for the surface contract.
+tool = ["net/tool", "cortex"]
+# MeshDB query layer — federated AST + planner + executor + result cache.
+# Standalone of the `net` feature: the Python SDK's first MeshDB slice
+# ships a local executor over an in-memory ChainReader, so it doesn't
+# require the mesh's transport surface to be compiled.
+meshdb = ["net/meshdb", "dep:postcard"]
+# Dataforts surface (Rebel Yell) — compile the operator
+# methods that wire greedy-LRU + data-gravity + future phases.
+# Toggling between greedy / gravity / future phases is a
+# runtime decision via `Redex::enable_*` methods, not a Cargo
+# feature choice; see `docs/internal/misc/DATAFORTS_PLAN.md`. Cortex
+# isn't strictly required for the substrate, but the Python
+# install path threads through the cortex-gated Redex surface
+# so we activate it transitively for binding-side consistency.
+dataforts = ["cortex", "net", "net/dataforts", "dep:postcard"]
+# Python surface for the `MeshDaemon` / migration runtime.
+# Requires the `net` feature (for `NetMesh`) + the net-sdk
+# compute feature. Forwards `net-sdk/compute` explicitly so the
+# SDK's compute code only compiles when this feature is active.
+compute = ["net", "dep:net-sdk", "net-sdk/compute", "dep:dashmap"]
+# Stage 3 of `SDK_GROUPS_SURFACE_PLAN.md` — HA/scaling overlays
+# (ReplicaGroup, ForkGroup, StandbyGroup). Sits on top of compute.
+groups = ["compute", "net-sdk/groups"]
+# MeshOS daemon-author SDK (`MESHOS_SDK_PLAN.md` Phase 2). Builds on
+# `compute` for the `MeshDaemon` trait + `Identity` wrapper and on
+# the substrate's `net/meshos` for the supervisor runtime. The
+# substrate's `meshos` feature implies `cortex`, which the Python
+# binding's `cortex` feature already activates if any cortex-tier
+# class is reachable — listing `cortex` here keeps the dep chain
+# explicit when consumers ask only for `meshos`.
+meshos = ["compute", "cortex", "net/meshos", "net-sdk/meshos"]
+# Deck SDK — operator-side bindings (`DECK_SDK_PLAN.md` Phase 4).
+# Builds on `meshos` for the supervisor runtime + snapshot reader.
+# Phase 1 substrate constraint: non-signing today (the substrate
+# records the operator id but doesn't yet route through channel-
+# auth); the binding surface is final.
+deck = ["meshos", "net/meshos", "net-sdk/deck"]
+# Aggregator-registry RPC client + fold.query client surfaces
+# (`SDK_AGGREGATOR_SUBNET_PLAN.md` Stage 3). Builds on `net` + pulls in
+# the SDK's `aggregator` re-export module so the binding gets
+# RegistryClient / FoldQueryClient + the typed error hierarchy.
+aggregator = ["net", "dep:net-sdk", "net-sdk/aggregator"]
+# Local consent surface (`MCP_BRIDGE_SDK_PLAN.md` P1): CapabilityId,
+# the ConsentPolicy gate, and the lock-protocol PinStore — thin
+# wrappers over `net_sdk::consent` / `net_sdk::pins` (unconditional SDK
+# modules, pure local-state primitives with no mesh dependency). Forwards
+# `net-sdk/pin-watch` for the pin-change subscription (`PinStore::watch`
+# / `AsyncPinWatcher`, `HERMES_INTEGRATION_PLAN.md` Phase 2) — an OS file
+# watcher over the shared store, not polling. The one lock implementation
+# stays in Rust — the binding never opens the store file directly.
+consent = ["dep:net-sdk", "net-sdk/pin-watch"]
+# MCP bridge pure helpers (`MCP_BRIDGE_SDK_PLAN.md` P1): thin bindings
+# for `classify` (credential-risk scoring a native node may DISPLAY
+# before publishing an MCP-backed tool) and `lower_tool` (MCP
+# `tools/list` entry -> Net ToolDescriptor + bridge metadata). Helpers
+# only — publishing itself goes through the general SDK path; the
+# forwarding/keychain internals are never bound (bridge doctrine #3).
+mcp = ["consent", "dep:net-mcp"]
+# Paid capabilities through the gateway (`PAYMENTS_SDK_PLAN.md` P0):
+# constructing `CapabilityGateway` with `payment_policy_path=` wires the
+# net-payments caller flow (spend engine → quote → x402 payload → pay
+# over the mesh) into the invoke gate, and `requires_payment_approval`
+# surfaces as a structured result. Thin per doctrine #1: every payment
+# decision is the Rust flow's; the binding maps config strings and
+# passes the structured error through untouched.
+payments = ["mcp", "net", "dep:net-payments"]
+# Outbound HTTP-402 client (`PAYMENTS_LANGUAGE_SDKS_PLAN` WS-P2):
+# `PaymentHttpClient` / `AsyncPaymentHttpClient` over
+# `net-payments::flow::http402::X402HttpFlow` — paying an external x402 HTTP
+# API through the same spend policy + signers as the mesh gateway.
+#
+# **In the default wheel.** It was originally opt-in because it pulls
+# reqwest + rustls + bundled roots, a real size add. That tradeoff flipped
+# when `PaymentProvider` began requiring an explicit settlement backend:
+# `HttpFacilitator` lives behind this feature, so without it
+# `facilitator_url` can only ever error and the ONLY reachable backend is
+# the mock — the exact hole that change was closing. Paying for the size is
+# better than shipping a provider surface whose real path does not exist.
+payments-http = [
+    "payments",
+    "net-payments/http-facilitator",
+    "dep:base64",
+    # The client owns its own runtime (no mesh) and calls `enable_all()`, so
+    # it needs tokio's IO + time drivers explicitly (reqwest enables them
+    # too, but don't rely on that unification).
+    "tokio/net",
+    "tokio/time",
+]
+# Delegated agent identity (`HERMES_INTEGRATION_PLAN.md` Phase 3):
+# DelegationChain (root → machine → gateway → subagent), a shared
+# RevocationRegistry, and stable child-`Identity` derivation — thin
+# wrappers over `net_sdk::delegation`. Needs the SDK's `net` feature (the
+# identity + token-chain surface `delegation` composes), which `consent`
+# alone does not activate. H8-clean: takes/returns opaque `Identity`
+# handles + public entity-ids; private seeds never cross into Python.
+# `net-sdk/cortex` brings the SDK's nRPC surface (`net_sdk::mesh_rpc` /
+# `mesh_enroll`) so the live enrollment bridge (`NetMesh.join` /
+# `serve_enrollment_auto`) compiles; the default wheel already enables the
+# same core `netdb` / `redex-disk` features, so this is marginal there.
+delegation = ["net", "dep:net-sdk", "net-sdk/net", "net-sdk/cortex"]
+# Organization capability auth (OSDK-L Workstream P). Needs cortex (the
+# call/serve verbs ride nRPC), and forwards the SDK net+cortex features.
+org = ["net", "cortex", "dep:net-sdk", "net-sdk/net", "net-sdk/cortex", "dep:arc-swap"]
+# Publish a node's OWN local tools as mesh capabilities
+# (`HERMES_INTEGRATION_PLAN_V2.md` Phase 2, Slice B) — the inverse of `net
+# wrap`, backed by a Python async callback. Composite: `mcp` (the
+# `net_mcp::wrap::ServerPublisher::publish_tools` surface + `ToolInvoker`),
+# `delegation` (the `net` + `net-sdk/net` mesh surface `from_node_arc` needs),
+# and `cortex` (the binding's `async-trait` for the `ToolInvoker` impl + the
+# `dispatch_handler_coro` Rust→Python coroutine bridge).
+publish = ["mcp", "delegation", "cortex"]
+# Agent-to-agent task handoff (`HERMES_INTEGRATION_PLAN_V2.md` Phase 3) — serve
+# the A2A task lifecycle backed by a Python async task-executor callback, and
+# submit/status/cancel by node id. Composite: `delegation` (the `net` +
+# `net-sdk/net,cortex` mesh surface `net_sdk::mesh_a2a` needs) and `cortex` (the
+# binding's `async-trait` for the `TaskExecutor` impl + the
+# `dispatch_handler_coro` Rust→Python coroutine bridge).
+a2a = ["delegation", "cortex"]
+
+[dependencies]
+net = { package = "net-mesh", version = "0.46.0", path = "../..", default-features = false }
+net-sdk = { package = "net-mesh-sdk", version = "0.46.0", path = "../../sdk", default-features = false, optional = true }
+# The MCP bridge adapter, for the two pure helpers only (feature `mcp`).
+net-mcp = { package = "net-mesh-mcp", version = "0.46.0", path = "../../adapters/mcp", optional = true }
+# The payments layer (feature `payments`): the caller flow + spend
+# engine the gateway's payment gate clears paid capabilities through.
+net-payments = { version = "0.46.0", path = "../../payments", optional = true, features = ["mcp-gate", "mesh"] }
+dashmap = { version = "6", optional = true }
+parking_lot = "0.13"
+arc-swap = { version = "1.7", optional = true }
+# `extension-module` is NOT hardcoded here — see the feature of the
+# same name above.
+pyo3 = { version = "0.30.0" }
+# Bridge between Rust async (tokio) and Python asyncio coroutines.
+# `future_into_py` converts a Rust future into a Python awaitable
+# the user can `await`; `into_future` does the reverse for
+# async-`def` handlers. Version-locked to pyo3 0.30 — track that
+# bump whenever pyo3 itself moves.
+pyo3-async-runtimes = { version = "0.30", features = ["tokio-runtime"] }
+# Zeroizing wrapper for transient operator-seed copies in the
+# DeckClient / OperatorIdentity standalone constructors.
+zeroize = "1"
+tokio = { version = "1.48.0", features = ["rt-multi-thread", "sync"] }
+futures = "0.3"
+serde_json = "1.0.145"
+bytes = "1.11.0"
+hex = { version = "0.4", optional = true }
+# The outbound HTTP-402 client base64-encodes the byte-preserved settlement
+# response for audit. Optional + `payments-http`-gated so non-HTTP builds
+# don't pull it (it is already in the workspace lock via net-payments).
+base64 = { version = "0.23", optional = true }
+# async-trait is needed because nRPC's RpcHandler trait is async;
+# the implementor (PyRpcHandler in mesh_rpc.rs) must use the
+# same #[async_trait] macro the trait was defined with. Optional +
+# cortex-gated so non-cortex builds don't pull it in.
+async-trait = { version = "0.1", optional = true }
+# Postcard is the canonical MeshDB wire codec; the Python binding
+# decodes `AggregateRowPayload` / `JoinedRowPayload` /
+# `WindowBoundary` payloads from result-row bytes. Pulled in only
+# when the `meshdb` feature activates.
+postcard = { version = "1", default-features = false, features = ["alloc"], optional = true }
+
+[dev-dependencies]
+# The driven-paid-invoke e2e (`capability_gateway` tests, `payments`
+# feature) needs `#[tokio::test]` (macros) + a bounded timeout (time),
+# isolated temp dirs for the spend-policy + engine + billing stores, and
+# `#[async_trait]` for the test's `ToolInvoker` (the trait is async).
+tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros", "time"] }
+tempfile = "3"
+async-trait = "0.1"
+
+[build-dependencies]
+pyo3-build-config = "0.30.0"
+
+# `[profile.release]` intentionally omitted — cargo ignores non-root
+# profiles ("profiles for the non root package will be ignored"). The
+# workspace root governs release-profile settings (lto = true and
+# friends) for every member crate.

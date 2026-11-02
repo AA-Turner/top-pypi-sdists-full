@@ -1,0 +1,41 @@
+[project]
+name = "vention-sim-grpc-py-sdk"
+dynamic = ["version", "dependencies"]
+description = "Generated Python gRPC clients for the Vention simulation protos"
+authors = [{ name = "VentionCo" }]
+license = { text = "Proprietary" }
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["vention", "simulation", "grpc", "protobuf", "client"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/VentionCo/simulation"
+Repository = "https://github.com/VentionCo/simulation"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# scripts/ci_python_package.py writes _source.py: the version, and the vention-grpc-py-sdk
+# release that hatch_build.py turns into the exact dependency pin.
+[tool.hatch.version]
+path = "src/vention_sim/_source.py"
+
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
+
+# src/ is generated and gitignored; hatchling would otherwise drop it from the wheel.
+[tool.hatch.build]
+ignore-vcs = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vention_sim"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/vention_sim", "README.md", "hatch_build.py"]

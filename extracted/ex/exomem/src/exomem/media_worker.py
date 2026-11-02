@@ -1,0 +1,2843 @@
+"""Durable, disposable media extraction runtime.
+
+When a media binary is uploaded without text, `preserve()` writes a `pending` stub sidecar
+and the `/upload` route enqueues a job here. A single background thread (the GPU is
+serialized) runs ASR/OCR/PDF extraction (`extract.extract_text`), writes the transcript into
+the sidecar (`preserve.update_sidecar_extraction`) and re-embeds it — so the 201 returns
+immediately and the binary becomes searchable shortly after.
+
+The long-lived service is a lightweight supervisor. Product mode records jobs in a
+SQLite ledger and starts one child process per vault on demand. The child serializes
+heavy work, stays warm for a bounded burst, then exits so RAM and accelerator contexts
+are returned to the host. Inline mode preserves a deterministic test/debug path.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import inspect
+import logging
+import os
+import queue
+import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from . import (
+    asr_runtime,
+    cuda_containment,
+    deferred_index,
+    embeddings,
+    epistemic_graph,
+    extract,
+    graph_sync,
+    index_sync,
+    media_brakes,
+    media_engines,
+    media_jobs,
+    media_slot_client,
+    preserve,
+    prior_extraction,
+    provenance,
+    recall_policy,
+    resource_status,
+    runtime_resources,
+    scene_frames,
+    semantic_segments,
+    temporal,
+)
+from .asr_facts import LANGUAGE_MODE_MULTILINGUAL, AsrFacts
+from .backfill import iter_kb_files
+from .cli_ops import OpError
+from .governance import projected_retrieval
+from .kbdir import kb_dirname
+from .media_jobs import (
+    BLOCKED,
+    FAILED,
+    MediaJobStore,
+    is_guarded_sidecar_sharing_violation,
+    pid_alive,
+)
+from .media_jobs import (
+    MediaJob as _Job,
+)
+from .ocr_facts import OcrFacts
+from .vault import (
+    MISSING_CONTENT_HASH,
+    ContentHashMismatchError,
+    DeferredGraphCompletion,
+    PathGuardError,
+    PlannedWrite,
+    batch_atomic_write,
+    content_hash,
+    post_commit_batch_fanout,
+    read_guarded_text,
+)
+from .writer_lease import get_manager
+
+log = logging.getLogger(__name__)
+
+_MEDIA_TYPE_RE = re.compile(r"(?m)^media_type:\s*(\S+)\s*$")
+_EVIDENCE_FILE_RE = re.compile(r"(?m)^evidence_file:\s*(.+?)\s*$")
+_PENDING_MARKER = "extracted_by: pending"
+_PARENT_MEDIA_MARKER = "\nparent_media:"
+_MAX_IDENTITY_HASH_BYTES = 8 * 1024 * 1024
+
+
+def _is_canonical_sidecar(sidecar: Path, binary: Path) -> bool:
+    """Whether `sidecar` is the one sidecar `binary` owns (`<binary>.md`, beside it).
+
+    Case-insensitive on the directory because a vault-relative `evidence_file:`
+    need not match the on-disk casing.
+    """
+    if sidecar.name != binary.name + ".md":
+        return False
+    return os.path.normcase(str(sidecar.parent)) == os.path.normcase(str(binary.parent))
+_COMPLETE = "complete"
+_HANDOFF = "handoff"
+_STALE = "stale"
+# A hydration failure that returns the job to the queue with no attempt spent (D3, M4).
+_RETURNED = "returned"
+_RENDERER_ACTION = "check the timestamp renderer, then retry"
+_FAILED_ACTION = "repair or replace the media artifact, then retry"
+_LANGUAGE_ACTION = (
+    "choose a language the speech model supports and process the file again with reprocess, "
+    "or correct EXOMEM_ASR_LANGUAGE"
+)
+_COMPUTE_RUNTIME_ACTION = (
+    "repair the CUDA/cuBLAS/cuDNN runtime or explicitly select bounded CPU, then retry"
+)
+_TRANSIENT_OPERATION_CODES = frozenset(
+    {
+        "MUTATION_BUSY",
+        "MUTATION_LOCK_UNAVAILABLE",
+        "WRITER_COORDINATOR_UNAVAILABLE",
+        # Deliberately transient too. A misconfigured coordinator URL is not
+        # fixed by asking again, but it IS fixed by an operator without
+        # restarting anything -- so the caller waits rather than crashing. What
+        # changes is only how often it asks; see the recheck cadence below.
+        "WRITER_COORDINATOR_CONTRACT_ABSENT",
+        "WRITER_FENCED",
+        "WRITER_LEASE_REQUIRED",
+    }
+)
+_FOLLOWER_RECHECK_SECONDS = 5.0
+#: A coordinator URL that answers but does not serve the lease contract returns
+#: the same answer to every request, so the follower cadence buys nothing and
+#: costs a request every five seconds per server process, indefinitely. Slow
+#: enough that a stuck deployment is quiet; short enough that fixing the URL
+#: takes effect without a restart (#550).
+_CONTRACT_ABSENT_RECHECK_SECONDS = 300.0
+_TRANSIENT_EXIT_CODE = 75
+_LOCK_UNAVAILABLE_EXIT_CODE = 76
+#: The child hit its data-segment limit. Under the brakes every child runs one job
+#: and exits, so each counted failure starts in a fresh child.
+_MEMORY_RECYCLE_EXIT_CODE = 77
+#: The cell had no room for the next job's anonymous-memory budget.
+_MEMORY_WAIT_EXIT_CODE = 78
+#: The child started without write authority and claimed nothing. Unlike a transient
+#: stop mid-job, repeating it at a fixed pace spawns a process every few seconds for
+#: as long as the writer lease is elsewhere, so the supervisor backs off.
+_AUTHORITY_UNAVAILABLE_EXIT_CODE = 79
+#: The child claimed a job that needs more anonymous memory than the node slot it was
+#: started under reserves (an interrupted job it recovered, say). It ran nothing and
+#: counted no stop; the supervisor gives the slot back and asks for the right size.
+_SLOT_TOO_SMALL_EXIT_CODE = 80
+#: The child found the GPU busy for the speech engine and left only speech work pending. The
+#: jobs are still pending: nothing is blocked, and the supervisor starts the next child later.
+_GPU_BUSY_EXIT_CODE = 81
+#: Relaunch delay after consecutive authority refusals: from the follower cadence,
+#: doubling to this ceiling, so a lease that frees up still starts work within it.
+_AUTHORITY_BACKOFF_MAX_SECONDS = 60.0
+#: How long the supervisor waits for room after a refusal or a memory stop. Long
+#: enough for reclaim or a checkpoint to finish; a pending job costs only latency.
+_MEMORY_WAIT_SECONDS = 15.0
+#: The memory-blocked retry: first after a minute, doubling to half an hour while
+#: pressure stays high, and back to a minute once pressure clears or a job completes.
+#: A cell under lasting pressure is asked rarely, and a passing spike costs a minute.
+_MEMORY_RECOVERY_SECONDS = 60.0
+_MEMORY_RECOVERY_MAX_SECONDS = 1800.0
+_TRANSIENT_RECHECK_SECONDS = 5.0
+#: How long the supervisor waits before it asks again whether a busy GPU has freed up. Each ask
+#: costs one child process, and another process holding the GPU can last for hours.
+_GPU_BUSY_RECHECK_SECONDS = 60.0
+#: A media child killed by a signal it did not get from the supervisor (a native library fault, the
+#: kernel's memory killer) leaves its job to run again. The restart delay doubles from the plain
+#: failure delay to this ceiling, so a job that always kills its child costs one start per ceiling.
+_CHILD_CRASH_BACKOFF_MAX_SECONDS = 300.0
+_LOCK_UNAVAILABLE_RECHECK_SECONDS = 30.0
+#: How long the supervisor sleeps between passes.  Deliberately unchanged: the
+#: cost being removed below is the store open, not the wakeup, and stretching
+#: this is what would actually delay a job.
+_SUPERVISE_POLL_SECONDS = 0.5
+#: How often the supervisor checks the eviction target between jobs (D3, M3).
+_EVICTION_INTERVAL_SECONDS = 60.0
+#: Backstop for the writes a signature comparison cannot separate from its own.
+#: Two of them: a foreign worker pid dying without writing anything at all, and
+#: a commit that lands between `needs_worker()`'s read and the signature taken
+#: after it -- or within the filesystem's mtime tick of it, measured at ~3.9ms
+#: here -- which is then folded into the recorded signature and looks settled.
+#: Neither can starve a job; both are bounded by this interval rather than by
+#: the 0.5s pass.  It is a real net, not a formality: with the signature
+#: defeated, this is the only thing that starts a worker at all.
+#:
+#: This is the floor.  Each idle re-check doubles the next interval up to
+#: `_SUPERVISE_FORCED_RECHECK_MAX_SECONDS`, because the re-check opens the store
+#: through the full SQLite owner path, which a 0.108.0 cloud cell paid every
+#: 5 s for as long as it stayed idle.  Work, a store change or an in-process
+#: enqueue put it back here.
+_SUPERVISE_FORCED_RECHECK_SECONDS = 5.0
+#: The idle back-off's ceiling, and so the longest a write the signature misses
+#: can wait for a worker after a long quiet spell.
+_SUPERVISE_FORCED_RECHECK_MAX_SECONDS = 60.0
+#: SQLite writes land in the WAL and SHM long before the main file is
+#: checkpointed, so a freshness signature that reads only the database file
+#: would miss every enqueue it exists to catch.
+_JOB_STORE_SUFFIXES = ("", "-wal", "-shm", "-journal")
+#: The polling clock; a seam for tests.
+_clock = time.monotonic
+
+
+def _job_store_signature(store: MediaJobStore) -> tuple[object, ...] | None:
+    """Stat the job store's SQLite family without opening or locking anything.
+
+    `needs_worker()` opens the store, and opening it takes the reserved-identity
+    mutation boundary twice -- once on the gate, once on the `media-jobs-store`
+    domain.  On an idle cell that ran several times a second forever.  A store
+    that nobody has written to cannot have acquired work, and every writer in
+    every process moves this signature, so comparing it is a sound and lock-free
+    way to skip the open.
+
+    Returns `None` when the signature cannot be read, which callers must treat
+    as "unknown" and fall back to the real check -- never as "unchanged".
+    """
+    try:
+        signature: list[object] = []
+        for suffix in _JOB_STORE_SUFFIXES:
+            path = Path(f"{store.path}{suffix}")
+            try:
+                info = os.lstat(path)
+            except FileNotFoundError:
+                signature.append(None)
+            else:
+                signature.append((info.st_mtime_ns, info.st_size, info.st_ino))
+        return tuple(signature)
+    except OSError:
+        return None
+
+
+def _writer_authority_available() -> bool:
+    """Derived from :func:`_probe_writer_authority`, never a second probe.
+
+    The supervisor needs the refusing code to pick a recheck cadence and other
+    callers need only the boolean. Keeping one seam means a test that stubs
+    either reaches both; two independent probes meant a stub of this one left
+    the real one running, and its assertion fired on the supervisor thread
+    where pytest could only report it as a warning.
+    """
+    return _probe_writer_authority() is None
+
+
+def _probe_writer_authority() -> str | None:
+    """The code refusing write authority, or ``None`` when this replica holds it."""
+    try:
+        # cause="probe": an availability poll must not count as write activity
+        # for the lease idle-release timer.
+        get_manager().ensure_writer(cause="probe")
+    except OpError as exc:
+        if exc.code in _TRANSIENT_OPERATION_CODES:
+            return exc.code
+        raise
+    return None
+
+
+def _authority_recheck_seconds(code: str) -> float:
+    if code == "WRITER_COORDINATOR_CONTRACT_ABSENT":
+        return _CONTRACT_ABSENT_RECHECK_SECONDS
+    return _FOLLOWER_RECHECK_SECONDS
+
+
+@dataclass(frozen=True)
+class _ProcessOutcome:
+    state: str
+    error: str | None = None
+    blocked_reason: str | None = None
+
+
+def _hydration_outcome(error: Exception) -> _ProcessOutcome:
+    """Map a failure to bring a job's original onto the volume (D3, M4).
+
+    Transport and capacity failures return the job, and an original larger than the
+    whole capacity blocks it. Any other error, a verification mismatch included,
+    propagates and fails the job.
+    """
+    from . import media_store
+
+    assert isinstance(error, media_store.MediaStoreError)
+    if error.code in media_store.RETRYABLE_HYDRATION_CODES:
+        return _ProcessOutcome(_RETURNED, str(error))
+    if error.code == media_store.HYDRATION_TOO_LARGE_CODE:
+        return _ProcessOutcome(BLOCKED, str(error), media_jobs.HYDRATION_TOO_LARGE)
+    raise error
+
+
+def _content_digest(path: Path) -> str | None:
+    """Small-file optimistic identity used to protect a sidecar commit."""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _target_digest(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _evidence_version_or_none(content: str) -> str | None:
+    try:
+        return provenance.evidence_version(content)
+    except ValueError:
+        # Invalid metadata retains exact-byte protection; two invalid versions never match.
+        return None
+
+
+def _sidecar_input_matches(content: str, expected_hash: str, expected_version: str | None) -> bool:
+    return content_hash(content) == expected_hash or (
+        expected_version is not None and _evidence_version_or_none(content) == expected_version
+    )
+
+
+def _result_basis_holds(
+    content: str,
+    *,
+    media_type: str,
+    replaces: str | None,
+    expected_hash: str,
+    expected_version: str | None,
+) -> bool:
+    """Whether a computed result still applies to the sidecar as it stands now.
+
+    An ordinary result applies to the exact sidecar it was computed from. A reprocess
+    result replaces one extraction, so it applies while that extraction is still the
+    sidecar's own, whatever else touched the sidecar during a long compute: the write
+    itself still compares the bytes it replaces, so no edit is lost.
+    """
+    if replaces is None:
+        return _sidecar_input_matches(content, expected_hash, expected_version)
+    from . import media_processing
+
+    return (
+        media_processing.has_completed_transcript(content, media_type=media_type)
+        and prior_extraction.extraction_digest(content) == replaces
+    )
+
+
+def _sidecar_is_pending(path: Path) -> bool:
+    try:
+        return "\nprocessing_state: pending\n" in path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False
+
+
+def _stat_identity(path: Path) -> tuple[int, int, int, int, int] | None:
+    """Cheap parent-media identity that is safe to revalidate while locked."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+
+def _binary_identity(
+    path: Path,
+) -> tuple[tuple[int, int, int, int, int], str | None] | None:
+    """Stable media identity: bounded content hash, stat fallback for large files."""
+    before = _stat_identity(path)
+    if before is None:
+        return None
+    if before[2] > _MAX_IDENTITY_HASH_BYTES:
+        return (before, None)
+    digest = _content_digest(path)
+    if digest is None or _stat_identity(path) != before:
+        return None
+    return (before, digest)
+
+
+def _result_binary_identity(
+    identity: tuple[tuple[int, int, int, int, int], str | None]
+) -> dict[str, object]:
+    return {"stat": list(identity[0]), "sha256": identity[1]}
+
+
+class MediaWorker:
+    """Media supervisor with process-default and inline execution modes."""
+
+    def __init__(
+        self,
+        vault_root: Path,
+        *,
+        execution_mode: str | None = None,
+        idle_seconds: float | None = None,
+    ) -> None:
+        from . import media_store
+
+        self._vault_root = vault_root
+        #: The owner census that consecutive offloads share; it ends when this worker has no job left (D10).
+        self._offload_batch = media_store.OffloadBatch(vault_root)
+        selected = execution_mode or os.environ.get("EXOMEM_MEDIA_WORKER_MODE", "process")
+        if selected not in {"process", "inline"}:
+            raise ValueError("media worker mode must be process or inline")
+        self._execution_mode = selected
+        self._idle_seconds = idle_seconds if idle_seconds is not None else _idle_seconds()
+        self._q: queue.Queue[_Job | None] = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._clip_index = embeddings.get_clip_index(vault_root)
+        self._store = MediaJobStore(vault_root) if selected == "process" else None
+        self._wake = threading.Event()
+        self._stop_event = threading.Event()
+        self._child: subprocess.Popen | None = None
+        # The node media-slot lease: None unless cellctl rendered its URL into this cell.
+        self._slot = media_slot_client.SlotClient.from_env()
+        #: The anonymous bytes of the slot the next child is started under.
+        self._leased_anon_bytes: int | None = None
+        self._asr_runtime_failure: str | None = None
+        #: The GPU preflight verdict, taken once per worker lifetime before the first child starts.
+        self._gpu_preflight: cuda_containment.Preflight | None = None
+        #: The supervisor killed the running child itself, so its signal exit is not a crash.
+        self._child_stopped = False
+        self._memory_hold_until = 0.0
+        self._memory_recovery_at = 0.0
+        self._memory_recovery_interval = _MEMORY_RECOVERY_SECONDS
+        self._authority_backoff = _FOLLOWER_RECHECK_SECONDS
+        self._child_started_at = 0.0
+        self._engine_waits: list[_Job] = []
+        # The last pressure reading was high; the supervisor then reads it every pass
+        # so the memory-blocked retry backs off only while pressure lasts.
+        self._pressure_high = False
+
+    def start(self) -> None:
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop_event.clear()
+            if self._execution_mode == "process":
+                assert self._store is not None
+                recovered = self._store.recover_transient_failures()
+                if recovered:
+                    log.info(
+                        "media worker: recovered %d transient coordination failure(s)",
+                        recovered,
+                    )
+                sharing_recovered = self._store.recover_sharing_failures()
+                if sharing_recovered:
+                    log.info(
+                        "media worker: recovered %d sidecar sharing failure(s)",
+                        sharing_recovered,
+                    )
+                # Read here, converged on the supervisor thread: presenting a dropped
+                # job as pending writes its sidecar, which must not hold up startup.
+                self._engine_waits = self._store.engine_waits()
+                if media_brakes.enabled():
+                    self._recover_memory_verdicts()
+                    self._memory_recovery_at = _clock() + self._memory_recovery_interval
+                target = self._supervise
+                name = "exomem-media-supervisor"
+            else:
+                target = self._run
+                name = "exomem-media-inline"
+            self._thread = threading.Thread(
+                target=target, name=name, daemon=True
+            )
+            self._thread.start()
+            log.info("media extraction %s runtime started", self._execution_mode)
+            # Explicit opt-in is honored only for inline/debug mode. Product process
+            # mode starts no child and loads no model until durable work exists.
+            if self._execution_mode == "inline" and extract.asr_prewarm_enabled():
+                threading.Thread(
+                    target=extract.prewarm, name="exomem-asr-prewarm", daemon=True
+                ).start()
+            # Boot-time diarization readiness line (cheap: a path check + small JSON
+            # read) — the soft-fail design otherwise hides a broken stack entirely.
+            extract.log_diarization_readiness(self._vault_root)
+
+    def enqueue(
+        self,
+        *,
+        binary_path: Path,
+        sidecar_path: Path,
+        media_type: str,
+        do_ocr: bool = True,
+        do_clip: bool = False,
+        do_reembed: bool = False,
+    ) -> None:
+        if not self._is_automatic_media_sidecar(sidecar_path):
+            return
+        job = _Job(
+            id=None,
+            binary_path=binary_path,
+            sidecar_path=sidecar_path,
+            media_type=media_type,
+            do_ocr=do_ocr,
+            do_clip=do_clip,
+            do_reembed=do_reembed,
+        )
+        if self._execution_mode == "process":
+            assert self._store is not None
+            self._store.enqueue(job)
+            self._wake.set()
+        else:
+            self._q.put(job)
+
+    def _is_automatic_media_sidecar(self, sidecar: Path) -> bool:
+        """Gate automatic work without opening a structured-only sidecar."""
+        if not recall_policy.is_structured_only_path(self._vault_root, sidecar):
+            return True
+        try:
+            rel = sidecar.relative_to(self._vault_root).as_posix()
+        except ValueError:
+            return False
+        self._clip_index.purge_markdown_paths_if_present([rel])
+        return False
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        self._wake.set()
+        if self._execution_mode == "inline":
+            self._q.put(None)
+        child = self._child
+        if child is not None and child.poll() is None:
+            with contextlib.suppress(OSError):
+                child.terminate()
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=5)
+
+    def join(self, timeout: float | None = None) -> None:
+        """Block until the queue drains — used in tests."""
+        if self._execution_mode == "inline":
+            self._q.join() if timeout is None else _join_with_timeout(self._q, timeout)
+            return
+        assert self._store is not None
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            counts = self._store.counts()
+            if (
+                counts["pending"] == 0
+                and counts["running"] == 0
+                and self._store.pending_result_count() == 0
+            ):
+                return
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError("media worker queue did not drain")
+            time.sleep(0.02)
+
+    def _run(self) -> None:
+        while True:
+            job = self._q.get()
+            try:
+                if job is None:
+                    return
+                self._process(job)
+                if self._q.empty():
+                    self._offload_batch.end()
+                _evict(self._vault_root)
+            except Exception:  # noqa: BLE001 — a bad job must never kill the worker
+                log.exception("media worker job crashed: %s", getattr(job, "binary_path", "?"))
+            finally:
+                self._q.task_done()
+
+    def _process(self, job: _Job) -> _ProcessOutcome:
+        from . import held_fs, media_store, originals, reserved_paths
+
+        offload_error = None
+        # Offload runs before extraction can hand a blocked result to the parent.
+        # A store outage leaves its generation pending while extraction continues.
+        if job.do_offload:
+            try:
+                media_store.offload(self._vault_root, job.binary_path, batch=self._offload_batch)
+            except (media_store.MediaStoreError, held_fs.HeldFsError, reserved_paths.ReservedPathLeafError, OSError) as error:
+                offload_error = error
+            else:
+                if self._store is not None:
+                    self._store.complete_offload(job)
+        admitted = self._is_recall_admitted_media_sidecar(job.sidecar_path)
+        if not admitted and job.binary_path.exists():  # a removal's transcript went with it, in the deletion fan-out
+            self._discard_speech_progress(job)
+        if not admitted and not job.do_offload:
+            if self._store is not None:
+                self._store.complete(job)
+            return _ProcessOutcome(_COMPLETE)
+        outcome = _ProcessOutcome(_COMPLETE)
+        if admitted:
+            # The read pin spans all processing, including child result capture.
+            # Re-embedding reads only the sidecar and needs no original bytes.
+            if job.do_ocr or job.do_clip:
+                original = (media_store.open_original(self._vault_root, job.binary_path)
+                            if originals.binding_for(self._vault_root) is not None else contextlib.nullcontext())
+                with contextlib.ExitStack() as held:
+                    try:
+                        held.enter_context(original)
+                    except media_store.MediaStoreError as error:
+                        outcome = _hydration_outcome(error)
+                    else:
+                        outcome = self._process_original(job)
+            elif job.do_reembed:
+                self._run_reembed(job)
+        if outcome.state == _HANDOFF:
+            return outcome
+        if offload_error is not None:
+            # An offload that waits for the shared capacity spends no attempt (D12, choice 3).
+            if isinstance(offload_error, media_store.MediaStoreError) and offload_error.code == media_store.STORE_BUSY_CODE:
+                if not (job.do_ocr or job.do_clip or job.do_reembed):
+                    return _ProcessOutcome(_RETURNED, str(offload_error))
+                # The other stages ran, so the row keeps only its offload stage when it completes.
+                return outcome
+            raise offload_error
+        return outcome
+
+    def _process_original(self, job: _Job) -> _ProcessOutcome:
+        outcome = _ProcessOutcome(_COMPLETE)
+        if job.do_ocr and media_engines.stage_enabled(job.media_type):
+            outcome = self._run_extraction(job)
+        if outcome.state == _HANDOFF:
+            return outcome
+        if job.do_clip:
+            self._run_clip(job)
+        if job.do_reembed:
+            self._run_reembed(job)
+        return outcome
+
+    def _is_recall_admitted_media_sidecar(self, sidecar: Path) -> bool:
+        """Recheck semantic admission and purge stale CLIP rows when it is lost."""
+        if recall_policy.is_recall_candidate(self._vault_root, sidecar):
+            return True
+        try:
+            rel = sidecar.relative_to(self._vault_root).as_posix()
+        except ValueError:
+            return False
+        self._clip_index.purge_markdown_paths_if_present([rel])
+        return False
+
+    def _run_reembed(self, job: _Job) -> None:
+        """Re-embed a sidecar so semantic segmentation re-runs with late signals.
+
+        Enqueued AFTER a video's frame-OCR jobs (FIFO ⇒ runs once they're done),
+        so segment boundaries can use visual + OCR events. Soft-fails; the
+        earlier embed (transcript+speaker signals only) remains valid.
+        """
+        try:
+            with get_manager().mutation_guard(
+                self._vault_root,
+                operation="background_media_reembed_commit",
+                holder_kind="background",
+            ):
+                if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                    return
+                index_sync.upsert_after_write(self._vault_root, [job.sidecar_path])
+            log.info("re-embedded %s (post-frame-OCR segmentation)", job.sidecar_path.name)
+        except OpError as exc:
+            if exc.code in _TRANSIENT_OPERATION_CODES:
+                raise
+            log.exception("re-embed failed for %s", job.sidecar_path.name)
+        except Exception:  # noqa: BLE001 — enrichment, never fatal
+            log.exception("re-embed failed for %s", job.sidecar_path.name)
+
+    def _speech_progress(self, job: _Job) -> int | None:
+        """How many audio samples of a speech job's original the engine transcribed, else None."""
+        if not _speech_job(job):
+            return None
+        from . import onnx_asr_runtime
+
+        # The engine's own key for the original: the offset is read from the record it names.
+        rel = onnx_asr_runtime.binary_rel(self._vault_root, job.binary_path)
+        return None if rel is None else onnx_asr_runtime.progress_offset(self._vault_root, rel)
+
+    def _discard_speech_progress(self, job: _Job) -> None:
+        """Forget the partial transcript of a speech job that leaves the queue with its file kept.
+
+        A removed file loses its transcript in the deletion fan-out; this covers the
+        other ends: a purged sidecar, a terminal failure and a replaced input.
+        """
+        if not _speech_job(job):
+            return
+        from . import onnx_asr_runtime
+
+        rel = onnx_asr_runtime.binary_rel(self._vault_root, job.binary_path)
+        if rel is not None:
+            with contextlib.suppress(OSError):
+                onnx_asr_runtime.discard_progress(self._vault_root, rel)
+
+    def _run_extraction(self, job: _Job) -> _ProcessOutcome:
+        # A startup/watcher race may complete the transcript after this job was
+        # queued or even claimed. Re-read before ASR; the final commit repeats
+        # this check under mutation authority to close the compute-window race.
+        from . import media_processing
+
+        if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+            return _ProcessOutcome(_COMPLETE)
+        try:
+            claimed_content, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+        except (OSError, UnicodeError, PathGuardError):
+            return _ProcessOutcome(_STALE, "input identity unavailable")
+        completed = media_processing.has_completed_transcript(
+            claimed_content, media_type=job.media_type
+        )
+        # Only an explicit request extracts over a completed transcript.
+        reprocessing = completed and job.reprocess and job.do_ocr
+        if completed and not reprocessing:
+            return _ProcessOutcome(_COMPLETE)
+        replaces = prior_extraction.extraction_digest(claimed_content) if reprocessing else None
+        # A request names the language or the multilingual mode; failing that, the sidecar keeps the last request's.
+        if job.language is not None or job.language_mode == LANGUAGE_MODE_MULTILINGUAL:
+            language, multilingual = job.language, job.language_mode == LANGUAGE_MODE_MULTILINGUAL
+        else:
+            language, multilingual = preserve.asr_language_pin(claimed_content)
+        expected_sidecar = guard.expected_content_hash
+        expected_evidence_version = _evidence_version_or_none(claimed_content)
+        expected_binary = _binary_identity(job.binary_path)
+        if expected_sidecar is None or expected_binary is None:
+            log.warning("extraction skip %s: input identity unavailable", job.binary_path.name)
+            return _ProcessOutcome(_STALE, "input identity unavailable")
+        if job.media_type in {"audio", "video"} and self._asr_runtime_failure is not None:
+            committed = self._block_compute_runtime_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                error=self._asr_runtime_failure,
+            )
+            return self._publication_outcome(
+                committed, BLOCKED, self._asr_runtime_failure
+            )
+        try:
+            kwargs = {"media_type": job.media_type, "vault_root": self._vault_root}
+            signature = inspect.signature(extract.extract_text)
+            parameters = signature.parameters.values()
+            accepts_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters)
+            if accepts_kwargs or "timestamps" in signature.parameters:
+                kwargs["timestamps"] = job.media_type in {"audio", "video"}
+            if language is not None:
+                kwargs["language"] = language
+            if multilingual:
+                kwargs["multilingual"] = True
+            result = extract.extract_text(job.binary_path, **kwargs)
+        except extract.TimestampRenderingUnavailable as e:
+            error = f"{type(e).__name__}: {e}"
+            log.warning("timestamp rendering unavailable for %s: %s", job.binary_path.name, e)
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=BLOCKED,
+                error=error,
+                next_action=_RENDERER_ACTION,
+            )
+            return self._publication_outcome(committed, BLOCKED, error)
+        except extract.ExtractionUnavailable as e:
+            error = f"{type(e).__name__}: {e}"
+            log.warning("extraction unavailable for %s: %s", job.binary_path.name, e)
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=BLOCKED,
+                error=error,
+                next_action=media_engines.unavailable_next_action(),
+                blocked_reason=media_jobs.ENGINE_UNAVAILABLE,
+            )
+            return self._publication_outcome(committed, BLOCKED, error)
+        except extract.EngineDisabled as e:
+            # The media waits, shown as pending, and returns when the engine is enabled.
+            error = f"{type(e).__name__}: {e}"
+            log.info("%s waits for the %s engine: %s", job.binary_path.name, e.engine, e)
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=BLOCKED,
+                error=error,
+                next_action=media_jobs.WAIT_ACTION,
+                blocked_reason=media_jobs.ENGINE_DISABLED,
+                blocked_context=e.engine,
+                presented_pending=True,
+            )
+            return self._publication_outcome(committed, BLOCKED, error)
+        except (extract.UnsupportedLanguage, extract.MultilingualUnsupported) as e:
+            error = f"{type(e).__name__}: {e}"
+            log.warning("unsupported language for %s: %s", job.binary_path.name, e)
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=FAILED,
+                error=error,
+                next_action=(
+                    media_jobs.MULTILINGUAL_UNSUPPORTED_ACTION
+                    if isinstance(e, extract.MultilingualUnsupported)
+                    else _LANGUAGE_ACTION
+                ),
+                retryable=False,
+            )
+            return self._publication_outcome(committed, FAILED, error)
+        except (runtime_resources.ModelBusyError, asr_runtime.ASRGpuBusy):
+            raise
+        except MemoryError:
+            raise  # a memory stop returns the job to pending; never an artifact failure
+        except asr_runtime.ASRComputeRuntimeError as e:
+            error = f"{type(e).__name__}: {e}"
+            # Ledger first: a crash can leave only a stale sidecar, never a job
+            # that starts ASR again before the runtime is repaired or CPU is explicit.
+            self._asr_runtime_failure = error
+            committed = self._block_compute_runtime_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                error=error,
+            )
+            return self._publication_outcome(committed, BLOCKED, error)
+        except Exception as e:  # noqa: BLE001 — a corrupt file shouldn't re-loop forever
+            error = f"{type(e).__name__}: {e}"
+            log.exception("extraction failed for %s", job.binary_path.name)
+            self._discard_speech_progress(job)
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=FAILED,
+                error=error,
+                next_action=_FAILED_ACTION,
+            )
+            return self._publication_outcome(committed, FAILED, error)
+        text = result.sidecar_text
+        if preserve._has_ambiguous_legacy_preserved_notes(claimed_content):
+            return _ProcessOutcome(
+                BLOCKED,
+                "AMBIGUOUS_SIDECAR_BOUNDARY: unmarked nonempty preserved notes have no machine-owned boundary",
+            )
+        def basis_holds(content: str) -> bool:
+            return _result_basis_holds(
+                content,
+                media_type=job.media_type,
+                replaces=replaces,
+                expected_hash=expected_sidecar,
+                expected_version=expected_evidence_version,
+            )
+
+        committed = False
+        for commit_attempt in range(3):
+            try:
+                committed = self._commit_sidecar_extraction(
+                    job,
+                    expected_sidecar=expected_sidecar,
+                    expected_evidence_version=expected_evidence_version,
+                    expected_binary=expected_binary,
+                    text=text,
+                    engine=result.engine,
+                    speakers=result.speakers,
+                    speaker_verification=result.speaker_verification or "unavailable",
+                    asr=result.asr,
+                    ocr=result.ocr,
+                    replaces=replaces,
+                )
+            except preserve.PreserveError as exc:
+                if exc.code != "AMBIGUOUS_SIDECAR_BOUNDARY":
+                    raise
+                error = f"{exc.code}: {exc.reason}"
+                return _ProcessOutcome(BLOCKED, error)
+            if committed:
+                break
+            try:
+                latest, _guard = read_guarded_text(self._vault_root, job.sidecar_path)
+            except (OSError, UnicodeError, PathGuardError):
+                break
+            if _binary_identity(job.binary_path) != expected_binary or not basis_holds(latest):
+                break
+            if commit_attempt < 2:
+                time.sleep(0.02)
+        if not committed:
+            stale_parts: list[str] = []
+            try:
+                latest, _guard = read_guarded_text(self._vault_root, job.sidecar_path)
+            except (OSError, UnicodeError, PathGuardError):
+                sidecar_changed = True
+            else:
+                sidecar_changed = not basis_holds(latest)
+            binary_changed = _binary_identity(job.binary_path) != expected_binary
+            if binary_changed and reprocessing:
+                # The request named a file that has since been replaced. The sidecar keeps
+                # its text; reconciliation processes the new file in the ordinary way.
+                log.info("reprocess dropped for %s: media identity changed", job.binary_path.name)
+                return _ProcessOutcome(_COMPLETE)
+            if sidecar_changed:
+                stale_parts.append(
+                    "transcript changed" if reprocessing else "sidecar content changed"
+                )
+            if binary_changed:
+                stale_parts.append("media identity changed")
+            if binary_changed and not sidecar_changed:
+                if self._store is not None:
+                    current_identity = _binary_identity(job.binary_path)
+                    if current_identity is not None and self._store.record_result(
+                        job,
+                        kind="pending",
+                        sidecar_before_hash=expected_sidecar,
+                        sidecar_before_evidence_version=expected_evidence_version,
+                        binary_identity=_result_binary_identity(current_identity),
+                        payload={
+                            "error": "media identity changed",
+                            "next_action": "wait for media reconciliation",
+                        },
+                    ):
+                        return _ProcessOutcome(_HANDOFF)
+                if self._store is None:
+                    current_identity = _binary_identity(job.binary_path)
+                    if current_identity is not None:
+                        self._commit_processing_failure(
+                            job,
+                            expected_sidecar=expected_sidecar,
+                            expected_evidence_version=expected_evidence_version,
+                            expected_binary=current_identity,
+                            state=media_jobs.PENDING,
+                            error="media identity changed",
+                            next_action="wait for media reconciliation",
+                            presented_pending=True,
+                        )
+            detail = ", ".join(stale_parts) or "commit precondition changed"
+            return _ProcessOutcome(_STALE, f"stale extraction: {detail}")
+        log.info(
+            "extracted %s via %s (%d chars)", job.binary_path.name, result.engine, len(result.text)
+        )
+        return self._publication_outcome(committed, _COMPLETE, None)
+
+    def _publication_outcome(
+        self, committed: bool, state: str, error: str | None
+    ) -> _ProcessOutcome:
+        if not committed:
+            return _ProcessOutcome(_STALE)
+        if self._store is not None:
+            return _ProcessOutcome(_HANDOFF, error)
+        return _ProcessOutcome(state, error)
+
+    def _block_compute_runtime_failure(
+        self,
+        job: _Job,
+        *,
+        expected_sidecar: str,
+        expected_evidence_version: str | None = None,
+        expected_binary: tuple[tuple[int, int, int, int, int], str | None],
+        error: str,
+    ) -> bool:
+        try:
+            committed = self._commit_processing_failure(
+                job,
+                expected_sidecar=expected_sidecar,
+                expected_evidence_version=expected_evidence_version,
+                expected_binary=expected_binary,
+                state=BLOCKED,
+                error=error,
+                next_action=_COMPUTE_RUNTIME_ACTION,
+            )
+            return committed
+        except Exception:  # noqa: BLE001 - durable ledger authority must survive sidecar lag
+            log.warning("compute failure sidecar publish deferred for %s", job.binary_path, exc_info=True)
+            return False
+
+    def converge_compute_runtime_blocked(self, job: _Job) -> bool:
+        """Repair blocked compute presentation without constructing an ASR model."""
+        if job.state != BLOCKED or not media_jobs.is_compute_runtime_error(job.last_error):
+            return False
+        try:
+            content, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+        except (OSError, UnicodeError, PathGuardError):
+            return False
+        expected_sidecar = guard.expected_content_hash
+        expected_binary = _binary_identity(job.binary_path)
+        if expected_sidecar is None or expected_binary is None:
+            return False
+        return self._block_compute_runtime_failure(
+            job,
+            expected_sidecar=expected_sidecar,
+            expected_evidence_version=_evidence_version_or_none(content),
+            expected_binary=expected_binary,
+            error=str(job.last_error),
+        )
+
+    def publish_over_budget(self, job: _Job, context: str) -> bool:
+        """Show the tenant that the file exceeds this deployment's processing budget.
+
+        `context` is what the verdict depended on (`media_brakes.context`, or
+        `media_brakes.timeout_context` for a file that outran the watchdog).
+        """
+        expected_sidecar = _content_digest(job.sidecar_path)
+        expected_binary = _binary_identity(job.binary_path)
+        if expected_sidecar is None or expected_binary is None:
+            return False
+        return self._commit_processing_failure(
+            job,
+            expected_sidecar=expected_sidecar,
+            expected_binary=expected_binary,
+            state=BLOCKED,
+            error=media_jobs.OVER_BUDGET_ERROR,
+            next_action=media_jobs.OVER_BUDGET_ACTION,
+            # Only a changed cell limit, engine budget or longer job timeout lets it
+            # try again, so the sidecar must not offer a retry the ledger refuses.
+            retryable=False,
+            blocked_reason=media_jobs.OVER_BUDGET,
+            blocked_context=context,
+        )
+
+    def _room_for_next_job(self) -> bool:
+        """Pressure is low and the next pending job's budget fits under the ceiling."""
+        assert self._store is not None
+        cell = media_brakes.read_cell()
+        config = media_brakes.settings(cell=cell)
+        self._note_pressure(media_brakes.pressure_exceeded(cell, config))
+        if self._pressure_high:
+            return False
+        job = self._store.next_pending()
+        if job is None:
+            return True  # nothing to admit; a child finds no claim and exits idle
+        return media_brakes.admits(cell, _budget_for(job, config), config)
+
+    def _converge_engines(self, waits: list[_Job]) -> None:
+        """Converge engine-blocked jobs (`engine_waits`) with this start's engines.
+
+        A job whose engine is now available, or whose wait for a disabled engine has
+        ended, returns to pending. A job blocked on an engine the deployment switched
+        off loses that stage: its sidecar is first shown as pending again, so no old
+        install instruction stays, and its media waits with no job until the engine
+        is enabled.
+        """
+        assert self._store is not None
+        enabled = media_engines.enabled_engines()
+        requeued = dropped = 0
+        for job in waits:
+            if job.blocked_reason == media_jobs.ENGINE_DISABLED:
+                if job.blocked_context in enabled:
+                    requeued += self._store.requeue_engine_wait(job)
+            elif not media_engines.stage_enabled(job.media_type):
+                if self._present_pending(job):
+                    dropped += self._store.drop_extraction_stage(job)
+            elif media_engines.stage_available(job.media_type):
+                requeued += self._store.requeue_engine_wait(job)
+        if requeued or dropped:
+            log.info(
+                "media worker: requeued %d job(s) whose engine is available, "
+                "dropped %d whose engine is switched off",
+                requeued,
+                dropped,
+            )
+
+    def _present_pending(self, job: _Job) -> bool:
+        """Show a blocked job's media as pending. True once no sidecar shows the block."""
+        try:
+            with get_manager().mutation_guard(
+                self._vault_root,
+                operation="background_media_pending_presentation",
+                holder_kind="background",
+            ):
+                if not job.sidecar_path.exists() or not self._is_recall_admitted_media_sidecar(
+                    job.sidecar_path
+                ):
+                    return True
+                return preserve.update_sidecar_processing_pending(
+                    self._vault_root,
+                    job.sidecar_path,
+                    attempts=max(1, job.attempts),
+                    next_action=media_jobs.WAIT_ACTION,
+                )
+        except (OSError, UnicodeError, OpError, preserve.PreserveError):
+            # Kept blocked; the next supervisor start presents it again.
+            log.warning("media worker: pending presentation deferred for %s", job.sidecar_path.name, exc_info=True)
+            return False
+
+    def _context_for(self, cell: media_brakes.CellMemory, config: media_brakes.Settings):
+        def context(job: _Job) -> str:
+            return media_brakes.context(cell, _budget_for(job, config), config)
+
+        return context
+
+    def _verdict_lifted(self, cell: media_brakes.CellMemory, config: media_brakes.Settings):
+        context = self._context_for(cell, config)
+
+        def lifted(job: _Job, recorded: str | None) -> bool:
+            return media_brakes.verdict_lifted(recorded, current=context(job), config=config)
+
+        return lifted
+
+    def _recover_memory_verdicts(self) -> tuple[int, bool]:
+        """Return jobs whose memory verdict may no longer hold; report the pressure.
+
+        Memory-blocked jobs return only while pressure is low. Returns (how many
+        returned, whether pressure was high).
+        """
+        assert self._store is not None
+        cell = media_brakes.read_cell()
+        if cell.problem is not None:
+            # No trustworthy limit to compare with: an unreadable cgroup must not look
+            # like a changed limit and send every over-budget file round again.
+            return 0, True
+        config = media_brakes.settings(cell=cell)
+        pressure = media_brakes.pressure_exceeded(cell, config)
+        recovered = self._store.recover_memory_verdicts(
+            lifted=self._verdict_lifted(cell, config),
+            include_memory_blocked=not pressure,
+        )
+        if recovered:
+            log.info("media worker: returned %d memory-blocked job(s) to pending", recovered)
+        return recovered, pressure
+
+    def _note_pressure(self, exceeded: bool) -> None:
+        """Record a pressure reading; pressure that clears resets the retry backoff."""
+        if exceeded:
+            self._pressure_high = True
+        elif self._pressure_high:
+            self._pressure_high = False
+            self._reset_memory_recovery()
+
+    def _reset_memory_recovery(self) -> None:
+        self._memory_recovery_interval = _MEMORY_RECOVERY_SECONDS
+        self._memory_recovery_at = min(self._memory_recovery_at, _clock() + _MEMORY_RECOVERY_SECONDS)
+
+    def _stop_child(self, child: subprocess.Popen, kind: str) -> None:
+        """Stop the media child and its tools; record a stop of `kind` for its job.
+
+        A pressure stop is a memory stop. A watchdog stop spends the time budget
+        instead: it counts apart, waits for no memory, and after the stop limit the
+        file is over budget, shown to the tenant as the memory over-budget outcome is.
+        """
+        assert self._store is not None
+        cell = media_brakes.read_cell()
+        config = media_brakes.settings(cell=cell)
+        if kind == media_brakes.TIMEOUT:
+            log.warning(
+                "media worker: media child ran past %.0fs; stopping it",
+                config.job_timeout_seconds,
+            )
+        else:
+            log.warning(
+                "media worker: memory pressure %s (anon %s B%s); stopping the media child",
+                f"{cell.pressure_avg10:.1f}%" if cell.pressure_avg10 is not None else "unread",
+                cell.anon,
+                f", brakes unavailable: {cell.problem}" if cell.problem else "",
+            )
+        self._child_stopped = True
+        with contextlib.suppress(OSError):
+            os.killpg(child.pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            child.wait(timeout=5)
+        if child.returncode is not None:
+            _reap_group(child.pid)
+        if kind == media_brakes.TIMEOUT:
+            exceeded = media_brakes.timeout_context(config)
+            for job in self._store.running_jobs():
+                verdict = self._store.record_timeout_stop(
+                    job,
+                    stop_limit=config.stop_limit,
+                    context=exceeded,
+                    progress=self._speech_progress(job),
+                )
+                if verdict == media_jobs.OVER_BUDGET:
+                    log.warning(
+                        "media worker: %s ran past the job timeout %d times; now over budget",
+                        job.binary_path.name,
+                        config.stop_limit,
+                    )
+                    self.publish_over_budget(job, exceeded)
+            return
+        context = self._context_for(cell, config)
+        for job in self._store.running_jobs():
+            self._store.record_memory_stop(
+                job,
+                kind=kind,
+                stop_limit=config.stop_limit,
+                context=context(job),
+                progress=self._speech_progress(job),
+            )
+        self._memory_hold_until = _clock() + _MEMORY_WAIT_SECONDS
+
+    def _commit_sidecar_extraction(
+        self,
+        job: _Job,
+        *,
+        expected_sidecar: str,
+        expected_evidence_version: str | None = None,
+        expected_binary: tuple[tuple[int, int, int, int, int], str | None],
+        text: str,
+        engine: str,
+        speakers: list[dict] | None = None,
+        speaker_verification: str | None = None,
+        asr: AsrFacts | None = None,
+        ocr: OcrFacts | None = None,
+        replaces: str | None = None,
+    ) -> bool:
+        if self._store is not None:
+            payload: dict[str, object] = {
+                "text": preserve._cap_extracted_text(text),
+                "engine": engine,
+                "speakers": speakers or [],
+                "speaker_verification": speaker_verification or "unavailable",
+            }
+            if asr is not None and asr.reported:
+                payload["asr"] = asr.as_payload()
+            if ocr is not None:
+                payload["ocr"] = OcrFacts(
+                    ocr.confidence, preserve._cap_extracted_text(ocr.low_confidence_text)
+                ).as_payload()
+            if replaces is not None:
+                payload["replaces"] = replaces
+            return self._store.record_result(
+                job,
+                kind="extraction",
+                sidecar_before_hash=expected_sidecar,
+                sidecar_before_evidence_version=expected_evidence_version,
+                binary_identity=_result_binary_identity(expected_binary),
+                payload=payload,
+            )
+        with get_manager().mutation_guard(
+            self._vault_root,
+            operation="background_media_extraction_commit",
+            holder_kind="background",
+        ):
+            if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                return False
+            try:
+                before, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+            except (OSError, UnicodeError, PathGuardError):
+                return False
+            from . import media_processing
+
+            if (
+                _binary_identity(job.binary_path) != expected_binary
+                or not _result_basis_holds(
+                    before,
+                    media_type=job.media_type,
+                    replaces=replaces,
+                    expected_hash=expected_sidecar,
+                    expected_version=expected_evidence_version,
+                )
+            ):
+                log.warning("extraction result stale for %s; newer canonical input preserved", job.sidecar_path.name)
+                return False
+            if replaces is None and media_processing.has_completed_transcript(
+                before, media_type=job.media_type
+            ):
+                return False
+            writes = self._extraction_writes(
+                job,
+                before,
+                guard,
+                text=text,
+                engine=engine,
+                speakers=speakers,
+                speaker_verification=speaker_verification,
+                asr=asr,
+                ocr=ocr,
+                reprocessing=replaces is not None,
+            )
+            receipts = deferred_index.add_full_receipts(
+                self._vault_root,
+                [write.path.relative_to(self._vault_root).as_posix() for write in writes],
+            )
+            try:
+                handoff = preserve.commit_media_sidecar_writes(
+                    self._vault_root,
+                    writes,
+                    post_commit_fanout=False,
+                    defer_graph_completion=True,
+                )
+            except ContentHashMismatchError:
+                return False
+            except PathGuardError as error:
+                if error.code != "PATH_GUARD_CONTENT":
+                    raise
+                return False
+            assert isinstance(handoff, DeferredGraphCompletion)
+        self._complete_deferred_graph_completion(handoff, receipts)
+        return True
+
+    def _extraction_writes(
+        self,
+        job: _Job,
+        before: str,
+        guard: object,
+        *,
+        text: str,
+        engine: str,
+        speakers: list[dict] | None,
+        speaker_verification: str | None,
+        asr: AsrFacts | None,
+        ocr: OcrFacts | None,
+        reprocessing: bool,
+    ) -> tuple[PlannedWrite, ...]:
+        """The sidecar write for a finished extraction; a reprocess adds the page for the old one.
+
+        The old extraction moves to its own page in the same atomic batch, so the sidecar
+        always holds one extraction, and a rejected batch leaves the old text where it was.
+        """
+        if not reprocessing:
+            target = preserve.render_sidecar_extraction(
+                before,
+                text=text,
+                engine=engine,
+                speakers=speakers,
+                speaker_verification=speaker_verification,
+                attempts=max(1, job.attempts),
+                asr=asr,
+                ocr=ocr,
+            )
+            return (
+                PlannedWrite(job.sidecar_path, target, expected_hash=content_hash(before), guard=guard),
+            )
+        page, ordinal = prior_extraction.next_page(
+            job.sidecar_path, prior_extraction.links_of(before)
+        )
+        prior_page = prior_extraction.render(
+            before,
+            artifact_name=job.sidecar_path.name.removesuffix(".md"),
+            sidecar_link=prior_extraction.link_to(self._vault_root, job.sidecar_path),
+            ordinal=ordinal,
+            date_iso=temporal.stamp(temporal.now()),
+        )
+        target = preserve.render_sidecar_extraction(
+            before,
+            text=text,
+            engine=engine,
+            speakers=speakers,
+            speaker_verification=speaker_verification,
+            attempts=max(1, job.attempts),
+            asr=asr,
+            ocr=ocr,
+            prior_extractions=(
+                *prior_extraction.links_of(before),
+                prior_extraction.link_to(self._vault_root, page),
+            ),
+            reset_speakers=True,
+        )
+        return (
+            PlannedWrite(job.sidecar_path, target, expected_hash=content_hash(before), guard=guard),
+            PlannedWrite(page, prior_page, expected_hash=MISSING_CONTENT_HASH),
+        )
+
+    def _reprocesses_completed(self, job: _Job) -> bool:
+        """Whether this job re-extracts a transcript that is complete, so it must not touch the sidecar."""
+        if not (job.reprocess and job.do_ocr):
+            return False
+        from . import media_processing
+
+        try:
+            content, _guard = read_guarded_text(self._vault_root, job.sidecar_path)
+        except (OSError, UnicodeError, PathGuardError):
+            return False
+        return media_processing.has_completed_transcript(content, media_type=job.media_type)
+
+    def _commit_processing_failure(
+        self,
+        job: _Job,
+        *,
+        expected_sidecar: str,
+        expected_evidence_version: str | None = None,
+        expected_binary: tuple[tuple[int, int, int, int, int], str | None],
+        state: str,
+        error: str,
+        next_action: str,
+        retryable: bool = True,
+        blocked_reason: str | None = None,
+        blocked_context: str | None = None,
+        presented_pending: bool = False,
+    ) -> bool:
+        """Retain a failure and publish it against the same validated snapshot."""
+        if self._reprocesses_completed(job):
+            # The complete transcript is the one thing a failed re-extraction must not damage,
+            # so the failure lives on the job alone and the sidecar bytes stay as they are.
+            if self._store is None:
+                return True
+            return self._store.mark(
+                job, state, error, blocked_reason=blocked_reason, blocked_context=blocked_context
+            )
+        if self._store is not None:
+            payload: dict[str, object] = {
+                "error": error,
+                "next_action": next_action,
+                "retryable": retryable,
+            }
+            if presented_pending:
+                payload["presented_state"] = media_jobs.PENDING
+            return self._store.record_result(
+                job,
+                kind="failure",
+                sidecar_before_hash=expected_sidecar,
+                sidecar_before_evidence_version=expected_evidence_version,
+                binary_identity=_result_binary_identity(expected_binary),
+                payload=payload,
+                terminal_state=state,
+                blocked_reason=blocked_reason,
+                blocked_context=blocked_context,
+            )
+        for _attempt in range(3):
+            with get_manager().mutation_guard(
+                self._vault_root,
+                operation="background_media_failure_commit",
+                holder_kind="background",
+            ):
+                if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                    return False
+                try:
+                    before, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+                except (OSError, UnicodeError, PathGuardError):
+                    return False
+                from . import media_processing
+
+                if (
+                    _binary_identity(job.binary_path) != expected_binary
+                    or not _sidecar_input_matches(before, expected_sidecar, expected_evidence_version)
+                ):
+                    log.warning("processing failure stale for %s; newer canonical input preserved", job.sidecar_path.name)
+                    return False
+                if media_processing.has_completed_transcript(before, media_type=job.media_type):
+                    return False
+                if presented_pending:
+                    target = preserve.render_sidecar_processing_pending(
+                        before, attempts=max(1, job.attempts), next_action=next_action
+                    )
+                else:
+                    target = preserve.render_sidecar_processing_failure(
+                        before,
+                        state=state,
+                        attempts=max(1, job.attempts),
+                        error=error,
+                        retryable=retryable,
+                        next_action=next_action,
+                    )
+                receipts = deferred_index.add_full_receipts(
+                    self._vault_root,
+                    [job.sidecar_path.relative_to(self._vault_root).as_posix()],
+                )
+                try:
+                    handoff = preserve.commit_media_sidecar_writes(
+                        self._vault_root,
+                        (PlannedWrite(job.sidecar_path, target, expected_hash=content_hash(before), guard=guard),),
+                        post_commit_fanout=False,
+                        defer_graph_completion=True,
+                    )
+                except ContentHashMismatchError:
+                    continue
+                except PathGuardError as conflict:
+                    if conflict.code != "PATH_GUARD_CONTENT":
+                        raise
+                    continue
+                assert isinstance(handoff, DeferredGraphCompletion)
+            self._complete_deferred_graph_completion(handoff, receipts)
+            return True
+        return False
+
+    def _complete_deferred_graph_completion(
+        self,
+        token: DeferredGraphCompletion,
+        receipts: list[deferred_index.DeferredReceipt],
+        *,
+        publication_intents: tuple[object, ...] | list[object] = (),
+        recover_on_mismatch: bool = False,
+        parent_receipted_handoff: bool = False,
+    ) -> bool:
+        publication_intents = tuple(publication_intents)
+        completed = False
+        index_reports: list[object] = []
+        registered_checkpoint: graph_sync.GraphSyncCheckpoint | None = None
+        try:
+            needs_recovery = False
+            with get_manager().mutation_guard(
+                self._vault_root,
+                operation="background_media_graph_completion",
+                holder_kind="background",
+            ):
+                floor_path = graph_sync.floor_path(self._vault_root)
+                checkpoint_path = graph_sync.checkpoint_path(self._vault_root)
+                try:
+                    floor_raw = graph_sync._read_bounded_bytes(
+                        floor_path,
+                        limit=graph_sync._FLOOR_READ_LIMIT,
+                        vault_root=self._vault_root,
+                    )
+                except FileNotFoundError:
+                    needs_recovery = True
+                else:
+                    floor = graph_sync.GraphSyncGenerationFloor.parse(floor_raw)
+                    if floor is None or floor.generation != token.checkpoint.generation:
+                        needs_recovery = True
+                    else:
+                        floor_content = floor_raw.decode("utf-8")
+                        try:
+                            checkpoint_raw = graph_sync._read_bounded_bytes(
+                                checkpoint_path,
+                                limit=graph_sync._CHECKPOINT_READ_LIMIT,
+                                vault_root=self._vault_root,
+                            )
+                        except FileNotFoundError:
+                            predecessor = None
+                            checkpoint_hash = MISSING_CONTENT_HASH
+                        else:
+                            predecessor = graph_sync.GraphSyncCheckpoint.parse(checkpoint_raw)
+                            checkpoint_hash = (
+                                content_hash(checkpoint_raw.decode("utf-8"))
+                                if predecessor is not None
+                                else None
+                            )
+                        if predecessor != token.predecessor or checkpoint_hash is None:
+                            needs_recovery = True
+                        else:
+                            batch_atomic_write(
+                                [
+                                    PlannedWrite(
+                                        floor_path,
+                                        floor_content,
+                                        expected_hash=content_hash(floor_content),
+                                    ),
+                                    PlannedWrite(
+                                        checkpoint_path,
+                                        token.checkpoint.render(),
+                                        expected_hash=checkpoint_hash,
+                                    )
+                                ],
+                                vault_root=self._vault_root,
+                                post_commit_fanout=False,
+                            )
+            if needs_recovery:
+                if not recover_on_mismatch or not index_sync.recover_full_receipt_graph_epoch(
+                    self._vault_root, build=False
+                ):
+                    return False
+            fanout_scope = (
+                epistemic_graph.parent_receipted_graph_handoff(
+                    self._vault_root,
+                    state_root=get_manager()
+                    ._mutation_coordinator_for(self._vault_root)
+                    .state_root,
+                    receipts=tuple(receipts),
+                )
+                if parent_receipted_handoff
+                else contextlib.nullcontext()
+            )
+            with fanout_scope:
+                if parent_receipted_handoff:
+                    registered_checkpoint = graph_sync.read_checkpoint(self._vault_root)
+                try:
+                    completed = post_commit_batch_fanout(
+                        self._vault_root,
+                        list(token.replaced),
+                        index_reports if parent_receipted_handoff else None,
+                        None,
+                        publication_intents=publication_intents,
+                    )
+                finally:
+                    if (
+                        parent_receipted_handoff
+                        and registered_checkpoint is not None
+                        and graph_sync.read_checkpoint(self._vault_root)
+                        == registered_checkpoint
+                        and any(
+                            isinstance(report, index_sync.IndexSyncReport)
+                            and any(
+                                component.component == "epistemic_graph"
+                                and component.outcome == "registered"
+                                for component in report.components
+                            )
+                            for report in index_reports
+                        )
+                    ):
+                        graph_sync.start_registered_detached(
+                            self._vault_root,
+                            state_root=get_manager()
+                            ._mutation_coordinator_for(self._vault_root)
+                            .state_root,
+                            expected_checkpoint=registered_checkpoint,
+                        )
+            if completed is True:
+                deferred_index.clear_full_receipts(self._vault_root, receipts)
+                completed = True
+                return True
+        except Exception:  # noqa: BLE001 - canonical media is already committed
+            log.exception("media deferred graph completion failed")
+        finally:
+            if not completed and publication_intents:
+                from . import file_watcher
+
+                file_watcher.abort_publication_intents(
+                    publication_intents, force_paths=token.replaced
+                )
+        return False
+
+    def _run_clip(self, job: _Job) -> None:
+        """CLIP-embed an image (one vector) or a video (per-keyframe vectors) so it's
+        findable by visual content — video at the specific moment, not as one blur."""
+        if not embeddings.clip_enabled():
+            # A job queued before CLIP was turned off skips it, as the scan does.
+            return
+        if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+            return
+        is_video = job.media_type == "video"
+        scene_pairs: list | None = None
+        parent_clip_samples: tuple[projected_retrieval.ProjectionClipSample, ...] | None = None
+        expected_binary = _binary_identity(job.binary_path)
+        if expected_binary is None:
+            log.warning("CLIP skip %s: media identity unavailable", job.binary_path.name)
+            return
+        try:
+            if is_video and scene_frames.scene_frames_enabled():
+                # One decode pass yields both the per-scene vectors AND the full-res
+                # representative images to persist (EXOMEM_VIDEO_SCENE_FRAMES).
+                frames, scene_pairs = embeddings.embed_video_scenes(job.binary_path)
+                parent_clip_samples = scene_frames.projection_clip_samples(frames)
+            elif is_video:
+                frames = embeddings.embed_video_frames(job.binary_path)
+            else:
+                vec = embeddings.embed_image(job.binary_path)
+        except embeddings.ClipUnavailable as e:
+            log.warning("CLIP unavailable for %s: %s", job.binary_path.name, e)
+            return
+        except runtime_resources.ModelBusyError:
+            raise
+        except Exception:  # noqa: BLE001 — a bad image must not kill the worker
+            log.exception("CLIP embedding failed for %s", job.binary_path.name)
+            return
+        with get_manager().mutation_guard(
+            self._vault_root,
+            operation="background_media_clip_commit",
+            holder_kind="background",
+        ):
+            if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                return
+            if _binary_identity(job.binary_path) != expected_binary:
+                log.warning(
+                    "CLIP result stale for %s; changed media was not indexed",
+                    job.binary_path.name,
+                )
+                return
+            try:
+                rel = job.binary_path.resolve().relative_to(self._vault_root.resolve()).as_posix()
+                mtime = job.binary_path.stat().st_mtime
+            except (ValueError, OSError) as e:
+                log.warning("CLIP skip %s: %s", job.binary_path.name, e)
+                return
+            if is_video:
+                self._clip_index.upsert_frames(rel, frames, mtime)
+                log.info("CLIP-indexed %s (%d keyframes)", job.binary_path.name, len(frames))
+                if scene_pairs:
+                    assert parent_clip_samples is not None
+                    self._persist_scene_frames(
+                        job,
+                        scene_pairs,
+                        parent_clip_samples=parent_clip_samples,
+                        expected_binary=expected_binary,
+                    )
+            else:
+                self._clip_index.upsert(rel, vec, mtime)
+                log.info("CLIP-indexed %s", job.binary_path.name)
+
+    def _persist_scene_frames(
+        self,
+        job: _Job,
+        pairs: list,
+        *,
+        parent_clip_samples: tuple[projected_retrieval.ProjectionClipSample, ...],
+        expected_binary: tuple[tuple[int, int, int, int, int], str | None] | None = None,
+    ) -> None:
+        """Write scene JPEGs + pending sidecars, then queue each frame for OCR only.
+
+        Soft-fails entirely: the video's vectors are already upserted, so a frame
+        persistence failure only costs the viewable frames, never the search index.
+        OCR jobs go through the normal queue (`do_clip=False` — frame children never
+        get their own ClipIndex rows; the parent video's vectors own visual search).
+        """
+        with get_manager().mutation_guard(
+            self._vault_root,
+            operation="background_media_scene_frame_commit",
+            holder_kind="background",
+        ):
+            if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                return
+            if expected_binary is not None and _binary_identity(job.binary_path) != expected_binary:
+                log.warning(
+                    "scene-frame result stale for %s; changed media was not persisted",
+                    job.binary_path.name,
+                )
+                return
+            try:
+                written = scene_frames.write_scene_frames(
+                    self._vault_root,
+                    job.binary_path,
+                    pairs,
+                    parent_clip_samples=parent_clip_samples,
+                )
+            except Exception:  # noqa: BLE001 — persistence is strictly additive
+                log.exception("scene frame persistence failed for %s", job.binary_path.name)
+                return
+        for jpg, sidecar in written:
+            self.enqueue(
+                binary_path=jpg,
+                sidecar_path=sidecar,
+                media_type="image",
+                do_ocr=True,
+                do_clip=False,
+            )
+        if written and semantic_segments.semantic_segments_enabled():
+            # Trailing re-embed of the PARENT sidecar: the FIFO queue guarantees it
+            # runs after every frame OCR above, so semantic segmentation sees the
+            # visual + OCR boundary events.
+            self.enqueue(
+                binary_path=job.binary_path,
+                sidecar_path=job.sidecar_path,
+                media_type=job.media_type,
+                do_ocr=False,
+                do_clip=False,
+                do_reembed=True,
+            )
+        if written:
+            log.info(
+                "scene frames: wrote %d frame(s) for %s", len(written), job.binary_path.name
+            )
+
+    def _launch_child(self) -> subprocess.Popen:
+        args = [
+            sys.executable,
+            "-m",
+            "exomem.media_worker_child",
+            "--vault",
+            str(self._vault_root),
+            "--parent-pid",
+            str(os.getpid()),
+            "--idle-seconds",
+            str(self._idle_seconds),
+        ]
+        if self._leased_anon_bytes is not None:
+            args += ["--leased-anon-bytes", str(self._leased_anon_bytes)]
+        log.info("media worker: starting disposable child")
+        env = self._guard_gpu(asr_runtime.cuda_runtime_child_env(os.environ))
+        if media_brakes.enabled():
+            # OpenBLAS reserves data segment for one thread per host CPU when numpy
+            # loads (about 40 MiB each), so the child's VmData limit would follow the
+            # node instead of the engine. The serialized child needs one thread.
+            env.setdefault("OPENBLAS_NUM_THREADS", "1")
+        return subprocess.Popen(  # noqa: S603 - fixed interpreter/module command
+            args,
+            env=env,
+            # Under the memory brakes, a pressure stop kills the child's whole group,
+            # so a Tesseract run it started cannot outlive it and keep the memory.
+            start_new_session=media_brakes.enabled(),
+        )
+
+    def _guard_gpu(self, env: dict[str, str]) -> dict[str, str]:
+        """Give the child its GPU devices only if a throwaway process initialized CUDA without a fault.
+
+        One verdict per worker lifetime: a repaired driver needs a service restart anyway, and a probe
+        costs seconds of CUDA initialization. A failed verdict leaves the child with no device and the
+        reason, so an explicit CUDA request blocks with it and an automatic one runs on the CPU.
+        A host with no CUDA device to initialize gets the verdict "not tested", never "passed".
+        """
+        if self._gpu_preflight is None:
+            verdict = cuda_containment.check_gpu(env, driver_present=resource_status.find_nvidia_smi() is not None)
+            if not verdict.ok:
+                log.error("media worker: GPU preflight failed (%s); media runs without the GPU", verdict.reason)
+            self._gpu_preflight = verdict
+            self._record_status(
+                MediaJobStore.record_gpu_preflight,
+                verdict.result,
+                verdict.reason,
+                serving_worker_cuda_hidden=cuda_containment.hidden_from_worker(),
+            )
+        if self._gpu_preflight.ok:
+            return env
+        failure = f"GPU preflight {self._gpu_preflight.reason}; media processing runs without the GPU until the service restarts"
+        return cuda_containment.deny_gpu_to_child(env, failure)
+
+    def _record_status(self, record: Callable[..., Any], *args: object, **kwargs: object) -> Any:
+        """Write a status fact; a status record must never keep the supervisor or a child from running."""
+        if self._store is None:
+            return None
+        try:
+            return record(self._store, *args, **kwargs)
+        except Exception:  # noqa: BLE001 - see above
+            log.warning("media worker: could not record a status fact", exc_info=True)
+            return None
+
+    def _supervise(self) -> None:
+        assert self._store is not None
+        relaunch_after = 0.0
+        eviction_at = _clock() + _EVICTION_INTERVAL_SECONDS
+        eviction: threading.Thread | None = None
+        #: The last child exited because the GPU is busy, and the supervisor waits to ask again.
+        gpu_hold = False
+        #: The store signature this wait last looked at for work that needs no GPU.
+        hold_signature: tuple[object, ...] | None = None
+        #: Children in a row that died by a signal nobody here sent.
+        crashes = 0
+        # The store signature this supervisor last saw answer "no work", and
+        # when to stop trusting it.  `None` means "ask the store".
+        idle_signature: tuple[object, ...] | None = None
+        forced_recheck_at = 0.0
+        recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+        brakes = media_brakes.enabled()
+        #: A GPU wait is recorded that no idle pass has re-checked yet; a restart can keep one for waiting jobs.
+        gpu_wait_recorded = bool(
+            self._record_status(
+                MediaJobStore.reset_runtime_status, serving_worker_cuda_hidden=cuda_containment.hidden_from_worker()
+            )
+        )
+        try:
+            waits, self._engine_waits = self._engine_waits, []
+            if waits:
+                try:
+                    self._converge_engines(waits)
+                except Exception:  # noqa: BLE001 - convergence retries at the next start
+                    log.warning("media worker: engine convergence deferred", exc_info=True)
+            while not self._stop_event.is_set():
+                if _clock() >= eviction_at:
+                    # A pass may wait on the store, so it runs beside this watchdog, one pass at a time.
+                    if eviction is None or not eviction.is_alive():
+                        eviction = threading.Thread(target=_evict, args=(self._vault_root,),
+                                                    name="exomem-media-eviction", daemon=True)
+                        eviction.start()
+                    eviction_at = _clock() + _EVICTION_INTERVAL_SECONDS
+                child = self._child
+                running = child is not None and child.poll() is None
+                if brakes and (running or self._pressure_high):
+                    cell = media_brakes.read_cell()
+                    config = media_brakes.settings(cell=cell)
+                    self._note_pressure(media_brakes.pressure_exceeded(cell, config))
+                if brakes and running:
+                    assert child is not None
+                    if self._pressure_high:
+                        self._stop_child(child, media_brakes.PRESSURE)
+                    elif _clock() - self._child_started_at >= config.job_timeout_seconds:
+                        # A hang or a file too long for the timeout must not hold the
+                        # queue: after the stop limit it is over budget.
+                        self._stop_child(child, media_brakes.TIMEOUT)
+                if brakes and _clock() >= self._memory_recovery_at:
+                    pressure = True
+                    try:
+                        recovered, pressure = self._recover_memory_verdicts()
+                        if recovered:
+                            idle_signature = None
+                    except Exception:  # noqa: BLE001 - recovery retries on the next tick
+                        log.warning("media worker: memory recovery deferred", exc_info=True)
+                    self._pressure_high = pressure
+                    self._memory_recovery_interval = (
+                        min(self._memory_recovery_interval * 2, _MEMORY_RECOVERY_MAX_SECONDS)
+                        if pressure
+                        else _MEMORY_RECOVERY_SECONDS
+                    )
+                    self._memory_recovery_at = _clock() + self._memory_recovery_interval
+                if child is not None:
+                    signature = _job_store_signature(self._store)
+                    settled = (
+                        idle_signature is not None
+                        and signature is not None
+                        and signature == idle_signature
+                        and _clock() < forced_recheck_at
+                    )
+                    if not settled:
+                        if self._store.has_parent_work():
+                            # A retained result may make no write; retry next pass.
+                            idle_signature = None
+                            self._drain_parent_results()
+                        else:
+                            # Capture after close; the check can change the WAL.
+                            idle_signature = _job_store_signature(self._store)
+                            # Sidecar-only edits and folded writes need a fixed backstop.
+                            forced_recheck_at = _clock() + _SUPERVISE_FORCED_RECHECK_SECONDS
+                if child is not None and child.poll() is not None:
+                    returncode = child.returncode
+                    child_pid = child.pid
+                    self._child = None
+                    self._release_slot()
+                    idle_signature = None
+                    gpu_hold = False
+                    crashed = returncode is not None and returncode < 0 and not self._child_stopped
+                    crashes_before, crashes = crashes, crashes + 1 if crashed else 0
+                    owns_runtime = self._store.worker_pid() == child_pid
+                    recovered = self._store.recover_interrupted() if owns_runtime else 0
+                    if owns_runtime:
+                        self._store.clear_worker(child_pid)
+                    if crashed:
+                        # After the recovery, so the record names the job that the next child claims.
+                        self._record_status(
+                            MediaJobStore.record_child_crash, crashes, cuda_containment.signal_name(-returncode)
+                        )
+                    elif crashes_before:
+                        self._record_status(MediaJobStore.clear_child_crashes)
+                    if returncode == _MEMORY_RECYCLE_EXIT_CODE:
+                        delay = 0.5
+                    elif returncode == _MEMORY_WAIT_EXIT_CODE:
+                        delay = _MEMORY_WAIT_SECONDS
+                        log.info("media child found no memory room; retrying after %.1fs", delay)
+                    elif returncode == _SLOT_TOO_SMALL_EXIT_CODE:
+                        delay = 0.5  # the slot is already released; the next ask is sized again
+                        log.info("media child found its node slot too small; asking again")
+                    elif returncode == _AUTHORITY_UNAVAILABLE_EXIT_CODE:
+                        delay = self._authority_backoff
+                        self._authority_backoff = min(delay * 2, _AUTHORITY_BACKOFF_MAX_SECONDS)
+                        log.info(
+                            "media child found no writer authority; retrying after %.1fs",
+                            delay,
+                        )
+                    elif returncode == _GPU_BUSY_EXIT_CODE:
+                        delay = _GPU_BUSY_RECHECK_SECONDS
+                        gpu_hold = gpu_wait_recorded = True
+                        hold_signature = _job_store_signature(self._store)  # the child ran everything it could
+                        log.info("media child found the GPU busy; retrying after %.1fs", delay)
+                    elif returncode in {_TRANSIENT_EXIT_CODE, _LOCK_UNAVAILABLE_EXIT_CODE}:
+                        delay = (
+                            _LOCK_UNAVAILABLE_RECHECK_SECONDS
+                            if returncode == _LOCK_UNAVAILABLE_EXIT_CODE
+                            else _TRANSIENT_RECHECK_SECONDS
+                        )
+                        log.info(
+                            "media child deferred work; retrying after %.1fs",
+                            delay,
+                        )
+                    elif crashed:
+                        delay = min(2.0 * 2 ** (crashes - 1), _CHILD_CRASH_BACKOFF_MAX_SECONDS)
+                        log.error(
+                            "media child died with signal %d (%d in a row); recovered %d job(s); retrying after %.0fs",
+                            -returncode,
+                            crashes,
+                            recovered,
+                            delay,
+                        )
+                    elif returncode:
+                        delay = 2.0
+                        log.warning(
+                            "media child exited %s; recovered %d job(s)",
+                            returncode,
+                            recovered,
+                        )
+                    else:
+                        delay = 0.5
+                        if brakes:
+                            self._reset_memory_recovery()  # the child's job completed
+                    if returncode != _AUTHORITY_UNAVAILABLE_EXIT_CODE:
+                        self._authority_backoff = _FOLLOWER_RECHECK_SECONDS
+                    relaunch_after = max(_clock() + delay, self._memory_hold_until)
+                    recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+                if gpu_hold:
+                    # Every path that queues work writes the store, so a changed signature is the cue to look.
+                    # Work that needs no GPU ends the wait early: the child that takes it asks the GPU once
+                    # more on the way, so one probe is the whole cost.
+                    signature = _job_store_signature(self._store)
+                    if signature is None or signature != hold_signature:
+                        if self._store.next_pending(skip_media_types=media_engines.SPEECH_KINDS) is not None:
+                            relaunch_after = min(relaunch_after, max(_clock(), self._memory_hold_until))
+                            gpu_hold = False
+                        else:
+                            hold_signature = _job_store_signature(self._store)  # after the read: it can write the WAL
+                if self._child is None and _clock() >= relaunch_after:
+                    now = _clock()
+                    signature = _job_store_signature(self._store)
+                    if (
+                        idle_signature is not None
+                        and signature is not None
+                        and signature != idle_signature
+                    ):
+                        # Someone wrote the store since the last idle answer.
+                        recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+                    settled = (
+                        idle_signature is not None
+                        and signature is not None
+                        and signature == idle_signature
+                        and now < forced_recheck_at
+                    )
+                    parent_work = not settled and self._store.has_parent_work()
+                    if parent_work:
+                        recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+                        self._drain_parent_results()
+                    elif not settled and self._store.needs_worker():
+                        idle_signature = None
+                        recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+                        refusal = _probe_writer_authority()
+                        if brakes and not self._room_for_next_job():
+                            # No child starts into pressure or without room for its
+                            # job: it would only be stopped or exit unrun.
+                            relaunch_after = _clock() + _MEMORY_WAIT_SECONDS
+                        elif refusal is not None:
+                            relaunch_after = _clock() + _authority_recheck_seconds(
+                                refusal
+                            )
+                        elif brakes and self._slot is not None and not self._ask_slot():
+                            # No node slot yet, or no answer: wait as a memory-blocked job waits.
+                            relaunch_after = _clock() + _MEMORY_WAIT_SECONDS
+                        else:
+                            try:
+                                self._child_stopped = False
+                                self._child = self._launch_child()
+                                self._child_started_at = _clock()
+                            except OSError:
+                                self._release_slot()
+                                log.exception("media worker: could not start child")
+                                relaunch_after = _clock() + 5.0
+                    elif not settled:
+                        # Nothing to do.  Record the signature AFTER the check,
+                        # not the one read before it: `needs_worker()` opens the
+                        # store, and that open writes to the WAL, so a
+                        # before-signature would never match again and the skip
+                        # would never engage.
+                        if gpu_wait_recorded:
+                            # No work is pending, so no speech job waits for a GPU: end the record of that wait.
+                            self._record_status(MediaJobStore.clear_gpu_wait)
+                            gpu_wait_recorded = False
+                        idle_signature = _job_store_signature(self._store)
+                        forced_recheck_at = _clock() + recheck_interval
+                        recheck_interval = min(
+                            recheck_interval * 2, _SUPERVISE_FORCED_RECHECK_MAX_SECONDS
+                        )
+                if self._wake.wait(_SUPERVISE_POLL_SECONDS):
+                    # Cleared only once it has fired, so a wake that lands
+                    # after a timed-out wait is still seen on the next one. A
+                    # second enqueue between the wait and the clear wrote the
+                    # store before it set the wake, so the next pass sees it.
+                    self._wake.clear()
+                    # An in-process enqueue: ask the store on the next pass
+                    # even if the signature missed its write, rather than
+                    # leave it to a backed-off re-check.
+                    idle_signature = None
+                    recheck_interval = _SUPERVISE_FORCED_RECHECK_SECONDS
+        finally:
+            child = self._child
+            if child is not None and child.poll() is None:
+                if brakes and self._slot is not None:
+                    # The node slot goes back to another cell next, and the child's tools share
+                    # its session and keep their memory until killed. Kill the group while its
+                    # leader is still unreaped, so the group ID cannot belong to another process.
+                    with contextlib.suppress(OSError):
+                        os.killpg(child.pid, signal.SIGKILL)
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        child.wait(timeout=5)
+                    if child.returncode is not None:
+                        _reap_group(child.pid)
+                else:
+                    with contextlib.suppress(OSError):
+                        child.terminate()
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        child.wait(timeout=5)
+            self._child = None
+            self._release_slot()
+
+    def _ask_slot(self) -> bool:
+        """Whether the node lease holds a slot for the job the next child will claim.
+
+        The job is the one `claim_next` takes (`next_pending` is its read-only twin). The
+        child recovers interrupted jobs first, so it may claim a heavier one than this
+        sees; it then refuses it (`_SLOT_TOO_SMALL_EXIT_CODE`) and this asks again.
+        """
+        assert self._store is not None and self._slot is not None
+        config = media_brakes.settings(cell=media_brakes.read_cell())
+        job = self._store.next_pending()
+        budget = config.default_budget if job is None else _budget_for(job, config)
+        # The names only reach the service log; the bytes and the timeout are what it grants.
+        engines = "-".join(
+            name or media_brakes.DEFAULT_BUDGET_KEY for name in ([] if job is None else _engines_loaded(job))
+        )
+        if self._slot.acquire(
+            engines or media_brakes.DEFAULT_BUDGET_KEY, budget.anon_bytes, config.job_timeout_seconds
+        ):
+            self._leased_anon_bytes = budget.anon_bytes
+            return True
+        return False
+
+    def _release_slot(self) -> None:
+        self._leased_anon_bytes = None
+        if self._slot is not None:
+            self._slot.release()
+
+    def _drain_parent_results(self) -> None:
+        """Publish bounded child results while the disposable child remains alive."""
+        assert self._store is not None
+        for blocked in self._store.blocked_compute_presentations_needing_convergence(
+            limit=32
+        ):
+            if blocked.state == BLOCKED and media_jobs.is_compute_runtime_error(
+                blocked.last_error
+            ):
+                try:
+                    self.converge_compute_runtime_blocked(blocked)
+                except Exception:  # noqa: BLE001 - retained for the next parent pass
+                    log.warning("media parent blocked presentation deferred", exc_info=True)
+        for result in self._store.pending_results(limit=32):
+            try:
+                self._publish_parent_result(result)
+            except Exception:  # noqa: BLE001 - durable result custody is retried
+                log.warning("media parent publication deferred for job %s", result.job_id, exc_info=True)
+
+    def _publish_parent_result(self, result: media_jobs.MediaJobResult) -> None:
+        job = result.job
+        publication_intents: list[object] = []
+        if job.claim_revision != result.claim_revision:
+            # A prior version could retry a terminal result. Never let an old
+            # packet publish into its successor's claim, but do release it so
+            # it cannot starve the new work indefinitely.
+            self._store.discard_result(result)
+            return
+        current_binary = _binary_identity(job.binary_path)
+        try:
+            current_content, _guard = read_guarded_text(self._vault_root, job.sidecar_path)
+        except (OSError, UnicodeError, PathGuardError):
+            self._store.terminalize_result(
+                result, state=media_jobs.FAILED, error="stale media result: sidecar content changed"
+            )
+            return
+        current_sidecar = content_hash(current_content)
+        binary_changed = (
+            current_binary is None
+            or _result_binary_identity(current_binary) != result.binary_identity
+        )
+        # Set only by a reprocess: the extraction this result replaces.
+        replaces = result.payload.get("replaces") if result.kind == "extraction" else None
+
+        def basis_holds(content: str) -> bool:
+            return _result_basis_holds(
+                content,
+                media_type=job.media_type,
+                replaces=replaces,
+                expected_hash=result.sidecar_before_hash,
+                expected_version=result.sidecar_before_evidence_version,
+            )
+
+        prepared_target = (
+            result.target_hash is not None
+            and result.target_size is not None
+            and result.receipt_revision is not None
+            and _sidecar_input_matches(current_content, result.target_hash, result.target_evidence_version)
+        )
+        if prepared_target:
+            receipt = deferred_index.DeferredReceipt(
+                job.sidecar_path.relative_to(self._vault_root).as_posix(),
+                result.receipt_revision,
+            )
+            coordinator = get_manager()._mutation_coordinator_for(self._vault_root)
+            index_reports: list[object] = []
+            registered_checkpoint: graph_sync.GraphSyncCheckpoint | None = None
+            with epistemic_graph.parent_receipted_graph_handoff(
+                self._vault_root,
+                state_root=coordinator.state_root,
+                receipts=(receipt,),
+            ):
+                if not index_sync.recover_full_receipt_graph_epoch(
+                    self._vault_root, build=False
+                ):
+                    return
+                registered_checkpoint = graph_sync.read_checkpoint(self._vault_root)
+                try:
+                    completed = post_commit_batch_fanout(
+                        self._vault_root, [job.sidecar_path], index_reports, None
+                    )
+                finally:
+                    if (
+                        registered_checkpoint is not None
+                        and graph_sync.read_checkpoint(self._vault_root)
+                        == registered_checkpoint
+                        and any(
+                            isinstance(report, index_sync.IndexSyncReport)
+                            and any(
+                                component.component == "epistemic_graph"
+                                and component.outcome == "registered"
+                                for component in report.components
+                            )
+                            for report in index_reports
+                        )
+                    ):
+                        graph_sync.start_registered_detached(
+                            self._vault_root,
+                            state_root=coordinator.state_root,
+                            expected_checkpoint=registered_checkpoint,
+                        )
+            if completed is not True:
+                return
+            deferred_index.clear_full_receipts(
+                self._vault_root, [receipt]
+            )
+            pending_target = _sidecar_is_pending(job.sidecar_path)
+            current_binary = _binary_identity(job.binary_path)
+            binary_changed = (
+                current_binary is None
+                or _result_binary_identity(current_binary) != result.binary_identity
+            )
+            if binary_changed and not pending_target:
+                if not self._publish_pending_for_changed_binary(
+                    result, expected_sidecar=current_sidecar
+                ):
+                    return
+                return
+            self._store.finalize_result(
+                result,
+                requeue_remaining=result.kind in {"extraction", "pending"},
+                keep_ocr=pending_target,
+            )
+            return
+        if binary_changed and replaces is not None:
+            # The request named a file that has since been replaced. The sidecar keeps its
+            # text; reconciliation processes the new file in the ordinary way.
+            self._store.finalize_result(result, requeue_remaining=True, ocr_complete=True)
+            return
+        if binary_changed:
+            input_matches = basis_holds(current_content)
+            if current_binary is not None and input_matches:
+                self._publish_pending_for_changed_binary(result, expected_sidecar=current_sidecar)
+            else:
+                self._store.terminalize_result(
+                    result,
+                    state=media_jobs.FAILED,
+                    error="stale media result: binary identity changed" if input_matches
+                    else "stale media result: sidecar content changed",
+                )
+            return
+        if not basis_holds(current_content):
+            from . import media_processing
+
+            if replaces is not None:
+                # The extraction this result replaces is no longer the sidecar's own, so
+                # publishing would overwrite text that was never compared. The sidecar keeps
+                # what it holds; the job fails and a new request recomputes.
+                self._store.terminalize_result(
+                    result,
+                    state=media_jobs.FAILED,
+                    error="stale extraction: the transcript changed while the recording was "
+                    "processed again",
+                )
+            elif media_processing.has_completed_transcript(
+                current_content, media_type=job.media_type
+            ):
+                # The OCR stage is done; a queued CLIP or re-embed stage still runs.
+                self._store.finalize_result(result, requeue_remaining=True, ocr_complete=True)
+            else:
+                self._store.terminalize_result(
+                    result,
+                    state=media_jobs.FAILED,
+                    error="stale media result: sidecar content changed",
+                )
+            return
+        terminal_error: str | None = None
+        terminal_state = media_jobs.BLOCKED
+        with get_manager().mutation_guard(
+            self._vault_root,
+            operation="background_media_parent_publication",
+            holder_kind="background",
+        ):
+            if not self._is_recall_admitted_media_sidecar(job.sidecar_path):
+                return
+            before, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+            if _result_binary_identity(_binary_identity(job.binary_path) or ((-1,) * 5, None)) != result.binary_identity:
+                return
+            if not basis_holds(before):
+                return
+            writes: tuple[PlannedWrite, ...] = ()
+            try:
+                if result.kind == "extraction":
+                    asr = result.payload.get("asr")
+                    ocr = result.payload.get("ocr")
+                    writes = self._extraction_writes(
+                        job,
+                        before,
+                        guard,
+                        text=str(result.payload["text"]),
+                        engine=str(result.payload["engine"]),
+                        speakers=list(result.payload.get("speakers", [])),
+                        speaker_verification=str(result.payload.get("speaker_verification", "unavailable")),
+                        asr=AsrFacts.from_payload(asr) if asr is not None else None,
+                        ocr=OcrFacts.from_payload(ocr) if ocr is not None else None,
+                        reprocessing=replaces is not None,
+                    )
+                    target = writes[0].content
+                elif result.payload.get("presented_state") == media_jobs.PENDING:
+                    target = preserve.render_sidecar_processing_pending(
+                        before,
+                        attempts=max(1, job.attempts),
+                        next_action=str(result.payload["next_action"]),
+                    )
+                else:
+                    target = preserve.render_sidecar_processing_failure(
+                        before,
+                        state=media_jobs.PENDING if result.kind == "pending" else job.state,
+                        attempts=max(1, job.attempts),
+                        error=str(result.payload["error"]),
+                        retryable=bool(result.payload.get("retryable", True)),
+                        next_action=str(result.payload["next_action"]),
+                    )
+            except preserve.PreserveError as exc:
+                if exc.code == "AMBIGUOUS_SIDECAR_BOUNDARY":
+                    terminal_error = f"{exc.code}: {exc.reason}"
+                else:
+                    terminal_error = f"{type(exc).__name__}: {exc}"
+                    terminal_state = media_jobs.FAILED
+                handoff = None
+            if terminal_error is not None:
+                pass
+            else:
+                if not writes:
+                    writes = (
+                        PlannedWrite(job.sidecar_path, target, expected_hash=content_hash(before), guard=guard),
+                    )
+                rel = job.sidecar_path.relative_to(self._vault_root).as_posix()
+                receipts = deferred_index.add_full_receipts(
+                    self._vault_root,
+                    [write.path.relative_to(self._vault_root).as_posix() for write in writes],
+                )
+                receipt = next(item for item in receipts if item.rel_path == rel)
+                if not self._store.persist_prepared_result(
+                    result,
+                    target_hash=_target_digest(target),
+                    target_evidence_version=_evidence_version_or_none(target),
+                    target_size=len(target.encode("utf-8")),
+                    receipt_revision=receipt.revision,
+                ):
+                    deferred_index.clear_full_receipts(self._vault_root, receipts)
+                    return
+                handoff = preserve.commit_media_sidecar_writes(
+                    self._vault_root,
+                    writes,
+                    post_commit_fanout=False,
+                    defer_graph_completion=True,
+                    publication_intents_out=publication_intents,
+                )
+                assert isinstance(handoff, DeferredGraphCompletion)
+        if terminal_error is not None:
+            self._store.terminalize_result(
+                result, state=terminal_state, error=terminal_error
+            )
+            return
+        assert handoff is not None
+        if not self._complete_deferred_graph_completion(
+            handoff,
+            receipts,
+            publication_intents=publication_intents,
+            recover_on_mismatch=True,
+            parent_receipted_handoff=True,
+        ):
+            return
+        self._store.finalize_result(
+            result, requeue_remaining=result.kind in {"extraction", "pending"}
+        )
+
+    def _publish_pending_for_changed_binary(
+        self, result: media_jobs.MediaJobResult, *, expected_sidecar: str | None
+    ) -> bool:
+        """Present changed source as pending, then leave OCR for a fresh claim."""
+        job = result.job
+        if expected_sidecar is None:
+            return False
+        publication_intents: list[object] = []
+        with get_manager().mutation_guard(
+            self._vault_root,
+            operation="background_media_parent_pending_publication",
+            holder_kind="background",
+        ):
+            try:
+                before, guard = read_guarded_text(self._vault_root, job.sidecar_path)
+            except (OSError, UnicodeError, PathGuardError):
+                return False
+            if content_hash(before) != expected_sidecar:
+                return False
+            target = preserve.render_sidecar_processing_failure(
+                before,
+                state=media_jobs.PENDING,
+                attempts=max(1, job.attempts),
+                error="media identity changed",
+                retryable=True,
+                next_action="wait for media reconciliation",
+            )
+            rel = job.sidecar_path.relative_to(self._vault_root).as_posix()
+            [receipt] = deferred_index.add_full_receipts(self._vault_root, [rel])
+            if not self._store.persist_prepared_result(
+                result,
+                target_hash=_target_digest(target),
+                target_evidence_version=_evidence_version_or_none(target),
+                target_size=len(target.encode("utf-8")),
+                receipt_revision=receipt.revision,
+            ):
+                deferred_index.clear_full_receipts(self._vault_root, [receipt])
+                return False
+            handoff = preserve.commit_media_sidecar_writes(
+                self._vault_root,
+                (PlannedWrite(job.sidecar_path, target, expected_hash=content_hash(before), guard=guard),),
+                post_commit_fanout=False,
+                defer_graph_completion=True,
+                publication_intents_out=publication_intents,
+            )
+            assert isinstance(handoff, DeferredGraphCompletion)
+        if not self._complete_deferred_graph_completion(
+            handoff,
+            [receipt],
+            publication_intents=publication_intents,
+            recover_on_mismatch=True,
+            parent_receipted_handoff=True,
+        ):
+            return False
+        return self._store.finalize_result(result, requeue_remaining=True, keep_ocr=True)
+
+    def scan_pending(self) -> int:
+        """Restart recovery: re-enqueue pending OCR + CLIP-index un-indexed images."""
+        from . import media_store
+
+        queued = media_store.enqueue_offloads(self._vault_root) + self._scan_pending_ocr() + self._scan_unindexed_images()
+        media_store.evict_to_target(self._vault_root)
+        return queued
+
+    def _scan_pending_ocr(self) -> int:
+        """Re-enqueue every `extracted_by: pending` sidecar under the KB. Returns count."""
+        from . import media_processing, originals
+
+        kb = self._vault_root / kb_dirname()
+        if not kb.is_dir():
+            return 0
+        n = 0
+        skipped_strays = 0
+        pending_parents: dict[str, bool] = {}  # insertion-ordered dedup
+        for sidecar in iter_kb_files(kb):
+            if sidecar.suffix.lower() != ".md":
+                continue
+            if not self._is_automatic_media_sidecar(sidecar):
+                continue
+            try:
+                text = sidecar.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            head = text[:800]
+            if _PENDING_MARKER not in head:
+                continue
+            ef = _EVIDENCE_FILE_RE.search(head)
+            if not ef:
+                continue
+            binary = self._vault_root / ef.group(1).strip()
+            # Enqueue only the sidecar this binary actually owns. A stray copy —
+            # a Syncthing `.sync-conflict-*.md`, a manual duplicate — still carries
+            # `evidence_file:` pointing back here, and queueing it minted a SECOND
+            # job for the same binary (the job key includes the sidecar path), so
+            # two workers extracted one binary into two different sidecars.
+            if not _is_canonical_sidecar(sidecar, binary):
+                skipped_strays += 1
+                continue
+            # Reconciliation renders a preserved stub and queues it itself. A job
+            # claimed against the stub went stale as soon as it did.
+            if media_processing.awaits_reconciliation(self._vault_root, binary, text):
+                continue
+            mt_match = _MEDIA_TYPE_RE.search(head)
+            media_type = mt_match.group(1) if mt_match else extract.media_type_for(binary)
+            if not media_engines.stage_enabled(media_type):
+                continue  # the engine is off: the sidecar waits without a job
+            if media_type and (binary.exists() or originals.evicted(self._vault_root, binary)):
+                existing = (
+                    self._store.get_by_binary(binary)
+                    if self._store is not None
+                    else None
+                )
+                if existing is None or not existing.do_ocr:
+                    self.enqueue(binary_path=binary, sidecar_path=sidecar, media_type=media_type)
+                    n += 1
+                if _PARENT_MEDIA_MARKER in head:
+                    pm = re.search(r"(?m)^parent_media:\s*(.+?)\s*$", head)
+                    if pm:
+                        pending_parents[pm.group(1).strip()] = True
+        # Deduped parent re-embeds AFTER the pending frame children above, so
+        # semantic segmentation re-runs once their OCR completes (gate on only).
+        if pending_parents and semantic_segments.semantic_segments_enabled():
+            for parent_rel in pending_parents:
+                parent_sidecar = self._vault_root / (parent_rel + ".md")
+                parent_binary = self._vault_root / parent_rel
+                if parent_sidecar.exists() and (parent_binary.exists() or originals.evicted(self._vault_root, parent_binary)):
+                    self.enqueue(
+                        binary_path=parent_binary,
+                        sidecar_path=parent_sidecar,
+                        media_type=extract.media_type_for(parent_binary) or "video",
+                        do_ocr=False,
+                        do_clip=False,
+                        do_reembed=True,
+                    )
+                    n += 1
+        if n:
+            log.info("media worker: re-enqueued %d pending extraction(s)", n)
+        if skipped_strays:
+            log.warning(
+                "media worker: skipped %d non-canonical sidecar copy/copies "
+                "(duplicate .md alongside a governed binary)",
+                skipped_strays,
+            )
+        return n
+
+    def _scan_unindexed_images(self) -> int:
+        """CLIP-queue KB images that have a sidecar but aren't indexed yet.
+
+        Sidecar-LESS images (pre-feature files) are skipped on purpose: `find()` can't
+        surface a CLIP match without a `<image>.md` sidecar, so indexing them here would be
+        wasted work. The deliberate `exomem backfill-media` pass writes their sidecars
+        (+ OCR + CLIP) — this incremental scan only tops up already-sidecar'd images.
+        """
+        kb = self._vault_root / kb_dirname()
+        if not kb.is_dir():
+            return 0
+        clip_enabled = embeddings.clip_enabled()
+        n = 0
+        from itertools import chain
+
+        from . import media_store, originals
+
+        evicted = (item.path for item in media_store.bound_originals(self._vault_root)
+                   if item.state == "evicted") if originals.binding_for(self._vault_root) else ()
+        for f in chain(iter_kb_files(kb), evicted):
+            mt = extract.media_type_for(f)
+            if mt not in ("image", "video"):  # video is CLIP-able too (keyframes)
+                continue
+            sidecar = f.with_name(f.name + ".md")
+            if not self._is_automatic_media_sidecar(sidecar):
+                continue
+            if not clip_enabled:
+                continue
+            if not sidecar.exists():
+                continue  # no sidecar → not findable; backfill-media handles these
+            try:
+                rel = f.resolve().relative_to(self._vault_root.resolve()).as_posix()
+            except (ValueError, OSError):
+                continue
+            # Video keys on per-keyframe rows so a legacy single-vector video
+            # (frame_ts NULL) is re-queued for per-keyframe indexing; image = any row.
+            if (self._clip_index.has_frames(rel) if mt == "video" else self._clip_index.has(rel)):
+                continue
+            # Scene-frame children (sidecar carries `parent_media:`) never get their own
+            # ClipIndex rows — the parent video's per-scene vectors own visual search.
+            try:
+                if _PARENT_MEDIA_MARKER in sidecar.read_text(encoding="utf-8")[:800]:
+                    continue
+            except OSError:
+                continue
+            self.enqueue(
+                binary_path=f,
+                sidecar_path=f.with_name(f.name + ".md"),
+                media_type=mt,
+                do_ocr=False,
+                do_clip=True,
+            )
+            n += 1
+        if n:
+            log.info("media worker: CLIP-queued %d un-indexed image(s)/video(s)", n)
+        return n
+
+
+def _speech_job(job: _Job) -> bool:
+    """Whether the job's extraction stage runs the speech engine, which resumes a stopped run."""
+    return job.do_ocr and media_engines.engine_for(job.media_type) == media_engines.SPEECH
+
+
+def _engines_loaded(job: _Job) -> list[str | None]:
+    """The budget entries of what the job's child loads: the stage's engine and the CLIP tower.
+
+    The tower loads when the CLIP stage runs and image search is on, as `_run_clip` decides.
+    """
+    engines: list[str | None] = [media_engines.engine_for(job.media_type)] if job.do_ocr else []
+    if job.do_clip and embeddings.clip_enabled():
+        engines.append(media_brakes.CLIP_BUDGET_KEY)
+    return engines
+
+
+def _budget_for(job: _Job, config: media_brakes.Settings) -> media_brakes.Budget:
+    """The budget of everything the job's child loads, or the default."""
+    return config.budget_for_loaded(_engines_loaded(job))
+
+
+def _reap_group(pgid: int, timeout: float = 2.0) -> None:
+    """Reap the killed media child's tools that were reparented to this process.
+
+    In a Cloud cell the server is PID 1, so a tool orphaned by a pressure stop becomes
+    its child and stays a zombie unless reaped. `waitpid(-pgid)` waits only on children
+    in the media child's own session, so no other subprocess loses its exit status.
+    """
+    deadline = _clock() + timeout
+    while _clock() < deadline:
+        try:
+            pid, _status = os.waitpid(-pgid, os.WNOHANG)
+        except ChildProcessError:
+            return  # no child of this process is left in the group
+        if pid == 0:
+            time.sleep(0.05)  # a member is still exiting
+
+
+def _join_with_timeout(q: queue.Queue, timeout: float) -> None:
+    """queue.join() honoring a timeout (queue has no native timed join)."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while q.unfinished_tasks and time.monotonic() < deadline:
+        time.sleep(0.02)
+
+
+def _idle_seconds() -> float:
+    try:
+        return max(0.1, float(os.environ.get("EXOMEM_MEDIA_IDLE_SECONDS") or "300"))
+    except ValueError:
+        return 300.0
+
+
+def _evict(vault_root: Path) -> None:
+    """Check the eviction target after a job or on the timer; a failure never stops the worker (D3, M3)."""
+    from . import media_store
+
+    try:
+        media_store.evict_to_target(vault_root)
+    except Exception:  # noqa: BLE001 - the next job or tick checks again
+        log.warning("media worker: eviction deferred", exc_info=True)
+
+
+def run_child(
+    vault_root: Path,
+    *,
+    parent_pid: int,
+    idle_seconds: float,
+    leased_anon_bytes: int | None = None,
+) -> int:
+    """Claim and process durable jobs until idle or the parent disappears.
+
+    `leased_anon_bytes`, set when the parent holds a node media slot, is what that slot
+    reserves; the child claims no job that needs more.
+    """
+    store = MediaJobStore(vault_root)
+    store.recover_interrupted()
+    recovered_compute = store.recover_compute_runtime_failures()
+    if recovered_compute:
+        log.info("media worker: marked %d retained CUDA runtime failure(s) blocked", recovered_compute)
+    if not _writer_authority_available():
+        log.info("media worker: writer authority unavailable; leaving work queued")
+        return _AUTHORITY_UNAVAILABLE_EXIT_CODE
+    store.set_worker(os.getpid(), idle_seconds)
+    # Process mode makes scene-frame follow-up enqueue durable in this same ledger;
+    # the nested supervisor is never started because the child calls _process directly.
+    worker = MediaWorker(vault_root, execution_mode="process", idle_seconds=idle_seconds)
+    last_work = _clock()
+    idle_signature: tuple[object, ...] | None = None
+    forced_recheck_at = 0.0
+    brakes = media_brakes.enabled()
+    config = media_brakes.settings(cell=media_brakes.read_cell()) if brakes else None
+    refusal: list[int] = []
+    #: Set once the speech engine found the GPU busy. This child then leaves speech work pending and
+    #: claims the rest, so one busy GPU neither blocks the jobs behind it nor stays on the books.
+    gpu_busy = False
+    #: The jobs this child returned to pending for that reason; it asks the GPU about each only once.
+    deferred_for_gpu: set[int] = set()
+
+    def budget_of(job: _Job) -> media_brakes.Budget:
+        assert config is not None
+        return _budget_for(job, config)
+
+    def fail(job: _Job, error: str | None) -> None:
+        worker._discard_speech_progress(job)
+        store.mark(job, FAILED, error)
+
+    def admit(job: _Job) -> bool:
+        """Claim only what fits the node slot and the cell now; the supervisor checked before spawning."""
+        assert config is not None
+        if leased_anon_bytes is not None and budget_of(job).anon_bytes > leased_anon_bytes:
+            refusal.append(_SLOT_TOO_SMALL_EXIT_CODE)
+            return False
+        if not media_brakes.admits(media_brakes.read_cell(), budget_of(job), config):
+            refusal.append(_MEMORY_WAIT_EXIT_CODE)
+            return False
+        return True
+
+    try:
+        if extract.asr_prewarm_enabled():
+            prewarm_error = extract.prewarm()
+            if isinstance(prewarm_error, asr_runtime.ASRComputeRuntimeError):
+                worker._asr_runtime_failure = f"{type(prewarm_error).__name__}: {prewarm_error}"
+        extract.log_diarization_readiness(vault_root)
+        while _parent_alive(parent_pid):
+            now = _clock()
+            signature = _job_store_signature(store)
+            settled = (
+                idle_signature is not None
+                and signature is not None
+                and signature == idle_signature
+                and now < forced_recheck_at
+                # Check for eligible work once more before the idle exit.
+                and now - last_work < idle_seconds
+            )
+            job = (
+                None
+                if settled
+                else store.claim_next(
+                    admit if brakes else None,
+                    skip_media_types=media_engines.SPEECH_KINDS if gpu_busy else (),
+                )
+            )
+            if refusal:
+                log.info("media worker: admission refused the next job (exit %d); child exiting", refusal[0])
+                return refusal[0]
+            if job is None:
+                worker._offload_batch.end()
+                if gpu_busy:
+                    log.info("media worker: only speech work is left and the GPU is busy; child exiting")
+                    return _GPU_BUSY_EXIT_CODE
+                if not settled:
+                    idle_signature = _job_store_signature(store)
+                    forced_recheck_at = _clock() + _SUPERVISE_FORCED_RECHECK_SECONDS
+                if not settled and _clock() - last_work >= idle_seconds:
+                    log.info("media worker: idle deadline reached; child exiting")
+                    return 0
+                time.sleep(min(0.25, idle_seconds))
+                continue
+            if job.id in deferred_for_gpu:
+                # The claim skips speech work once the GPU is busy; a job back here anyway would spin.
+                store.defer(job, free_hydration_slot=True)
+                return _GPU_BUSY_EXIT_CODE
+            idle_signature = None
+            last_work = _clock()
+            try:
+                if config is not None:
+                    media_brakes.apply_hard_limit(budget_of(job), config)
+                try:
+                    outcome = worker._process(job)
+                finally:
+                    if config is not None:
+                        media_brakes.lift_hard_limit()
+            except MemoryError as exc:
+                assert job.id is not None
+                if config is None:
+                    log.exception("media child job crashed: %s", job.binary_path)
+                    fail(job, f"{type(exc).__name__}: {exc}")
+                    continue
+                context = media_brakes.context(media_brakes.read_cell(), budget_of(job), config)
+                verdict = store.record_memory_stop(
+                    job,
+                    kind=media_brakes.HARD_LIMIT,
+                    stop_limit=config.stop_limit,
+                    context=context,
+                    progress=worker._speech_progress(job),
+                )
+                log.warning(
+                    "media worker: %s hit the data limit (%s); job now %s",
+                    job.binary_path.name,
+                    type(exc).__name__,
+                    verdict,
+                )
+                if verdict == media_jobs.OVER_BUDGET:
+                    worker.publish_over_budget(job, context)
+                return _MEMORY_RECYCLE_EXIT_CODE
+            except runtime_resources.ModelBusyError:
+                assert job.id is not None
+                store.defer(job)
+                log.info("media worker: deferred %s after model admission refusal", job.binary_path)
+                return _TRANSIENT_EXIT_CODE
+            except asr_runtime.ASRGpuBusy as exc:
+                assert job.id is not None
+                # The GPU wait has no known end: the job gives up its hydration slot but keeps its original.
+                store.defer(job, free_hydration_slot=True)
+                gpu_busy = True
+                deferred_for_gpu.add(job.id)
+                store.note_gpu_wait(str(exc))
+                log.info("media worker: deferred %s while the GPU is busy: %s", job.binary_path, exc)
+                continue  # it ran nothing, so no fresh child is needed before the next job
+            except OpError as exc:
+                assert job.id is not None
+                if exc.code in _TRANSIENT_OPERATION_CODES:
+                    store.defer(job)
+                    log.info(
+                        "media worker: deferred %s after transient %s",
+                        job.binary_path,
+                        exc.code,
+                    )
+                    if exc.code == "MUTATION_LOCK_UNAVAILABLE":
+                        return _LOCK_UNAVAILABLE_EXIT_CODE
+                    return _TRANSIENT_EXIT_CODE
+                log.exception("media child job crashed: %s", job.binary_path)
+                fail(job, f"{type(exc).__name__}: {exc}")
+            except PermissionError as exc:
+                assert job.id is not None
+                error = f"{type(exc).__name__}: {exc}"
+                if is_guarded_sidecar_sharing_violation(exc, job.sidecar_path):
+                    if store.defer_sharing_violation(job, error):
+                        log.info(
+                            "media worker: deferred %s after Windows sidecar sharing denial",
+                            job.binary_path,
+                        )
+                        return _LOCK_UNAVAILABLE_EXIT_CODE
+                    log.error(
+                        "media worker: sidecar sharing retry limit exhausted for %s",
+                        job.binary_path,
+                    )
+                else:
+                    log.exception("media child job crashed: %s", job.binary_path)
+                fail(job, error)
+            except Exception as exc:  # noqa: BLE001 - preserve worker availability
+                log.exception("media child job crashed: %s", job.binary_path)
+                assert job.id is not None
+                fail(job, f"{type(exc).__name__}: {exc}")
+            else:
+                assert job.id is not None
+                if job.do_ocr and media_engines.engine_for(job.media_type) == media_engines.SPEECH:
+                    store.clear_gpu_wait()  # the speech engine got the GPU, so nothing waits for it
+                if outcome.state == _HANDOFF:
+                    # Durable result custody now belongs to the long-lived parent.
+                    # In particular, do not run later CLIP/re-embed stages or
+                    # complete this claim in the disposable process.
+                    if brakes:
+                        return 0  # one job per child under the brakes
+                    continue
+                if outcome.state == BLOCKED:
+                    store.mark(job, BLOCKED, outcome.error, blocked_reason=outcome.blocked_reason)
+                elif outcome.state == FAILED:
+                    fail(job, outcome.error)
+                elif outcome.state == _RETURNED:
+                    store.return_for_retry(job, outcome.error)
+                    log.info("media worker: returned %s to the queue: %s", job.binary_path, outcome.error)
+                elif outcome.state == _STALE:
+                    try:
+                        current_content = job.sidecar_path.read_text(encoding="utf-8")
+                    except (OSError, UnicodeError):
+                        current_content = ""
+                    from . import media_processing
+
+                    binary_only_stale = (
+                        "media identity changed" in (outcome.error or "")
+                        and "sidecar content changed" not in (outcome.error or "")
+                    )
+                    if job.reprocess and job.do_ocr:
+                        # A completed transcript is the point of a reprocess, so it does not
+                        # mean the request is done; the job fails and says why.
+                        fail(job, outcome.error or "stale extraction commit")
+                    elif media_processing.has_completed_transcript(
+                        current_content, media_type=job.media_type
+                    ):
+                        # This claim already ran its CLIP and re-embed stages; a
+                        # stage queued while it ran stays.
+                        store.complete(job)
+                    elif binary_only_stale:
+                        worker._discard_speech_progress(job)
+                        store.discard(job)
+                    else:
+                        fail(job, outcome.error or "stale extraction commit")
+                else:
+                    store.complete(job)
+            _evict(vault_root)
+            if brakes:
+                # One job per child: the next starts fresh, with no growth from this
+                # one, and the supervisor's watchdog times exactly one job.
+                return 0
+        log.info("media worker: parent exited; child stopping")
+        return 0
+    finally:
+        store.clear_worker(os.getpid())
+
+
+def _parent_alive(parent_pid: int) -> bool:
+    if parent_pid <= 0:
+        return True
+    return pid_alive(parent_pid)

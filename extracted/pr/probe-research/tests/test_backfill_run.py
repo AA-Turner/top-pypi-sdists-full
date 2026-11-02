@@ -14,10 +14,10 @@ import pytest
 
 from backfill_plan_agent import filing, note, unit_paths
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_ledger as bl
-from probe.cli import backfill_plan as bp
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.upload import ledger as bl
+from probe.cli.imports.folder.classify import plan as bp
 from probe.cli import backfill_run as br
 
 
@@ -66,7 +66,7 @@ class _FakeAgent:
 
 def test_a_unit_is_recorded_before_it_starts_and_after_it_stops(folder, state_dir, monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -83,7 +83,7 @@ def test_a_finished_unit_uploads_every_file_even_when_its_agent_writes_no_notes(
 ):
     """The upload list is code's: an agent can no longer drop a file by
     copying its path wrong or leaving it out. Notes are optional."""
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=True, writes=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent(ok=True, writes=False))
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -100,7 +100,7 @@ def test_a_unit_whose_agent_crashed_uploads_nothing_yet_and_keeps_its_notes(
     folder, state_dir, monkeypatch
 ):
     """Retried whole, as before; the notes it managed stay for the retry."""
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=False, writes=True, manifest_rows=1, tail="died"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent(ok=False, writes=True, manifest_rows=1, tail="died"))
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -113,7 +113,7 @@ def test_a_unit_whose_agent_crashed_uploads_nothing_yet_and_keeps_its_notes(
 
 
 def test_a_failed_unit_is_left_outstanding_for_the_resume(folder, state_dir, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=False, tail="boom"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent(ok=False, tail="boom"))
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -125,7 +125,7 @@ def test_a_unit_gets_a_session_and_a_finite_timeout(folder, state_dir, monkeypat
     """`timeout=None` means one wedged unit stalls an overnight import and
     nobody finds out until morning."""
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -137,7 +137,7 @@ def test_a_unit_gets_a_session_and_a_finite_timeout(folder, state_dir, monkeypat
 
 def test_the_recorded_session_is_the_one_that_ran(folder, state_dir, monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -147,7 +147,7 @@ def test_the_recorded_session_is_the_one_that_ran(folder, state_dir, monkeypatch
 
 def test_a_resumed_unit_adopts_its_previous_session(folder, state_dir, monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
@@ -170,7 +170,7 @@ def test_missing_conversation_restarts_only_the_saved_unit(folder, state_dir, mo
             return False, f"No session found with session ID: {session}"
         return fresh(folder, prompt, **kwargs)
 
-    monkeypatch.setattr(bf, "launch_agent", launch)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", launch)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], [unit.project])
@@ -196,7 +196,7 @@ def test_other_resume_failures_are_retained_without_fresh_replay(
     folder, state_dir, monkeypatch, failure,
 ):
     fake = _FakeAgent(ok=False, tail=failure, writes=False)
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], [unit.project])
@@ -211,7 +211,7 @@ def test_other_resume_failures_are_retained_without_fresh_replay(
 
 def test_the_unit_prompt_names_only_that_unit_s_files(folder, state_dir, monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     unit = _unit(paths=("michael/train.py",))
     led.record_plan([unit], ["odyssey"])
@@ -238,7 +238,7 @@ def test_manifest_rows_without_a_path_do_not_count(tmp_path):
 
 def test_units_run_bounded_and_every_one_reports(folder, state_dir, monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     led = bl.Ledger.for_folder(folder)
     units = [_unit(f"u{i}") for i in range(5)]
     led.record_plan(units, ["odyssey"])
@@ -255,7 +255,7 @@ def test_no_units_is_not_an_error(folder, state_dir, monkeypatch):
 
 
 def test_each_unit_writes_its_own_manifest(folder, state_dir, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent())
     led = bl.Ledger.for_folder(folder)
     units = [_unit("ua"), _unit("ub")]
     led.record_plan(units, ["odyssey"])
@@ -334,7 +334,7 @@ def test_a_discrepancy_is_shown_on_the_approval_screen(folder):
 
 def test_classify_is_told_when_its_evidence_was_truncated(folder, monkeypatch):
     fake = _FakeAgent(ok=True, writes=False, tail="")
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     evidence = ev.gather(folder)
     evidence.sample_budget_hit = True
     br.classify(folder, evidence, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work")
@@ -343,7 +343,7 @@ def test_classify_is_told_when_its_evidence_was_truncated(folder, monkeypatch):
 
 def test_classify_gets_its_own_larger_deadline(folder, monkeypatch):
     fake = _FakeAgent(ok=True, writes=False)
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     br.classify(
         folder, ev.gather(folder), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work"
     )
@@ -352,7 +352,7 @@ def test_classify_gets_its_own_larger_deadline(folder, monkeypatch):
 
 
 def test_a_failed_classify_returns_no_plan(folder, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=False, writes=False, tail="died"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent(ok=False, writes=False, tail="died"))
     plan, tail, session = br.classify(
         folder, ev.gather(folder), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work"
     )
@@ -367,7 +367,7 @@ def test_classify_parses_a_plan_out_of_the_stream(folder, monkeypatch):
         "assignments": [{"path": "readme.md", "project": "odyssey"}],
     }
     envelope = json.dumps({"type": "result", "result": f"ok\n{json.dumps(payload)}"})
-    monkeypatch.setattr(bf, "launch_agent", filing(_FakeAgent(ok=True, writes=False, tail=envelope)))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_FakeAgent(ok=True, writes=False, tail=envelope)))
     plan, _, _ = br.classify(
         folder, ev.gather(folder), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work"
     )
@@ -376,7 +376,7 @@ def test_classify_parses_a_plan_out_of_the_stream(folder, monkeypatch):
 
 def test_classify_shows_the_agent_what_already_exists(folder, monkeypatch):
     fake = _FakeAgent(ok=True, writes=False)
-    monkeypatch.setattr(bf, "launch_agent", fake)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
     br.classify(
         folder,
         ev.gather(folder),
@@ -536,7 +536,7 @@ def test_the_progress_row_is_not_glued_to_a_placeholder_label(tmp_path):
     """
     import io
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     out = io.StringIO()
     board = tui.Board("Reading /data/x", [""], out=out)
@@ -595,7 +595,7 @@ def test_an_unreadable_directory_is_named_by_its_path_not_its_basename(tmp_path,
 def test_a_malformed_old_manifest_row_does_not_crash_the_retry(folder, state_dir, monkeypatch):
     """Outside review: an old agent row `{"path": [...]}` raised TypeError on
     every retry before the agent could even start."""
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=True, writes=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _FakeAgent(ok=True, writes=False))
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])

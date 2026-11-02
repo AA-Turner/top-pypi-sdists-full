@@ -1,0 +1,149 @@
+"""Write-time advisories for a curated memory fact.
+
+Two fact classes poison a store over time, both taken from the do-not-capture
+list in Hermes Agent's agent/background_review.py (read 2026-08-15):
+
+1. A bare NEGATIVE claim about a tool hardens into a refusal the agent cites
+   against itself long after the thing was fixed.
+2. An UNRESOLVED failure presents untested attempts as validated guidance a
+   later session trusts and repeats.
+
+A third class is our own: a hook whose lesson is VERSION HISTORY ("fixed in
+bmk 3.13.0", "from lib 5.7.0", "before 3.13.2") is true when written and
+stale a few releases later, while staying in the always-loaded index. The
+dream's versionrot scan finds the old ones; this advisory names the shape at
+write time, so the author states the current behaviour instead.
+
+These are ADVISORIES, never refusals: an incident record legitimately describes
+a broken thing, and refusing would make it unrecordable. Every hook whose
+NEGATIVE_RX matches gets the negative-claim advisory - whether a version or
+date sits nearby does not change that, because a regex over the surrounding
+text cannot tell an incidental version from one that actually scopes the
+claim. The author judges: record the working alternative instead, or state
+the version and date so a later reader can re-test the claim. Two readings are
+settled before matching: contractions count as their spelled-out forms, and a
+clause-initial "do not work" is an instruction, not a claim about a tool.
+"""
+
+import re
+
+__all__ = ["advise", "NEGATIVE_RX", "UNRESOLVED_RX", "VERSION_HISTORY_RX"]
+
+# Both patterns match the SPELLED-OUT forms. `advise` expands contractions first (`_spelled_out`),
+# so "isn't supported" and "can't be used" are read as "is not supported" and "cannot be used".
+NEGATIVE_RX = re.compile(
+    r"\b(?:"
+    r"(?P<plain>do)\s+not\s+work|does\s+not\s+work"
+    r"|is\s+broken|are\s+broken"
+    r"|(?:is|are)\s+not\s+supported|unsupported"
+    r"|never\s+works|cannot\s+be\s+used"
+    r")\b",
+    re.IGNORECASE,
+)
+
+UNRESOLVED_RX = re.compile(
+    r"\b(?:"
+    r"none\s+of\s+(?:them|these|which)\s+worked"
+    r"|did\s+not\s+find\s+a\s+working"
+    r"|still\s+(?:not|un)\s*(?:solved|resolved|working)"
+    r"|next\s+session\s+should\s+(?:retry|try)"
+    r"|gave\s+up"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# A version introduced by a word that makes it history: "fixed in", "from", "since", "before",
+# "until". An optional package name may sit between ("fixed in bmk 3.13.0"). A bare floor such
+# as "pydantic>=2.13" or "Python 3.10" is a requirement, not history, and does not match; nor
+# does an interpreter boundary ("before Python 3.14"), which stays true while the supported
+# Python range spans it.
+VERSION_HISTORY_RX = re.compile(
+    r"\b(?:(?:fixed|resolved|changed|added|removed|introduced)\s+in|from|since|before|until"
+    r"|up\s+to)\s+(?!c?python\b)(?:[A-Za-z][\w.-]*\s+){0,2}v?\d+\.\d+(?:\.\d+)?\b(?!\.\d)",
+    re.IGNORECASE,
+)
+
+_NEGATIVE_ADVICE = (
+    "hook reads as a bare negative claim about a tool; these harden into "
+    "refusals cited long after the fix. Record the WORKING alternative "
+    "instead, or state the version and date the claim was tested against so "
+    "a later reader can re-test it."
+)
+_UNRESOLVED_ADVICE = (
+    "body describes an unresolved failure; that presents untested attempts as "
+    "validated guidance. Label the dead ends as unsolved, or do not capture "
+    "until a working method exists."
+)
+
+
+_VERSION_ADVICE = (
+    "hook ties its lesson to a version (fixed in / from / since / before X.Y); "
+    "a few releases on, that is history still loaded every session. State the "
+    "CURRENT behaviour, and leave the version history to the CHANGELOG."
+)
+
+
+def advise(hook: str, body: str) -> list[str]:
+    """Return zero or more advisory sentences for a drafted fact.
+
+    Args:
+        hook: the trigger-first pointer hook.
+        body: the fact body (may be empty on a hook-only update).
+
+    Returns:
+        A list of complete advisory sentences, without a leading marker.
+
+    Examples:
+        >>> advise("When using the foo tool, know it is broken.", "")[0][:4]
+        'hook'
+        >>> advise("When releasing, run make test.", "")
+        []
+    """
+    out: list[str] = []
+    hook = _spelled_out(hook or "")
+    body = _spelled_out(body or "")
+    if any(not _is_imperative(hook, m) for m in NEGATIVE_RX.finditer(hook)):
+        out.append(_NEGATIVE_ADVICE)
+    if UNRESOLVED_RX.search(body):
+        out.append(_UNRESOLVED_ADVICE)
+    if VERSION_HISTORY_RX.search(hook):
+        out.append(_VERSION_ADVICE)
+    return out
+
+
+_CONTRACTION_RX = re.compile(r"\b(\w+)n't\b", re.IGNORECASE)
+_IRREGULAR = {"ca": "cannot", "wo": "will not", "sha": "shall not"}
+
+
+def _spelled_out(text: str) -> str:
+    """`text` with the curly apostrophe made plain and every n't contraction written out.
+
+    "isn't supported", "can't be used" and "didn't find a working" are the same claims as their
+    spelled-out forms, and matching only the long form let every contracted one through.
+    """
+    text = text.replace(chr(0x2019), "'")
+
+    def expand(m: re.Match[str]) -> str:
+        stem = m.group(1)
+        return _IRREGULAR.get(stem.lower()) or stem + " not"
+
+    return _CONTRACTION_RX.sub(expand, text)
+
+
+# Where a "do not work" is an instruction ("When on main, do not work there") rather than a claim
+# about a tool: at the start of the hook or of a sentence, either bare or after ONE leading
+# condition clause. A comma alone is not the test - in "--foo and --bar, when combined, do not
+# work on Windows" the flags are the subject, and treating every comma as a clause start read
+# that claim as an instruction and dropped its advisory.
+_IMPERATIVE_PREFIX_RX = re.compile(
+    r"(?:^|[;:.!?(])\s*"
+    r"(?:(?:when|if|before|after|once|unless|while|whenever)\b[^;:.!?]*(?:,|\s-))?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _is_imperative(text: str, m: re.Match[str]) -> bool:
+    """True when a "do not work" match has no subject before it, so it tells the reader what not
+    to do rather than saying something does not work. "does not work" always has a subject."""
+    return (m.group("plain") is not None
+            and _IMPERATIVE_PREFIX_RX.search(text[:m.start()]) is not None)

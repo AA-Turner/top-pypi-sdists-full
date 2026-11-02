@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 from recorded_agent_events import (
     CLAUDE_BAD_MODEL,
     CLAUDE_OK,

@@ -1,0 +1,46 @@
+# The scan half of rules/dependencies.md: audit main and keep one open "Dependency advisories"
+# issue that lists what's there. Daily for advisories published against pins that haven't moved,
+# on a lockfile push so a merged fix closes the ticket at once, and by hand. An audit that errors
+# (registry down) fails the job and leaves the ticket alone.
+name: advisory-scan
+
+on:
+  schedule:
+    - cron: "53 5 * * *"
+  push:
+    branches: [main]
+    paths: [package.json, bun.lock, pyproject.toml, uv.lock, .github/workflows/advisory-scan.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advisory-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - uses: alrayyes/advisory-scan@c9f794de4354b870e159510f036779baf20f4a2f # v0.3.1
+        with:
+          mode: scan
+          command: |
+            rc=0
+            bun audit || rc=1
+            uv run pip-audit || rc=1
+            exit $rc
+          setup: uv sync --locked --all-groups
+          labels: dependencies

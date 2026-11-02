@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import re
 
 import pytest
 import requests
@@ -27,7 +28,7 @@ from schemathesis.specs.openapi.auths import (
     DynamicTokenAuthProvider,
     HttpBearerAuthProvider,
 )
-from test.utils import refusing_url
+from test.utils import refusing_url, silent_url
 
 OAUTH2_SCHEME = {"type": "oauth2", "flows": {"password": {"tokenUrl": "/api/auth", "scopes": {}}}}
 
@@ -253,6 +254,41 @@ def test_get_raises_on_missing_request_cert_file(ctx, app_runner):
     )
     with pytest.raises(AuthenticationError, match="Connection to auth endpoint failed"):
         provider.get(operation.Case(), AuthContext(operation=operation, app=None))
+
+
+def _token_provider():
+    return DynamicTokenAuthProvider(
+        path="/api/auth",
+        method="post",
+        payload=None,
+        extract_from="body",
+        extract_selector="/access_token",
+        _applier=HttpBearerAuthProvider(bearer=""),
+    )
+
+
+def test_fetch_http_goes_through_configured_proxy(ctx, app_runner):
+    proxy = Flask(__name__)
+
+    @proxy.route("/api/auth", methods=["POST"])
+    def auth():
+        return jsonify({"access_token": "test-token"})
+
+    schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    schema.config.proxy = f"http://127.0.0.1:{app_runner.run_flask_app(proxy)}"
+    operation = schema["/data"]["GET"]
+    with refusing_url() as url:
+        schema.config.update(base_url=url)
+        assert _token_provider().get(operation.Case(), AuthContext(operation=operation, app=None)) == "test-token"
+
+
+def test_fetch_http_times_out_without_configured_timeout(ctx):
+    schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    operation = schema["/data"]["GET"]
+    with silent_url() as url:
+        schema.config.update(base_url=url)
+        with pytest.raises(AuthenticationError, match="Read timed out"):
+            _token_provider().get(operation.Case(), AuthContext(operation=operation, app=None))
 
 
 @pytest.mark.parametrize(
@@ -1091,6 +1127,54 @@ def test_reauth_recovers_expired_token(ctx, cli, app_runner, tmp_path, snapshot_
     assert result == snapshot_cli
     assert state["issued"] >= 2
     assert (report_dir / "index.html").read_text(encoding="utf-8") == snapshot_html
+
+
+# Single-use tokens: every token fetched after the first recovers one request, unless `--max-time` cuts its replay.
+@pytest.mark.parametrize(
+    "args,max_cut_replays",
+    [(("run", "--phases=stateful", "--max-examples=10"), 0), (("fuzz", "--max-time=1"), 1)],
+    ids=["stateful", "fuzz"],
+)
+def test_reauth_recovers_expired_token_in_multi_step_runs(ctx, cli, app_runner, args, max_cut_replays):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/protected": {
+                "get": {
+                    "operationId": "getProtected",
+                    "security": [{"OAuth2": []}],
+                    "parameters": [{"name": "key", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "links": {
+                                "Again": {
+                                    "operationId": "getProtected",
+                                    "parameters": {"key": "$response.body#/result"},
+                                }
+                            },
+                        },
+                        "401": {"description": "Unauthorized"},
+                    },
+                }
+            }
+        },
+        components={"securitySchemes": {"OAuth2": OAUTH2_SCHEME}},
+    )
+    state = _register_single_use_token(app)
+    command, *flags = args
+    base_url = app_runner.openapi_url(app, path="")
+
+    result = cli.main(
+        command,
+        f"{base_url}/openapi.json",
+        *flags,
+        "--mode=positive",
+        "--seed=42",
+        config={"base-url": base_url, "auth": _dynamic_auth("OAuth2", retry_on=[401])},
+    )
+    reported = re.search(r"Re-authenticated (\d+) time", result.stdout)
+    assert reported is not None, result.stdout
+    assert state["issued"] - 1 - max_cut_replays <= int(reported.group(1)) <= state["issued"] - 1
 
 
 def test_reauth_failure_in_html_report(ctx, cli, app_runner, tmp_path, snapshot_html):

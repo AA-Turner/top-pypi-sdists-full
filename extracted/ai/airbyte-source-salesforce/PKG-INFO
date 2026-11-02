@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: airbyte-source-salesforce
+Version: 2.10.4
+Summary: Source implementation for Salesforce.
+Home-page: https://airbyte.com
+License: ELv2
+Author: Airbyte
+Author-email: contact@airbyte.io
+Requires-Python: >=3.10,<3.14
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: airbyte-cdk (>=7.23.5,<8.0.0)
+Requires-Dist: pendulum (>=3.0.0,<4.0.0)
+Project-URL: Documentation, https://docs.airbyte.com/integrations/sources/salesforce
+Project-URL: Repository, https://github.com/airbytehq/airbyte
+Description-Content-Type: text/markdown
+
+# Salesforce
+
+This package contains the Airbyte Salesforce connector.
+
+Airbyte is open-source data movement for ELT pipelines and AI agents. It moves data from APIs, databases, and files to warehouses, lakes, and AI applications.
+
+Airbyte provides a catalog of 600+ connectors for APIs, databases, data warehouses, data lakes, and AI applications. Use this package with [PyAirbyte](https://docs.airbyte.com/developers/pyairbyte) to run the connector from Python.
+

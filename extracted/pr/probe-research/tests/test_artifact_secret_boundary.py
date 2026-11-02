@@ -146,7 +146,6 @@ def wire_client(tmp_path, monkeypatch):
     import probe.sdk.delivery.journal as jm
 
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     requests = []
 
     def respond(req):

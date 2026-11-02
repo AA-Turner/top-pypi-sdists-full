@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - {os: ubuntu-latest, binary: bpl-linux-x86_64}
+          - {os: ubuntu-24.04-arm, binary: bpl-linux-arm64}
+          - {os: macos-latest, binary: bpl-macos-arm64}
+    runs-on: ${{ matrix.os }}
+    env:
+      # The Python-free `bpl` goes in the wheel, through `cargo stage`, and in the GitHub release.
+      STAGE_BPL: cargo stage --profile dist --no-default-features && mkdir -p bin && cp wheel/scripts/bpl bin/${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v7
+        if: runner.os != 'Linux'
+        with:
+          python-version: '3.12'
+      - if: runner.os != 'Linux'
+        run: pip install 'fastws-cli>=0.0.29' && ${{ env.STAGE_BPL }}
+      - uses: PyO3/maturin-action@v1
+        with:
+          args: --profile dist --no-default-features --compression-level 9 --out dist -i python3.11 -i python3.12 -i python3.13
+          manylinux: auto
+          # This runs inside the manylinux container, whose old glibc lets the binary run on older Linux distributions.
+          before-script-linux: export PATH="/opt/python/cp311-cp311/bin:$PATH" && python3.11 -m pip install 'fastws-cli>=0.0.29' && ${{ env.STAGE_BPL }}
+      - name: Time the release build
+        continue-on-error: true
+        run: bin/${{ matrix.binary }} --costs tests/speed
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bpl-${{ matrix.os }}
+          path: bin
+
+  windows-keyboard:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Windows keyboards
+        shell: pwsh
+        run: ./editors/windows/build.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bpl-keyboard-windows
+          path: dist/basedpl-keyboard-us-windows.zip
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -o dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-sdist
+          path: dist
+
+  publish:
+    needs: [build, sdist, windows-keyboard]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bpl-*
+          path: bin
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/*
+            bin/*
+          generate_release_notes: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm:
+    runs-on: ubuntu-latest
+    # npm accepts this job's upload through trusted publishing. The `basedpl` package's settings on npmjs.com name this workflow as its trusted publisher.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo wasm --strip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org
+      - run: npm publish
+        working-directory: wasm/pkg
+      # Pages load this package's files from unversioned jsDelivr URLs. Without a purge, jsDelivr can serve the previous release's files there for up to 7 days.
+      - run: for file in *; do curl -fsS "https://purge.jsdelivr.net/npm/basedpl/$file"; done
+        working-directory: wasm/pkg

@@ -3,7 +3,7 @@
 The server answers a device with an open repair with `X-Probe-Capture-Repair`;
 the client that got it leaves a mark (`probe.foundation.remote_settings.capture_repair`), and the
 next `probe` command fetches the replacement credentials and writes them where
-the wizard's sign-in would (`probe.cli.main._capture_repair_notice`). What each
+the wizard's sign-in would (`probe.cli.lifecycle.notices.capture_repair._capture_repair_notice`). What each
 test pins would fail silently: a repair no client notices, a credential written
 somewhere the tap never reads, a lock left in place over a credential that now
 works, a fetch from inside a training loop, or a mark that keeps the CLI
@@ -23,11 +23,11 @@ import pytest
 
 from probe.shared.updates import version_policy
 from probe.foundation.remote_settings import capture_repair
-from probe.cli import setup
+from probe.cli import wizard as setup
 from probe.shared.updates import update_report
 from probe.cli import telemetry as tm
-from probe.cli.capture import AWAITING_CONFIRMATION
-from probe.cli.capabilities import tap_plugin_dir
+from probe.cli.capture.capture import AWAITING_CONFIRMATION
+from probe.cli.wizard.state.capture_credentials import tap_plugin_dir
 from probe.sdk.settings.settings import Settings, load_context, save_context
 from probe.sdk.delivery.transport.transport import Transport
 
@@ -306,7 +306,7 @@ def test_a_partial_write_confirms_only_what_applied_and_keeps_the_mark(server, e
             raise OSError("read-only")
         real(source, token, base)
 
-    monkeypatch.setattr(setup, "write_capture_credential", flaky)
+    monkeypatch.setattr(setup.apply.capture_credentials, "write_capture_credential", flaky)
     _mark()
     _argv(monkeypatch, "ls")
 
@@ -507,7 +507,7 @@ def test_never_from_a_run_command_the_daemon_or_the_wizard(server, monkeypatch, 
 
 
 def test_never_from_a_command_the_service_runs_itself(server, monkeypatch):
-    from probe.service.paths import SERVICE_CHILD_ENV
+    from probe.foundation.service_api.paths import SERVICE_CHILD_ENV
 
     calls, _answers = server
     monkeypatch.setenv(SERVICE_CHILD_ENV, "1")

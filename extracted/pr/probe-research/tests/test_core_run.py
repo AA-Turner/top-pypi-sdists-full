@@ -415,7 +415,7 @@ def test_desktop_waits_out_an_update_barrier_then_answers_busy(monkeypatch, capf
     import io
 
     from probe.core import run
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     monkeypatch.setattr(barrier, "wait", lambda timeout=None: False)
     assert run.main(["desktop"], stdin=io.StringIO('{"op": "jobs"}')) == barrier.BUSY_EXIT_CODE == 75
@@ -429,7 +429,8 @@ def test_desktop_refuses_what_the_cli_refuses_in_a_daemon_session(monkeypatch, c
     onboarding acknowledgement through it, registered with the service or not."""
     import io
 
-    from probe.cli import desktop, write_gate
+    from probe.cli.imports import desktop
+    from probe.cli.lifecycle import write_gate
     from probe.core import run
     from probe.sdk import session_marker
 
@@ -449,7 +450,7 @@ def test_desktop_stdout_is_the_envelope_alone(monkeypatch, capfd):
     """What a request's code prints goes to stderr: the reader parses stdout whole."""
     import io
 
-    from probe.cli import desktop
+    from probe.cli.imports import desktop
     from probe.core import run
 
     def noisy(request):

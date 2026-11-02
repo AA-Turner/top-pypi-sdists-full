@@ -1,0 +1,22 @@
+use pyo3::Bound;
+use pyo3::prelude::*;
+use pyo3::types::{PyAnyMethods, PyDict, PyType};
+
+pub(crate) fn dataclass_fields<'a, 'py>(obj: Borrowed<'a, 'py, PyAny>) -> Option<Bound<'py, PyDict>>
+where
+    'py: 'a,
+{
+    obj.getattr(pyo3::intern!(obj.py(), "__dataclass_fields__"))
+        .ok()?
+        .cast_into::<PyDict>()
+        .ok()
+}
+
+// Modified from pydantic's `is_dataclass` function
+// ty pydantic team: https://github.com/pydantic/pydantic-core/blob/e0bc980764ec5d5f59c7d451948df937b5a1921f/src/serializers/ob_type.rs#L342
+pub(crate) fn is_dataclass(value: Borrowed<'_, '_, PyAny>) -> bool {
+    value
+        .hasattr(pyo3::intern!(value.py(), "__dataclass_fields__"))
+        .unwrap_or(false)
+        && !value.is_instance_of::<PyType>()
+}

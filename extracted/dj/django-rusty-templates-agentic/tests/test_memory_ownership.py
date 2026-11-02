@@ -1,0 +1,316 @@
+"""Object lifetime regressions; RSS and allocator benchmarks stay outside CI."""
+
+import datetime
+import gc
+import sys
+from types import ModuleType
+import weakref
+
+import pytest
+from django.template import Context, Library, Node
+from django.utils import timezone
+
+
+class Marker:
+    pass
+
+
+class TrackedSource(str):
+    pass
+
+
+def make_backend(engine_class, source, *, debug=False, depth=1, libraries=None):
+    marker = Marker()
+    reference = weakref.ref(marker)
+    source = TrackedSource(source)
+    source.marker = marker
+    loaders = [
+        (
+            "django.template.loaders.locmem.Loader",
+            {"page.html": source, "value.html": "{{ value }}"},
+        )
+    ]
+    for _ in range(depth):
+        loaders = [("django.template.loaders.cached.Loader", loaders)]
+    return engine_class(
+        {
+            "NAME": "memory-test",
+            "DIRS": [],
+            "APP_DIRS": False,
+            "OPTIONS": {
+                "debug": debug,
+                "loaders": loaders,
+                "libraries": libraries or {"custom": "tests.templatetags.custom_tags"},
+            },
+        }
+    ), reference
+
+
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("depth", [0, 1, 2])
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("Hello {{ value }}", "Hello world"),
+        ('{% include "value.html" %}', "world"),
+        ("{% block body %}{{ value }}{% endblock %}", "world"),
+        ("{% load custom %}{% double value %}", "worldworld"),
+    ],
+)
+def test_discarded_engines_are_collected(engine_class, debug, depth, source, expected):
+    def render_once():
+        backend, reference = make_backend(
+            engine_class, source, debug=debug, depth=depth
+        )
+        template = backend.get_template("page.html")
+        assert template.render({"value": "world"}) == expected
+        # Exercise the inspection tree and the mutable Django cache view too.
+        assert getattr(template, "template", template).nodelist
+        if depth:
+            assert backend.engine.template_loaders[0].get_template_cache
+        return reference
+
+    references = [render_once() for _ in range(20)]
+    gc.collect()
+    assert all(reference() is None for reference in references)
+
+
+@pytest.mark.parametrize("keep", ["template", "engine", "loader", "origin", "cache"])
+def test_retained_objects_keep_engine_working(engine_class, keep):
+    def retain():
+        backend, reference = make_backend(engine_class, '{% include "value.html" %}')
+        template = backend.get_template("page.html")
+        assert template.render({"value": "first"}) == "first"
+        native = getattr(template, "template", template)
+        return {
+            "template": native,
+            "engine": native.engine,
+            "loader": backend.engine.template_loaders[0],
+            "origin": native.origin,
+            "cache": backend.engine.template_loaders[0].get_template_cache,
+        }[keep], reference
+
+    retained, reference = retain()
+    gc.collect()
+    assert reference() is not None
+    if keep == "engine":
+        template = retained.get_template("page.html")
+    elif keep == "loader":
+        template = retained.get_template("page.html")
+    elif keep == "origin":
+        template = retained.loader.get_template("page.html")
+    elif keep == "cache":
+        template = retained["page.html"]
+    else:
+        template = retained
+    assert template.render(Context({"value": "second"})) == "second"
+    del template, retained
+    gc.collect()
+    assert reference() is None
+
+
+@pytest.mark.parametrize("debug", [False, True])
+def test_opaque_callback_capturing_engine_is_collected(
+    engine_class, monkeypatch, debug
+):
+    module = ModuleType("rusty_memory_callback")
+    module.register = Library()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    compilations = []
+
+    class CapturingNode(Node):
+        def __init__(self, engine, nodes):
+            self.engine = engine
+            self.nodelist = nodes
+
+        def render(self, context):
+            return self.nodelist.render(context)
+
+    @module.register.tag("capture")
+    def capture(parser, token):
+        compilations.append(token.contents)
+        # Compilation holds the loader lock; GC must not try to acquire it.
+        gc.collect()
+        # Django's parser doesn't expose engine; Rusty's opaque parser does.
+        engine = getattr(parser, "engine", None)
+        nodes = parser.parse(("endcapture",))
+        parser.delete_first_token()
+        return CapturingNode(engine, nodes)
+
+    def render_once():
+        backend, reference = make_backend(
+            engine_class,
+            "{% load capture %}{% capture %}{{ value }}{% endcapture %}",
+            debug=debug,
+            libraries={"capture": module.__name__},
+        )
+        assert backend.get_template("page.html").render({"value": "ok"}) == "ok"
+        compiled = len(compilations)
+        gc.collect()
+        assert backend.get_template("page.html").render({"value": "again"}) == "again"
+        assert len(compilations) == compiled
+        return reference
+
+    references = [render_once() for _ in range(20)]
+    gc.collect()
+    assert all(reference() is None for reference in references)
+
+
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("depth", [0, 1])
+@pytest.mark.parametrize("save", ["context", "block", "loop", "scope"])
+def test_native_callback_context_cycles_are_collected(
+    engine_class, monkeypatch, debug, depth, save
+):
+    module = ModuleType("rusty_memory_context_cycle")
+    module.register = Library()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    @module.register.simple_tag(takes_context=True)
+    def remember(context):
+        if save == "loop":
+            context["forloop"]["saved"] = context
+        elif save == "scope":
+            context["marker"].context = context
+        else:
+            context["saved"] = context if save == "context" else context["block"]
+        return ""
+
+    def render_once():
+        backend, source_reference = make_backend(
+            engine_class,
+            "{% load callbacks %}{% block body %}"
+            "{% for item in items %}{% remember %}{{ value }}{% endfor %}{% endblock %}",
+            debug=debug,
+            depth=depth,
+            libraries={"callbacks": module.__name__},
+        )
+        marker = Marker()
+        reference = weakref.ref(marker)
+        assert (
+            backend.get_template("page.html").render(
+                {"marker": marker, "value": "ok", "items": [1]}
+            )
+            == "ok"
+        )
+        return source_reference, reference
+
+    references = [render_once() for _ in range(10)]
+    gc.collect()
+    assert all(source() is None and request() is None for source, request in references)
+
+
+def test_callable_block_context_cycle_is_collected(engine_class):
+    class SaveBlock:
+        def __init__(self, context):
+            self.context = context
+
+        def __call__(self):
+            self.context["saved"] = self.context["block"]
+            return "ok"
+
+    def render_once():
+        backend, source = make_backend(
+            engine_class, "{% block body %}{{ save }}{% endblock %}"
+        )
+        marker = Marker()
+        reference = weakref.ref(marker)
+        context = Context({"marker": marker})
+        context["save"] = SaveBlock(context)
+        wrapped = backend.get_template("page.html")
+        template = getattr(wrapped, "template", wrapped)
+        assert template.render(context) == "ok"
+        return source, reference
+
+    references = [render_once() for _ in range(10)]
+    gc.collect()
+    assert all(source() is None and request() is None for source, request in references)
+
+
+@pytest.mark.parametrize("keep", ["context", "block"])
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("depth", [0, 1])
+def test_retained_callback_state_survives_collection(
+    engine_class, monkeypatch, keep, debug, depth
+):
+    module = ModuleType("rusty_retained_callback_state")
+    module.register = Library()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    retained = []
+
+    @module.register.simple_tag(takes_context=True)
+    def remember(context):
+        retained.append(context if keep == "context" else context["block"])
+        gc.collect()
+        return context["value"]
+
+    def render_once():
+        backend, _ = make_backend(
+            engine_class,
+            "{% extends parent %}{% load callbacks %}{% block body %}"
+            "{% for item in items %}{% remember %}{% endfor %}{% endblock %}",
+            debug=debug,
+            depth=depth,
+            libraries={"callbacks": module.__name__},
+        )
+        marker = Marker()
+        reference = weakref.ref(marker)
+        parent = backend.from_string("{% block body %}base{% endblock %}")
+        assert (
+            backend.get_template("page.html").render(
+                {"marker": marker, "value": "ok", "items": [1, 2], "parent": parent}
+            )
+            == "okok"
+        )
+        return reference
+
+    reference = render_once()
+    gc.collect()
+    assert reference() is not None
+    if keep == "context":
+        assert all(context["value"] == "ok" for context in retained)
+    else:
+        assert all(block.name == "body" for block in retained)
+    retained.clear()
+    gc.collect()
+    assert reference() is None
+
+
+def test_cached_date_timezone_cycle_is_collected(engine_class, monkeypatch, settings):
+    settings.USE_TZ = True
+    module = ModuleType("rusty_memory_date_cycle")
+    module.register = Library()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    class CycleZone(datetime.tzinfo):
+        def utcoffset(self, value):
+            return datetime.timedelta(hours=2)
+
+        def dst(self, value):
+            return datetime.timedelta(0)
+
+    @module.register.simple_tag(takes_context=True)
+    def remember(context):
+        # The render's date cache holds the zone, which now holds the context.
+        timezone.get_current_timezone().context = context
+        return ""
+
+    def render_once():
+        backend, source = make_backend(
+            engine_class,
+            '{% load callbacks %}{{ value|date:"H:i" }}{% remember %}',
+            libraries={"callbacks": module.__name__},
+        )
+        marker = Marker()
+        reference = weakref.ref(marker)
+        value = datetime.datetime(2026, 10, 17, 3, 30, tzinfo=datetime.timezone.utc)
+        with timezone.override(CycleZone()):
+            rendered = backend.get_template("page.html").render(
+                {"marker": marker, "value": value}
+            )
+        assert rendered == "05:30"
+        return source, reference
+
+    references = [render_once() for _ in range(10)]
+    gc.collect()
+    assert all(source() is None and marker() is None for source, marker in references)

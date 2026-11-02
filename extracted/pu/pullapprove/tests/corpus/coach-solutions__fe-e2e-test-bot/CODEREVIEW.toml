@@ -1,0 +1,19 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "frontend"
+reviewers = ["$frontend"]
+request = 1
+require = 1
+labels = ["frontend"]
+ownership = "append"
+paths = ["**/*"]
+
+[[scopes]]
+name = "frontend-interested"
+reviewers = ["$frontend-interested"]
+request = 1
+require = 0
+paths = ["**/*"]

@@ -1,0 +1,574 @@
+"""Public, reusable configuration dataclasses for scenario packages.
+
+These dataclasses describe the parameters that are **shared** by every
+scenario regardless of which package defines it: the CARLA server connection,
+the target map, the ego vehicle, per-entity spawn behaviour, NPC vehicles, and
+the optional lanelet-constraint sweep section.
+
+They intentionally live at the top level of :mod:`autoware_carla_scenario`
+(rather than under ``examples``) so that **external scenario packages** can
+import them as a stable public API::
+
+    from autoware_carla_scenario import (
+        EgoVehicleConfig,
+        MapConfig,
+        NpcVehicleConfig,
+        ServerConfig,
+    )
+
+Scenario-specific dataclasses (e.g. the parameters of a single test) should be
+defined by each scenario package itself -- see
+:mod:`autoware_carla_scenario.examples.configs` for the built-in examples.
+
+This module has **no heavy dependencies** (no CARLA, no lanelet2), so importing
+it is cheap and safe from any environment.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, List
+
+from .traffic.config import TrafficConfig, TrafficManagerBackendConfig
+from .traffic.parameters import (
+    BicycleParameters,
+    PedestrianParameters,
+    Spread,
+    VehicleParameters,
+)
+
+__all__ = [
+    "ServerConfig",
+    "MapConfig",
+    "EntityConfig",
+    "EgoVehicleConfig",
+    "NpcVehicleConfig",
+    "DriverCameraLensSpec",
+    "DriverCameraSpec",
+    "DriverLidarSpec",
+    "DriverControlSpec",
+    "DriverConfig",
+    "SweepConfig",
+    # Re-exported from `traffic.config` so that a scenario package importing
+    # its configuration from one place keeps doing so.
+    "TrafficConfig",
+    "TrafficManagerBackendConfig",
+    "VehicleParameters",
+    "PedestrianParameters",
+    "BicycleParameters",
+    "Spread",
+]
+
+#: OmegaConf's mandatory-value marker (``omegaconf.MISSING``), spelled out so
+#: that this module does not import omegaconf, which the library check
+#: (docs/typecheck.md) cannot compile.  OmegaConf recognises the marker by
+#: value (``value == "???"``), not by identity.
+MISSING: Any = "???"
+
+
+# ---------------------------------------------------------------------------
+# Common / shared configs
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ServerConfig:
+    """CARLA server connection parameters."""
+
+    host: str = "localhost"
+    port: int = 2000
+
+    #: Cooldown (seconds) between consecutive scenario runs.  Gives the
+    #: CARLA server time to finish cleanup (destroy actors, restore settings)
+    #: before the next scenario connects.  0 disables the cooldown.
+    cooldown_seconds: float = 3.0
+
+    #: Maximum number of retries when a scenario run fails after cooldown
+    #: (e.g. due to CARLA communication errors or initialization failures).
+    #: 0 means no retries -- a failure is immediately propagated.
+    cooldown_max_retries: int = 0
+
+    #: Upper bound (Hz) on how fast the tick loop steps the world, or *None*
+    #: for as fast as the server allows.  The world only advances when the
+    #: runner ticks it, so every client that reads the simulation -- an
+    #: external Autoware stack above all -- has to service each tick to see
+    #: continuous ``fixed_delta_seconds`` steps.  A client that is slower than
+    #: the loop misses ticks and sees the simulation jump instead, which its
+    #: own timeout checks read as sensor dropouts.  Capping the rate here
+    #: trades wall-clock time for those clients keeping up.
+    max_tick_rate_hz: float | None = None
+
+    #: ``carla.Weather.FogDensityScale`` for a server the run starts and for
+    #: the LiDARs' fog; *None* keeps the server's own (docs/driver_interface.md).
+    fog_density_scale: float | None = None
+
+    #: How the world is reset between the cases of a batch (``--multirun``,
+    #: a SLURM task's cases): ``reload`` loads the map again (~5 s a case on
+    #: CARLA UE5); ``soft`` destroys what the case spawned and puts the
+    #: weather, the episode settings, the traffic lights and the spectator
+    #: back as the map was loaded, and loads the map only when that cannot be
+    #: done.  ``soft`` is not yet shown to give every case the same result a
+    #: reload does (#282): see docs/usage.md, "Resetting the world between
+    #: cases", for what it does and does not reset.
+    world_reset: str = "reload"
+
+    #: With ``world_reset: soft``, load the map instead of a soft reset on
+    #: every this many-th reset; 0 only when a soft reset cannot be done.
+    reload_every: int = 0
+
+
+@dataclass
+class MapConfig:
+    """Map selection and optional file overrides."""
+
+    #: Built-in CARLA map name (e.g. ``Town10HD_Opt``).  **Required**.
+    name: str = MISSING
+
+    #: Optional git repository holding the HD map, as a single URI::
+    #:
+    #:     git+https://huggingface.co/datasets/AutowareFoundation/carla-ue5-maps@main#autoware_maps/Town10HD_Opt
+    #:
+    #: The repository is cloned into ``~/autoware_data/maps`` -- the same place
+    #: Autoware's own setup downloads map datasets to, so a map it already
+    #: fetched is used as it sits -- and its ``lanelet2_map.osm`` becomes this
+    #: scenario's Lanelet2 map.  See :mod:`autoware_carla_scenario.maps`.
+    #:
+    #: ``xodr_path`` and ``lanelet2_path`` still win where they are set, so a
+    #: single file can be overridden without abandoning the source.
+    source: str | None = None
+
+    #: Optional local directory holding the HD map, read in place::
+    #:
+    #:     map.directory=/path/to/autoware_maps/Town10HD_Opt
+    #:
+    #: The directory is searched the way a map repository's is: its ``.osm``
+    #: (``lanelet2_map.osm`` when there are several), its
+    #: ``map_projector_info.yaml`` and any ``.xodr`` it ships.  It may also
+    #: name the ``.osm`` itself.  Nothing is cloned and no revision is
+    #: recorded.  It wins over ``source``; ``xodr_path`` and ``lanelet2_path``
+    #: still win over both.
+    directory: str | None = None
+
+    #: Optional path to a custom OpenDRIVE file that overwrites the built-in map.
+    #:
+    #: Leave it unset for a map whose roads CARLA already ships: the OpenDRIVE
+    #: is then read back from CARLA itself and cached, rather than installed
+    #: into it.
+    xodr_path: str | None = None
+
+    #: Optional path to a Lanelet2 (.osm) file for coordinate transforms.
+    lanelet2_path: str | None = None
+
+    #: Overrides the projection the Lanelet2 map is read with -- ``mgrs``,
+    #: ``utm``, ``local_xy``, ``local_cartesian`` or ``transverse_mercator``.
+    #: Leave it unset to take it from the map's own ``map_projector_info.yaml``,
+    #: which is where Autoware reads it from too.  A ``Local`` map is read with
+    #: ``local_xy``, from its ``local_x``/``local_y`` tags; ``utm`` reads its
+    #: lat/lon instead.
+    projector_type: str | None = None
+
+
+@dataclass
+class EntityConfig:
+    """Shared entity parameters for ground projection and spawn retry.
+
+    These settings apply to all vehicle entities (ego and NPC).
+    """
+
+    #: Search range (m) above the estimated z for the ground projection ray.
+    ground_projection_ray_distance_upper: float = 5.0
+
+    #: Search range (m) below the estimated z for the ground projection ray.
+    ground_projection_ray_distance_lower: float = 5.0
+
+    #: Maximum number of upward-shift retries when the initial spawn fails.
+    #: 0 disables retries.
+    spawn_retry_max_count: int = 10
+
+    #: Upward shift (metres) per retry attempt when the initial spawn fails.
+    spawn_retry_t_step: float = 0.1
+
+    #: Vertical shift (metres) per retry attempt.
+    spawn_retry_z_step: float = 0.5
+
+
+@dataclass
+class EgoVehicleConfig:
+    """Ego vehicle parameters."""
+
+    vehicle_type: str = "vehicle.mini.cooper"
+    initial_speed_kmh: float = 0.0
+
+    #: Lanelet where the ego is spawned.
+    spawn_lanelet_id: int = 242
+
+    #: Longitudinal offset along the lanelet centerline.
+    spawn_s: float = 25.0
+
+    #: Lateral offset from the spawn lanelet's centreline (m), positive to its
+    #: left -- a document's ``spawn.t``.
+    spawn_t: float = 0.0
+
+    #: Yaw relative to the spawn lanelet's direction of travel (rad), positive
+    #: anticlockwise -- a document's ``spawn.heading``.
+    spawn_heading: float = 0.0
+
+    #: Lanelet the ego is routed to.  Required for ``entity: autoware``, which
+    #: plans its route to it and will not move without one -- though a scenario
+    #: may name it in ``setup()`` instead of here.  The other entities are
+    #: driven for the ego and read no goal, so ``None`` leaves the run with no
+    #: destination stated, which is a run about what happens on the way.
+    goal_lanelet_id: int | None = None
+
+    #: Longitudinal offset along the goal lanelet centerline.
+    goal_s: float = 0.0
+
+    #: Lanelets the route must pass through, in order, on the way to the goal.
+    #: Empty leaves the way there to whatever plans the route -- for Autoware,
+    #: the shortest one.  A scenario whose point is the road it takes rather
+    #: than where it ends up names them: a drive rendered from a recorded run,
+    #: say, where the shortest route leaves the rendered world.  A scenario that
+    #: already lists its route lanelets can hand them over in ``setup()`` with
+    #: ``derive_waypoints_from_route()`` rather than repeating them here.
+    waypoint_lanelet_ids: List[int] = field(default_factory=list)
+
+    #: Which ego entity drives the vehicle.
+    #:
+    #: * ``"autopilot"`` -- CARLA's TrafficManager (default).
+    #: * ``"autoware"`` -- no driver; the actor is left for an external stack.
+    #: * ``"carla_driver"`` -- an external policy over the ``egodriver`` gRPC
+    #:   contract, configured by the ``driver`` config group.
+    #: * ``"ros2"`` -- ROS 2 nodes over DDS, configured by the ``ros2`` config
+    #:   group (the ``ros2`` extra).
+    entity: str = "autopilot"
+
+
+@dataclass
+class NpcVehicleConfig:
+    """Configuration for a single NPC vehicle in a scenario."""
+
+    #: Lanelet where the NPC is spawned.
+    spawn_lanelet_id: int = MISSING
+
+    #: Longitudinal offset along the lanelet centerline.
+    spawn_s: float = 0.0
+
+    #: CARLA vehicle blueprint ID.
+    vehicle_type: str = "vehicle.mini.cooper"
+
+    #: Initial speed in km/h applied after warm-up.
+    initial_speed_kmh: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# External driver config (for ego.entity == "carla_driver")
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DriverCameraLensSpec:
+    """The lens a camera's frames are drawn through, when not CARLA's pinhole.
+
+    Mirrors :class:`~autoware_carla_scenario.driver.base.DriverCameraLens`; see that
+    class for the meaning of each field.
+    """
+
+    model: str = "ftheta"
+    principal_point: list[float] = field(default_factory=list)
+    pixeldist_to_angle_poly: list[float] = field(default_factory=list)
+    angle_to_pixeldist_poly: list[float] = field(default_factory=list)
+    max_angle: float = 0.0
+    linear_cde: list[float] = field(default_factory=lambda: [1.0, 0.0, 0.0])
+    reference_poly: str = "pixeldist_to_angle"
+
+
+@dataclass
+class DriverCameraSpec:
+    """One camera streamed to the driver policy.
+
+    ``logical_id`` is the name the policy looks the camera up by, so it must match what
+    the policy expects.  Extrinsics use CARLA's convention relative to ``base_link``
+    (x forward, y right, z up; angles in degrees).
+    """
+
+    logical_id: str = "camera_front_wide_120fov"
+    image_width: int = 960
+    image_height: int = 604
+    fov: float = 120.0
+    fps: float = 20.0
+    position_x: float = 1.5
+    position_y: float = 0.0
+    position_z: float = 1.6
+    roll: float = 0.0
+    pitch: float = 0.0
+    yaw: float = 0.0
+    #: The lens the frames are drawn through, e.g. a carla_canvas renderer's
+    #: fisheye; ``null`` is CARLA's pinhole of ``fov``.
+    lens: DriverCameraLensSpec | None = None
+
+
+@dataclass
+class DriverLidarSpec:
+    """One LiDAR mounted on the ego, its sweeps sent to the driver policy.
+
+    Mirrors :class:`~autoware_carla_scenario.driver.base.DriverLidarConfig`; see that
+    class for the meaning of each field.  The mount uses CARLA's convention relative
+    to the vehicle (x forward, y right, z up; angles in degrees), as for a camera.
+    """
+
+    logical_id: str = "lidar_top"
+    channels: int = 64
+    range_m: float = 100.0
+    points_per_second: int = 1200000
+    upper_fov_deg: float = 15.0
+    lower_fov_deg: float = -25.0
+    dropoff_general_rate: float = 0.0
+    weather_noise: float = 1.0
+    #: ``null`` takes the run's seed.
+    noise_seed: int | None = None
+    fog_density_scale: float = 0.001
+    position_x: float = 0.0
+    position_y: float = 0.0
+    position_z: float = 2.0
+    roll: float = 0.0
+    pitch: float = 0.0
+    yaw: float = 0.0
+
+
+@dataclass
+class DriverControlSpec:
+    """Gains for the controller that tracks the policy's plan.
+
+    Mirrors :class:`~autoware_carla_scenario.driver.control.ControlConfig`; see that
+    class for the meaning of each field (the ``pid`` longitudinal controller's carry
+    the names of Autoware's ``autoware_pid_longitudinal_controller`` parameters).
+    ``max_steer_angle_deg`` and ``yaw_rate_trim_limit_deg`` are expressed in degrees
+    here for readability and converted on the way in.
+    """
+
+    lookahead_gain_s: float = 0.6
+    min_lookahead_m: float = 4.0
+    max_lookahead_m: float = 20.0
+    wheelbase_m: float = 2.8
+    max_steer_angle_deg: float = 56.0
+    steer_exponent: float = 2.0
+    max_steer_rate: float = 4.0
+    yaw_rate_ki: float = 3.0
+    yaw_rate_trim_limit_deg: float = 25.0
+    yaw_rate_min_speed_mps: float = 1.0
+    longitudinal_controller: str = "pid"
+    velocity_smoothing_window: int = 8
+    stopping_threshold: float = 0.3
+    delay_compensation_time: float = 0.17
+    enable_smooth_stop: bool = True
+    enable_overshoot_emergency: bool = True
+    enable_keep_stopped_until_steer_convergence: bool = True
+    drive_state_stop_dist: float = 0.5
+    drive_state_offset_stop_dist: float = 1.0
+    stopping_state_stop_dist: float = 0.5
+    stopped_state_entry_duration_time: float = 0.1
+    stopped_state_entry_vel: float = 0.01
+    stopped_state_entry_acc: float = 0.1
+    emergency_state_overshoot_stop_dist: float = 1.5
+    kp: float = 1.0
+    ki: float = 0.1
+    kd: float = 0.0
+    max_out: float = 1.0
+    min_out: float = -1.0
+    max_p_effort: float = 1.0
+    min_p_effort: float = -1.0
+    max_i_effort: float = 0.3
+    min_i_effort: float = -0.3
+    max_d_effort: float = 0.0
+    min_d_effort: float = 0.0
+    lpf_vel_error_gain: float = 0.9
+    enable_integration_at_low_speed: bool = False
+    current_vel_threshold_pid_integration: float = 0.5
+    time_threshold_before_pid_integration: float = 2.0
+    ff_scale_min: float = 0.5
+    ff_scale_max: float = 2.0
+    enable_velocity_lookahead_feedback: bool = True
+    velocity_lookahead_time: float = 1.0
+    velocity_lookahead_blend_weight: float = 0.5
+    enable_brake_keeping_before_stop: bool = False
+    brake_keeping_acc: float = -0.2
+    smooth_stop_max_strong_acc: float = -0.5
+    smooth_stop_min_strong_acc: float = -0.8
+    smooth_stop_weak_acc: float = -0.3
+    smooth_stop_weak_stop_acc: float = -0.8
+    smooth_stop_strong_stop_acc: float = -3.4
+    smooth_stop_max_fast_vel: float = 0.5
+    smooth_stop_min_running_vel: float = 0.01
+    smooth_stop_min_running_acc: float = 0.01
+    smooth_stop_weak_stop_time: float = 0.8
+    smooth_stop_weak_stop_dist: float = -0.3
+    smooth_stop_strong_stop_dist: float = -0.5
+    stopped_vel: float = 0.0
+    stopped_acc: float = -3.4
+    emergency_vel: float = 0.0
+    emergency_acc: float = -5.0
+    emergency_jerk: float = -3.0
+    lpf_acc_error_gain: float = 0.98
+    acc_feedback_gain: float = 0.0
+    max_acc: float = 3.0
+    min_acc: float = -5.0
+    max_jerk: float = 2.0
+    min_jerk: float = -5.0
+    max_acc_cmd_diff: float = 50.0
+    ego_nearest_dist_threshold: float = 3.0
+    ego_nearest_yaw_threshold: float = 1.046
+    accel_lowpass_gain: float = 0.9
+    speed_kp: float = 1.0
+    speed_ki: float = 0.1
+    integral_limit: float = 3.0
+    position_gain: float = 0.5
+    max_position_correction_mps: float = 6.0
+    speed_preview_s: float = 1.0
+    stop_distance_m: float = 0.5
+    throttle_deadband: float = 0.3
+    standstill_speed_mps: float = 0.5
+    stop_brake: float = 0.6
+
+
+@dataclass
+class DriverConfig:
+    """Connection settings for an external driver policy.
+
+    Only used when ``ego.entity`` is ``"carla_driver"``.  The policy serves
+    ``egodriver.EgodriverService`` at :attr:`address`: from this process when
+    :attr:`policy` names it, or as a process of its own -- for example
+    ``carla-driver-interface serve --policy route_follower --port 50051``.
+    """
+
+    #: ``host:port`` of the policy's gRPC server.
+    address: str = "localhost:50051"
+
+    #: A policy the run serves itself, in its own process, instead of dialling
+    #: :attr:`address` -- ``route_follower``, or ``package.module:Class`` -- or
+    #: ``None`` to dial a policy already serving there.
+    policy: str | None = None
+
+    #: How the run reaches the policy: ``tcp`` (the default), ``unix`` (a Unix
+    #: socket), or ``direct`` (in-process calls carrying the same serialized
+    #: alpasim messages; needs :attr:`policy`).  See
+    #: :attr:`DriverClientConfig.transport`.
+    transport: str = "tcp"
+
+    #: Per-RPC deadline in seconds.
+    timeout_s: float = 60.0
+
+    #: Interval between ``drive`` calls.  Must be a positive integer multiple of the
+    #: 0.05 s simulation step.
+    policy_timestep_s: float = 0.1
+
+    #: JPEG quality (1-100) for streamed camera frames.
+    image_quality: int = 90
+
+    #: Seconds of run-up onto the scenario's first frame, every vehicle and
+    #: pedestrian carried onto its first-frame pose at its initial speed and the
+    #: policy planning but not driving, so a policy that reads a history starts
+    #: with one.  0 starts the policy cold.
+    warmup_s: float = 0.0
+
+    #: How far ahead the submitted route extends, in metres.
+    route_horizon_m: float = 80.0
+
+    #: Spacing between route waypoints, in metres.
+    route_resolution_m: float = 2.0
+
+    #: Offset from the CARLA actor origin back to the rig origin, in metres.
+    #: ``null`` derives it from the vehicle's wheel physics.
+    rear_axle_offset_m: float | None = None
+
+    #: Whether to also submit the route as the reference ("recorded")
+    #: ground-truth trajectory via ``submit_recording_ground_truth``.
+    send_ground_truth: bool = False
+
+    #: Whether to send CARLA ground truth (traffic light, other vehicles, speed
+    #: limit) in ``DriveRequest.renderer_data``.  A policy that reasons about
+    #: any of those reads them from there; without it, it sees an empty world
+    #: and says nothing about the omission.
+    send_renderer_data: bool = True
+
+    #: Whether that payload includes the other vehicles.
+    send_actor_ground_truth: bool = True
+
+    #: How far down its own lane the ego looks for the light governing it.
+    #: 0 falls back to CARLA's ``is_at_traffic_light()``, which only reports a
+    #: light once the ego is already at the line.
+    traffic_light_sight_distance_m: float = 60.0
+
+    #: Radius within which other vehicles are reported to the policy.
+    actor_horizon_m: float = 150.0
+
+    #: Seed handed to the policy in ``start_session``; ``null`` hands it the
+    #: run's seed (the config's ``seed``).
+    random_seed: int | None = None
+
+    #: Cameras streamed to the policy.
+    cameras: list[DriverCameraSpec] = field(
+        default_factory=lambda: [DriverCameraSpec()]
+    )
+
+    #: LiDARs mounted on the ego, their sweeps sent in ``renderer_data``.  None by
+    #: default: a sweep is megabytes per policy step and most policies read none.
+    lidars: list[DriverLidarSpec] = field(default_factory=list)
+
+    #: Where the world's map is written at scenario start, as
+    #: ``<map_dir>/<map_id>/``, for the policy to read from its own copy; every
+    #: light is then sent with where to stop for it.  ``null`` writes no map.
+    #: Needs roadgen (the ``map`` extra).
+    map_dir: str | None = None
+
+    #: The formats to write, by roadgen exporter name.
+    map_formats: list[str] = field(default_factory=lambda: ["lanelet2"])
+
+    #: A local Lanelet2 (``.osm``) file written into the map set as it is,
+    #: instead of the one roadgen converts from the world's OpenDRIVE.  ``null``
+    #: converts it with roadgen.  Needs ``map_dir``.  It carries no roadgen
+    #: trace, so stop lines resolved against it name no lanelets.
+    lanelet2_path: str | None = None
+
+    #: Trajectory-following gains.
+    control: DriverControlSpec = field(default_factory=DriverControlSpec)
+
+
+# ---------------------------------------------------------------------------
+# Sweep config (for lanelet-constraint sweeper)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SweepConfig:
+    """Optional sweep section for lanelet-constraint-based multirun.
+
+    ``constraints`` maps a target key (e.g. ``ego.spawn_lanelet_id``) to a
+    list of constraint dicts; it holds one key, the parameter swept (a
+    second is refused when the sweep is expanded).  ``bindings`` maps a target key
+    (e.g. ``ego.spawn_s``) to a binding dict that auto-derives the value.
+    ``odd_sample`` draws the settings of each case from the ODD.
+    """
+
+    constraints: dict[str, Any] = field(default_factory=dict)
+    bindings: dict[str, Any] = field(default_factory=dict)
+
+    #: Hard timeout (seconds) per job.  If a single scenario run exceeds
+    #: this duration (e.g. CARLA hangs), it is forcefully interrupted and
+    #: the sweep continues with the next lanelet.  0 disables the timeout.
+    job_timeout_seconds: int = 120
+
+    #: 1-indexed job number to resume from.  Jobs before this index are
+    #: skipped.  0 (default) means execute all jobs from the beginning.
+    resume_from: int = 0
+
+    #: Concrete cases drawn from the ODD (``docs/odd.md``, "Sampling
+    #: scenarios from the ODD"): ``count``, ``seed``, ``strategy``
+    #: (``uniform`` or ``coverage``), ``odd``, ``coverage_from``, ``knobs``,
+    #: and ``flaky`` (a flaky search learning from ``coverage_from``'s runs).
+    #: Empty draws nothing.
+    odd_sample: dict[str, Any] = field(default_factory=dict)
+
+    #: Keep only the case at this (0-based) index of the expansion; ``None``
+    #: keeps them all.  ``++sweep.case_index=0`` on a batch runs each scenario
+    #: on its first case.
+    case_index: int | None = None

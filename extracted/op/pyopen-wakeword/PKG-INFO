@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: pyopen-wakeword
+Version: 1.1.0
+Summary: An open-source audio wake word (or phrase) detection framework with a focus on performance and simplicity.
+Author-email: Michael Hansen <mike@rhasspy.org>
+License: Apache-2.0
+Project-URL: Source Code, https://github.com/rhasspy/pyopen-wakeword
+Keywords: wakeword,detection,hotword
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Dynamic: license-file
+
+# Python openWakeWord
+
+Alternative Python library for [openWakeWord](https://github.com/dscripka/openWakeWord).
+
+Uses a [pre-compiled Tensorflow Lite library](https://github.com/tphakala/tflite_c).
+
+
+## Install
+
+``` sh
+pip3 install pyopen-wakeword
+```
+
+
+## Usage
+
+``` python
+from pyopen_wakeword import OpenWakeWord, OpenWakeWordFeatures, Model
+
+oww = OpenWakeWord.from_builtin(Model.OKAY_NABU)
+oww_features = OpenWakeWordFeatures()
+
+# Audio must be 16-bit mono at 16Khz
+while audio := get_10ms_of_audio():
+    assert len(audio) == 160 * 2  # 160 samples
+    for features in oww_features.process_streaming(audio):
+        for prob in oww.process_streaming(features):
+            if prob > 0.5:
+                print("Detected!")
+```
+
+
+## Command-Line
+
+### WAVE files
+
+``` sh
+python3 -m pyopen_wakeword --model 'okay_nabu' /path/to/*.wav
+```
+
+### Live
+
+``` sh
+arecord -r 16000 -c 1 -f S16_LE -t raw | \
+  python3 -m pyopen_wakeword --model 'okay_nabu'
+```

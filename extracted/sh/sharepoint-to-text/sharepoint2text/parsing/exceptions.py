@@ -1,0 +1,174 @@
+"""
+Custom exceptions for the sharepoint2text extraction library.
+
+These exceptions provide clear error semantics for common failure modes
+during document extraction.
+"""
+
+from typing import Optional
+
+
+class ExtractionError(Exception):
+    """Base exception for sharepoint2text errors."""
+
+
+class ExtractionFileFormatNotSupportedError(ExtractionError):
+    """
+    Raised when the file format is not supported for extraction.
+
+    This exception indicates that the library does not have an extractor
+    capable of handling the given file type.
+
+    Attributes:
+        message: Human-readable description of the error.
+        __cause__: Optional underlying exception that triggered this error.
+    """
+
+    def __init__(self, message: str, *, cause: Optional[Exception] = None):
+        super().__init__(message)
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionLegacyMicrosoftParsingError(ExtractionError):
+    """
+    Raised when parsing a legacy Microsoft Office file fails.
+
+    This exception indicates issues with parsing binary formats such as
+    .doc, .xls, or .ppt files. Common causes include corrupted files,
+    encrypted content, or unsupported format variations.
+
+    Attributes:
+        message: Human-readable description of the error.
+        __cause__: Optional underlying exception that triggered this error.
+    """
+
+    def __init__(
+        self,
+        message: str = "Error when processing legacy Microsoft Office file",
+        *,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionFileEncryptedError(ExtractionError):
+    """
+    Raised when the file appears to be encrypted or password-protected.
+
+    This exception is used when an extractor detects encryption and
+    cannot proceed without a password or decryption step.
+
+    Attributes:
+        message: Human-readable description of the error.
+        __cause__: Optional underlying exception that triggered this error.
+    """
+
+    def __init__(
+        self,
+        message: str = "File is encrypted or password-protected",
+        *,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionZipBombError(ExtractionError):
+    """
+    Raised when a ZIP container is deemed unsafe (probable ZIP bomb).
+
+    Applies to formats that are ZIP containers (OOXML/ODF: .docx/.pptx/.odt/.ods/.odp)
+    and other ZIP-based processing.
+    """
+
+    def __init__(
+        self,
+        message: str = "ZIP container rejected (possible ZIP bomb)",
+        *,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionFailedError(ExtractionError):
+    """
+    Raised when extraction fails for an unexpected reason.
+
+    Intended for use at API boundaries (e.g. `read_file`) to provide a
+    stable exception surface while preserving the original exception in
+    `__cause__`.
+    """
+
+    def __init__(
+        self,
+        message: str = "Extraction failed",
+        *,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionFileTooLargeError(ExtractionError):
+    """
+    Raised when a file exceeds the maximum allowed size for extraction.
+
+    This exception is used when an extractor detects that a file is too large
+    to process safely given memory constraints.
+
+    Attributes:
+        message: Human-readable description of the error.
+        max_size: Maximum allowed file size in bytes.
+        actual_size: Actual file size in bytes.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        max_size: int,
+        actual_size: int,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        self.max_size = max_size
+        self.actual_size = actual_size
+        if cause is not None:
+            self.__cause__ = cause
+
+
+class ExtractionPathTraversalError(ExtractionError):
+    """
+    Raised when an archive entry contains a path traversal attempt.
+
+    This exception indicates that an archive entry has a malicious path
+    designed to escape the extraction directory, such as paths containing
+    '../' components or absolute paths like '/etc/passwd'.
+
+    This is a security-focused exception used in strict mode. In default
+    mode, unsafe paths are silently skipped with a warning log.
+
+    Attributes:
+        message: Human-readable description of the error.
+        unsafe_path: The malicious path that was detected.
+        __cause__: Optional underlying exception that triggered this error.
+    """
+
+    def __init__(
+        self,
+        message: str = "Archive entry contains path traversal attempt",
+        *,
+        unsafe_path: str,
+        cause: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        self.unsafe_path = unsafe_path
+        if cause is not None:
+            self.__cause__ = cause

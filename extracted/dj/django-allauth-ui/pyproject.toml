@@ -1,0 +1,67 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "django-allauth-ui"
+version = "1.8.1"
+description = ""
+authors = ["Dani Hodovic <you@example.com>"]
+license = "MIT"
+packages = [
+    { include = "allauth_ui" },
+]
+include = [
+  {path = "allauth_ui/static/allauth_ui/output.css", format = ["sdist", "wheel"]}
+]
+readme = "README.md"
+repository = "https://github.com/danihodovic/django-allauth-ui"
+keywords = ["django", "allauth", "social-login", "auth"]
+classifiers = [
+	"Framework :: Django",
+	"Topic :: Internet :: WWW/HTTP",
+	"Topic :: System :: Systems Administration :: Authentication/Directory",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+django-widget-tweaks = "^1.5.0"
+slippers = "^0.6.2"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.group.dev.dependencies]
+Django = "^4.0.2"
+Werkzeug = "^2.0.2"
+black = {extras = ["d"], version = "^24.4.2"}
+django-allauth = {extras = ["mfa"], version = "^64.0.0"}
+django-browser-reload = "^1.3.0"
+django-click = "^2.3.0"
+django-debug-toolbar = "^3.2.4"
+django-extensions = "^3.1.5"
+django-rosetta = "^0.10.0"
+django-toolset = "^0.1.5"
+djlint = {version = "^1.34.1", python = ">=3.8,<4.0"}
+fido2 = {version = "^1.1.3", python = ">=3.8,<4.0"}
+isort = "^5.13.2"
+mypy = "^1.3.0"
+mypy-extensions = "1.0.0"
+ptipython = "^1.0.1"
+ptpython = "^3.0.29"
+pudb = "2019.1"
+pylint = "^3.2.2"
+pylint-django = "^2.5.0"
+pytest = "^8.2.1"
+pytest-cov = "2.10.0"
+pytest-django = "4.1.0"
+
+[tool.pytest.ini_options]
+addopts = "--ds=tests.settings --reuse-db --pdbcls=pudb.debugger:Debugger"
+python_files = "tests.py test_*.py"
+
+[tool.black]
+exclude = ".*(venv|virtualenv|.poetry|migrations|node_modules)"
+
+[tool.isort]
+skip_glob = "**/migrations/*.py,**/fixtures/*.py"
+profile = "black"

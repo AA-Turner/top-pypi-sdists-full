@@ -1,0 +1,40 @@
+version: 1
+sources:
+  - name: catalog
+    type: git
+    url: https://github.com/joeharris76/skill-sync-skills.git
+    ref: e0af1fe8b6751ee7cae42fa7a9adc374d96dd690
+    subdir: skills
+  - name: product
+    type: git
+    url: https://github.com/joeharris76/skill-sync.git
+    ref: 6ebc1e4f0df13de5e9c71f5925e06ff4aa73c984
+    subdir: skills
+skills:
+  - blog
+  - code
+  - docs
+  - skill-sync
+  - test
+  - todo
+  - SHARED/change-framework
+  - SHARED/investigation-framework
+  - SHARED/review-protocol
+  - tidy-perms
+targets:
+  claude: .claude/skills
+  codex: .codex/skills
+  gemini: .gemini/skills
+install_mode: mirror
+overrides:
+  skill-sync:
+    source_name: product
+config:
+  code:
+    lint: "uv run ruff check ."
+    lint_fix: "uv run ruff check --fix ."
+    format: "uv run ruff format ."
+    fast_test: "uv run pytest"
+    verify: "uv run pytest"
+  todo:
+    cli: "_project/scripts/todo"

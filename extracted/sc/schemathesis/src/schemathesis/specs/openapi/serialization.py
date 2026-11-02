@@ -14,7 +14,7 @@ from schemathesis.core.jsonschema import (
     schema_with_bundle,
 )
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, DelimitedValue, RawQueryString
-from schemathesis.core.transforms import to_wire_string
+from schemathesis.core.transforms import to_wire_text
 from schemathesis.transport.serialization import Binary
 
 Generated = dict[str, Any]
@@ -84,14 +84,13 @@ def _serialize_openapi3(definitions: DefinitionList) -> Generator[Callable | Non
                 type_ = schema.get("type")
             else:
                 type_ = None
-            # Apply OpenAPI 3.0 defaults for `style` and `explode`. `style`
+            # Apply OpenAPI 3 defaults for `style` and `explode`. `style`
             # defaults to `simple` for path/header and `form` for
-            # query/cookie. `explode` defaults to `true` for `form` and
-            # `false` for every other style.
+            # query/cookie. `explode` defaults to `true` for `form` and `cookie`.
             if style is None:
                 style = "simple" if location in ("path", "header") else "form"
             if explode is None:
-                explode = style == "form"
+                explode = style in ("form", "cookie")
             serialize = partial(
                 _serialize_location_openapi3,
                 name,
@@ -163,7 +162,7 @@ def _serialize_location_openapi3(
     elif location == "header":
         yield from _serialize_header_openapi3(name, type_, explode)
     elif location == "cookie":
-        yield from _serialize_cookie_openapi3(name, type_, explode)
+        yield from _serialize_cookie_openapi3(name, type_, style, explode)
 
 
 def _serialize_querystring_openapi3(
@@ -395,11 +394,17 @@ def _serialize_header_openapi3(
 
 
 def _serialize_cookie_openapi3(
-    name: str, type_: str | None, explode: bool | None
+    name: str, type_: str | None, style: str | None, explode: bool | None
 ) -> Generator[Callable | None, None, None]:
-    # A cookie holds a single value, so `explode=true` has no distinct wire form and arrays / objects
-    # collapse to the same comma-separated shape as headers instead of being dropped.
-    yield from _serialize_header_openapi3(name, type_, explode)
+    if style != "cookie":
+        # A form-style cookie holds a single value, so arrays and objects use the header-style wire form.
+        yield from _serialize_header_openapi3(name, type_, explode)
+        return
+    yield to_string(name)
+    if type_ == "array":
+        yield delimited(name, delimiter=f"; {name}=" if explode else ",")
+    if type_ == "object":
+        yield extracted_object(name, stringify=True) if explode else comma_delimited_object(name)
 
 
 def _serialize_swagger2(definitions: DefinitionList) -> Generator[Callable | None, None, None]:
@@ -444,7 +449,7 @@ def conversion(func: Callable[..., None]) -> Callable:
 
 
 def make_delimited(data: dict[str, Any] | None) -> str:
-    return ",".join(f"{key}={to_wire_string(value)}" for key, value in force_dict(data or {}).items())
+    return ",".join(f"{key}={to_wire_text(value)}" for key, value in force_dict(data or {}).items())
 
 
 def force_iterable(value: object) -> list | tuple:
@@ -476,7 +481,7 @@ def to_json(item: Generated, name: str) -> None:
 @conversion
 def delimited(item: Generated, name: str, delimiter: str) -> None:
     values = force_iterable(item[name] if item[name] is not None else ())
-    item[name] = delimiter.join(to_wire_string(value) for value in values)
+    item[name] = delimiter.join(to_wire_text(value) for value in values)
 
 
 # Wire form of each delimiter. Comma and pipe are valid query/path characters and stay literal;
@@ -487,7 +492,7 @@ _WIRE_DELIMITERS = {",": ",", "|": "|", " ": "%20", "\t": "%09"}
 @conversion
 def delimited_encoded(item: Generated, name: str, delimiter: str) -> None:
     """Join query/path items, percent-encoding each but keeping the delimiter literal and splittable."""
-    values = [to_wire_string(value) for value in force_iterable(item[name] if item[name] is not None else ())]
+    values = [to_wire_text(value) for value in force_iterable(item[name] if item[name] is not None else ())]
     logical = delimiter.join(values)
     wire = _WIRE_DELIMITERS.get(delimiter, quote(delimiter, safe=""))
     encoded = wire.join(quote(value, safe="") for value in values)
@@ -497,7 +502,7 @@ def delimited_encoded(item: Generated, name: str, delimiter: str) -> None:
 @conversion
 def delimited_nested(item: Generated, name: str, *, outer: str, inner: str) -> None:
     raw = item[name] if item[name] is not None else ()
-    encoded = (inner.join(map(to_wire_string, force_iterable(elem))) for elem in force_iterable(raw))
+    encoded = (inner.join(map(to_wire_text, force_iterable(elem))) for elem in force_iterable(raw))
     item[name] = outer.join(encoded)
 
 
@@ -518,7 +523,7 @@ def deep_object(item: Generated, name: str) -> None:
 
 @conversion
 def comma_delimited_object(item: Generated, name: str) -> None:
-    item[name] = ",".join(map(to_wire_string, sum((force_dict(item[name] or {})).items(), ())))
+    item[name] = ",".join(map(to_wire_text, sum((force_dict(item[name] or {})).items(), ())))
 
 
 @conversion
@@ -527,7 +532,7 @@ def delimited_object(item: Generated, name: str) -> None:
 
 
 @conversion
-def extracted_object(item: Generated, name: str) -> None:
+def extracted_object(item: Generated, name: str, stringify: bool = False) -> None:
     """Merge a child node to the parent one."""
     generated = item.pop(name)
     # An empty object expands to nothing, so the parameter is omitted.
@@ -535,7 +540,7 @@ def extracted_object(item: Generated, name: str) -> None:
         for key, value in generated.items():
             # A declared parameter of the same name keeps its own value.
             for expanded_key, expanded_value in _expanded(key, value).items():
-                item.setdefault(expanded_key, expanded_value)
+                item.setdefault(expanded_key, to_wire_text(expanded_value) if stringify else expanded_value)
     else:
         item[name] = ""
 
@@ -602,11 +607,11 @@ def _joined(prefix: str, delimiter: str, values: list[str]) -> DelimitedValue | 
 
 
 def _array_items(value: object) -> list[str]:
-    return [to_wire_string(item) for item in force_iterable(value if value is not None else ())]
+    return [to_wire_text(item) for item in force_iterable(value if value is not None else ())]
 
 
 def _object_pairs(value: object) -> list[tuple[str, str]]:
-    return [(str(key), to_wire_string(item)) for key, item in force_dict(value if value is not None else {}).items()]
+    return [(str(key), to_wire_text(item)) for key, item in force_dict(value if value is not None else {}).items()]
 
 
 def _object_flat(value: object) -> list[str]:
@@ -650,7 +655,7 @@ def label_primitive(item: Generated, name: str) -> None:
     """
     new = item[name]
     if new is not None:
-        item[name] = _styled([(".", to_wire_string(new))])
+        item[name] = _styled([(".", to_wire_text(new))])
     else:
         item[name] = ""
 
@@ -696,7 +701,7 @@ def matrix_primitive(item: Generated, name: str) -> None:
     """
     new = item[name]
     if new is not None:
-        item[name] = _styled([(f";{name}=", to_wire_string(new))])
+        item[name] = _styled([(f";{name}=", to_wire_text(new))])
     else:
         item[name] = ""
 
@@ -737,4 +742,4 @@ def matrix_object(item: Generated, name: str, explode: bool | None) -> None:
 @conversion
 def to_string(item: Generated, name: str) -> None:
     """Convert the value to a string."""
-    item[name] = to_wire_string(item[name])
+    item[name] = to_wire_text(item[name])

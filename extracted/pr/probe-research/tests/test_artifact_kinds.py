@@ -5,7 +5,7 @@ The server normalizes every write (migration 0336's trigger), so nothing here
 decides what is STORED; these pin what the client SAYS about a word (`probe
 artifact add`'s "filed as" line), which words count as code (a code artifact is
 stored, never pointed at), and which kind travels as "no kind" on an upload.
-The server's `tests/unit/test_artifact_kinds.py` pins this copy to
+The server's `tests/unit/shared/vocab/test_artifact_kinds.py` pins this copy to
 `app/core/artifact_kinds.py`.
 """
 

@@ -1,0 +1,7 @@
+extends = ["CODEREVIEW.base.toml"]
+
+[[scopes]]
+name = "docs"
+paths = ["*.md", "*.txt"]
+reviewers = ["davegaeddert"]
+author_value = 1

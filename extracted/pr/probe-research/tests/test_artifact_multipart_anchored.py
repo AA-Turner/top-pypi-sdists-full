@@ -5,7 +5,7 @@ rides no run's lane), every anchor reaches its own doors -- an op queued by
 an earlier release, which only ever named a run, reaches the run's -- and a
 server that does not declare ``artifact_multipart_anchored`` keeps today's
 `probe artifact add --project` path. The whole lifecycle against the real app
-and object storage is `tests/integration/test_artifact_multipart_anchored_s3.py`.
+and object storage is `tests/integration/external/test_artifact_multipart_anchored_s3.py`.
 """
 
 from __future__ import annotations

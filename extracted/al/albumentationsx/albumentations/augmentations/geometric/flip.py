@@ -1,0 +1,708 @@
+"""Geometric transformations for flip and symmetry operations.
+This module contains transforms that apply various flip and symmetry operations
+to images and other target types. These transforms modify the geometric arrangement
+of the input data while preserving the pixel values themselves.
+
+Available transforms:
+- VerticalFlip: Flips the input upside down (around the x-axis)
+- HorizontalFlip: Flips the input left to right (around the y-axis)
+- Transpose: Swaps rows and columns (flips around the main diagonal)
+- D4: Applies one of eight possible square symmetry transformations (dihedral group D4)
+- SquareSymmetry: Alias for D4 with a more intuitive name
+
+These transforms are particularly useful for:
+- Data augmentation to improve model generalization
+- Addressing orientation biases in training data
+- Working with data that doesn't have a natural orientation (e.g., satellite imagery)
+- Exploiting symmetries in the problem domain
+
+All transforms support various target types including images, masks, bounding boxes,
+keypoints, volume data, and 3D masks, ensuring consistent transformation across
+different data modalities.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Literal, cast
+
+import numpy as np
+import torch
+from albucore import flip_volume, hflip, vflip
+
+from albumentations.core.invocation import SamplingContext
+from albumentations.core.transform_params import SampledParams, TargetSet
+from albumentations.core.transforms_interface import (
+    BaseTransformInitSchema,
+    DualTransform,
+)
+from albumentations.core.type_definitions import (
+    ALL_TARGETS,
+    D4_INVERSE,
+    ImageType,
+    StackedMasks4D,
+    VolumeType,
+    d4_group_elements,
+)
+
+from . import functional as fgeometric
+
+__all__ = [
+    "D4",
+    "HorizontalFlip",
+    "SquareSymmetry",
+    "Transpose",
+    "VerticalFlip",
+]
+
+
+class VerticalFlip(DualTransform):
+    """Flip the image upside down. Same size and layout; self-inverse. Use inverse() for TTA
+    to restore predictions to original orientation.
+
+    Args:
+        p (float): Probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Note:
+        - This transform flips the image upside down. The top of the image becomes the bottom and vice versa.
+        - The dimensions of the image remain unchanged.
+        - For multi-channel images (like RGB), each channel is flipped independently.
+        - Bounding boxes are adjusted to match their new positions in the flipped image.
+        - Keypoints are moved to their new positions in the flipped image.
+        - This transform is self-inverse: applying it twice returns the original image.
+          Call `inverse()` to get a new instance that undoes the flip (which is identical to
+          applying the flip again), useful for TTA pipelines.
+
+    Mathematical Details:
+        1. For an input image I of shape (H, W, C), the output O is:
+           O[i, j, k] = I[H-1-i, j, k] for all i in [0, H-1], j in [0, W-1], k in [0, C-1]
+        2. For bounding boxes with coordinates (x_min, y_min, x_max, y_max):
+           new_bbox = (x_min, H-y_max, x_max, H-y_min)
+        3. For keypoints with coordinates (x, y):
+           new_keypoint = (x, H-y)
+        where H is the height of the image.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> image = np.array([
+        ...     [[1, 2, 3], [4, 5, 6]],
+        ...     [[7, 8, 9], [10, 11, 12]]
+        ... ])
+        >>> transform = A.VerticalFlip(p=1.0)
+        >>> result = transform(image=image)
+        >>> flipped_image = result['image']
+        >>> print(flipped_image)
+        [[[ 7  8  9]
+          [10 11 12]]
+         [[ 1  2  3]
+          [ 4  5  6]]]
+        # The original image is flipped vertically, with rows reversed
+
+        >>> # TTA: flip, run inference, unflip the predicted mask
+        >>> aug = A.VerticalFlip(p=1)
+        >>> aug_image = aug(image=image)["image"]
+        >>> pred_mask = np.zeros_like(image[..., :1])  # placeholder for model output
+        >>> restored_mask = aug.inverse()(image=pred_mask)["image"]
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    def apply(self, img: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(img, torch.Tensor):
+            return cast("ImageType", fgeometric.flip_tensor(img, dims=(-2,)))
+        return vflip(img)
+
+    def apply_to_bboxes(self, bboxes: np.ndarray, bbox_type: Literal["hbb", "obb"], **params: Any) -> np.ndarray:
+        return fgeometric.bboxes_vflip(bboxes, bbox_type=bbox_type)
+
+    def apply_to_keypoints(self, keypoints: np.ndarray, shape: tuple[int, int], **params: Any) -> np.ndarray:
+        return fgeometric.keypoints_vflip(keypoints, shape[0])
+
+    def apply_to_mask(self, mask: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if mask.size == 0:
+            # Assume mask shape is (H, W, C) - return empty array with same shape
+            return mask
+        return self.apply(mask, **params)
+
+    def apply_to_masks(self, masks: StackedMasks4D | torch.Tensor, **params: Any) -> StackedMasks4D:
+        if isinstance(masks, torch.Tensor):
+            return cast("StackedMasks4D", fgeometric.flip_tensor(masks, dims=(-2,)))
+        if masks.size == 0:
+            return masks
+        return StackedMasks4D(self.apply_to_images(masks, **params))
+
+    def apply_to_images(self, images: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(images, torch.Tensor):
+            return cast("ImageType", fgeometric.flip_tensor(images, dims=(-2,)))
+        return fgeometric.vflip_images(images)
+
+    def apply_to_volume(self, volume: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if isinstance(volume, torch.Tensor):
+            return cast("VolumeType", fgeometric.flip_tensor(volume, dims=(-2,)))
+        return fgeometric.vflip_images(volume)
+
+    def apply_to_volumes(self, volumes: np.ndarray | torch.Tensor, **params: Any) -> np.ndarray | torch.Tensor:
+        return flip_volume(volumes, -2 if isinstance(volumes, torch.Tensor) else 2)
+
+    def apply_to_masks3d(self, masks3d: np.ndarray | torch.Tensor, **params: Any) -> np.ndarray | torch.Tensor:
+        return self.apply_to_volumes(masks3d, **params)
+
+    def apply_to_mask3d(self, mask3d: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if mask3d.size == 0:
+            # Assume mask3d shape is (D, H, W, C) - return empty array with same shape
+            return mask3d
+        return self.apply_to_images(mask3d, **params)
+
+    def inverse(self) -> VerticalFlip:
+        """Return a new VerticalFlip that undoes the flip (vertical flip is self-inverse). Use after
+        inference in TTA to restore predictions to original orientation.
+        """
+        return VerticalFlip(p=1)
+
+
+class HorizontalFlip(DualTransform):
+    """Flip the image left-right (mirror). Same size and layout; self-inverse. Use inverse()
+    for TTA to restore predictions to original orientation.
+
+    Args:
+        p (float): probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+
+    Note:
+        - This transform is self-inverse: applying it twice returns the original image.
+          Call `inverse()` to get a new instance that undoes the flip (identical to applying
+          the flip again), useful for TTA pipelines.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>>
+        >>> # Prepare sample data
+        >>> image = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
+        >>> mask = np.array([[1, 0], [0, 1]])
+        >>> bboxes = np.array([[0.1, 0.5, 0.3, 0.9]])  # [x_min, y_min, x_max, y_max] format
+        >>> keypoints = np.array([[0.1, 0.5], [0.9, 0.5]])  # [x, y] format
+        >>>
+        >>> # Create a transform with horizontal flip
+        >>> transform = A.Compose([
+        ...     A.HorizontalFlip(p=1.0)  # Always apply for this example
+        ... ], bbox_params=A.BboxParams(coord_format='yolo', label_fields=[]),
+        ...    keypoint_params=A.KeypointParams(coord_format='normalized'))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(image=image, mask=mask, bboxes=bboxes, keypoints=keypoints)
+        >>>
+        >>> # Get the transformed data
+        >>> flipped_image = transformed["image"]  # Image flipped horizontally
+        >>> flipped_mask = transformed["mask"]    # Mask flipped horizontally
+        >>> flipped_bboxes = transformed["bboxes"]  # BBox coordinates adjusted for horizontal flip
+        >>> flipped_keypoints = transformed["keypoints"]  # Keypoint x-coordinates flipped
+
+        >>> # TTA: flip, run inference, unflip the predicted mask
+        >>> aug = A.HorizontalFlip(p=1)
+        >>> aug_image = aug(image=image)["image"]
+        >>> pred_mask = np.zeros_like(image[..., :1])  # placeholder for model output
+        >>> restored_mask = aug.inverse()(image=pred_mask)["image"]
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    def apply(self, img: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(img, torch.Tensor):
+            return cast("ImageType", fgeometric.flip_tensor(img, dims=(-1,)))
+        return hflip(img)
+
+    def apply_to_bboxes(self, bboxes: np.ndarray, bbox_type: Literal["hbb", "obb"], **params: Any) -> np.ndarray:
+        return fgeometric.bboxes_hflip(bboxes, bbox_type=bbox_type)
+
+    def apply_to_keypoints(self, keypoints: np.ndarray, shape: tuple[int, int], **params: Any) -> np.ndarray:
+        return fgeometric.keypoints_hflip(keypoints, shape[1])
+
+    def apply_to_mask(self, mask: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if mask.size == 0:
+            # Assume mask shape is (H, W, C) - return empty array with same shape
+            return mask
+        return self.apply(mask, **params)
+
+    def apply_to_masks(self, masks: StackedMasks4D | torch.Tensor, **params: Any) -> StackedMasks4D:
+        if isinstance(masks, torch.Tensor):
+            return cast("StackedMasks4D", fgeometric.flip_tensor(masks, dims=(-1,)))
+        if masks.size == 0:
+            return masks
+        return StackedMasks4D(self.apply_to_images(masks, **params))
+
+    def apply_to_images(self, images: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(images, torch.Tensor):
+            return cast("ImageType", fgeometric.flip_tensor(images, dims=(-1,)))
+        return fgeometric.hflip_images(images)
+
+    def apply_to_volume(self, volume: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if isinstance(volume, torch.Tensor):
+            return cast("VolumeType", fgeometric.flip_tensor(volume, dims=(-1,)))
+        return fgeometric.hflip_images(volume)
+
+    def apply_to_volumes(self, volumes: np.ndarray | torch.Tensor, **params: Any) -> np.ndarray | torch.Tensor:
+        return flip_volume(volumes, -1 if isinstance(volumes, torch.Tensor) else 3)
+
+    def apply_to_masks3d(self, masks3d: np.ndarray | torch.Tensor, **params: Any) -> np.ndarray | torch.Tensor:
+        return self.apply_to_volumes(masks3d, **params)
+
+    def apply_to_mask3d(self, mask3d: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if mask3d.size == 0:
+            # Assume mask3d shape is (D, H, W, C) - return empty array with same shape
+            return mask3d
+        return self.apply_to_images(mask3d, **params)
+
+    def inverse(self) -> HorizontalFlip:
+        """Return a new HorizontalFlip that undoes the flip (horizontal flip is self-inverse). Use
+        after inference in TTA to restore predictions to original orientation.
+        """
+        return HorizontalFlip(p=1)
+
+
+class Transpose(DualTransform):
+    """Transpose by swapping rows and columns (width/height swap). Supports image, mask, bboxes,
+    keypoints, volume. Self-inverse; use inverse() for TTA.
+
+    This transform flips the image over its main diagonal, effectively switching its width and height.
+    It's equivalent to a 90-degree rotation followed by a horizontal flip.
+
+    Args:
+        p (float): Probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+    Supported bboxes:
+        hbb, obb
+
+    Note:
+        - The dimensions of the output will be swapped compared to the input. For example,
+          an input image of shape (100, 200, 3) will result in an output of shape (200, 100, 3).
+        - This transform is self-inverse: applying it twice returns the original image.
+          Call `inverse()` to get a new instance that undoes the transpose (identical to
+          applying it again), useful for TTA pipelines.
+        - For multi-channel images (like RGB), the channels are preserved in their original order.
+        - Bounding boxes will have their coordinates adjusted to match the new image dimensions.
+        - Keypoints will have their x and y coordinates swapped.
+
+    Mathematical Details:
+        1. For an input image I of shape (H, W, C), the output O is:
+           O[i, j, k] = I[j, i, k] for all i in [0, W-1], j in [0, H-1], k in [0, C-1]
+        2. For bounding boxes with coordinates (x_min, y_min, x_max, y_max):
+           new_bbox = (y_min, x_min, y_max, x_max)
+        3. For keypoints with coordinates (x, y):
+           new_keypoint = (y, x)
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> image = np.array([
+        ...     [[1, 2, 3], [4, 5, 6]],
+        ...     [[7, 8, 9], [10, 11, 12]]
+        ... ])
+        >>> transform = A.Transpose(p=1.0)
+        >>> result = transform(image=image)
+        >>> transposed_image = result['image']
+        >>> print(transposed_image)
+        [[[ 1  2  3]
+          [ 7  8  9]]
+         [[ 4  5  6]
+          [10 11 12]]]
+        # The original 2x2x3 image is now 2x2x3, with rows and columns swapped
+
+        >>> # TTA: transpose, run inference, un-transpose the predicted mask
+        >>> aug = A.Transpose(p=1)
+        >>> aug_image = aug(image=image)["image"]
+        >>> pred_mask = np.zeros((aug_image.shape[0], aug_image.shape[1], 1), dtype=np.uint8)
+        >>> restored_mask = aug.inverse()(image=pred_mask)["image"]
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    def apply(self, img: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(img, torch.Tensor):
+            return cast("ImageType", fgeometric.transpose_tensor(img))
+        return fgeometric.transpose(img)
+
+    def apply_to_bboxes(self, bboxes: np.ndarray, bbox_type: Literal["hbb", "obb"], **params: Any) -> np.ndarray:
+        return fgeometric.bboxes_transpose(bboxes, bbox_type=bbox_type)
+
+    def apply_to_keypoints(self, keypoints: np.ndarray, **params: Any) -> np.ndarray:
+        return fgeometric.keypoints_transpose(keypoints)
+
+    def apply_to_mask(self, mask: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(mask, torch.Tensor):
+            return cast("ImageType", fgeometric.transpose_tensor(mask))
+        if mask.size == 0:
+            # Transpose swaps H and W
+            # Assume mask shape is (H, W, C) -> (W, H, C)
+            return cast("ImageType", np.empty((mask.shape[1], mask.shape[0], mask.shape[2]), dtype=mask.dtype))
+        return self.apply(mask, **params)
+
+    def apply_to_masks(self, masks: StackedMasks4D | torch.Tensor, **params: Any) -> StackedMasks4D:
+        if isinstance(masks, torch.Tensor):
+            return cast("StackedMasks4D", fgeometric.transpose_tensor(masks))
+        if masks.size == 0:
+            return StackedMasks4D(
+                np.empty((0, masks.shape[2], masks.shape[1], masks.shape[3]), dtype=masks.dtype),
+            )
+        return StackedMasks4D(self.apply_to_images(masks, **params))
+
+    def apply_to_images(self, images: ImageType | torch.Tensor, **params: Any) -> ImageType:
+        if isinstance(images, torch.Tensor):
+            return cast("ImageType", fgeometric.transpose_tensor(images))
+        return fgeometric.transpose_images(images)
+
+    def apply_to_volume(self, volume: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if isinstance(volume, torch.Tensor):
+            return cast("VolumeType", fgeometric.transpose_tensor(volume))
+        return fgeometric.transpose_images(volume)
+
+    def apply_to_mask3d(self, mask3d: VolumeType | torch.Tensor, **params: Any) -> VolumeType:
+        if isinstance(mask3d, torch.Tensor):
+            return cast("VolumeType", fgeometric.transpose_tensor(mask3d))
+        if mask3d.size == 0:
+            # Transpose swaps H and W
+            # Assume mask3d shape is (D, H, W, C) -> (D, W, H, C)
+            return cast(
+                "VolumeType",
+                np.empty((mask3d.shape[0], mask3d.shape[2], mask3d.shape[1], mask3d.shape[3]), dtype=mask3d.dtype),
+            )
+        return self.apply_to_images(mask3d, **params)
+
+    def inverse(self) -> Transpose:
+        """Return a new Transpose that undoes the transpose (transpose is self-inverse). Use after
+        inference in TTA to restore predictions to original orientation.
+        """
+        return Transpose(p=1)
+
+
+class D4(DualTransform):
+    """Apply one of eight D4 square symmetries (rotations and reflections). Keeps square shape.
+    Use group_element for deterministic TTA (e.g. run all 8 then inverse).
+
+    The D4 group transformations include:
+    - 'e' (identity): No transformation is applied.
+    - 'r90' (rotation by 90 degrees counterclockwise)
+    - 'r180' (rotation by 180 degrees)
+    - 'r270' (rotation by 270 degrees counterclockwise)
+    - 'v' (reflection across the vertical midline)
+    - 'hvt' (reflection across the anti-diagonal)
+    - 'h' (reflection across the horizontal midline)
+    - 't' (reflection across the main diagonal)
+
+    Even if the probability (`p`) of applying the transform is set to 1, the identity transformation
+    'e' may still occur, which means the input will remain unchanged in one out of eight cases.
+
+    When `group_element` is specified, the transform is deterministic—useful for TTA (Test Time
+    Augmentation) where you need to apply each of the 8 symmetries explicitly and invert predictions.
+    Call `inverse()` on a deterministic instance to get a new transform that undoes the operation.
+
+    Args:
+        p (float): Probability of applying the transform. Default: 1.0.
+        group_element (Literal['e', 'r90', 'r180', 'r270', 'v', 'hvt', 'h', 't'] | None): If set,
+            always apply this specific D4 group element instead of sampling randomly. Use for TTA.
+            Default: None (random choice).
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+    Supported bboxes:
+        hbb, obb
+
+    Note:
+        - This transform is particularly useful for augmenting data that does not have a clear orientation,
+          such as top-view satellite or drone imagery, or certain types of medical images.
+        - The input image should be square-shaped for optimal results. Non-square inputs may lead to
+          unexpected behavior or distortions.
+        - When applied to bounding boxes or keypoints, their coordinates will be adjusted according
+          to the selected transformation.
+        - This transform preserves the aspect ratio and size of the input.
+        - `inverse()` requires `group_element` to be set explicitly; raises `ValueError` otherwise.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> transform = A.Compose([
+        ...     A.D4(p=1.0),
+        ... ])
+        >>> transformed = transform(image=image)
+        >>> transformed_image = transformed['image']
+        # The resulting image will be one of the 8 possible D4 transformations of the input
+
+        >>> # TTA: apply each D4 symmetry, run inference, then undo the transform on the prediction
+        >>> from albumentations.core.type_definitions import d4_group_elements
+        >>> predictions = []
+        >>> for element in d4_group_elements:
+        ...     aug = A.D4(p=1.0, group_element=element)
+        ...     aug_image = aug(image=image)["image"]
+        ...     pred_mask = np.zeros((100, 100, 1), dtype=np.uint8)  # placeholder for model output
+        ...     restored = aug.inverse()(image=pred_mask)["image"]
+        ...     predictions.append(restored)
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    class InitSchema(BaseTransformInitSchema):
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"] | None
+
+    def __init__(
+        self,
+        p: float = 1,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"] | None = None,
+    ):
+        super().__init__(p=p)
+        self.group_element = group_element
+
+    def apply(
+        self,
+        img: ImageType,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.d4(img, group_element)
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.bboxes_d4(bboxes, group_element, bbox_type=bbox_type)
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.keypoints_d4(keypoints, group_element, shape)
+
+    def apply_to_mask(
+        self,
+        mask: ImageType,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> ImageType:
+        if mask.size == 0:
+            # Group elements that transpose dimensions: "r90", "r270", "t", "hvt"
+            # Assume mask shape is (H, W, C)
+            if group_element in {"r90", "r270", "t", "hvt"}:
+                # These swap H and W: (H, W, C) -> (W, H, C)
+                return cast("ImageType", np.empty((mask.shape[1], mask.shape[0], mask.shape[2]), dtype=mask.dtype))
+            # Other elements preserve dimensions: "e", "r180", "v", "h"
+            return mask
+        return self.apply(mask, group_element)
+
+    def apply_to_masks(
+        self,
+        masks: StackedMasks4D,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> StackedMasks4D:
+        if masks.size == 0:
+            if group_element in {"r90", "r270", "t", "hvt"}:
+                return StackedMasks4D(
+                    np.empty((0, masks.shape[2], masks.shape[1], masks.shape[3]), dtype=masks.dtype),
+                )
+            return masks
+        return StackedMasks4D(self.apply_to_images(masks, group_element))
+
+    def apply_to_images(
+        self,
+        images: ImageType | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> ImageType:
+        if isinstance(images, torch.Tensor):
+            return cast("ImageType", fgeometric.d4_volume(images, group_element, (-2, -1)))
+        return fgeometric.d4_images(images, group_element)
+
+    def apply_to_volumes(
+        self,
+        volumes: np.ndarray | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> np.ndarray | torch.Tensor:
+        axes = (-2, -1) if isinstance(volumes, torch.Tensor) else (2, 3)
+        return fgeometric.d4_volume(volumes, group_element, axes)
+
+    def apply_to_masks3d(
+        self,
+        masks3d: np.ndarray | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> np.ndarray | torch.Tensor:
+        return self.apply_to_volumes(masks3d, group_element, **params)
+
+    def apply_to_mask3d(
+        self,
+        mask3d: VolumeType | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270", "v", "hvt", "h", "t"],
+        **params: Any,
+    ) -> VolumeType:
+        if isinstance(mask3d, torch.Tensor):
+            return cast(
+                "VolumeType",
+                fgeometric.d4_volume(mask3d.unsqueeze(0), group_element, (-2, -1)).squeeze(0),
+            )
+        if mask3d.size == 0:
+            # Group elements that transpose dimensions: "r90", "r270", "t", "hvt"
+            # Assume mask3d shape is (D, H, W, C)
+            if group_element in {"r90", "r270", "t", "hvt"}:
+                # These swap H and W: (D, H, W, C) -> (D, W, H, C)
+                return cast(
+                    "VolumeType",
+                    np.empty(
+                        (mask3d.shape[0], mask3d.shape[2], mask3d.shape[1], mask3d.shape[3]),
+                        dtype=mask3d.dtype,
+                    ),
+                )
+            # Other elements preserve dimensions: "e", "r180", "v", "h"
+            return mask3d
+        return self.apply_to_images(mask3d, group_element)
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        if self.group_element is not None:
+            group_element = self.group_element
+        else:
+            group_element = sampling.random_generator.choice(d4_group_elements)
+        sampling.applied_overrides["group_element"] = group_element
+        return SampledParams(params={"group_element": group_element})
+
+    def inverse(self) -> D4:
+        """Return a new D4 with the inverse group element to undo this transform. Use after inference
+        in TTA to restore predictions to original orientation.
+
+        Raises:
+            ValueError: If `group_element` is `None` (random mode cannot be inverted).
+
+        """
+        if self.group_element is None:
+            raise ValueError(
+                "Cannot invert D4 with random group_element. Set group_element explicitly for TTA.",
+            )
+        return D4(p=1, group_element=D4_INVERSE[self.group_element])
+
+
+class SquareSymmetry(D4):
+    """Alias for D4: one of eight square symmetries (rotations and reflections). Use
+    group_element for deterministic TTA (e.g. run all 8 then inverse).
+
+    The square symmetry transformations include:
+    - Identity: No transformation is applied
+    - 90° rotation: Rotate 90 degrees counterclockwise
+    - 180° rotation: Rotate 180 degrees
+    - 270° rotation: Rotate 270 degrees counterclockwise
+    - Vertical flip: Mirror across vertical axis
+    - Anti-diagonal flip: Mirror across anti-diagonal
+    - Horizontal flip: Mirror across horizontal axis
+    - Main diagonal flip: Mirror across main diagonal
+
+    When `group_element` is specified, the transform is deterministic—useful for TTA (Test Time
+    Augmentation) where you need to apply each of the 8 symmetries explicitly and invert predictions.
+    Call `inverse()` on a deterministic instance to get a new transform that undoes the operation.
+
+    Args:
+        p (float): Probability of applying the transform. Default: 1.0.
+        group_element (Literal['e', 'r90', 'r180', 'r270', 'v', 'hvt', 'h', 't'] | None): If set,
+            always apply this specific D4 group element instead of sampling randomly. Use for TTA.
+            Default: None (random choice).
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+    Supported bboxes:
+        hbb, obb
+
+    Note:
+        - This transform is particularly useful for augmenting data that does not have a clear orientation,
+          such as top-view satellite or drone imagery, or certain types of medical images.
+        - The input image should be square-shaped for optimal results. Non-square inputs may lead to
+          unexpected behavior or distortions.
+        - When applied to bounding boxes or keypoints, their coordinates will be adjusted according
+          to the selected transformation.
+        - This transform preserves the aspect ratio and size of the input.
+        - `inverse()` requires `group_element` to be set explicitly; raises `ValueError` otherwise.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> transform = A.Compose([
+        ...     A.SquareSymmetry(p=1.0),
+        ... ])
+        >>> transformed = transform(image=image)
+        >>> transformed_image = transformed['image']
+        # The resulting image will be one of the 8 possible square symmetry transformations of the input
+
+        >>> # TTA: apply each symmetry, run inference, then undo the transform on the prediction
+        >>> from albumentations.core.type_definitions import d4_group_elements
+        >>> predictions = []
+        >>> for element in d4_group_elements:
+        ...     aug = A.SquareSymmetry(p=1.0, group_element=element)
+        ...     aug_image = aug(image=image)["image"]
+        ...     pred_mask = np.zeros((100, 100, 1), dtype=np.uint8)  # placeholder for model output
+        ...     restored = aug.inverse()(image=pred_mask)["image"]
+        ...     predictions.append(restored)
+
+    """
+
+    def inverse(self) -> SquareSymmetry:
+        """Return a new SquareSymmetry with the inverse group element to undo this transform. Use
+        after inference in TTA to restore predictions to original orientation.
+
+        Raises:
+            ValueError: If `group_element` is `None` (random mode cannot be inverted).
+
+        """
+        if self.group_element is None:
+            raise ValueError(
+                "Cannot invert SquareSymmetry with random group_element. Set group_element explicitly for TTA.",
+            )
+        return SquareSymmetry(p=1, group_element=D4_INVERSE[self.group_element])

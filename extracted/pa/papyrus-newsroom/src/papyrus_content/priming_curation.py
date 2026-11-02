@@ -1,0 +1,203 @@
+"""Papyrus domain transformer: reuse existing reference processing without writes.
+
+This code runs in the customer's transformer service. Papyrus owns corpus and
+source artifacts; Cyclotron receives only the complete reviewed item projection.
+The returned ``artifacts`` are private service working data, never GraphQL data
+or the public HTTP job response. No classification label is generated here.
+"""
+from datetime import datetime,timezone
+from html import unescape
+import json
+import re
+from typing import Any
+from urllib.parse import urlparse
+from xml.etree import ElementTree
+
+from .catalog import (catalog_item_with_external_item_id,build_prepared_reference_catalog,
+    build_reference_catalog_registration_records,assert_reference_catalog_plan_safety)
+from . import reference_url_text,source_site_plugins
+from .relevance_sweep import reference_item
+
+CORRECTION_FIELDS=[{'name':'title','label':'Corrected source title','required':True},
+                   {'name':'abstract','label':'Corrected abstract or web summary','required':True,'multiline':True}]
+
+_BAD_TITLE_WORDS=('permission','attribution','copyright','grants','licen','contributors','co-lead','equal contribution','all rights reserved')
+_ARXIV_PATH=re.compile(r'^/(?:abs|pdf|html)/([^?#]+?)(?:\.pdf)?/?$',re.IGNORECASE)
+
+
+def _fetch_landing_text(url:str)->str:
+    """Reuse the source-site plugins' HTTP fetcher (UA, 20s timeout); tests replace this."""
+    return source_site_plugins._fetch_url_text(url)
+
+
+def _clean_title(value:str)->str:
+    value=re.sub(r'\s+',' ',unescape(re.sub(r'<[^>]+>',' ',value or ''))).strip()
+    value=re.sub(r'^\[[^\]]+\]\s*','',value)
+    value=re.sub(r'\s*[-\u2013\u2014|]\s*arXiv(?:\.org)?\s*$','',value,flags=re.IGNORECASE)
+    return value.strip()
+
+
+def _title_from_html(html:str)->str:
+    for pattern in (r'<meta[^>]+name=["\']citation_title["\'][^>]+content=["\']([^"\']+)["\']',
+                    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']citation_title["\']',
+                    r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+                    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
+                    r'<title[^>]*>(.*?)</title>'):
+        match=re.search(pattern,html or '',flags=re.IGNORECASE|re.DOTALL)
+        if match and _clean_title(match.group(1)):return _clean_title(match.group(1))
+    return ''
+
+
+def landing_title(source:str,fetch=None)->str:
+    """Most authoritative title: the landing page's scholarly metadata, else the arXiv API; '' when unavailable."""
+    fetch=fetch or _fetch_landing_text
+    parsed=urlparse(source)
+    host=(parsed.hostname or '').lower()
+    arxiv=_ARXIV_PATH.match(parsed.path or '') if host in ('arxiv.org','www.arxiv.org') else None
+    try:
+        if arxiv:
+            title=_title_from_html(fetch(f'https://arxiv.org/abs/{arxiv.group(1)}'))
+            if title:return title
+            entry=ElementTree.fromstring(fetch(f'http://export.arxiv.org/api/query?id_list={arxiv.group(1)}')).find('{http://www.w3.org/2005/Atom}entry/{http://www.w3.org/2005/Atom}title')
+            return _clean_title(entry.text or '') if entry is not None else ''
+        if (parsed.path or '').lower().endswith('.pdf'):return ''
+        return _title_from_html(fetch(source))
+    except Exception:
+        return ''
+
+
+def plausible_title(title:str)->bool:
+    """Reject GROBID titles that are licence boilerplate or author/affiliation lists."""
+    title=(title or '').strip()
+    if not title or len(title)>200:return False
+    lowered=title.lower()
+    if any(word in lowered for word in _BAD_TITLE_WORDS):return False
+    if title.count(',')>=4 or re.search(r'\s\d{1,2}\s+[A-Z][a-z]+\s+[A-Z][a-z]+',title):return False
+    return True
+
+
+def choose_title(landing:str,*candidates:str)->str:
+    """Landing title first; otherwise the first sane candidate (a candidate carrying the landing title is replaced by it)."""
+    if landing:return landing
+    return next((candidate.strip() for candidate in candidates if plausible_title(candidate)),'')
+
+
+class CurationNotReady(ValueError):
+    """A host-authored readiness message safe to display without source errors."""
+
+
+class ExtractionIncomplete(ValueError):
+    """Existing reference extraction did not complete; carries the machine code and message.
+
+    ``transient`` is true when the cause is an unavailable service (GROBID down or
+    out of memory, a hung Biblicus child), so the same request may succeed later.
+    """
+    def __init__(self,code:str,message:str,*,transient:bool=False):
+        self.code=code;self.reason_message=message;self.transient=transient
+        super().__init__(f'existing reference extraction did not complete: {code}: {message}')
+
+
+def _extraction_incomplete(extraction:dict[str,Any])->ExtractionIncomplete:
+    failures=extraction.get('failures') or []
+    if failures:
+        reason=(failures[0] or {}).get('reason')
+        reason=reason if isinstance(reason,dict) else {}
+        return ExtractionIncomplete(str(reason.get('code') or 'unknown_failure'),str(reason.get('message') or (failures[0] or {}).get('error') or 'no message'),
+                                    transient=reference_url_text.is_transient_failure_reason(reason))
+    fallbacks=extraction.get('filterFallbacks') or []
+    if fallbacks:
+        reason=(fallbacks[0] or {}).get('reason')
+        reason=reason if isinstance(reason,dict) else {}
+        return ExtractionIncomplete('article_filter_fallback',f"{reason.get('code') or 'article_filter_failed'}: {reason.get('message') or 'no message'}")
+    return ExtractionIncomplete('no_extraction_plans','extraction produced no attachment plans')
+
+
+class PapyrusPrimingCuration:
+    def __init__(self,*,corpus:dict[str,Any],classifier_id:str,publication_name:str,model:str|None=None,grobid_url:str|None=None,authorize_source=None):
+        self.corpus=corpus;self.classifier_id=classifier_id;self.publication_name=publication_name;self.model=model;self.grobid_url=grobid_url;self.authorize_source=authorize_source
+
+    def prepare(self,inputs:dict,previous:dict|None,feedback:str)->dict:
+        if previous is not None:
+            if not feedback.strip():raise ValueError('revision requires transformation feedback')
+            if set(inputs)-{'title','abstract'}:raise ValueError('unknown curation correction field')
+            if not str(inputs.get('title') or '').strip() or not str(inputs.get('abstract') or '').strip():
+                return {**previous,'status':'clarification','message':'Provide the corrected title and abstract or web summary. This feedback does not classify the example.','fields':CORRECTION_FIELDS}
+            return self._candidate(previous['reference'],str(inputs['title']),str(inputs['abstract']),previous['inputs'],previous['artifacts'],feedback,processing_path=previous.get('processing_path'))
+        if set(inputs)-{'url','path'}:raise ValueError('unknown reference processing input')
+        source=reference_url_text.normalize_http_url(inputs.get('url'))
+        if not source:raise ValueError('source URL required')
+        if inputs.get('path') not in (None,'research','web'):raise ValueError('unknown processing path override')
+        if self.authorize_source:self.authorize_source(source)
+        reference,registration=self._reference(source)
+        options={'references':[reference],'attachments':[],'corpus_key_by_id':{reference['corpusId']:self.corpus['key']},
+                 'reference_ids':{reference['id']},'force':True,'allow_discovery':True,'grobid_url':self.grobid_url}
+        if self.model:options['model']=self.model
+        extraction=reference_url_text.build_reference_url_text_attachment_plans(**options)
+        if extraction.get('failures') or extraction.get('filterFallbacks') or not extraction.get('plans'):raise _extraction_incomplete(extraction)
+        for record in extraction.get('referenceRecords',[]):
+            if record['expected']['id']==reference['id']:reference={**reference,**record['expected']}
+        selected=next((plan for plan in extraction['plans'] if plan['record']['expected'].get('role')=='extracted_text'),None)
+        if selected is None or not str(selected.get('body') or '').strip():raise ValueError('reference extraction has no complete text')
+        metadata=selected['record']['expected'].get('metadata') or {}
+        if isinstance(metadata,str):metadata=json.loads(metadata)
+        extracted_source=metadata.get('urlExtraction') or {}
+        processing_path=inputs.get('path') or ('research' if extracted_source.get('sourceKind')=='pdf' or extracted_source.get('contentType')=='application/pdf' else 'web')
+        abstract=str(metadata.get('abstract') or '')
+        raw=next((plan for plan in extraction['plans'] if plan['record']['expected'].get('role')=='extracted_text_raw'),None)
+        raw_title=''
+        if raw:
+            raw_metadata=raw['record']['expected'].get('metadata') or {}
+            if isinstance(raw_metadata,str):raw_metadata=json.loads(raw_metadata)
+            raw_title=str(raw_metadata.get('title') or '')
+        title=choose_title(landing_title(source) if processing_path=='research' else '',str(metadata.get('title') or ''),raw_title)
+        artifacts={'registration':registration,'extraction':extraction}
+        if processing_path=='web':
+            from papyrus_newsroom.reference_curation_signals import reference_generate_metadata_from_extracted_text
+            options={'reference_id':reference['id'],'reference':reference,'extracted_text':str(selected['body']),
+                     'original_title':title or reference.get('title',''),'apply':False,'metadata_payload':{}}
+            if self.model:options['model']=self.model
+            generated=reference_generate_metadata_from_extracted_text(**options)
+            if generated.get('status')!='generated':raise ValueError('existing metadata generation did not complete')
+            title=str(generated['generated'].get('title') or '');abstract=str(generated['generated'].get('summary') or '')
+            artifacts['metadata_generation']=generated
+        return self._candidate(reference,title,abstract,inputs,artifacts,feedback,processing_path=processing_path)
+
+    def _reference(self,source):
+        now=datetime.now(timezone.utc).isoformat()
+        catalog=build_prepared_reference_catalog({'schema_version':1,'generated_at':now,'items':[catalog_item_with_external_item_id({'url':source,'source_uri':source,'title':source})]},
+            {'corpusKey':self.corpus['key'],'publicationName':self.publication_name})
+        registration=build_reference_catalog_registration_records(catalog,{'corpusConfig':self.corpus,'classifierId':self.classifier_id,'status':'pending','importedAt':now})
+        assert_reference_catalog_plan_safety(registration)
+        reference=next(record['expected'] for record in registration['records'] if record['modelName']=='Reference')
+        return reference,registration
+
+    def _candidate(self,reference,title,abstract,inputs,artifacts,feedback,*,processing_path=None):
+        processing_path=processing_path or inputs.get('path')
+        working={'reference':reference,'inputs':inputs,'artifacts':artifacts,'processing_path':processing_path}
+        if not title.strip() or title==reference.get('sourceUri') or not abstract.strip():
+            return {**working,'status':'clarification','message':'Processing needs a complete source title and abstract or summary before preview.','fields':CORRECTION_FIELDS}
+        item=reference_item(reference,source_content={'title':title,'abstract':abstract})
+        return {**working,'status':'complete','candidate':{'id':item.id,'occurred_at':reference.get('sourcePublishedAt') or reference['importedAt'],
+            'values':dict(item.values),'provenance':{'source_url':inputs['url'],'papyrus':{'reference_id':reference['id'],
+                'external_item_id':reference.get('externalItemId'),'corpus_key':self.corpus['key'],'processing_path':processing_path,
+                'transformation_feedback':feedback,'source_published_at':reference.get('sourcePublishedAt'),
+                'occurrence_basis':'source publication date' if reference.get('sourcePublishedAt') else 'reference intake date',
+                'preparation':artifacts.get('preparation','existing_pipeline'),
+                'artifact_roles':[plan['record']['expected'].get('role') for plan in artifacts['extraction']['plans']]}}}}
+
+
+class OperatorReferenceCuration(PapyrusPrimingCuration):
+    """Human-supplied source fields; no claim of downloaded/extracted evidence.
+
+    Reuses the existing intake planner, correction loop and decision projection.
+    A separately configured PapyrusPrimingCuration performs automated research/web
+    processing when the host has approved its source/provider services.
+    """
+    def prepare(self,inputs:dict,previous:dict|None,feedback:str)->dict:
+        if previous is not None:return super().prepare(inputs,previous,feedback)
+        if set(inputs)-{'url','path','title','abstract'}:raise ValueError('unknown operator reference field')
+        source=reference_url_text.normalize_http_url(inputs.get('url'))
+        if not source or inputs.get('path') not in ('research','web'):raise ValueError('source URL and research/web type required')
+        reference,registration=self._reference(source)
+        artifacts={'registration':registration,'extraction':{'plans':[]},'preparation':'operator_supplied'}
+        return self._candidate(reference,str(inputs.get('title') or ''),str(inputs.get('abstract') or ''),inputs,artifacts,feedback)

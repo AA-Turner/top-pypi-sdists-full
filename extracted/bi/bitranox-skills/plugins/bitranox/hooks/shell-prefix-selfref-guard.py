@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""PreToolUse(Bash|PowerShell) guard against a prefix assignment referenced on the same line.
+
+`VAR=value cmd ... "$VAR"` never does what it looks like. A prefix assignment
+binds the variable in the COMMAND's environment, but `$VAR` on the same line is
+expanded by the CURRENT shell before that command runs, and the current shell has
+not been assigned. The reference expands to the shell's own value - usually empty
+- and the command runs with a silently missing argument, exit 0.
+
+Measured cost: a release commit whose message had been composed correctly and
+written to a file was delivered with `MSG="$(cat f)" make push MSG="$MSG"`. The
+program received an empty string, committed a fallback subject, and pushed it
+before anyone could see. This is the same family as writing self-authored prose
+through the shell at all - the file was right, the delivery lost it.
+
+Single quotes are NOT this bug: `FOO=bar sh -c 'echo $FOO'` leaves the expansion
+to the child shell, which does have the variable. Only a reference the OUTER
+shell expands (unquoted or double-quoted) is flagged.
+
+Pure standard library. Reads the PreToolUse event JSON on stdin. Exit 2 blocks the
+call and shows stderr to the model; every other path (including any error) exits 0
+so a broken guard never wedges a turn.
+"""
+
+import json
+import re
+import sys
+
+import shell_text
+
+# Shared with the other command-scanning guards: a heredoc body is DATA, and scanning it makes a
+# guard fire on prose that merely mentions the footgun it guards. Re-exported so callers and tests
+# can keep reaching it as `shell_prefix_selfref_guard.strip_heredoc_bodies`.
+from shell_text import (  # noqa: F401
+    blank_unexpanded_text, heredoc_is_quoted, iter_heredocs, iter_segments, mask_data_regions,
+    strip_heredoc_bodies,
+)
+
+# Statements come from shell_text's quote-aware walk. A prefix assignment dies at the end of ITS
+# command, so a reference after a separator is a deliberate use of the shell's own variable.
+
+# NAME=value at a command position. The value is optional (`VAR= cmd` is legal).
+ASSIGNMENT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=")
+
+
+def strip_single_quoted(segment: str) -> str:
+    """Blank out single-quoted spans, which the outer shell never expands."""
+
+    return re.sub(r"'[^']*'", "''", segment)
+
+
+def _prefix_assignments(masked: str) -> tuple[list[str], int]:
+    """The variables assigned as a PREFIX to this statement's command, and where the command starts.
+
+    `masked` is the statement with quoted text and substitutions as filler, so a value such as
+    `$(ps -o ppid= -p "$p")` is ONE word here. Read on the raw text it split into `p=$(ps`, `-o`,
+    `ppid=` ..., the words after the first looked like a command, and a standalone assignment
+    whose value reads the variable's own previous value was blocked as a self-reference.
+
+    Only LEADING `NAME=...` words standing BEFORE a command word count. With no command word
+    after them the assignments run in the current shell, left to right, so a later reference sees
+    them and nothing expands empty: `([], -1)` then. A `[ "$X" = "y" ]` test is not a prefix
+    assignment, and neither is an `export` (its variable outlives the command, so referencing it
+    later is correct).
+    """
+
+    names: list[str] = []
+    for word in re.finditer(r"\S+", masked):
+        match = ASSIGNMENT.match(word.group(0))
+        if not match:
+            return (names, word.start()) if names else ([], -1)
+        names.append(match.group(1))
+    return [], -1
+
+
+# Flags whose argument is SELF-AUTHORED PROSE: a commit subject, a memory hook, a queue reason.
+# Prose is the case where a shell metacharacter is certainly not meant as one.
+TEXT_FLAGS = (
+    "-m", "--message", "--hook", "--title", "--body", "--descr", "--description",
+    "--why", "--what", "--reason", "--note", "--summary", "--subject",
+)
+# A double-quoted argument to one of those flags. Single quotes are NOT this bug: the outer shell
+# does not expand them, which is why the single-quoted form is the documented workaround.
+# The argument may also be ATTACHED to its flag: the shell expands a double-quoted string wherever
+# it sits in a word, so `-m"x $(y)"` and `--message="x $(y)"` run the substitution exactly like
+# the spaced form, and git, gh and argparse all accept those spellings. A long flag takes `=`; the
+# short -m takes its value glued on or after `=`. The separator must be whitespace or `=`, so a
+# longer flag sharing a prefix (`--body-file=`, `--notes=`) is a different flag and never matches.
+_SHORT_TEXT_FLAGS = tuple(f for f in TEXT_FLAGS if not f.startswith("--"))
+_LONG_TEXT_FLAGS = tuple(f for f in TEXT_FLAGS if f.startswith("--"))
+_TEXT_ARG_RX = re.compile(
+    r"(?<![\w-])(?:(?:%s)(?:\s+|=)|(?:%s)(?:\s*|=))\"([^\"]*)\"" % (
+        "|".join(re.escape(f) for f in _LONG_TEXT_FLAGS),
+        "|".join(re.escape(f) for f in _SHORT_TEXT_FLAGS),
+    )
+)
+_SUBSTITUTION_RX = re.compile(r"`[^`]*`|\$\(")
+
+# gh's SHORT spellings of --title and --body. Scoped to the gh subcommands that take prose, because
+# elsewhere `-b` and `-t` carry a branch name, an image tag or a block size, where substituting a
+# value in is ordinary work (`git checkout -b "x-$(date +%s)"`, `docker build -t "img:$(...)"`).
+_GH_PROSE_COMMAND = re.compile(r"^\s*(?:\w+=\S*\s+)*gh\s+(?:pr|issue)\s+(?:create|edit|comment)\b")
+_GH_SHORT_TEXT_ARG_RX = re.compile(r"(?<![\w-])-[bt](?:\s*|=)\"([^\"]*)\"")
+
+# Inside a heredoc body an opening backtick is enough: the closing one may sit on a later line,
+# so the paired form above would miss a multi-line span. Only the SUBSTITUTING forms are listed.
+# A bare `$VAR` also expands in a bare heredoc, but templating a value in is ordinary work, and a
+# guard that fires on ordinary work gets disabled rather than obeyed.
+_HEREDOC_SUBSTITUTION_RX = re.compile(r"`|\$\(")
+
+# Inside a BARE heredoc, a backslash still escapes `, $ and \ - so `\`` is a literal backtick that
+# runs nothing, and an author who wrote it already knew the delimiter was unquoted. Adjudicating
+# the firings against their source transcripts, this was 9 of 12: every one of them correctly
+# escaped. Blanking the escaped pairs before the search is what separates prose that WILL run from
+# prose that was already made safe.
+_HEREDOC_ESCAPED_RX = re.compile(r"\\[`$\\]")
+
+
+def substitutes_inside_text_arg(command: str, *, tool_name: str = "Bash") -> bool:
+    """Return whether self-authored PROSE carries a command substitution the shell will run.
+
+    Bash evaluates backticks and `$(...)` inside a double-quoted argument BEFORE the program sees
+    the string, so the words are not stored - they are EXECUTED. Measured 2026-07-12: a memory
+    `--hook` describing a fix wrapped the word shutdown in backticks; the dev box ran the real
+    shutdown and survived only because polkit denied it. Every occurrence had exited zero.
+
+    Scoped to prose-carrying flags on purpose. `$(...)` is legitimate nearly everywhere else, so a
+    blanket rule would block ordinary work - and a guard that blocks ordinary work gets disabled.
+    """
+    # blank_unexpanded_text, not the raw command: a SINGLE-quoted string and a `#` comment are
+    # inert, so prose describing this footgun is not an instance of it and must not be blocked.
+    # It deliberately leaves DOUBLE-quoted text alone, which is where a real `$( )` expands - the
+    # very thing this guard looks for - so a broader mask would delete the finding. Under
+    # PowerShell a backtick escapes, so `` `$(x) `` is literal text and is blanked with the escape.
+    text = blank_unexpanded_text(strip_heredoc_bodies(command), tool_name=tool_name)
+    return any(_SUBSTITUTION_RX.search(arg)
+               for arg in _TEXT_ARG_RX.findall(text) + _gh_short_text_args(text, tool_name))
+
+
+def _gh_short_text_args(text: str, tool_name: str = "Bash") -> list[str]:
+    """The double-quoted `-t`/`-b` values of every gh statement that takes prose through them."""
+    found: list[str] = []
+    for masked, raw in _statement_pairs(text, tool_name):
+        if _GH_PROSE_COMMAND.match(masked):
+            found += _GH_SHORT_TEXT_ARG_RX.findall(raw)
+    return found
+
+
+def _statement_pairs(text: str, tool_name: str = "Bash") -> list[tuple[str, str]]:
+    """(masked, raw) for each statement of `text`.
+
+    Separators are found by the quote-aware walk on the MASKED text, where quoted text, comments
+    and substitutions are filler: a `;` or newline inside a quoted value does not end a statement,
+    and `MSG="$(cat f)" make push` stays ONE statement because its `$(` is already filler. The walk
+    also ends a statement at a subshell paren, so `(MSG=x make push MSG="$MSG")` begins with the
+    assignment rather than with `(MSG=x`. The mask preserves length, so its offsets cut the raw
+    text too.
+    """
+    masked = mask_data_regions(text, tool_name=tool_name)
+    return [(segment, text[at:at + len(segment)])
+            for at, segment in iter_segments(masked, tool_name)]
+
+
+def self_referencing_prefix(command: str, tool_name: str = "Bash") -> bool:
+    """Return whether any segment references a variable it assigns as a prefix."""
+
+    # Split statements on the MASKED text and slice the raw. Two wrong tools were tried first:
+    # a bare `SEP.split` is not quote-aware, so a `;` or newline inside the assignment's own
+    # quoted value split the segment and the self-reference was LOST - the guard went silent on
+    # the footgun it exists to block. `iter_segments` on the RAW text fixes that but also breaks
+    # at `$(`, which is right for statements and wrong here: `MSG="$(cat f)" make push` is ONE
+    # assignment, and splitting it lost the prefix instead. Run on the masked text, where that
+    # `$(` is already filler, the walk splits only at real separators and subshell parens.
+    for masked, raw in _statement_pairs(strip_heredoc_bodies(command), tool_name):
+        names, command_at = _prefix_assignments(masked)
+        if not names:
+            continue
+        # Everything from the command word on is where a reference would sit. The mask preserves
+        # length, so the offset found on it cuts the raw statement at the same place.
+        expandable = strip_single_quoted(raw[command_at:])
+        for name in names:
+            if re.search(r"\$\{?" + re.escape(name) + r"\}?(?![A-Za-z0-9_])", expandable):
+                return True
+    return False
+
+
+def substitutes_inside_unquoted_heredoc(command: str) -> bool:
+    """Return whether a BARE heredoc body carries a substitution the shell will run.
+
+    Bash performs parameter expansion, command substitution and arithmetic expansion in the body
+    of `<<EOF`, and NONE of it in `<<'EOF'`. So self-authored prose written through a bare heredoc
+    is executed before the program ever sees it. Measured 2026-08-27: composing a memory body that
+    way turned 4 KB of prose into 3.4 MB of shell output, exit 0, nothing logged.
+
+    The argument-position half of this rule has been guarded since 5.161.0, and this position had
+    not been - which is why the same fact was violated here twice. `strip_heredoc_bodies` cannot
+    serve the check: it hides EVERY heredoc body from every command-scanning guard, which is right
+    for a quoted delimiter and wrong for a bare one. It is left alone; 16 hooks depend on it.
+
+    Openers come from `iter_heredocs`, so a heredoc merely MENTIONED inside a quoted string
+    is not read as opening one - priced against real history, that was the guard's only false
+    positive, and it is the shape that makes a guard block its own documentation - and neither is
+    the left shift of `(( x << y ))`, whose "body" would be every later line. The BODY is read from
+    the original lines, because masking would erase the very substitution being looked for.
+
+    Backslash-escaped forms are blanked before the search: a bare heredoc still honours `\\``, so
+    an author who escaped had already made the text safe. That was 9 of the 12 firings this rule
+    produced over 66,220 real commands, and dropping them is what takes it to every firing being
+    a real one.
+    """
+
+    lines = (command or "").split("\n")
+    for _at, opener, (start, end) in iter_heredocs(command):
+        raw = _HEREDOC_ESCAPED_RX.sub("", "\n".join(lines[start:end]))
+        if not heredoc_is_quoted(opener) and _HEREDOC_SUBSTITUTION_RX.search(raw):
+            return True
+    return False
+
+
+def main() -> int:
+    """Block the call when a prefix assignment is referenced on its own line."""
+
+    try:
+        event = json.load(sys.stdin)
+    except Exception:
+        return 0
+    command = (event.get("tool_input") or {}).get("command") or ""
+    tool_name = event.get("tool_name") or "Bash"
+    if substitutes_inside_unquoted_heredoc(command):
+        return shell_text.refuse(
+            "An UNQUOTED heredoc body carries a command substitution, so the shell will RUN it.\n"
+            "Bash expands backticks and $(...) inside <<EOF and expands NOTHING inside <<'EOF'.\n"
+            "Self-authored prose written through a bare heredoc is executed before the program\n"
+            "sees it: composing a memory body this way once turned 4 KB of prose into 3.4 MB of\n"
+            "shell output, exit 0, nothing logged.\n"
+            "Fix: quote the delimiter - write <<'EOF', not <<EOF - and pass any varying path in\n"
+            "through sys.argv instead of interpolating it into the text. Then READ THE RESULT\n"
+            "BACK: a byte count or a tail of the composed file catches this in one line.\n"
+        )
+    if substitutes_inside_text_arg(command, tool_name=tool_name):
+        return shell_text.refuse(
+            "Self-authored PROSE carries a command substitution, so the shell will RUN it.\n"
+            "Backticks and $(...) inside a double-quoted argument are evaluated BEFORE the\n"
+            "program sees the string, so the words are not stored - they execute. A memory hook\n"
+            "describing a fix once wrapped `shutdown -r now` in backticks and the dev box ran it;\n"
+            "it survived only because polkit refused. Every occurrence exited 0.\n"
+            "Fix: write the text to a FILE and hand the program the path (git commit -F,\n"
+            "--body-file), or single-quote it - the outer shell does not expand single quotes.\n"
+            "Then READ THE RESULT BACK before pushing.\n"
+        )
+    if not self_referencing_prefix(command, tool_name):
+        return 0
+    return shell_text.refuse(
+        "A prefix assignment is referenced on the same command line, so it expands EMPTY.\n"
+        'VAR=value cmd "$VAR" binds VAR in the command\'s environment, but the CURRENT shell\n'
+        "expands $VAR first and has no such variable - the program gets an empty argument and\n"
+        "exits 0. This shipped a release commit with a fallback subject once already.\n"
+        'Fix: assign first, then use it - export VAR="$(cat f)"; cmd "$VAR" - or substitute\n'
+        'directly at the use site: cmd MSG="$(cat f)". Then READ THE RESULT BACK.\n'
+    )
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:
+        sys.exit(0)

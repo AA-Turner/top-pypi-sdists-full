@@ -24,9 +24,9 @@ import sys
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import import_agent_settings as settings_mod
-from probe.cli.import_agent_settings import Lane, LaneSettings, Meter, Source
+from probe.cli.imports import folder as bf
+from probe.cli.imports import agent_settings as settings_mod
+from probe.cli.imports.agent_settings import Lane, LaneSettings, Meter, Source
 from recorded_agent_events import (
     CLAUDE_BAD_MODEL,
     CLAUDE_OK,
@@ -73,9 +73,15 @@ def agent(tmp_path, monkeypatch):
     binary.parent.mkdir()
     binary.write_text(_AGENT.format(python=sys.executable))
     binary.chmod(0o755)
-    monkeypatch.setattr(bf, "which_agent", lambda _agent: str(binary))
-    monkeypatch.setattr(bf, "supported_flags", lambda *_a, **_k: None)  # unknown: every flag passes
-    monkeypatch.setattr(bf, "codex_features", lambda _binary: None)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda _agent: str(binary))
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *_a, **_k: None)  # unknown: every flag passes
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *_a, **_k: None)  # unknown: every flag passes
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *_a, **_k: None)  # unknown: every flag passes
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda _binary: None)
+    monkeypatch.setattr(bf.agents.argv, "codex_features", lambda _binary: None)
 
     def script(*, override, plain=(CODEX_OK, 0), refuse=_OVERRIDES):
         """`override` answers a launch carrying any argv element in `refuse`."""

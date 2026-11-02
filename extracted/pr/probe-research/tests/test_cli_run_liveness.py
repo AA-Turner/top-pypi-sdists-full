@@ -14,7 +14,7 @@ import sys
 import pytest
 
 from probe import cli
-from probe.cli.main import _forwarding_hint, _is_submit_launcher, _launcher_name
+from probe.cli.commands.runs.exec_launchers import _forwarding_hint, _is_submit_launcher, _launcher_name
 from tests.conftest import make_client
 
 

@@ -37,7 +37,9 @@ def test_row_only_split_requires_an_exact_anchor_without_mutation(row: int, col:
 
 @pytest.mark.parametrize("axis", ["rows", "columns"])
 @pytest.mark.parametrize("side", ["before", "after"])
-def test_native_content_clones_are_refused_but_blank_insertion_preserves_objects(axis: str, side: str) -> None:
+def test_content_clones_copy_objects_with_fresh_numbers_and_blank_insertion_preserves_them(
+    axis: str, side: str,
+) -> None:
     document = HwpxDocument.new()
     table = document.add_table(rows=2, cols=2)
     table.cell(0, 0).paragraphs[0].add_rectangle(width=2000, height=1000)
@@ -46,9 +48,15 @@ def test_native_content_clones_are_refused_but_blank_insertion_preserves_objects
     position = {("rows", "before"): "above", ("rows", "after"): "below",
                 ("columns", "before"): "left", ("columns", "after"): "right"}[(axis, side)]
 
-    with pytest.raises(TableStructureError, match="local identities or references"):
-        insert(0, 2, side=position)
-    assert document.to_bytes() == before
+    clone = HwpxDocument.open(before)
+    clone_table = clone.tables.all[0]
+    (clone_table.insert_rows if axis == "rows" else clone_table.insert_columns)(0, 2, side=position)
+    copies = list(clone_table.element.iter(HP + "rect"))
+    assert len(copies) == 3
+    numbers = [rect.get(name) for rect in copies for name in ("id", "instid")]
+    assert len(set(numbers)) == 5  # the original's id and instid are one number, as add_rectangle writes them
+    assert len(list(HwpxDocument.open(clone.to_bytes()).tables.all[0].element.iter(HP + "rect"))) == 3
+
     insert(0, 2, side=position, blank=True)
     rectangles = list(table.element.iter(HP + "rect"))
     assert len(rectangles) == 1
@@ -200,6 +208,91 @@ def test_object_edits_match_apply_table_ops(edit, op: dict) -> None:
 
     assert by_bytes.ok, by_bytes.skipped
     assert _shapes(document.to_bytes()) == _shapes(by_bytes.data)
+    assert _table(document.to_bytes()).find(HP + "sz").get("height") == \
+        _table(by_bytes.data).find(HP + "sz").get("height")
+
+
+@pytest.mark.parametrize(("hancom", "side"), [("table_structure_merged_rows_below1", "below"),
+                                              ("table_structure_merged_rows_above1", "above")])
+def test_patch_row_edits_match_hancom_heights_and_following_text(hancom: str, side: str) -> None:
+    from hwpx.layout.pages import estimate_pages
+
+    source = (FIXTURES / "table_structure_merged_rows_base.hwpx").read_bytes()
+    result = apply_table_ops(source, [
+        {"op": "insert_row_by_clone", "table_index": index, "ref_row": 1, "side": side}
+        for index in range(7)
+    ])
+    assert result.ok, result.skipped
+    expected = (FIXTURES / f"{hancom}.hwpx").read_bytes()
+    ours, theirs = HwpxDocument.open(result.data), HwpxDocument.open(expected)
+    assert [table.height for table in ours.tables.all] == [table.height for table in theirs.tables.all]
+    assert estimate_pages(result.data).lines == estimate_pages(expected).lines
+
+
+def test_patch_height_correction_preserves_other_bytes_and_dry_run(tmp_path: Path) -> None:
+    from hwpx.table_patch import _iter_table_spans
+
+    source = (FIXTURES / "table_structure_merged_rows_base.hwpx").read_bytes()
+    ops = [{"op": "delete_row", "table_index": 1, "rows": [1]}]
+    target = tmp_path / "not-written.hwpx"
+    dry = apply_table_ops(source, ops, output_path=target, dry_run=True)
+    assert dry.ok and not target.exists()
+    actual = apply_table_ops(source, ops)
+    assert actual.ok and dry.data == actual.data
+    with zipfile.ZipFile(io.BytesIO(source)) as before, zipfile.ZipFile(io.BytesIO(actual.data)) as after:
+        section = "Contents/section0.xml"
+        assert before.namelist() == after.namelist()
+        for name in before.namelist():
+            if name != section:
+                assert before.read(name) == after.read(name)
+        old, new = before.read(section), after.read(section)
+    old_start, old_end = _iter_table_spans(old)[1]
+    new_start, new_end = _iter_table_spans(new)[1]
+    assert old[:old_start] == new[:new_start]
+    assert old[old_end:] == new[new_end:]
+    document = HwpxDocument.open(source)
+    document.tables.all[1].delete_rows(1)
+    assert HwpxDocument.open(actual.data).tables.all[1].height == document.tables.all[1].height
+
+
+def test_patch_height_uses_nested_table_indices_and_current_sections() -> None:
+    document = HwpxDocument.new()
+    outer = document.add_table(rows=1, cols=1)
+    nested = outer.cell(0, 0).paragraphs[0].add_table(rows=2, cols=2)
+    later = document.add_table(rows=2, cols=2)
+    source = document.to_bytes()
+    nested.insert_rows(0)
+    nested.delete_rows(1)
+    later.insert_rows(0)
+    expected = [int(table.find(HP + "sz").get("height"))
+                for table in document.sections[0].element.iter(HP + "tbl")]
+    result = apply_table_ops(source, [
+        {"op": "insert_row_by_clone", "table_index": 1, "ref_row": 0},
+        {"op": "delete_row", "table_index": 1, "rows": [1]},
+        {"op": "insert_row_by_clone", "table_index": 2, "ref_row": 0},
+    ])
+    assert result.ok, result.skipped
+    actual = HwpxDocument.open(result.data)
+    assert [int(table.find(HP + "sz").get("height"))
+            for table in actual.sections[0].element.iter(HP + "tbl")] == expected
+
+
+def test_unmeasurable_rows_keep_the_height_without_refusing_the_structure_edit(monkeypatch) -> None:
+    from hwpx.layout import pages
+
+    document = HwpxDocument.new()
+    table = document.add_table(rows=2, cols=2, height=6000)
+    source = document.to_bytes()
+
+    def unsupported(*args):
+        raise pages._Unsupported("test row model does not follow this table")
+
+    monkeypatch.setattr(pages, "_rows_height", unsupported)
+    result = apply_table_ops(source, [{"op": "insert_row_by_clone", "table_index": 0, "ref_row": 0}])
+    assert result.ok, result.skipped
+    edited = HwpxDocument.open(result.data).tables.all[0]
+    assert edited.row_count == 3
+    assert edited.height == table.height
 
 
 def test_the_table_reads_its_new_shape_and_the_namespace_edits_it_too() -> None:
@@ -272,10 +365,14 @@ def test_refused_edits_leave_the_table_as_it_was(edit, message: str) -> None:
     assert etree.tostring(table.element) == before
 
 
-def test_a_table_holding_a_table_is_refused() -> None:
+def test_a_table_holding_a_table_keeps_it_through_an_edit() -> None:
     document = HwpxDocument.new()
     table = document.add_table(rows=2, cols=2)
-    table.cell(0, 0).add_table(1, 1)
+    table.cell(0, 0).add_table(1, 1).cell(0, 0).text = "inner"
 
-    with pytest.raises(TableStructureError, match="nested"):
-        table.insert_rows(0)
+    table.insert_rows(0)
+
+    assert table.row_count == 3
+    assert [table.cell(row, 0).tables[0].cell(0, 0).text for row in (0, 1)] == ["inner", "inner"]
+    with HwpxDocument.open(document.to_bytes()) as reopened:
+        assert reopened.tables[0].row_count == 3

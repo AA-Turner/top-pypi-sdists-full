@@ -1,0 +1,1658 @@
+/**
+ * MeshNode — the multi-peer encrypted mesh handle.
+ *
+ * Wraps the NAPI `NetMesh` with ergonomic TypeScript APIs: typed
+ * `StreamConfig`, classed `BackpressureError` / `NotConnectedError`
+ * for `instanceof`-based pattern matching, and the `send_with_retry`
+ * / `send_blocking` helpers from the Rust core.
+ *
+ * @example
+ * ```typescript
+ * import { MeshNode, BackpressureError, Reliability } from '@net-mesh/sdk';
+ *
+ * const node = await MeshNode.create({
+ *   bindAddr: '127.0.0.1:9000',
+ *   psk: '0'.repeat(64),
+ * });
+ *
+ * await node.connect('127.0.0.1:9001', peerPubkey, 0x2222n);
+ * node.start();
+ *
+ * const stream = node.openStream(0x2222n, {
+ *   streamId: 7n,
+ *   reliability: 'reliable',
+ *   windowBytes: 256,
+ * });
+ *
+ * try {
+ *   await node.sendOnStream(stream, [Buffer.from('hello')]);
+ * } catch (e) {
+ *   if (e instanceof BackpressureError) {
+ *     // daemon chose: drop, buffer, or retry
+ *   } else {
+ *     throw e;
+ *   }
+ * }
+ * ```
+ */
+
+import { NetMesh as NapiNetMesh } from '@net-mesh/core';
+import type {
+  IslandCriteria,
+  IslandTopologyInput,
+  MeshOptions as NapiMeshOptions,
+  StoredEvent,
+} from '@net-mesh/core';
+// The subnet AUTHORITY provider verb (SSDK §3.5). Imported from the
+// low-level package's `./subnet` entry, which classifies the stable
+// `subnet:` envelope; `getNapiMesh` supplies the handle.
+import { serveSubnetExported as serveSubnetExportedNative } from '@net-mesh/core/subnet';
+// `TypedMeshRpc` is what the whole tool surface takes — `serveTool`,
+// `callTool`, and friends. `MeshNode.rpc()` below is the supported bridge
+// from a node to one.
+import { TypedMeshRpc } from '@net-mesh/core/mesh_rpc';
+import type {
+  OrgCaller as NapiOrgCaller,
+  OrgServeHandle as NapiOrgServeHandle,
+} from '@net-mesh/core';
+
+export type { IslandCriteria, IslandTopologyInput, StoredEvent } from '@net-mesh/core';
+
+/**
+ * The verified admission facts a subnet-exported handler receives — the
+ * same shape `serveOrg` projects, because it is the same admission
+ * engine. Every field is provider-verified, never caller-claimed.
+ *
+ * An ALIAS of the binding's `OrgCaller`, not a parallel declaration. A
+ * hand-written copy drifted immediately (it named the acting entity
+ * `caller` where the binding calls it `entity`), and a copy can only
+ * ever be right by coincidence — the binding's `.d.ts` is generated from
+ * the Rust struct.
+ */
+export type SubnetExportedCaller = NapiOrgCaller;
+
+/**
+ * Handle for a served subnet export; `close()` unregisters and is
+ * idempotent. Aliased from the binding for the same reason as
+ * {@link SubnetExportedCaller}.
+ */
+export type SubnetServeHandle = NapiOrgServeHandle;
+
+/** Outcome of a reserve/release/claim. */
+export type ClaimOutcome = 'won' | 'lost';
+
+/** Selection policy for {@link MeshNode.matchIslands}. */
+export type SelectionPolicy = 'least_loaded' | 'pack' | 'load_band' | 'lowest_id';
+
+import {
+  callIsolated,
+  getNapiMesh,
+  nativeOrgClientOf,
+  reportHandlerError,
+  setNapiMesh,
+} from './_internal.js';
+import type { OrgClient as SdkOrgClient } from './org/index.js';
+import type { OrgClient as NapiOrgClient } from '@net-mesh/core';
+import type { TypedOrgClient } from '@net-mesh/core/org';
+import {
+  capabilityFilterToNapi,
+  capabilityRequirementToNapi,
+  capabilitySetToNapi,
+  scopeFilterToNapi,
+  type CapabilityFilter,
+  type CapabilityRequirement,
+  type CapabilitySet,
+  type ScopeFilter,
+} from './capabilities';
+import {
+  aggregationToJson,
+  capacityQueryToJson,
+  groupByToJson,
+  tagMatcherToJson,
+  type Aggregation,
+  type AggregateRow,
+  type CapacityQuery,
+  type CapacityRow,
+  type GroupBy,
+  type TagMatcher,
+} from './capability-aggregation';
+import type { SubnetId, SubnetPolicy } from './subnets';
+import type { Token } from './identity';
+
+/** Reliability mode chosen at stream-open time. */
+export type Reliability = 'fire_and_forget' | 'reliable';
+
+/** Per-stream configuration for {@link MeshNode.openStream}. */
+export interface StreamConfig {
+  /**
+   * Caller-chosen stream identifier. Opaque `bigint` at the transport
+   * layer; no value range has reserved meaning.
+   */
+  streamId: bigint;
+  /** Reliability mode. Default: `'fire_and_forget'`. */
+  reliability?: Reliability;
+  /**
+   * Initial send-credit window in bytes. Leave unset to inherit the
+   * core's `DEFAULT_STREAM_WINDOW_BYTES` (64 KB) — v2 backpressure
+   * is ON out of the box. Pass `0` to restore the v1 unbounded-queue
+   * behavior on this stream.
+   */
+  windowBytes?: number;
+  /**
+   * Fair-scheduler weight. `1` = equal share; higher = proportionally
+   * more packets per round. Default: `1`.
+   */
+  fairnessWeight?: number;
+  /**
+   * Ride the lossy carrier — for state where only the newest value
+   * matters. A fire-and-forget stream's packets then travel on a browser
+   * session's unordered, zero-retransmit DataChannel, where a lost one
+   * never delays anything. Refused with `reliability: 'reliable'`.
+   */
+  lossy?: boolean;
+}
+
+/** Per-stream stats snapshot. */
+export interface StreamStats {
+  txSeq: bigint;
+  rxSeq: bigint;
+  inboundPending: bigint;
+  lastActivityNs: bigint;
+  active: boolean;
+  /** Cumulative Backpressure rejections since stream opened. */
+  backpressureEvents: bigint;
+  /**
+   * Bytes of send credit still available. `0` means the next send
+   * will be rejected as Backpressure. Receiver-driven `StreamWindow`
+   * grants replenish this counter.
+   */
+  txCreditRemaining: number;
+  /**
+   * Configured initial credit window in bytes. `0` disables
+   * backpressure entirely on this stream (escape hatch).
+   */
+  txWindow: number;
+  /** Cumulative StreamWindow grants received from the peer. */
+  creditGrantsReceived: bigint;
+  /** Cumulative StreamWindow grants emitted to the peer. */
+  creditGrantsSent: bigint;
+}
+
+/**
+ * Thrown by {@link MeshNode.sendOnStream} / `sendWithRetry` /
+ * `sendBlocking` when the stream's per-stream in-flight window is
+ * full. **The event was NOT sent.** Caller decides whether to drop,
+ * retry, or buffer at the app layer — see the "Back-pressure" section
+ * in `docs/TRANSPORT.md` for the three canonical patterns.
+ */
+export class BackpressureError extends Error {
+  constructor(detail?: string) {
+    super(detail ?? 'stream would block (queue full)');
+    this.name = 'BackpressureError';
+    Object.setPrototypeOf(this, BackpressureError.prototype);
+  }
+}
+
+/**
+ * Thrown when the stream's peer session is gone (peer never
+ * connected, disconnected, or the stream was closed). Distinct from
+ * {@link BackpressureError} because this is a "connection lost", not
+ * "too fast".
+ */
+export class NotConnectedError extends Error {
+  constructor(detail?: string) {
+    super(detail ?? 'stream not connected');
+    this.name = 'NotConnectedError';
+    Object.setPrototypeOf(this, NotConnectedError.prototype);
+  }
+}
+
+/**
+ * Thrown when the stream handle's session has been replaced by a
+ * successor incarnation of the same peer (S5-R12). Distinct from
+ * {@link NotConnectedError}: the peer is connected and the stream id
+ * may even be open — on a different session, with its own credit,
+ * sequence space and reliability config.
+ *
+ * Never retryable with the same handle. Re-open the stream against
+ * the current session.
+ */
+export class SessionSupersededError extends Error {
+  constructor(detail?: string) {
+    super(detail ?? "stream's session has been replaced by a successor");
+    this.name = 'SessionSupersededError';
+    Object.setPrototypeOf(this, SessionSupersededError.prototype);
+  }
+}
+
+/**
+ * Translate a napi-thrown error into one of the typed stream error
+ * classes if it matches the stable prefix contract from the binding.
+ * Anything else is passed through unchanged.
+ */
+function toStreamError(e: unknown): never {
+  const msg = (e as Error | undefined)?.message ?? '';
+  // Prefixes are part of the binding's stable contract; see
+  // `bindings/node/src/lib.rs` (`ERR_BACKPRESSURE_PREFIX` /
+  // `ERR_NOT_CONNECTED_PREFIX`).
+  if (msg.startsWith('stream would block')) {
+    throw new BackpressureError(msg);
+  }
+  if (msg.startsWith('stream not connected')) {
+    throw new NotConnectedError(msg);
+  }
+  if (msg.startsWith('stream session superseded')) {
+    throw new SessionSupersededError(msg);
+  }
+  throw e;
+}
+
+/**
+ * Options for {@link MeshNode.subscribeChannel}. Struct form so
+ * future knobs (timeout override, priority) don't break callers.
+ */
+export interface SubscribeOptions {
+  /**
+   * Token to present to the publisher. The publisher verifies the
+   * ed25519 signature, checks the subject matches the subscribing
+   * peer's `EntityId`, and installs the token in its local cache
+   * before running `can_subscribe`. A matching token satisfies
+   * `requireToken` channels end-to-end.
+   */
+  token?: Token;
+}
+
+/** Options for {@link MeshNode.create}. */
+export interface MeshNodeConfig {
+  /** Local bind address (e.g. `"127.0.0.1:9000"`). */
+  bindAddr: string;
+  /** Hex-encoded 32-byte pre-shared key (64 hex chars). */
+  psk: string;
+  /** Heartbeat interval in milliseconds. Default: 5000. */
+  heartbeatIntervalMs?: number;
+  /** Session timeout in milliseconds. Default: 30000. */
+  sessionTimeoutMs?: number;
+  /** Inbound shard count. Default: 4. */
+  numShards?: number;
+  /**
+   * Capability-index GC sweep interval in milliseconds. Default:
+   * 60_000. Shorter values make TTL-driven eviction more responsive
+   * at the cost of extra CPU; primarily useful in tests.
+   */
+  capabilityGcIntervalMs?: number;
+  /**
+   * Drop inbound `CapabilityAnnouncement` packets without a
+   * signature. Default: false. Signature *validity* is not yet
+   * enforced end-to-end — this is presence-only policy today.
+   */
+  requireSignedCapabilities?: boolean;
+  /**
+   * Pin this node to a specific subnet. Omitted = no restriction
+   * (`SubnetId::GLOBAL`). Visibility checks on the publish +
+   * subscribe paths compare against this value.
+   */
+  subnet?: SubnetId;
+  /**
+   * Policy that derives each peer's subnet from their capability
+   * announcements. Mesh-wide policy consistency is assumed —
+   * mismatched policies lead to asymmetric views of peer subnets.
+   */
+  subnetPolicy?: SubnetPolicy;
+  /**
+   * 32-byte ed25519 seed. When set, the mesh's keypair is
+   * derived from this seed — so its `entityId` and `nodeId`
+   * are reproducible across restarts, and a caller-side
+   * `Identity.fromSeed(seed)` can issue tokens that validate
+   * against this mesh. Treat as secret material.
+   *
+   * A seeded node also derives its Noise key (`publicKey()`, the key
+   * in its rendezvous string) from the seed unless `noiseStaticKey` is
+   * set, so machines that paired with it can reach it after a restart.
+   */
+  identitySeed?: Buffer;
+  /**
+   * 32-byte Noise (X25519) static private key — any 32 random bytes the
+   * caller stores. Keeps `publicKey()` stable across restarts
+   * independently of the identity. Leave unset to derive it from
+   * `identitySeed` (or, with no seed, get a fresh key per process).
+   * Treat as secret material.
+   */
+  noiseStaticKey?: Buffer;
+  /**
+   * Subnet AUTHORITY trust anchors (`SUBNET_AUTH_SDK_PLAN.md` §3.3).
+   * One entry per authority; empty root sets, duplicates, and zero
+   * lifetimes fail before the node exists, and an empty overall list
+   * means every protected subnet assertion fails closed. Requires an
+   * `org`-feature `@net-mesh/core` build. The subnet-exported provider
+   * verb (`MeshNode.serveSubnetExported`) and the admin surface live in
+   * `@net-mesh/core/subnet`.
+   */
+  subnetAuthorities?: SubnetAuthorityConfig[];
+  /**
+   * This node's own SECURITY attachment point — the local topology
+   * coordinate credentials are checked against. Distinct from
+   * {@link subnet} (unauthenticated routing state); omitting it
+   * preserves the core compatibility fallback, which protected
+   * deployments should not rely on.
+   */
+  subnetAttachment?: SubnetPath;
+  /**
+   * Treat an ordinary configured channel as a subnet control-fact
+   * arrival path. Confers no authority — facts verify by signature
+   * regardless of how they arrive.
+   */
+  subnetControlChannel?: string;
+  /**
+   * Named subnet exports (`SUBNET_AUTH_SDK_PLAN.md` §3.3):
+   * provider-local labels resolved once at construction into checked
+   * bindings and retained beside the handle. `MeshNode.serveSubnetExported`
+   * registers against a name; empty or duplicate names fail before the
+   * node exists.
+   */
+  subnetExports?: SubnetNamedExport[];
+  /**
+   * Pin this node's public reflex to an external `"ip:port"`: NAT
+   * classification is skipped and the node reports `"open"` with this
+   * reflex. For port-forwarded servers. Ignored by a build without
+   * `nat-traversal`.
+   */
+  reflexOverride?: string;
+  /**
+   * Opportunistic UPnP-IGD / NAT-PMP / PCP port mapping at `start()`;
+   * degrades cleanly when no router answers. Ignored by a build without
+   * `port-mapping`.
+   */
+  tryPortMapping?: boolean;
+  /**
+   * Re-handshake relay-routed sessions over a direct path when one
+   * appears, and migrate them. Native default `true`; `false` pins traffic
+   * to the relay. Ignored by a build without `nat-traversal`.
+   */
+  autoDirectUpgrade?: boolean;
+  /**
+   * Install no channel registry. That turns channel authorization off for
+   * **every** channel on this node: any peer may subscribe to any channel.
+   * `publishTools` needs it (its channels are dynamically named); nRPC and
+   * the tool-calling surface do not. Leave it off unless you need it.
+   */
+  permissiveChannels?: boolean;
+}
+
+// Drift guard (NODE_SDK_GAPS_PLAN.md S2). `MeshNode.create` once dropped four
+// native options because nothing tied this interface to the native
+// `MeshOptions`. Now a native field missing here is a compile error that
+// names it: the assignment below fails with that field's name as the type.
+type MissingNativeMeshOptions = Exclude<keyof NapiMeshOptions, keyof MeshNodeConfig>;
+const everyNativeMeshOptionIsDeclared: [MissingNativeMeshOptions] extends [never]
+  ? true
+  : MissingNativeMeshOptions = true;
+void everyNativeMeshOptionIsDeclared;
+
+/**
+ * A subnet trust anchor (mesh-construction input). Mirrors
+ * `@net-mesh/core`'s `SubnetAuthorityConfigJs`.
+ */
+export interface SubnetAuthorityConfig {
+  /** 32-byte authority entity id, 64 hex chars. */
+  authorityHex: string;
+  /** Non-empty, duplicate-free root entity ids (64 hex chars each). */
+  rootHexes: string[];
+  /** Per-authority grant-lifetime ceiling in seconds; must be nonzero. */
+  maximumGrantLifetimeSecs: number;
+}
+
+/** A compact hierarchy path: 0..=4 levels, each 0..=255. Empty = global. */
+export interface SubnetPath {
+  /** Path labels, outermost first. */
+  levels: number[];
+}
+
+/** An authority-qualified crossing. Never the topology {@link SubnetId}. */
+export interface SubnetRef {
+  /** 32-byte authority entity id, 64 hex chars. */
+  authorityHex: string;
+  /** Path under that authority. */
+  path: SubnetPath;
+}
+
+/** One named-export configuration entry. */
+export interface SubnetNamedExport {
+  /** Provider-local label; non-empty, unique per mesh. */
+  name: string;
+  /** `"sameOrg"` or `"granted"`. */
+  access: string;
+  /** The exported crossing and epoch. */
+  binding: { subnet: SubnetRef; topologyEpoch: number };
+}
+
+/**
+ * An opaque stream handle. Pass back to `sendOnStream` /
+ * `sendWithRetry` / `sendBlocking` / `closeStream`. You normally
+ * don't need to read the fields — they're exposed for diagnostics.
+ */
+export interface MeshStream {
+  readonly peerNodeId: bigint;
+  readonly streamId: bigint;
+  /** @internal napi-backed native handle. */
+  readonly _native: unknown;
+}
+
+/** One event from {@link MeshNode.onStreamData}. */
+export interface StreamData {
+  /**
+   * The peer whose session decrypted this event — the authenticated
+   * sender, never a value the packet carries. What {@link MeshNode.recv}
+   * cannot tell you.
+   */
+  readonly peerNodeId: bigint;
+  readonly streamId: bigint;
+  readonly payload: Buffer;
+}
+
+/** Returned by {@link MeshNode.onStreamData}. */
+export interface StreamDataSubscription {
+  readonly streamId: bigint;
+  /**
+   * Events dropped because the handler fell more than 1024 events behind
+   * the peers feeding the stream (the queue is bounded so a flooding peer
+   * cannot grow the process without limit).
+   */
+  readonly droppedEvents: bigint;
+  /** Stop delivering; the stream's events go back to `recv`. Idempotent. */
+  close(): boolean;
+}
+
+/**
+ * A node on the Net mesh with full stream multiplexing + backpressure
+ * support.
+ */
+export class MeshNode {
+  private native: NapiNetMesh;
+  /**
+   * Every live `onStreamData` subscription, held until `close()`. The
+   * native subscription unregisters when garbage-collected, so a caller
+   * that discarded the returned handle had delivery stop at an arbitrary
+   * GC (code review 2026-10-11, NODE-1). Held here, a subscription lives
+   * as long as this node — as it did before the native collector existed.
+   */
+  private readonly streamSubscriptions = new Set<unknown>();
+
+  private constructor(native: NapiNetMesh) {
+    this.native = native;
+    // Register on the WeakMap so sibling SDK modules can reach
+    // the native pointer without a public escape-hatch method on
+    // the class instance. See `./_internal.ts` for why.
+    setNapiMesh(this, native);
+  }
+
+  /**
+   * **Test-only.** Inject a synthetic peer entry into the local
+   * capability index so vitest suites can stage multi-candidate
+   * placement for `ReplicaGroup` / `ForkGroup` / `StandbyGroup`
+   * tests without a full 3-node handshake.
+   *
+   * Not part of the stable API; do NOT use in production code —
+   * the real mesh surface is `announceCapabilities`. Gated at the
+   * NAPI layer behind the `test-helpers` cargo feature; release
+   * builds of `@net-mesh/core` do not export `testInjectSyntheticPeer`
+   * and this method will throw if called against such a build.
+   *
+   * @internal
+   */
+  _testInjectSyntheticPeer(nodeId: bigint): void {
+    const native = this.native as unknown as {
+      testInjectSyntheticPeer?: (nodeId: bigint) => void;
+    };
+    if (typeof native.testInjectSyntheticPeer !== 'function') {
+      throw new Error(
+        'testInjectSyntheticPeer: NAPI build missing `test-helpers` feature',
+      );
+    }
+    native.testInjectSyntheticPeer(nodeId);
+  }
+
+  /**
+   * Test-only — same shape as {@link _testInjectSyntheticPeer} but
+   * stages the synthetic peer with the supplied canonical tag
+   * strings. Used by the Phase 6c aggregation smoke tests to set
+   * up multi-bucket fixtures without spinning up multiple meshes.
+   *
+   * @internal
+   */
+  _testInjectSyntheticPeerWithTags(nodeId: bigint, tags: string[]): void {
+    const native = this.native as unknown as {
+      testInjectSyntheticPeerWithTags?: (
+        nodeId: bigint,
+        tags: string[],
+      ) => void;
+    };
+    if (typeof native.testInjectSyntheticPeerWithTags !== 'function') {
+      throw new Error(
+        'testInjectSyntheticPeerWithTags: NAPI build missing `test-helpers` feature',
+      );
+    }
+    native.testInjectSyntheticPeerWithTags(nodeId, tags);
+  }
+
+  /** Create and configure a new mesh node. */
+  static async create(config: MeshNodeConfig): Promise<MeshNode> {
+    // Subnet AUTHORITY plumbing (SSDK §6.1): forwarded verbatim; the
+    // native `create` validates through the frozen Rust DTOs and
+    // retains the checked named-export map beside its node handle.
+    // Every new field is an explicit line here — this map is not a
+    // spread, by design.
+    //
+    // The compatibility cast is scoped to JUST these four properties
+    // (review-10 P3-6). It used to sit on the whole object literal,
+    // which silently disabled checking for `bindAddr`, `psk`, and every
+    // other pre-existing field — a typo in any of them would have
+    // compiled. The cast is needed only because a `@net-mesh/core` built
+    // without the `org` feature does not declare the subnet options.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subnetOptions = {
+      subnetAuthorities: config.subnetAuthorities,
+      subnetAttachment: config.subnetAttachment,
+      subnetControlChannel: config.subnetControlChannel,
+      subnetExports: config.subnetExports,
+    } as any;
+    const native = await NapiNetMesh.create({
+      bindAddr: config.bindAddr,
+      psk: config.psk,
+      heartbeatIntervalMs: config.heartbeatIntervalMs,
+      sessionTimeoutMs: config.sessionTimeoutMs,
+      numShards: config.numShards,
+      capabilityGcIntervalMs: config.capabilityGcIntervalMs,
+      requireSignedCapabilities: config.requireSignedCapabilities,
+      subnet: config.subnet,
+      subnetPolicy: config.subnetPolicy,
+      identitySeed: config.identitySeed,
+      noiseStaticKey: config.noiseStaticKey,
+      reflexOverride: config.reflexOverride,
+      tryPortMapping: config.tryPortMapping,
+      autoDirectUpgrade: config.autoDirectUpgrade,
+      permissiveChannels: config.permissiveChannels,
+      ...subnetOptions,
+    });
+    return new MeshNode(native);
+  }
+
+  /** 32-byte ed25519 entity id for this mesh. */
+  entityId(): Buffer {
+    return this.native.entityId();
+  }
+
+  /** Hex-encoded Noise static public key. */
+  publicKey(): string {
+    return this.native.publicKey();
+  }
+
+  /** This node's id. */
+  nodeId(): bigint {
+    return this.native.nodeId();
+  }
+
+  /**
+   * The typed RPC handle for this node.
+   *
+   * `serveTool`, `serveToolStreaming`, `callTool` and the rest of the
+   * tool surface take a {@link TypedMeshRpc}, not a `MeshNode` — so
+   * this is the bridge between the two:
+   *
+   * ```typescript
+   * const node = await MeshNode.create({ bindAddr, psk });
+   * const rpc = node.rpc();          // hold it — see below
+   * const handle = serveTool(rpc, { name: 'web_search' }, handler);
+   *
+   * handle.close();
+   * rpc.raw.close();
+   * await node.shutdown();
+   * ```
+   *
+   * It exists because there was no supported way to get one. The
+   * announce guide told readers to cast the node and read a `_native`
+   * property, which fails twice over: `MeshNode` keeps its native
+   * pointer in a WeakMap rather than as a property (see
+   * `./_internal.ts`), so the cast yields `undefined`, and passing that
+   * to `TypedMeshRpc.fromMesh` throws
+   * `InvalidArg: Failed to recover 'NetMesh' type from napi value`.
+   * Documenting a private-field reach-around for an ordinary task was
+   * the real defect; this is the accessor that should have existed.
+   *
+   * Each call builds a NEW handle holding its own reference to the
+   * mesh, so hold one rather than calling this per tool — and release
+   * it with `rpc.raw.close()` before `shutdown()`. An outstanding handle
+   * makes shutdown fail with
+   * `GenericFailure: cannot shutdown: outstanding references exist`.
+   */
+  rpc(): TypedMeshRpc {
+    return TypedMeshRpc.fromMesh(getNapiMesh(this) as unknown as object);
+  }
+
+  /**
+   * The resolved local socket address.
+   *
+   * Required whenever `bindAddr` ends in `:0` — the OS picks the port
+   * and this is the only way to learn which one, so a peer can be told
+   * where to connect. The README's own `127.0.0.1:0` example could not
+   * be completed without it.
+   */
+  localAddr(): string {
+    return this.native.localAddr();
+  }
+
+  /** Connect to a peer as initiator. */
+  async connect(peerAddr: string, peerPublicKey: string, peerNodeId: bigint): Promise<void> {
+    await this.native.connect(peerAddr, peerPublicKey, peerNodeId);
+  }
+
+  /** Accept an incoming connection as responder. Returns the peer's wire address. */
+  async accept(peerNodeId: bigint): Promise<string> {
+    return await this.native.accept(peerNodeId);
+  }
+
+  /**
+   * Start the receive loop / heartbeats / router. Idempotent.
+   *
+   * Rejects when nothing was started because an `accept()` is still
+   * mid-handshake. The node stays stopped (it would send but never
+   * receive); retry once that `accept()` resolves.
+   */
+  async start(): Promise<void> {
+    await this.native.start();
+  }
+
+  /** Number of connected peers. */
+  peerCount(): number {
+    return this.native.peerCount();
+  }
+
+  // ─── Receive ─────────────────────────────────────────────────────
+
+  /**
+   * Number of inbound shards received traffic is spread across.
+   *
+   * Events land on `streamId % numShards`, which is what makes a
+   * targeted {@link recvShard} possible.
+   */
+  numShards(): number {
+    return this.native.numShards();
+  }
+
+  /** The inbound shard `streamId`'s events land on. */
+  shardForStream(streamId: bigint): number {
+    return this.native.shardForStream(streamId);
+  }
+
+  /**
+   * Poll one inbound shard for up to `limit` received events.
+   *
+   * Pair with {@link shardForStream} when you want one stream rather
+   * than a merge across all of them. This is the receive half of the
+   * channel API: {@link subscribeChannel} joins the publisher's
+   * roster, and delivered payloads are read here.
+   */
+  async recvShard(shardId: number, limit: number): Promise<StoredEvent[]> {
+    return await this.native.pollShard(shardId, limit);
+  }
+
+  /**
+   * Poll **every** shard for up to `limit` events in total.
+   *
+   * The sweep starts from a rotating shard, so a continuously-fed
+   * shard cannot starve a quiet one; events are therefore not
+   * returned in shard order.
+   */
+  async recv(limit: number): Promise<StoredEvent[]> {
+    return await this.native.poll(limit);
+  }
+
+  // ─── Stream API ──────────────────────────────────────────────────
+
+  /**
+   * Open (or look up) a logical stream to a connected peer. Repeated
+   * calls for the same `(peer, streamId)` are idempotent; the first
+   * open wins and later differing configs are logged and ignored.
+   */
+  openStream(peerNodeId: bigint, config: StreamConfig): MeshStream {
+    const native = this.native.openStream(peerNodeId, {
+      streamId: config.streamId,
+      reliability: config.reliability,
+      windowBytes: config.windowBytes,
+      fairnessWeight: config.fairnessWeight,
+      lossy: config.lossy,
+    });
+    return {
+      peerNodeId,
+      streamId: config.streamId,
+      _native: native,
+    };
+  }
+
+  /** Close a stream. Idempotent. */
+  closeStream(peerNodeId: bigint, streamId: bigint): void {
+    this.native.closeStream(peerNodeId, streamId);
+  }
+
+  /**
+   * Receive every event arriving on `streamId` — from any peer — with
+   * the peer that sent it, instead of through {@link recv}.
+   *
+   * `recv` returns events without a sender, which is fine for a feed
+   * and useless for anything that decides by who is asking. The sender
+   * here is the peer whose session authenticated the packet. One
+   * subscription per stream id; a second throws until the first is
+   * closed. Pair with {@link streamIdFromLabel} to agree on an id with a
+   * browser page.
+   *
+   * A `handler` that throws — or an `async` handler whose promise rejects
+   * — does NOT take the process down: the native callback would turn an
+   * escaping exception into a fatal `uncaughtException`, and an unhandled
+   * rejection is fatal by default, either of which a remote peer's payload
+   * could trigger. The error goes to `options.onError` if given, else to a
+   * process warning, and delivery continues.
+   *
+   * Handlers are NOT serialized: each event invokes `handler` as it
+   * arrives, without awaiting the previous call's promise, so a slow
+   * `async` handler can have many invocations in flight at once and its
+   * pending work is unbounded. The native queue's bound (and
+   * `droppedEvents`) applies only to events not yet handed to `handler`.
+   * A handler doing slow async work should apply its own backpressure —
+   * a bounded queue it drains serially, dropping or coalescing when full
+   * (cubic review of PR #1228).
+   *
+   * The subscription lasts until `close()` or until this node is gone —
+   * discarding the returned handle does not end it.
+   */
+  onStreamData(
+    streamId: bigint,
+    handler: (data: StreamData) => void | Promise<void>,
+    options?: { onError?: (error: unknown, data: StreamData) => void },
+  ): StreamDataSubscription {
+    const onError = options?.onError ?? reportHandlerError;
+    const native = this.native.onStreamData(streamId, event => {
+      const data: StreamData = {
+        peerNodeId: event.peerNodeId,
+        streamId: event.streamId,
+        payload: event.payload,
+      };
+      callIsolated(
+        () => handler(data),
+        error => onError(error, data),
+      );
+    });
+    this.streamSubscriptions.add(native);
+    return {
+      get streamId() {
+        return native.streamId;
+      },
+      get droppedEvents() {
+        return native.droppedEvents;
+      },
+      close: () => {
+        this.streamSubscriptions.delete(native);
+        return native.close();
+      },
+    };
+  }
+
+  /**
+   * Send a batch of events on an explicit stream. Throws
+   * {@link BackpressureError} when the stream's in-flight window is
+   * full (no events sent — caller decides what to do),
+   * {@link NotConnectedError} when the peer session is gone, or a
+   * plain `Error` for underlying transport failures.
+   */
+  async sendOnStream(stream: MeshStream, events: Buffer[]): Promise<void> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await this.native.sendOnStream(stream._native as any, events);
+    } catch (e) {
+      toStreamError(e);
+    }
+  }
+
+  /**
+   * Send events, retrying on {@link BackpressureError} with 5 ms → 200 ms
+   * exponential backoff up to `maxRetries` times. Transport errors and
+   * `NotConnectedError` are re-thrown immediately (they're not a
+   * pressure signal).
+   */
+  async sendWithRetry(
+    stream: MeshStream,
+    events: Buffer[],
+    maxRetries = 8,
+  ): Promise<void> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await this.native.sendWithRetry(stream._native as any, events, maxRetries);
+    } catch (e) {
+      toStreamError(e);
+    }
+  }
+
+  /**
+   * Block the calling task until the send succeeds or a transport
+   * error occurs. Retries {@link BackpressureError} with 5 ms → 200 ms
+   * exponential backoff up to 4096 times (~13 min worst case) —
+   * effectively "block until the network lets up" under practical
+   * workloads, but with a hard upper bound so runaway pressure can't
+   * hang the caller forever. Use {@link sendWithRetry} for a tighter
+   * bound.
+   */
+  async sendBlocking(stream: MeshStream, events: Buffer[]): Promise<void> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await this.native.sendBlocking(stream._native as any, events);
+    } catch (e) {
+      toStreamError(e);
+    }
+  }
+
+  /** Snapshot per-stream stats. `null` if the peer or stream isn't open. */
+  streamStats(peerNodeId: bigint, streamId: bigint): StreamStats | null {
+    const raw = this.native.streamStats(peerNodeId, streamId);
+    if (!raw) return null;
+    // The napi binding marshals u64 fields as `BigInt` so values that
+    // exceed `Number.MAX_SAFE_INTEGER` — especially `lastActivityNs`,
+    // Unix-epoch nanoseconds always above 2^53 — survive the boundary
+    // without a precision trap. The u32 fields stay as regular numbers.
+    return {
+      txSeq: raw.txSeq,
+      rxSeq: raw.rxSeq,
+      inboundPending: raw.inboundPending,
+      lastActivityNs: raw.lastActivityNs,
+      active: raw.active,
+      backpressureEvents: raw.backpressureEvents,
+      txCreditRemaining: raw.txCreditRemaining,
+      txWindow: raw.txWindow,
+      creditGrantsReceived: raw.creditGrantsReceived,
+      creditGrantsSent: raw.creditGrantsSent,
+    };
+  }
+
+  // =========================================================
+  // Channels (distributed pub/sub)
+  // =========================================================
+
+  /**
+   * Register a channel on this node. Subscribers who ask to join are
+   * validated against `config` before being added to the roster.
+   *
+   * Mirrors the core `ChannelConfig` field-for-field. v1 omits
+   * `publishCaps` / `subscribeCaps` — those land with the security
+   * plan's identity surface.
+   */
+  registerChannel(config: ChannelConfig): void {
+    try {
+      this.native.registerChannel({
+        name: config.name,
+        visibility: config.visibility,
+        reliable: config.reliable,
+        requireToken: config.requireToken,
+        tokenRoots: config.tokenRoots,
+        priority: config.priority,
+        maxRatePps: config.maxRatePps,
+        publishCaps: config.publishCaps
+          ? capabilityFilterToNapi(config.publishCaps)
+          : undefined,
+        subscribeCaps: config.subscribeCaps
+          ? capabilityFilterToNapi(config.subscribeCaps)
+          : undefined,
+      });
+    } catch (e) {
+      toChannelError(e);
+    }
+  }
+
+  /**
+   * Ask `publisherNodeId` to add this node to `channel`'s subscriber
+   * set. Blocks until the publisher's `Ack` arrives or the
+   * membership-ack timeout elapses.
+   *
+   * Pass `opts.token` to present a
+   * {@link Token PermissionToken} issued by the publisher — required
+   * when the channel was registered with `tokenRoots` (token
+   * enforcement) or when your caps alone don't satisfy
+   * `subscribeCaps`. The publisher verifies the presented token chain
+   * — it must root at one of the channel's `tokenRoots`, bind at its
+   * leaf to this node's entity id, and authorize `subscribe` — before
+   * admitting the subscribe. The credential must be presented on every
+   * subscribe; a previously-accepted one is not reused for a later
+   * bare subscribe.
+   *
+   * Throws a {@link ChannelAuthError} or {@link ChannelError} on
+   * rejection; network-level failures propagate as plain `Error`.
+   */
+  async subscribeChannel(
+    publisherNodeId: bigint,
+    channel: string,
+    opts?: SubscribeOptions,
+  ): Promise<void> {
+    try {
+      await this.native.subscribeChannel(
+        publisherNodeId,
+        channel,
+        opts?.token?.bytes,
+      );
+    } catch (e) {
+      toChannelError(e);
+    }
+  }
+
+  /** Mirror of {@link subscribeChannel}. Idempotent on the publisher side. */
+  async unsubscribeChannel(publisherNodeId: bigint, channel: string): Promise<void> {
+    try {
+      await this.native.unsubscribeChannel(publisherNodeId, channel);
+    } catch (e) {
+      toChannelError(e);
+    }
+  }
+
+  /**
+   * Publish one payload to every subscriber of `channel`. Returns a
+   * {@link PublishReport} describing per-peer outcomes.
+   */
+  async publish(
+    channel: string,
+    payload: Buffer,
+    config?: PublishConfig,
+  ): Promise<PublishReport> {
+    try {
+      const raw = await this.native.publish(channel, payload, {
+        reliability: config?.reliability,
+        onFailure: config?.onFailure,
+        maxInflight: config?.maxInflight,
+      });
+      return {
+        attempted: raw.attempted,
+        delivered: raw.delivered,
+        errors: raw.errors.map((e: { nodeId: bigint; message: string }) => ({
+          nodeId: e.nodeId,
+          message: e.message,
+        })),
+      };
+    } catch (e) {
+      toChannelError(e);
+    }
+  }
+
+  /**
+   * Announce this node's capabilities to every directly-connected
+   * peer. Self-indexes too, so `findNodes` on this same node matches
+   * on the announcement. Multi-hop propagation is deferred — peers
+   * more than one hop away will not see the announcement.
+   */
+  async announceCapabilities(caps: CapabilitySet): Promise<void> {
+    await this.native.announceCapabilities(capabilitySetToNapi(caps));
+  }
+
+  /**
+   * Query the local capability index. Returns node ids (including
+   * our own `nodeId()` if self matches) whose latest announcement
+   * matches `filter`.
+   */
+  findNodes(filter: CapabilityFilter): bigint[] {
+    return this.native.findNodes(capabilityFilterToNapi(filter));
+  }
+
+  /**
+   * Tool descriptors visible in the local capability fold.
+   *
+   * The free `listTools` helper accepts anything with this method, so
+   * having it here means a `MeshNode` can be passed straight in:
+   *
+   * ```typescript
+   * import { listTools } from '@net-mesh/sdk';
+   * const tools = listTools(node);
+   * ```
+   *
+   * Without it the announce guide had readers cast the node and read a
+   * `_native` property that does not exist on this class — see
+   * {@link MeshNode.rpc} for why that never worked.
+   *
+   * Reads local folded state only: a peer's announcement appears here
+   * once it has folded, so poll rather than expecting it immediately
+   * after the peer announces.
+   */
+  listTools(): ReturnType<NapiNetMesh['listTools']> {
+    return this.native.listTools();
+  }
+
+  /**
+   * Live stream of tool-set changes from the local capability fold.
+   *
+   * The companion to {@link MeshNode.listTools}, and present for the same
+   * reason: the free `watchTools` helper accepts anything with this
+   * method, so `watchTools(node)` works without a cast.
+   *
+   * Prefer the free helper — it decodes each change into a typed
+   * `ToolListChange`, where this returns the raw native iterator.
+   */
+  watchTools(intervalMs?: number | null): ReturnType<NapiNetMesh['watchTools']> {
+    return this.native.watchTools(intervalMs);
+  }
+
+  // ---- Blob and directory transfer ----
+  //
+  // Straight delegations. They live here because the artifacts guide had
+  // readers cast the node to a hand-written interface listing these five
+  // methods and read a `_native` property — which this class does not have,
+  // so the cast produced `undefined` and every call threw. The SDK's own
+  // transport module re-exports the wire contract (`TransferControl`,
+  // `TransferHeader`, stream-id helpers) but not the node-driven verbs;
+  // these are them.
+
+  /** Serve blob-transfer requests from this node. Call once per node. */
+  serveBlobTransfer(adapter: Parameters<NapiNetMesh['serveBlobTransfer']>[0]): void {
+    this.native.serveBlobTransfer(adapter);
+  }
+
+  /** Fetch a blob from a known holder. */
+  async fetchBlob(
+    holderId: bigint,
+    blobRef: Parameters<NapiNetMesh['fetchBlob']>[1],
+  ): Promise<Buffer> {
+    return this.native.fetchBlob(holderId, blobRef);
+  }
+
+  /** Fetch a blob, letting the mesh locate a holder. */
+  async fetchBlobDiscovered(
+    blobRef: Parameters<NapiNetMesh['fetchBlobDiscovered']>[0],
+  ): Promise<Buffer> {
+    return this.native.fetchBlobDiscovered(blobRef);
+  }
+
+  /** Store a directory tree, returning the manifest ref. */
+  async storeDir(
+    adapter: Parameters<NapiNetMesh['storeDir']>[0],
+    root: string,
+  ): Promise<Awaited<ReturnType<NapiNetMesh['storeDir']>>> {
+    return this.native.storeDir(adapter, root);
+  }
+
+  /** Fetch a directory tree published by `storeDir` into `dest`. */
+  async fetchDir(
+    sourceId: bigint,
+    manifestRef: Parameters<NapiNetMesh['fetchDir']>[1],
+    dest: string,
+  ): Promise<Awaited<ReturnType<NapiNetMesh['fetchDir']>>> {
+    return this.native.fetchDir(sourceId, manifestRef, dest);
+  }
+
+  // ---- NAT traversal (nat-traversal builds) ----
+  //
+  // NODE_SDK_GAPS_PLAN.md S5: these, and every group below, forward to the
+  // native NetMesh with its exact signature (`Parameters<…>` keeps the
+  // parameter names). Methods a build was compiled without throw from the
+  // native layer.
+
+  /** This node's NAT class: `"open" | "cone" | "symmetric" | "unknown"`. `"unknown"` until classified (after `start()`, with 2+ peers), or `"open"` at once under a reflex override. */
+  natType(...args: Parameters<NapiNetMesh['natType']>): ReturnType<NapiNetMesh['natType']> {
+    return this.native.natType(...args);
+  }
+
+  /** This node's public `ip:port` as a peer observed it, or `null` before classification. A reflex override supplies it immediately. */
+  reflexAddr(...args: Parameters<NapiNetMesh['reflexAddr']>): ReturnType<NapiNetMesh['reflexAddr']> {
+    return this.native.reflexAddr(...args);
+  }
+
+  /** The NAT class `peerNodeId` last advertised, or `"unknown"`. */
+  peerNatType(...args: Parameters<NapiNetMesh['peerNatType']>): ReturnType<NapiNetMesh['peerNatType']> {
+    return this.native.peerNatType(...args);
+  }
+
+  /** Probe `peerNodeId` for this node's observed `ip:port`. Rejects with a `traversal: <kind>` message on failure. */
+  probeReflex(...args: Parameters<NapiNetMesh['probeReflex']>): ReturnType<NapiNetMesh['probeReflex']> {
+    return this.native.probeReflex(...args);
+  }
+
+  /** Re-run NAT classification now (e.g. after a suspected NAT rebind). */
+  reclassifyNat(...args: Parameters<NapiNetMesh['reclassifyNat']>): ReturnType<NapiNetMesh['reclassifyNat']> {
+    return this.native.reclassifyNat(...args);
+  }
+
+  /** Pin this node's public reflex to `external` (`"ip:port"`); classification is skipped. */
+  setReflexOverride(...args: Parameters<NapiNetMesh['setReflexOverride']>): ReturnType<NapiNetMesh['setReflexOverride']> {
+    return this.native.setReflexOverride(...args);
+  }
+
+  /** Drop a reflex override; the classifier resumes. No-op when none is set. */
+  clearReflexOverride(...args: Parameters<NapiNetMesh['clearReflexOverride']>): ReturnType<NapiNetMesh['clearReflexOverride']> {
+    return this.native.clearReflexOverride(...args);
+  }
+
+  /** Establish a session to `peerNodeId` via the rendezvous path, `coordinator` mediating. An optimization: a failed punch falls back to the routed path. */
+  connectDirect(...args: Parameters<NapiNetMesh['connectDirect']>): ReturnType<NapiNetMesh['connectDirect']> {
+    return this.native.connectDirect(...args);
+  }
+
+  /** `connectDirect` with the coordinator chosen for you. */
+  connectDirectAuto(...args: Parameters<NapiNetMesh['connectDirectAuto']>): ReturnType<NapiNetMesh['connectDirectAuto']> {
+    return this.native.connectDirectAuto(...args);
+  }
+
+  /** Cumulative NAT-traversal counters. */
+  traversalStats(...args: Parameters<NapiNetMesh['traversalStats']>): ReturnType<NapiNetMesh['traversalStats']> {
+    return this.native.traversalStats(...args);
+  }
+
+  // ---- Agent-to-agent tasks (a2a builds) ----
+
+  /** Serve the A2A task lifecycle, backed by an async executor `(brief) => Promise<artifactRef>`. Hold the returned handle to keep accepting tasks; the node must be started. */
+  serveA2a(...args: Parameters<NapiNetMesh['serveA2a']>): ReturnType<NapiNetMesh['serveA2a']> {
+    return this.native.serveA2a(...args);
+  }
+
+  /** Hand a task to the executor at `targetNodeId`; resolves to the accepted task id. A caller-chosen `taskId` makes a resubmission idempotent on a provider with durable admission. */
+  submitTask(...args: Parameters<NapiNetMesh['submitTask']>): ReturnType<NapiNetMesh['submitTask']> {
+    return this.native.submitTask(...args);
+  }
+
+  /** The executor's status for `taskId` as JSON (`{brief, state, updated_at}`), or `null` if unknown. */
+  taskStatus(...args: Parameters<NapiNetMesh['taskStatus']>): ReturnType<NapiNetMesh['taskStatus']> {
+    return this.native.taskStatus(...args);
+  }
+
+  /** Cancel `taskId` on the executor; resolves to whether it was in flight. */
+  cancelTask(...args: Parameters<NapiNetMesh['cancelTask']>): ReturnType<NapiNetMesh['cancelTask']> {
+    return this.native.cancelTask(...args);
+  }
+
+  /** What `targetNodeId` serves, as a JSON array of `A2aOffer`s — uncharged; the only sanctioned way to learn a price. Read u64 fields with `a2aU64`. */
+  describeA2a(...args: Parameters<NapiNetMesh['describeA2a']>): ReturnType<NapiNetMesh['describeA2a']> {
+    return this.native.describeA2a(...args);
+  }
+
+  /**
+   * Install (or clear with `null`) the organization identity this mesh's A2A
+   * requester verbs present to a PROTECTED provider. Accepts the SDK's
+   * `OrgClient`, a `TypedOrgClient`, or the native client. A
+   * `CapabilityGateway` has its own slot (`setA2aOrgCaller(gateway, org)`).
+   */
+  setA2aOrgCaller(org: SdkOrgClient | TypedOrgClient | NapiOrgClient | null): void {
+    this.native.setA2aOrgCaller(nativeOrgClientOf(org) as NapiOrgClient | null);
+  }
+
+  /** Raw paid submit: a `prepared` document plus its payment `proof`, both passed exactly as `a2aDocument` extracted them. Keeps no records (`CapabilityGateway.submitTask` is the durable verb). A refusal is a `PaymentRefusedError` after `classifyError`. */
+  submitTaskPaid(...args: Parameters<NapiNetMesh['submitTaskPaid']>): ReturnType<NapiNetMesh['submitTaskPaid']> {
+    return this.native.submitTaskPaid(...args);
+  }
+
+  // ---- Publishing this node's own tools (publish builds) ----
+
+  /** Publish this node's own tools as mesh capabilities, invoked through `handler`. Hold the returned handle to keep them published. Needs a started node created with `permissiveChannels: true` (the tools ride dynamically named channels). */
+  publishTools(...args: Parameters<NapiNetMesh['publishTools']>): ReturnType<NapiNetMesh['publishTools']> {
+    return this.native.publishTools(...args);
+  }
+
+  // ---- Device enrollment over the mesh (delegation builds) ----
+  //
+  // These take the NATIVE enrollment objects and identity (see
+  // `enrollment.ts`): pass an SDK `Identity` as `identity.toNapi()`.
+
+  /**
+   * Make sure there is a working session to the node a rendezvous locator
+   * names (as saved from an invite or a `DeviceEnrollment`), re-dialing it
+   * only when needed. Call it when a paired machine may have restarted — on
+   * either side — before talking to it again. After a restart the far side
+   * can take up to three heartbeat intervals to accept; `renew` already
+   * does this.
+   */
+  ensureAttached(...args: Parameters<NapiNetMesh['ensureAttached']>): ReturnType<NapiNetMesh['ensureAttached']> {
+    return this.native.ensureAttached(...args);
+  }
+
+  /** This node's invite rendezvous locator, for `OperatorEnrollment.invite`. */
+  rendezvousString(...args: Parameters<NapiNetMesh['rendezvousString']>): ReturnType<NapiNetMesh['rendezvousString']> {
+    return this.native.rendezvousString(...args);
+  }
+
+  /**
+   * Operator side, approver-gated: each valid join request is passed to
+   * `approver` and admitted only on an explicit `true`; a denial, throw or
+   * timeout does not burn the invite. Safer than `serveEnrollmentAuto`.
+   * Serves enrollment only (no renewal). Hold the returned handle.
+   */
+  serveEnrollment(...args: Parameters<NapiNetMesh['serveEnrollment']>): ReturnType<NapiNetMesh['serveEnrollment']> {
+    return this.native.serveEnrollment(...args);
+  }
+
+  /** Operator side: serve device enrollment (join + renew) on this node; the invite is the authorization. Hold the returned handle. */
+  serveEnrollmentAuto(...args: Parameters<NapiNetMesh['serveEnrollmentAuto']>): ReturnType<NapiNetMesh['serveEnrollmentAuto']> {
+    return this.native.serveEnrollmentAuto(...args);
+  }
+
+  /** Device side: enroll `device` into the mesh the `invite` string names; resolves to the verified `root → device` chain. */
+  join(...args: Parameters<NapiNetMesh['join']>): ReturnType<NapiNetMesh['join']> {
+    return this.native.join(...args);
+  }
+
+  /** Device side: refresh `enrollment`'s grant over the mesh; resolves to the fresh chain. */
+  renew(...args: Parameters<NapiNetMesh['renew']>): ReturnType<NapiNetMesh['renew']> {
+    return this.native.renew(...args);
+  }
+
+  // ---- Placement filters ----
+
+  /** Register a placement predicate under `id`; `false` if `id` is already registered. */
+  registerPlacementFilter(...args: Parameters<NapiNetMesh['registerPlacementFilter']>): ReturnType<NapiNetMesh['registerPlacementFilter']> {
+    return this.native.registerPlacementFilter(...args);
+  }
+
+  /** Drop the predicate under `id`; `true` if it existed. */
+  unregisterPlacementFilter(...args: Parameters<NapiNetMesh['unregisterPlacementFilter']>): ReturnType<NapiNetMesh['unregisterPlacementFilter']> {
+    return this.native.unregisterPlacementFilter(...args);
+  }
+
+  /** Whether a predicate is registered under `id`. */
+  hasPlacementFilter(...args: Parameters<NapiNetMesh['hasPlacementFilter']>): ReturnType<NapiNetMesh['hasPlacementFilter']> {
+    return this.native.hasPlacementFilter(...args);
+  }
+
+  // ---- Discovery and low-level routing ----
+
+  /** How many nodes this node's proximity graph knows about. */
+  discoveredNodes(...args: Parameters<NapiNetMesh['discoveredNodes']>): ReturnType<NapiNetMesh['discoveredNodes']> {
+    return this.native.discoveredNodes(...args);
+  }
+
+  /** Send a raw payload to a direct peer address. Low-level; prefer streams or channels. */
+  pushTo(...args: Parameters<NapiNetMesh['pushTo']>): ReturnType<NapiNetMesh['pushTo']> {
+    return this.native.pushTo(...args);
+  }
+
+  /** Add a routing-table entry. Low-level; routes are normally learned. */
+  addRoute(...args: Parameters<NapiNetMesh['addRoute']>): ReturnType<NapiNetMesh['addRoute']> {
+    return this.native.addRoute(...args);
+  }
+
+  // ---- Gang-claim resource-island scheduler ----
+  //
+  // The peer-aware Thunderdome surface. `Reserved` is optimistic/AP;
+  // the CP `→ Active` commit is a separate (Rust-only) primitive.
+
+  /**
+   * Publish this node's island-topology record (its `host` is forced
+   * to this node). Self-indexed locally so this node's own scheduler
+   * sees it, then broadcast to peers; returns the peer fan-out count.
+   */
+  async publishIslandTopology(island: IslandTopologyInput): Promise<number> {
+    return this.native.publishIslandTopology(island);
+  }
+
+  /**
+   * Match islands against `criteria` over this node's capability +
+   * island folds (read-only; no claim). Best island first. Empty when
+   * nothing matched.
+   */
+  matchIslands(criteria: IslandCriteria): bigint[] {
+    return this.native.matchIslands(criteria);
+  }
+
+  /**
+   * Reserve `island` (optimistic AP CAS) until `untilUnixUs`
+   * (wall-clock micros). `'won'` if this node now holds it, `'lost'`
+   * if already held by someone with a live reservation.
+   */
+  async reserveIsland(island: bigint, untilUnixUs: bigint): Promise<ClaimOutcome> {
+    return (await this.native.reserveIsland(island, untilUnixUs)) as ClaimOutcome;
+  }
+
+  /**
+   * Release `island` this node holds. `'lost'` if this node wasn't the
+   * holder.
+   */
+  async releaseIsland(island: bigint): Promise<ClaimOutcome> {
+    return (await this.native.releaseIsland(island)) as ClaimOutcome;
+  }
+
+  /**
+   * Match + reserve the first available island in one call. Returns
+   * its id, or `null` when nothing matched or every match was
+   * contended in this node's view.
+   */
+  async claimIsland(criteria: IslandCriteria, untilUnixUs: bigint): Promise<bigint | null> {
+    return this.native.claimIsland(criteria, untilUnixUs);
+  }
+
+  /**
+   * Scoped variant of {@link findNodes}. Filters candidates through
+   * a {@link ScopeFilter} derived from each peer's `scope:*`
+   * reserved tags (e.g. `scope:tenant:oem-123`,
+   * `scope:region:eu-west`, `scope:subnet-local`).
+   *
+   * Untagged peers stay visible under most filters by design;
+   * peers tagged `scope:subnet-local` only show up under
+   * `{ kind: 'sameSubnet' }`. See `docs/SCOPED_CAPABILITIES_PLAN.md`
+   * for the full table.
+   *
+   * @example
+   * ```typescript
+   * // GPU pool for a specific tenant.
+   * const peers = node.findNodesScoped(
+   *   { requireTags: ['model:llama3-70b'] },
+   *   { kind: 'tenant', tenant: 'oem-123' },
+   * );
+   * ```
+   */
+  findNodesScoped(filter: CapabilityFilter, scope: ScopeFilter): bigint[] {
+    return this.native.findNodesScoped(
+      capabilityFilterToNapi(filter),
+      scopeFilterToNapi(scope),
+    );
+  }
+
+  /**
+   * Pick the single highest-scoring node for a placement
+   * {@link CapabilityRequirement}, or `null` when nothing matches.
+   *
+   * {@link findNodes} returns every match and leaves the choice to
+   * you; this applies the requirement's weights and returns one
+   * winner. Ties — including the all-weights-omitted case, where
+   * every match scores the same — resolve to the lowest matching
+   * node id.
+   *
+   * `null` means no match. `0n` is a REAL node id, not a sentinel:
+   * check for `null`, never for falsiness, or a node whose id is zero
+   * reads as "nothing found".
+   *
+   * Weights must be finite; `NaN` and `Infinity` throw. Finite values
+   * outside `[0, 1]` are clamped by the substrate.
+   *
+   * Local and synchronous — reads this node's capability fold and
+   * sends nothing on the wire, so it only sees peers whose
+   * announcements have already arrived.
+   *
+   * @example
+   * ```typescript
+   * const target = node.findBestNode({
+   *   filter: { requireTags: ['gpu'] },
+   *   preferMoreVram: 1,
+   * });
+   * if (target !== null) {
+   *   const stream = node.openStream(target, { streamId: 1n });
+   * }
+   * ```
+   */
+  findBestNode(requirement: CapabilityRequirement): bigint | null {
+    return this.native.findBestNode(capabilityRequirementToNapi(requirement));
+  }
+
+  /**
+   * Scoped variant of {@link findBestNode}, with the scope semantics
+   * of {@link findNodesScoped}.
+   *
+   * Scope narrows the candidate set BEFORE scoring, so a peer outside
+   * the scope cannot win on capacity — a bigger GPU in another
+   * tenant's pool is not a reason to leak across the boundary.
+   */
+  findBestNodeScoped(
+    requirement: CapabilityRequirement,
+    scope: ScopeFilter,
+  ): bigint | null {
+    return this.native.findBestNodeScoped(
+      capabilityRequirementToNapi(requirement),
+      scopeFilterToNapi(scope),
+    );
+  }
+
+  /**
+   * Bucketed aggregation over the local capability fold —
+   * `Fold::aggregate(matcher, groupBy, agg)`. Composes a matcher,
+   * a bucket-derivation, and a per-bucket reduction into a
+   * lex-sorted `[bucket, value][]`. Phase 6c-A of
+   * `MULTIFOLD_PHASE_6C_CAPACITY_AGGREGATION.md`.
+   *
+   * `matcher === undefined` walks every entry.
+   *
+   * @example
+   * ```typescript
+   * // Top GPU types by count.
+   * const rows = node.capabilityAggregate(
+   *   { kind: 'prefix', value: 'hardware.gpu' },
+   *   { kind: 'tagStem', prefix: 'hardware.gpu' },
+   *   { kind: 'count' },
+   * );
+   * for (const r of rows) console.log(r.bucket, r.value);
+   * ```
+   */
+  capabilityAggregate(
+    matcher: TagMatcher | undefined,
+    groupBy: GroupBy,
+    aggregation: Aggregation,
+  ): AggregateRow[] {
+    const matcherJson = matcher ? tagMatcherToJson(matcher) : null;
+    const groupByJson = groupByToJson(groupBy);
+    const aggregationJson = aggregationToJson(aggregation);
+    return this.native.capabilityAggregate(
+      matcherJson,
+      groupByJson,
+      aggregationJson,
+    );
+  }
+
+  /**
+   * Capacity-ranked materialized view —
+   * `Fold::capacity_ranking(query, rttLookup)`. Per-bucket state
+   * breakdown + latency gate + optional summed numeric capacity,
+   * sorted by `available` desc (ties broken on bucket asc) and
+   * truncated to `query.limit`. Phase 6c-B.
+   *
+   * `rttEntries` is the materialized RTT map. `undefined`/empty
+   * disables the RTT filter regardless of `query.maxRttMs`. Per
+   * the plan, a `ThreadsafeFunction` closure variant is a follow-
+   * up; the map shape matches the Go / C wrappers and lines up
+   * with what operators typically have cached from the proximity
+   * graph.
+   *
+   * @example
+   * ```typescript
+   * // Top 5 GPU types available within 50 ms latency.
+   * const rttMap = [
+   *   { nodeId: 0x1234n, rttMs: 25 },
+   *   { nodeId: 0x5678n, rttMs: 75 },
+   * ];
+   * const rows = node.capabilityCapacityRanking(
+   *   {
+   *     matcher: { kind: 'prefix', value: 'hardware.gpu' },
+   *     groupBy: { kind: 'tagStem', prefix: 'hardware.gpu' },
+   *     maxRttMs: 50,
+   *     sumAxisKey: 'hardware.gpu.count',
+   *     limit: 5,
+   *   },
+   *   rttMap,
+   * );
+   * ```
+   */
+  capabilityCapacityRanking(
+    query: CapacityQuery,
+    rttEntries?: Array<{ nodeId: bigint; rttMs: number }>,
+  ): CapacityRow[] {
+    const queryJson = capacityQueryToJson(query);
+    return this.native.capabilityCapacityRanking(
+      queryJson,
+      rttEntries ?? null,
+    );
+  }
+
+  /**
+   * Serve a subnet-exported, organization-protected service against a
+   * NAMED export configured at {@link MeshNode.create}
+   * (`SUBNET_AUTH_SDK_PLAN.md` §3.5).
+   *
+   * One of the two ordinary subnet verbs — the caller's counterpart is
+   * `org.callExported(service, request)`. Name the service, name a
+   * locally configured export, provide the handler; this constructs no
+   * authority objects. `exportName` was resolved into a checked binding
+   * when the mesh was built, and dispatch revalidates the exact crossing
+   * against this node's LIVE gateway authority on every call, before
+   * organization admission.
+   *
+   * The export name is provider-local configuration: never announced,
+   * never accepted from a caller. An unknown name throws
+   * `SubnetProvisionError` with `kind === 'unknown_export_name'` HERE,
+   * before anything is registered or announced.
+   *
+   * Announcement visibility is always public — the external caller
+   * proves organization authority and never joins this node's subnet.
+   *
+   * ```ts
+   * const handle = mesh.serveSubnetExported<Telemetry, Ack>(
+   *   'fleet.telemetry',
+   *   'factory-export',
+   *   async (caller, req) => ack(caller, req),
+   * );
+   * ```
+   */
+  serveSubnetExported<Req = unknown, Resp = unknown>(
+    service: string,
+    exportName: string,
+    handler: (caller: SubnetExportedCaller, req: Req) => Resp | Promise<Resp>,
+    handlerTimeoutMs?: number,
+  ): SubnetServeHandle {
+    // Delegates to the low-level binding with THIS mesh's native
+    // handle, reached through the module-internal WeakMap rather than a
+    // public escape hatch (review-10 P1-5). Before this existed, an
+    // application using the ergonomic constructor had no way to serve a
+    // named export without deep-importing `_internal` itself.
+    return serveSubnetExportedNative<Req, Resp>(
+      getNapiMesh(this),
+      service,
+      exportName,
+      handler,
+      handlerTimeoutMs,
+    );
+  }
+
+  /** Shutdown the mesh node. */
+  async shutdown(): Promise<void> {
+    await this.native.shutdown();
+    // Nothing is delivered past shutdown; let the subscriptions go.
+    this.streamSubscriptions.clear();
+  }
+}
+
+// =====================================================
+// Channel types and errors
+// =====================================================
+
+export type Visibility =
+  | 'subnet-local'
+  | 'parent-visible'
+  | 'exported'
+  | 'global';
+
+export type OnFailure = 'best_effort' | 'fail_fast' | 'collect';
+
+/** Channel configuration — mirror of the core `ChannelConfig`. */
+export interface ChannelConfig {
+  /** Canonical channel name. Crosses the boundary as a string. */
+  name: string;
+  /** Default: `'global'`. */
+  visibility?: Visibility;
+  /** Default reliability for streams on this channel. */
+  reliable?: boolean;
+  /**
+   * When true, subscribers must present a valid
+   * `PermissionToken` whose subject matches their entity id.
+   * On its own (no `tokenRoots`) this fails every authorization
+   * closed — pass `tokenRoots` to anchor a root of trust.
+   */
+  requireToken?: boolean;
+  /**
+   * Root(s) of trust for token authorization: 32-byte entity ids
+   * whose signature may root a presented token chain. Setting this
+   * turns on token enforcement and anchors the channel — a chain is
+   * only honored if its root link was issued by one of these
+   * entities (e.g. the publisher that issues subscribe tokens).
+   */
+  tokenRoots?: Buffer[];
+  /** Priority (0 = lowest). */
+  priority?: number;
+  /** Rate cap in packets per second. */
+  maxRatePps?: number;
+  /**
+   * Capability filter the publisher itself must satisfy before
+   * fan-out. `publish` rejects with a `channel:` error on
+   * mismatch.
+   */
+  publishCaps?: CapabilityFilter;
+  /**
+   * Capability filter each subscriber must satisfy.
+   * `subscribeChannel` throws a `ChannelAuthError` on mismatch.
+   */
+  subscribeCaps?: CapabilityFilter;
+}
+
+/** Publish-fanout config — mirror of the core `PublishConfig`. */
+export interface PublishConfig {
+  /** Default: `'fire_and_forget'`. */
+  reliability?: Reliability;
+  /** Default: `'best_effort'`. */
+  onFailure?: OnFailure;
+  /** Max concurrent per-peer sends. Default 32. */
+  maxInflight?: number;
+}
+
+/** Per-peer report returned by {@link MeshNode.publish}. */
+export interface PublishReport {
+  attempted: number;
+  delivered: number;
+  errors: Array<{ nodeId: bigint; message: string }>;
+}
+
+/**
+ * Raised when a channel operation fails for a reason other than
+ * auth. The napi binding emits `"channel: ..."` prefixed errors that
+ * the SDK classifies into {@link ChannelAuthError} (unauthorized) or
+ * this class (everything else).
+ */
+export class ChannelError extends Error {
+  constructor(detail?: string) {
+    super(detail ?? 'channel error');
+    this.name = 'ChannelError';
+    Object.setPrototypeOf(this, ChannelError.prototype);
+  }
+}
+
+/**
+ * Raised when a Subscribe / Unsubscribe request is rejected because
+ * the subscriber isn't authorized on the publisher's channel config.
+ */
+export class ChannelAuthError extends ChannelError {
+  constructor(detail?: string) {
+    super(detail ?? 'channel: unauthorized');
+    this.name = 'ChannelAuthError';
+    Object.setPrototypeOf(this, ChannelAuthError.prototype);
+  }
+}
+
+function toChannelError(e: unknown): never {
+  const msg = (e as Error | undefined)?.message ?? '';
+  if (msg.startsWith('channel: unauthorized')) {
+    throw new ChannelAuthError(msg);
+  }
+  if (msg.startsWith('channel:')) {
+    throw new ChannelError(msg);
+  }
+  throw e;
+}
+
+// Wrap guard (NODE_SDK_GAPS_PLAN.md S5). 24 native `NetMesh` methods once had
+// no `MeshNode` wrapper and nothing noticed. Now every native method must be
+// a public `MeshNode` member or be named here with its reason; one that is
+// neither fails `npm run build`, and the error names it.
+type NativeMeshMethod = {
+  [K in keyof NapiNetMesh]: NapiNetMesh[K] extends (...args: never[]) => unknown ? K : never;
+}[keyof NapiNetMesh];
+/** Native methods deliberately not wrapped under their own name. */
+type NotWrappedByName =
+  | 'poll' // wrapped as `recv`
+  | 'pollShard' // wrapped as `recvShard`
+  | 'testInjectSyntheticPeer' // test hook, exposed as `_testInjectSyntheticPeer`
+  | 'testInjectSyntheticPeerWithTags'; // test hook, as `_testInjectSyntheticPeerWithTags`
+type UnwrappedNativeMethod = Exclude<NativeMeshMethod, keyof MeshNode | NotWrappedByName>;
+const everyNativeMeshMethodIsWrapped: [UnwrappedNativeMethod] extends [never]
+  ? true
+  : UnwrappedNativeMethod = true;
+void everyNativeMeshMethodIsWrapped;

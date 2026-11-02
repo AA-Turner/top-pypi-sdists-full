@@ -1,0 +1,95 @@
+[build-system]
+requires = ["scikit-build-core>=0.10.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pysilero-vad"
+version = "3.4.0"
+description = "Pre-packaged voice activity detector using silero-vad"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Michael Hansen", email = "mike@rhasspy.org"}
+]
+keywords = ["voice", "activity", "silero", "vad"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Text Processing :: Linguistic",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "http://github.com/rhasspy/pysilero-vad"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pylint",
+    "pytest",
+    "build",
+]
+
+[tool.scikit-build]
+cmake.version = ">=3.26"
+cmake.build-type = "Release"
+# Use src layout - CMake handles all installation
+cmake.source-dir = "."
+
+# Build a single abi3 (stable ABI) wheel that works on CPython 3.9+.
+# Requires the extension to be built with Py_LIMITED_API / USE_SABI (see CMakeLists.txt).
+wheel.py-api = "cp39"
+
+# GGML's CMake install rules also dump headers, a cmake package config, and a
+# duplicate set of shared libs into the wheel/site-packages root. The extension
+# only needs the copies under pysilero_vad/lib (found via its $ORIGIN/lib rpath),
+# so drop the top-level cruft to keep the wheel clean and collision-free.
+wheel.exclude = ["include/**", "lib/**"]
+
+# Do NOT enable -march=native: the sdist/wheel is built on a host whose CPU may
+# have instructions the target lacks (e.g. Raspberry Pi 4B), which causes SIGILL
+# at runtime. Build a portable, generic binary instead. See home-assistant/addons#4694.
+cmake.define.GGML_NATIVE = "OFF"
+# GGML's non-native x86 baseline still defaults BMI2 on. Its only use in the CPU
+# backend is _pdep_u64 in the IQ1 dot-product kernels (an ultra-low-bit quant
+# format this project's model never uses), which fails to build on 32-bit
+# Windows (no 64-bit pdep in 32-bit mode) and on manylinux_2_28's GCC (missing
+# intrinsic declaration despite -mbmi2). There's a non-BMI2 fallback path, so
+# just disable it.
+cmake.define.GGML_BMI2 = "OFF"
+# Only build CPU backend
+cmake.define.GGML_CPU = "ON"
+# Build as shared library
+cmake.define.BUILD_SHARED_LIBS = "ON"
+# Disable other backends
+cmake.define.GGML_CUDA = "OFF"
+cmake.define.GGML_METAL = "OFF"
+cmake.define.GGML_VULKAN = "OFF"
+cmake.define.GGML_SYCL = "OFF"
+cmake.define.GGML_HIP = "OFF"
+cmake.define.GGML_OPENCL = "OFF"
+cmake.define.GGML_BLAS = "OFF"
+# Disable tests and examples
+cmake.define.GGML_BUILD_TESTS = "OFF"
+cmake.define.GGML_BUILD_EXAMPLES = "OFF"
+
+[tool.cibuildwheel]
+# The extension uses the stable ABI, so one wheel per platform (built on the
+# oldest supported CPython) covers all of 3.9+. No per-version builds needed.
+build = "cp39-*"
+build-frontend = "build"
+# Newer manylinux images ship a compiler with full C++20 support (GGML needs it).
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# Smoke-test the produced wheel: loading the model exercises the CPU backend
+# init path that was raising SIGILL, and process_chunk exercises compute.
+test-command = "python -c \"from pysilero_vad import SileroVoiceActivityDetector as V; d=V(); print(d(bytes(d.chunk_bytes())))\""

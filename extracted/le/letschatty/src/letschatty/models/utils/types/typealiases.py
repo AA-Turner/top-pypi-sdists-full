@@ -1,0 +1,2 @@
+ChannelId = str
+ContactPointId = str

@@ -1,0 +1,453 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adcp"
+version = "9.3.1"
+description = "Official Python client for the Ad Context Protocol (AdCP)"
+authors = [
+    {name = "AdCP Community", email = "maintainers@adcontextprotocol.org"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+keywords = ["adcp", "mcp", "a2a", "protocol", "advertising"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Floor is the lowest release the dependency set can install: a2a-sdk 1.0.1
+    # requires httpx>=0.28.1.
+    "httpx>=0.28.1,<1.0",
+    # httpcore is a transitive dep of httpx, but we import from it
+    # directly (``adcp.signing.ip_pinned_transport`` subclasses
+    # ``SyncBackend`` / ``AnyIOBackend`` from ``httpcore._backends.*``).
+    # Pin the major so a breaking upgrade fails at install rather than
+    # at runtime. The contract test in
+    # ``tests/conformance/signing/test_ip_pinned_transport_contract.py``
+    # guards the specific API shapes we rely on. Floor at 1.0.9: earlier 1.0.x
+    # releases require h11<0.15, and httpcore2 (below) requires h11>=0.16.
+    "httpcore>=1.0.9,<2.0",
+    # The ``mcp`` floor below runs on httpx2, a separate distribution from
+    # httpx, so every install already has both generations. The IP-pinned
+    # transports ship for both (``adcp.signing.IpPinnedTransport2`` and its
+    # async twin), which means we import httpx2 and httpcore2 directly
+    # instead of inheriting them transitively — same reasoning as httpcore
+    # above, including the reach into ``httpcore2._backends.*``.
+    "httpx2>=2.5.0,<3.0",
+    "httpcore2>=2.5,<3.0",
+    # Upper bound is load-bearing for ``adcp.types.error_narrowing``,
+    # which depends on pydantic-2 ValidationError.errors() internals
+    # (``err[\"type\"]`` literals like ``\"literal_error\"`` /
+    # ``\"union_tag_not_found\"`` and CamelCase variant names interleaved
+    # in ``err[\"loc\"]``). Pydantic 3 has no API guarantee on these
+    # internals; bump only after porting the narrowing heuristics.
+    # SkipJsonSchema is unavailable in 2.0, and MCP 2 already requires 2.12.
+    # All installable 2.12 releases fail public type imports while resolving
+    # generated __pydantic_extra__ annotations (NameError: Dict). 2.13.0 is the first
+    # supported release; the targeting import/runtime regressions cover it.
+    # 2.14 breaks nested subclass serializers and deferred models under Freezegun.
+    "pydantic>=2.13.0,<2.14",
+    "typing-extensions>=4.14.1",  # pydantic 2.13.0 requires 4.14.1
+    # A2A protocol v1.0 (protobuf types, ProtoJSON on the wire). We run
+    # on the v1.0 Python SDK with ``enable_v0_3_compat=True`` on the
+    # server-side JSON-RPC route factory, which dual-serves the AgentCard
+    # and preserves 0.3 JSON shapes outbound for existing 0.3 clients.
+    # No coordinated buyer migration needed.
+    # Upper bound: 1.0.2 reads ``field.label`` on the upb FieldDescriptor,
+    # which protobuf 7.x no longer exposes — every A2A ``message/send``
+    # decorator (``@validate_proto_required_fields``) blows up with
+    # ``'_upb._message.FieldDescriptor' object has no attribute 'label'``.
+    # Lower bound: 1.0.1 reads ``field.is_repeated`` on the same descriptor,
+    # which protobuf 5.x and 6.30.x don't expose — same decorator, mirror
+    # failure mode (``no attribute 'is_repeated'``). The protobuf floor below
+    # closes those cells so this pin is safe.
+    "a2a-sdk>=1.0.1,<1.0.2",
+    # Floor coupled to ``a2a-sdk`` above. a2a-sdk 1.0.1 reads
+    # ``field.is_repeated`` on the upb FieldDescriptor inside
+    # ``@validate_proto_required_fields`` — the attribute exists on the
+    # upb extension only from protobuf 6.31.0 onward (6.30.x, the first 6.x
+    # releases, still lack it). Below that adopters land in a broken cell
+    # where every ``message/send`` raises ``AttributeError`` before any
+    # handler runs; ``tests/test_a2a_protobuf_compat.py`` fails there. Direct
+    # constraint here rather than relying on a2a-sdk's transitive pin
+    # (which is wider).
+    "protobuf>=6.31.0,<8",
+    # Required by the a2a-sdk v0.3 compat adapter; mcp 2.0.0 requires >=3.0.0.
+    "sse-starlette>=3.0.0",
+    # MCP Python SDK v2 is the stable line for the 2026-07-28 MCP spec.
+    # The ADCP integration uses the v2 ``MCPServer`` API and the
+    # streamable-HTTP session manager's explicit configuration arguments.
+    "mcp>=2.0.0,<3.0",
+    "email-validator>=2.0.0",
+    "cryptography>=41.0.0",
+    # RFC 8785 JSON Canonicalization Scheme — used by the server-side
+    # idempotency middleware to compute the spec-mandated payload hash for
+    # replay detection. Tiny pure-Python dep, no transitive weight.
+    "rfc8785>=0.1.4",
+    # JSON Schema validation — backs adcp.validation.schema_validator for
+    # pre-send request / post-receive response drift detection against the
+    # bundled AdCP schemas. Pin to the Draft 7 generation the schemas
+    # declare via ``$schema``. Floor at 4.20.0 because mcp 2.0.0 requires it.
+    "jsonschema>=4.20.0",
+    # Validate original URI syntax before AnyUrl can normalize it.
+    "rfc3986-validator>=0.1.1,<0.2",
+    # Public Suffix List lookups — used by ``adcp.signing.etld`` to compute
+    # the eTLD+1 (registrable domain) for the brand-authorization binding
+    # mandated by ADCP request-signing spec (#3690). We pin a recent floor
+    # so the bundled PSL snapshot is fresh; the helper constructs the
+    # extractor with ``suffix_list_urls=()`` to disable network refresh —
+    # production verifiers must not silently re-fetch the PSL at request
+    # time, and pinned snapshot semantics are what the spec requires for
+    # cross-implementation conformance.
+    "tldextract>=5.1.0",
+    # IDNA-2008 (UTS#46) host canonicalization — used by
+    # ``adcp.signing`` for JWKS URI host pinning, IP-pinned transport,
+    # revocation issuer canonicalization, and the key_origins
+    # consistency check. The stdlib ``encodings.idna`` module is
+    # IDNA-2003, which maps Eszett (``ß``) to ``ss`` and collapses
+    # final-sigma — both reject paths for IDNA-2008 (UTS#46 transitional
+    # off). A counterparty hosting ``straße.de`` would canonicalize
+    # under IDNA-2003 to ``strasse.de`` and silently match a
+    # different registrable domain than the spec mandates.
+    # ``idna.encode(host, uts46=True)`` is the canonical Python
+    # IDNA-2008 entry point. Floor at 3.7 because idna 3.0–3.6 have
+    # CVE-2024-3651 — a quadratic-complexity DoS in ``idna.encode()``,
+    # which this package calls on attacker-influenceable hosts (JWKS
+    # URI authority, redirect targets, revocation-issuer canonicalization,
+    # key_origins consistency check). The installable floor is higher:
+    # httpx2 2.5.0 requires idna>=3.18. Upper bound at <4 because IDNA
+    # semantics across a major are not contracted.
+    "idna>=3.18,<4",
+]
+
+[project.scripts]
+adcp = "adcp.__main__:main"
+adcp-keygen = "adcp.signing.keygen:main"
+
+[project.optional-dependencies]
+dev = [
+    # The reporting outbox gate builds and installs the real sdist/wheel.
+    "build>=1.2.1",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.8,<4",
+    "freezegun==1.5.5",  # isolated deferred-schema compatibility regressions
+    "mypy==1.20.2",
+    "pyright==1.1.414",  # real imported-base adopter regressions
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    # Pin to exact version: codegen's variant numbering (e.g. CreateMediaBuyResponse1 vs
+    # CreateMediaBuyResponse) shifts between versions, producing diff churn and breaking
+    # generated-code imports that reference specific suffixes.
+    "datamodel-code-generator[http]==0.64.0",
+    # Runs Starlette app lifespan under httpx.ASGITransport in tests —
+    # the canonical library for what httpx doesn't do natively. Used by
+    # tests/test_mcp_middleware_composition.py and future integration
+    # tests that exercise the streamable-HTTP ASGI app in-process.
+    "asgi-lifespan>=2.1.0",
+    # The signing suite's end-to-end tests serve a FastAPI app, and its
+    # Standard Webhooks interop tests verify with svix. Each skips its module
+    # (pytest.importorskip) when the package is missing, so without these
+    # CI never runs them (#1524).
+    "fastapi>=0.100",
+    "svix>=1.0",
+    # mypy stubs for the protobuf runtime we use via a2a-sdk 1.0
+    # (``google.protobuf.json_format``, ``struct_pb2``, ``timestamp_pb2``).
+    # Without these mypy flags every import as ``import-untyped``.
+    "types-protobuf>=7.34.1.20260408",
+    # Mocks httpx in the v3 reference seller's translator-pattern tests
+    # so we don't need to boot the JS mock-server in the Python pytest
+    # CI run.
+    "respx>=0.20.0",
+    # v3 reference seller boots `alembic upgrade head` instead of
+    # Base.metadata.create_all so column renames and type changes
+    # propagate. Required at runtime by examples/v3_reference_seller/
+    # src/app.py and seed.py.
+    "alembic>=1.13.0",
+    # SQLAlchemy's default PostgreSQL driver: the sync reporting replacements
+    # are tested inside Alembic revisions on it as well as on psycopg 3.
+    "psycopg2-binary>=2.9.9",
+    "pre-commit>=4.4.0",
+    # In-memory span exporter used by the optional observability tests.  The
+    # library itself imports only opentelemetry-api and never configures an SDK.
+    "opentelemetry-sdk>=1.25,<2",
+    # Cloud row-storage providers are tested against the real client libraries;
+    # moto emulates S3 including versioning and conditional writes.
+    "google-cloud-storage>=2.18",
+    "boto3>=1.35",
+    "azure-storage-blob>=12.20",
+    "moto[s3]>=5.0",
+]
+docs = [
+    "pdoc3>=0.10.0",
+]
+pg = [
+    # PostgreSQL-backed adcp.signing.PgReplayStore,
+    # adcp.decisioning.PostgresTaskRegistry (durable HITL task state), and
+    # future PgIdempotencyBackend. psycopg3 ships both sync + async pool
+    # interfaces so the single dep serves all three use cases. The reporting
+    # stores are ``adcp-reporting-storage[pg]``.
+    "psycopg[binary]>=3.1.0",
+    "psycopg-pool>=3.2.0",
+]
+# The reporting row-storage providers (``reporting-gcs``, ``reporting-s3``,
+# ``reporting-azure``) moved with the PostgreSQL reporting stores to the
+# separately versioned ``adcp-reporting-storage`` distribution
+# (packages/adcp-reporting-storage); install its ``[gcs]``/``[s3]``/``[azure]``
+# extras instead.
+observability = [
+    # API-only library instrumentation: without an application-configured SDK
+    # provider/exporter, OpenTelemetry remains a non-recording no-op.
+    "opentelemetry-api>=1.25,<2",
+]
+
+[project.urls]
+Homepage = "https://github.com/adcontextprotocol/adcp-client-python"
+Documentation = "https://docs.adcontextprotocol.org"
+Repository = "https://github.com/adcontextprotocol/adcp-client-python"
+Issues = "https://github.com/adcontextprotocol/adcp-client-python/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# Explicit: ``adcp.canonical_formats._fixtures`` is a data-only directory served
+# via ``importlib.resources.files`` (see adcp.canonical_formats.fixtures). It
+# resolves as a namespace package; pin namespaces=true so a future config change
+# can't silently stop it from resolving. Guarded by tests/test_canonical_formats_fixtures*.
+namespaces = true
+
+[tool.setuptools.package-data]
+adcp = [
+    "py.typed",
+    "types/*.pyi",
+    "types/versioned_bases/*.pyi",
+    "ADCP_VERSION",
+    "notification_outbox.sql",
+    "signing/pg/*.sql",
+    "decisioning/pg/*.sql",
+    "reporting/materializer/assets/*.json",
+    # PREVIEW: vendored sync_reporting_status schemas. They are the runtime
+    # validator for the wire conditionals codegen cannot express, so the wheel
+    # must carry them. Removed with the rest of _preview/ at rc.2.
+    "reporting/_preview/schemas/**/*.json",
+    "reporting/_preview/schemas/UPSTREAM_COMMIT",
+    # AdCP JSON schemas, mirrored from ``schemas/cache/`` by
+    # ``scripts/bundle_schemas.py`` so the wheel ships them for
+    # ``adcp.validation.schema_loader``.
+    "_schemas/3.0/**/*.json",
+    "_schemas/3.1/**/*.json",
+    "_schemas/3.1.15/**/*.json",
+    "_schemas/3.2/**/*.json",
+    # Exact signed compliance inputs plus their immutable release provenance.
+    "_compliance/3.2.1/**/*.json",
+    "_compliance/3.2.1/**/*.jsonl",
+    "_compliance/3.2.1/**/*.yaml",
+    "_compliance/3.2.1/**/*.md",
+    "_compliance/3.2.4/**/*.json",
+    "_compliance/3.2.4/**/*.jsonl",
+    "_compliance/3.2.4/**/*.yaml",
+    "_compliance/3.2.4/**/*.md",
+    "_compliance/3.2.7/**/*.json",
+    "_compliance/3.2.7/**/*.jsonl",
+    "_compliance/3.2.7/**/*.yaml",
+    "_compliance/3.2.7/**/*.md",
+    # Vendored canonical-formats reference fixtures (14 v2 products +
+    # 50-entry v1 catalog) so :mod:`adcp.canonical_formats.fixtures`
+    # can serve them to adopter test suites without forcing each
+    # adopter to re-vendor from upstream.
+    "canonical_formats/_fixtures/*.json",
+]
+# Named schemas bundled directly with the SDK (committed, not generated).
+# These live in src/adcp/schemas/ and are loaded via adcp.schemas.load_schema.
+"adcp.schemas" = ["*.json"]
+
+[tool.setuptools.exclude-package-data]
+adcp = [
+    "_schemas/3.1.0-*/*.json",
+    "_schemas/3.1.0-*/**/*.json",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+# Skip auto-generated files. Running black on types/domains/ during
+# pre-commit after `make regenerate-schemas` causes a stash conflict
+# (hook reformats, tries to re-apply over seller's already-modified
+# files, rolls back). The regen script already runs black on the
+# consolidated _generated.py; individual generated files don't
+# need formatting at commit time. Mirrors the ruff extend-exclude.
+extend-exclude = "/(tasks|_generated|registry)\\.py$|/types/domains/|/types/v3[012]\\.pyi$|/types/versioned_bases/_?v3[012]\\.(py|pyi)$|/reporting/_preview/_generated_models/"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    "src/adcp/types/_generated.py",
+    # datamodel-code-generator output; regenerate with
+    # scripts/vendor_reporting_status_preview.py rather than hand-editing.
+    "src/adcp/reporting/_preview/_generated_models/",
+    "src/adcp/types/registry.py",
+    "src/adcp/types/tasks.py",
+    "src/adcp/types/domains/",
+    "src/adcp/types/v30.pyi",
+    "src/adcp/types/v31.pyi",
+    "src/adcp/types/v32.pyi",
+    "src/adcp/types/versioned_bases/_v*.py",
+    "src/adcp/types/versioned_bases/v*.py",
+    "src/adcp/types/versioned_bases/v*.pyi",
+    "examples/",
+    "scripts/",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = [
+    "E402",  # Allow imports after module docstrings
+    "UP038",  # isinstance() doesn't support X | Y syntax, only type hints do
+]
+
+[tool.mypy]
+enable_incomplete_feature = ["TypeForm"]
+# Mypy 1.20.2 drops is_type_form in its fixed-format cache. The JSON
+# cache preserves Pydantic 2.14 adapter signatures across incremental checks.
+fixed_format_cache = false
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unreachable = true
+strict_equality_for_none = true
+# adcp.types.SchemaVariant — see adcp.types.mypy_plugin for the marker
+# semantics. Adopters that want the same override-compat behavior on
+# their own cross-class field overrides should add this plugin to their
+# own pyproject.toml under [tool.mypy].
+plugins = ["adcp.types.mypy_plugin"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["import-not-found", "no-untyped-def", "var-annotated", "operator"]
+
+# Generated preview models for the unreleased sync_reporting_status schemas.
+# Same rationale as types/domains: codegen output, replaced wholesale at rc.2.
+[[tool.mypy.overrides]]
+module = "adcp.reporting._preview._generated_models.*"
+disable_error_code = ["valid-type", "assignment", "unused-ignore"]
+
+[[tool.mypy.overrides]]
+module = "adcp.types.domains.*"
+# JSON Schema allOf/const intersections intentionally narrow inherited Pydantic
+# fields in generated models. Mypy treats those schema-valid refinements as
+# mutable Python attribute overrides; keep assignment checking enabled for the
+# handwritten public surface while excluding this codegen implementation layer.
+disable_error_code = ["valid-type", "assignment", "unused-ignore"]
+
+[[tool.mypy.overrides]]
+module = "tests.type_checks.*"
+# Re-enable codes silenced by the broader tests.* override above.
+# These files are the adopter-pattern contract: every file must pass
+# mypy --strict with zero # type: ignore lines.
+enable_error_code = ["no-untyped-def", "var-annotated", "operator", "import-not-found"]
+
+[[tool.mypy.overrides]]
+module = "tests.integration.*"
+ignore_errors = true
+
+# psycopg is an optional dep behind the [pg] extra; type stubs aren't
+# guaranteed to be present when the base SDK is installed.
+[[tool.mypy.overrides]]
+module = ["psycopg", "psycopg.*", "psycopg_pool", "psycopg_pool.*"]
+ignore_missing_imports = true
+
+# jsonschema doesn't ship PEP 561 stubs in the default package; the
+# ``types-jsonschema`` stub package is optional and we use
+# :class:`Any`-typed returns across the validator boundary anyway.
+[[tool.mypy.overrides]]
+module = ["jsonschema", "jsonschema.*", "rfc3986_validator"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests that don't require external services",
+    "integration: Integration tests that hit real endpoints (may be slow/flaky)",
+    "slow: Tests that take significant time to run",
+]
+# By default, skip integration tests for fast local development
+addopts = "-m 'not integration'"
+
+[tool.coverage.run]
+source = ["src/adcp"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "src/adcp/types/_generated.py",
+    "src/adcp/types/domains/*",
+    "src/adcp/types/domains/**/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+# Maintain current 86% coverage, fail if it drops below 80%
+fail_under = 80
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts"]
+skips = ["B101"]  # Allow assert in code (we're not using -O optimization)
+
+[tool.uv.workspace]
+members = ["packages/adcp-reporting-storage"]
+
+[tool.uv.sources]
+adcp-reporting-storage = { workspace = true }
+
+[dependency-groups]
+dev = [
+    # The storage distribution, editable, with every provider extra, so the
+    # shared test suite and type checks see both distributions at once. pip
+    # users install it explicitly: ``make install-dev``.
+    "adcp-reporting-storage[pg,gcs,s3,azure]",
+    "datamodel-code-generator==0.64.0",
+    "pre-commit>=4.4.0",
+    "types-protobuf>=7.34.1.20260408",
+    # Pinned in the dev group so ``uv run mypy`` (used by the pre-commit
+    # hook) installs mypy into the project venv instead of falling
+    # through to whatever ``mypy`` happens to be on $PATH (e.g. a
+    # homebrew install). Without this, pre-commit's mypy version drifts
+    # from CI's, producing a different error count than CI on the same
+    # source — and a dead-weight hook that everyone bypasses with
+    # ``SKIP=mypy``.
+    "mypy==1.20.2",
+]
+
+[[tool.mypy.overrides]]
+module = ["adcp.types.versioned_bases._v30", "adcp.types.versioned_bases._v31", "adcp.types.versioned_bases._v32"]
+ignore_errors = true

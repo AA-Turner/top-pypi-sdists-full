@@ -1,0 +1,213 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12", "setuptools_scm[toml]>=8"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pypulseqpp"
+description = "Fast drop-in PyPulseq replacement over a C++ sequence core, with hardware safety checks."
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE", "LICENSES/*"]
+keywords = ["mri", "pulseq", "pypulseq", "pulse sequence"]
+authors = [{ name = "Matteo Cencini", email = "matteo.cencini@gmail.com" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: C++",
+  "Operating System :: OS Independent",
+]
+
+# PyPulseq is the API this package replaces, and the facade re-exports its
+# namespace alongside native sequence storage and additional design factories.
+# mrsd draws Sequence.paper_plot's diagram; it needs nothing pypulseq does not
+# already bring.
+dependencies = ["h5py>=3.11", "mrsd>=1.0", "numpy>=2.0", "pypulseq>=1.5", "scipy>=1.10"]
+
+[project.optional-dependencies]
+# The viewer `Sequence.plot` draws in: SeqEyes, built in viewer/ and published
+# as its own GPL-licensed package, so an install that never draws -- a
+# headless host, a scanner -- carries none of it.
+plot = ["pypulseqpp-seqeyes>=0.3.3,<0.4"]
+# The FFT the mechanical-resonance check loads at run time; without it the
+# check uses the pocketfft compiled into the extension. Intel publishes no
+# wheel for ARM.
+mkl = ["mkl; platform_machine == 'x86_64' or platform_machine == 'AMD64'"]
+# The simulator the 3D fast spin echo designs its refocusing trains with, under
+# flip_modulation="optimized". It brings PyTorch, so no other path imports it.
+design = ["blochsim>=0.0.10"]
+doc = [
+  "sphinx>=7.0",
+  "sphinx-book-theme>=1.1",
+  "myst-parser>=4.0",
+  "linkify-it-py>=2.0",
+  "sphinx-copybutton>=0.5",
+  "sphinx-gallery>=0.18",
+  "matplotlib>=3.7",
+  # The PDF manual is printed by headless Chromium once MathJax has typeset
+  # the page; `python -m playwright install chromium` provides the browser.
+  "playwright>=1.42",
+]
+# What the gallery's example scripts need beyond the documentation toolchain.
+# Every script is executed while the pages are built, and the fast spin echo
+# designs its refocusing train with blochsim.
+examples = ["pypulseqpp[doc,design]"]
+dev = [
+  "pypulseqpp[doc]",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "pytest-xdist>=3",
+  "coverage>=7",
+  # Pinned, not ranged: a formatter that differs between a contributor and
+  # CI makes "one entry point" a lie. Dependabot proposes the bumps.
+  "ruff==0.17.2",
+  "pre-commit>=4",
+  "build",
+  # The reference toolbox this is tested against is named by URL, and PyPI
+  # rejects a distribution whose metadata carries a direct reference even in
+  # an extra, so it is in tests/requirements.txt rather than here.
+]
+
+[project.urls]
+Homepage = "https://github.com/pulserver/pypulseqpp"
+Documentation = "https://pulserver.github.io/pypulseqpp/"
+Issues = "https://github.com/pulserver/pypulseqpp/issues"
+Source = "https://github.com/pulserver/pypulseqpp"
+
+[tool.scikit-build]
+cmake.source-dir = "."
+# Anchored at the root: unanchored, README.md and LICENSE match at any depth
+# and would carry viewer/'s in with them.
+sdist.include = [
+  "src/**",
+  "examples/**/*.py",
+  "tests/**",
+  "/gallery/**/*.py",
+  "/gallery/**/*.rst",
+  "/gallery/**/*.md",
+  "/docs/Makefile",
+  "/docs/conf.py",
+  "/docs/api_objects.py",
+  "/docs/explanation_figures.py",
+  "/docs/sequence_reference.py",
+  "/docs/*.md",
+  "/docs/api/*.md",
+  "/docs/developer-guide/*.md",
+  "/docs/examples/**/*.md",
+  "/docs/explanations/**/*.md",
+  "/docs/user-guide/*.md",
+  "/docs/misc/*.md",
+  "/docs/_templates/**/*.rst",
+  "/README.md",
+  "/LICENSE",
+  "/LICENSES/*",
+]
+# viewer/ is a package of its own, and GPL: it has its own source distribution.
+sdist.exclude = ["viewer/**"]
+# Build source distributions from a clean tree; broad source patterns can
+# include generated artifacts.
+
+[tool.scikit-build.wheel]
+# The example sequences install beside `pypulseqpp.sequences` from where they are
+# written, so a
+# script stays a standalone file someone can read and copy rather than
+# something buried in the package it imports.
+#
+# The scripts sit one directory down, and the mapping's last component has to
+# match: an editable install puts the mapped directory's *parent* on the
+# package's path, and the repo root as that parent would make
+# `pypulseqpp.tests`, `pypulseqpp.external` and `pypulseqpp.setup` importable.
+packages = { "pypulseqpp" = "src/pypulseqpp", "pypulseqpp/sequences/sequence" = "examples/sequence" }
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.setuptools_scm"
+
+# No write_to: the version is read at runtime with importlib.metadata, which
+# works the same under setuptools and under scikit-build-core. A generated
+# _version.py only exists under one of them.
+[tool.setuptools_scm]
+version_scheme = "python-simplified-semver"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0.dev0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "slow: excluded from the default run",
+]
+
+[tool.coverage.run]
+# The importable package, not the directory it is written in: CI installs the
+# wheel and imports from site-packages, where `src` matches nothing, so every
+# file came back unexecuted and the report read 0%. `[tool.coverage.paths]`
+# maps what was measured back onto the repository, which is what Codecov
+# matches its files by.
+source = ["pypulseqpp"]
+relative_files = true
+branch = true
+
+[tool.coverage.paths]
+# The example sequences install inside the package, from a directory of their
+# own; their mapping is listed first because the package's own would otherwise
+# claim them and rewrite them under `src/`, where they do not exist.
+sequences = ["examples/sequence", "*/site-packages/pypulseqpp/sequences/sequence"]
+package = ["src/pypulseqpp", "*/site-packages/pypulseqpp"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "@overload",
+]
+
+[tool.ruff]
+line-length = 88
+# Deliberately NOT `fix = true`: with it, `ruff check` rewrites the working
+# tree, so a command that reads as read-only is not. `format_and_lint.sh`
+# passes --fix explicitly when it means it.
+fix = false
+# external/ is a submodule: it is somebody else's tree and formatting it
+# here would show up as local modifications in it.
+extend-exclude = ["docs/**", "external/**", "viewer/seqeyes/**"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["A", "ARG", "B", "C4", "D", "E", "F", "I", "NPY", "PIE", "PTH", "Q", "RUF", "S", "SIM", "UP", "W", "YTT"]
+ignore = [
+  "E501",   # line length is the formatter's business
+  "COM812", # trailing comma conflicts with the formatter
+  "D105",   # magic methods carry their meaning in their name
+  "D107",   # __init__ is documented on the class
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "ARG"]
+"benchmarks/**" = ["D", "S101", "T201"]
+"__init__.py" = ["D104", "F401"]
+# A module's init_module is the constructor its class docstring documents,
+# argument for argument; a docstring of its own would restate that.
+"src/pypulseqpp/sequences/**" = ["D102"]
+# A gallery script's module docstring is the page's reStructuredText title
+# block, which no docstring convention describes, and its imports are placed
+# where the page introduces them rather than all at the top. A module it
+# defines documents its constructor on the class, as the shipped ones do.
+"gallery/**" = ["D102", "D205", "D400", "D401", "E402"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"

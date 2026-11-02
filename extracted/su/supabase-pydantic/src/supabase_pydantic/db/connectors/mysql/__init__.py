@@ -1,1 +1,0 @@
-"""MySQL connector package."""

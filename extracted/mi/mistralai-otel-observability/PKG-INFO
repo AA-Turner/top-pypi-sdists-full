@@ -1,0 +1,504 @@
+Metadata-Version: 2.5
+Name: mistralai-otel-observability
+Version: 0.5.0
+Summary: OTLP-first Mistral AI observability SDK
+Project-URL: Homepage, https://mistral.ai
+Project-URL: Documentation, https://docs.mistral.ai
+Author-email: Mistral AI <support@mistral.ai>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: ai,llm,mistral,observability,opentelemetry,otlp
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Monitoring
+Requires-Python: >=3.12
+Requires-Dist: opentelemetry-api<2.0.0,>=1.45.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
+Provides-Extra: grpc
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.30.0; extra == 'grpc'
+Provides-Extra: mistral
+Requires-Dist: mistralai<3.0.0,>=2.5.2; extra == 'mistral'
+Description-Content-Type: text/markdown
+
+# Mistral OTLP Observability
+
+Manual, OTLP-first observability helpers for GenAI applications.
+
+The package installs into `mistralai.observability.otel` and owns private OpenTelemetry providers for traces, metrics,
+and logs. It does not install global tracer or meter providers and does not configure Python logging.
+
+## Install
+
+```bash
+pip install mistralai-otel-observability
+```
+
+Install the optional Mistral client adapter when using `operation.mistral_completion(...)` or running the live completion
+example:
+
+```bash
+pip install "mistralai-otel-observability[mistral]"
+```
+
+The top-level package exports the normal SDK surface: `observability`, `ObservabilityConfig`, `Operation`, `Features`,
+the explicit telemetry payload dataclasses, `ChatCompletionDetails`, and `ChatCompletionAdapter`. Specialized utilities
+such as Mistral message conversion stay in their scoped modules.
+
+## Usage
+
+```python
+from mistralai.observability.otel import ObservabilityConfig, observability
+from mistralai.observability.otel import semconv_constants as genai
+
+observability.configure(
+    ObservabilityConfig(
+        service_name="my-app",
+        endpoint="http://localhost:4318",
+        protocol="http/protobuf",
+    )
+)
+
+with observability.operation(
+    genai.OPERATION_NAME_CHAT,
+    model="mistral-large-latest",
+    provider=genai.PROVIDER_NAME_MISTRAL_AI,
+    include_content=True,
+) as chat:
+    chat.completion(
+        response_model="mistral-large-latest",
+        output_messages=[{"role": "assistant", "content": "Bonjour!"}],
+        input_tokens=12,
+        output_tokens=4,
+    )
+
+observability.shutdown()
+```
+
+The first argument to `observability.operation(...)` is the GenAI operation name from the semantic conventions. For a
+chat completion, `genai.OPERATION_NAME_CHAT` is recorded as `gen_ai.operation.name` on the operation span, inference
+detail log, token usage metric, and operation duration metric. The high-level Mistral helper keeps using that same
+operation context:
+
+```python
+with observability.operation(
+    genai.OPERATION_NAME_CHAT,
+    model="mistral-large-latest",
+    provider=genai.PROVIDER_NAME_MISTRAL_AI,
+    include_content=True,
+) as chat:
+    response = client.chat.complete(model="mistral-large-latest", messages=messages)
+    chat.mistral_completion(response, messages=messages)
+```
+
+In that example:
+
+- The span is named `chat mistral-large-latest` and has `gen_ai.operation.name="chat"`,
+  `gen_ai.provider.name="mistral_ai"`, and `gen_ai.request.model="mistral-large-latest"`.
+- `chat.mistral_completion(...)` enriches the same span with response metadata, token counts, and finish reasons.
+  Because this operation was created with `include_content=True`, it also records `gen_ai.input.messages` and
+  `gen_ai.output.messages` on the span.
+- Inference detail logs are explicit. Calling `chat.inference_details(...)` emits event name
+  `gen_ai.client.inference.operation.details` with the operation/model/provider attributes and any messages, prompt, or
+  completion content passed to that method.
+- The token usage metric uses `gen_ai.client.token.usage` with `gen_ai.operation.name="chat"` and
+  `gen_ai.token.type="input"` / `"output"`.
+- The context manager records `gen_ai.client.operation.duration` when the operation ends, again with
+  `gen_ai.operation.name="chat"`.
+- `chat.evaluation_result(...)` emits `gen_ai.evaluation.result`. That event is correlated to the operation through the
+  operation trace/span context, and through `gen_ai.response.id` when provided; the semantic convention for evaluation
+  results does not require duplicating `gen_ai.operation.name` on the event.
+- `chat.log(...)` and `chat.event(...)` are operation-scoped application logs. They inherit the operation trace/span
+  context, but they only carry GenAI attributes that you pass explicitly.
+
+By default, completion helpers are metadata-only on the span: `gen_ai.input.messages` and `gen_ai.output.messages` are
+omitted unless the operation is created with `include_content=True`. `operation.inference_details(...)` is different: it
+is always explicit and emits the messages, prompt, or completion content that you pass to it.
+
+The same `Operation` object can also be managed explicitly:
+
+```python
+from mistralai.observability.otel import observability
+from mistralai.observability.otel import semconv_constants as genai
+
+chat = observability.operation(
+    genai.OPERATION_NAME_CHAT,
+    model="mistral-large-latest",
+    provider=genai.PROVIDER_NAME_MISTRAL_AI,
+)
+try:
+    chat.start()
+    chat.evaluation_result("quality", score_label="pass")
+finally:
+    chat.end()
+```
+
+Mistral observability feature flags become regular telemetry attributes. Pass a `Features` object when creating the
+operation to add span attributes, or when emitting operation logs to add log attributes:
+
+```python
+from mistralai.observability.otel import Features
+
+with observability.operation(
+    genai.OPERATION_NAME_CHAT,
+    features=Features(sensitive_data=True, moderation=True, judges=["toxicity", "groundedness"]),
+) as chat:
+    chat.set_attribute("custom.operation.flag", "enabled")
+    chat.log("moderation queued", features=Features(moderation=True, judges=["quality"]))
+    chat.event(
+        "mistral.obs.operation.checkpoint",
+        "moderation queued",
+        features=Features(moderation=True, judges=["quality"]),
+    )
+```
+
+When an evaluation runs asynchronously after the original operation span has already been exported, start a child
+operation from the original trace and span identifiers:
+
+```python
+from mistralai.observability.otel import Operation, observability
+from mistralai.observability.otel import semconv_constants as genai
+
+parent = Operation(
+    name=genai.OPERATION_NAME_CHAT,
+    trace_id="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    span_id="bbbbbbbbbbbbbbbb",
+    request_model="mistral-large-latest",
+    provider_name=genai.PROVIDER_NAME_MISTRAL_AI,
+)
+
+with observability.operation(
+    "evaluation",
+    parent=parent,
+    model="mistral-large-latest",
+    provider=genai.PROVIDER_NAME_MISTRAL_AI,
+) as evaluation:
+    evaluation.evaluation_result(
+        "moderation",
+        score_label="pass",
+        response_id="cmpl_123",
+    )
+```
+
+This emits a real operation span whose parent is the provided span id. Logs and evaluations recorded on the operation use
+the new child span context, so they remain discoverable in the same trace while preserving the original parent span.
+
+Agent, tool, and plan spans are specialized `Operation` helpers:
+
+```python
+with observability.agent("Support Agent", model="mistral-large-latest") as agent:
+    with observability.plan("Support Agent", parent=agent):
+        pass
+
+    with observability.tool(
+        "lookup_customer",
+        parent=agent,
+        tool_type=genai.TOOL_TYPE_FUNCTION,
+        arguments={"customer_id": "cus_123"},
+        result={"tier": "enterprise"},
+    ):
+        pass
+```
+
+- `observability.agent(...)` records an `invoke_agent` span. By default it is `INTERNAL`, which matches in-process agent
+  frameworks. Pass `remote=True` for remote hosted agent calls, which records a `CLIENT` span.
+- `observability.create_agent(...)` records a `create_agent` `CLIENT` span for hosted agent creation.
+- `observability.tool(...)` records an `execute_tool` `INTERNAL` span with tool name, call id, type, arguments, result,
+  description, and the executing agent name when provided.
+- `observability.plan(...)` records a `plan` `INTERNAL` span for an agent planning or task-decomposition phase. It does
+  not emit a duration metric because the GenAI semantic conventions do not define one for plan spans.
+- Workflow spans are intentionally not exposed as a high-level helper yet. The semantic convention says to use
+  `invoke_workflow` only when instrumentation can reliably distinguish a coordinated multi-agent workflow from an agent
+  invocation, and that boundary is application/framework-specific.
+
+Use `observability.span(...)` for arbitrary local work that should appear in traces but is not a GenAI operation:
+
+```python
+with observability.operation(genai.OPERATION_NAME_CHAT, model="mistral-large-latest") as chat:
+    with chat.span("cache.lookup", attributes={"cache.hit": True}) as cache_span:
+        cached_response = cache.get("customer:123")
+        cache_span.set_attribute("cache.backend", "redis")
+
+    if cached_response is None:
+        response = client.chat.complete(...)
+        chat.mistral_completion(response)
+```
+
+These spans are exported through the SDK's isolated tracer provider, use the current OpenTelemetry context by default,
+and intentionally do not add `gen_ai.*` attributes or GenAI duration metrics. Use `operation.span(...)` for child spans,
+or pass `parent=operation`, `context=...`, or `trace_id=...` plus `parent_span_id=...` to `observability.span(...)` when
+the span needs an explicit parent.
+
+Callers that reconstruct a span's identity from serialized or stored records can emit it without a live span handle,
+including across process boundaries. Create the operation with its parent's `trace_id` and `parent_span_id`, start it
+with `set_current_context=False`, a stable 16-hex `span_id`, and `start_time_unix_nano`, then call
+`end(end_time_unix_nano=...)`. Each emission of the same record exports a span with the same span id, so
+backends can deduplicate repeats. The duration metric uses the recorded timestamps. For a root operation, pass a 32-hex
+`trace_id` to `start()` instead of a parent, and `links` to relate it to the span that caused it.
+
+`ObservabilityConfig.sampler` replaces the default parent-based sampler, for example `ALWAYS_ON` for an isolated
+user-facing pipeline whose explicit parents may be unsampled operationally.
+
+For a failure returned in a tool or provider payload, end the operation with its error type and message:
+
+```python
+tool = observability.tool("agents.spawn", call_id="call-1")
+tool.start(set_current_context=False)
+tool.end(
+    error_type="session_procedure_rejected",
+    error_message="Session API rejected agents.spawn (HTTP 403)",
+)
+```
+
+`error_message` requires `error_type`. The span has `ERROR` status and its message becomes the status description after
+the configured operation-data transformations, including redaction. The message is not a metric label. Returned
+failures do not create exception events; exceptions raised inside an operation context manager are recorded as before.
+
+## Structured-data redaction
+
+To prevent known secrets and PII from reaching OpenTelemetry accidentally, the SDK enables `RegexRedactionPolicy` by
+default. It inspects operation data before it is serialized into span attributes or passed to any other OpenTelemetry
+recording API. Hosts can replace it with another policy:
+
+```python
+from mistralai.observability.otel import (
+    ObservabilityConfig,
+    AttributeRedactionPolicy,
+    observability,
+)
+
+observability.configure(
+    ObservabilityConfig(service_name="my-app"),
+    operation_data_transformers=[AttributeRedactionPolicy()],
+)
+```
+
+Pass an explicit empty sequence to disable redaction:
+
+```python
+observability.configure(
+    ObservabilityConfig(service_name="my-app"),
+    operation_data_transformers=[],
+)
+```
+
+The built-in policies:
+
+| Policy | Strategy | Trade-off |
+| ------ | -------- | --------- |
+| `RegexRedactionPolicy` | Preserves structure and redacts known secret tokens plus emails, card-like sequences, and IPv4 addresses. Safe metadata keys such as ids are scanned for secret tokens only. | Keeps the most observability value, but cannot recognize arbitrary free-form secrets. |
+| `AttributeRedactionPolicy` | Redacts values wholesale for sensitive keys, key fragments, and non-primitive values, then scans retained values for known tokens. | Safer for prompts and responses, but deliberately removes most content. |
+| `CallbackRedactionPolicy` | Invokes a custom `(key, value) -> value | None` masker for each field; `None` drops it. With `recursive=True`, it invokes the masker on each leaf of structured values instead. | Full control, with policy correctness owned by the host. |
+
+The default pattern and key sets are exported as `DEFAULT_PII_SECRET_PATTERNS`, `DEFAULT_TOKEN_PATTERNS`,
+`DEFAULT_SENSITIVE_ATTRIBUTE_KEYS`, `DEFAULT_SENSITIVE_ATTRIBUTE_FRAGMENTS`, and `DEFAULT_SAFE_ATTRIBUTE_KEYS`, so
+hosts can extend the shared catalogue instead of replacing it. `DEFAULT_PII_SECRET_PATTERNS` is
+`DEFAULT_TOKEN_PATTERNS` plus `EMAIL_PATTERN`, `CARD_NUMBER_PATTERN`, and `IPV4_PATTERN`, so a host can drop one
+heuristic and keep the rest:
+
+```python
+import re
+
+from mistralai.observability.otel import (
+    DEFAULT_TOKEN_PATTERNS,
+    EMAIL_PATTERN,
+    IPV4_PATTERN,
+    RegexRedactionPolicy,
+)
+
+RegexRedactionPolicy([*DEFAULT_TOKEN_PATTERNS, EMAIL_PATTERN, IPV4_PATTERN, re.compile(r"\bACME-\d+\b")])
+```
+
+Structured fields such as `gen_ai.input.messages` reach policies as mappings and sequences, not JSON strings. To mask
+text inside them with a callback, use `recursive=True`; the key passed to the callback stays the field name:
+
+```python
+from mistralai.observability.otel import CallbackRedactionPolicy
+
+CallbackRedactionPolicy(
+    lambda key, value: value.replace("internal-host", "[REDACTED]") if isinstance(value, str) else value,
+    recursive=True,
+)
+```
+
+Only `RegexRedactionPolicy` and `AttributeRedactionPolicy` honour safe keys. Callbacks see every field except the span
+name, including the error message recorded as the span status description (`status.description`).
+
+Policies receive structured values before the SDK serializes them into span attributes or creates OTel logs. Policy
+failures omit only the affected value. The chain applies to operation spans, child spans, logs, events, metrics, and
+exception details. It does not apply to standalone low-level `observability.span(...)` or
+`ObservabilitySDK.record_*` calls that are not scoped to an `Operation`.
+
+## Sending Telemetry to Mistral
+
+Configure the SDK with the Mistral telemetry OTLP HTTP endpoint:
+
+```python
+from mistralai.observability.otel import observability
+
+observability.configure_mistral(
+    service_name="my-genai-service",
+    service_version="1.2.3",
+)
+```
+
+By default, `observability.configure_mistral(...)` reads the API key from `MISTRAL_API_KEY`. Pass `api_key="..."` when the
+credential comes from another secret store.
+Use `observability.configure(ObservabilityConfig(...))` directly when a custom endpoint or internal deployment requires
+explicit OTLP headers.
+
+With `protocol="http/protobuf"`, the SDK sends the three OTLP signals to:
+
+- `https://api.mistral.ai/telemetry/v1/traces`
+- `https://api.mistral.ai/telemetry/v1/metrics`
+- `https://api.mistral.ai/telemetry/v1/logs`
+
+The base package installs HTTP/protobuf export support. For custom collectors that require OTLP/gRPC, install the `grpc`
+extra and set `protocol="grpc"` in `ObservabilityConfig`.
+
+Call `observability.shutdown()` when the application is done with the SDK. It performs a final flush before closing the owned
+OpenTelemetry providers. Use `observability.flush()` directly only when the process should keep running but you need
+telemetry exported at a specific checkpoint.
+
+The helper is equivalent to this explicit OTLP configuration:
+
+```python
+import os
+
+from mistralai.observability.otel import ObservabilityConfig, observability
+
+observability.configure(
+    ObservabilityConfig(
+        service_name="my-genai-service",
+        service_version="1.2.3",
+        endpoint="https://api.mistral.ai/telemetry",
+        protocol="http/protobuf",
+        headers={"Authorization": f"Bearer {os.environ['MISTRAL_API_KEY']}"},
+    )
+)
+```
+
+Run a live Mistral completion and record it through this SDK:
+
+```bash
+MISTRAL_API_KEY=... uv run --extra mistral python examples/mistral_completion.py
+```
+
+Explicit dataclasses such as `Operation`, `InferenceDetails`, and `TokenUsage` are also available for code that needs
+the full OpenTelemetry shape, including distinct request and response model attributes.
+
+Use standard OpenTelemetry propagation helpers, such as `opentelemetry.propagate.extract(...)`, when reading inbound
+trace context. When no explicit context is passed to SDK methods, the current OpenTelemetry context is used so upstream
+`traceparent` values are preserved.
+
+## Publishing
+
+Releases run from the `OTLP Observability SDK` workflow via **Run workflow** (`workflow_dispatch`), not by pushing a
+tag. The package version is not stored in code: it is derived from the release tag through `uv-dynamic-versioning`
+(tag prefix `otel-observability-sdk/`) and stamped onto the build at release time, so cutting a release never needs a
+version-bump PR.
+
+To release:
+
+1. Open the `OTLP Observability SDK` workflow and choose **Run workflow**.
+2. Select a `main` or `mais-*` branch as the ref.
+3. Enter the `version` to publish (for example `0.1.0` or `1.0.0rc1`).
+4. Leave `publish_pypi` / `publish_gemfury` at their defaults, or untick one to publish to a single index.
+
+The workflow validates the ref and version, fails fast if `otel-observability-sdk/v<version>` already exists, then
+builds the package once. A reviewer must approve the `observability-publish` GitHub Environment before the same artifact
+is published to the selected indexes (Gemfury and/or public PyPI); PyPI publishes from a clean job via trusted
+publishing. Once at least one selected index publishes successfully, the workflow creates the
+`otel-observability-sdk/v<version>` tag to record the released commit.
+
+For dogfooding, publish an `rc` version (for example `1.0.0rc1`) to Gemfury only by unticking `publish_pypi`; the rc is
+still tagged so the build is traceable to a commit. The `otel-observability-sdk/vX.Y.Z` tag prefix is intentionally
+distinct from the older `observability-sdk/vX.Y.Z` release line used by the AI Studio observability SDK, and this package
+does not publish to Cloudsmith.
+
+## SDK Shape
+
+The SDK is deliberately manual and explicit:
+
+- `observability.configure(...)` creates the process-wide SDK instance with isolated OpenTelemetry trace, metric, and log providers.
+  Recording before configuration raises a clear error.
+- It never calls global `set_tracer_provider`, `set_meter_provider`, or `logging.basicConfig`.
+- Context propagation uses the shared OpenTelemetry context only for parenting spans and logs.
+- `observability.operation(...)` returns an `Operation`. Use it as a context manager, or call `start()` and `end()` explicitly.
+  Record details, evaluations, token usage, and duration on that same object.
+- `observability.span(...)` starts a plain OpenTelemetry span through the same isolated tracer for non-GenAI local work.
+  `operation.span(...)` does the same while using that operation as the parent.
+- Completion helpers omit input and output message content from spans by default. Pass `include_content=True` to
+  `observability.operation(...)` to opt in for span content on `operation.completion(...)` and
+  `operation.mistral_completion(...)`.
+- Inference detail logs are explicit: `operation.inference_details(...)` and `InferenceDetails(...)` emit the content
+  passed to them and are not gated by `include_content`.
+- `Operation` can carry `trace_id` and `span_id` for an already-exported span. Pass it as
+  `observability.operation(..., parent=parent_operation)` to create a child operation for delayed telemetry, such as
+  asynchronous evaluations. For raw identifiers, `observability.operation(...)` also accepts `trace_id` and
+  `parent_span_id`.
+- Operation spans accept arbitrary OpenTelemetry attributes through `attributes=...`, `operation.set_attribute(...)`,
+  and `operation.set_attributes(...)`.
+- Agent, tool, and plan spans are created with `observability.agent(...)`, `observability.create_agent(...)`,
+  `observability.tool(...)`, and `observability.plan(...)`. They are normal `Operation` objects, so they support the same
+  context management, parenting, logs, evaluations, and custom attributes as inference operations.
+- Operation-scoped logs can be emitted with `operation.log(...)`. Named event logs, useful as a span-event replacement,
+  can be emitted with `operation.event(...)`. Both keep the operation trace/span context and support arbitrary log
+  attributes plus the same `Features` object.
+- Chat completion details can be recorded directly with `operation.completion(...)`. Raw completion payloads can use
+  `ChatCompletionDetails`, and provider-specific payloads can implement `ChatCompletionAdapter`; both are recorded by
+  the low-level SDK with `record_completion(operation, completion)`.
+- The dataclasses, such as `Operation`, `ChatCompletionDetails`, `InferenceDetails`, `EvaluationResult`, `TokenUsage`,
+  `OperationDuration`, and `StreamingChunk`, expose the fuller semantic-convention shape.
+- GenAI semantic-convention strings live in `mistralai.observability.otel.semconv_constants`; do not duplicate
+  `gen_ai.*` strings in the SDK code.
+- Mistral chat payload conversion lives in `mistralconv.py` and is intentionally separate from signal emission.
+- Mistral SDK response extraction is available on `Operation` through `mistral_completion(...)`.
+  The Mistral adapter lives in `mistralai.observability.otel.mistral` and is imported lazily, so the core package does
+  not import the optional Mistral SDK unless that helper is called.
+  It maps the response id, response model, finish reasons, output messages, and prompt/completion token counts exposed by
+  the installed Mistral SDK. Response fields such as `object`, `created`, `usage.total_tokens`, and
+  `usage.prompt_audio_seconds` are not emitted today because the current GenAI semantic conventions do not define
+  matching standard attributes for them.
+
+Signals emitted today:
+
+- Spans: GenAI inference operation spans through `observability.operation(...)`, plus agent creation, agent invocation,
+  tool execution, and plan spans through their dedicated helpers.
+- Logs: `gen_ai.client.inference.operation.details` and `gen_ai.evaluation.result`.
+- Metrics: `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`,
+  `gen_ai.client.operation.time_to_first_chunk`, `gen_ai.client.operation.time_per_output_chunk`,
+  `gen_ai.invoke_agent.duration`, and `gen_ai.execute_tool.duration`.
+
+GenAI semantic-convention coverage:
+
+- Covered on spans and inference-detail logs: common provider/model/operation attrs, server address/port, request
+  parameters, response id/model/finish reasons/time-to-first-chunk, token usage including cache/reasoning breakdowns,
+  prompt/conversation attrs, opt-in system instructions, tool definitions, and input/output messages.
+- Covered as separate logs: evaluation results.
+- Covered as metrics: client operation duration, token usage, time to first chunk, and time per output chunk.
+- Covered as first-class spans: agent creation, agent invocation, tool execution, and plan.
+- Covered as agent/tool metrics: in-process agent invocation duration and tool execution duration.
+- Not yet modeled as first-class SDK APIs: embeddings, retrieval, memory, workflow spans, server metrics, and
+  `gen_ai.client.operation.exception` logs.
+
+## Mistral Message Conversion
+
+The `mistralconv` module includes JSON-dict converters between Mistral chat completion messages and the OpenTelemetry GenAI
+`gen_ai.input.messages` / `gen_ai.output.messages` shape:
+
+```python
+from mistralai.observability.otel import mistralconv
+
+otel_input_messages = mistralconv.mistral_messages_to_otel_input_messages(
+    [{"role": "user", "content": "hello"}],
+)
+```
+
+Mistral-only fields are preserved through `mistral.*` extension fields where OpenTelemetry has no direct equivalent.
+Plain string content is normalized back to structured Mistral text chunks on reverse conversion.

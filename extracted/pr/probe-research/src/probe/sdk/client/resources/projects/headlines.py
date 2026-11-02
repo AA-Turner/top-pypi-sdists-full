@@ -1,5 +1,5 @@
 """HeadlinesMixin, Client's methods: headline metric and best-run picks for a project, experiment
-or workspace (twins: app/projects, app/workspaces)."""
+or workspace (twins: app/projects, app/projects/workspaces)."""
 
 from __future__ import annotations
 from typing import Any

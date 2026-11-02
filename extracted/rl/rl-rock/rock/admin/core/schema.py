@@ -1,0 +1,138 @@
+"""ORM base and models for the ROCK admin database.
+
+``Base`` is the single SQLAlchemy ``DeclarativeBase`` for all ROCK tables.
+``SandboxRecord`` is the canonical persistence model for sandbox metadata.
+"""
+
+from __future__ import annotations
+
+import datetime
+import zoneinfo
+from typing import Any, ClassVar
+
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.types import JSON
+
+from rock import env_vars
+
+_JSONB_VARIANT = JSON().with_variant(JSONB(), "postgresql")
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+# All ORM models that inherit from Base must be imported (or defined) in this file
+# so that Base.metadata is fully populated before DatabaseProvider.init() calls
+# create_all.  When adding a new table in a separate module, add its import here:
+#   from rock.admin.core.<module> import <Model>  # noqa: F401
+class SandboxRecord(Base):
+    """ORM model for the ``sandbox_record`` table."""
+
+    __tablename__ = "sandbox_record"
+
+    sandbox_id = Column(String(128), primary_key=True)
+    user_id = Column(String(128), nullable=False, default="default")
+    image = Column(String(512), nullable=False, default="default")
+    experiment_id = Column(String(128), nullable=False, default="default")
+    namespace = Column(String(128), nullable=False, default="default")
+    cluster_name = Column(String(128), nullable=False, default="default")
+    state = Column(String(32), nullable=False, default="pending")
+    host_ip = Column(String(128), nullable=False, default="default")
+    create_time = Column(String(64), nullable=False, default="")
+    start_time = Column(String(64), nullable=True)
+    stop_time = Column(String(64), nullable=True)
+    archive_time = Column(String(64), nullable=True)
+    delete_time = Column(String(64), nullable=True)
+    auto_transition_state = Column(String(32), nullable=True)
+    auto_transition_time = Column(DateTime(timezone=True), nullable=True)
+    host_name = Column(String(255), nullable=True)
+    auth_token = Column(String(512), nullable=True)
+    rock_authorization_encrypted = Column(String(1024), nullable=True)
+    cpus = Column(Float, nullable=True)
+    memory = Column(String(64), nullable=True)
+    disk = Column(String(64), nullable=True)
+    create_user_gray_flag = Column(Boolean, nullable=True)
+    phases = Column(_JSONB_VARIANT, nullable=True)
+    port_mapping = Column(_JSONB_VARIANT, nullable=True)
+    spec = Column(_JSONB_VARIANT, nullable=True)
+    status = Column(_JSONB_VARIANT, nullable=True)
+
+    __table_args__ = (
+        Index("ix_sandbox_record_user_id", "user_id"),
+        Index("ix_sandbox_record_state", "state"),
+        Index("ix_sandbox_record_image", "image"),
+        Index("ix_sandbox_record_state_stop_time", "state", "stop_time"),
+        Index(
+            "ix_sandbox_record_state_auto_transition",
+            "state",
+            "auto_transition_state",
+            "auto_transition_time",
+        ),
+        Index("ix_sandbox_record_state_start_time", "state", "start_time"),
+    )
+
+    # Columns allowed as the filter key in list_by().
+    # Only include columns with an index (or PK); exclude JSONB, sensitive, and internal columns.
+    LIST_BY_ALLOWLIST: ClassVar[frozenset[str]] = frozenset(
+        {
+            "sandbox_id",
+            "user_id",
+            "state",
+            "image",
+        }
+    )
+    _column_names: ClassVar[set[str] | None] = None
+
+    @classmethod
+    def column_names(cls) -> set[str]:
+        if cls._column_names is None:
+            cls._column_names = {c.key for c in cls.__table__.columns}
+        return cls._column_names
+
+    _NOT_NULL_DEFAULTS: ClassVar[dict[str, Any]] = {
+        "user_id": "default",
+        "image": "default",
+        "experiment_id": "default",
+        "namespace": "default",
+        "cluster_name": "default",
+        "state": "pending",
+        "host_ip": "default",
+        "create_time": "",
+    }
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return all non-``None`` column values as a plain dict."""
+        result: dict[str, Any] = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.key)
+            if value is None:
+                continue
+            if column.key == "auto_transition_time" and isinstance(value, datetime.datetime):
+                if value.tzinfo is None:
+                    value = value.replace(tzinfo=zoneinfo.ZoneInfo(env_vars.ROCK_TIME_ZONE))
+                else:
+                    value = value.astimezone(zoneinfo.ZoneInfo(env_vars.ROCK_TIME_ZONE))
+                value = value.isoformat(timespec="seconds")
+            result[column.key] = value
+        return result
+
+
+class SchedulerTaskRecord(Base):
+    """One row per scheduled task execution. Grouped by taskset_id."""
+
+    __tablename__ = "scheduler_task"
+
+    task_id = Column(String(32), primary_key=True)
+    taskset_id = Column(String(32), nullable=True, index=True)
+    task_type = Column(String(64), nullable=False, index=True)
+    target_workers = Column(_JSONB_VARIANT, nullable=True)
+    creation_timestamp = Column(Float, nullable=False)
+    phase = Column(String(32), nullable=False, default="Pending")
+    assigned_pod = Column(String(128), nullable=False, default="")
+    start_time = Column(Float, nullable=True)
+    completion_time = Column(Float, nullable=True)
+    conditions = Column(_JSONB_VARIANT, nullable=True)
+    status = Column(_JSONB_VARIANT, nullable=True)

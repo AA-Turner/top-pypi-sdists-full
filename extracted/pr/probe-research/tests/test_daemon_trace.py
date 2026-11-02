@@ -301,7 +301,7 @@ def test_stale_session_folders_are_swept_with_their_store(tmp_path):
 def test_status_names_each_sessions_folder(tmp_path):
     from typer.testing import CliRunner
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     store_mod.Store(store_mod.store_path(SID)).close()
     trace_mod.session_dir(SID).mkdir(parents=True)

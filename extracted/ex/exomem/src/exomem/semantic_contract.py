@@ -1,0 +1,5694 @@
+"""Pure semantic page-state evaluation over an immutable corpus snapshot."""
+
+from __future__ import annotations
+
+import contextvars
+import hashlib
+import json
+import logging
+import os
+import re
+import stat
+import threading
+import time
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
+from pathlib import Path, PurePosixPath
+from types import MappingProxyType
+from typing import Any
+
+from . import (
+    access,
+    activation,
+    activation_manifest,
+    call_spans,
+    foreground_priority,
+    freshness,
+    lifecycle_statuses,
+    memory_refs,
+    memory_schema,
+    metrics,
+    note_types,
+    relation_registry,
+    semantic_authoring,
+    semantic_language_registry,
+    semantic_units,
+    vault,
+)
+from . import find as find_module
+from .cli_ops import RELATION_REVIEW_STABLE_ID_REMEDIATION, OpError
+from .kbdir import kb_dirname
+from .memory_refs import ID_FIELD, normalize_id
+from .semantic_units import SemanticUnitDocument, SourceSpan
+from .vocabulary import instances
+
+_REVIEW_KINDS = frozenset({"reviewed_none", "bootstrap"})
+_DISPOSITION_KINDS = frozenset(
+    {"qualifying_relation", "reviewed_none", "bootstrap", "missing", "stale"}
+)
+_TARGET_STATUSES = frozenset({"resolved", "unresolved", "ambiguous"})
+_EXCLUDED_FAMILIES = frozenset(
+    {"link", "citation", "derivation", "evidence", "mention", "observation", "provenance"}
+)
+# Origins that can carry a connectivity signal, chosen to mirror
+# `audit._check_relation_debt` exactly: it clears a page on authored relation rows
+# or body wikilinks, and ignores `sources:`.
+#
+# `frontmatter` is deliberately absent. Provenance is a vertical edge to raw
+# material; it says nothing about how this conclusion relates to other
+# conclusions, and every adoption-compiled note has it by construction — so
+# counting it would make the gate a no-op for exactly the bulk-import case that
+# most needs review, and would make the gate more permissive than the audit.
+_CONNECTIVITY_ORIGINS = frozenset(
+    {
+        "markdown_relation",
+        "semantic_relation",
+        "semantic_block",
+        "wikilink",
+    }
+)
+_MAX_WIKILINK_FACTS_PER_PAGE = 32
+_AUTHORED_SCHEMA_ORIGINS = frozenset({"markdown_relation", "semantic_relation"})
+_CREATE_LIKE = frozenset({"create", "replacement", "adoption_compile", "tier2_create"})
+_GRANDFATHERED_OPERATIONS = frozenset(
+    {"edit", "move", "observe", "recover", "tier2_overwrite", "tier2_append"}
+)
+_SEMANTIC_UNIT_EXEMPT_PARTS = frozenset(
+    {"sources", "evidence", "_trash", "trash", "_schema", "templates", "data"}
+)
+_SEMANTIC_UNIT_EXEMPT_TAGS = frozenset({"hub", "snapshot"})
+_SEMANTIC_UNIT_EXEMPT_SUFFIXES = (
+    "-architecture",
+    "-snapshot",
+    "-catalog-snapshot",
+)
+_WIKILINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
+
+log = logging.getLogger(__name__)
+_REVIEW_FINGERPRINT_UNSET = object()
+# Trash is exempt, non-canonical content per the semantic-authoring contract
+# (mirrors `_SEMANTIC_UNIT_EXEMPT_PARTS`'s "_trash"/"trash" pair): a deleted
+# page's frontmatter must never be able to block a live governed write. Prune
+# it at the KB root so it is never census input at all, rather than adding a
+# tolerate-unparseable-pages path — that stays fail-closed for every
+# CANONICAL directory, which is where an unreadable/malformed page is still
+# a real signal worth refusing to vouch for (#545).
+_IDENTITY_CENSUS_RESERVED_KB_DIRS = frozenset({".graph-commit-receipts", "_trash", "trash"})
+
+
+def _prune_identity_census_directory(kb: Path, directory: Path, name: str) -> bool:
+    """Whether an entry is runtime state rather than canonical Markdown."""
+    if name.startswith(vault.VAULT_SCAN_SKIP_DIR_PREFIXES):
+        return True
+    if directory != kb:
+        return False
+    if name in _IDENTITY_CENSUS_RESERVED_KB_DIRS:
+        return True
+    if name.startswith(".graph-reset-"):
+        return vault.is_graph_reset_runtime_dir_name(name)
+    if name.startswith(".graph-rebuild-"):
+        return vault.is_graph_rebuild_runtime_file_name(name)
+    if name.startswith(".lexical.sqlite.rebuild-"):
+        return vault.is_lexical_rebuild_runtime_file_name(name)
+    return False
+
+
+def _reference_only_directory_names() -> tuple[str, ...]:
+    """Reserved Knowledge Base directories that the census prunes but the reference scan reads.
+
+    `trash/` is the one such name today: the identity census never admits a
+    page there, while `vault.in_excluded_scan_dir` keeps it, so the memory
+    reference scan and sidecar still read its pages. Pages there own references
+    but take no part in identity uniqueness, so the census keeps them in a table
+    that only reference resolution reads.
+    """
+    return tuple(
+        sorted(
+            name
+            for name in _IDENTITY_CENSUS_RESERVED_KB_DIRS
+            if not vault.in_excluded_scan_dir(f"{kb_dirname()}/{name}")
+        )
+    )
+
+
+def _is_reference_only_path(rel_path: str) -> bool:
+    """Whether a vault-relative path lies under a reference-only directory."""
+    segments = PurePosixPath(rel_path).parts
+    return (
+        len(segments) > 2
+        and segments[0] == kb_dirname()
+        and segments[1] in _reference_only_directory_names()
+    )
+
+
+def _reference_only_entries(root: Path) -> tuple[StableIdentityEntry, ...]:
+    """Every owner under a reference-only directory, read as the reference scan reads it."""
+    kb = vault.kb_root(root)
+    entries: list[StableIdentityEntry] = []
+    for name in _reference_only_directory_names():
+        directory = kb / name
+        # `rglob` does not descend a linked directory below the root, so the scan
+        # never reads a linked `trash/`; the table must not read it either.
+        if directory.is_symlink():
+            continue
+        try:
+            owners = memory_refs.scan_reference_owners(root, directory)
+        except OSError:
+            # A deleted page's folder must never block a live write, and a
+            # listing that fails mid-walk is a race the watcher's next patch heals.
+            continue
+        entries.extend(StableIdentityEntry(path, exomem_id) for path, exomem_id in owners)
+    return tuple(entries)
+
+
+def _canonical_hash(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def review_content_fingerprint(page_identity: str, source: str) -> str:
+    """Return the portable review fingerprint shared by model and coordinator."""
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    if not normalized.endswith("\n"):
+        normalized += "\n"
+    return _canonical_hash(
+        {
+            "schema_version": 1,
+            "page_identity": page_identity,
+            "normalized_source_hash": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+        }
+    )
+
+
+def _stable_value_key(value: Any) -> tuple[str, str, str]:
+    value_type = type(value)
+    return (value_type.__module__, value_type.__qualname__, repr(value))
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {
+                key: _freeze(child)
+                for key, child in sorted(value.items(), key=lambda item: _stable_value_key(item[0]))
+            }
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(child) for child in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze(child) for child in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw(child) for key, child in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_thaw(child) for child in value]
+    if isinstance(value, frozenset):
+        return [_thaw(child) for child in sorted(value, key=_stable_value_key)]
+    return value
+
+
+def _mapping_of_tuples(
+    values: Mapping[str, Iterable[Any]],
+) -> Mapping[str, tuple[Any, ...]]:
+    return MappingProxyType({key: tuple(values[key]) for key in sorted(values)})
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticPageState:
+    path: str
+    identity_kind: str
+    identity: str
+    source_hash: str
+    language_registry_hash: str
+    relation_registry_hash: str
+    review_fingerprint: str | None
+    frontmatter: Mapping[Any, Any]
+    page_type: str | None
+    projects: tuple[str, ...]
+    status: str | None
+    title: str
+    document: SemanticUnitDocument
+    eligible_governed: bool
+    eligible_compiled: bool
+    # Valid *target* of a connectivity signal. Wider than `eligible_governed`
+    # (admits append-only Sources) and deliberately tracked separately, because
+    # `eligible_governed_paths` gates the empty-corpus bootstrap disposition.
+    connectable_target: bool = False
+    # Compiled eligibility under the owner's note types, without the lifecycle
+    # class: the source of the activation census.
+    structurally_compiled: bool = False
+    # Placement (path, access tier, tags) is neutral parsed structure, shared by
+    # every caller. Enrichment adds the caller's note types and lifecycle class.
+    structurally_placed: bool = False
+    structurally_placed_connectable: bool = False
+    status_class: str | None = None
+    status_unregistered: bool = False
+    status_dependency: tuple[str, str] | None = None
+    # The page needs a lifecycle class that this caller's basis cannot supply.
+    # Its eligibility reads False; a decision that depends on it must refuse.
+    status_unavailable: bool = False
+    # The caller's note-type basis. Enrichment sets it; a parsed state without
+    # one resolves its route and type against the shipped pack only.
+    type_basis: note_types.Basis | None = field(default=None, compare=False, repr=False)
+    # (target, line) for each deduped body wikilink not already on a typed
+    # relation row. Retained so fact derivation never re-reads the file.
+    body_wikilinks: tuple[tuple[str, int], ...] = ()
+    body: str = field(default="", repr=False)
+    candidates: semantic_units.SemanticUnitCandidates | None = field(default=None, repr=False)
+    definitions: instances.PageDefinitions | None = field(default=None, repr=False)
+    # An explicit operation witness retains staged definitions in an unarmed corpus.
+    definitions_explicit: bool = False
+    definitions_unavailable: bool = False
+    neutral_document: SemanticUnitDocument | None = field(default=None, repr=False)
+    # None means that an older state did not retain carrier coverage.
+    prose_carriers: Mapping[str, Any] | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "frontmatter", _freeze(dict(self.frontmatter)))
+        object.__setattr__(self, "projects", tuple(sorted(set(self.projects))))
+        object.__setattr__(
+            self, "body_wikilinks", tuple(tuple(item) for item in self.body_wikilinks)
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "identity_kind": self.identity_kind,
+            "identity": self.identity,
+            "source_hash": self.source_hash,
+            "review_fingerprint": self.review_fingerprint,
+            "frontmatter": _thaw(self.frontmatter),
+            "page_type": self.page_type,
+            "projects": list(self.projects),
+            "status": self.status,
+            "title": self.title,
+            "semantic_units": [unit.to_dict() for unit in self.document.units],
+            "canonical_section_present": self.document.canonical_section_present,
+            "canonical_bullet_count": self.document.canonical_bullet_count,
+            "eligible_governed": self.eligible_governed,
+            "eligible_compiled": self.eligible_compiled,
+            "connectable_target": self.connectable_target,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class StableIdentityEntry:
+    path: str
+    page_identity: str | None
+
+    def __post_init__(self) -> None:
+        path = PurePosixPath(str(self.path).replace("\\", "/")).as_posix()
+        if (
+            not path
+            or path.startswith("/")
+            or any(part in {"", ".", ".."} for part in PurePosixPath(path).parts)
+            or PurePosixPath(path).suffix.casefold() != ".md"
+        ):
+            raise ValueError("stable identity path must be safe vault-relative POSIX")
+        identity = self.page_identity
+        if identity is not None and (
+            type(identity) is not str or normalize_id(identity) != identity
+        ):
+            raise ValueError("stable page identity must be a canonical UUID")
+        object.__setattr__(self, "path", path)
+
+
+@dataclass(frozen=True, slots=True)
+class StableIdentityCensus:
+    entries: tuple[StableIdentityEntry, ...]
+    # Owners under the reference-only directories (`trash/`): they resolve a
+    # reference exactly as the scan does, and take no part in identity
+    # uniqueness, canonical refs or `entries`.
+    reference_only_entries: tuple[StableIdentityEntry, ...] = ()
+    paths_by_identity: Mapping[str, tuple[str, ...]] = field(init=False)
+    _reference_paths: frozenset[str] = field(init=False, repr=False, compare=False)
+    # Every reference path holding each identity, duplicates included, with the
+    # reference-only owners: the projection a reference read answers from
+    # without walking the vault.
+    _reference_owners: Mapping[str, tuple[str, ...]] = field(
+        init=False, repr=False, compare=False
+    )
+    _canonical_refs_by_path: Mapping[str, str | None] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        entries = tuple(
+            sorted(
+                tuple(self.entries),
+                key=lambda item: (item.path, item.page_identity or ""),
+            )
+        )
+        reference_only = tuple(
+            sorted(
+                tuple(self.reference_only_entries),
+                key=lambda item: (item.path, item.page_identity or ""),
+            )
+        )
+        paths = [entry.path for entry in (*entries, *reference_only)]
+        if len(paths) != len(set(paths)):
+            raise ValueError("stable identity census contains a duplicate path")
+        grouped: dict[str, list[str]] = {}
+        for entry in entries:
+            if entry.page_identity is not None:
+                grouped.setdefault(entry.page_identity, []).append(entry.path)
+        object.__setattr__(self, "entries", entries)
+        object.__setattr__(self, "reference_only_entries", reference_only)
+        object.__setattr__(
+            self,
+            "paths_by_identity",
+            MappingProxyType(
+                {identity: tuple(sorted(values)) for identity, values in sorted(grouped.items())}
+            ),
+        )
+        reference_entries = tuple(
+            entry for entry in entries if not vault.in_excluded_scan_dir(entry.path)
+        )
+        reference_owners: dict[str, list[str]] = {}
+        for entry in reference_entries:
+            if entry.page_identity is not None:
+                reference_owners.setdefault(entry.page_identity, []).append(entry.path)
+        canonical_refs = {
+            entry.path: (
+                memory_refs.memory_ref(entry.page_identity)
+                if entry.page_identity is not None
+                and len(reference_owners[entry.page_identity]) == 1
+                else None
+            )
+            for entry in reference_entries
+        }
+        object.__setattr__(
+            self,
+            "_reference_paths",
+            frozenset(entry.path for entry in reference_entries),
+        )
+        resolving_owners = {
+            identity: list(owners) for identity, owners in reference_owners.items()
+        }
+        for entry in reference_only:
+            if entry.page_identity is not None:
+                resolving_owners.setdefault(entry.page_identity, []).append(entry.path)
+        object.__setattr__(
+            self,
+            "_reference_owners",
+            MappingProxyType(
+                {
+                    identity: tuple(sorted(owners))
+                    for identity, owners in resolving_owners.items()
+                }
+            ),
+        )
+        object.__setattr__(
+            self,
+            "_canonical_refs_by_path",
+            MappingProxyType(canonical_refs),
+        )
+
+    def with_page(
+        self, page: SemanticPageState, *, casefold_paths: bool = False
+    ) -> StableIdentityCensus:
+        """Replace the entry `page` owns, returning a new census.
+
+        `casefold_paths` is set when the vault lives on a case-insensitive
+        filesystem: the census records the real on-disk casing while a caller
+        may address the same physical file differently, so dropping only the
+        byte-equal entry would manufacture a phantom second owner in memory.
+        """
+        def other(entry: StableIdentityEntry) -> bool:
+            if casefold_paths:
+                return entry.path.casefold() != page.path.casefold()
+            return entry.path != page.path
+
+        replacement = StableIdentityEntry(
+            page.path,
+            page.identity if page.identity_kind == "exomem_id" else None,
+        )
+        if _is_reference_only_path(page.path):
+            return StableIdentityCensus(
+                self.entries,
+                (*filter(other, self.reference_only_entries), replacement),
+            )
+        return StableIdentityCensus(
+            (*filter(other, self.entries), replacement), self.reference_only_entries
+        )
+
+    @classmethod
+    def from_states(
+        cls,
+        states: Iterable[SemanticPageState],
+    ) -> StableIdentityCensus:
+        """Derive stable UUID ownership from already-built page states."""
+        entries: list[StableIdentityEntry] = []
+        for state in states:
+            raw_identity = state.frontmatter.get(ID_FIELD)
+            identity: str | None = None
+            if raw_identity is not None:
+                identity = normalize_id(raw_identity)
+            entries.append(StableIdentityEntry(state.path, identity))
+        return cls(tuple(entries))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "entry_count": len(self.entries),
+            "identity_count": len(self.paths_by_identity),
+            "entries": [
+                {"path": entry.path, "page_identity": entry.page_identity} for entry in self.entries
+            ],
+            "paths_by_identity": {
+                identity: list(paths) for identity, paths in self.paths_by_identity.items()
+            },
+        }
+
+
+def identity_owners_match(
+    owners: tuple[str, ...] | None,
+    page_path: str,
+    *,
+    folds: bool,
+) -> bool:
+    """True when `page_path` is the sole corpus owner recorded in the census.
+
+    `folds` is the vault's case-insensitivity: with it set, an owner that
+    differs from `page_path` only in casing is the SAME physical file, so it
+    must not read as a second owner. With it clear this is byte-for-byte the
+    exact-tuple comparison it replaces — genuine case-variant files on a
+    case-sensitive filesystem stay distinct and still block.
+    """
+    if owners == (page_path,):
+        return True
+    if not folds or not owners:
+        return False
+    return {owner.casefold() for owner in owners} == {page_path.casefold()}
+
+
+@dataclass(frozen=True, slots=True)
+class RelationReviewState:
+    kind: str
+    page_identity: str
+    content_fingerprint: str
+    reason: str | None = None
+    reference: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in _REVIEW_KINDS:
+            raise ValueError(f"relation review kind must be one of {sorted(_REVIEW_KINDS)}")
+        if not str(self.page_identity or "").strip():
+            raise ValueError("relation review page_identity must be nonempty")
+        if not str(self.content_fingerprint or "").strip():
+            raise ValueError("relation review content_fingerprint must be nonempty")
+        for label, value in (("reason", self.reason), ("reference", self.reference)):
+            if value is not None and not str(value).strip():
+                raise ValueError(f"relation review {label} must be nonempty when supplied")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "page_identity": self.page_identity,
+            "content_fingerprint": self.content_fingerprint,
+            "reason": self.reason,
+            "reference": self.reference,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RelationFact:
+    identity: str
+    logical_source_path: str
+    logical_target_path: str
+    raw_target: str
+    resolved_target_path: str | None
+    target_anchor: str | None
+    target_alias: str | None
+    authored_path: str
+    authored_line: int | None
+    authored_anchor: str | None
+    authored_projects: tuple[str, ...]
+    authored_page_type: str | None
+    source_kind: str
+    target_page_type: str | None
+    raw_relation: str
+    canonical_relation: str | None
+    family: str | None
+    registry_status: str
+    origin: str
+    authored: bool
+    reviewer_accepted: bool
+    target_status: str
+    registry_instance: str = "core"
+    logical_source_ref: str | None = None
+    logical_target_ref: str | None = None
+    target_unit_status: str | None = None
+    target_unit_fingerprint: str | None = None
+    target_kind: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "authored_projects", tuple(sorted(set(self.authored_projects))))
+        if self.target_status not in _TARGET_STATUSES:
+            raise ValueError(f"unsupported target status: {self.target_status}")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "identity": self.identity,
+            "logical_source_path": self.logical_source_path,
+            "logical_target_path": self.logical_target_path,
+            "raw_target": self.raw_target,
+            "resolved_target_path": self.resolved_target_path,
+            "target_anchor": self.target_anchor,
+            "target_alias": self.target_alias,
+            "authored_path": self.authored_path,
+            "authored_line": self.authored_line,
+            "authored_anchor": self.authored_anchor,
+            "authored_projects": list(self.authored_projects),
+            "authored_page_type": self.authored_page_type,
+            "source_kind": self.source_kind,
+            "target_page_type": self.target_page_type,
+            "raw_relation": self.raw_relation,
+            "canonical_relation": self.canonical_relation,
+            "family": self.family,
+            "registry_status": self.registry_status,
+            "origin": self.origin,
+            "authored": self.authored,
+            "reviewer_accepted": self.reviewer_accepted,
+            "target_status": self.target_status,
+            "registry_instance": self.registry_instance,
+            "logical_source_ref": self.logical_source_ref,
+            "logical_target_ref": self.logical_target_ref,
+            "target_unit_status": self.target_unit_status,
+            "target_unit_fingerprint": self.target_unit_fingerprint,
+            "target_kind": self.target_kind,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RelationQualification:
+    qualifies: bool
+    reasons: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"qualifies": self.qualifies, "reasons": list(self.reasons)}
+
+
+@dataclass(frozen=True, slots=True)
+class RejectedRelationFact:
+    fact: RelationFact
+    reasons: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"fact": self.fact.as_dict(), "reasons": list(self.reasons)}
+
+
+@dataclass(frozen=True, slots=True)
+class RelationDisposition:
+    kind: str
+    satisfied: bool
+    current: bool
+    qualifying_directions: tuple[str, ...] = ()
+    qualifying_facts: tuple[RelationFact, ...] = ()
+    rejected_facts: tuple[RejectedRelationFact, ...] = ()
+    actions: tuple[str, ...] = ()
+    # Which lane satisfied a `qualifying_relation`: a deliberate typed epistemic
+    # edge, or the weaker outbound connectivity signal. Carried as a field rather
+    # than a new `kind` on purpose — `relation_review._commit_plan` dispatches on
+    # `kind` through an if/elif chain whose terminal else raises, so an unknown
+    # satisfied kind would fail every commit it newly applied to.
+    qualifying_signal: str = "typed"
+    # Reason and reference recorded with a reviewed-none or bootstrap decision.
+    # Already persisted and already loaded during evaluation; previously dropped
+    # before reaching any caller-visible surface.
+    review_reason: str | None = None
+    review_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in _DISPOSITION_KINDS:
+            raise ValueError(f"unsupported relation disposition: {self.kind}")
+        object.__setattr__(self, "qualifying_directions", tuple(self.qualifying_directions))
+        object.__setattr__(self, "qualifying_facts", tuple(self.qualifying_facts))
+        object.__setattr__(self, "rejected_facts", tuple(self.rejected_facts))
+        object.__setattr__(self, "actions", tuple(self.actions))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "satisfied": self.satisfied,
+            "current": self.current,
+            "qualifying_directions": list(self.qualifying_directions),
+            "qualifying_facts": [fact.as_dict() for fact in self.qualifying_facts],
+            "rejected_facts": [item.as_dict() for item in self.rejected_facts],
+            "actions": list(self.actions),
+            "qualifying_signal": self.qualifying_signal,
+            "review_reason": self.review_reason,
+            "review_reference": self.review_reference,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ContractFinding:
+    code: str
+    severity: str
+    path: str
+    span: SourceSpan | None
+    detail: str
+    remediation: str
+    governed_element_identity: tuple[str, ...]
+    resolved_rule: tuple[str, str, str]
+    contracts: tuple[str, ...] = ()
+    provenance: tuple[tuple[str, str, str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "governed_element_identity",
+            tuple(self.governed_element_identity),
+        )
+        object.__setattr__(self, "resolved_rule", tuple(self.resolved_rule))
+        object.__setattr__(self, "contracts", tuple(self.contracts))
+        object.__setattr__(
+            self,
+            "provenance",
+            tuple(tuple(item) for item in self.provenance),
+        )
+
+    @property
+    def key(self) -> tuple[str, tuple[str, ...], tuple[str, str, str]]:
+        return (self.code, self.governed_element_identity, self.resolved_rule)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "path": self.path,
+            "span": self.span.to_dict() if self.span is not None else None,
+            "detail": self.detail,
+            "remediation": self.remediation,
+            "governed_element_identity": list(self.governed_element_identity),
+            "resolved_rule": list(self.resolved_rule),
+            "contracts": list(self.contracts),
+            "provenance": [
+                {
+                    "contract": contract,
+                    "path": path,
+                    "raw_element": raw_element,
+                    "scope": scope,
+                }
+                for contract, path, raw_element, scope in self.provenance
+            ],
+        }
+
+
+# Bounded advisory category feedback. Public statuses are exactly these four;
+# ordinary canonical/core categories produce no entry and are never rewritten.
+_CATEGORY_FEEDBACK_LIMIT = 8
+_CATEGORY_FEEDBACK_STATUSES = MappingProxyType(
+    {
+        "alias": "alias",
+        "deprecated": "deprecated",
+        "scope_violation": "scope_violation",
+        "unregistered": "open",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CategoryFeedback:
+    """One deterministic advisory entry for an authored semantic-unit category."""
+
+    unit_ref: str | None
+    authored: str
+    normalized: str
+    canonical: str
+    status: str
+    replacement: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "unit_ref": self.unit_ref,
+            "authored": self.authored,
+            "normalized": self.normalized,
+            "canonical": self.canonical,
+            "status": self.status,
+            "replacement": self.replacement,
+        }
+
+
+def _derive_category_feedback(
+    page: SemanticPageState,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None,
+) -> tuple[tuple[CategoryFeedback, ...], int]:
+    """Resolve every authored category once with exact page-scoped resolution.
+
+    Uses the same attached-project + page-type resolution the parser applied, so
+    MCP/REST/CLI serialized results inherit byte-equivalent data. Rich units that
+    default their category to the governed kind carry no authored category and
+    therefore never produce an entry.
+    """
+    if language_registry is None:
+        return (), 0
+    view = semantic_language_registry.for_attached_projects(language_registry, page.projects)
+    entries: list[CategoryFeedback] = []
+    for unit in page.document.units:
+        if unit.form == "rich" and "category" not in unit.metadata:
+            continue
+        resolution = view.resolve_category(unit.category_raw, page_type=page.page_type)
+        public_status = _CATEGORY_FEEDBACK_STATUSES.get(resolution.status)
+        if public_status is None:
+            continue
+        canonical = (
+            resolution.definition.key
+            if resolution.definition is not None
+            else (resolution.resolved or unit.category_key)
+        )
+        entries.append(
+            CategoryFeedback(
+                unit_ref=unit.unit_ref,
+                authored=unit.category_raw,
+                normalized=unit.category_key,
+                canonical=canonical,
+                status=public_status,
+                replacement=resolution.replacement,
+            )
+        )
+    retained = tuple(entries[:_CATEGORY_FEEDBACK_LIMIT])
+    return retained, len(entries) - len(retained)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticContractResult:
+    mode: str
+    operation: str
+    findings: tuple[ContractFinding, ...]
+    errors: tuple[ContractFinding, ...]
+    warnings: tuple[ContractFinding, ...]
+    blocking_findings: tuple[ContractFinding, ...]
+    should_block: bool
+    semantic_unit_count: int
+    kind_counts: tuple[tuple[str, int], ...]
+    category_counts: tuple[tuple[str, int], ...]
+    relation_disposition: RelationDisposition | None
+    actions: tuple[str, ...]
+    compact_unit_count: int = 0
+    rich_unit_count: int = 0
+    category_feedback: tuple[CategoryFeedback, ...] = ()
+    category_feedback_omitted: int = 0
+
+    def __post_init__(self) -> None:
+        for name in (
+            "findings",
+            "errors",
+            "warnings",
+            "blocking_findings",
+            "kind_counts",
+            "category_counts",
+            "actions",
+            "category_feedback",
+        ):
+            object.__setattr__(self, name, tuple(getattr(self, name)))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "operation": self.operation,
+            "findings": [finding.as_dict() for finding in self.findings],
+            "errors": [finding.as_dict() for finding in self.errors],
+            "warnings": [finding.as_dict() for finding in self.warnings],
+            "blocking_findings": [finding.as_dict() for finding in self.blocking_findings],
+            "should_block": self.should_block,
+            "semantic_unit_count": self.semantic_unit_count,
+            "compact_unit_count": self.compact_unit_count,
+            "rich_unit_count": self.rich_unit_count,
+            "kind_counts": dict(self.kind_counts),
+            "category_counts": dict(self.category_counts),
+            "relation_disposition": (
+                self.relation_disposition.as_dict()
+                if self.relation_disposition is not None
+                else None
+            ),
+            "actions": list(self.actions),
+            "category_feedback": [entry.as_dict() for entry in self.category_feedback],
+            "category_feedback_omitted": self.category_feedback_omitted,
+        }
+
+
+ERROR_FINDING_LIMIT = 3
+
+# The validate form writers name in remediation text: the `validate_only`
+# parameter that edit and creation tools take by default.
+VALIDATE_FORM = "validate_only=true"
+
+# Tool parameter spellings fixed by the tool signatures, not registry vocabulary.
+# A writer operation absent here validates with VALIDATE_FORM.
+_OPERATION_VALIDATE_FORMS = MappingProxyType({"observe": "operation=validate"})
+
+
+def blocking_finding_text(finding: ContractFinding) -> str:
+    text = finding.code
+    if finding.path:
+        text += f" at {finding.path}"
+    if finding.detail:
+        text += f": {finding.detail}"
+    if finding.remediation:
+        text += f" (fix: {finding.remediation})"
+    return text
+
+
+def blocking_reason(
+    result: SemanticContractResult,
+    prefix: str = "semantic contract has blocking findings",
+) -> str:
+    """Name the blocking findings in the error the caller actually receives.
+
+    Only `code` and `reason` survive out to the MCP caller, so a bare prefix
+    tells a writer that something is wrong while withholding what — forcing a
+    second `validate_only` round-trip purely to learn it.
+
+    Lives here rather than in a writer module because every writer that can
+    block shares this contract; `semantic_writes` cannot own it without
+    `relation_review` importing it circularly.
+
+    Bounded, and the omitted count is stated rather than silently dropped, so a
+    truncated list never reads as complete.
+    """
+    findings = result.blocking_findings
+    if not findings:
+        return prefix
+    shown = findings[:ERROR_FINDING_LIMIT]
+    rendered = "; ".join(blocking_finding_text(item) for item in shown)
+    omitted = len(findings) - len(shown)
+    if omitted:
+        validate_form = _OPERATION_VALIDATE_FORMS.get(result.operation, VALIDATE_FORM)
+        rendered += f"; +{omitted} more ({validate_form} returns the full set)"
+    return f"{prefix}: {rendered}"
+
+
+def normalized_compiled_type(value: object) -> str | None:
+    """Normalize an authored page type for exact compiled-intent checks."""
+    return activation.normalized_page_type(value)
+
+
+def _path_parts(path: str) -> tuple[str, ...]:
+    return tuple(part.casefold() for part in PurePosixPath(path.replace("\\", "/")).parts)
+
+
+def _path_excluded_from_compiled_destination(path: str) -> bool:
+    parts = _path_parts(path)
+    if any(part in _SEMANTIC_UNIT_EXEMPT_PARTS for part in parts):
+        return True
+    name = parts[-1] if parts else ""
+    return name in {"hub.md", "index.md", "log.md"}
+
+
+def compiled_route_exempt(folder: str) -> bool:
+    """Whether the compiled router never selects pages under this folder."""
+    return _path_excluded_from_compiled_destination(folder)
+
+
+def _path_excluded_from_semantic_minimum(path: str) -> bool:
+    if _path_excluded_from_compiled_destination(path):
+        return True
+    parts = _path_parts(path)
+    name = parts[-1] if parts else ""
+    stem = PurePosixPath(name).stem
+    return any(stem.endswith(suffix) for suffix in _SEMANTIC_UNIT_EXEMPT_SUFFIXES)
+
+
+def _route_name(path: str) -> str | None:
+    """The casefolded `Notes/<Name>` folder a compiled route would select, if any.
+
+    Minimum-unit-only exemptions do not apply here.
+    """
+    if _path_excluded_from_compiled_destination(path):
+        return None
+    parts = _path_parts(path)
+    if len(parts) < 4 or parts[:2] != (kb_dirname().casefold(), note_types.NOTES_FOLDER.casefold()):
+        return None
+    return parts[2]
+
+
+def _type_basis(page: SemanticPageState) -> note_types.Basis:
+    return page.type_basis or note_types.Basis(None)
+
+
+def read_side(page: SemanticPageState) -> SemanticPageState:
+    """The page judged as a read or a link rewrite, not as the caller's own write.
+
+    Its folder and type then have no definition when the admitted overlay is
+    invalid, instead of refusing the operation.
+    """
+    return replace(page, type_basis=_type_basis(page).reading())
+
+
+def _route(page: SemanticPageState) -> note_types.NoteType | None:
+    """The compiled type that owns this page's `Notes/<Name>` folder, if any.
+
+    Raises `NOTE_TYPE_DEFINITION_UNAVAILABLE` when the folder needs a definition
+    from an admitted overlay that is invalid.
+    """
+    name = _route_name(page.path)
+    return _type_basis(page).route(name).require() if name is not None else None
+
+
+def _compiled_type(page: SemanticPageState) -> note_types.NoteType | None:
+    """The page type's definition when its note-type role is compiled."""
+    definition = (
+        _type_basis(page).resolve(normalized_compiled_type(page.page_type)).require()
+    )
+    return definition if definition is not None and note_types.compiled(definition) else None
+
+
+def canonical_compiled_destination(page: SemanticPageState) -> note_types.NoteType | None:
+    """Return the compiled type selected by one canonical destination, if any."""
+    if _path_excluded_from_semantic_minimum(page.path):
+        return None
+    return _route(page)
+
+
+def _frontmatter_tags(page: SemanticPageState) -> frozenset[str]:
+    value = page.frontmatter.get("tags")
+    if isinstance(value, str):
+        values = (value,)
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        values = value
+    else:
+        values = ()
+    return frozenset(str(item).strip().casefold().lstrip("#") for item in values)
+
+
+def _semantic_unit_explicitly_exempt(page: SemanticPageState) -> bool:
+    return bool(
+        _path_excluded_from_semantic_minimum(page.path)
+        or (_frontmatter_tags(page) & _SEMANTIC_UNIT_EXEMPT_TAGS)
+    )
+
+
+def compiled_intent(page: SemanticPageState) -> bool:
+    """Apply the exact route-or-type compiled-intent definition.
+
+    Raises `NOTE_TYPE_DEFINITION_UNAVAILABLE` when the route or the type needs a
+    definition from an admitted overlay that is invalid.
+    """
+    return bool(
+        canonical_compiled_destination(page) is not None or _compiled_type(page) is not None
+    )
+
+
+# Turning a compiled note into a non-compiled kind fails both ways: the new type
+# is refused in the old folder, and the old type is refused in the new folder.
+_RETYPE_ACROSS_FOLDERS = (
+    "If the new kind of page is not a compiled type (for example an entity), each "
+    "half of the change is refused alone: create the page in the folder for that "
+    "kind and retire this one."
+)
+
+
+def compiled_structure_finding(page: SemanticPageState) -> ContractFinding | None:
+    """Return a deterministic path/type mismatch before semantic applicability.
+
+    A type folder holds pages of any compiled type, and a compiled type is valid in
+    any Notes folder the router does not exempt. So a page is off its route only when
+    a type folder holds a page without a compiled type, or a compiled page sits where
+    the router never selects it.
+    """
+    destination = _route(page)
+    compiled_type = _compiled_type(page)
+    if _path_excluded_from_semantic_minimum(page.path) and compiled_type is None:
+        return None
+    if destination is not None and compiled_type is None:
+        return ContractFinding(
+            code="COMPILED_TYPE_MISMATCH",
+            severity="error",
+            path=page.path,
+            span=None,
+            detail=(
+                f"canonical {destination.folder} content requires a compiled "
+                f"frontmatter type, got {normalized_compiled_type(page.page_type) or 'none'!r}"
+            ),
+            remediation=(
+                "Set a compiled `type:` (shipped: "
+                + ", ".join(item.key for item in note_types.shipped(note_types.compiled))
+                + ") or move the document outside that canonical compiled destination. "
+                + _RETYPE_ACROSS_FOLDERS
+            ),
+            governed_element_identity=("compiled_intent", "type"),
+            resolved_rule=("semantic_authoring", "compiled_intent", "structure"),
+        )
+    if compiled_type is not None and _route_name(page.path) is None:
+        return ContractFinding(
+            code="COMPILED_DESTINATION_MISMATCH",
+            severity="error",
+            path=page.path,
+            span=None,
+            detail=(
+                f"compiled frontmatter type {normalized_compiled_type(page.page_type)!r} "
+                f"sits outside a {kb_dirname()}/{note_types.NOTES_FOLDER}/<Folder> destination"
+            ),
+            remediation=(
+                f"Move the document under `{note_types.NOTES_FOLDER}/<Folder>` or use "
+                "a non-compiled type appropriate to this destination. "
+                + _RETYPE_ACROSS_FOLDERS
+            ),
+            governed_element_identity=("compiled_intent", "destination"),
+            resolved_rule=("semantic_authoring", "compiled_intent", "structure"),
+        )
+    return None
+
+
+def compiled_structure_matches(page: SemanticPageState) -> bool:
+    """Return whether compiled intent exists and path/type structure is applicable."""
+    return bool(
+        compiled_intent(page)
+        and not _semantic_unit_explicitly_exempt(page)
+        and compiled_structure_finding(page) is None
+    )
+
+
+def requires_semantic_unit(page: SemanticPageState) -> bool:
+    """Return the exact active, writable compiled minimum-unit predicate."""
+    return bool(compiled_structure_matches(page) and page.eligible_compiled)
+
+
+def _missing_semantic_unit_finding(page: SemanticPageState) -> ContractFinding | None:
+    if page.document.units or not compiled_structure_matches(page):
+        return None
+    active_required = requires_semantic_unit(page)
+    inactive = page.status_class is not None and page.status_class != "live"
+    if not active_required and not inactive:
+        return None
+    finding = semantic_authoring.AUTHORING_CONTRACT.findings["missing_semantic_unit"]
+    return ContractFinding(
+        code="missing_semantic_unit",
+        severity="error" if active_required else "warning",
+        path=page.path,
+        span=None,
+        detail=str(finding["when"]),
+        remediation=(f"{finding['compact_remediation']} {finding['rich_remediation']}"),
+        governed_element_identity=("semantic_units", "minimum"),
+        resolved_rule=("semantic_authoring", "semantic_unit", "minimum"),
+    )
+
+
+def _copy_definition(
+    definition: relation_registry.RelationDefinition,
+) -> relation_registry.RelationDefinition:
+    return replace(
+        definition,
+        origins=frozenset(definition.origins),
+        aliases=tuple(definition.aliases),
+        source_kinds=frozenset(definition.source_kinds),
+        target_kinds=frozenset(definition.target_kinds),
+        projects=frozenset(definition.projects),
+        page_types=frozenset(definition.page_types),
+    )
+
+
+def _copy_registry(
+    registry: relation_registry.RelationRegistry,
+) -> relation_registry.RelationRegistry:
+    return relation_registry.RelationRegistry(
+        core_version=registry.core_version,
+        extension_hash=registry.extension_hash,
+        core=MappingProxyType(
+            {key: _copy_definition(value) for key, value in registry.core.items()}
+        ),
+        extensions=MappingProxyType(
+            {key: _copy_definition(value) for key, value in registry.extensions.items()}
+        ),
+        aliases=MappingProxyType(dict(registry.aliases)),
+        findings=tuple(MappingProxyType(dict(finding)) for finding in registry.findings),
+        terminal_replacements=MappingProxyType(dict(registry.terminal_replacements)),
+        predecessor_closure=MappingProxyType(
+            {
+                key: frozenset(predecessors)
+                for key, predecessors in registry.predecessor_closure.items()
+            }
+        ),
+    )
+
+
+#: The writer view is not decided yet; `writer_view_relations` decides it.
+_DECIDE = object()
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticCorpusContext:
+    """One corpus judged for one operation.
+
+    `writer_visibility` is the operation's writer view, decided where the
+    context is built so evaluation reads no host or vault state; `_DECIDE`
+    means the evaluator decides it.
+    """
+
+    vault_root: Path
+    pages: Mapping[str, SemanticPageState]
+    resolver_entries: tuple[tuple[str, str], ...]
+    resolver_full_paths: frozenset[str]
+    resolver_kb_stripped: frozenset[str]
+    resolver_stems: Mapping[str, tuple[str, ...]]
+    resolver_titles: Mapping[str, tuple[str, ...]]
+    resolver_candidates_by_key: Mapping[str, tuple[vault.WikilinkCandidate, ...]] = field(init=False)
+    raw_target_dependencies: Mapping[str, tuple[str, ...]]
+    relation_facts: tuple[RelationFact, ...]
+    eligible_governed_paths: frozenset[str]
+    eligible_compiled_paths: frozenset[str]
+    connectable_target_paths: frozenset[str]
+    inbound: Mapping[str, tuple[RelationFact, ...]]
+    outbound: Mapping[str, tuple[RelationFact, ...]]
+    activation_census: activation_manifest.ActivationCensus
+    identity_census: StableIdentityCensus
+    registry: relation_registry.RelationRegistry = field(repr=False, compare=False)
+    writer_visibility: Any = field(default=_DECIDE, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "pages",
+            MappingProxyType({key: self.pages[key] for key in sorted(self.pages)}),
+        )
+        object.__setattr__(self, "resolver_entries", tuple(self.resolver_entries))
+        resolver = vault.WikilinkResolver.from_entries(self.vault_root, self.resolver_entries)
+        object.__setattr__(
+            self, "resolver_candidates_by_key",
+            _mapping_of_tuples(resolver.candidates_by_key),
+        )
+        object.__setattr__(self, "resolver_full_paths", frozenset(self.resolver_full_paths))
+        object.__setattr__(self, "resolver_kb_stripped", frozenset(self.resolver_kb_stripped))
+        object.__setattr__(
+            self,
+            "resolver_stems",
+            _mapping_of_tuples(self.resolver_stems),
+        )
+        object.__setattr__(
+            self,
+            "resolver_titles",
+            _mapping_of_tuples(self.resolver_titles),
+        )
+        object.__setattr__(
+            self,
+            "raw_target_dependencies",
+            _mapping_of_tuples(self.raw_target_dependencies),
+        )
+        object.__setattr__(self, "relation_facts", tuple(self.relation_facts))
+        object.__setattr__(
+            self,
+            "eligible_governed_paths",
+            frozenset(self.eligible_governed_paths),
+        )
+        object.__setattr__(
+            self,
+            "connectable_target_paths",
+            frozenset(self.connectable_target_paths),
+        )
+        object.__setattr__(
+            self,
+            "eligible_compiled_paths",
+            frozenset(self.eligible_compiled_paths),
+        )
+        object.__setattr__(self, "inbound", _mapping_of_tuples(self.inbound))
+        object.__setattr__(self, "outbound", _mapping_of_tuples(self.outbound))
+        object.__setattr__(self, "registry", _copy_registry(self.registry))
+
+    @classmethod
+    def from_states(
+        cls,
+        vault_root: Path,
+        states: Iterable[SemanticPageState],
+        *,
+        registry: relation_registry.RelationRegistry,
+        identity_census: StableIdentityCensus,
+    ) -> SemanticCorpusContext:
+        by_path: dict[str, SemanticPageState] = {}
+        for state in states:
+            if state.path in by_path:
+                raise ValueError(f"duplicate semantic page path: {state.path}")
+            by_path[state.path] = state
+        return _context_from_state_map(
+            Path(vault_root),
+            by_path,
+            _copy_registry(registry),
+            StableIdentityCensus(
+                tuple(identity_census.entries), identity_census.reference_only_entries
+            ),
+            writer_visibility=vault.writer_link_visibility(Path(vault_root)),
+        )
+
+    def with_candidate(self, state: SemanticPageState) -> SemanticCorpusContext:
+        if _stable_topology_replacement(self, state):
+            return _context_with_stable_topology_candidate(self, state)
+        pages = dict(self.pages)
+        pages[state.path] = state
+        return _context_from_state_map(
+            self.vault_root,
+            pages,
+            self.registry,
+            self.identity_census.with_page(
+                state, casefold_paths=vault.vault_casefolds(self.vault_root)
+            ),
+            writer_visibility=self.writer_visibility,
+        )
+
+    def registry_for(self, path: str) -> relation_registry.RelationRegistry:
+        return _authored_relations(self.pages.get(path), self.registry)
+
+    @property
+    def status_dependencies(self) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            sorted(
+                {
+                    page.status_dependency
+                    for page in self.pages.values()
+                    if page.status_dependency is not None
+                }
+            )
+        )
+
+    @property
+    def status_unavailable_paths(self) -> frozenset[str]:
+        """Pages whose lifecycle eligibility this caller cannot decide."""
+        return frozenset(path for path, page in self.pages.items() if page.status_unavailable)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "pages": [self.pages[path].as_dict() for path in sorted(self.pages)],
+            "resolver_entries": [list(entry) for entry in self.resolver_entries],
+            "relation_facts": [fact.as_dict() for fact in self.relation_facts],
+            "eligible_governed_paths": sorted(self.eligible_governed_paths),
+            "eligible_compiled_paths": sorted(self.eligible_compiled_paths),
+            "identity_census": self.identity_census.as_dict(),
+            "inbound": {
+                path: [fact.identity for fact in facts] for path, facts in self.inbound.items()
+            },
+            "outbound": {
+                path: [fact.identity for fact in facts] for path, facts in self.outbound.items()
+            },
+        }
+
+
+def _normalize_path(vault_root: Path, path: Path | str) -> str:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            value = candidate.resolve().relative_to(vault_root.resolve()).as_posix()
+        except ValueError as error:
+            raise ValueError("page path must be inside vault_root") from error
+    else:
+        value = PurePosixPath(str(path).replace("\\", "/")).as_posix().lstrip("/")
+    posix = PurePosixPath(value)
+    if (
+        not value
+        or posix.is_absolute()
+        or any(part in {"", ".", ".."} for part in posix.parts)
+        or posix.suffix.lower() != ".md"
+    ):
+        raise ValueError("page path must be a safe vault-relative POSIX Markdown path")
+    return value
+
+
+def _page_projects(frontmatter: Mapping[Any, Any]) -> tuple[str, ...]:
+    projects: set[str] = set()
+    project = frontmatter.get("project")
+    if project:
+        projects.add(str(project))
+    attached = frontmatter.get("projects")
+    if isinstance(attached, (list, tuple)):
+        projects.update(str(value) for value in attached if str(value))
+    elif attached:
+        projects.add(str(attached))
+    return tuple(sorted(projects))
+
+
+def build_page_state(
+    vault_root: Path,
+    path: Path | str,
+    source: str,
+    *,
+    relation_registry: relation_registry.RelationRegistry | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    review_fingerprint: str | None | object = _REVIEW_FINGERPRINT_UNSET,
+    complete_authored_effects: bool = False,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+    page_definitions: instances.PageDefinitions | None = None,
+) -> SemanticPageState:
+    """Parse and classify a target before evaluating lifecycle-dependent obligations."""
+    state = _parse_page_state(
+        vault_root,
+        path,
+        source,
+        relation_registry=globals()["relation_registry"].core_registry(),
+        language_registry=semantic_language_registry.core_registry(),
+        review_fingerprint=review_fingerprint,
+        complete_authored_effects=complete_authored_effects,
+    )
+    return enrich_page_state(
+        Path(vault_root),
+        state,
+        status_basis or lifecycle_statuses.Basis(vault_root),
+        type_basis,
+        relation_definitions=relation_registry,
+        language=language_registry,
+        page_definitions=page_definitions,
+    )
+
+
+#: The registry subjects whose instance definitions reinterpret a page's units.
+_PAGE_DEFINITION_SUBJECTS = ("relations", "categories")
+
+
+def enrich_page_state(
+    root: Path,
+    state: SemanticPageState,
+    status_basis: lifecycle_statuses.Basis,
+    type_basis: note_types.Basis | None = None,
+    *,
+    relation_definitions: relation_registry.RelationRegistry | None = None,
+    language: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    require_status: bool = True,
+    page_definitions: instances.PageDefinitions | None = None,
+    definitions_selection: instances.DefinitionsSelection | None = None,
+) -> SemanticPageState:
+    """Interpret detached facts with this page's admitted instance, lifecycle and note types.
+
+    The operation's own page requires its class. Other corpus pages pass
+    ``require_status=False``: an unavailable class marks the page instead of
+    refusing the corpus, and only a decision that reads it refuses.
+    ``definitions_selection`` is a corpus build's one selection of
+    ``_PAGE_DEFINITION_SUBJECTS``, shared by every page that build interprets.
+    """
+    type_basis = type_basis or note_types.Basis(root)
+    definitions = page_definitions or (state.definitions if state.definitions_explicit else None)
+    definitions_explicit = definitions is not None
+    unavailable = False
+    if definitions is not None:
+        if (definitions.path != state.path or definitions.frontmatter != state.frontmatter
+                or not set(_PAGE_DEFINITION_SUBJECTS) <= definitions.snapshots.keys()
+                or (instances.page_scope(root, state.path, dict(state.frontmatter))
+                    or instances.PUBLIC_INSTANCE) != definitions.instance_id):
+            raise ValueError("REGISTRY_UNAVAILABLE: staged page definitions do not match the page")
+        from .vocabulary import registry_spec
+
+        for subject, snapshot in definitions.snapshots.items():
+            spec = instances.select(root, registry_spec(subject), definitions.instance_id)
+            if (spec.binding_revision != definitions.binding_revision
+                    or snapshot.registry != subject or snapshot.instance_id != spec.instance_id):
+                raise ValueError("REGISTRY_UNAVAILABLE: staged page definitions changed selection")
+            instances.recheck(root, spec)
+    try:
+        if definitions is None:
+            definitions = (
+                definitions_selection.page_definitions(state.path, dict(state.frontmatter))
+                if definitions_selection is not None
+                else instances.page_definitions(
+                    root, state.path, dict(state.frontmatter), _PAGE_DEFINITION_SUBJECTS,
+                )
+            )
+        if definitions_explicit or definitions.binding_revision is not None or relation_definitions is None:
+            relation_definitions = definitions.snapshots["relations"].typed
+        if definitions_explicit or definitions.binding_revision is not None or language is None:
+            language = definitions.snapshots["categories"].typed
+    except ValueError:
+        # Core meanings remain public; missing assignment never makes an overlay public.
+        unavailable = True
+        relation_definitions = relation_registry.core_registry()
+        language = semantic_language_registry.core_registry()
+    document = state.document
+    language_hash = f"{language.schema_version}:{language.content_hash}"
+    relation_hash = f"{relation_definitions.core_version}:{relation_definitions.extension_hash}"
+    if (state.language_registry_hash, state.relation_registry_hash) != (language_hash, relation_hash):
+        # The same parent input as the detached parse: a page without an
+        # `exomem_id` derives its legacy path ref, which is not a memory ref.
+        document = semantic_units.parse_semantic_units(
+            state.body, path=state.path,
+            parent_ref=(
+                memory_refs.memory_ref(state.identity) if state.identity_kind == "exomem_id" else None
+            ),
+            candidates=state.candidates,
+            language_registry=semantic_language_registry.for_attached_projects(language, state.projects),
+            relation_registry=relation_definitions, include_legacy_relations=True,
+            retain_unknown_relations=True, page_type=state.page_type,
+        )
+    page_type = activation.normalized_page_type(state.page_type)
+    governed = state.structurally_placed and type_basis.selects(
+        page_type, note_types.governed_endpoint
+    )
+    compiled = state.structurally_placed and type_basis.selects(page_type, note_types.compiled)
+    connectable = state.structurally_placed_connectable and type_basis.selects(
+        page_type, note_types.connectable
+    )
+    needed = governed or compiled or connectable
+    classification = (
+        status_basis.classify(state.frontmatter.get("status"), path=state.path, frontmatter=state.frontmatter)
+        if needed
+        else lifecycle_statuses.Classification(None)
+    )
+    unavailable_status = needed and classification.lifecycle_class is None
+    if unavailable_status and require_status:
+        classification.require()
+    # An unavailable class is never "not live": the flag below keeps it unknown.
+    live = needed and not unavailable_status and classification.live
+    return replace(
+        state,
+        document=document,
+        language_registry_hash=language_hash,
+        relation_registry_hash=relation_hash,
+        definitions=definitions,
+        definitions_explicit=definitions_explicit,
+        definitions_unavailable=unavailable,
+        eligible_governed=governed and live,
+        eligible_compiled=compiled and live,
+        connectable_target=connectable and live,
+        status_class=classification.lifecycle_class,
+        status_unregistered=classification.unregistered,
+        status_dependency=status_basis.dependency,
+        status_unavailable=unavailable_status,
+        type_basis=type_basis,
+    )
+
+
+def _parse_page_state(
+    vault_root: Path,
+    path: Path | str,
+    source: str,
+    *,
+    relation_registry: relation_registry.RelationRegistry | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    review_fingerprint: str | None | object = _REVIEW_FINGERPRINT_UNSET,
+    complete_authored_effects: bool = False,
+) -> SemanticPageState:
+    """Build detached semantic state from one already-read Markdown string."""
+    root = Path(vault_root)
+    rel_path = _normalize_path(root, path)
+    raw_source = source
+    logical_source = raw_source.replace("\r\n", "\n").replace("\r", "\n")
+    frontmatter, body, _ = vault.parse_frontmatter(logical_source)
+    page_type_value = frontmatter.get("type")
+    page_type = str(page_type_value) if page_type_value else None
+    projects = _page_projects(frontmatter)
+    normalized_id = normalize_id(frontmatter.get(ID_FIELD))
+    registry = relation_registry or globals()["relation_registry"].core_registry()
+    language = language_registry or semantic_language_registry.core_registry()
+    from . import provenance
+
+    # Reserved attribution is not authored semantic content. Blank it before
+    # parsing, retaining positions and line numbers for the surrounding prose.
+    owned = provenance.parse_owned_origin(body, owner_path=rel_path).spans
+    # This separately versioned namespace holds parser positions, never caller decisions.
+    prose_carriers = {
+        "format": 1, "body_length": len(body), "owned": owned,
+        "withheld": provenance.withheld_spans(body, owner_path=rel_path),
+    }
+    for start, end in reversed(owned):
+        body = body[:start] + re.sub(r"[^\n]", " ", body[start:end]) + body[end:]
+    candidates = semantic_units.scan_semantic_units(body, path=rel_path)
+    document = semantic_units.parse_semantic_units(
+        body,
+        candidates=candidates,
+        path=rel_path,
+        parent_ref=(memory_refs.memory_ref(normalized_id) if normalized_id is not None else None),
+        validate=True,
+        language_registry=semantic_language_registry.for_attached_projects(language, projects),
+        relation_registry=registry,
+        include_legacy_relations=True,
+        retain_unknown_relations=True,
+        project=None,
+        page_type=page_type,
+    )
+    title = vault.resolve_display_title(frontmatter, body, rel_path)
+    # Collected here, where the body is already in scope, so fact derivation
+    # never re-reads the file. Deduped by normalized target and capped, because
+    # a pathological page would otherwise inflate the corpus fact graph.
+    # Every authored relation row covers its own line, registered or not. An
+    # unregistered label is deliberately NOT degraded into a generic wikilink:
+    # it stays a retained relation so it keeps surfacing for promotion through
+    # `schema_memory(subject="relations")`. Converting it to a link would connect
+    # the page at the cost of hiding the very signal that needs review.
+    typed_lines = {relation.line for relation in document.note_relations} | {
+        relation.line for unit in document.rich_units for relation in unit.relations
+    }
+    body_links: list[tuple[str, int]] = []
+    seen_link_targets: set[str] = set()
+    for match in vault.find_body_wikilinks(body):
+        if not complete_authored_effects and len(body_links) >= _MAX_WIKILINK_FACTS_PER_PAGE:
+            break
+        target = match.group(0)[2:-2].split("|", 1)[0].split("#", 1)[0].strip()
+        if not target:
+            continue
+        line = body.count("\n", 0, match.start()) + 1
+        if line in typed_lines:
+            continue
+        key = target.casefold()
+        if key in seen_link_targets:
+            continue
+        seen_link_targets.add(key)
+        body_links.append((target, line))
+    identity_kind = "exomem_id" if normalized_id is not None else "path"
+    identity = normalized_id or rel_path
+    resolved_review_fingerprint = review_fingerprint
+    if review_fingerprint is _REVIEW_FINGERPRINT_UNSET:
+        resolved_review_fingerprint = (
+            review_content_fingerprint(normalized_id, logical_source)
+            if normalized_id is not None
+            else None
+        )
+    elif review_fingerprint is not None and type(review_fingerprint) is not str:
+        raise ValueError("review_fingerprint must be a string or None")
+    parsed = find_module.ParsedPage(
+        path=root / rel_path,
+        rel_path=rel_path,
+        frontmatter=frontmatter,
+        body="",
+        title=title,
+        mtime=0.0,
+    )
+    connectable_placed = activation.structurally_placed(
+        root, parsed, tiers=activation.CONNECTABLE_TIERS
+    )
+    writable_placed = (
+        connectable_placed and access.access_tier(root, rel_path) == access.TIER_READ_WRITE
+    )
+    compiled = writable_placed and note_types.Basis(root, owner_local=True).selects(
+        activation.normalized_page_type(parsed.page_type), note_types.compiled
+    )
+    return SemanticPageState(
+        path=rel_path,
+        identity_kind=identity_kind,
+        identity=identity,
+        source_hash=vault.content_hash(raw_source),
+        language_registry_hash=(f"{language.schema_version}:{language.content_hash}"),
+        relation_registry_hash=(f"{registry.core_version}:{registry.extension_hash}"),
+        review_fingerprint=(
+            str(resolved_review_fingerprint) if resolved_review_fingerprint is not None else None
+        ),
+        frontmatter=frontmatter,
+        page_type=page_type,
+        projects=projects,
+        status=str(frontmatter["status"]) if frontmatter.get("status") else None,
+        title=title,
+        document=document,
+        eligible_governed=False,
+        eligible_compiled=False,
+        connectable_target=False,
+        # Shared, caller-independent structure: the census reads the owner's
+        # note types; a request enriches the state with its own basis.
+        structurally_compiled=compiled,
+        structurally_placed=writable_placed,
+        structurally_placed_connectable=connectable_placed,
+        body_wikilinks=tuple(body_links),
+        body=body,
+        candidates=candidates,
+        neutral_document=document,
+        prose_carriers=prose_carriers,
+    )
+
+
+class _CensusUnsafe(Exception):
+    """The corpus tree cannot be fingerprinted safely; do not use the cache."""
+
+
+# Process cache for the fully-materialized corpus context: one bounded entry
+# per vault root, captioned by a stat-level census of every filesystem input the
+# build reads. Exact census matches are returned directly. Markdown-only census
+# deltas are reconciled by reparsing just the changed parents and rebuilding the
+# cheap derived maps from the retained page states. Configuration/registry
+# changes still take the full-build oracle path.
+#
+# Why (path, size, mtime_ns) per file and not a max-mtime scan: Syncthing (and
+# any mtime-preserving sync) materializes remote edits with the SOURCE's
+# modification time, which can be older than every local timestamp — max-mtime
+# would silently serve a stale corpus. The full census still catches such an
+# edit because the synced file's mtime_ns (and normally size) differs from the
+# entry recorded for the previous content at that path. The residual
+# undetectable case — new content with byte-identical size and identical
+# 100ns-resolution mtime at the same path — is not producible by the engine's
+# own temp+rename writes nor by observed sync behavior.
+_CORPUS_CONTEXT_CACHE: dict[tuple[str, str], tuple[tuple, SemanticCorpusContext]] = {}
+_CORPUS_CONTEXT_EVENT_TOKENS: dict[tuple[str, str], tuple[int, int, str]] = {}
+_CORPUS_CONTEXT_EVENT_CHECKPOINTS: dict[
+    tuple[str, str], freshness.FreshnessCheckpoint
+] = {}
+_CORPUS_CONTEXT_LANGUAGE_HASHES: dict[tuple[str, str], str] = {}
+_CORPUS_CONTEXT_CACHE_LOCK = threading.Lock()
+# Enrichment for a caller who admits every page, per structural cache key and
+# per whether the caller supplied registries: (structural context, (status,
+# note-type, page-definition, supplied-registry) dependencies consulted, enriched
+# context, enriched states). Bases that re-admit to the same dependencies, under
+# unchanged page definitions and supplied registry identities, reuse the whole
+# context when the structural object is unchanged, and otherwise reuse each page
+# whose structural state object is unchanged, so a write re-enriches only the
+# pages it changed. The supplied slot serves armed vaults, whose writers keep an
+# explicit public corpus registry (`corpus_registry_overrides`).
+_ENRICHED_CONTEXT_MEMO: dict[
+    tuple[tuple[str, str], bool],
+    tuple[
+        SemanticCorpusContext,
+        tuple[tuple[str, str], tuple[str, str], tuple, tuple],
+        SemanticCorpusContext,
+        dict[str, SemanticPageState],
+    ],
+] = {}
+_CORPUS_CONTEXT_UPDATE_LOCK = threading.RLock()
+_CORPUS_CONTEXT_CACHE_MAX_VAULTS = 2
+
+#: Bounds populate-on-miss (#539). Both halves exist because that build is
+#: paid by a WRITER: without them, a state that keeps the cache cold -- a
+#: projection patch that fails and evicts on every publish, or external churn
+#: that discards every admission -- makes every governed write pay a full
+#: census and parse of the whole vault that cannot land. Each occurrence is
+#: individually bounded, so this is amplification rather than livelock, but at
+#: thousands of pages it is the dominant cost moved onto writers.
+#:
+#: The shared corpus flight collapses concurrent publishers and warmers.
+_CORPUS_POPULATE_LOCK = threading.Lock()
+
+#: The memo collapses the sequential case, and is deliberately measured in the
+#: cost of the attempt that just failed rather than in a fixed number of
+#: seconds. A populate that discarded after eight seconds of walking is
+#: evidence the vault is still moving; retrying immediately spends the next
+#: eight the same way. Waiting at least as long as the attempt cost caps
+#: populate at roughly half of wall-clock in the worst state and scales itself
+#: to vault size, which no constant here could. The floor keeps a fast vault's
+#: memo from being a no-op; the ceiling keeps one pathological build from
+#: silencing populate for minutes.
+#:
+#: Deliberately NOT cleared by :func:`evict_corpus_context`: eviction is the
+#: front half of the exact loop being bounded, so letting it reset the memo
+#: would hand back the amplification this removes.
+_CORPUS_POPULATE_MEMO: dict[tuple[str, str], float] = {}
+_CORPUS_POPULATE_MEMO_MIN_SECONDS = 1.0
+_CORPUS_POPULATE_MEMO_MAX_SECONDS = 30.0
+
+
+@dataclass(slots=True)
+class _CorpusContextFlight:
+    census: tuple | None
+    registry_identity: tuple[Any, ...]
+    language_identity: tuple[Any, ...]
+    done: threading.Event = field(default_factory=threading.Event)
+    result: SemanticCorpusContext | None = None
+    error: BaseException | None = None
+    discarded: bool = False
+
+
+_CORPUS_CONTEXT_FLIGHTS: dict[tuple[str, str], _CorpusContextFlight] = {}
+
+
+def _claim_corpus_context_flight(
+    cache_key: tuple[str, str],
+    census: tuple | None,
+    relation_definitions: relation_registry.RelationRegistry,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> tuple[_CorpusContextFlight, bool]:
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        flight = _CORPUS_CONTEXT_FLIGHTS.get(cache_key)
+        if flight is not None:
+            return flight, False
+        flight = _CorpusContextFlight(
+            census,
+            (relation_definitions.core_version, relation_definitions.extension_hash),
+            (language.schema_version, language.content_hash),
+        )
+        _CORPUS_CONTEXT_FLIGHTS[cache_key] = flight
+        return flight, True
+
+
+def _finish_corpus_context_flight(
+    cache_key: tuple[str, str], flight: _CorpusContextFlight
+) -> None:
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        if _CORPUS_CONTEXT_FLIGHTS.get(cache_key) is flight:
+            del _CORPUS_CONTEXT_FLIGHTS[cache_key]
+    flight.done.set()
+
+#: A waiter owns an interactive request budget, not the owner's vault-sized
+#: build duration.  Two seconds is fixed and deliberately non-configurable: it
+#: is far below the measured 103.6-second median post-commit interval, and it
+#: nests inside every bound above it — the origin's 50-second request budget
+#: (`request_budget.MCP_REQUEST_BUDGET_SECONDS`), the edge's 100-second cap and
+#: the client's 60-second tool timeout — while leaving room for ordinary
+#: scheduling noise.  The 15-second connector timeout this comment used to cite
+#: has not existed since the edge budget was raised.
+_CORPUS_CONTEXT_JOIN_TIMEOUT_SECONDS = 2.0
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceIdentitySnapshot:
+    """One immutable, event-captioned view of canonical reference ownership."""
+
+    checkpoint: freshness.FreshnessCheckpoint
+    reference_paths: frozenset[str]
+    canonical_refs_by_path: Mapping[str, str | None]
+    # Identity -> every reference path holding it. Unlike
+    # `canonical_refs_by_path`, a duplicated identity keeps all its owners.
+    reference_owners: Mapping[str, tuple[str, ...]]
+    _cache_context_identity: object = field(repr=False, compare=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceWikilinkResolution:
+    """One I/O-free wikilink resolution from an exact cached corpus context."""
+
+    status: str
+    path: str | None = None
+
+
+def _drop_corpus_caption_locked(cache_key: tuple[str, str]) -> None:
+    _CORPUS_CONTEXT_EVENT_TOKENS.pop(cache_key, None)
+    _CORPUS_CONTEXT_EVENT_CHECKPOINTS.pop(cache_key, None)
+
+
+def _forget_corpus_entry_locked(cache_key: tuple[str, str]) -> bool:
+    """Withdraw one vault's cached context and everything derived from it."""
+    removed = _CORPUS_CONTEXT_CACHE.pop(cache_key, None) is not None
+    _drop_corpus_caption_locked(cache_key)
+    _CORPUS_CONTEXT_LANGUAGE_HASHES.pop(cache_key, None)
+    for supplied in (False, True):
+        _ENRICHED_CONTEXT_MEMO.pop((cache_key, supplied), None)
+    return removed
+
+
+def _caption_corpus_context_locked(
+    cache_key: tuple[str, str], checkpoint: freshness.FreshnessCheckpoint
+) -> None:
+    if checkpoint.triple is None:
+        _drop_corpus_caption_locked(cache_key)
+        return
+    _CORPUS_CONTEXT_EVENT_TOKENS[cache_key] = checkpoint.triple
+    _CORPUS_CONTEXT_EVENT_CHECKPOINTS[cache_key] = checkpoint
+
+
+def corpus_context_cache_enabled() -> bool:
+    """Whether the corpus-context cache is active (EXOMEM_DISABLE_CORPUS_CACHE)."""
+    return not os.environ.get("EXOMEM_DISABLE_CORPUS_CACHE")
+
+
+def reset_corpus_context_cache() -> None:
+    """Drop every cached corpus context; intentionally public for tests."""
+    with _CORPUS_POPULATE_LOCK:
+        _CORPUS_POPULATE_MEMO.clear()
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        _CORPUS_CONTEXT_CACHE.clear()
+        _CORPUS_CONTEXT_EVENT_TOKENS.clear()
+        _CORPUS_CONTEXT_EVENT_CHECKPOINTS.clear()
+        _CORPUS_CONTEXT_LANGUAGE_HASHES.clear()
+        _ENRICHED_CONTEXT_MEMO.clear()
+
+
+def evict_corpus_context(vault_root: Path) -> bool:
+    """Withdraw one vault's corpus projection after an unbridgeable event gap."""
+    cache_key = _corpus_cache_key(Path(vault_root))
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        return _forget_corpus_entry_locked(cache_key)
+
+
+# The decline reason for a proof whose checkpoint moved while it ran;
+# `find.writer_resolver_snapshot` retries on it, so it lives in one place.
+CHANGED_DURING_PROOF = "changed_during_proof"
+
+
+def current_reference_identity_snapshot(
+    vault_root: Path,
+    *,
+    declined: dict[str, int] | None = None,
+    tolerate_external_pending: bool = False,
+) -> ReferenceIdentitySnapshot | None:
+    """Return the current cached identity authority without filesystem corpus work.
+
+    ``declined`` receives the first proof failure for the caller's existing span.
+
+    ``tolerate_external_pending`` is for a read that may answer from the last
+    published projection while the watcher, which has already seen an edit made
+    outside the server, publishes it. It excuses only that pending mark. The
+    projection must still be live, captioned at the registry's checkpoint and
+    unreplaced, so a projection that nothing is going to refresh stays declined.
+    """
+    # Decline keys name this proof's closed branches, never source content.
+    def decline(reason: str) -> None:
+        if declined is not None:
+            declined[f"declined_{reason}"] = 1
+
+    root = Path(vault_root)
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        if not tolerate_external_pending and freshness.external_pending(root):
+            return decline("external_pending")
+        if not freshness.is_live(root, "vault"):
+            return decline("events_not_live")
+        checkpoint = freshness.consumer_checkpoint(root, "vault")
+        if checkpoint.triple is None:
+            return decline("checkpoint_absent")
+        try:
+            cache_key = _corpus_cache_key(root)
+        except Exception:  # noqa: BLE001 - an unkeyable root has no authority
+            return decline("unkeyable")
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+            caption = _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key)
+            if entry is None:
+                return decline("corpus_absent")
+            if caption != checkpoint:
+                return decline("checkpoint_differs")
+            identity = entry[1].identity_census
+            snapshot = ReferenceIdentitySnapshot(
+                checkpoint,
+                identity._reference_paths,
+                identity._canonical_refs_by_path,
+                identity._reference_owners,
+                entry[1],
+            )
+        if not tolerate_external_pending and freshness.external_pending(root):
+            return decline(CHANGED_DURING_PROOF)
+        return snapshot
+
+
+def reference_identity_snapshot_is_current(
+    vault_root: Path,
+    snapshot: ReferenceIdentitySnapshot,
+    *,
+    tolerate_external_pending: bool = False,
+) -> bool:
+    """Revalidate an exact cached identity snapshot without walking or parsing.
+
+    ``tolerate_external_pending`` has the meaning it has on
+    :func:`current_reference_identity_snapshot`.
+    """
+    root = Path(vault_root)
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        if (
+            not tolerate_external_pending and freshness.external_pending(root)
+        ) or not freshness.is_live(root, "vault"):
+            return False
+        if freshness.consumer_checkpoint(root, "vault") != snapshot.checkpoint:
+            return False
+        try:
+            cache_key = _corpus_cache_key(root)
+        except Exception:  # noqa: BLE001 - an unkeyable root has no authority
+            return False
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+            return bool(
+                entry is not None
+                and _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key)
+                == snapshot.checkpoint
+                and entry[1] is snapshot._cache_context_identity
+                and entry[1].identity_census._reference_paths is snapshot.reference_paths
+                and entry[1].identity_census._canonical_refs_by_path
+                is snapshot.canonical_refs_by_path
+                and entry[1].identity_census._reference_owners
+                is snapshot.reference_owners
+            )
+
+
+def current_writer_resolver_entries(
+    vault_root: Path,
+    *,
+    freshness_key: tuple[int, int, str] | None = None,
+    declined: dict[str, int] | None = None,
+) -> tuple[tuple[str, str], ...] | None:
+    """Return broad resolver entries from an exactly current resident corpus.
+
+    Writer preparation may borrow this immutable path/title projection only
+    when the event-maintained corpus caption, semantic configuration, and live
+    broad Markdown membership still all identify the same corpus.  This is
+    intentionally read-only: a miss must leave both corpus and resolver caches
+    untouched for the existing disk fallback to handle.
+
+    A caller passing `declined` learns which proof failed, as one closed
+    `declined_<reason>` counter for its timing span.
+    """
+
+    def decline(reason: str) -> None:
+        if declined is not None:
+            declined[f"declined_{reason}"] = 1
+
+    root = Path(vault_root)
+    try:
+        cache_key = _corpus_cache_key(root)
+    except Exception:  # noqa: BLE001 - an unkeyable root has no authority
+        return decline("unkeyable")
+
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        if freshness.external_pending(root):
+            return decline("external_pending")
+        if not freshness.is_live(root, "vault"):
+            return decline("events_not_live")
+        checkpoint = freshness.consumer_checkpoint(root, "vault")
+        if checkpoint.triple is None:
+            return decline("checkpoint_absent")
+        if freshness_key is not None and freshness_key != checkpoint.triple:
+            return decline("freshness_differs")
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+            caption = _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key)
+            language_hash = _CORPUS_CONTEXT_LANGUAGE_HASHES.get(cache_key)
+            if entry is None or language_hash is None:
+                return decline("corpus_absent")
+            if caption != checkpoint:
+                return decline("checkpoint_differs")
+            census, context = entry
+            entries = context.resolver_entries
+
+    try:
+        configuration = _config_census(root)
+        relation_definitions = relation_registry.core_registry()
+        language = semantic_language_registry.core_registry()
+        membership = tuple(
+            sorted(path.relative_to(root).as_posix() for path in vault.walk_vault_md(root))
+        )
+    except Exception:  # noqa: BLE001 - an incomplete proof must decline reuse
+        return decline("proof_failed")
+
+    if (
+        configuration is None
+        or configuration != _stored_config_census(census)
+        or (
+            context.registry.core_version,
+            context.registry.extension_hash,
+        )
+        != (
+            relation_definitions.core_version,
+            relation_definitions.extension_hash,
+        )
+        or language_hash != f"{language.schema_version}:{language.content_hash}"
+        or tuple(path for path, _title in entries) != membership
+        or _config_census(root) != configuration
+    ):
+        return decline("identity_changed")
+
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        if (
+            freshness.external_pending(root)
+            or not freshness.is_live(root, "vault")
+            or freshness.consumer_checkpoint(root, "vault") != checkpoint
+        ):
+            return decline(CHANGED_DURING_PROOF)
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            current = _CORPUS_CONTEXT_CACHE.get(cache_key)
+            if (
+                current is not None
+                and current[1] is context
+                and _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key) == checkpoint
+                and _CORPUS_CONTEXT_LANGUAGE_HASHES.get(cache_key) == language_hash
+            ):
+                return entries
+            return decline(CHANGED_DURING_PROOF)
+
+
+def _resolve_reference_wikilink_from_context(
+    context: SemanticCorpusContext,
+    raw_target: str,
+    visible: Callable[[str], bool] | None = None,
+) -> ReferenceWikilinkResolution:
+    """Resolve against immutable context maps, preserving union ambiguity.
+
+    `visible` restricts every match to the pages it admits (a writer's own
+    view, see `vault.writer_link_visibility`); `None` matches every page.
+    """
+
+    cleaned = str(raw_target or "").strip()
+    if cleaned.startswith("[[") and cleaned[-2:] == "]]":
+        cleaned = cleaned[2:-2].strip()
+    cleaned = cleaned.split("|", 1)[0].split("#", 1)[0]
+    cleaned = cleaned.removesuffix(".md").strip().strip("/")
+    if not cleaned:
+        return ReferenceWikilinkResolution("unresolved")
+
+    if "/" in cleaned:
+        for key in (cleaned, f"{vault.kb_prefix()}{cleaned}"):
+            matches = vault.wikilink_candidates(
+                context.resolver_candidates_by_key, (key,), visible=visible
+            )
+            if len(matches) > 1:
+                return ReferenceWikilinkResolution("ambiguous")
+            if matches:
+                return ReferenceWikilinkResolution("resolved", matches[0].path)
+        # No Knowledge-Base-relative step follows: `normalize_wikilink` matches that form
+        # by `kb_prefix() + cleaned` in `full_paths`, which the second candidate above
+        # already tried. Testing `kb_stripped` instead would let a hidden vault-root page
+        # with the same name decide the result.
+        return ReferenceWikilinkResolution("unresolved")
+
+    matches = {
+        candidate.path for candidate in vault.wikilink_candidates(
+            context.resolver_candidates_by_key,
+            context.resolver_stems.get(cleaned, ()), visible=visible,
+        )
+    }
+    matches.update(
+        candidate.path for candidate in vault.wikilink_candidates(
+            context.resolver_candidates_by_key,
+            context.resolver_titles.get(cleaned.lower(), ()),
+            title_key=cleaned.lower(), visible=visible,
+        )
+    )
+    if len(matches) > 1:
+        return ReferenceWikilinkResolution("ambiguous")
+    if not matches:
+        return ReferenceWikilinkResolution("unresolved")
+    return ReferenceWikilinkResolution("resolved", next(iter(matches)))
+
+
+def resolve_reference_wikilink(
+    vault_root: Path,
+    snapshot: ReferenceIdentitySnapshot | None,
+    raw_target: str,
+) -> ReferenceWikilinkResolution:
+    """Resolve from one exact current cached context without filesystem work."""
+    root = Path(vault_root)
+    if snapshot is None or not reference_identity_snapshot_is_current(root, snapshot):
+        return ReferenceWikilinkResolution("unavailable")
+    context = snapshot._cache_context_identity
+    if not isinstance(context, SemanticCorpusContext):
+        return ReferenceWikilinkResolution("unavailable")
+    result = _resolve_reference_wikilink_from_context(context, raw_target)
+    if not reference_identity_snapshot_is_current(root, snapshot):
+        return ReferenceWikilinkResolution("unavailable")
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class LinkSnapshot:
+    """One published corpus generation, borrowed to decide link targets.
+
+    `resolver` holds the path, stem and title maps of every Markdown page of that
+    generation, hidden pages included, so a caller must apply its own visibility
+    to each match. `reference_owners` is identity -> every page holding it.
+    """
+
+    resolver: _WikilinkResolverView
+    reference_owners: Mapping[str, tuple[str, ...]]
+
+
+def borrow_link_snapshot(
+    vault_root: Path, *, declined: dict[str, int] | None = None
+) -> LinkSnapshot | None:
+    """Lend the last published corpus generation to a link projector, or None.
+
+    Never builds, refreshes or waits on a build: the corpus lock is taken without
+    blocking because a rebuild publishes while holding it, and a request thread
+    must not queue behind that. An outside edit the watcher has seen but not yet
+    published does not decline the borrow; the lender's answer is the last
+    published generation, and the caller decides each page's existence and
+    visibility live.
+
+    `declined` receives the first reason this borrow declined, as one closed
+    `declined_<reason>` counter.
+    """
+    if not _CORPUS_CONTEXT_UPDATE_LOCK.acquire(blocking=False):
+        if declined is not None:
+            declined["declined_lock_busy"] = 1
+        return None
+    try:
+        snapshot = current_reference_identity_snapshot(
+            Path(vault_root), declined=declined, tolerate_external_pending=True
+        )
+    finally:
+        _CORPUS_CONTEXT_UPDATE_LOCK.release()
+    if snapshot is None:
+        return None
+    context = snapshot._cache_context_identity
+    if not isinstance(context, SemanticCorpusContext):
+        if declined is not None:
+            declined["declined_context_unusable"] = 1
+        return None
+    return LinkSnapshot(
+        _WikilinkResolverView(
+            full_paths=context.resolver_full_paths,
+            kb_stripped=context.resolver_kb_stripped,
+            stems=context.resolver_stems,
+            titles=context.resolver_titles,
+            candidates_by_key=context.resolver_candidates_by_key,
+        ),
+        snapshot.reference_owners,
+    )
+
+
+def _corpus_cache_key(root: Path) -> tuple[str, str]:
+    return (
+        os.path.normcase(str(root.resolve(strict=False))),
+        os.path.normcase(str(vault.kb_root(root).resolve(strict=False))),
+    )
+
+
+# Who is asking for a corpus context. The corpus walk/build is the single
+# most expensive shared step on both the read and the write path, and an
+# aggregate duration cannot say whether a slow vault is slow for writers, for
+# readers, or only during warm-up. A contextvar (not a parameter) because the
+# attribution has to survive the several layers between an entrypoint and
+# `_corpus_census` without changing any of their signatures.
+_CALL_CONTEXT: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "exomem_semantic_call_context", default="unknown"
+)
+
+
+def current_call_context() -> str:
+    """The caller label attached to corpus metrics; ``"unknown"`` by default."""
+    return _CALL_CONTEXT.get()
+
+
+@contextmanager
+def call_context(name: str) -> Iterator[None]:
+    """Label every corpus metric emitted inside this block with ``name``."""
+    token = _CALL_CONTEXT.set(str(name))
+    try:
+        yield
+    finally:
+        _CALL_CONTEXT.reset(token)
+
+
+# A queued walk whose disposition no branch has claimed yet. Never a label:
+# `_census_walk_log` resolves it on the way out, and how it resolves depends on
+# whether the block finished or blew up.
+_CENSUS_WALK_UNDECIDED = "__undecided__"
+
+
+def _observe_census_walk(elapsed_ms: float, outcome: str) -> None:
+    """One full `_corpus_census` stat-walk, labelled by what it decided.
+
+    Guarded because two of the three call sites emit from a `finally` that may
+    be unwinding a real corpus error; an instrument that raises there would
+    replace the error the caller needs to see.
+    """
+    try:
+        metrics.observe_duration_ms(
+            "exomem_corpus_census_walk_ms",
+            elapsed_ms,
+            {"caller": current_call_context(), "outcome": outcome},
+        )
+    except Exception:  # noqa: BLE001 - observability must never break a mutation
+        log.debug("corpus census walk metric failed", exc_info=True)
+
+
+def _timed_corpus_census(root: Path, outcome: str) -> tuple | None:
+    """A census walk whose disposition is already known when it starts.
+
+    For walks taken with NO corpus cache lock held. Under a lock, use
+    `_census_walk_log` + `_deferred_corpus_census` instead.
+    """
+    started = time.perf_counter()
+    try:
+        return _corpus_census(root)
+    finally:
+        _observe_census_walk((time.perf_counter() - started) * 1000.0, outcome)
+
+
+@contextmanager
+def _census_walk_log() -> Iterator[list[list]]:
+    """Queue census-walk timings; emit them once the caller's locks are gone.
+
+    `metrics.observe_duration_ms` takes the metrics registry lock. Calling it
+    while `_CORPUS_CONTEXT_UPDATE_LOCK`/`_CORPUS_CONTEXT_CACHE_LOCK` is held
+    would let the instrument widen the very critical section it is measuring —
+    and this cache is contended by every reader and writer at once. Entries are
+    mutable `[elapsed_ms, outcome]` pairs so a walk whose disposition is only
+    settled several branches later can be corrected in place. Because this
+    context manager is entered OUTSIDE the locks, its exit runs after they have
+    all released, including on the `return`s taken from inside them.
+
+    An entry still `_CENSUS_WALK_UNDECIDED` at exit is resolved by HOW the block
+    ended: falling out cleanly means no cached state answered the walk, so a
+    rebuild is what it bought; unwinding on an exception means nobody ever got
+    to use it, and reporting that as a rebuild would invent work that never
+    happened. Explicitly-set outcomes are left alone — a confirmation census
+    that completed really was a census, whatever failed afterwards.
+    """
+    sink: list[list] = []
+    unresolved = "rebuild"
+    try:
+        yield sink
+    except BaseException:
+        unresolved = "aborted"
+        raise
+    finally:
+        for elapsed_ms, outcome in sink:
+            _observe_census_walk(
+                elapsed_ms,
+                unresolved if outcome == _CENSUS_WALK_UNDECIDED else outcome,
+            )
+
+
+def _deferred_corpus_census(root: Path, sink: list[list], outcome: str) -> tuple | None:
+    """A census walk taken under a lock; its metric is queued, not emitted."""
+    started = time.perf_counter()
+    try:
+        return _corpus_census(root)
+    finally:
+        sink.append([(time.perf_counter() - started) * 1000.0, outcome])
+
+
+def _config_inputs(root: Path) -> tuple[Path, ...]:
+    """The non-Markdown files whose bytes shape parsed corpus structure."""
+    return (
+        access.access_config_path(root),
+        # Parsed structure records the owner's compiled eligibility.
+        note_types.overlay_path(root),
+    )
+
+
+def _corpus_census(root: Path) -> tuple | None:
+    """Stat census of every filesystem input ``build_corpus_context`` reads.
+
+    Mirrors both production walks — ``_build_identity_census`` (every canonical
+    ``.md`` under the KB, refusing filesystem aliases) and ``vault.walk_vault_md``
+    (the full vault minus skip dirs and sync-conflict copies) — and appends
+    the non-Markdown inputs in ``_config_inputs``: ``_access.yaml`` (page
+    eligibility via ``access.access_tier``) and the selected note-type
+    overlay (the owner's compiled eligibility). Returns
+    ``None`` when the tree cannot be fingerprinted safely; callers must then
+    build uncached so the build path surfaces its own safety errors.
+    """
+    entries: set[tuple[str, str, int, int]] = set()
+    kb = vault.kb_root(root)
+
+    def strict_walk(directory: Path) -> None:
+        # Mirror of _build_identity_census: every canonical entry under KB,
+        # alias-free. Closed runtime namespaces are never knowledge inputs.
+        for child in os.scandir(directory):
+            if _prune_identity_census_directory(kb, directory, child.name):
+                continue
+            path = Path(child.path)
+            # Alias refusal comes first and applies to EVERY entry, exactly as
+            # in the walk this mirrors: an aliased subtree can hide or
+            # duplicate pages whatever its name looks like, so filtering by
+            # suffix ahead of this check would open a hole.
+            if child.is_symlink():
+                raise _CensusUnsafe
+            is_directory = child.is_dir(follow_symlinks=False)
+            # Filter BEFORE the stat -- the half of #528 that fixed
+            # `_build_identity_census` but never reached this mirror. The
+            # Knowledge Base root also holds SQLite's transient sidecars
+            # (`.embeddings.sqlite-wal`, `-shm`), created and dropped as
+            # connections open and close. They are not census input, so
+            # statting them bought nothing and cost a race: one vanishing
+            # between the listing and the stat raised FileNotFoundError, which
+            # the handler below turns into a census of `None` -- degrading
+            # every caller to an uncached full build (#561).
+            if not is_directory and path.suffix.casefold() != ".md":
+                continue
+            # A `.md` that vanishes in that same window still fails closed,
+            # unlike in `_build_identity_census`, which skips it. That walk
+            # reports a snapshot; this one is a cache key, and `None` costs
+            # one uncached build where silently omitting a page could vouch
+            # for a cached context the corpus no longer matches.
+            info = child.stat(follow_symlinks=False)
+            if vault._is_reparse(info):
+                raise _CensusUnsafe
+            if stat.S_ISDIR(info.st_mode):
+                strict_walk(path)
+                continue
+            if not stat.S_ISREG(info.st_mode):
+                raise _CensusUnsafe
+            entries.add((path.relative_to(root).as_posix(), "f", info.st_size, info.st_mtime_ns))
+
+    def loose_walk(directory: Path) -> None:
+        # Mirror of vault.walk_vault_md: skip dirs and sync-conflict copies,
+        # with the same is_dir()/is_file() semantics (which traverse links).
+        for child in os.scandir(directory):
+            path = Path(child.path)
+            if child.is_dir():
+                if vault.in_excluded_scan_dir(path.relative_to(root).as_posix()):
+                    continue
+                loose_walk(path)
+            elif (
+                child.is_file()
+                and path.suffix.lower() == ".md"
+                and ".sync-conflict-" not in child.name
+            ):
+                try:
+                    info = child.stat()
+                except FileNotFoundError:
+                    # Same race, same answer as the strict walk above: a page
+                    # that vanished between the listing and the stat is not in
+                    # this snapshot.
+                    continue
+                entries.add(
+                    (path.relative_to(root).as_posix(), "f", info.st_size, info.st_mtime_ns)
+                )
+
+    try:
+        try:
+            kb_info = kb.lstat()
+        except FileNotFoundError:
+            kb_info = None
+        if kb_info is not None:
+            # A KB root that is an alias makes the identity census raise; the
+            # census must refuse to vouch for that tree rather than mask it.
+            if not stat.S_ISDIR(kb_info.st_mode) or vault._is_reparse(kb_info):
+                raise _CensusUnsafe
+            strict_walk(kb)
+        loose_walk(root)
+        for extra in _config_inputs(root):
+            marker = str(extra.relative_to(root).as_posix())
+            try:
+                info = extra.stat()
+            except FileNotFoundError:
+                entries.add((marker, "absent", -1, -1))
+            else:
+                entries.add((marker, _config_kind(root, extra), info.st_size, info.st_mtime_ns))
+    except _CensusUnsafe:
+        # A deliberate refusal: the tree holds an alias or a nonregular page.
+        log.debug("corpus census refused an unsafe tree at %s", root)
+        return None
+    except (OSError, ValueError):
+        # Anything else -- and the two used to be indistinguishable in
+        # production, so a vanished sidecar and a genuine refusal looked the
+        # same from the outside (#561).
+        log.debug("corpus census could not read %s", root, exc_info=True)
+        return None
+    return tuple(sorted(entries))
+
+
+def _relation_review_census(root: Path) -> tuple | None:
+    """Stat census of relation-review artifacts and lifecycle sidecars.
+
+    ``_corpus_census`` only tracks ``.md`` files, so the JSON review
+    artifacts (``relation_review.review_artifact_path``) and lifecycle
+    decision/prepared sidecars (``lifecycle_decision_path``,
+    ``lifecycle_prepared_path``) under ``<KB>/_Schema/relation-reviews/`` are
+    otherwise invisible to a census-based reuse token. Mirrors the
+    alias-refusal safety rule of the strict corpus walk. Returns ``None``
+    when the tree cannot be fingerprinted safely.
+    """
+    entries: set[tuple[str, str, int, int]] = set()
+    directory = vault.kb_root(root) / "_Schema" / "relation-reviews"
+
+    def walk(current: Path) -> None:
+        try:
+            children = list(os.scandir(current))
+        except FileNotFoundError:
+            return
+        for child in children:
+            path = Path(child.path)
+            info = child.stat(follow_symlinks=False)
+            if child.is_symlink() or vault._is_reparse(info):
+                raise _CensusUnsafe
+            if stat.S_ISDIR(info.st_mode):
+                walk(path)
+                continue
+            if not stat.S_ISREG(info.st_mode):
+                raise _CensusUnsafe
+            entries.add((path.relative_to(root).as_posix(), "f", info.st_size, info.st_mtime_ns))
+
+    try:
+        walk(directory)
+    except (_CensusUnsafe, OSError, ValueError):
+        return None
+    return tuple(sorted(entries))
+
+
+def corpus_validity_token(
+    root: Path,
+    *,
+    corpus_census: tuple | None = None,
+    status_dependencies: tuple[tuple[str, str], ...] | None = None,
+    definitions: tuple[instances.PageDefinitions, ...] = (),
+) -> tuple | None:
+    """Stable identity for narrow-boundary preflight reuse.
+
+    Combines ``_corpus_census`` (every corpus/config input
+    ``build_corpus_context`` reads) with ``_relation_review_census`` (the
+    review-artifact and lifecycle-sidecar inputs the plain corpus census
+    does not cover). ``definitions`` are the selected vocabulary witnesses
+    the verdict used; the boundary re-admits each one, as it does the
+    lifecycle status dependencies. ``None`` means some input cannot be
+    censused cheaply; callers must then always revalidate rather than reuse
+    a pre-boundary result.
+
+    Pass ``corpus_census`` to reuse a census that was just walked (e.g. the
+    one ``build_corpus_context`` validated its cache with) instead of paying
+    a second stat-walk — at thousands of pages the walk dominates write
+    latency, and the CI write-latency gate holds preflight to one walk total.
+    """
+    from .governance import egress
+
+    if status_dependencies is None or egress.owner_only_aggregate(root) is not None:
+        return None
+    basis = lifecycle_statuses.Basis(root)
+    if not all(basis.matches(dependency) for dependency in status_dependencies):
+        return None
+    if not all(witness.current(root) for witness in definitions):
+        return None
+    corpus = (
+        corpus_census
+        if corpus_census is not None
+        else _timed_corpus_census(root, "census")
+    )
+    if corpus is None:
+        return None
+    review = _relation_review_census(root)
+    if review is None:
+        return None
+    return (corpus, review, status_dependencies, definitions)
+
+
+def cached_corpus_census(root: Path) -> tuple | None:
+    """The census stored with the current cached corpus context — no walk.
+
+    Only meaningful immediately after a ``build_corpus_context`` call on the
+    same root: the walk that validated (or populated) the cache entry is the
+    census returned here. ``None`` when nothing is cached."""
+    try:
+        cache_key = _corpus_cache_key(root)
+    except Exception:  # noqa: BLE001 - an unkeyable root simply has no cache
+        return None
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+    return entry[0] if entry is not None else None
+
+
+def page_definitions_witnesses(*states: Any) -> tuple[instances.PageDefinitions, ...]:
+    """The selected vocabulary definitions these page states were judged with."""
+    return tuple(state.definitions for state in states if state is not None and state.definitions is not None)
+
+
+def validity_stamp_current(
+    root: Path, stamp: tuple | None, *, commit_generation: int | None
+) -> bool:
+    """O(sidecars) in-boundary admission check for a captured validity stamp.
+
+    ``stamp`` is ``(corpus_validity_token, entry_commit_generation)``. The
+    boundary commit-generation (bumped on every mutation-guard exit) proves
+    no governed writer committed since the generation was captured, and the
+    fresh review-artifact census covers the sidecar inputs. This replaces the
+    in-boundary corpus stat-walk, which at thousands of pages costs more than
+    the commit itself. External (non-governed) edits are outside this check —
+    the same protections the wide boundary relied on (path guards,
+    ``create_only``, target freshness) still apply at write time.
+    """
+    from .governance import egress
+
+    if stamp is None or commit_generation is None or egress.owner_only_aggregate(root) is not None:
+        return False
+    sc_token, captured_generation = stamp
+    if sc_token is None or len(sc_token) != 4 or captured_generation is None:
+        return False
+    if commit_generation != captured_generation:
+        return False
+    basis = lifecycle_statuses.Basis(root)
+    if not all(basis.matches(dependency) for dependency in sc_token[2]):
+        return False
+    # A hand edit of an overlay or binding moves no commit generation.
+    if not all(witness.current(root) for witness in sc_token[3]):
+        return False
+    fresh_review = _relation_review_census(root)
+    return fresh_review is not None and fresh_review == sc_token[1]
+
+
+def _config_census(root: Path) -> tuple[tuple[str, str, int, int], ...] | None:
+    """O(1) freshness stamp for non-Markdown semantic inputs."""
+    entries: list[tuple[str, str, int, int]] = []
+    try:
+        for extra in _config_inputs(root):
+            marker = extra.relative_to(root).as_posix()
+            try:
+                info = extra.stat()
+            except FileNotFoundError:
+                entries.append((marker, "absent", -1, -1))
+            else:
+                entries.append((marker, _config_kind(root, extra), info.st_size, info.st_mtime_ns))
+    except (OSError, ValueError):
+        return None
+    return tuple(sorted(entries))
+
+
+def _config_kind(root: Path, extra: Path) -> str:
+    """The access policy is a security boundary that parse-time eligibility
+    reads, so it is keyed by content, never by size and mtime alone."""
+    if extra == access.access_config_path(root):
+        return "cfg:" + access.policy_fingerprint(root)
+    return "cfg"
+
+
+def _stored_config_census(census: tuple) -> tuple:
+    return tuple(entry for entry in census if entry[1] != "f")
+
+
+def _patch_markdown_census(
+    root: Path,
+    census: tuple,
+    *,
+    changed_paths: tuple[str, ...],
+    deleted_paths: tuple[str, ...],
+) -> tuple:
+    entries = {str(entry[0]): entry for entry in census}
+    for rel_path in deleted_paths:
+        entries.pop(rel_path, None)
+    for rel_path in changed_paths:
+        path = root / rel_path
+        try:
+            info = path.stat()
+        except FileNotFoundError:
+            entries.pop(rel_path, None)
+        else:
+            entries[rel_path] = (rel_path, "f", info.st_size, info.st_mtime_ns)
+    return tuple(sorted(entries.values()))
+
+
+def _registries_match_disk(
+    root: Path,
+    relation_definitions: relation_registry.RelationRegistry,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> bool:
+    """Whether supplied inputs match the shared core-only structural producer."""
+    try:
+        disk_registry = relation_registry.core_registry()
+        disk_language = semantic_language_registry.core_registry()
+    except Exception:  # noqa: BLE001 — unreadable registry state: never cache
+        return False
+    return (disk_registry.core_version, disk_registry.extension_hash) == (
+        relation_definitions.core_version,
+        relation_definitions.extension_hash,
+    ) and (disk_language.schema_version, disk_language.content_hash) == (
+        language.schema_version,
+        language.content_hash,
+    )
+
+
+def _markdown_census_delta(before: tuple, after: tuple) -> tuple[str, ...] | None:
+    """Return changed Markdown paths, or ``None`` for a non-page delta.
+
+    Census entries are ``(path, kind, size, mtime_ns)``. A removed path only
+    exists in ``before`` and an added path only in ``after``; both remain safe
+    incremental page changes when their surviving entry kind is ``f``.
+    """
+    before_by_path = {str(entry[0]): entry for entry in before}
+    after_by_path = {str(entry[0]): entry for entry in after}
+    changed = tuple(
+        sorted(
+            path
+            for path in before_by_path.keys() | after_by_path.keys()
+            if before_by_path.get(path) != after_by_path.get(path)
+        )
+    )
+    for path in changed:
+        old = before_by_path.get(path)
+        new = after_by_path.get(path)
+        if (old is not None and old[1] != "f") or (new is not None and new[1] != "f"):
+            return None
+    return changed
+
+
+def _identity_guarded_delta_source(root: Path, rel_path: str) -> str | None:
+    """Read one KB Markdown delta under the full census' alias policy."""
+    kb = vault.kb_root(root)
+    try:
+        kb_info = kb.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_ROOT_UNREADABLE",
+            "Knowledge Base root is unavailable for identity census",
+        ) from error
+    if (
+        not stat.S_ISDIR(kb_info.st_mode)
+        or stat.S_ISLNK(kb_info.st_mode)
+        or vault._is_reparse(kb_info)
+    ):
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_UNSAFE_ROOT",
+            "Knowledge Base root is unsafe for identity census",
+        )
+
+    source_path = root / rel_path
+    try:
+        leaf_info = source_path.lstat()
+    except FileNotFoundError:
+        try:
+            vault.PathGuard.capture(root, rel_path, leaf_policy="absent")
+        except vault.PathGuardError as error:
+            code = (
+                "IDENTITY_CENSUS_UNSAFE_ENTRY"
+                if error.code in {"PATH_GUARD_ROOT", "PATH_GUARD_UNSAFE"}
+                else "IDENTITY_CENSUS_ENTRY_UNREADABLE"
+            )
+            raise activation_manifest.ActivationManifestError(
+                code,
+                f"could not safely inspect stable identity at {rel_path}",
+            ) from error
+        return None
+    except OSError as error:
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_ENTRY_UNREADABLE",
+            "could not inspect a stable-identity census entry",
+        ) from error
+    if stat.S_ISLNK(leaf_info.st_mode) or vault._is_reparse(leaf_info):
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_UNSAFE_ENTRY",
+            "stable-identity census contains a filesystem alias",
+        )
+    if not stat.S_ISREG(leaf_info.st_mode):
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_NONREGULAR_MARKDOWN",
+            "stable-identity census contains nonregular Markdown",
+        )
+    try:
+        guard = vault.PathGuard.capture(root, rel_path, leaf_policy="stable")
+    except vault.PathGuardError as error:
+        code = (
+            "IDENTITY_CENSUS_UNSAFE_ENTRY"
+            if error.code in {"PATH_GUARD_ROOT", "PATH_GUARD_UNSAFE"}
+            else "IDENTITY_CENSUS_ENTRY_UNREADABLE"
+        )
+        raise activation_manifest.ActivationManifestError(
+            code,
+            f"could not safely inspect stable identity at {rel_path}",
+        ) from error
+    try:
+        source = source_path.read_bytes().decode("utf-8")
+        guard.recheck(root)
+    except (OSError, UnicodeDecodeError, vault.PathGuardError) as error:
+        governed_writable = (
+            activation.is_managed_governed_path(root, source_path)
+            and access.access_tier(root, rel_path) == access.TIER_READ_WRITE
+        )
+        code = (
+            "ACTIVATION_MANIFEST_PAGE_UNREADABLE"
+            if governed_writable
+            else "IDENTITY_CENSUS_PAGE_UNREADABLE"
+        )
+        raise activation_manifest.ActivationManifestError(
+            code,
+            f"could not safely inspect stable identity at {rel_path}",
+        ) from error
+    return source
+
+
+def _reconcile_markdown_delta(
+    root: Path,
+    context: SemanticCorpusContext,
+    changed_paths: tuple[str, ...],
+    *,
+    relation_definitions: relation_registry.RelationRegistry,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> SemanticCorpusContext:
+    """Apply current Markdown bytes to an already-materialized context.
+
+    The stable-identity census intentionally covers every canonical Markdown
+    file under the KB, including scan-excluded paths. Closed runtime namespaces
+    remain excluded. The semantic page map mirrors
+    ``vault.walk_vault_md`` and therefore excludes trash/schema/sync-conflict
+    paths. Any read or identity ambiguity raises through the same full-build
+    validation types instead of blessing partial state.
+    """
+    states = dict(context.pages)
+    previous_identities = {entry.path: entry for entry in context.identity_census.entries}
+    identities = dict(previous_identities)
+    previous_reference_only = {
+        entry.path: entry for entry in context.identity_census.reference_only_entries
+    }
+    reference_only = dict(previous_reference_only)
+    kb_rel = vault.kb_root(root).relative_to(root).as_posix().rstrip("/")
+    for rel_path in changed_paths:
+        reference_only_path = _is_reference_only_path(rel_path)
+        if reference_only_path:
+            # Read as the reference scan reads it and as leniently: a deleted
+            # page's frontmatter must never block a live write, so an
+            # unreadable or malformed page is no owner rather than a refusal.
+            owner = memory_refs.read_reference_owner(root, root / rel_path)
+            if owner is None:
+                reference_only.pop(rel_path, None)
+            else:
+                reference_only[rel_path] = StableIdentityEntry(rel_path, owner)
+        source_path = root / rel_path
+        in_kb = rel_path == kb_rel or rel_path.startswith(kb_rel + "/")
+        included = not vault.in_excluded_scan_dir(rel_path) and (
+            ".sync-conflict-" not in PurePosixPath(rel_path).name
+        )
+        if in_kb:
+            source = _identity_guarded_delta_source(root, rel_path)
+        else:
+            try:
+                source = source_path.read_bytes().decode("utf-8")
+            except FileNotFoundError:
+                source = None
+        if source is None:
+            states.pop(rel_path, None)
+            identities.pop(rel_path, None)
+            continue
+
+        state = _parse_page_state(
+            root,
+            rel_path,
+            source,
+            relation_registry=relation_definitions,
+            language_registry=language,
+        )
+        if included:
+            states[rel_path] = state
+        else:
+            states.pop(rel_path, None)
+        if in_kb and not reference_only_path:
+            # The reference census admits every canonical Markdown path while
+            # treating missing or malformed IDs as path-fallback identities,
+            # exactly like ``memory_refs.ReferenceIndex``.
+            identities[rel_path] = StableIdentityCensus.from_states((state,)).entries[0]
+        else:
+            identities.pop(rel_path, None)
+
+    # A governed commit, and most watcher events, edit one page in place. When
+    # its title, identity and registries hold, the resolver still holds, so
+    # re-derive that page and the pages that link into it, not the corpus.
+    if len(changed_paths) == 1:
+        rel_path = changed_paths[0]
+        state = states.get(rel_path)
+        if (
+            state is not None
+            and identities.get(rel_path) == previous_identities.get(rel_path)
+            and _stable_topology_replacement(context, state)
+        ):
+            candidate = _context_with_stable_topology_candidate(context, state)
+            if reference_only == previous_reference_only:
+                return candidate
+            return replace(
+                candidate,
+                identity_census=StableIdentityCensus(
+                    candidate.identity_census.entries, tuple(reference_only.values())
+                ),
+            )
+
+    return _context_from_state_map(
+        root,
+        states,
+        _copy_registry(relation_definitions),
+        StableIdentityCensus(tuple(identities.values()), tuple(reference_only.values())),
+    )
+
+
+def on_corpus_files_changed(
+    vault_root: Path,
+    *,
+    changed: Iterable[Path] = (),
+    deleted: Iterable[Path | str] = (),
+) -> None:
+    """Patch a warm semantic corpus after a watcher or canonical write event.
+
+    Callers that also publish freshness MUST use
+    :func:`publish_corpus_files_changed` so both derived states advance under
+    one boundary. This lower-level hook remains useful for tests and repair.
+
+    Deliberately does NOT populate a cold cache: it advances no freshness, so
+    there is no publication for a populated context to be captioned against —
+    that belongs to the publish seam.
+    """
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        checkpoint = freshness.consumer_checkpoint(Path(vault_root), "vault")
+        _patch_corpus_files_changed_locked(
+            vault_root,
+            changed=changed,
+            deleted=deleted,
+            event_checkpoint=checkpoint,
+        )
+
+
+_CORPUS_PATCH_MISS = "miss"
+_CORPUS_PATCH_EVICTED = "evicted"
+_CORPUS_PATCH_UNCHANGED = "unchanged"
+_CORPUS_PATCH_APPLIED = "patched"
+
+CORPUS_PUBLICATION_REGISTRY_ADVANCE = "registry_advance"
+CORPUS_PUBLICATION_PROJECTION_PATCH = "projection_patch"
+
+
+@dataclass(frozen=True, slots=True)
+class CorpusPublicationFailure:
+    """Which half of the corpus publish seam failed, and with what.
+
+    One call publishes two derived states, and a caller deciding how to
+    recover needs to know which of them broke:
+
+    * ``"registry_advance"`` — ``freshness.on_files_changed`` itself failed,
+      so the event registry can no longer name the current file set and no
+      consumer's retained event suffix is bridgeable. Registry loss.
+    * ``"projection_patch"`` — the registry advanced and recorded every
+      event; only the corpus cache's own patch failed. The registry is
+      intact and exactly one projection lost its resumption point.
+
+    Before this split both surfaced as one exception from one call, so the
+    caller could only guess — and guessed registry loss, cooling a live
+    registry for a failure that was local to one RAM projection.
+    """
+
+    stage: str
+    error: BaseException
+
+    @property
+    def registry_intact(self) -> bool:
+        """Whether the event registry still names the current file set."""
+        return self.stage == CORPUS_PUBLICATION_PROJECTION_PATCH
+
+
+def publish_corpus_files_changed(
+    vault_root: Path,
+    *,
+    changed: Iterable[Path] = (),
+    deleted: Iterable[Path | str] = (),
+) -> None:
+    """Atomically advance freshness and the warm semantic corpus context.
+
+    Serializing these two derived-state publications prevents concurrent file
+    events from stamping a context that contains only one event with a
+    freshness token that already represents both.
+
+    Raises whatever either half raised. A caller whose recovery depends on
+    WHICH half failed calls
+    :func:`publish_corpus_files_changed_classified` instead.
+    """
+    failure = publish_corpus_files_changed_classified(
+        vault_root, changed=changed, deleted=deleted
+    )
+    if failure is not None:
+        raise failure.error
+
+
+def publish_corpus_files_changed_classified(
+    vault_root: Path,
+    *,
+    changed: Iterable[Path] = (),
+    deleted: Iterable[Path | str] = (),
+) -> CorpusPublicationFailure | None:
+    """:func:`publish_corpus_files_changed`, reporting WHICH half failed.
+
+    Returns ``None`` on success and a :class:`CorpusPublicationFailure`
+    otherwise, carrying the original exception unwrapped so a caller that
+    only wants to propagate can re-raise it unchanged. Interpreter-level
+    exits (anything that is not an ``Exception``) are never turned into a
+    result; they propagate as before.
+    """
+    root = Path(vault_root)
+    changed_values = tuple(Path(value) for value in changed)
+    deleted_values = tuple(Path(value) for value in deleted)
+    changed_paths = tuple(
+        value if value.is_absolute() else root / value for value in changed_values
+    )
+    deleted_paths = tuple(
+        value if value.is_absolute() else root / value for value in deleted_values
+    )
+    with _CORPUS_CONTEXT_UPDATE_LOCK:
+        try:
+            freshness.on_files_changed(root, changed=changed_paths, deleted=deleted_paths)
+            # Read the token here, not in the patch call below: it is a
+            # registry-side read, so a failure in it is registry-side too and
+            # must not be reported as the projection's fault.
+            event_checkpoint = freshness.consumer_checkpoint(root, "vault")
+        except BaseException as error:
+            if not isinstance(error, Exception):
+                raise
+            return CorpusPublicationFailure(CORPUS_PUBLICATION_REGISTRY_ADVANCE, error)
+        try:
+            disposition = _patch_corpus_files_changed_locked(
+                root,
+                changed=changed_values,
+                deleted=deleted_values,
+                event_checkpoint=event_checkpoint,
+            )
+        except BaseException as error:
+            # Freshness already advanced, so the previous context can no
+            # longer prove continuity. Evict every caption before reporting
+            # the safety/parse failure; a later good event must not leapfrog
+            # this missed delta and stamp stale state as current.
+            cache_key = _corpus_cache_key(root)
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                _forget_corpus_entry_locked(cache_key)
+            if not isinstance(error, Exception):
+                raise
+            return CorpusPublicationFailure(CORPUS_PUBLICATION_PROJECTION_PATCH, error)
+    # Outside the update lock on purpose: the populate walks and parses the
+    # whole vault, and the publisher advances freshness under that same lock.
+    if disposition == _CORPUS_PATCH_MISS:
+        _populate_corpus_context_after_miss(root)
+    return None
+
+
+def _patch_corpus_files_changed_locked(
+    vault_root: Path,
+    *,
+    changed: Iterable[Path],
+    deleted: Iterable[Path | str],
+    event_checkpoint: freshness.FreshnessCheckpoint,
+) -> str:
+    """Patch one cache entry while ``_CORPUS_CONTEXT_UPDATE_LOCK`` is held.
+
+    Returns what it did, because only the caller can act on a ``"miss"``: a
+    cold cache has nothing to patch, and populating it means a full walk that
+    must NOT happen inside this lock (see
+    :func:`_populate_corpus_context_after_miss`). ``"evicted"`` is the
+    config-census drift pop and stays eviction-only — a drifted config makes
+    the stored context unusable, not merely absent.
+    """
+    root = Path(vault_root)
+    cache_key = _corpus_cache_key(root)
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+        cached_checkpoint = _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key)
+    if entry is None:
+        return _CORPUS_PATCH_MISS
+    if _config_census(root) != _stored_config_census(entry[0]):
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            if _CORPUS_CONTEXT_CACHE.get(cache_key) is entry:
+                _forget_corpus_entry_locked(cache_key)
+        return _CORPUS_PATCH_EVICTED
+
+    def relative(value: Path | str) -> str | None:
+        path = Path(value)
+        try:
+            if path.is_absolute():
+                return path.resolve().relative_to(root.resolve()).as_posix()
+            # The absolute branch already lands on real on-disk casing; a
+            # caller-cased relative delta key must be canonicalized too, or the
+            # warm-corpus patch keys a phantom sibling of the page it changed.
+            return vault.canonical_vault_rel(root, _normalize_path(root, path))
+        except (OSError, ValueError):
+            return None
+
+    changed_paths = tuple(
+        sorted(
+            {
+                rel
+                for value in changed
+                if (rel := relative(value)) is not None
+                and PurePosixPath(rel).suffix.casefold() == ".md"
+            }
+        )
+    )
+    deleted_paths = tuple(
+        sorted(
+            {
+                rel
+                for value in deleted
+                if (rel := relative(value)) is not None
+                and PurePosixPath(rel).suffix.casefold() == ".md"
+            }
+        )
+    )
+    reconcile_paths = tuple(sorted(set(changed_paths) | set(deleted_paths)))
+    if not reconcile_paths:
+        return _CORPUS_PATCH_UNCHANGED
+    bridge = (
+        freshness.delta_since(root, "vault", cached_checkpoint)
+        if cached_checkpoint is not None else None
+    )
+    # A seed can hide earlier edits. Named events prove the whole context only
+    # when retained history covers its caption and every touched Markdown path.
+    caption_current = (
+        bridge is not None
+        and bridge.complete
+        and bridge.to == event_checkpoint
+        and {
+            relative(path)
+            for path in bridge.changed | bridge.deleted
+            if PurePosixPath(path).suffix.casefold() == ".md"
+        }.issubset(reconcile_paths)
+    )
+    relation_definitions = relation_registry.core_registry()
+    language = semantic_language_registry.core_registry()
+    context = _reconcile_markdown_delta(
+        root,
+        entry[1],
+        reconcile_paths,
+        relation_definitions=relation_definitions,
+        language=language,
+    )
+    census = _patch_markdown_census(
+        root,
+        entry[0],
+        changed_paths=changed_paths,
+        deleted_paths=deleted_paths,
+    )
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        if _CORPUS_CONTEXT_CACHE.get(cache_key) is entry:
+            _CORPUS_CONTEXT_CACHE[cache_key] = (census, context)
+            _CORPUS_CONTEXT_LANGUAGE_HASHES[cache_key] = (
+                f"{language.schema_version}:{language.content_hash}"
+            )
+            if caption_current:
+                _caption_corpus_context_locked(cache_key, event_checkpoint)
+            else:
+                _drop_corpus_caption_locked(cache_key)
+    return _CORPUS_PATCH_APPLIED
+
+
+def _trim_corpus_cache_locked(keep: tuple[str, str]) -> None:
+    """Evict other vaults down to the bound; call with the cache lock held."""
+    while len(_CORPUS_CONTEXT_CACHE) > _CORPUS_CONTEXT_CACHE_MAX_VAULTS:
+        for stale_key in list(_CORPUS_CONTEXT_CACHE):
+            if stale_key != keep:
+                _forget_corpus_entry_locked(stale_key)
+                break
+        else:
+            break
+
+
+def _populate_corpus_context_after_miss(root: Path) -> None:
+    """Build the corpus context a publish found no warm entry to patch.
+
+    Before this, a publish onto a cold cache was a silent no-op, so the very
+    next reader paid a full stat census AND a full parse of the vault — on a
+    write path where that walk is the dominant cost. The publisher pays one
+    honest build here instead, synchronously, and the next reader is an
+    event-hit.
+
+    Why this cannot simply run inside the caller's lock (contract L1 vs L2):
+    the publish path holds ``_CORPUS_CONTEXT_UPDATE_LOCK`` across
+    ``freshness.on_files_changed`` precisely so no event can interleave
+    between an advance and a stamp. Walking and parsing the whole vault
+    inside that hold would serialize EVERY concurrent governed write behind
+    one cold build — at thousands of pages, seconds of it. So the walk runs
+    outside the lock and admission takes L2's shape instead:
+
+    * capture ``freshness.consumer_checkpoint`` BEFORE the walk and re-read it
+      under the update lock; stamp only if it is unchanged. The checkpoint,
+      not the bare triple, because it carries a strictly increasing
+      generation and the triple alone is ABA-vulnerable across a
+      revert-in-place (L3);
+    * require the cache slot to still hold the same thing observed at the
+      start — for a populate that is "still empty", the analogue of the
+      ``_CORPUS_CONTEXT_CACHE.get(cache_key) is entry`` idiom every other
+      stamp site uses;
+    * re-confirm the census under the same hold, because the checkpoint only
+      covers deltas the registry SAW. A file that moved during the build
+      without reaching the registry would otherwise leave a stored census
+      that lies about the context it captions, and a later revert-in-place
+      could serve that context as current;
+    * on any mismatch, discard. Never stamp; a later build repopulates
+      honestly.
+
+    Nothing here may fail the publish that called it: the canonical bytes are
+    already committed and the registry has already advanced. A populate that
+    cannot complete simply leaves the cache cold, which is exactly today's
+    behavior.
+
+    Single-flighted, and memoized whenever an attempt did not stamp: see
+    ``_CORPUS_CONTEXT_FLIGHTS`` and ``_CORPUS_POPULATE_MEMO`` for why the
+    unbounded version made writers pay for builds that could not land (#539).
+
+    Neither bound can make the cache wrong. Both only ever decline to *start*
+    a build, and declining leaves the cache cold -- which is precisely the
+    state a publish onto a cold cache produced before populate-on-miss existed,
+    and which every reader already handles by building. The first publish that
+    finds the vault settled populates honestly.
+    """
+    if not corpus_context_cache_enabled():
+        return
+    try:
+        cache_key = _corpus_cache_key(root)
+    except Exception:  # noqa: BLE001 - an unkeyable root simply has no cache
+        return
+    with _CORPUS_CONTEXT_CACHE_LOCK:
+        if _CORPUS_CONTEXT_CACHE.get(cache_key) is not None:
+            return
+    started = time.monotonic()
+    with _CORPUS_POPULATE_LOCK:
+        # Expired entries are dropped here rather than left to accumulate: the
+        # context cache is bounded to `_CORPUS_CONTEXT_CACHE_MAX_VAULTS`, and a
+        # memo that outlived its own quiet window should not be the one piece
+        # of per-vault state that grows without limit in a long-lived server.
+        for key, deadline in list(_CORPUS_POPULATE_MEMO.items()):
+            if started >= deadline:
+                del _CORPUS_POPULATE_MEMO[key]
+        if cache_key in _CORPUS_POPULATE_MEMO:
+            return
+    admitted: bool | None = False
+    try:
+        admitted = _build_and_admit_corpus_context(root, cache_key)
+    except Exception:  # noqa: BLE001 - the publish itself already succeeded
+        log.warning("semantic corpus populate-on-miss failed", exc_info=True)
+    finally:
+        elapsed = time.monotonic() - started
+        with _CORPUS_POPULATE_LOCK:
+            if admitted is True:
+                _CORPUS_POPULATE_MEMO.pop(cache_key, None)
+            elif admitted is False:
+                _CORPUS_POPULATE_MEMO[cache_key] = time.monotonic() + min(
+                    _CORPUS_POPULATE_MEMO_MAX_SECONDS,
+                    max(_CORPUS_POPULATE_MEMO_MIN_SECONDS, elapsed),
+                )
+
+
+def _build_and_admit_corpus_context(root: Path, cache_key: tuple[str, str]) -> bool | None:
+    """The L2 body of :func:`_populate_corpus_context_after_miss`.
+
+    Returns whether this call stamped a context, or None when another build owns it.
+    A discard is not an error --
+    it is the admission proof correctly refusing a build the vault moved out
+    from under -- but the caller has to tell a discard apart from a stamp to
+    know whether retrying immediately would be productive.
+    """
+    relation_definitions = relation_registry.core_registry()
+    language = semantic_language_registry.core_registry()
+    # Reserve before the census so skipped publishers do no whole-vault work.
+    flight, owns_flight = _claim_corpus_context_flight(
+        cache_key, None, relation_definitions, language
+    )
+    if not owns_flight:
+        return None
+    try:
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            if _CORPUS_CONTEXT_CACHE.get(cache_key) is not None:
+                return None
+        # L2/L3: capture the checkpoint before the walk it has to vouch for.
+        before = freshness.consumer_checkpoint(root, "vault")
+        census = _timed_corpus_census(root, "populate")
+        if census is None:
+            return False
+        # Registries loaded before the walk must still match its schema files.
+        # The final census confirmation closes the remaining admission window.
+        if not _registries_match_disk(root, relation_definitions, language):
+            log.info("semantic corpus populate discarded: registry moved during the walk")
+            return False
+        flight.census = census
+        started = time.perf_counter()
+        context = _build_corpus_context_uncached(
+            root,
+            candidate=None,
+            relation_definitions=relation_definitions,
+            language=language,
+        )
+        build_ms = (time.perf_counter() - started) * 1000.0
+        # Keep the publisher's full-build cost visible independently of warmup.
+        metrics.observe_duration_ms(
+            "exomem_corpus_build_ms",
+            build_ms,
+            {"caller": current_call_context(), "outcome": "populate"},
+        )
+        with _census_walk_log() as walk_log, _CORPUS_CONTEXT_UPDATE_LOCK:
+            after = freshness.consumer_checkpoint(root, "vault")
+            if after != before:
+                log.info("semantic corpus populate discarded: registry advanced mid-walk")
+                return False
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                if _CORPUS_CONTEXT_CACHE.get(cache_key) is not None:
+                    return False
+            if _deferred_corpus_census(root, walk_log, "census") != census:
+                log.info("semantic corpus populate discarded: corpus moved mid-build")
+                return False
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                if _CORPUS_CONTEXT_CACHE.get(cache_key) is not None:
+                    return False
+                _CORPUS_CONTEXT_CACHE[cache_key] = (census, context)
+                _CORPUS_CONTEXT_LANGUAGE_HASHES[cache_key] = (
+                    f"{language.schema_version}:{language.content_hash}"
+                )
+                # L4: None withdraws any old caption instead of retaining it.
+                _caption_corpus_context_locked(cache_key, after)
+                _trim_corpus_cache_locked(cache_key)
+        flight.result = context
+        log.info(
+            "semantic corpus context populated on miss pages=%d build_ms=%.1f",
+            len(context.pages),
+            build_ms,
+        )
+        return True
+    except BaseException as error:
+        flight.error = error
+        raise
+    finally:
+        flight.discarded = flight.result is None and flight.error is None
+        _finish_corpus_context_flight(cache_key, flight)
+
+
+@call_spans.timed("corpus_context.build")
+def build_corpus_context(
+    vault_root: Path,
+    *,
+    candidate: SemanticPageState | None = None,
+    registry: relation_registry.RelationRegistry | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> SemanticCorpusContext:
+    """Read and parse the corpus once, then resolve every fact in memory.
+
+    Warm calls are served from a bounded process cache captioned by a stat
+    census of every filesystem input (see ``_corpus_census``). Exact matches
+    return directly; Markdown-only changes reparse only the changed parents.
+    Candidate-bearing builds always take the uncached path.
+    ``EXOMEM_DISABLE_CORPUS_CACHE=1`` restores the always-rebuild behavior.
+    """
+    context, _census = build_corpus_context_with_census(
+        vault_root,
+        candidate=candidate,
+        registry=registry,
+        language_registry=language_registry,
+        status_basis=status_basis,
+        type_basis=type_basis,
+    )
+    return context
+
+
+def corpus_registry_overrides(
+    vault_root: Path,
+    registry: relation_registry.RelationRegistry,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry,
+) -> tuple[
+    relation_registry.RelationRegistry | None,
+    semantic_language_registry.SemanticLanguageRegistry | None,
+]:
+    """The registries a writer hands its corpus build: none in an unarmed vault.
+
+    Unarmed, every page selects the saved public definitions, which are the
+    registries a writer loads, so handing them over changes no meaning and only
+    splits the warm enrichment memo. An armed vault keeps its explicit public
+    corpus registry.
+    """
+    from .governance import connector_boundary
+
+    if connector_boundary.read_requirement(Path(vault_root)) is None:
+        return None, None
+    return registry, language_registry
+
+
+def warm_corpus_context(vault_root: Path) -> None:
+    """Fill the shared structural corpus cache without classifying for any caller."""
+    _context, census = _build_corpus_context_with_census(Path(vault_root), warm=True)
+    if corpus_context_cache_enabled() and census is None:
+        raise OpError(
+            "MUTATION_WARMING", "semantic corpus warm-up did not retain a current context"
+        )
+
+
+def build_corpus_context_with_census(
+    vault_root: Path,
+    *,
+    candidate: SemanticPageState | None = None,
+    registry: relation_registry.RelationRegistry | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> tuple[SemanticCorpusContext, tuple | None]:
+    """Enrich admitted pages without publishing caller facts into the shared cache.
+
+    The owner and an unbound library call admit every page without a per-page
+    decision. A restricted caller's admissions are collected in their own
+    disclosure boundary: they shape this context, not the caller's receipt.
+    """
+    from .governance import egress
+
+    root = Path(vault_root)
+    basis = status_basis or lifecycle_statuses.Basis(root)
+    type_basis = type_basis or note_types.Basis(root)
+    context, census = _build_corpus_context_with_census(
+        root,
+        registry=relation_registry.core_registry(),
+        language_registry=semantic_language_registry.core_registry(),
+    )
+    # A supplied registry is the meaning of every page without its own binding,
+    # so its identity is a dependency of each enriched page.
+    supplied = (
+        None if registry is None else (registry.core_version, registry.extension_hash),
+        None if language_registry is None
+        else (language_registry.schema_version, language_registry.content_hash),
+    )
+    memo_key = (
+        (_corpus_cache_key(root), supplied != (None, None))
+        if candidate is None and corpus_context_cache_enabled()
+        else None
+    )
+    writer_visibility = vault.writer_link_visibility(root)
+    selection = instances.DefinitionsSelection(root, _PAGE_DEFINITION_SUBJECTS)
+    definitions = None
+    with egress.disclosure_boundary(root, "semantic_corpus_admission"):
+        visible = egress.restricted_release_filter(root)
+        if visible is not None or writer_visibility is not None:
+            memo_key = None
+        memo = None
+        if memo_key is not None:
+            definitions = selection.dependency()
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                memo = _ENRICHED_CONTEXT_MEMO.get(memo_key)
+            if memo is not None and not (
+                basis.matches(memo[1][0]) and type_basis.matches(memo[1][1])
+                and memo[1][2] == definitions and memo[1][3] == supplied
+            ):
+                memo = None
+            if memo is not None and memo[0] is context:
+                return memo[2], census
+        previous = memo[0].pages if memo is not None else {}
+        reused = memo[3] if memo is not None else {}
+        states = {
+            path: (
+                reused[path]
+                if previous.get(path) is state
+                else enrich_page_state(root, state, basis, type_basis, relation_definitions=registry,
+                                       language=language_registry, require_status=False,
+                                       definitions_selection=selection)
+                if visible is None or visible(path)
+                else state
+            )
+            for path, state in context.pages.items()
+        }
+    # Candidate validation owns target admission and requires classification.
+    if candidate is not None:
+        states[candidate.path] = enrich_page_state(
+            root, candidate, basis, type_basis,
+            relation_definitions=registry, language=language_registry,
+            definitions_selection=selection,
+        )
+    identity = (
+        context.identity_census.with_page(candidate, casefold_paths=vault.vault_casefolds(root))
+        if candidate is not None
+        else context.identity_census
+    )
+    corpus_registry = registry
+    if corpus_registry is None:
+        try:
+            unarmed = instances.configuration(root) is None
+        except ValueError:
+            unarmed = False
+        # Unarmed, the public overlay is every page's meaning. Armed, each visible
+        # page carries its own instance and every other page keeps core meaning.
+        corpus_registry = (
+            selection.snapshot("relations").typed if unarmed else context.registry
+        )
+    # Enrichment changes interpretation, not titles, paths or structural census inputs.
+    if candidate is None:
+        resolver = _WikilinkResolverView(
+            full_paths=context.resolver_full_paths,
+            kb_stripped=context.resolver_kb_stripped,
+            stems=context.resolver_stems,
+            titles=context.resolver_titles,
+            candidates_by_key=context.resolver_candidates_by_key,
+        )
+        facts = _derive_relation_facts(root, states, resolver, corpus_registry)  # type: ignore[arg-type]
+        enriched = _context_from_resolved_state(
+            root, states, corpus_registry, identity,
+            entries=context.resolver_entries,
+            resolver=resolver,  # type: ignore[arg-type]
+            facts=facts,
+            writer_visibility=writer_visibility,
+            validated_census=context.activation_census,
+        )
+    else:
+        enriched = _context_from_state_map(
+            root, states, corpus_registry, identity, writer_visibility=writer_visibility,
+        )
+    if memo_key is not None:
+        with _CORPUS_CONTEXT_CACHE_LOCK:
+            cached = _CORPUS_CONTEXT_CACHE.get(memo_key[0])
+            if cached is not None and cached[1] is context:
+                _ENRICHED_CONTEXT_MEMO[memo_key] = (
+                    context,
+                    # The reused states keep this basis object, so record the
+                    # dependency it will have once a later read loads it.
+                    (basis.dependency, type_basis.loaded_dependency(), definitions, supplied),
+                    enriched,
+                    states,
+                )
+    return enriched, census
+
+
+def _build_corpus_context_with_census(
+    vault_root: Path,
+    *,
+    candidate: SemanticPageState | None = None,
+    registry: relation_registry.RelationRegistry | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    warm: bool = False,
+    join_deadline: float | None = None,
+) -> tuple[SemanticCorpusContext, tuple | None]:
+    """``build_corpus_context`` plus the exact census that validated it.
+
+    Identical corpus/cache mechanics to ``build_corpus_context`` (that
+    function is a thin wrapper over this one) — the only difference is a
+    second return so a caller about to compute ``corpus_validity_token`` can
+    reuse the census this call already walked instead of paying for another
+    one. The census is ``None`` whenever no single walk unambiguously matches
+    the returned context: candidate-bearing builds, a disabled cache, a
+    registry that does not match disk, a cold build whose post-publish
+    reconciliation never stabilized, or an in-flight-dedup waiter (it only
+    confirmed its own pre-wait walk matched the flight it is chasing, not
+    whatever the owning build's stabilization loop settles on or gives up on
+    afterward). A caller that gets ``None`` here has no cheaper option than
+    its own fresh walk — same as before this existed.
+    """
+    root = Path(vault_root)
+    relation_definitions = registry or relation_registry.core_registry()
+    language = language_registry or semantic_language_registry.core_registry()
+
+    census: tuple | None = None
+    cache_key: tuple[str, str] | None = None
+    if candidate is None and corpus_context_cache_enabled():
+        cache_key = _corpus_cache_key(root)
+        event_checkpoint = freshness.consumer_checkpoint(root, "vault")
+        if event_checkpoint.triple is not None:
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                event_entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+                cached_checkpoint = _CORPUS_CONTEXT_EVENT_CHECKPOINTS.get(cache_key)
+                cached_language_hash = _CORPUS_CONTEXT_LANGUAGE_HASHES.get(cache_key)
+            if (
+                event_entry is not None
+                and cached_checkpoint == event_checkpoint
+                and cached_language_hash == f"{language.schema_version}:{language.content_hash}"
+                and _config_census(root) == _stored_config_census(event_entry[0])
+                and (
+                    event_entry[1].registry.core_version,
+                    event_entry[1].registry.extension_hash,
+                )
+                == (
+                    relation_definitions.core_version,
+                    relation_definitions.extension_hash,
+                )
+            ):
+                log.info(
+                    "semantic corpus context event-hit pages=%d",
+                    len(event_entry[1].pages),
+                )
+                return event_entry[1], event_entry[0]
+        # This walk's meaning is only settled by the branch it lands in, and
+        # every one of those branches decides while a cache lock is held. So
+        # the disposition is recorded in place and emitted by `_census_walk_log`
+        # on the way out, once every lock below has released.
+        with _census_walk_log() as walk_log:
+            started = time.perf_counter()
+            census = _corpus_census(root)
+            census_ms = (time.perf_counter() - started) * 1000.0
+            # Claimed by whichever branch below consumes it; resolved on the
+            # way out if none does (see `_census_walk_log`).
+            walk = [census_ms, _CENSUS_WALK_UNDECIDED]
+            walk_log.append(walk)
+            if census is not None and _registries_match_disk(
+                root, relation_definitions, language
+            ):
+                with _CORPUS_CONTEXT_CACHE_LOCK:
+                    entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+                if entry is not None and entry[0] == census:
+                    with _CORPUS_CONTEXT_UPDATE_LOCK, _CORPUS_CONTEXT_CACHE_LOCK:
+                        current = _CORPUS_CONTEXT_CACHE.get(cache_key)
+                        if current is not entry:
+                            entry = current
+                        elif entry[0] == census:
+                            current_checkpoint = freshness.consumer_checkpoint(
+                                root, "vault"
+                            )
+                            _caption_corpus_context_locked(cache_key, current_checkpoint)
+                            log.info(
+                                "semantic corpus context reused pages=%d census_ms=%.1f",
+                                len(entry[1].pages),
+                                census_ms,
+                            )
+                            walk[1] = "hit"
+                            return entry[1], entry[0]
+                    if entry is not None and entry[0] == census:
+                        with _CORPUS_CONTEXT_CACHE_LOCK:
+                            if _CORPUS_CONTEXT_CACHE.get(cache_key) is entry:
+                                walk[1] = "hit"
+                                return entry[1], entry[0]
+                if entry is not None:
+                    changed_paths = _markdown_census_delta(entry[0], census)
+                    if changed_paths is not None:
+                        started = time.perf_counter()
+                        context = _reconcile_markdown_delta(
+                            root,
+                            entry[1],
+                            changed_paths,
+                            relation_definitions=relation_definitions,
+                            language=language,
+                        )
+                        with _CORPUS_CONTEXT_UPDATE_LOCK:
+                            confirmed = _deferred_corpus_census(root, walk_log, "census")
+                            with _CORPUS_CONTEXT_CACHE_LOCK:
+                                current = _CORPUS_CONTEXT_CACHE.get(cache_key)
+                                if confirmed == census and current is entry:
+                                    _CORPUS_CONTEXT_CACHE[cache_key] = (census, context)
+                                    _CORPUS_CONTEXT_LANGUAGE_HASHES[cache_key] = (
+                                        f"{language.schema_version}:{language.content_hash}"
+                                    )
+                                    current_checkpoint = freshness.consumer_checkpoint(
+                                        root, "vault"
+                                    )
+                                    _caption_corpus_context_locked(
+                                        cache_key, current_checkpoint
+                                    )
+                                    log.info(
+                                        "semantic corpus context reconciled pages=%d "
+                                        "changed=%d reconcile_ms=%.1f census_ms=%.1f",
+                                        len(context.pages),
+                                        len(changed_paths),
+                                        (time.perf_counter() - started) * 1000.0,
+                                        census_ms,
+                                    )
+                                    walk[1] = "patch"
+                                    return context, census
+                                if current is not None and current is not entry:
+                                    walk[1] = "hit"
+                                    return current[1], current[0]
+            else:
+                census = None
+
+    flight: _CorpusContextFlight | None = None
+    if census is not None and cache_key is not None:
+        registry_identity = (
+            relation_definitions.core_version,
+            relation_definitions.extension_hash,
+        )
+        language_identity = (language.schema_version, language.content_hash)
+        flight, owns_flight = _claim_corpus_context_flight(
+            cache_key, census, relation_definitions, language
+        )
+        if not owns_flight:
+            initial_join = join_deadline is None
+            if not warm and initial_join:
+                join_deadline = time.monotonic() + _CORPUS_CONTEXT_JOIN_TIMEOUT_SECONDS
+            same_inputs = (
+                flight.census == census
+                and flight.registry_identity == registry_identity
+                and flight.language_identity == language_identity
+            )
+            completed = flight.done.is_set()
+            if not completed:
+                if warm:
+                    # Startup owns the build lifetime, not an interactive budget.
+                    completed = flight.done.wait()
+                else:
+                    assert join_deadline is not None
+                    # Recursive handoffs share one interactive waiting budget.
+                    remaining = (
+                        _CORPUS_CONTEXT_JOIN_TIMEOUT_SECONDS
+                        if initial_join
+                        else max(0.0, join_deadline - time.monotonic())
+                    )
+                    # Any thread may own the flight, a bulk pass included.
+                    with foreground_priority.awaiting_bulk():
+                        completed = flight.done.wait(timeout=remaining)
+            if not completed or (
+                not warm
+                and (not same_inputs or flight.discarded)
+                and join_deadline is not None
+                and time.monotonic() >= join_deadline
+            ):
+                raise OpError(
+                    "MUTATION_WARMING",
+                    "semantic corpus context is still being built",
+                    details={
+                        "status": "retryable",
+                        "committed": False,
+                        "retry_after_ms": 2000,
+                    },
+                )
+            if not same_inputs or flight.discarded:
+                return _build_corpus_context_with_census(
+                    root,
+                    candidate=candidate,
+                    registry=registry,
+                    language_registry=language_registry,
+                    warm=warm,
+                    join_deadline=join_deadline,
+                )
+            if flight.error is not None:
+                raise flight.error
+            if warm:
+                # Recheck admitted cache state; a foreign census is not this warmer's proof.
+                return _build_corpus_context_with_census(
+                    root,
+                    candidate=candidate,
+                    registry=registry,
+                    language_registry=language_registry,
+                    warm=True,
+                    join_deadline=join_deadline,
+                )
+            assert flight.result is not None
+            # Not `census`: that is this WAITER's own pre-wait walk, pinned
+            # only to confirm it is chasing the same flight (`same_inputs`
+            # above). The owner's stabilization loop can still reconcile
+            # `flight.result` to a different final census after that check,
+            # or give up entirely -- either way this waiter has no census
+            # that is honestly known to match the context it is returning.
+            return flight.result, None
+
+    try:
+        if flight is not None:
+            with _CORPUS_CONTEXT_CACHE_LOCK:
+                late_entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
+            if late_entry is not None and late_entry[0] == census:
+                # A publisher filled the cache before this claim. Reuse its
+                # entry through the maintained lookup, without another parse.
+                redundant_flight, flight = flight, None
+                redundant_flight.discarded = True
+                _finish_corpus_context_flight(cache_key, redundant_flight)
+                return _build_corpus_context_with_census(
+                    root,
+                    candidate=candidate,
+                    registry=registry,
+                    language_registry=language_registry,
+                    warm=warm,
+                    join_deadline=join_deadline,
+                )
+        started = time.perf_counter()
+        context = _build_corpus_context_uncached(
+            root,
+            candidate=candidate,
+            relation_definitions=relation_definitions,
+            language=language,
+        )
+        build_ms = (time.perf_counter() - started) * 1000.0
+        metrics.observe_duration_ms(
+            "exomem_corpus_build_ms",
+            build_ms,
+            {"caller": current_call_context(), "outcome": "rebuild"},
+        )
+        stored = False
+        if census is not None and cache_key is not None:
+            # Entered outside the update lock, so its queued samples are
+            # emitted only after that lock releases.
+            with _census_walk_log() as publish_log, _CORPUS_CONTEXT_UPDATE_LOCK:
+                stable_census = census
+                # A busy watcher/media worker can change Markdown while the cold
+                # build runs. Once publication begins, serialize with event
+                # freshness+cache updates, absorb exact deltas, then stamp the same
+                # state atomically so a newer event context cannot be overwritten.
+                for _ in range(3):
+                    confirmed = _deferred_corpus_census(root, publish_log, "census")
+                    if confirmed == stable_census:
+                        break
+                    if confirmed is None:
+                        stable_census = None
+                        break
+                    changed_paths = _markdown_census_delta(stable_census, confirmed)
+                    if changed_paths is None:
+                        stable_census = None
+                        break
+                    context = _reconcile_markdown_delta(
+                        root,
+                        context,
+                        changed_paths,
+                        relation_definitions=relation_definitions,
+                        language=language,
+                    )
+                    stable_census = confirmed
+                else:
+                    confirmed = None
+                if confirmed == stable_census and stable_census is not None:
+                    census = stable_census
+                    with _CORPUS_CONTEXT_CACHE_LOCK:
+                        _CORPUS_CONTEXT_CACHE[cache_key] = (census, context)
+                        _CORPUS_CONTEXT_LANGUAGE_HASHES[cache_key] = (
+                            f"{language.schema_version}:{language.content_hash}"
+                        )
+                        current_checkpoint = freshness.consumer_checkpoint(root, "vault")
+                        _caption_corpus_context_locked(cache_key, current_checkpoint)
+                        _trim_corpus_cache_locked(cache_key)
+                    stored = True
+        log.info(
+            "semantic corpus context built pages=%d build_ms=%.1f cached=%s",
+            len(context.pages),
+            build_ms,
+            stored,
+        )
+    except BaseException as error:
+        if flight is not None:
+            flight.error = error
+            _finish_corpus_context_flight(cache_key, flight)
+        raise
+    if flight is not None:
+        flight.result = context
+        _finish_corpus_context_flight(cache_key, flight)
+    return context, (census if stored else None)
+
+
+def _build_corpus_context_uncached(
+    root: Path,
+    *,
+    candidate: SemanticPageState | None,
+    relation_definitions: relation_registry.RelationRegistry,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> SemanticCorpusContext:
+    states: dict[str, SemanticPageState] = {}
+    candidate_path = candidate.path if candidate is not None else None
+    eligible: dict[str, Path] = {}
+    for disk_path in sorted(vault.walk_vault_md(root), key=lambda item: item.as_posix()):
+        try:
+            rel_path = disk_path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            continue
+        if rel_path != candidate_path:
+            eligible[rel_path] = disk_path
+
+    def consume(rel_path: str, source: str) -> None:
+        if rel_path in eligible:
+            states[rel_path] = _parse_page_state(
+                root,
+                rel_path,
+                source,
+                relation_registry=relation_definitions,
+                language_registry=language,
+            )
+
+    identity_census, _ = _build_identity_census(root, consume=consume)
+    kb_prefix = vault.kb_root(root).relative_to(root).as_posix() + "/"
+    for rel_path, disk_path in eligible.items():
+        if rel_path.startswith(kb_prefix):
+            continue
+        try:
+            source = disk_path.read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            if (
+                activation.is_managed_governed_path(root, disk_path)
+                and access.access_tier(root, rel_path) == access.TIER_READ_WRITE
+            ):
+                raise activation_manifest.ActivationManifestError(
+                    "ACTIVATION_MANIFEST_PAGE_UNREADABLE",
+                    f"could not read governed semantic page {disk_path}: {error}",
+                ) from error
+            continue
+        consume(rel_path, source)
+    if candidate is not None:
+        states[candidate.path] = candidate
+        identity_census = identity_census.with_page(
+            candidate, casefold_paths=vault.vault_casefolds(root)
+        )
+    return _context_from_state_map(
+        root,
+        states,
+        _copy_registry(relation_definitions),
+        identity_census,
+    )
+
+
+def _build_identity_census(
+    root: Path,
+    *,
+    consume: Callable[[str, str], None] | None = None,
+) -> tuple[StableIdentityCensus, Mapping[str, str]]:
+    """Validate canonical KB pages and immediately consume each page's raw text."""
+    kb = vault.kb_root(root)
+    entries: list[StableIdentityEntry] = []
+
+    def walk(directory: Path) -> None:
+        try:
+            children = sorted(os.scandir(directory), key=lambda item: item.name.casefold())
+        except OSError as error:
+            raise activation_manifest.ActivationManifestError(
+                "IDENTITY_CENSUS_ENUMERATION_FAILED",
+                "could not enumerate the stable-identity census",
+            ) from error
+        for child in children:
+            if _prune_identity_census_directory(kb, directory, child.name):
+                continue
+            path = Path(child.path)
+            # Alias refusal comes first and applies to EVERY entry, exactly as
+            # before: an aliased subtree can hide or duplicate pages whatever
+            # its name looks like, so filtering by suffix ahead of this check
+            # would open a hole. `is_symlink()` answers from the listing.
+            try:
+                if child.is_symlink():
+                    raise activation_manifest.ActivationManifestError(
+                        "IDENTITY_CENSUS_UNSAFE_ENTRY",
+                        "stable-identity census contains a filesystem alias",
+                    )
+                is_directory = child.is_dir(follow_symlinks=False)
+            except OSError as error:
+                raise activation_manifest.ActivationManifestError(
+                    "IDENTITY_CENSUS_ENTRY_UNREADABLE",
+                    "could not inspect a stable-identity census entry",
+                ) from error
+            # Filter BEFORE the stat. The Knowledge Base root also holds
+            # SQLite's transient sidecars (`.embeddings.sqlite-shm`, `-wal`),
+            # created and dropped as embedding connections open and close.
+            # They are not census input, so statting them bought nothing and
+            # cost a race: the sidecar could vanish in the window between the
+            # listing and the stat, and the FileNotFoundError escalated into a
+            # hard census failure (#528).
+            if not is_directory and path.suffix.casefold() != ".md":
+                continue
+            try:
+                info = child.stat(follow_symlinks=False)
+            except FileNotFoundError:
+                # Deleted between the listing and the stat. The census is a
+                # snapshot, not a lock — a page that no longer exists is simply
+                # not in it, and change detection belongs to the freshness
+                # machinery. Every other OSError still fails closed below.
+                continue
+            except OSError as error:
+                raise activation_manifest.ActivationManifestError(
+                    "IDENTITY_CENSUS_ENTRY_UNREADABLE",
+                    "could not inspect a stable-identity census entry",
+                ) from error
+            if vault._is_reparse(info):
+                raise activation_manifest.ActivationManifestError(
+                    "IDENTITY_CENSUS_UNSAFE_ENTRY",
+                    "stable-identity census contains a filesystem alias",
+                )
+            if stat.S_ISDIR(info.st_mode):
+                walk(path)
+                continue
+            if path.suffix.casefold() != ".md":
+                continue
+            if not stat.S_ISREG(info.st_mode):
+                raise activation_manifest.ActivationManifestError(
+                    "IDENTITY_CENSUS_NONREGULAR_MARKDOWN",
+                    "stable-identity census contains nonregular Markdown",
+                )
+            rel = path.relative_to(root).as_posix()
+            try:
+                source = path.read_bytes().decode("utf-8")
+            except FileNotFoundError:
+                # Deleted between the stat and the read: the same window #528
+                # closed one call earlier, and the same answer. Splitting the
+                # two would make the census's verdict depend on which
+                # microsecond a deletion landed in, and that says nothing about
+                # the vault -- a page that no longer exists is simply not in
+                # this snapshot, and change detection belongs to freshness.
+                #
+                # Only absence is tolerated. Every other OSError and any decode
+                # failure still fails closed below, because those mean the page
+                # is there and cannot be trusted, which is a different fact
+                # about the tree and one the census exists to refuse on.
+                #
+                # `_stable_identity_for_path` keeps the strict behaviour: a
+                # caller that named one page is owed an answer about that page,
+                # so a vanished one is a real result there rather than an entry
+                # missing from a snapshot.
+                continue
+            except (OSError, UnicodeDecodeError) as error:
+                code = (
+                    "ACTIVATION_MANIFEST_PAGE_UNREADABLE"
+                    if activation.is_managed_governed_path(root, path)
+                    and access.access_tier(root, rel) == access.TIER_READ_WRITE
+                    else "IDENTITY_CENSUS_PAGE_UNREADABLE"
+                )
+                raise activation_manifest.ActivationManifestError(
+                    code,
+                    f"could not safely inspect stable identity at {rel}",
+                ) from error
+            # Newlines as `_parse_page_state` and the reference scan read them:
+            # on raw bytes a CR-only page shows no frontmatter, so no identity.
+            logical_source = source.replace("\r\n", "\n").replace("\r", "\n")
+            try:
+                frontmatter, _, _ = vault.parse_frontmatter(logical_source, strict=True)
+            except vault.FrontmatterError as error:
+                raise activation_manifest.ActivationManifestError(
+                    error.code,
+                    f"could not safely inspect stable identity at {rel}",
+                ) from error
+            raw_identity = frontmatter.get(ID_FIELD)
+            identity: str | None = None
+            if raw_identity is not None:
+                identity = normalize_id(raw_identity)
+            entries.append(StableIdentityEntry(rel, identity))
+            if consume is not None:
+                consume(rel, source)
+
+    try:
+        root_info = kb.lstat()
+    except FileNotFoundError:
+        return StableIdentityCensus(()), MappingProxyType({})
+    except OSError as error:
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_ROOT_UNREADABLE",
+            "Knowledge Base root is unavailable for identity census",
+        ) from error
+    if (
+        not stat.S_ISDIR(root_info.st_mode)
+        or stat.S_ISLNK(root_info.st_mode)
+        or vault._is_reparse(root_info)
+    ):
+        raise activation_manifest.ActivationManifestError(
+            "IDENTITY_CENSUS_UNSAFE_ROOT",
+            "Knowledge Base root is unsafe for identity census",
+        )
+    walk(kb)
+    return (
+        StableIdentityCensus(tuple(entries), _reference_only_entries(root)),
+        MappingProxyType({}),
+    )
+
+
+def build_stable_identity_census(vault_root: Path) -> StableIdentityCensus:
+    """Re-derive UUID ownership without building or parsing a semantic corpus."""
+    census, _ = _build_identity_census(Path(vault_root))
+    return census
+
+
+def _resolver_snapshot(
+    resolver: vault.WikilinkResolver,
+) -> tuple[
+    frozenset[str],
+    frozenset[str],
+    Mapping[str, tuple[str, ...]],
+    Mapping[str, tuple[str, ...]],
+]:
+    return (
+        frozenset(resolver.full_paths),
+        frozenset(resolver.kb_stripped),
+        _mapping_of_tuples({key: tuple(values) for key, values in resolver.stems.items()}),
+        _mapping_of_tuples({key: tuple(values) for key, values in resolver.titles.items()}),
+    )
+
+
+def _context_from_state_map(
+    root: Path,
+    states: Mapping[str, SemanticPageState],
+    registry: relation_registry.RelationRegistry,
+    identity_census: StableIdentityCensus,
+    *,
+    writer_visibility: Any = _DECIDE,
+) -> SemanticCorpusContext:
+    ordered_pages = {path: states[path] for path in sorted(states)}
+    entries = tuple((path, ordered_pages[path].title) for path in ordered_pages)
+    resolver = vault.WikilinkResolver.from_entries(root, entries)
+    facts = _derive_relation_facts(root, ordered_pages, resolver, registry)
+    return _context_from_resolved_state(
+        root,
+        ordered_pages,
+        registry,
+        identity_census,
+        entries=entries,
+        resolver=resolver,
+        facts=facts,
+        writer_visibility=writer_visibility,
+    )
+
+
+def _stable_topology_replacement(
+    context: SemanticCorpusContext, state: SemanticPageState
+) -> bool:
+    """Whether `state` can replace its page by re-deriving it and the pages that link into it.
+
+    Relation fact identities count occurrences per authored identity across the
+    whole corpus, so a page that shares its `exomem_id` with another page is
+    never re-derived alone.
+    """
+    current = context.pages.get(state.path)
+    if current is None:
+        return False
+    # The same page set the occurrence count runs over, not the KB-only census.
+    if state.identity_kind == "exomem_id" and any(
+        page.identity_kind == "exomem_id"
+        and page.identity == state.identity
+        and page.path != state.path
+        for page in context.pages.values()
+    ):
+        return False
+    return (
+        current.title,
+        current.identity_kind,
+        current.identity,
+        current.page_type,
+        current.projects,
+        current.language_registry_hash,
+        current.relation_registry_hash,
+    ) == (
+        state.title,
+        state.identity_kind,
+        state.identity,
+        state.page_type,
+        state.projects,
+        state.language_registry_hash,
+        state.relation_registry_hash,
+    )
+
+
+def _context_with_stable_topology_candidate(
+    context: SemanticCorpusContext,
+    state: SemanticPageState,
+) -> SemanticCorpusContext:
+    """Replace one page and refresh facts that bind its current units."""
+    pages = dict(context.pages)
+    pages[state.path] = state
+    resolver = _WikilinkResolverView(
+        full_paths=context.resolver_full_paths,
+        kb_stripped=context.resolver_kb_stripped,
+        stems=context.resolver_stems,
+        titles=context.resolver_titles,
+        candidates_by_key=context.resolver_candidates_by_key,
+    )
+    # Incoming exact endpoints depend on the target's anchors and fingerprints.
+    affected = {state.path} | {
+        fact.authored_path for fact in context.relation_facts
+        if fact.resolved_target_path is not None
+        and fact.resolved_target_path.split("#", 1)[0] == state.path
+    }
+    # Sorted, as in a full build: fact identities count occurrences per authored
+    # identity, so pages that share an id must be derived in the same order.
+    candidate_facts = _derive_relation_facts(
+        context.vault_root,
+        {path: pages[path] for path in sorted(affected)},
+        resolver,  # type: ignore[arg-type]
+        context.registry,
+        target_states=pages,
+    )
+    retained_facts = (fact for fact in context.relation_facts if fact.authored_path not in affected)
+    facts = tuple(sorted((*retained_facts, *candidate_facts), key=lambda item: item.identity))
+    current = context.pages[state.path]
+    census = None
+    if current.structurally_compiled and state.structurally_compiled:
+        census = context.activation_census._with_replaced_candidate(
+            activation_manifest.ActivationCandidate(
+                state.path,
+                state.source_hash,
+                state.identity if state.identity_kind == "exomem_id" else None,
+                activation_manifest.recorded_status(state.frontmatter.get("status")),
+            )
+        )
+    elif not current.structurally_compiled and not state.structurally_compiled:
+        census = context.activation_census
+    return _context_from_resolved_state(
+        context.vault_root,
+        pages,
+        context.registry,
+        context.identity_census,
+        entries=context.resolver_entries,
+        resolver=resolver,  # type: ignore[arg-type]
+        facts=facts,
+        writer_visibility=context.writer_visibility,
+        validated_census=census,
+    )
+
+
+def _context_from_resolved_state(
+    root: Path,
+    ordered_pages: Mapping[str, SemanticPageState],
+    registry: relation_registry.RelationRegistry,
+    identity_census: StableIdentityCensus,
+    *,
+    entries: tuple[tuple[str, str], ...],
+    resolver: vault.WikilinkResolver,
+    facts: tuple[RelationFact, ...],
+    writer_visibility: Any = _DECIDE,
+    validated_census: activation_manifest.ActivationCensus | None = None,
+) -> SemanticCorpusContext:
+    inbound: dict[str, list[RelationFact]] = {}
+    outbound: dict[str, list[RelationFact]] = {}
+    dependencies: dict[str, list[str]] = {}
+    for fact in facts:
+        dependencies.setdefault(_dependency_key(fact.raw_target), []).append(fact.identity)
+        if fact.logical_source_path in ordered_pages:
+            outbound.setdefault(fact.logical_source_path, []).append(fact)
+        if fact.logical_target_path in ordered_pages:
+            inbound.setdefault(fact.logical_target_path, []).append(fact)
+    full_paths, kb_stripped, stems, titles = _resolver_snapshot(resolver)
+    # The census is structural and records raw labels unclassified, so it is the
+    # same for every caller and may live in the shared cache.
+    census = validated_census
+    if census is None:
+        census = activation_manifest.ActivationCensus.from_candidates(
+            activation_manifest.ActivationCandidate(
+                state.path,
+                state.source_hash,
+                state.identity if state.identity_kind == "exomem_id" else None,
+                activation_manifest.recorded_status(state.frontmatter.get("status")),
+            )
+            for state in ordered_pages.values()
+            if state.structurally_compiled
+        )
+    return SemanticCorpusContext(
+        vault_root=root,
+        pages=MappingProxyType(ordered_pages),
+        resolver_entries=entries,
+        resolver_full_paths=full_paths,
+        resolver_kb_stripped=kb_stripped,
+        resolver_stems=stems,
+        resolver_titles=titles,
+        raw_target_dependencies=_mapping_of_tuples(
+            {key: tuple(sorted(values)) for key, values in dependencies.items()}
+        ),
+        relation_facts=facts,
+        eligible_governed_paths=frozenset(
+            state.path for state in ordered_pages.values() if state.eligible_governed
+        ),
+        eligible_compiled_paths=frozenset(
+            state.path for state in ordered_pages.values() if state.eligible_compiled
+        ),
+        connectable_target_paths=frozenset(
+            state.path for state in ordered_pages.values() if state.connectable_target
+        ),
+        inbound=_mapping_of_tuples(
+            {
+                key: tuple(sorted(values, key=lambda item: item.identity))
+                for key, values in inbound.items()
+            }
+        ),
+        outbound=_mapping_of_tuples(
+            {
+                key: tuple(sorted(values, key=lambda item: item.identity))
+                for key, values in outbound.items()
+            }
+        ),
+        activation_census=census,
+        identity_census=identity_census,
+        registry=registry,
+        writer_visibility=writer_visibility,
+    )
+
+
+def _frontmatter_targets(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        matches = tuple(match.group(1).strip() for match in _WIKILINK_RE.finditer(value))
+        return matches or ((value.strip(),) if value.strip() else ())
+    if isinstance(value, (list, tuple)):
+        return tuple(target for child in value for target in _frontmatter_targets(child))
+    if isinstance(value, Mapping):
+        return tuple(target for child in value.values() for target in _frontmatter_targets(child))
+    return ()
+
+
+def _raw_note_target(raw: str, fallback: str) -> str:
+    matches = tuple(_WIKILINK_RE.finditer(raw))
+    return matches[-1].group(1).strip() if matches else fallback
+
+
+def _raw_note_relation(raw: str, fallback: str) -> str:
+    content = re.sub(r"^\s*[-*+]\s+", "", str(raw), count=1)
+    match = re.match(r"(?P<label>[^\s:]+)\s*:?[\s]", content)
+    return match.group("label") if match is not None else fallback
+
+
+def _raw_rich_relation(raw: str, fallback: str) -> str:
+    label, separator, _ = str(raw).partition(":")
+    return label.strip() if separator and label.strip() else fallback
+
+
+def _target_parts(raw_target: str) -> tuple[str, str | None, str | None]:
+    cleaned = str(raw_target).strip()
+    if cleaned.startswith("[[") and cleaned.endswith("]]"):
+        cleaned = cleaned[2:-2].strip()
+    path_anchor, separator, alias = cleaned.partition("|")
+    path, anchor_separator, anchor = path_anchor.partition("#")
+    return (
+        path.strip(),
+        anchor.strip() if anchor_separator and anchor.strip() else None,
+        alias.strip() if separator and alias.strip() else None,
+    )
+
+
+def _resolve_target(
+    root: Path,
+    raw_target: str,
+    resolver: vault.WikilinkResolver,
+    visible: Callable[[str], bool] | None = None,
+    *,
+    source_path: str | None = None,
+) -> tuple[str, str | None, str | None, str | None]:
+    page_part, authored_anchor, alias = _target_parts(raw_target)
+    if not page_part and authored_anchor and source_path:
+        if visible is not None and not visible(source_path):
+            return "unresolved", None, authored_anchor, alias
+        return "resolved", f"{source_path}#{authored_anchor}", authored_anchor, alias
+    try:
+        normalized, _, candidate = vault._normalize_wikilink(
+            raw_target, root, resolver=resolver, strict=True, visible=visible
+        )
+    except vault.AmbiguousWikilinkError:
+        return "ambiguous", None, authored_anchor, alias
+    except vault.UnresolvedWikilinkError:
+        return "unresolved", None, authored_anchor, alias
+    path, separator, anchor = normalized.partition("#")
+    resolved = candidate.path if candidate is not None else path
+    if separator:
+        resolved = f"{resolved}#{anchor}"
+    return "resolved", resolved, anchor or authored_anchor, alias
+
+
+def _registry_resolution(
+    registry: relation_registry.RelationRegistry,
+    raw_relation: str,
+    *,
+    projects: tuple[str, ...],
+    page_type: str | None,
+    source_kind: str,
+    target_kind: str | None,
+    origin: str,
+) -> relation_registry.RelationResolution:
+    origins = (origin, "semantic_relation") if origin == "markdown_relation" else (origin,)
+    project_values: tuple[str | None, ...] = projects or (None,)
+    resolutions = tuple(
+        registry.resolve(
+            raw_relation,
+            project=project,
+            page_type=page_type,
+            source_kind=source_kind,
+            target_kind=target_kind,
+            origin=registry_origin,
+        )
+        for registry_origin in origins
+        for project in project_values
+    )
+    selected = next(
+        (
+            item
+            for item in resolutions
+            if item.canonical is not None and item.status != "scope_violation"
+        ),
+        resolutions[0],
+    )
+    if selected.definition is not None and selected.definition.projects and not projects:
+        return replace(
+            selected,
+            status="scope_violation",
+            findings=(
+                *selected.findings,
+                {
+                    "code": "scope_violation",
+                    "path": f"relations.{selected.canonical}.project",
+                    "detail": "an attached project is required by the relation scope",
+                },
+            ),
+        )
+    return selected
+
+
+def _fact_identity(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _authored_relations(
+    state: SemanticPageState | None, registry: relation_registry.RelationRegistry
+) -> relation_registry.RelationRegistry:
+    """The relation definitions one authored page is judged with.
+
+    An assigned instance supplies its own definitions. A page whose instance is
+    unavailable keeps core meaning only. Otherwise the vault is unarmed and the
+    corpus registry, which a caller may supply, is the public instance.
+    """
+    if (state is not None and state.definitions is not None
+            and (state.definitions.binding_revision is not None or state.definitions_explicit)):
+        selected = state.definitions.snapshots["relations"].typed
+        if state.relation_registry_hash == f"{selected.core_version}:{selected.extension_hash}":
+            return selected
+    if state is not None and state.definitions_unavailable:
+        return relation_registry.core_registry()
+    return registry
+
+
+def _derive_relation_facts(
+    root: Path,
+    states: Mapping[str, SemanticPageState],
+    resolver: vault.WikilinkResolver,
+    registry: relation_registry.RelationRegistry,
+    *,
+    target_states: Mapping[str, SemanticPageState] | None = None,
+    complete_authored_effects: bool = False,
+    writer_view: tuple[str, Callable[[str], bool]] | None = None,
+) -> tuple[RelationFact, ...]:
+    """`writer_view` is `(page path, visible)`: that page's targets resolve
+    only over the pages `visible` admits (a writer's own view, see
+    `vault.writer_link_visibility`); every other page resolves over all.
+    """
+    resolved_states = target_states if target_states is not None else states
+    raw_facts: list[dict[str, Any]] = []
+    for state in states.values():
+        for relation in state.document.note_relations:
+            raw_facts.append(
+                {
+                    "authored": state,
+                    "raw_relation": _raw_note_relation(relation.raw, relation.kind),
+                    "raw_target": _raw_note_target(relation.raw, relation.target),
+                    "line": relation.line,
+                    "anchor": None,
+                    "element_identity": None,
+                    "source_kind": "file",
+                    "origin": "markdown_relation" if relation.canonical else "semantic_relation",
+                    "reverse": False,
+                }
+            )
+        for unit in state.document.rich_units:
+            for relation in unit.relations:
+                raw_facts.append(
+                    {
+                        "authored": state,
+                        "raw_relation": _raw_rich_relation(relation.raw, relation.kind),
+                        "raw_target": relation.target,
+                        "line": relation.line,
+                        "anchor": unit.anchor,
+                        "element_identity": unit.unit_ref or unit.fingerprint,
+                        "source_kind": unit.kind,
+                        "origin": "semantic_relation",
+                        "reverse": False,
+                    }
+                )
+        frontmatter_relations = (
+            ("sources", "derived_from", False),
+            ("evidence", "evidenced_by", False),
+            ("evidences", "evidenced_by", False),
+            ("evidence_paths", "evidenced_by", False),
+            ("related", "links_to", False),
+            ("supersedes", "supersedes", False),
+            ("superseded_by", "supersedes", True),
+        )
+        for field_name, raw_relation, reverse in frontmatter_relations:
+            for raw_target in _frontmatter_targets(state.frontmatter.get(field_name)):
+                raw_facts.append(
+                    {
+                        "authored": state,
+                        "raw_relation": raw_relation,
+                        "raw_target": raw_target,
+                        "line": None,
+                        "anchor": field_name,
+                        "element_identity": field_name,
+                        "source_kind": "file",
+                        "origin": "frontmatter",
+                        "reverse": reverse,
+                    }
+                )
+        if complete_authored_effects:
+            for raw_target, line in state.body_wikilinks:
+                raw_facts.append(
+                    {
+                        "authored": state,
+                        "raw_relation": "links_to",
+                        "raw_target": raw_target,
+                        "line": line,
+                        "anchor": None,
+                        "element_identity": None,
+                        "source_kind": "file",
+                        "origin": "wikilink",
+                        "reverse": False,
+                    }
+                )
+    occurrences: Counter[tuple[str, str, str, str, str, str]] = Counter()
+    facts: list[RelationFact] = []
+    for raw in raw_facts:
+        state = raw["authored"]
+        selected_registry = _authored_relations(state, registry)
+        target_status, resolved_target, target_anchor, target_alias = _resolve_target(
+            root,
+            raw["raw_target"],
+            resolver,
+            writer_view[1]
+            if writer_view is not None and state.path == writer_view[0]
+            else None,
+            source_path=state.path,
+        )
+        resolved_base = resolved_target.split("#", 1)[0] if resolved_target else None
+        target_state = resolved_states.get(resolved_base or "")
+        target_kind = "file" if target_state is not None else "unresolved"
+        source_ref = raw["element_identity"] if raw["origin"] == "semantic_relation" else None
+        source_ref = source_ref or state.document.parent_ref
+        target_ref = target_state.document.parent_ref if target_state is not None else None
+        target_unit_status = None
+        target_unit_fingerprint = None
+        if target_anchor and target_state is not None:
+            unit_resolution = target_state.document.resolve_fragment(target_anchor)
+            target_unit_status = (
+                "unavailable" if target_state.definitions_unavailable
+                and unit_resolution.status == "missing" else unit_resolution.status
+            )
+            target_ref = None
+            if unit_resolution.unit is not None:
+                target_ref = unit_resolution.unit.unit_ref
+                target_unit_fingerprint = unit_resolution.unit.fingerprint
+                target_kind = unit_resolution.unit.kind
+        resolution = _registry_resolution(
+            selected_registry,
+            raw["raw_relation"],
+            projects=state.projects,
+            page_type=state.page_type,
+            source_kind=raw["source_kind"],
+            target_kind=target_kind,
+            origin=raw["origin"],
+        )
+        definition = resolution.definition
+        if raw["reverse"]:
+            logical_source = resolved_base or _target_parts(raw["raw_target"])[0]
+            logical_target = state.path
+        else:
+            logical_source = state.path
+            logical_target = resolved_base or _target_parts(raw["raw_target"])[0]
+        occurrence_key = (
+            f"{state.identity_kind}:{state.identity}",
+            raw["origin"],
+            relation_registry.normalize_relation(raw["raw_relation"]),
+            str(raw["raw_target"]),
+            str(raw["anchor"] or ""),
+            str(raw["element_identity"] or ""),
+        )
+        occurrences[occurrence_key] += 1
+        identity_payload = {
+            "authored_identity_kind": state.identity_kind,
+            "authored_identity": state.identity,
+            "origin": raw["origin"],
+            "relation": relation_registry.normalize_relation(raw["raw_relation"]),
+            "raw_target": raw["raw_target"],
+            "authored_anchor": raw["anchor"],
+            "authored_element_identity": raw["element_identity"],
+            "source_kind": raw["source_kind"],
+            "reverse": raw["reverse"],
+            "occurrence": occurrences[occurrence_key],
+        }
+        registry_instance = "core"
+        if resolution.canonical not in selected_registry.core:
+            registry_instance = state.definitions.instance_id if state.definitions is not None else instances.PUBLIC_INSTANCE
+            identity_payload["registry_instance"] = registry_instance
+        facts.append(
+            RelationFact(
+                identity=_fact_identity(identity_payload),
+                logical_source_path=logical_source,
+                logical_target_path=logical_target,
+                logical_source_ref=target_ref if raw["reverse"] else source_ref,
+                logical_target_ref=source_ref if raw["reverse"] else target_ref,
+                target_unit_status=target_unit_status,
+                target_unit_fingerprint=target_unit_fingerprint,
+                target_kind=target_kind,
+                raw_target=str(raw["raw_target"]),
+                resolved_target_path=resolved_target,
+                target_anchor=target_anchor,
+                target_alias=target_alias,
+                authored_path=state.path,
+                authored_line=raw["line"],
+                authored_anchor=raw["anchor"],
+                authored_projects=state.projects,
+                authored_page_type=state.page_type,
+                source_kind=raw["source_kind"],
+                target_page_type=target_state.page_type if target_state is not None else None,
+                raw_relation=raw["raw_relation"],
+                canonical_relation=resolution.canonical,
+                family=definition.family if definition is not None else None,
+                registry_status=resolution.status,
+                origin=raw["origin"],
+                authored=True,
+                reviewer_accepted=False,
+                target_status=target_status,
+                registry_instance=registry_instance,
+            )
+        )
+    return tuple(sorted(facts, key=lambda item: item.identity))
+
+
+def _dependency_key(raw_target: str) -> str:
+    path, _, _ = _target_parts(raw_target)
+    return path.removesuffix(".md").strip("/").casefold()
+
+
+def require_page_status(page: SemanticPageState | None) -> None:
+    """Refuse a decision that needs the lifecycle class of an unclassifiable page."""
+    if page is not None and page.status_unavailable:
+        lifecycle_statuses.Classification(None).require()
+
+
+def _structural_relation_reasons(
+    fact: RelationFact,
+    *,
+    registry: relation_registry.RelationRegistry,
+    corpus: SemanticCorpusContext,
+    target_paths: frozenset[str],
+) -> tuple[list[str], Any]:
+    """Checks both qualification lanes agree on, so they cannot drift apart.
+
+    Everything here is lane-independent: the edge must be authored, resolve
+    unambiguously, originate from an eligible governed page, land on an allowed
+    target, not point at itself, and carry an active in-scope registry entry.
+    Only family and origin policy differ between the lanes, and each applies its
+    own on top of this. Both endpoints' eligibility depends on their lifecycle
+    class, so an endpoint without one refuses the qualification.
+    """
+    require_page_status(corpus.pages.get(fact.logical_source_path))
+    if fact.target_status == "resolved":
+        require_page_status(corpus.pages.get(fact.logical_target_path))
+    reasons: list[str] = []
+    definition = registry.definition(fact.canonical_relation or "")
+    target_page = corpus.pages.get(fact.logical_target_path)
+    expected_successor = fact.logical_source_path.removesuffix(".md").casefold()
+    mutual_supersession = bool(
+        definition is not None
+        and definition.family == "supersession"
+        and target_page is not None
+        and target_page.status_class == "superseded"
+        and any(
+            _dependency_key(raw) == expected_successor
+            for raw in _frontmatter_targets(target_page.frontmatter.get("superseded_by"))
+        )
+    )
+    if not (fact.authored or fact.reviewer_accepted):
+        reasons.append("not_authored_or_accepted")
+    if fact.target_status == "unresolved":
+        reasons.append("unresolved_target")
+    elif fact.target_status == "ambiguous":
+        reasons.append("ambiguous_target")
+    resolved_base = (
+        fact.resolved_target_path.split("#", 1)[0]
+        if fact.resolved_target_path is not None
+        else None
+    )
+    if fact.target_status == "resolved":
+        if fact.logical_source_path not in corpus.eligible_governed_paths:
+            reasons.append("ineligible_target")
+        if fact.logical_target_path not in target_paths and not mutual_supersession:
+            reasons.append("ineligible_target")
+        source_endpoint = fact.logical_source_ref or fact.logical_source_path
+        target_endpoint = fact.logical_target_ref or fact.logical_target_path
+        if source_endpoint == target_endpoint:
+            reasons.append("self_target")
+    if definition is None:
+        reasons.append("unregistered_relation")
+    elif definition.status != "active":
+        reasons.append("inactive_relation")
+    if definition is not None:
+        resolution = _registry_resolution(
+            registry,
+            fact.raw_relation,
+            projects=fact.authored_projects,
+            page_type=fact.authored_page_type,
+            source_kind=fact.source_kind,
+            target_kind=(
+                fact.target_kind or "file"
+                if fact.target_status == "resolved" and resolved_base in corpus.pages
+                else "unresolved"
+            ),
+            origin=fact.origin,
+        )
+        if resolution.status == "scope_violation":
+            reasons.append("scope_violation")
+    return reasons, definition
+
+
+def qualify_relation(
+    fact: RelationFact,
+    *,
+    registry: relation_registry.RelationRegistry,
+    corpus: SemanticCorpusContext,
+) -> RelationQualification:
+    """Whether ``fact`` is a deliberate typed epistemic edge.
+
+    Registry-marked generic associations and excluded families do not qualify.
+    Frontmatter only counts for supersession; targets must be eligible governed pages.
+    """
+    reasons, definition = _structural_relation_reasons(
+        fact, registry=registry, corpus=corpus, target_paths=corpus.eligible_governed_paths
+    )
+    if definition is not None and definition.family in _EXCLUDED_FAMILIES:
+        reasons.append("excluded_family")
+    if definition is not None and definition.generic:
+        reasons.append("generic_relation")
+    if fact.origin == "frontmatter":
+        if definition is None or definition.family != "supersession":
+            reasons.append("frontmatter_not_supersession")
+    elif fact.origin not in {"markdown_relation", "semantic_relation", "semantic_block"}:
+        reasons.append("unsupported_origin")
+    ordered = tuple(dict.fromkeys(reasons))
+    return RelationQualification(not ordered, ordered)
+
+
+def qualify_connectivity(
+    fact: RelationFact,
+    *,
+    registry: relation_registry.RelationRegistry,
+    corpus: SemanticCorpusContext,
+) -> RelationQualification:
+    """Whether ``fact`` is real connectivity — the weaker sibling lane.
+
+    Permits every excluded family, frontmatter origin for any family, and
+    `wikilink` origin, and resolves targets against the wider connectable set so
+    a cited Source counts. This measures the same `links_to`/`origin: wikilink`
+    edge the retrieval graph already materialises; it does not invent one.
+    """
+    reasons, _definition = _structural_relation_reasons(
+        fact, registry=registry, corpus=corpus, target_paths=corpus.connectable_target_paths
+    )
+    if fact.origin not in _CONNECTIVITY_ORIGINS:
+        reasons.append("unsupported_origin")
+    ordered = tuple(dict.fromkeys(reasons))
+    return RelationQualification(not ordered, ordered)
+
+
+@dataclass(frozen=True, slots=True)
+class _WikilinkResolverView:
+    """Read-only resolver attributes already snapshotted on the corpus."""
+
+    full_paths: frozenset[str]
+    kb_stripped: frozenset[str]
+    stems: Mapping[str, tuple[str, ...]]
+    titles: Mapping[str, tuple[str, ...]]
+    candidates_by_key: Mapping[str, tuple[vault.WikilinkCandidate, ...]]
+
+
+def _qualifying_body_wikilink_targets(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+    visible: Callable[[str], bool] | None = None,
+) -> tuple[str, ...]:
+    """Resolve body links by normalized set membership without relation facts."""
+    resolver = _WikilinkResolverView(
+        full_paths=corpus.resolver_full_paths,
+        kb_stripped=corpus.resolver_kb_stripped,
+        stems=corpus.resolver_stems,
+        titles=corpus.resolver_titles,
+        candidates_by_key=corpus.resolver_candidates_by_key,
+    )
+    targets: list[str] = []
+    for raw_target, _line in page.body_wikilinks:
+        status, resolved, _anchor, _alias = _resolve_target(
+            corpus.vault_root, raw_target, resolver, visible  # type: ignore[arg-type]
+        )
+        if status != "resolved" or resolved is None:
+            continue
+        resolved_path = resolved.split("#", 1)[0]
+        if resolved_path == page.path:
+            continue
+        require_page_status(corpus.pages.get(resolved_path))
+        if resolved_path in corpus.connectable_target_paths:
+            targets.append(resolved_path)
+    return tuple(targets)
+
+
+def review_identity_is_current(
+    review: RelationReviewState,
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+) -> bool:
+    """Whether the review still describes THIS page, ignoring its content.
+
+    Split out from `is_relation_review_current` so a caller can distinguish the
+    two reasons a review stops being current. Contested stable identity — a
+    second path claiming the same `exomem_id`, e.g. a sync-conflict copy — means
+    the review may not describe this page at all, and is the bypass the census
+    exists to prevent. That is categorically different from the page's own
+    content having changed, and must never be treated as recoverable.
+    """
+    return (
+        page.identity_kind == "exomem_id"
+        and review.page_identity == page.identity
+        and corpus.identity_census.paths_by_identity.get(page.identity) == (page.path,)
+    )
+
+
+def is_relation_review_current(
+    review: RelationReviewState,
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+) -> bool:
+    """Return whether stable identity and exact review fingerprint are current."""
+    return (
+        review_identity_is_current(review, page, corpus)
+        and page.review_fingerprint is not None
+        and review.content_fingerprint == page.review_fingerprint
+    )
+
+
+def writer_view_relations(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+    *,
+    visible: Callable[[str], bool] | None | object = _DECIDE,
+    resolver: vault.WikilinkResolver | None = None,
+) -> tuple[tuple[RelationFact, ...], tuple[RelationFact, ...], Callable[[str], bool] | None]:
+    """The page's outbound and inbound facts as the current writer may judge them.
+
+    For the owner, an ungoverned vault, or a page the writer may not see, the
+    corpus facts as they stand and `None`. For any other writer judging a page
+    it may see: the page's own targets resolve only over the pages that writer
+    may see, and a fact a page withheld from it authors is dropped, so the
+    judgement reads as it would without those pages. The corpus itself, which
+    also feeds the published graph, keeps every fact.
+
+    A caller judging many pages of one corpus passes the writer's `visible`
+    (from `vault.writer_link_visibility`) and a `resolver` built from the
+    corpus once, rather than deciding them per page.
+    """
+    outbound = corpus.outbound.get(page.path, ())
+    inbound = corpus.inbound.get(page.path, ())
+    if visible is _DECIDE:
+        visible = corpus.writer_visibility
+    if visible is _DECIDE:
+        visible = vault.writer_link_visibility(corpus.vault_root)
+    if visible is None or not callable(visible) or not visible(page.path):
+        return outbound, inbound, None
+    if resolver is None:
+        resolver = vault.WikilinkResolver.from_entries(corpus.vault_root, corpus.resolver_entries)
+    own = _derive_relation_facts(
+        corpus.vault_root,
+        {page.path: page},
+        resolver,
+        corpus.registry,
+        target_states=corpus.pages,
+        writer_view=(page.path, visible),
+    )
+
+    def _kept(facts: Iterable[RelationFact]) -> list[RelationFact]:
+        return [
+            fact for fact in facts if fact.authored_path != page.path and visible(fact.authored_path)
+        ]
+
+    return (
+        tuple(
+            sorted(
+                (*_kept(outbound), *(f for f in own if f.logical_source_path == page.path)),
+                key=lambda item: item.identity,
+            )
+        ),
+        tuple(
+            sorted(
+                (*_kept(inbound), *(f for f in own if f.logical_target_path == page.path)),
+                key=lambda item: item.identity,
+            )
+        ),
+        visible,
+    )
+
+
+def writer_authored_facts(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+) -> tuple[RelationFact, ...]:
+    """The facts the page authors, as the current writer may judge them.
+
+    For the owner, an ungoverned vault, or a page the writer may not see, the
+    corpus facts the page authors, in corpus order. For any other writer
+    judging a page it may see, the same facts with their targets resolved
+    only over the pages that writer may see (see `writer_view_relations`).
+    """
+    visible = corpus.writer_visibility
+    if visible is _DECIDE:
+        visible = vault.writer_link_visibility(corpus.vault_root)
+    if visible is None or not visible(page.path):
+        return tuple(fact for fact in corpus.relation_facts if fact.authored_path == page.path)
+    resolver = vault.WikilinkResolver.from_entries(corpus.vault_root, corpus.resolver_entries)
+    return tuple(
+        sorted(
+            _derive_relation_facts(
+                corpus.vault_root,
+                {page.path: page},
+                resolver,
+                corpus.registry,
+                target_states=corpus.pages,
+                writer_view=(page.path, visible),
+            ),
+            key=lambda item: item.identity,
+        )
+    )
+
+
+def _relation_disposition(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+    *,
+    review: RelationReviewState | None,
+    operation: str,
+    before: SemanticPageState | None,
+    before_corpus: SemanticCorpusContext,
+    mode: str,
+) -> RelationDisposition:
+    outbound, inbound, visible = writer_view_relations(page, corpus)
+    directional: list[tuple[str, RelationFact]] = []
+    directional.extend(("outbound", fact) for fact in outbound)
+    directional.extend(("inbound", fact) for fact in inbound)
+    rejected: list[RejectedRelationFact] = []
+    qualifying: list[tuple[str, RelationFact]] = []
+    for direction, fact in sorted(directional, key=lambda item: (item[0], item[1].identity)):
+        result = qualify_relation(fact, registry=corpus.registry_for(fact.authored_path), corpus=corpus)
+        if result.qualifies:
+            qualifying.append((direction, fact))
+        else:
+            rejected.append(RejectedRelationFact(fact, result.reasons))
+    review_is_current = review is not None and is_relation_review_current(review, page, corpus)
+    stale_review = review is not None and not review_is_current
+    other_governed = corpus.eligible_governed_paths - {page.path}
+    other_unknown = corpus.status_unavailable_paths - {page.path}
+    if visible is not None:
+        other_governed = frozenset(path for path in other_governed if visible(path))
+        other_unknown = frozenset(path for path in other_unknown if visible(path))
+
+    def _no_other_governed(governed: frozenset[str], unknown: frozenset[str]) -> bool:
+        # "No other governed page" is undecided while a page's class is unavailable.
+        if governed:
+            return False
+        if unknown:
+            lifecycle_statuses.Classification(None).require()
+        return True
+
+    def _satisfied_actions() -> tuple[str, ...]:
+        if stale_review:
+            return ("cleanup_stale_review",)
+        if review is not None:
+            return ("cleanup_relation_review",)
+        return ()
+
+    if qualifying:
+        return RelationDisposition(
+            kind="qualifying_relation",
+            satisfied=True,
+            current=True,
+            qualifying_directions=tuple(direction for direction, _ in qualifying),
+            qualifying_facts=tuple(fact for _, fact in qualifying),
+            rejected_facts=tuple(rejected),
+            actions=_satisfied_actions(),
+            qualifying_signal="typed",
+        )
+    # Second lane. Outbound only, and that is a correctness requirement rather
+    # than a preference: the writer appends a back-reference into every cited
+    # source's `ingested_into:`, so counting inbound edges would let a page's own
+    # automatically-written back-references satisfy the gate and make it vacuous.
+    connectivity = [
+        fact
+        for fact in outbound
+        if qualify_connectivity(fact, registry=corpus.registry_for(fact.authored_path), corpus=corpus).qualifies
+    ]
+    if connectivity:
+        return RelationDisposition(
+            kind="qualifying_relation",
+            satisfied=True,
+            current=True,
+            qualifying_directions=("outbound",) * len(connectivity),
+            qualifying_facts=tuple(sorted(connectivity, key=lambda item: item.identity)),
+            rejected_facts=tuple(rejected),
+            actions=_satisfied_actions(),
+            qualifying_signal="connectivity",
+        )
+    body_wikilink_targets = _qualifying_body_wikilink_targets(page, corpus, visible)
+    if body_wikilink_targets:
+        return RelationDisposition(
+            kind="qualifying_relation",
+            satisfied=True,
+            current=True,
+            qualifying_directions=("outbound",) * len(body_wikilink_targets),
+            rejected_facts=tuple(rejected),
+            actions=_satisfied_actions(),
+            qualifying_signal="connectivity",
+        )
+    if review_is_current and review is not None and review.kind == "reviewed_none":
+        return RelationDisposition(
+            "reviewed_none",
+            True,
+            True,
+            rejected_facts=tuple(rejected),
+            review_reason=review.reason,
+            review_reference=review.reference,
+        )
+    if (
+        review is not None
+        and review.kind == "reviewed_none"
+        and not review_is_current
+        and review_identity_is_current(review, page, corpus)
+        and _no_other_governed(other_governed, other_unknown)
+    ):
+        # Renewable ONLY because the identity check above still holds: the review
+        # provably describes this page, and the sole thing that drifted is its
+        # content fingerprint. A review that went non-current through contested
+        # stable identity is a different matter entirely and stays stale.
+        #
+        # The review's content fingerprint moved, but its SUBJECT did not: with
+        # no other governed page in the corpus there is nothing a qualifying
+        # typed relation could point at, so "reviewed none" is not merely the
+        # easier answer, it is the only available one. Without this, every edit
+        # to the page re-fires RELATION_DISPOSITION_STALE — the fingerprint
+        # changes on any content change — and each append costs three tool calls
+        # (blocked, validate_only, commit-with-tokens) to re-assert a fact that
+        # cannot have changed. Worse, the remediation steers toward
+        # `reviewed_none`, which succeeds and leaves the cause in place, so the
+        # loop never terminates. A fresh Knowledge Base hits this by
+        # construction: its first note has no peer to relate to.
+        return RelationDisposition(
+            "reviewed_none",
+            True,
+            True,
+            rejected_facts=tuple(rejected),
+            review_reason=review.reason,
+            review_reference=review.reference,
+        )
+    if (
+        review_is_current
+        and review is not None
+        and review.kind == "bootstrap"
+        and _no_other_governed(other_governed, other_unknown)
+    ):
+        return RelationDisposition(
+            "bootstrap",
+            True,
+            True,
+            rejected_facts=tuple(rejected),
+            review_reason=review.reason,
+            review_reference=review.reference,
+        )
+    before_governed = before_corpus.eligible_governed_paths
+    after_governed = corpus.eligible_governed_paths
+    before_unknown = before_corpus.status_unavailable_paths
+    after_unknown = corpus.status_unavailable_paths - {page.path}
+    if visible is not None:
+        # A writer that sees no governed page bootstraps its first one, as in
+        # a vault without the pages withheld from it.
+        before_governed = frozenset(path for path in before_governed if visible(path))
+        after_governed = frozenset(path for path in after_governed if visible(path))
+        before_unknown = frozenset(path for path in before_unknown if visible(path))
+        after_unknown = frozenset(path for path in after_unknown if visible(path))
+    automatic_bootstrap = (
+        review is None
+        and mode == "precommit"
+        and operation in _CREATE_LIKE
+        and before is None
+        and after_governed == frozenset({page.path})
+        and _no_other_governed(before_governed, before_unknown)
+        and _no_other_governed(frozenset(), after_unknown)
+    )
+    if automatic_bootstrap:
+        return RelationDisposition(
+            "bootstrap",
+            True,
+            True,
+            rejected_facts=tuple(rejected),
+            actions=("record_bootstrap_review",),
+        )
+    stale = review is not None
+    return RelationDisposition(
+        "stale" if stale else "missing",
+        False,
+        False,
+        rejected_facts=tuple(rejected),
+        actions=("replace_relation_review",) if stale else ("review_relations",),
+    )
+
+
+def _stable_fragment_identity(code: str, raw: str, occurrence: int) -> tuple[str, ...]:
+    normalized = " ".join(str(raw).casefold().split())
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return ("syntax", f"{code}:{digest}:{occurrence}")
+
+
+def _diagnostic_findings(page: SemanticPageState) -> list[ContractFinding]:
+    findings: list[ContractFinding] = []
+    occurrences: Counter[tuple[str, str]] = Counter()
+    diagnostics = tuple(page.document.errors) + tuple(page.document.warnings)
+    for diagnostic in diagnostics:
+        if diagnostic.code == "unsupported_relation" and diagnostic.registry_namespace is None:
+            continue
+        raw_key = " ".join(diagnostic.raw.casefold().split())
+        occurrences[(diagnostic.code, raw_key)] += 1
+        registry_diagnostic = (
+            diagnostic.registry_namespace is not None and diagnostic.registry_key is not None
+        )
+        findings.append(
+            ContractFinding(
+                code=diagnostic.code,
+                severity=diagnostic.severity,
+                path=page.path,
+                span=diagnostic.span,
+                detail=diagnostic.message,
+                remediation=diagnostic.remediation,
+                governed_element_identity=_stable_fragment_identity(
+                    diagnostic.code,
+                    diagnostic.raw,
+                    occurrences[(diagnostic.code, raw_key)],
+                ),
+                resolved_rule=(
+                    (
+                        diagnostic.registry_namespace,
+                        diagnostic.registry_key,
+                        "registry",
+                    )
+                    if registry_diagnostic
+                    else ("semantic_units", "*", "syntax")
+                ),
+            )
+        )
+    for diagnostic in page.document.note_relation_errors:
+        if diagnostic.code == "unsupported_relation":
+            continue
+        raw_key = " ".join(diagnostic.raw.casefold().split())
+        occurrences[(diagnostic.code, raw_key)] += 1
+        findings.append(
+            ContractFinding(
+                code=diagnostic.code,
+                severity="error",
+                path=page.path,
+                span=None,
+                detail=diagnostic.message,
+                remediation="Use one registered lower-snake-case relation and one wikilink target.",
+                governed_element_identity=_stable_fragment_identity(
+                    diagnostic.code,
+                    diagnostic.raw,
+                    occurrences[(diagnostic.code, raw_key)],
+                ),
+                resolved_rule=("relations", "*", "syntax"),
+            )
+        )
+    return findings
+
+
+def _conflict_findings(
+    page: SemanticPageState,
+    contracts: memory_schema.ResolvedMemoryContracts,
+) -> list[ContractFinding]:
+    return [
+        ContractFinding(
+            code=conflict.code,
+            severity="error",
+            path=page.path,
+            span=None,
+            detail=conflict.detail,
+            remediation="Resolve the conflicting saved contract declarations.",
+            governed_element_identity=conflict.resolved_rule[:2],
+            resolved_rule=conflict.resolved_rule,
+            contracts=conflict.contracts,
+            provenance=conflict.provenance,
+        )
+        for conflict in contracts.conflicts
+    ]
+
+
+def _registry_findings(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+) -> list[ContractFinding]:
+    findings: list[ContractFinding] = []
+    for registry_finding in corpus.registry_for(page.path).findings:
+        raw = str(registry_finding.get("path", "registry"))
+        relation = registry_finding.get("relation")
+        if relation is not None:
+            relation = str(relation)
+            governed_element_identity = ("relations", relation)
+            resolved_rule = ("relations", relation, "registry")
+        else:
+            governed_element_identity = ("relations", "registry", raw)
+            resolved_rule = ("relations", "*", "registry")
+        severity = str(registry_finding.get("severity", "error"))
+        findings.append(
+            ContractFinding(
+                code=str(registry_finding.get("code", "invalid_relation_registry")),
+                severity=severity,
+                path=page.path,
+                span=None,
+                detail=str(registry_finding.get("detail", "invalid relation registry")),
+                remediation=(
+                    "Repair the relation registry before validating pages."
+                    if severity == "error"
+                    else "Review the relation registry when convenient; this never blocks a write."
+                ),
+                governed_element_identity=governed_element_identity,
+                resolved_rule=resolved_rule,
+            )
+        )
+    for fact in writer_authored_facts(page, corpus):
+        code: str | None = None
+        detail: str | None = None
+        if fact.canonical_relation is None and page.definitions_unavailable:
+            findings.append(_definitions_unavailable_finding(page))
+            continue
+        if fact.canonical_relation is None:
+            code = "unregistered_relation"
+            detail = f"relation {fact.raw_relation!r} is not registered"
+        elif fact.registry_status == "deprecated":
+            code = "inactive_relation"
+            detail = f"relation {fact.canonical_relation!r} is deprecated"
+        elif fact.registry_status == "scope_violation":
+            code = "scope_violation"
+            detail = f"relation {fact.canonical_relation!r} is outside its registry scope"
+        if code is None or detail is None:
+            continue
+        relation = fact.canonical_relation or relation_registry.normalize_relation(
+            fact.raw_relation
+        )
+        findings.append(
+            ContractFinding(
+                code=code,
+                severity="warning" if code == "unregistered_relation" else "error",
+                path=page.path,
+                span=None,
+                detail=detail,
+                remediation=(
+                    "Use an active registered relation valid for the authored page scope."
+                    + (
+                        " A bullet written as `Label: [[page]]` reads as a relation; write "
+                        "a field that is not a relation as a sentence."
+                        # Only the legacy note-level bullet grammar reads a label that
+                        # way; a typed edge under `## Relations` is meant as one.
+                        if code == "unregistered_relation"
+                        and fact.origin == "semantic_relation"
+                        and fact.source_kind == "file"
+                        else ""
+                    )
+                ),
+                governed_element_identity=("relations", fact.identity),
+                resolved_rule=("relations", relation, "registry"),
+            )
+        )
+    return findings
+
+
+def _definitions_unavailable_finding(page: SemanticPageState) -> ContractFinding:
+    return ContractFinding(
+        code="REGISTRY_UNAVAILABLE", severity="error", path=page.path, span=None,
+        detail="The selected vocabulary definitions required by this page are unavailable.",
+        remediation="Restore admitted definitions or assign vocabulary during stopped maintenance.",
+        governed_element_identity=("registry", "instance"),
+        resolved_rule=("registry", "instance", "admission"),
+    )
+
+
+def _observed_namespaces(
+    page: SemanticPageState,
+    corpus: SemanticCorpusContext,
+) -> dict[str, set[Any]]:
+    required_relations: set[str] = set()
+    allowed_relations: set[str] = set()
+    for fact in writer_authored_facts(page, corpus):
+        if fact.origin not in _AUTHORED_SCHEMA_ORIGINS:
+            continue
+        if fact.canonical_relation is not None:
+            required_relations.add(fact.canonical_relation)
+            allowed_relations.add(fact.canonical_relation)
+        else:
+            allowed_relations.add(relation_registry.normalize_relation(fact.raw_relation))
+    return {
+        "fields": set(page.frontmatter),
+        "blocks": {unit.kind for unit in page.document.rich_units},
+        "kinds": {unit.kind for unit in page.document.units},
+        "categories": {unit.category for unit in page.document.units},
+        "relations": allowed_relations,
+        "required_relations": required_relations,
+    }
+
+
+def _rule_finding(
+    page: SemanticPageState,
+    constraint: memory_schema.ResolvedContractConstraint,
+    *,
+    code: str,
+    detail: str,
+    severity: str,
+    element: str | None = None,
+) -> ContractFinding:
+    governed_element = element or constraint.element
+    return ContractFinding(
+        code=code,
+        severity=severity,
+        path=page.path,
+        span=None,
+        detail=detail,
+        remediation="Update the page or revise the applicable saved contract.",
+        governed_element_identity=(constraint.namespace, governed_element),
+        resolved_rule=constraint.identity,
+        contracts=constraint.contracts,
+        provenance=constraint.provenance,
+    )
+
+
+def _required_code(namespace: str) -> str:
+    return {
+        "fields": "CONTRACT_REQUIRED_FIELD",
+        "blocks": "CONTRACT_REQUIRED_BLOCK",
+        "kinds": "CONTRACT_REQUIRED_KIND",
+        "categories": "CONTRACT_REQUIRED_CATEGORY",
+        "relations": "CONTRACT_REQUIRED_RELATION",
+    }[namespace]
+
+
+def _unknown_code(namespace: str) -> str:
+    return {
+        "fields": "CONTRACT_UNKNOWN_FIELD",
+        "blocks": "CONTRACT_UNKNOWN_BLOCK",
+        "kinds": "CONTRACT_UNKNOWN_KIND",
+        "categories": "CONTRACT_UNKNOWN_CATEGORY",
+        "relations": "CONTRACT_UNKNOWN_RELATION",
+    }[namespace]
+
+
+def _governed_element(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    value_type = type(value)
+    return f"{value_type.__module__}.{value_type.__qualname__}:{value!r}"
+
+
+def _page_rule_findings(
+    page: SemanticPageState,
+    contracts: memory_schema.ResolvedMemoryContracts,
+    corpus: SemanticCorpusContext,
+) -> list[ContractFinding]:
+    if contracts.validation == "off" or contracts.validation is None:
+        return []
+    severity = "error" if contracts.validation == "strict" else "warning"
+    observed = _observed_namespaces(page, corpus)
+    findings: list[ContractFinding] = []
+    for constraint in contracts.constraints:
+        namespace, element, rule = constraint.identity
+        if rule == "required" and constraint.value is True:
+            values = (
+                observed["required_relations"]
+                if namespace == "relations"
+                else observed.get(namespace, set())
+            )
+            if element not in values:
+                findings.append(
+                    _rule_finding(
+                        page,
+                        constraint,
+                        code=_required_code(namespace),
+                        detail=f"required {namespace} element {element!r} is missing",
+                        severity=severity,
+                    )
+                )
+        elif namespace == "fields" and rule == "types" and element in page.frontmatter:
+            actual = memory_schema.value_type(page.frontmatter[element])
+            if actual not in constraint.value:
+                findings.append(
+                    _rule_finding(
+                        page,
+                        constraint,
+                        code="CONTRACT_FIELD_TYPE",
+                        detail=(
+                            f"field {element!r} has type {actual!r}, expected "
+                            f"one of {constraint.value!r}"
+                        ),
+                        severity=severity,
+                    )
+                )
+        elif namespace == "fields" and rule == "enum" and element in page.frontmatter:
+            try:
+                actual_identity = memory_schema.typed_scalar_identity(
+                    page.frontmatter[element], label=f"field {element}"
+                )
+            except ValueError:
+                actual_identity = None
+            allowed = {
+                memory_schema.typed_scalar_identity(value, label=f"field {element} enum")
+                for value in constraint.value
+            }
+            if actual_identity not in allowed:
+                findings.append(
+                    _rule_finding(
+                        page,
+                        constraint,
+                        code="CONTRACT_FIELD_ENUM",
+                        detail=f"field {element!r} is outside its exact typed enum",
+                        severity=severity,
+                    )
+                )
+        elif rule == "allowed" and constraint.value is not None:
+            values = observed.get(namespace, set())
+            for unknown in sorted(values - set(constraint.value), key=_stable_value_key):
+                findings.append(
+                    _rule_finding(
+                        page,
+                        constraint,
+                        code=_unknown_code(namespace),
+                        detail=f"{namespace} element {unknown!r} is outside the finite allowed set",
+                        severity=severity,
+                        element=_governed_element(unknown),
+                    )
+                )
+    return findings
+
+
+# The rule that owns a page's relation disposition; a review answers its findings.
+RELATION_DISPOSITION_RULE: tuple[str, str, str] = ("relations", "*", "disposition")
+
+
+def _disposition_finding(
+    page: SemanticPageState,
+    disposition: RelationDisposition,
+    *,
+    existing: bool = True,
+    operation: str = "edit",
+) -> ContractFinding | None:
+    if disposition.satisfied or not page.eligible_compiled:
+        return None
+    validate_form = _OPERATION_VALIDATE_FORMS.get(operation, VALIDATE_FORM)
+    return ContractFinding(
+        code=(
+            "RELATION_DISPOSITION_STALE"
+            if disposition.kind == "stale"
+            else "RELATION_DISPOSITION_MISSING"
+        ),
+        severity="error",
+        path=page.path,
+        span=None,
+        detail=_disposition_detail(page, disposition),
+        # The two branches are NOT equivalent, and presenting them as equals
+        # trained agents to always take the second one: `reviewed_none` reliably
+        # succeeds and reliably leaves the cause in place, so the next edit
+        # blocks again at three tool calls apiece, forever. Lead with the fix
+        # that actually resolves it and say plainly what the fallback costs.
+        # Kept terse deliberately. Findings share a bounded response budget, and
+        # a wordier draft of this string pushed omitted contract results from 1
+        # to 17 in the 120 KB directory-review validation. The size guard in
+        # test_disposition_remediation_is_route_neutral is the ceiling to
+        # respect when editing it.
+        remediation=(
+            ("Add a qualifying typed relation. " + RELATION_REVIEW_STABLE_ID_REMEDIATION)
+            if existing and page.identity_kind == "path"
+            else (
+                "Add a qualifying typed relation. Retriggers: "
+                f"{validate_form}; re-issue the same edit with "
+                "transition_token=<returned>, "
+                "relation_disposition=\"reviewed_none\", "
+                "relation_review_hash=<returned>, "
+                "relation_review_reason."
+            )
+            if existing
+            else (
+                "Add a qualifying typed relation. Retriggers: "
+                f"call {validate_form}, then "
+                "re-issue the same creation unchanged with draft_id=<returned draft_id>, "
+                "draft_hash=<returned draft_hash>, draft_token=<returned "
+                "draft_token>, relation_disposition=\"reviewed_none\", "
+                "relation_review_hash=<returned relation_review_hash>, and "
+                "relation_review_reason."
+            )
+        ),
+        governed_element_identity=("relations", "disposition"),
+        resolved_rule=RELATION_DISPOSITION_RULE,
+    )
+
+
+# These closed contract finding codes share fixed presentation text with compact replies.
+RELATION_QUALITY_ADVISORIES = MappingProxyType({
+    "RELATION_TYPED_EDGE_ABSENT": {
+        "detail": (
+            "connected through wikilinks, cited provenance or generic associations only; "
+            "no qualifying specific relation names the relationship"
+        ),
+        "remediation": (
+            "Optional. Review the source and registered vocabulary with "
+            "`schema_memory(operation='inspect', subject='relations')`. Author a specific relation "
+            "only when supported; genuine generic relations or no edge remain valid. "
+            "Never author an edge merely to clear this warning."
+        ),
+    },
+    "RELATION_AUTHORED_ALL_GENERIC": {
+        "detail": (
+            "the admitted registered explicit relations authored by this page are all "
+            "generic associations; incoming specific relations may still qualify"
+        ),
+        "remediation": (
+            "Optional. Review the source and registered vocabulary with "
+            "`schema_memory(operation='inspect', subject='relations')`. Use governed authorship "
+            "for a supported specific relation; keep genuine generic relations or no "
+            "edge when appropriate. Never author an edge merely to clear this warning."
+        ),
+    },
+})
+
+
+def _authored_generic_finding(
+    page: SemanticPageState, disposition: RelationDisposition, corpus: SemanticCorpusContext,
+) -> ContractFinding | None:
+    """Describe admitted explicit authorship independently of incoming specificity."""
+    if not page.eligible_compiled:
+        return None
+    # Disposition already holds the writer's admitted facts; do not parse the page again.
+    facts = (*disposition.qualifying_facts, *(item.fact for item in disposition.rejected_facts))
+    definitions = []
+    for fact in {fact.identity: fact for fact in facts}.values():
+        # These are the explicit authoring origins fixed by the semantic contract.
+        if fact.authored_path != page.path or fact.origin not in {
+            "markdown_relation", "semantic_relation", "semantic_block",
+        }:
+            continue
+        registry = corpus.registry_for(fact.authored_path)
+        if not qualify_connectivity(fact, registry=registry, corpus=corpus).qualifies:
+            continue
+        definition = registry.definition(fact.canonical_relation or "")
+        if definition is not None:
+            definitions.append(definition)
+    if not definitions or not all(definition.generic for definition in definitions):
+        return None
+    return ContractFinding(
+        code="RELATION_AUTHORED_ALL_GENERIC",
+        severity="warning",
+        path=page.path,
+        span=None,
+        **RELATION_QUALITY_ADVISORIES["RELATION_AUTHORED_ALL_GENERIC"],
+        governed_element_identity=("relations", "authored_generic"),
+        resolved_rule=("relations", "*", "authored_generic"),
+    )
+
+
+def _typed_edge_finding(
+    page: SemanticPageState, disposition: RelationDisposition
+) -> ContractFinding | None:
+    """Surface a page that connects but names no typed epistemic relationship.
+
+    `warning` severity, so it can never enter the blocking set — the page is
+    genuinely connected, and the gap is a review opportunity rather than a defect.
+    """
+    if not disposition.satisfied or not page.eligible_compiled:
+        return None
+    if disposition.qualifying_signal != "connectivity":
+        return None
+    return ContractFinding(
+        code="RELATION_TYPED_EDGE_ABSENT",
+        severity="warning",
+        path=page.path,
+        span=None,
+        **RELATION_QUALITY_ADVISORIES["RELATION_TYPED_EDGE_ABSENT"],
+        governed_element_identity=("relations", "typed_edge"),
+        resolved_rule=("relations", "*", "typed_edge"),
+    )
+
+
+def _disposition_detail(page: SemanticPageState, disposition: RelationDisposition) -> str:
+    if disposition.kind == "stale":
+        return "the saved non-edge relation disposition is no longer current"
+    if page.document.canonical_section_present and page.document.canonical_bullet_count == 0:
+        return (
+            "the empty canonical Relations section requires a current "
+            "reviewed or bootstrap disposition"
+        )
+    return "the compiled page needs a qualifying relation or explicit current review"
+
+
+def _finding_sort_key(finding: ContractFinding) -> tuple[Any, ...]:
+    span = finding.span
+    return (
+        finding.key,
+        finding.path,
+        span.start_offset if span is not None else -1,
+        finding.detail,
+    )
+
+
+def _raw_findings(
+    page: SemanticPageState,
+    contracts: memory_schema.ResolvedMemoryContracts,
+    corpus: SemanticCorpusContext,
+    *,
+    review: RelationReviewState | None,
+    operation: str,
+    before: SemanticPageState | None,
+    before_corpus: SemanticCorpusContext,
+    mode: str,
+    include_relation_disposition: bool,
+) -> tuple[list[ContractFinding], RelationDisposition | None]:
+    disposition = None
+    if include_relation_disposition:
+        disposition = _relation_disposition(
+            page,
+            corpus,
+            review=review,
+            operation=operation,
+            before=before,
+            before_corpus=before_corpus,
+            mode=mode,
+        )
+    findings: list[ContractFinding] = []
+    structure_finding = compiled_structure_finding(page)
+    if structure_finding is not None:
+        findings.append(structure_finding)
+    findings.extend(_diagnostic_findings(page))
+    minimum_finding = _missing_semantic_unit_finding(page)
+    if minimum_finding is not None:
+        findings.append(_definitions_unavailable_finding(page) if page.definitions_unavailable else minimum_finding)
+    owners = corpus.identity_census.paths_by_identity.get(page.identity)
+    if page.identity_kind == "exomem_id" and not identity_owners_match(
+        owners, page.path, folds=vault.vault_casefolds(corpus.vault_root)
+    ):
+        findings.append(
+            ContractFinding(
+                code="SEMANTIC_IDENTITY_DUPLICATE",
+                severity="error",
+                path=page.path,
+                span=None,
+                detail=(
+                    "the stable page identity has another corpus owner: "
+                    # `owners` can be None: the census and `pages` come from two
+                    # separate walks and may diverge, so name that state rather
+                    # than render a dangling colon.
+                    + (", ".join(owners) if owners else "no census entry for this page")
+                ),
+                remediation="Resolve the duplicate stable identity before writing.",
+                governed_element_identity=("identity", page.identity),
+                resolved_rule=("semantic_contract", "identity", "unique"),
+            )
+        )
+    findings.extend(_conflict_findings(page, contracts))
+    findings.extend(_registry_findings(page, corpus))
+    findings.extend(_page_rule_findings(page, contracts, corpus))
+    if disposition is not None:
+        disposition_finding = _disposition_finding(
+            page,
+            disposition,
+            existing=before is not None or mode == "posthoc",
+            operation=operation,
+        )
+        if disposition_finding is not None:
+            findings.append(disposition_finding)
+        typed_edge_finding = _authored_generic_finding(page, disposition, corpus)
+        if typed_edge_finding is None:
+            typed_edge_finding = _typed_edge_finding(page, disposition)
+        if typed_edge_finding is not None:
+            findings.append(typed_edge_finding)
+    return findings, disposition
+
+
+def _corpus_mismatch_finding(
+    page: SemanticPageState,
+    *,
+    phase: str,
+) -> ContractFinding:
+    return ContractFinding(
+        code="SEMANTIC_CORPUS_STATE_MISMATCH",
+        severity="error",
+        path=page.path,
+        span=None,
+        detail=(f"the supplied {phase}-corpus snapshot does not contain the evaluated page state"),
+        remediation="Rebuild the immutable corpus context with the exact pending candidate.",
+        governed_element_identity=(
+            "corpus",
+            phase,
+            page.identity_kind,
+            page.identity,
+        ),
+        resolved_rule=("semantic_contract", "corpus", "context"),
+    )
+
+
+def _migration_warning(finding: ContractFinding) -> ContractFinding:
+    return replace(
+        finding,
+        severity="warning",
+        detail=f"Pre-existing semantic debt retained: {finding.detail}",
+    )
+
+
+def evaluate(
+    *,
+    before: SemanticPageState | None,
+    after: SemanticPageState,
+    operation: str,
+    mode: str,
+    before_contracts: memory_schema.ResolvedMemoryContracts,
+    after_contracts: memory_schema.ResolvedMemoryContracts,
+    before_corpus: SemanticCorpusContext,
+    after_corpus: SemanticCorpusContext,
+    before_review: RelationReviewState | None = None,
+    after_review: RelationReviewState | None = None,
+    grandfathered: bool = False,
+    include_relation_disposition: bool = True,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+) -> SemanticContractResult:
+    """Evaluate supplied immutable state without crossing any adapter boundary."""
+    if mode not in {"precommit", "posthoc"}:
+        raise ValueError("mode must be precommit or posthoc")
+    before_context_matches = before is None or before_corpus.pages.get(before.path) == before
+    effective_before_corpus = (
+        before_corpus
+        if before_context_matches or before is None
+        else before_corpus.with_candidate(before)
+    )
+    after_context_matches = after_corpus.pages.get(after.path) == after
+    effective_after_corpus = (
+        after_corpus if after_context_matches else after_corpus.with_candidate(after)
+    )
+    after_findings, disposition = _raw_findings(
+        after,
+        after_contracts,
+        effective_after_corpus,
+        review=after_review,
+        operation=operation,
+        before=before,
+        before_corpus=effective_before_corpus,
+        mode=mode,
+        include_relation_disposition=include_relation_disposition,
+    )
+    if not after_context_matches:
+        after_findings.append(_corpus_mismatch_finding(after, phase="after"))
+    if before is not None and not before_context_matches:
+        after_findings.append(_corpus_mismatch_finding(before, phase="before"))
+    before_findings: list[ContractFinding] = []
+    before_disposition: RelationDisposition | None = None
+    if before is not None:
+        before_findings, before_disposition = _raw_findings(
+            before,
+            before_contracts,
+            effective_before_corpus,
+            review=before_review,
+            operation=operation,
+            before=before,
+            before_corpus=effective_before_corpus,
+            mode=mode,
+            include_relation_disposition=include_relation_disposition,
+        )
+
+    raw_before_error_keys = {
+        finding.key for finding in before_findings if finding.severity == "error"
+    }
+    raw_after_error_keys = {
+        finding.key for finding in after_findings if finding.severity == "error"
+    }
+    use_subset_exception = (
+        grandfathered and operation in _GRANDFATHERED_OPERATIONS and before is not None
+    )
+    normalized: list[ContractFinding] = []
+    for finding in after_findings:
+        if (
+            use_subset_exception
+            and finding.severity == "error"
+            and finding.key in raw_before_error_keys
+        ):
+            normalized.append(_migration_warning(finding))
+        else:
+            normalized.append(finding)
+    invalidated_disposition = bool(
+        use_subset_exception
+        and before_disposition is not None
+        and disposition is not None
+        and before_disposition.satisfied
+        and not disposition.satisfied
+    )
+    new_error_keys = raw_after_error_keys - raw_before_error_keys
+    errors = tuple(
+        sorted(
+            (item for item in normalized if item.severity == "error"),
+            key=_finding_sort_key,
+        )
+    )
+    warnings = tuple(
+        sorted(
+            (item for item in normalized if item.severity == "warning"),
+            key=_finding_sort_key,
+        )
+    )
+    findings = tuple(sorted((*errors, *warnings), key=_finding_sort_key))
+    subset_allowed = use_subset_exception and raw_after_error_keys <= raw_before_error_keys
+    blocking = () if subset_allowed and not invalidated_disposition else errors
+    if new_error_keys and use_subset_exception:
+        blocking = tuple(item for item in errors if item.key in new_error_keys)
+    if invalidated_disposition:
+        disposition_errors = tuple(
+            item for item in errors if item.resolved_rule == RELATION_DISPOSITION_RULE
+        )
+        blocking = tuple(sorted({*blocking, *disposition_errors}, key=_finding_sort_key))
+    if mode == "posthoc":
+        blocking = ()
+    should_block = bool(blocking) and mode == "precommit"
+    kind_counts = tuple(sorted(Counter(unit.kind for unit in after.document.units).items()))
+    category_counts = tuple(sorted(Counter(unit.category for unit in after.document.units).items()))
+    compact_unit_count = sum(unit.form == "compact" for unit in after.document.units)
+    rich_unit_count = sum(unit.form == "rich" for unit in after.document.units)
+    category_feedback, category_feedback_omitted = _derive_category_feedback(
+        after, language_registry
+    )
+    return SemanticContractResult(
+        mode=mode,
+        operation=operation,
+        findings=findings,
+        errors=errors,
+        warnings=warnings,
+        blocking_findings=blocking,
+        should_block=should_block,
+        semantic_unit_count=len(after.document.units),
+        kind_counts=kind_counts,
+        category_counts=category_counts,
+        relation_disposition=disposition,
+        actions=disposition.actions if disposition is not None else (),
+        compact_unit_count=compact_unit_count,
+        rich_unit_count=rich_unit_count,
+        category_feedback=category_feedback,
+        category_feedback_omitted=category_feedback_omitted,
+    )

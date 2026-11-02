@@ -1,0 +1,256 @@
+import atexit
+import logging
+import os
+import random
+import threading
+import time
+import urllib.parse
+import urllib.request
+from collections.abc import Sequence
+
+import requests
+from opentelemetry import context as otel_context
+from opentelemetry._logs import Logger
+from opentelemetry.context import _SUPPRESS_INSTRUMENTATION_KEY
+from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.trace import INVALID_SPAN, set_span_in_context
+
+from apitally.shared import metrics, server_errors, validation_errors
+from apitally.shared.log_encoder import encode_logs
+from apitally.shared.log_processor import ApitallyLogRecordProcessor, truncate_log_record
+from apitally.shared.providers import DISTRO_VERSION, endpoint_url, export_headers
+from apitally.shared.span_processor import ApitallySpanProcessor
+from apitally.shared.spool import Spool, SpoolFile
+from apitally.shared.trace_encoder import encode_spans
+
+
+logger = logging.getLogger(__name__)
+
+BATCH_SCHEDULE_DELAY_MILLIS = 1_000
+BATCH_MAX_QUEUE_SIZE = 2_048
+# Small enough that no single append can overshoot the spool's rotation threshold, and that encoding
+# one batch on the export thread does not hold the GIL long enough to delay request handling
+BATCH_MAX_EXPORT_BATCH_SIZE = 32
+BATCH_EXPORT_TIMEOUT_MILLIS = 30_000
+
+DEFAULT_EXPORT_INTERVAL = 15.0
+INITIAL_EXPORT_DELAY = 2.0
+EXPORT_INTERVAL_HEADER = "Apitally-Export-Interval"
+MIN_EXPORT_INTERVAL = 5
+MAX_EXPORT_INTERVAL = 60
+REQUEST_TIMEOUT = 10
+MAX_BACKLOG_SENDS_PER_CYCLE = 10
+RETRYABLE_STATUS_CODES = frozenset({408, 429})
+
+
+class SpoolSpanExporter(SpanExporter):
+    """Encodes drained span batches to protobuf and appends them to the spool."""
+
+    def __init__(self, spool: Spool) -> None:
+        self.spool = spool
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        self.spool.append("traces", encode_spans(spans))
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        # The spool's lifecycle is owned by activation
+        pass
+
+
+class SpoolLogExporter(LogRecordExporter):
+    """Truncates oversized log records, encodes to protobuf and appends them to the spool."""
+
+    def __init__(self, spool: Spool) -> None:
+        self.spool = spool
+
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
+        for record in batch:
+            truncate_log_record(record)
+        self.spool.append("logs", encode_logs(batch))
+        return LogRecordExportResult.SUCCESS
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+    def shutdown(self) -> None:
+        pass
+
+
+class ExportWorker:
+    """Background thread sending spool files to the OTLP endpoint every export interval."""
+
+    def __init__(
+        self,
+        spool: Spool,
+        span_processor: ApitallySpanProcessor,
+        log_processor: ApitallyLogRecordProcessor,
+        error_logger: Logger,
+        env: str,
+        proxy_urls: dict[str, str] | None = None,
+    ) -> None:
+        self.spool = spool
+        self.span_processor = span_processor
+        self.log_processor = log_processor
+        self.error_logger = error_logger
+        self.interval: float = DEFAULT_EXPORT_INTERVAL
+        self.session = requests.Session()
+        # Environment lookups per request would call macOS's _scproxy in forked workers, which crashes the process
+        self.session.trust_env = False
+        self.session.verify = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("CURL_CA_BUNDLE") or True
+        if proxy_urls:
+            self.session.proxies.update(proxy_urls)
+        self.headers = {
+            **export_headers(env),
+            "Content-Type": "application/x-protobuf",
+            "Content-Encoding": "gzip",
+            "User-Agent": f"apitally-py/{DISTRO_VERSION}",
+        }
+        self.warned_statuses: set[int] = set()
+        self.stop_event = threading.Event()
+        self.thread: threading.Thread | None = None
+        self.random = random.Random()
+
+    def start(self) -> None:
+        # A thread whose stop event is set is winding down (join timed out) and must not block the restart
+        if self.thread is not None and self.thread.is_alive() and not self.stop_event.is_set():  # pragma: no cover
+            return
+        # Fresh Event per thread: a thread that outlived its join timeout exits on its own set event
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(
+            target=self.run, args=(self.stop_event,), name="ApitallyExportWorker", daemon=True
+        )
+        self.thread.start()
+        atexit.register(self.shutdown)
+
+    def stop(self, timeout: float | None = 5.0) -> None:
+        atexit.unregister(self.shutdown)
+        self.stop_event.set()
+        if self.thread is not None and self.thread.is_alive():
+            self.thread.join(timeout)
+
+    def shutdown(self) -> None:
+        """Stop the thread and attempt one final unpaced drain-and-send pass."""
+        self.stop(timeout=None)
+        try:
+            self.run_cycle(None, final=True)
+        except Exception:  # pragma: no cover
+            logger.exception("Error in final Apitally export on shutdown")
+
+    def run(self, stop_event: threading.Event) -> None:
+        delay = INITIAL_EXPORT_DELAY
+        while not stop_event.wait(delay):
+            try:
+                self.run_cycle(stop_event)
+            except Exception:  # pragma: no cover
+                logger.exception("Error in Apitally export cycle")
+            # Jitter desynchronizes deployments whose processes started together
+            delay = self.interval * self.random.uniform(0.9, 1.1)
+
+    def run_cycle(self, stop_event: threading.Event | None, final: bool = False) -> None:
+        # Suppress instrumentation so our own flushes and POSTs generate no telemetry
+        token = otel_context.attach(otel_context.set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
+        try:
+            self.span_processor.downstream.force_flush()
+            for event_name, drain in (
+                (validation_errors.EVENT_NAME, validation_errors.drain_validation_errors),
+                (server_errors.EVENT_NAME, server_errors.drain_server_errors),
+            ):
+                for body in drain():
+                    self.error_logger.emit(
+                        timestamp=time.time_ns(),
+                        context=set_span_in_context(INVALID_SPAN),
+                        body=body,
+                        event_name=event_name,
+                    )
+            self.log_processor.downstream.force_flush()
+            try:
+                metrics.collect(self.spool, stop_event)
+            except Exception:
+                logger.exception("Error collecting Apitally metrics")
+            if final:
+                self.spool.close_current_files()
+                self.send_pending(stop_event)
+            else:
+                new_file_count = self.spool.rotate_for_export()
+                self.spool.touch_files()
+                self.send_pending(stop_event, max_sends=MAX_BACKLOG_SENDS_PER_CYCLE + new_file_count)
+        finally:
+            otel_context.detach(token)
+
+    def send_pending(self, stop_event: threading.Event | None, max_sends: int | None = None) -> None:
+        """During an outage this amounts to one probe POST per cycle. The final drain on
+        shutdown passes no stop event and runs unpaced and uncapped."""
+        sent = 0
+        for file in self.spool.pending_files():
+            if (max_sends is not None and sent >= max_sends) or (stop_event is not None and stop_event.is_set()):
+                return
+            if sent > 0 and stop_event is not None and stop_event.wait(self.random.uniform(0.1, 0.5)):
+                return
+            if file.is_expired():
+                # A retry landing outside the server's dedup window could double-ingest
+                logger.warning("Buffered %s could not be delivered within an hour and was dropped", file.signal)
+                self.spool.delete_file(file)
+                continue
+            sent += 1
+            if not self.send_file(file):
+                return
+
+    def send_file(self, file: SpoolFile) -> bool:
+        """Streams the file's bytes verbatim. Returns False on a retryable failure, which
+        ends the cycle and keeps the file queued."""
+        file.mark_attempt()
+        url = endpoint_url(f"/v1/{file.signal}")
+        try:
+            try:
+                file.sink.seek(0)
+                response = self.session.post(url, data=file.sink, headers=self.headers, timeout=REQUEST_TIMEOUT)
+            except requests.ConnectTimeout:
+                # Ten seconds without a SYN-ACK is a black hole, and a second wait would double the shutdown budget
+                raise
+            except requests.ConnectionError:
+                # The server may close an idle keep-alive connection mid-request; retry once
+                file.sink.seek(0)
+                response = self.session.post(url, data=file.sink, headers=self.headers, timeout=REQUEST_TIMEOUT)
+        except requests.RequestException as exc:
+            logger.debug("Sending buffered %s to Apitally failed, will retry: %s", file.signal, exc)
+            return False
+        except (OSError, ValueError):
+            logger.warning("Error reading buffered %s, dropping it", file.signal, exc_info=True)
+            self.spool.delete_file(file)
+            return True
+        self.apply_interval_header(response)
+        if 200 <= response.status_code < 300:
+            self.spool.delete_file(file)
+            return True
+        if response.status_code in RETRYABLE_STATUS_CODES or response.status_code >= 500:
+            logger.debug(
+                "Sending buffered %s to Apitally failed with HTTP %d, will retry", file.signal, response.status_code
+            )
+            return False
+        if response.status_code not in self.warned_statuses:
+            self.warned_statuses.add(response.status_code)
+            logger.warning("Apitally rejected buffered %s with HTTP %d, dropping it", file.signal, response.status_code)
+        self.spool.delete_file(file)
+        return True
+
+    def apply_interval_header(self, response: requests.Response) -> None:
+        value = response.headers.get(EXPORT_INTERVAL_HEADER)
+        if value:
+            try:
+                seconds = int(value)
+            except ValueError:
+                return
+            self.interval = float(min(max(seconds, MIN_EXPORT_INTERVAL), MAX_EXPORT_INTERVAL))
+
+
+def resolve_proxy_urls() -> dict[str, str]:
+    # Environment variables only; the system proxy lookup calls macOS's _scproxy, which crashes forked workers
+    proxy_urls = urllib.request.getproxies_environment()
+    host = urllib.parse.urlsplit(endpoint_url("/")).hostname or ""
+    if not proxy_urls or urllib.request.proxy_bypass_environment(host, proxy_urls):  # ty: ignore[unresolved-attribute]
+        return {}
+    return proxy_urls

@@ -1,0 +1,105 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-osv-scanner/action.yml
+# Purpose:   Install the pinned osv-scanner (malicious-package MAL-* feed)
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# osv-scanner covers the OSSF malicious-packages (MAL-*) feed that cargo-audit
+# (RustSec) and pip-audit do not. Shared by rust-ci and ts-ci so the pin and arch
+# logic live once.
+#
+# The version AND the per-arch sha256 are pinned in
+# src/hyperi_ci/config/versions.yaml (`tools:`) and mirrored here by
+# scripts/update-versions.py --apply. Do not hand-edit the marked lines.
+#
+# The digest is the pin that matters: a release asset can be deleted and
+# re-uploaded under the same tag, so a tag alone is not integrity (issue #66).
+# The download lands in a scratch dir, so a mismatch never reaches PATH.
+#
+# Referenced from reusable workflows as
+#   hyperi-io/hyperi-ci/.github/actions/setup-osv-scanner@main
+
+name: Setup osv-scanner
+description: Install the pinned osv-scanner onto PATH (Linux runners)
+
+inputs:
+  version:
+    description: osv-scanner release tag to pin
+    required: false
+    # Mirrors `tools.osv-scanner` in src/hyperi_ci/config/versions.yaml - the SSoT. Kept in
+    # step by scripts/update-versions.py --apply; do not hand-edit.
+    # hyperi-ci:pin tools.osv-scanner
+    default: v2.6.0
+  sha256-amd64:
+    description: sha256 of the linux-amd64 osv-scanner binary
+    required: false
+    # hyperi-ci:pin tools.osv-scanner.sha256.amd64
+    default: ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+  sha256-arm64:
+    description: sha256 of the linux-arm64 osv-scanner binary
+    required: false
+    # hyperi-ci:pin tools.osv-scanner.sha256.arm64
+    default: 2c71403eb443d05891c4f268c3ad771cf4f16e5443463fd7851ef8f454d3c7e4
+
+runs:
+  using: composite
+  steps:
+    - name: Install osv-scanner
+      # No `|| true`: in CI the tool must be present (the quality stage skips
+      # it only for local-dev convenience). Pinned; bump deliberately.
+      shell: bash
+      # Inputs travel as env, so a workflow input is never read as shell.
+      env:
+        PIN_VERSION: ${{ inputs.version }}
+        SHA_AMD64: ${{ inputs.sha256-amd64 }}
+        SHA_ARM64: ${{ inputs.sha256-arm64 }}
+      run: |
+        set -euo pipefail
+        OSV_VERSION="$PIN_VERSION"
+        case "$(uname -m)" in
+          x86_64)
+            OSV_ARCH=amd64
+            OSV_SHA="$SHA_AMD64"
+            ;;
+          aarch64 | arm64)
+            OSV_ARCH=arm64
+            OSV_SHA="$SHA_ARM64"
+            ;;
+          *) echo "::error::unsupported arch $(uname -m) for osv-scanner"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/.local/bin"
+
+        # A pinned tag is not integrity: a release asset can be deleted and
+        # re-uploaded under the same tag. Download to a scratch path so a
+        # mismatch never lands on PATH even briefly.
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+        curl -fsSL --connect-timeout 10 --max-time 300 --retry 7 --retry-all-errors --retry-max-time 600 -o "$TMP/osv-scanner" \
+          "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_${OSV_ARCH}"
+        echo "$OSV_SHA  $TMP/osv-scanner" | sha256sum -c - >/dev/null || {
+          echo "::error::osv-scanner failed its sha256 check - refusing to install"
+          echo "  expected $OSV_SHA"
+          echo "  got      $(sha256sum "$TMP/osv-scanner" | cut -d' ' -f1)"
+          exit 1
+        }
+
+        install -m 0755 "$TMP/osv-scanner" "$HOME/.local/bin/osv-scanner"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Verify osv-scanner matches the pin
+      # ASSERT, don't just print - see the note in setup-go-tools. Separate step
+      # so the install step's GITHUB_PATH prepend is live, which is what makes
+      # the pinned copy shadow a baked or cache-restored one.
+      shell: bash
+      env:
+        OSV_WANT: ${{ inputs.version }}
+      run: |
+        set -uo pipefail
+        got="$(osv-scanner --version 2>&1)"
+        if printf '%s' "$got" | grep -qF -- "${OSV_WANT#v}"; then
+          echo "ok   osv-scanner: ${OSV_WANT#v}"
+        else
+          echo "::error::osv-scanner: expected version ${OSV_WANT#v}, got: $got"
+          exit 1
+        fi

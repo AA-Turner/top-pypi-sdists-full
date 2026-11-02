@@ -1,0 +1,3548 @@
+"""One-liner server for ADCP handlers (MCP or A2A).
+
+Stand up an ADCP-compliant server with a single function call:
+
+    from adcp.server import ADCPHandler, serve
+    from adcp.server.responses import capabilities_response
+
+    class MyAgent(ADCPHandler):
+        async def get_adcp_capabilities(self, params, context=None):
+            return capabilities_response(["media_buy"])
+
+    # MCP (default)
+    serve(MyAgent())
+
+    # A2A
+    serve(MyAgent(), transport="a2a")
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import inspect
+import json
+import logging
+import os
+import sys
+import warnings
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from contextvars import ContextVar
+from copy import deepcopy
+from dataclasses import dataclass
+from types import MethodType
+from typing import TYPE_CHECKING, Any, Literal
+
+logger = logging.getLogger("adcp.server")
+_ADCP_MCP_REQUEST_CONTEXT: ContextVar[Any] = ContextVar("adcp_mcp_request_context")
+
+from adcp.server._hooks import PreValidationHooks
+from adcp.server.base import ADCPHandler, ToolContext
+from adcp.server.helpers import ResponseEnhancer
+from adcp.server.http_policy import HostOriginMiddleware, transport_security_settings
+from adcp.server.mcp_sessions import ADCPStreamableHTTPSessionManager
+from adcp.server.mcp_tools import (
+    _HANDLER_TOOLS,
+    SchemaMode,
+    _resolve_handler_adcp_version,
+    create_tool_caller,
+    get_tools_for_handler,
+)
+from adcp.server.operational_routes import (
+    OperationalRouteMarker,
+    OperationalRoutesMiddleware,
+    find_operational_routes,
+    prepare_operational_routes,
+    wrap_operational_routes,
+)
+from adcp.server.signed_requests import (
+    apply_verified_signer,
+    check_request_signature_verification,
+    wrap_with_signature_verification,
+)
+from adcp.validation.client_hooks import (
+    SERVER_DEFAULT_VALIDATION as DEFAULT_VALIDATION,
+)
+from adcp.validation.client_hooks import (
+    ValidationHookConfig,
+)
+from adcp.validation.envelope import DEFAULT_UNNEGOTIATED_ADCP_VERSION
+
+# Re-exported as ``adcp.server.serve.DEFAULT_VALIDATION`` for adopters who
+# want a non-magic name when constructing their own
+# ``ValidationHookConfig`` overrides. The canonical definition lives in
+# :mod:`adcp.validation.client_hooks` so both the server-side and any
+# future server-creation seam can share one constant without a circular
+# import via this module.
+
+if TYPE_CHECKING:
+    from a2a.server.request_handlers import RequestHandler
+    from a2a.server.tasks.push_notification_config_store import (
+        PushNotificationConfigStore,
+    )
+    from a2a.server.tasks.push_notification_sender import PushNotificationSender
+    from a2a.server.tasks.task_store import TaskStore
+    from starlette.routing import Mount, Route
+
+    from adcp.server.a2a_server import MessageParser, PublicUrlResolver
+    from adcp.server.auth import BearerTokenAuth
+    from adcp.server.signed_requests import RequestSignatureVerification
+    from adcp.server.test_controller import TestControllerStore
+
+
+@dataclass(frozen=True)
+class RequestMetadata:
+    """Per-request metadata passed to :class:`ContextFactory`.
+
+    Populated by the SDK before invoking the factory. Stable across the
+    MCP and A2A transports — factories written against this shape work
+    on both sides. Additional fields may be added in minor releases;
+    factories should keep accepting ``RequestMetadata`` and pluck the
+    fields they need by name, not by positional unpacking.
+
+    :param tool_name: The AdCP operation being invoked (e.g.
+        ``"get_products"``, ``"create_media_buy"``). Useful for
+        tool-level audit logging and feature flagging.
+    :param transport: ``"mcp"`` or ``"a2a"`` — the wire protocol
+        currently dispatching this call. Agents that expose both can
+        use this to branch on transport-specific behavior.
+    :param request_id: The transport-assigned request id when one
+        exists (A2A populates this from the task id; MCP leaves it
+        ``None`` at the SDK layer today).
+    :param request_context: The originating Starlette ``Request`` for
+        HTTP-borne calls (MCP streamable-http, A2A). ``None`` for
+        stdio MCP and any path that doesn't have a Request to thread.
+        Use ``request_context.state`` to read per-request state set
+        by ASGI middleware — this works in both stateless and stateful
+        MCP modes, where the older :mod:`contextvars` pattern only
+        works in stateless (the stateful session task is a separate
+        async task and does not see middleware-set ContextVars).
+        Typed as ``Any`` to keep this dataclass dependency-light;
+        adopters can ``cast(Request, meta.request_context)``.
+    """
+
+    tool_name: str
+    transport: Literal["mcp", "a2a"]
+    request_id: str | None = None
+    request_context: Any = None
+
+
+LifespanHook = Callable[[], Awaitable[None]]
+"""Zero-arg async callable invoked during server startup or shutdown.
+
+Used by :func:`serve`'s ``on_startup`` and ``on_shutdown`` kwargs (and
+the corresponding :class:`ServeConfig` fields). Startup hooks run after
+the framework's own lifespan startup completes; shutdown hooks run
+before the framework's own lifespan shutdown. A hook raising during
+startup propagates as a Starlette ``lifespan.startup.failed`` event
+which aborts the server boot.
+
+Only honored on ``transport="both"`` today — single-transport paths
+(``streamable-http``, ``sse``, ``a2a``, ``stdio``) raise ``ValueError``
+when hooks are passed. See issue #709.
+"""
+
+
+async def _run_shutdown_hooks(hooks: tuple[LifespanHook, ...]) -> BaseException | None:
+    """Attempt every callback in its startup task, without formatting adopter data."""
+    first_error: BaseException | None = None
+    for index, hook in enumerate(hooks):
+        try:
+            await hook()
+        except BaseException as exc:  # noqa: BLE001
+            if first_error is None:
+                first_error = exc
+            logger.error("on_shutdown hook failed; continuing cleanup (hook_index=%d)", index)
+    return first_error
+
+
+async def _settle_lifespan_task(
+    task: asyncio.Task[BaseException | None],
+) -> tuple[BaseException | None, asyncio.CancelledError | None]:
+    """Join the hook task despite repeated cancellation of its framework waiter."""
+    import anyio
+
+    cancellation: asyncio.CancelledError | None = None
+    # This scope belongs to the framework waiter, never above an adopter's
+    # scope in the hook task: shutdown may need to exit that adopter scope.
+    with anyio.CancelScope(shield=True):
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError as exc:
+                if cancellation is None:
+                    cancellation = exc
+    return task.result(), cancellation
+
+
+@contextlib.asynccontextmanager
+async def _user_lifespan_hooks(
+    startup: tuple[LifespanHook, ...], shutdown: tuple[LifespanHook, ...]
+) -> AsyncIterator[None]:
+    """Keep paired hooks in one retained task inside the framework lifespans."""
+    if not startup and not shutdown:
+        yield
+        return
+
+    ready: asyncio.Future[BaseException | None] = asyncio.get_running_loop().create_future()
+    stop = asyncio.Event()
+    started = False
+    abort_startup = False
+    hook_error: BaseException | None = None
+    ended_early = False
+    owner = asyncio.current_task()
+
+    async def run() -> BaseException | None:
+        nonlocal started, hook_error
+        started = True
+        try:
+            if not abort_startup:
+                for hook in startup:
+                    await hook()
+            ready.set_result(None)
+            await stop.wait()
+        except BaseException as exc:  # noqa: BLE001
+            # Includes an adopter-owned scope ending this task after startup.
+            hook_error = exc
+            if not ready.done():
+                ready.set_result(exc)
+        cleanup_error = await _run_shutdown_hooks(shutdown)
+        if (
+            ready.result() is None
+            and isinstance(hook_error, asyncio.CancelledError)
+            and cleanup_error is not None
+        ):
+            # An adopter TaskGroup cancels its host to wake it, then exposes
+            # the causal child failure when the shutdown hook exits the group.
+            return cleanup_error
+        return hook_error if hook_error is not None else cleanup_error
+
+    task = asyncio.create_task(run())
+
+    def completed(_task: asyncio.Task[BaseException | None]) -> None:
+        nonlocal ended_early
+        if ready.done() and ready.result() is None and not stop.is_set():
+            ended_early = True
+            if owner is not None:
+                owner.cancel()
+
+    task.add_done_callback(completed)
+    try:
+        error = await asyncio.shield(ready)
+        if error is not None:
+            raise error
+        yield
+    finally:
+        primary_error = sys.exc_info()[1]
+        if not ready.done():
+            # Interrupt in-flight startup once. If the task has not run yet,
+            # let it skip startup and still attempt partial-startup cleanup.
+            abort_startup = True
+            if started:
+                task.cancel()
+        stop.set()
+        error, cancellation = await _settle_lifespan_task(task)
+        startup_error = ready.result() if ready.done() else None
+        if startup_error is not None and (
+            primary_error is None or isinstance(primary_error, asyncio.CancelledError)
+        ):
+            # A cancellation can win the wait for ``ready`` after the hook
+            # task has already recorded a startup failure. Keep that failure
+            # primary once cleanup has settled.
+            raise startup_error
+        if (
+            ended_early
+            and error is not None
+            and (primary_error is None or isinstance(primary_error, asyncio.CancelledError))
+        ):
+            if isinstance(error, asyncio.CancelledError):
+                # AnyIO framework scopes can suppress their cancellation
+                # signals. An unexpectedly ended hook lifecycle is a failure.
+                raise RuntimeError("Server lifespan hook task stopped unexpectedly") from None
+            raise error
+        if primary_error is None:
+            if cancellation is not None:
+                raise cancellation
+            if error is not None:
+                raise error
+
+
+@dataclass(frozen=True)
+class ServeConfig:
+    """Configuration bundle for :func:`serve`.
+
+    Consolidates the 22 keyword arguments of :func:`serve` into a single
+    named, IDE-friendly object.  Use either the bundled form or individual
+    kwargs — not both::
+
+        # Bundled (cleaner IDE signature, easy to share / reuse)
+        serve(MyAgent(), config=ServeConfig(name="my-agent", transport="a2a"))
+
+        # Individual kwargs (backwards-compatible, unchanged)
+        serve(MyAgent(), name="my-agent", transport="a2a")
+
+    When *config* is supplied, all field values come from it; any individual
+    kwargs passed alongside are ignored.  To vary a single field from a
+    shared base config use :func:`dataclasses.replace`::
+
+        base = ServeConfig(name="my-agent", validation=strict)
+        serve(handler, config=dataclasses.replace(base, transport="a2a"))
+
+    **Transport-specific fields** — fields marked *(A2A only)* or
+    *(MCP only)* are silently ignored by the other transport.  Setting
+    cross-transport fields triggers a ``UserWarning`` at boot.
+    """
+
+    # --- Identity / networking ---
+    name: str = "adcp-agent"
+    port: int | None = None
+    host: str | None = None
+    transport: str = "streamable-http"
+
+    # --- MCP only ---
+    instructions: str | None = None
+    mcp_result_text: MCPResultText | None = None
+    streaming_responses: bool = False
+    stateless_http: bool = False
+    session_idle_timeout: float | None = 1800.0
+    max_active_sessions: int | None = None
+
+    # --- A2A / both ---
+    task_store: TaskStore | None = None
+    push_config_store: PushNotificationConfigStore | None = None
+    push_sender: PushNotificationSender | None = None
+    request_handler: RequestHandler | None = None
+    message_parser: MessageParser | None = None
+    public_url: str | PublicUrlResolver | None = None
+
+    # --- HTTP transport policy ---
+    allowed_hosts: Sequence[str] | None = None
+    allowed_origins: Sequence[str] | None = None
+    enable_dns_rebinding_protection: bool | None = None
+
+    # --- Operational endpoints ---
+    unauthenticated_routes: Sequence[Route | Mount] | None = None
+
+    # --- Shared infrastructure ---
+    test_controller: TestControllerStore | None = None
+    context_factory: ContextFactory | None = None
+    middleware: Sequence[SkillMiddleware] | None = None
+    asgi_middleware: Sequence[tuple[type, dict[str, Any]]] | None = None
+    advertise_all: bool = False
+    max_request_size: int | None = None
+    validation: ValidationHookConfig | None = None
+    pre_validation_hooks: PreValidationHooks | None = None
+    response_enhancer: ResponseEnhancer | None = None
+    supported_versions: Sequence[str] | None = None
+
+    # --- Discovery manifest ---
+    base_url: str | None = None
+    specialisms: list[str] | None = None
+    description: str | None = None
+
+    # --- Lifespan hooks (transport="both" only today) ---
+    on_startup: Sequence[LifespanHook] | None = None
+    on_shutdown: Sequence[LifespanHook] | None = None
+
+    # --- Debug endpoints ---
+    enable_debug_endpoints: bool = False
+    debug_traffic_source: Callable[[], dict[str, int]] | None = None
+    session_count_source: Callable[[], dict[str, Any]] | None = None
+    debug_validate_request: Callable[[dict[str, str]], bool] | None = None
+    debug_public: bool = False
+
+    def __post_init__(self) -> None:
+        from adcp.server.version_policy import resolve_supported_versions
+
+        object.__setattr__(
+            self, "supported_versions", resolve_supported_versions(self.supported_versions)
+        )
+        _a2a_only = (
+            "task_store",
+            "push_config_store",
+            "push_sender",
+            "request_handler",
+            "message_parser",
+            "public_url",
+        )
+        # ``session_idle_timeout`` (default 1800.0) is excluded from
+        # the warning list: the ``not in (None, False)`` heuristic
+        # treats any non-falsy default as "set" and would fire
+        # spuriously under transport='a2a'. ``stateless_http`` (default
+        # False) and ``streaming_responses`` (default False) work
+        # cleanly with the heuristic.
+        _mcp_only = (
+            "instructions",
+            "mcp_result_text",
+            "streaming_responses",
+            "stateless_http",
+            "max_active_sessions",
+        )
+        if self.transport == "a2a":
+            mcp_set = sorted(f for f in _mcp_only if getattr(self, f) not in (None, False))
+            if mcp_set:
+                warnings.warn(
+                    f"ServeConfig sets MCP-only fields {mcp_set} but "
+                    f"transport='a2a'. These fields will be ignored.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+        elif self.transport not in ("both", "streamable-http", "sse", "stdio"):
+            pass  # unknown transport — let serve() raise a clear error
+        elif self.transport not in ("a2a", "both"):
+            a2a_set = sorted(f for f in _a2a_only if getattr(self, f) is not None)
+            if a2a_set:
+                warnings.warn(
+                    f"ServeConfig sets A2A-only fields {a2a_set} but "
+                    f"transport={self.transport!r}. These fields will be ignored.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
+
+MCPResultText = (
+    str
+    | Callable[
+        [str, dict[str, Any], ToolContext | None],
+        str | None | Awaitable[str | None],
+    ]
+)
+"""MCP-only success text: a response field name or sync/async callback.
+
+Callbacks run after response validation and context echo, on a detached copy of
+JSON-ready structured data. Return a string (including an empty string) for the
+text block, or None for the existing JSON fallback. Structured content is never
+changed. Prebuilt CallToolResult and error results retain their own text.
+"""
+
+
+SkillMiddleware = Callable[
+    [str, dict[str, Any], ToolContext, Callable[[], Awaitable[Any]]],
+    Awaitable[Any],
+]
+"""Middleware that wraps skill dispatch on both the MCP and A2A
+transports — the audit / activity-feed / rate-limiter / tracing hook.
+Composition semantics are identical across transports (shared
+composer); middleware written against one transport works unchanged
+on the other.
+
+Signature (conceptually a Protocol; declared as a ``Callable`` alias so
+it's importable and consistent with ``ContextFactory``)::
+
+    async def middleware(
+        skill_name: str,
+        params: dict[str, Any],
+        context: ToolContext,
+        call_next: Callable[[], Awaitable[Any]],
+    ) -> Any:
+        ...
+
+Middleware wraps ``call_next()`` — call it (possibly more than once to
+implement retry, or never to short-circuit) to invoke the rest of the
+chain plus the underlying handler. Anything the middleware returns
+becomes the dispatch result the A2A transport serialises back to the
+client, so middleware can short-circuit (skip the handler entirely) or
+transform the result on the return side.
+
+Middleware observes both success and failure — catch exceptions around
+``call_next()`` to implement audit-on-failure or retry-classifier hooks.
+Middleware re-raising propagates to the executor's normal error path
+(application ``ADCPError`` → failed task w/ ``adcp_error`` DataPart;
+other exceptions → opaque failed task per the spec's error-sanitisation
+rule). **Swallowing an exception and returning a substitute result is
+allowed but almost always wrong** — in particular, swallowing
+``ADCPError`` subclasses (``IdempotencyConflictError``,
+``ADCPTaskError``) serves a fake success for a failed mutation, which
+double-bills / double-allocates in production.
+
+``params`` is the parsed request dict passed to every middleware in
+the chain and to the handler. Middleware cannot mutate what the next
+layer sees by mutating ``params`` — transforms happen on the return
+side only, by modifying the value returned from ``call_next()``.
+
+Multiple middlewares compose outermost-first, matching Starlette/ASGI
+semantics — if you pass ``middleware=[Audit(), RateLimit(), Metrics()]``,
+the runtime order is::
+
+    Audit.__call__ →  RateLimit.__call__ →  Metrics.__call__ →  handler
+
+**Put audit outermost.** Middleware that short-circuits (rate limiter,
+feature-flag gate) never calls ``call_next()``, so anything deeper in
+the chain never sees the request. If your audit middleware sits
+*after* the rate limiter, rejected calls disappear from the audit
+trail — often the most interesting events for security review.
+
+``call_next()`` runs in the same asyncio task as the middleware that
+invoked it, so ``ContextVar`` values set before the call are visible
+to downstream middleware and the handler. Don't ``asyncio.create_task``
+your way around this unless you need the isolation.
+
+**Security — middleware is a data processor for the full skill payload.**
+``params`` is decoded business content (buyer briefs, budgets, brand
+references, proposal text, PII in message parts). ``context`` carries
+``caller_identity``, ``tenant_id``, and anything your ``context_factory``
+populates. Installing a third-party middleware (observability vendor,
+SaaS audit pipeline, external tracing) hands that vendor the complete
+skill payload surface — treat it as a data processor under your
+GDPR/CCPA controller-processor relationships and review the blast
+radius before wiring vendors here.
+
+**Security — do not format ``params`` or ``context.caller_identity``
+into exception messages.** Middleware-raised exceptions pass through
+``logger.exception`` in the executor (server-side trace with the raw
+message) before the executor's sanitisation kicks in for the client
+response. Exception text ends up in operator logs verbatim; keep it
+opaque.
+
+**Security — short-circuit caches MUST include principal + tenant in
+the cache key.** A middleware that caches on ``skill_name + params``
+alone and returns a cached result without calling ``call_next()``
+will serve principal A's data to principal B on a matching-params
+call. Key on ``(skill_name, params, context.caller_identity,
+context.tenant_id)``.
+
+Example — audit logging with exception capture::
+
+    from adcp.server import SkillMiddleware, ToolContext
+
+    async def audit_middleware(
+        skill_name: str,
+        params: dict[str, Any],
+        context: ToolContext,
+        call_next: Callable[[], Awaitable[Any]],
+    ) -> Any:
+        started_at = time.monotonic()
+        try:
+            result = await call_next()
+        except Exception as exc:
+            # Keep exception text opaque — this ends up in server logs.
+            audit_log.failure(
+                skill_name, context.caller_identity, type(exc).__name__
+            )
+            raise
+        audit_log.success(
+            skill_name,
+            context.caller_identity,
+            elapsed_ms=(time.monotonic() - started_at) * 1000,
+        )
+        return result
+
+    create_a2a_server(MyAgent(), middleware=[audit_middleware])
+
+The same middleware list also composes on the MCP side — pass it to
+``create_mcp_server(middleware=...)`` or the transport-agnostic
+``serve(middleware=...)``.
+"""
+
+
+def _get_starlette_request_for_dispatch() -> Any:
+    """Return the Starlette ``Request`` for the in-flight MCP tool call, if
+    any — else ``None``.
+
+    Returns ``None`` when called outside an MCP dispatch (e.g. from the
+    server-builder smoke tests, or from A2A's executor which has its
+    own context channel via ``ServerCallContext``).
+    """
+    try:
+        return _ADCP_MCP_REQUEST_CONTEXT.get()
+    except LookupError:
+        # No SDK dispatch is bound here; try the legacy test-harness context below.
+        pass
+
+    # MCP SDK v1 exposed this contextvar. MCP SDK v2 removed it, but keep
+    # the fallback so external test harnesses that still install it continue
+    # to work.
+    try:
+        from mcp.server.lowlevel.server import request_ctx  # type: ignore[attr-defined]
+    except ImportError:
+        return None
+    try:
+        ctx = request_ctx.get()
+    except LookupError:
+        return None
+    return getattr(ctx, "request", None)
+
+
+def _log_advertised_tools(
+    *,
+    transport: Literal["mcp", "a2a"],
+    handler: ADCPHandler[Any],
+    advertise_all: bool,
+    registered: list[str],
+) -> None:
+    """Log which tools the server just advertised, plus the delta vs the
+    full spec surface the handler class could have supported.
+
+    Operators occasionally rename a handler method and silently drop it
+    from ``tools/list`` — discovering that during incident review is
+    the wrong time. Emitting the advertised set and the unadvertised
+    delta at startup turns a silent gap into a searchable log line.
+
+    Registered at ``INFO`` because operators routinely tail this; the
+    delta at ``DEBUG`` because it's noisy on fully-implemented handlers.
+
+    Also fires a one-time ``UserWarning`` at boot when the handler
+    class introduces a new specialism (a custom subclass that's not in
+    the framework's tool registry and doesn't declare
+    ``advertised_tools``) but ``advertise_all`` is False — closes the
+    silent over-advertisement gap where adopters see the full
+    ``ADCPHandler`` tool surface inherited via MRO when they meant to
+    declare a focused subset.
+    """
+    registered_set = set(registered)
+    full_defs = get_tools_for_handler(
+        handler,
+        advertise_all=True,
+        _include_schemas=False,
+    )
+    full_names = {t["name"] for t in full_defs}
+    unadvertised = sorted(full_names - registered_set)
+
+    logger.info(
+        "%s server advertising %d of %d tools%s",
+        transport,
+        len(registered_set),
+        len(full_names),
+        " (advertise_all=True)" if advertise_all else "",
+    )
+    if unadvertised and not advertise_all:
+        logger.debug("%s server unadvertised tools: %s", transport, ", ".join(unadvertised))
+
+    # Stacklevel walks: warnings.warn → _warn_if_unregistered_subclass →
+    # _log_advertised_tools → operator's call site. The MCP path adds one
+    # extra frame (_register_handler_tools); A2A calls _log_advertised_tools
+    # directly from create_a2a_server.
+    caller_stacklevel = 4 if transport == "mcp" else 3
+    _warn_if_unregistered_subclass(
+        handler, advertise_all=advertise_all, stacklevel=caller_stacklevel
+    )
+
+
+#: The default byte budget a buyer applies to one agent response, from the
+#: cross-SDK contract (adcontextprotocol/adcp#8190). A ``tools/list`` larger
+#: than this is not "slow discovery" — it is discovery the buyer refuses to
+#: read, so the agent looks unreachable rather than verbose.
+#:
+#: Must stay equal to ``adcp._response_limit.DEFAULT_MAX_RESPONSE_BYTES``,
+#: this SDK's buyer-side default. They are declared separately because the
+#: seller framework does not otherwise depend on the client; collapse them
+#: into one import if that ever changes. A seller warning at a threshold no
+#: buyer enforces is worse than no warning.
+BUYER_RESPONSE_BYTE_BUDGET: int = 4 * 1024 * 1024
+
+#: The default JSON member bound an SDK 10 buyer applies to one agent
+#: response after the byte budget (``adcp._json_bounds.MAX_JSON_MEMBERS``
+#: there: the 4 MiB budget at eight bytes per member; 10.0.0b0 and b1
+#: enforced 100,000). A ``tools/list`` is read through the same bound as a
+#: tool result, and the MCP client lists tools before it calls one, so a
+#: listing over this bound fails *every* tool call, not just discovery
+#: (#1692). This SDK line has no client-side member bound of its own.
+BUYER_RESPONSE_MEMBER_BUDGET: int = 524_288
+
+#: Where to start telling the operator. Half the budget, because the payload
+#: grows with every tool a seller implements and the operator wants to hear
+#: about it while there is still room, not once buyers are already failing.
+_DISCOVERY_PAYLOAD_WARN_BYTES: int = BUYER_RESPONSE_BYTE_BUDGET // 2
+_DISCOVERY_PAYLOAD_WARN_MEMBERS: int = BUYER_RESPONSE_MEMBER_BUDGET // 2
+
+
+def _discovery_payload_bytes(tool_defs: Sequence[dict[str, Any]]) -> int:
+    """Serialized size of the ``tools/list`` result these definitions produce.
+
+    Close enough to the wire to act on, and deliberately conservative: the
+    JSON-RPC envelope around it is a few dozen bytes, separators differ by a
+    few percent, and ``annotations`` is counted here although the MCP server
+    does not put it on the wire. Measured against a real ``tools/list`` frame
+    it reads about 0.3% high.
+    """
+    try:
+        return len(
+            json.dumps(
+                {"tools": [_discovery_entry(tool_def) for tool_def in tool_defs]},
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        logger.warning(
+            "could not measure the tools/list payload; its size is unknown, "
+            "and FastMCP will not be able to serialize it either"
+        )
+        return 0
+
+
+def _discovery_payload_members(tool_defs: Sequence[dict[str, Any]]) -> int:
+    """JSON object members plus array elements in the ``tools/list`` result.
+
+    The quantity the buyer's member bound counts, measured the same way: every
+    key of every object and every element of every array, at every depth.
+    """
+    pending: list[Any] = [{"tools": [_discovery_entry(tool_def) for tool_def in tool_defs]}]
+    members = 0
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            members += len(node)
+            pending.extend(node.values())
+        elif isinstance(node, list):
+            members += len(node)
+            pending.extend(node)
+    return members
+
+
+def _discovery_entry(tool_def: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in (
+            ("name", tool_def.get("name")),
+            ("description", tool_def.get("description")),
+            ("inputSchema", tool_def.get("inputSchema")),
+            ("outputSchema", tool_def.get("outputSchema")),
+            ("annotations", tool_def.get("annotations")),
+        )
+        if value is not None
+    }
+
+
+def warn_if_discovery_payload_is_oversized(
+    *,
+    tool_defs: Sequence[dict[str, Any]],
+    advertise_all: bool,
+    stacklevel: int = 4,
+) -> int:
+    """Report the ``tools/list`` payload size, and warn when a buyer refuses it.
+
+    Serving an oversized ``tools/list`` fails in the least diagnosable way
+    available: the buyer aborts mid-body and reports a transport error, so the
+    seller's logs show a completed response and the buyer's show an
+    unreachable agent. Measuring it here, once, at startup, puts the number in
+    front of the one person who can act on it.
+
+    MCP only — an A2A agent card advertises skills by name and description,
+    with no JSON Schema, so it has no equivalent growth.
+
+    Returns the measured size so callers can log or assert on it.
+    """
+    size = _discovery_payload_bytes(tool_defs)
+    members = _discovery_payload_members(tool_defs)
+    logger.info(
+        "mcp server tools/list payload: %d bytes and %d JSON members across %d tools",
+        size,
+        members,
+        len(tool_defs),
+    )
+    if size <= _DISCOVERY_PAYLOAD_WARN_BYTES and members <= _DISCOVERY_PAYLOAD_WARN_MEMBERS:
+        return size
+
+    over_budget = size > BUYER_RESPONSE_BYTE_BUDGET or members > BUYER_RESPONSE_MEMBER_BUDGET
+    bounds = f"{BUYER_RESPONSE_BYTE_BUDGET} bytes, {BUYER_RESPONSE_MEMBER_BUDGET} JSON members"
+    verdict = (
+        f"Buyers applying the AdCP default response bounds ({bounds}) will "
+        "REJECT this tools/list, so the agent will look unreachable rather "
+        "than verbose."
+        if over_budget
+        else f"That is over half the AdCP default buyer response bounds ({bounds}); "
+        "the next few tools may not fit."
+    )
+    advice = (
+        "Advertise only the tools this agent serves (declare "
+        "``advertised_tools`` and drop advertise_all=True)"
+        if advertise_all
+        else "Advertise only the tools this agent serves (declare ``advertised_tools``)"
+    )
+    # A UserWarning alone is not enough: PYTHONWARNINGS=ignore and a
+    # simplefilter in app bootstrap are both common, and this failure is
+    # undiagnosable from the seller side. Put it on the log channel too.
+    (logger.error if over_budget else logger.warning)(
+        "mcp server tools/list is %d bytes and %d JSON members across %d tools. %s",
+        size,
+        members,
+        len(tool_defs),
+        verdict,
+    )
+    warnings.warn(
+        f"mcp server tools/list is {size} bytes and {members} JSON members across "
+        f"{len(tool_defs)} tools. {verdict}\n\n"
+        f"{advice}, and keep schema_mode at its default 'compact' — "
+        "'inline' expands every shared subtree once per reference and is "
+        "what makes this payload large.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+    return size
+
+
+#: Bases whose tool set is broad-by-design — when an adopter subclass
+#: lands on one of these via MRO without registering its own
+#: ``advertised_tools``, the result is over-advertisement (the broad
+#: base's full set inherited unintentionally). Naming the rule rather
+#: than checking ``base.__name__ != "ADCPHandler"`` inline so future
+#: broad bases (a hypothetical ``UniversalHandler``) get added to one
+#: place — and a reviewer's first question becomes "is this base
+#: broad-by-design?" not "what's special about ADCPHandler?".
+_BROAD_SURFACE_BASES: frozenset[str] = frozenset({"ADCPHandler"})
+
+
+def _warn_if_unregistered_subclass(
+    handler: ADCPHandler[Any], *, advertise_all: bool, stacklevel: int = 4
+) -> None:
+    """Emit a one-time ``UserWarning`` when a custom handler base bypasses
+    the tool-discovery registry.
+
+    The trigger: the concrete handler class itself isn't in
+    ``_HANDLER_TOOLS``, has no ``advertised_tools`` declaration of its
+    own, and inherits its tool set from a broad-surface base (see
+    :data:`_BROAD_SURFACE_BASES`) rather than a specialized base like
+    ``GovernanceHandler``.
+
+    What that costs, precisely: the *candidate universe* becomes the
+    broad base's full surface, and what actually reaches ``tools/list``
+    is whatever survives override detection. So the advertised set is
+    still narrow for a handler that only implements a few tools — but
+    it is a byproduct of which methods happen to exist rather than a
+    declaration, and any method added later joins ``tools/list``
+    silently. Declaring ``advertised_tools`` makes the surface a
+    statement of intent and bounds it independently of method names.
+
+    Suppressed when ``advertise_all=True`` — that's the explicit "yes,
+    advertise everything" opt-in, and the one case where the broad
+    universe really is served whole.
+    """
+    if advertise_all:
+        return
+    cls = type(handler)
+    if cls.__name__ in _HANDLER_TOOLS:
+        return
+    if "advertised_tools" in cls.__dict__:
+        # Should already have been auto-registered via __init_subclass__,
+        # but defensively skip the warning if the attribute exists.
+        return
+    # Walk MRO looking for a specialized (non-broad-surface) SDK base.
+    # If one is found, the adopter is subclassing a focused base and
+    # inheriting its tool set — that's the documented pattern, no
+    # warning needed.
+    has_specialized_parent = any(
+        base.__name__ in _HANDLER_TOOLS and base.__name__ not in _BROAD_SURFACE_BASES
+        for base in cls.__mro__
+    )
+    if has_specialized_parent:
+        return
+    # Default stacklevel=4 covers the MCP path (warn → this fn →
+    # _log_advertised_tools → _register_handler_tools → caller). The A2A
+    # path lacks _register_handler_tools and passes stacklevel=3.
+    warnings.warn(
+        f"Handler class {cls.__name__!r} subclasses ADCPHandler directly "
+        f"but isn't registered in the framework's tool-discovery "
+        f"registry, so its tools/list universe is the full ADCPHandler "
+        f"surface and the advertised set is whatever override detection "
+        f"leaves behind — a byproduct of which methods exist rather than "
+        f"a declaration. Any method added later joins tools/list "
+        f"silently, and advertise_all=True would serve the whole "
+        f"surface.\n\n"
+        f"Pick one:\n"
+        f"  (a) declare ``advertised_tools: set[str] = {{...}}`` on "
+        f"{cls.__name__} (auto-registers via __init_subclass__)\n"
+        f"  (b) call adcp.server.mcp_tools.register_handler_tools("
+        f"{cls.__name__!r}, {{...}}) before serve()\n"
+        f"  (c) pass advertise_all=True to serve() to acknowledge the "
+        f"full advertisement\n\n"
+        f"Decisioning-platform adopters: codegen via "
+        f"`uv run python scripts/generate_decisioning_handler.py` "
+        f"emits the declaration for you.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+
+
+async def _dispatch_with_middleware(
+    middleware: tuple[SkillMiddleware, ...] | Sequence[SkillMiddleware],
+    skill_name: str,
+    params: dict[str, Any],
+    context: ToolContext,
+    call_handler: Callable[[], Awaitable[Any]],
+    *,
+    frozen_reporting_feed: bool = False,
+) -> Any:
+    """Run ``call_handler`` wrapped in the supplied middleware chain.
+
+    Shared by the MCP and A2A dispatch paths so composition semantics
+    stay identical across transports — middleware porting between
+    ``create_mcp_server(middleware=...)`` and
+    ``create_a2a_server(middleware=...)`` needs zero changes.
+
+    Outermost-first composition: the first entry in ``middleware`` sees
+    every call *before* later entries and *before* the handler. No
+    mutable indices, no loop-variable captures — a small recursive
+    dispatcher reads the same with zero or ten middlewares.
+
+    Middleware exceptions propagate to the caller unchanged; this
+    function does no try/except so short-circuiting, transform, and
+    exception-observation behaviors are owned by the transport-level
+    executor, not the composer.
+    """
+    if not middleware:
+        return await call_handler()
+
+    receipt_request = None
+    if skill_name == "sync_reporting_receipts":
+        from adcp.exceptions import ADCPTaskError
+        from adcp.reporting.receipts.errors import ReportingReceiptError
+        from adcp.reporting.receipts.wire import ReceiptBatch
+        from adcp.types import Error
+
+        try:
+            receipt_request = ReceiptBatch.parse(params)
+        except ReportingReceiptError as error:
+            raise ADCPTaskError(
+                operation=skill_name, errors=[Error(code=error.code, message=str(error))]
+            ) from None
+
+    async def _step(index: int) -> Any:
+        if index >= len(middleware):
+            if receipt_request is not None:
+                try:
+                    if ReceiptBatch.parse(params) != receipt_request:
+                        raise ReportingReceiptError("INVALID_REQUEST")
+                except ReportingReceiptError:
+                    raise ADCPTaskError(
+                        operation=skill_name,
+                        errors=[
+                            Error(
+                                code="INVALID_REQUEST",
+                                message="receipt requests cannot be rewritten",
+                            )
+                        ],
+                    ) from None
+            return await call_handler()
+        mw = middleware[index]
+
+        async def call_next() -> Any:
+            return await _step(index + 1)
+
+        return await mw(skill_name, params, context, call_next)
+
+    if skill_name == "sync_reporting_receipts":
+        from adcp.server.idempotency.store import _RECEIPT_BATCH_DISPATCH
+
+        token = _RECEIPT_BATCH_DISPATCH.set(True)
+        try:
+            return await _step(0)
+        finally:
+            _RECEIPT_BATCH_DISPATCH.reset(token)
+    if frozen_reporting_feed:
+        from adcp.server.idempotency.store import _FROZEN_FEED_DISPATCH
+
+        token = _FROZEN_FEED_DISPATCH.set(True)
+        try:
+            return await _step(0)
+        finally:
+            _FROZEN_FEED_DISPATCH.reset(token)
+    return await _step(0)
+
+
+ContextFactory = Callable[[RequestMetadata], ToolContext]
+"""Factory invoked per tool call to build a :class:`ToolContext`.
+
+The SDK's server-side idempotency middleware reads
+``ToolContext.caller_identity`` (and ``tenant_id`` for multi-tenant
+scope) for cache keying, so factories wiring auth MUST populate
+``caller_identity``. See :class:`~adcp.server.base.ToolContext` for
+the full field contract.
+
+The SDK deliberately does not know how your auth middleware surfaces
+the authenticated principal — different downstreams use Starlette
+``request.state``, ``contextvars.ContextVar``, thread-locals, etc.
+The factory closes over whatever mechanism your middleware populates
+and returns a ``ToolContext`` (or subclass).
+
+Example using ``contextvars`` (recommended — middleware-agnostic)::
+
+    from contextvars import ContextVar
+    from adcp.server import RequestMetadata, ToolContext, create_mcp_server
+
+    _principal: ContextVar[str | None] = ContextVar(
+        "adcp_principal", default=None
+    )
+    _tenant: ContextVar[str | None] = ContextVar(
+        "adcp_tenant", default=None
+    )
+
+    # Your HTTP middleware sets the ContextVars; tool calls read them.
+    def build_context(meta: RequestMetadata) -> ToolContext:
+        return ToolContext(
+            request_id=meta.request_id,
+            caller_identity=_principal.get(),
+            tenant_id=_tenant.get(),
+            metadata={"tool_name": meta.tool_name, "transport": meta.transport},
+        )
+
+    mcp = create_mcp_server(MyAgent(), context_factory=build_context)
+"""
+
+ASGIMiddlewareEntry = tuple[Callable[..., Any], dict[str, Any]] | Callable[..., Any]
+"""A single ASGI middleware entry for :func:`serve`'s ``asgi_middleware`` param.
+
+Each entry is either:
+
+- A ``(callable, kwargs)`` tuple — invoked as ``callable(app, **kwargs)``.
+  Both plain class constructors and :func:`functools.partial` instances work
+  as the first element.
+- A bare callable factory ``f(app) -> app`` — invoked as ``factory(app)``.
+
+Both forms can be mixed in the same list.
+"""
+
+
+def serve(
+    handler: ADCPHandler[Any] | Any,
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    config: ServeConfig | None = None,
+    name: str = "adcp-agent",
+    port: int | None = None,
+    host: str | None = None,
+    transport: str = "streamable-http",
+    mcp_result_text: MCPResultText | None = None,
+    instructions: str | None = None,
+    test_controller: TestControllerStore | None = None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    task_store: TaskStore | None = None,
+    push_config_store: PushNotificationConfigStore | None = None,
+    push_sender: PushNotificationSender | None = None,
+    request_handler: RequestHandler | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    message_parser: MessageParser | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    streaming_responses: bool = False,
+    stateless_http: bool = False,
+    session_idle_timeout: float | None = 1800.0,
+    max_active_sessions: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    enable_debug_endpoints: bool = False,
+    debug_traffic_source: Callable[[], dict[str, int]] | None = None,
+    session_count_source: Callable[[], dict[str, Any]] | None = None,
+    debug_validate_request: Callable[[dict[str, str]], bool] | None = None,
+    debug_public: bool = False,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+    public_url: str | PublicUrlResolver | None = None,
+    on_startup: Sequence[LifespanHook] | None = None,
+    on_shutdown: Sequence[LifespanHook] | None = None,
+) -> None:
+    """Start an MCP or A2A server from an ADCP handler or server builder.
+
+    Accepts either an ``ADCPHandler`` instance or an ``ADCPServerBuilder``
+    (from ``adcp_server()``). Builders are auto-converted via ``build_handler()``.
+
+    This is the simplest way to run an ADCP agent. Set ``transport="a2a"``
+    to serve over the A2A protocol instead of MCP, or ``transport="both"``
+    to serve both protocols on the same port (MCP at ``/mcp``, A2A at
+    ``/``).
+
+    Args:
+        handler: An ADCPHandler subclass instance with your tool implementations.
+        config: Optional :class:`ServeConfig` bundle.  When supplied, all
+            field values come from it and any individual kwargs passed
+            alongside are ignored.  Use ``dataclasses.replace(config, ...)``
+            to vary a single field from a shared base config.
+        name: Server name shown to clients / in the A2A agent card.
+        port: Port to listen on. Defaults to PORT env var, then 3001.
+        transport: ``"streamable-http"`` (default, MCP), ``"a2a"``, or
+            ``"both"`` (one Starlette binary serving MCP at ``/mcp``
+            and A2A at ``/``). Use ``"both"`` when you want adopters
+            on either protocol to reach the same handler with shared
+            ``context_factory`` + ``middleware`` wiring — JS hosts both
+            on one Express app; this is the Python parity.
+        instructions: Optional system instructions for the agent (MCP only).
+        test_controller: Optional TestControllerStore instance for storyboard testing.
+        context_factory: Optional factory that builds a :class:`ToolContext`
+            per tool call — see :data:`ContextFactory`.
+        task_store: Optional a2a-sdk ``TaskStore`` for durable A2A task
+            persistence (A2A transport only). Defaults to ``InMemoryTaskStore``
+            — tasks don't survive restart. See
+            ``examples/a2a_db_tasks.py`` for the production pattern.
+        push_config_store: Optional a2a-sdk ``PushNotificationConfigStore``
+            for push-notif subscription persistence (A2A transport only).
+            When unset, a2a-sdk surfaces the push-notif endpoints as
+            ``UnsupportedOperationError`` — clients cannot register
+            subscriptions at all. See ``examples/a2a_db_tasks.py`` for
+            a durable reference implementation.
+        push_sender: Optional a2a-sdk ``PushNotificationSender`` for
+            delivering task updates to subscriptions in ``push_config_store``
+            (A2A transport only). Configure both to enable built-in delivery.
+        request_handler: Optional prebuilt a2a-sdk ``RequestHandler`` for
+            staged migrations that keep an adopter-owned A2A request layer
+            (A2A transport only). The custom handler owns its executor and
+            persistence, so do not combine this with ``task_store``,
+            ``push_config_store``, or ``push_sender``.
+        middleware: Optional sequence of :data:`SkillMiddleware` callables
+            wrapping every skill dispatch on both the MCP and A2A
+            transports. Use for audit logging, activity-feed hooks,
+            rate limiting, tracing. Composes outermost-first. See
+            :data:`SkillMiddleware` for the signature and composition
+            semantics.
+        asgi_middleware: Optional sequence of ASGI middleware entries
+            applied to the outer HTTP app before uvicorn binds. Use for
+            cross-cutting HTTP concerns the SDK does not own: tenant
+            resolution (:class:`adcp.server.SubdomainTenantMiddleware`),
+            CORS, request-id propagation, IP allowlists, custom auth.
+            Composes outermost-first — the first entry sees every request
+            before later entries. Applied on every HTTP transport
+            (``streamable-http``, ``sse``, ``a2a``, ``both``); ignored
+            on ``stdio``.
+
+            Each entry is either a ``(MiddlewareClass, kwargs)`` tuple
+            invoked as ``cls(app, **kwargs)``, or a callable factory
+            ``f(app) -> app``. Both forms can appear in the same list.
+
+            Middleware sees ``lifespan`` and ``websocket`` scopes in
+            addition to ``http`` — guard non-HTTP scopes by passing
+            them through unchanged (``if scope['type'] != 'http':
+            await self.app(scope, receive, send); return``) so the
+            framework's lifespan composition still runs.
+
+            Example (tuple form)::
+
+                from starlette.middleware.cors import CORSMiddleware
+                serve(handler, asgi_middleware=[
+                    (CORSMiddleware, {"allow_origins": ["*"]}),
+                ])
+
+            Example (callable factory form, e.g. with ``functools.partial``)::
+
+                import functools
+                from starlette.middleware.cors import CORSMiddleware
+                serve(handler, asgi_middleware=[
+                    functools.partial(CORSMiddleware, allow_origins=["*"]),
+                ])
+        message_parser: Optional
+            :data:`~adcp.server.a2a_server.MessageParser` callable for
+            alternative A2A wire shapes (A2A transport only). The
+            default parser handles ``DataPart(data={"skill": ...,
+            "parameters": ...})`` plus a TextPart JSON fallback; supply
+            this hook to accept JSON-RPC 2.0 message bodies or vendor-
+            specific DataPart schemas. MCP does not use this kwarg
+            (FastMCP owns the wire shape).
+        advertise_all: When True, advertise every tool the handler type
+            supports even if the subclass didn't override the method.
+            Defaults to ``False`` — ``tools/list`` only shows tools the
+            handler actually implements, which dramatically shrinks the
+            advertised surface. Turn on for spec-compliance storyboards
+            or when you want to signal ``not_supported`` on a specific
+            tool to clients.
+        max_request_size: Maximum request body size in bytes. Defaults
+            to 10 MB. Set higher for sellers that legitimately transmit
+            very large creative asset payloads; set lower for stricter
+            public-facing deployments. Set to ``0`` to disable the cap
+            entirely (not recommended — the cap is the only guard
+            against adversarial payloads exhausting Pydantic validation
+            CPU/memory). See :mod:`adcp.server._size_limit`.
+        host: Network interface to bind to (MCP transports only). Defaults
+            to the ``ADCP_HOST`` environment variable, then ``"0.0.0.0"``
+            (all interfaces). Use ``"127.0.0.1"`` for local-only
+            development. Container deployments (Fly.io, k8s, Cloud Run)
+            require ``"0.0.0.0"`` so the process listens on the
+            container's external interface.
+        streaming_responses: When ``False`` (default), the streamable-http
+            transport returns one ``application/json`` response per
+            request. AdCP tools today don't emit progress events, and
+            FastMCP's SSE-internal streaming default has an upstream bug
+            that drops the ASGI response without completing — making the
+            storyboard runner report ``overall_status: "unreachable"``.
+            Set to ``True`` only if your tools genuinely emit progress
+            notifications and your clients consume the SSE stream
+            (MCP transports only). Note: the legacy ``transport="sse"``
+            is a separate (deprecated) MCP transport, unrelated to this
+            flag.
+        stateless_http: When ``False`` (default), MCP keeps a per-client
+            session alive across requests so subsequent ``tools/call``
+            posts skip the transport-construction tax — meaningfully
+            faster for chatty clients, and the only mode where
+            ``StreamableHTTPSessionManager``'s idle-reap path actually
+            runs. (Stateless mode in upstream MCP holds GET-SSE streams
+            with no idle eviction, which is why production adopters
+            saw connections accumulate.) The SDK threads the
+            originating Starlette ``Request`` into
+            ``RequestMetadata.request_context`` in both modes so
+            ``context_factory`` can read auth off ``request.state``;
+            the bundled :func:`auth_context_factory` already does
+            this. Set ``True`` for stateless deployments — multi-replica
+            without sticky LB on ``Mcp-Session-Id``, or where you
+            cannot configure session affinity.
+        session_idle_timeout: Idle reap deadline (seconds) for stateful
+            sessions. Each request pushes the deadline forward; idle
+            sessions are terminated and their per-session state freed.
+            Defaults to 1800 (30 min); ``None`` disables reaping.
+            Ignored when ``stateless_http=True``.
+        max_active_sessions: Optional cap for simultaneously active
+            stateful MCP sessions. When the cap is reached, new
+            session-creating requests are rejected with HTTP 429 while
+            requests carrying an existing ``Mcp-Session-Id`` continue.
+            Ignored when ``stateless_http=True``.
+        enable_debug_endpoints: When ``True``, mount debug routes on
+            the outer HTTP app. ``GET /_debug/traffic`` returns the JSON
+            dict from ``debug_traffic_source()`` — typically wired to
+            the seller's :class:`adcp.decisioning.MockAdServer.get_traffic`.
+            ``GET /_debug/sessions`` returns the JSON dict from
+            ``session_count_source()``.
+            Defaults to ``False`` so production deployments stay
+            closed; reference / dev sellers turn it on. Ignored on
+            stdio. The traffic endpoint exposes per-method outbound
+            call counts for storyboard runners' anti-façade assertions.
+        debug_traffic_source: Zero-arg callable returning the
+            per-method count snapshot for ``/_debug/traffic``. Required
+            when ``enable_debug_endpoints=True`` and no
+            ``session_count_source`` is supplied; otherwise ignored.
+            Typically ``mock_ad_server.get_traffic``.
+        session_count_source: Zero-arg callable returning the active
+            MCP session snapshot for ``/_debug/sessions``. Required
+            when ``enable_debug_endpoints=True`` and no
+            ``debug_traffic_source`` is supplied; otherwise ignored.
+        debug_validate_request: Optional callable used to authorize
+            ``/_debug/*`` requests. Receives lower-case request headers
+            and returns ``True`` to serve the debug response. Required
+            when ``enable_debug_endpoints=True`` unless
+            ``debug_public=True`` is set.
+        debug_public: Set ``True`` only for local/storyboard runners
+            where the debug routes are intentionally unauthenticated.
+            Defaults to ``False`` so network-reachable deployments must
+            opt into public debug visibility explicitly or supply
+            ``debug_validate_request``.
+        base_url: Optional public origin URL for the binary, used to
+            populate the ``url`` field of each entry in the
+            ``/.well-known/adcp-agents.json`` discovery manifest.
+            Adopters behind a TLS-terminating reverse proxy SHOULD set
+            this (e.g. ``"https://sales.example.com"``). When ``None``
+            the manifest URLs fall back to ``http://<bind-host>:<port>``,
+            which is correct for local development but wrong for
+            production.
+        specialisms: Optional list of AdCP specialism tags surfaced in
+            the discovery manifest (e.g. ``["sales-non-guaranteed"]``).
+            See :data:`adcp.server.discovery` for the full list.
+            Defaults to a placeholder when omitted — adopters who know
+            their specialism SHOULD pass it.
+        description: Optional human-readable description surfaced in
+            the discovery manifest's per-agent ``description`` field.
+        validation: :class:`ValidationHookConfig` enabling schema
+            validation of every request and response against the
+            bundled AdCP JSON schemas. ``requests="strict"`` raises
+            ``VALIDATION_ERROR`` before the handler runs on a malformed
+            payload; ``responses="strict"`` raises after the handler
+            returns when the response shape drifts from spec.
+
+            **Defaults to** :data:`DEFAULT_VALIDATION` (strict on both
+            sides) — wire-conformance by default. This catches the
+            class of bug that shipped the ``pricing_options``
+            regression past Pydantic ``extra="allow"`` silently
+            swallowing an unknown shape. Adopters mid-migration who
+            need response drift to warn rather than fail pass
+            ``ValidationHookConfig(responses="warn")``; adopters who
+            want validation off entirely pass
+            ``ValidationHookConfig(requests="off", responses="off")``
+            or ``validation=None``. Applies to both MCP and A2A
+            transports.
+        response_enhancer: Optional server-wide
+            :data:`~adcp.server.ResponseEnhancer` applied to
+            framework-tool successes, custom-tool successes, the pre-auth
+            ``get_adcp_capabilities`` discovery response, and
+            raised-error responses — on both the MCP and A2A transports.
+            The callback runs after the context echo (so it cannot
+            re-introduce a stripped credential) and, on the success path,
+            before schema validation (so a conformance-breaking mutation
+            surfaces as ``VALIDATION_ERROR`` rather than shipping
+            malformed). Both the context-blind ``(result_dict)`` arity and
+            the context-aware ``(method_name, result_dict, context)`` arity
+            are supported. See :data:`~adcp.server.ResponseEnhancer` for
+            the exact coverage (including two non-enhanced paths) and the
+            failure / idempotency-replay semantics.
+
+    Security:
+        This function does NOT configure authentication. In production,
+        use a reverse proxy or middleware that validates credentials
+        before forwarding to the endpoint. Without authentication,
+        MCP exposes tools/list and A2A exposes /.well-known/agent.json,
+        both of which reveal the agent's full capability surface.
+        auth: Optional :class:`~adcp.server.auth.BearerTokenAuth` config
+            applied to MCP, A2A, and ``transport="both"`` legs from the
+            same source of truth. Drives MCP's
+            :class:`~adcp.server.auth.BearerTokenAuthMiddleware` and
+            A2A's :class:`~adcp.server.auth.BearerTokenContextBuilder`.
+            On A2A, ``/.well-known/agent-card.json`` stays publicly
+            accessible per A2A spec §4.1 — the agent-card route is
+            registered separately and never invokes the builder. On
+            stdio, ``auth`` is ignored with a warning (no HTTP layer).
+            For non-bearer schemes (mTLS), wire your own middleware via
+            ``asgi_middleware=`` instead. A request authenticated by
+            ``request_signature_verification`` needs no bearer.
+        request_signature_verification: Optional
+            :class:`~adcp.server.RequestSignatureVerification`. When set,
+            every JSON-RPC POST on the MCP and A2A legs is checked against
+            the RFC 9421 request-signing profile before dispatch: unsigned
+            requests to ``required_for`` operations get ``401`` with
+            ``WWW-Authenticate: Signature error="request_signature_required"``,
+            presented signatures must verify, and a verified signer
+            populates ``ToolContext.caller_identity`` (its agent URL) and
+            ``metadata["adcp.auth_info"]``. Build it with
+            :meth:`~adcp.server.RequestSignatureVerification.from_capability`
+            from the ``request_signing`` block you advertise. Ignored on
+            stdio and legacy SSE. ``adcp.decisioning.serve(signer_keys=...)`` builds it
+            from the platform's capabilities.
+        public_url: Public base URL for the A2A agent card
+            (``/.well-known/agent-card.json``).  Accepts a static string
+            or a :data:`~adcp.server.a2a_server.PublicUrlResolver`
+            callable for per-request resolution.
+
+            *Static string* — replaces ``http://localhost:{port}/`` in
+            ``supportedInterfaces``.  Falls back to the ``PUBLIC_URL``
+            env var when ``None``.  Correct for single-host deployments.
+
+            *Callable* — receives the Starlette ``Request`` per card
+            fetch; must return an absolute ``https://`` URL.  Use for
+            multi-tenant subdomain deployments where each tenant host
+            needs its own card::
+
+                def resolver(request):
+                    host = request.headers.get("host", "localhost")
+                    return f"https://{host}/"
+
+                serve(handler, transport="a2a", public_url=resolver)
+
+            Ignored for MCP transports.
+        on_startup: Optional sequence of :data:`LifespanHook` zero-arg
+            async callables fired after both inner MCP and A2A
+            lifespans have initialized. Use for adopter background
+            work that must run for the lifetime of the server —
+            schedulers, queue consumers, cache warmers, connection
+            pools. A hook raising aborts boot via
+            ``lifespan.startup.failed``. **Today honored only on**
+            ``transport="both"``; passing on any other transport
+            raises :class:`ValueError` at boot rather than silently
+            dropping the hook. See ``examples/scheduler_lifespan.py``.
+        on_shutdown: Optional sequence of :data:`LifespanHook` zero-arg
+            async callables fired before either inner lifespan tears
+            down, including when an adopter startup hook fails. Every
+            hook runs once in registration order, even after an earlier
+            error or cancellation. Hooks must tolerate partial startup;
+            register dependent resources' shutdowns in reverse dependency
+            order. Startup and shutdown share one retained task on the server
+            loop, preserving paired ContextVar tokens and AnyIO scopes.
+            Its initial context is copied from the framework task; startup
+            ContextVar mutations stay local to the hook lifecycle. Cleanup
+            settles before cancellation propagates or transports close.
+            There is no SDK cleanup timeout: a hook that never completes
+            can hold shutdown indefinitely. Startup/body failures take
+            precedence; otherwise cancellation or the first cleanup failure
+            propagates. SDK cleanup diagnostics omit exception text and
+            callable representations. Same ``transport="both"`` restriction
+            as ``on_startup``.
+
+    Example (MCP):
+        from adcp.server import ADCPHandler, serve
+        from adcp.server.responses import capabilities_response
+
+        class MyAgent(ADCPHandler):
+            async def get_adcp_capabilities(self, params, context=None):
+                return capabilities_response(["media_buy"])
+
+        serve(MyAgent(), name="my-agent")
+
+    Example (A2A):
+        serve(MyAgent(), name="my-agent", transport="a2a")
+
+    With test controller:
+        from adcp.server.test_controller import TestControllerStore
+
+        class MyStore(TestControllerStore):
+            async def force_account_status(self, account_id, status):
+                ...
+
+        serve(MyAgent(), name="my-agent", test_controller=MyStore())
+    """
+    # When a ServeConfig bundle is provided, extract all fields from it.
+    # Individual kwargs are ignored so that config= is the single source of
+    # truth.  Callers who need to vary one field should use
+    # dataclasses.replace(config, field=value) rather than mixing styles.
+    if config is not None:
+        name = config.name
+        port = config.port
+        host = config.host
+        transport = config.transport
+        instructions = config.instructions
+        allowed_hosts = config.allowed_hosts
+        allowed_origins = config.allowed_origins
+        enable_dns_rebinding_protection = config.enable_dns_rebinding_protection
+        mcp_result_text = config.mcp_result_text
+        test_controller = config.test_controller
+        context_factory = config.context_factory
+        task_store = config.task_store
+        push_config_store = config.push_config_store
+        push_sender = config.push_sender
+        request_handler = config.request_handler
+        middleware = config.middleware
+        asgi_middleware = config.asgi_middleware
+        unauthenticated_routes = config.unauthenticated_routes
+        message_parser = config.message_parser
+        advertise_all = config.advertise_all
+        max_request_size = config.max_request_size
+        streaming_responses = config.streaming_responses
+        stateless_http = config.stateless_http
+        session_idle_timeout = config.session_idle_timeout
+        max_active_sessions = config.max_active_sessions
+        validation = config.validation
+        pre_validation_hooks = config.pre_validation_hooks
+        response_enhancer = config.response_enhancer
+        supported_versions = config.supported_versions
+        enable_debug_endpoints = config.enable_debug_endpoints
+        debug_traffic_source = config.debug_traffic_source
+        session_count_source = config.session_count_source
+        debug_validate_request = config.debug_validate_request
+        debug_public = config.debug_public
+        base_url = config.base_url
+        specialisms = config.specialisms
+        description = config.description
+        public_url = config.public_url
+        on_startup = config.on_startup
+        on_shutdown = config.on_shutdown
+
+    if unauthenticated_routes and transport == "stdio":
+        raise ValueError("unauthenticated_routes requires an HTTP transport")
+
+    if request_signature_verification is not None:
+        if transport in ("stdio", "sse"):
+            # stdio has no HTTP request; legacy SSE dispatches on a session
+            # task that cannot see the verifying POST, so identity would not
+            # reach handlers.
+            logger.warning(
+                "request_signature_verification ignored on transport=%r; use "
+                "'streamable-http', 'a2a', or 'both'",
+                transport,
+            )
+            request_signature_verification = None
+        else:
+            check_request_signature_verification(
+                request_signature_verification, bearer_configured=auth is not None
+            )
+
+    # Accept ADCPServerBuilder from adcp_server() decorator pattern
+    from adcp.server.builder import ADCPServerBuilder
+
+    if isinstance(handler, ADCPServerBuilder):
+        if not name or name == "adcp-agent":
+            name = handler.name
+        handler = handler.build_handler()
+
+    from adcp.server.version_policy import resolve_supported_versions
+
+    supported_versions = resolve_supported_versions(
+        supported_versions,
+        handler=handler,
+        adcp_version=_resolve_handler_adcp_version(handler, None),
+    )
+
+    # Compose debug endpoints as the outermost ASGI middleware on HTTP
+    # transports. stdio has no HTTP layer, so debug endpoints are ignored
+    # there instead of forcing HTTP-only validation knobs onto shared configs.
+    if transport in ("a2a", "both", "streamable-http", "sse"):
+        asgi_middleware = _prepend_debug_endpoint(
+            asgi_middleware,
+            enable_debug_endpoints=enable_debug_endpoints,
+            debug_traffic_source=debug_traffic_source,
+            session_count_source=session_count_source,
+            debug_validate_request=debug_validate_request,
+            debug_public=debug_public,
+        )
+
+    # Lifespan hooks ship today only for transport="both" because that's
+    # the path with an SDK-owned parent Starlette where composition is
+    # straightforward (see :func:`_build_mcp_and_a2a_app`). For single-
+    # transport paths, FastMCP / a2a-sdk own their inner Starlette and
+    # we would have to mutate vendor internals to weave hooks in. Fail
+    # closed here so adopters get a clear error at boot instead of
+    # silently dropped hooks at runtime.
+    if (on_startup or on_shutdown) and transport != "both":
+        raise ValueError(
+            f"on_startup / on_shutdown hooks require transport='both', got "
+            f"transport={transport!r}. The single-transport paths "
+            "(streamable-http, sse, a2a, stdio) do not yet expose a "
+            "composition point for user lifespan hooks. Either set "
+            "transport='both' (see examples/scheduler_lifespan.py for the "
+            "pattern) or hand-wire ASGI lifespan-scope middleware. "
+            "Single-transport support is tracked as a follow-up to #709."
+        )
+
+    if transport == "a2a":
+        _serve_a2a(
+            handler,
+            name=name,
+            unauthenticated_routes=unauthenticated_routes,
+            port=port,
+            test_controller=test_controller,
+            test_controller_account_resolver=test_controller_account_resolver,
+            context_factory=context_factory,
+            task_store=task_store,
+            push_config_store=push_config_store,
+            push_sender=push_sender,
+            request_handler=request_handler,
+            middleware=middleware,
+            asgi_middleware=asgi_middleware,
+            message_parser=message_parser,
+            advertise_all=advertise_all,
+            max_request_size=max_request_size,
+            validation=validation,
+            pre_validation_hooks=pre_validation_hooks,
+            response_enhancer=response_enhancer,
+            supported_versions=supported_versions,
+            base_url=base_url,
+            specialisms=specialisms,
+            description=description,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=allowed_origins,
+            enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+            auth=auth,
+            request_signature_verification=request_signature_verification,
+            public_url=public_url,
+        )
+    elif transport in ("streamable-http", "sse", "stdio"):
+        _serve_mcp(
+            handler,
+            name=name,
+            unauthenticated_routes=unauthenticated_routes,
+            port=port,
+            host=host,
+            transport=transport,
+            instructions=instructions,
+            mcp_result_text=mcp_result_text,
+            test_controller=test_controller,
+            test_controller_account_resolver=test_controller_account_resolver,
+            context_factory=context_factory,
+            middleware=middleware,
+            asgi_middleware=asgi_middleware,
+            advertise_all=advertise_all,
+            max_request_size=max_request_size,
+            streaming_responses=streaming_responses,
+            stateless_http=stateless_http,
+            session_idle_timeout=session_idle_timeout,
+            max_active_sessions=max_active_sessions,
+            validation=validation,
+            pre_validation_hooks=pre_validation_hooks,
+            response_enhancer=response_enhancer,
+            supported_versions=supported_versions,
+            base_url=base_url,
+            specialisms=specialisms,
+            description=description,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=allowed_origins,
+            enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+            auth=auth,
+            request_signature_verification=request_signature_verification,
+        )
+    elif transport == "both":
+        _serve_mcp_and_a2a(
+            handler,
+            name=name,
+            unauthenticated_routes=unauthenticated_routes,
+            port=port,
+            host=host,
+            instructions=instructions,
+            mcp_result_text=mcp_result_text,
+            test_controller=test_controller,
+            test_controller_account_resolver=test_controller_account_resolver,
+            context_factory=context_factory,
+            task_store=task_store,
+            push_config_store=push_config_store,
+            push_sender=push_sender,
+            request_handler=request_handler,
+            middleware=middleware,
+            asgi_middleware=asgi_middleware,
+            message_parser=message_parser,
+            advertise_all=advertise_all,
+            max_request_size=max_request_size,
+            streaming_responses=streaming_responses,
+            stateless_http=stateless_http,
+            session_idle_timeout=session_idle_timeout,
+            max_active_sessions=max_active_sessions,
+            validation=validation,
+            pre_validation_hooks=pre_validation_hooks,
+            response_enhancer=response_enhancer,
+            supported_versions=supported_versions,
+            base_url=base_url,
+            specialisms=specialisms,
+            description=description,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=allowed_origins,
+            enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+            auth=auth,
+            request_signature_verification=request_signature_verification,
+            public_url=public_url,
+            on_startup=on_startup,
+            on_shutdown=on_shutdown,
+        )
+    else:
+        valid = ", ".join(sorted(("a2a", "both", "streamable-http", "sse", "stdio")))
+        raise ValueError(f"Unknown transport {transport!r}. Valid: {valid}")
+
+
+def _prepend_debug_endpoint(
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None,
+    *,
+    enable_debug_endpoints: bool,
+    debug_traffic_source: Callable[[], dict[str, int]] | None,
+    session_count_source: Callable[[], dict[str, Any]] | None = None,
+    debug_validate_request: Callable[[dict[str, str]], bool] | None = None,
+    debug_public: bool = False,
+) -> Sequence[ASGIMiddlewareEntry] | None:
+    """Prepend :class:`DebugTrafficMiddleware` to the asgi_middleware
+    sequence when debug endpoints are enabled.
+
+    No-op when ``enable_debug_endpoints=False`` — the middleware isn't
+    mounted, ``/_debug/traffic`` falls through to the inner app, and
+    the inner app returns 404. Production-default closed posture.
+
+    Raises ``ValueError`` when debug endpoints are enabled but no debug
+    source is supplied — silently mounting endpoints that would error on
+    every request is worse than a clear configuration error at boot.
+    """
+    if not enable_debug_endpoints:
+        return asgi_middleware
+    if debug_traffic_source is None and session_count_source is None:
+        raise ValueError(
+            "enable_debug_endpoints=True requires debug_traffic_source= "
+            "or session_count_source=. Without a source the debug endpoints "
+            "have nothing to return."
+        )
+    if not debug_public and debug_validate_request is None:
+        raise ValueError(
+            "enable_debug_endpoints=True requires debug_validate_request= "
+            "unless debug_public=True is set for local/storyboard use."
+        )
+    from adcp.server.debug_endpoints import DebugTrafficMiddleware
+
+    debug_entry = (
+        DebugTrafficMiddleware,
+        {
+            "traffic_source": debug_traffic_source,
+            "session_count_source": session_count_source,
+            "debug_validate_request": debug_validate_request,
+            "debug_public": debug_public,
+        },
+    )
+    if asgi_middleware is None:
+        return [debug_entry]
+    return [debug_entry, *asgi_middleware]
+
+
+def _apply_asgi_middleware(
+    app: Any,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None,
+) -> Any:
+    """Wrap ``app`` with operator-supplied Starlette-style ASGI middleware.
+
+    Each entry is either ``(MiddlewareClass, kwargs)`` invoked as
+    ``cls(app, **kwargs)``, or a callable factory ``f(app) -> app`` invoked
+    as ``factory(app)``. Both forms can appear in the same list. Composition
+    is outermost-first — the first entry sees every request before later
+    entries — so we wrap in reverse, matching :meth:`Starlette.add_middleware`
+    semantics.
+
+    No-op when the sequence is empty or ``None``.
+    """
+    if not asgi_middleware:
+        return app
+    routes = find_operational_routes(app)
+    for entry in reversed(list(asgi_middleware)):
+        if isinstance(entry, tuple):
+            cls, kwargs = entry
+            app = cls(app, **kwargs)
+        else:
+            app = entry(app)
+    return OperationalRouteMarker(app, routes) if routes is not None else app
+
+
+def _wrap_mcp_with_auth(app: Any, auth: BearerTokenAuth | None) -> Any:
+    """Wrap the FastMCP HTTP app with :class:`BearerTokenAuthMiddleware`.
+
+    No-op when ``auth`` is ``None``. Expects a
+    :class:`~adcp.server.auth.BearerTokenAuth` config; raises
+    :class:`TypeError` for anything else so misconfiguration is loud at
+    boot, not silent at runtime.
+
+    The middleware is applied *innermost* so its body-peek for the
+    JSON-RPC discovery bypass sees the payload before the path
+    normalizer / discovery wrapper / operator's ``asgi_middleware``
+    layer reshape the request.
+    """
+    if auth is None:
+        return app
+    from adcp.server.auth import BearerTokenAuth, BearerTokenAuthMiddleware
+
+    if not isinstance(auth, BearerTokenAuth):
+        raise TypeError(
+            f"serve(auth=...) expects BearerTokenAuth, got {type(auth).__name__}. "
+            "Import from adcp.server.auth.BearerTokenAuth."
+        )
+
+    # FastMCP's ``streamable_http_app()`` returns a Starlette instance;
+    # ``add_middleware`` wraps the inner app in place and preserves
+    # FastMCP's lifespan + routing without a parallel Starlette.
+    #
+    # Per #720, ``Authorization: Bearer`` is always accepted; any
+    # legacy custom header configured on ``BearerTokenAuth`` is folded
+    # in as an additive alias. The legacy single-knob path (the
+    # ``BearerTokenAuthMiddleware`` deprecation warnings on
+    # ``header_name=`` / ``bearer_prefix_required=``) is bypassed here
+    # — the dataclass's ``__post_init__`` already emits the
+    # deprecation warning (one warning per adopter, fired at config
+    # construction). Threading through the alias path keeps the
+    # middleware-level deprecation suppressed; the adopter sees a
+    # single coherent migration signal at one site.
+    app.add_middleware(
+        BearerTokenAuthMiddleware,
+        validate_token=auth.validate_token,
+        resolve_principal=auth.resolve_principal,
+        unauthenticated_response=auth.unauthenticated_response,
+        legacy_header_aliases=auth.resolved_mcp_legacy_aliases(),
+        legacy_aliases_bearer_prefix_required=(
+            # If adopter configured legacy bearer-prefix via the old
+            # kwargs, honor that on the alias path. New-shape adopters
+            # set this directly on the dataclass.
+            auth.resolved_mcp_bearer_prefix_required()
+            if (
+                auth.bearer_prefix_required is not None
+                or auth.mcp_bearer_prefix_required is not None
+            )
+            else auth.legacy_aliases_bearer_prefix_required
+        ),
+        # ``None`` keeps the middleware on the spec default
+        # (:data:`adcp.server.mcp_tools.DISCOVERY_TOOLS`); a non-None
+        # value widens ``tools/call``-level discovery to include
+        # additional read-only surfaces (e.g. ``get_products``).
+        discovery_tools=auth.resolved_mcp_discovery_tools(),
+        # Network-trust: pass bearer-less requests through to the app (the host
+        # resolves identity from trusted headers downstream). Default False.
+        allow_unauthenticated=auth.allow_unauthenticated,
+    )
+    return app
+
+
+def _wrap_a2a_with_auth(
+    app: Any,
+    auth: BearerTokenAuth | None,
+    *,
+    message_parser: MessageParser | None = None,
+) -> Any:
+    """Wrap an A2A Starlette app with :class:`A2ABearerAuthMiddleware`.
+
+    No-op when ``auth`` is ``None``. Returns the original app
+    untouched, so the A2A side falls back to a2a-sdk's default
+    (unauthenticated, agent-card publicly accessible) without any
+    middleware overhead.
+
+    The middleware is wrapped at the ASGI layer (not via
+    ``Starlette.add_middleware``) so it sees the request before
+    a2a-sdk's JsonRpcDispatcher and v0.3 compat adapter — which
+    catch every exception including ``HTTPException`` and convert
+    them to JSON-RPC errors with HTTP 200. ASGI-layer wrapping
+    returns proper HTTP 401 every time.
+
+    Same type guard as :func:`_wrap_mcp_with_auth` — a misconfig
+    that passes a dict / lambda / wrong type is loud at boot.
+
+    Sync and async token validators and principal resolvers are handled by
+    the middleware's async ASGI boundary before the A2A dispatcher.
+    """
+    if auth is None:
+        return app
+    from adcp.server.auth import A2ABearerAuthMiddleware, BearerTokenAuth
+
+    if not isinstance(auth, BearerTokenAuth):
+        raise TypeError(
+            f"serve(auth=...) expects BearerTokenAuth, got {type(auth).__name__}. "
+            "Import from adcp.server.auth.BearerTokenAuth."
+        )
+    return A2ABearerAuthMiddleware(app, auth, message_parser=message_parser)
+
+
+def _wrap_with_discovery(
+    app: Any,
+    *,
+    name: str,
+    transports: list[Literal["mcp", "a2a"]],
+    base_url: str,
+    description: str | None = None,
+    specialisms: list[str] | None = None,
+) -> Any:
+    """Wrap an ASGI app to serve ``/.well-known/adcp-agents.json``.
+
+    Intercepts the discovery path and serves the AdCP multi-agent
+    topology manifest; every other request passes through unchanged.
+    Sits outside the inner transport apps (FastMCP / a2a-sdk Starlette)
+    so adding the route doesn't require monkey-patching either upstream.
+
+    GET returns the manifest as JSON; non-GET methods at the discovery
+    path 404 back to the inner app — letting the inner Starlette
+    return its standard 405 / 404 keeps the well-known surface
+    read-only without baking method-policy into this wrapper.
+    """
+    from adcp.server.discovery import (
+        DISCOVERY_PATH,
+        build_manifest,
+    )
+
+    async def _middleware(scope: Any, receive: Any, send: Any) -> None:
+        if (
+            scope.get("type") == "http"
+            and scope.get("path") == DISCOVERY_PATH
+            and scope.get("method") == "GET"
+        ):
+            from starlette.responses import JSONResponse
+
+            manifest = build_manifest(
+                name=name,
+                transports=transports,
+                base_url=base_url,
+                description=description,
+                specialisms=specialisms,
+            )
+            response = JSONResponse(manifest)
+            await response(scope, receive, send)
+            return
+        await app(scope, receive, send)
+
+    return _middleware
+
+
+def _wrap_with_path_normalize(app: Any) -> Any:
+    """Wrap an ASGI app so trailing-slash variants of the same path
+    route to the same handler instead of returning 307.
+
+    The FastMCP streamable-http app mounts the JSON-RPC endpoint at
+    ``/mcp`` (no trailing slash). Buyer libraries that POST to
+    ``/mcp/`` get a 307 redirect, which:
+
+    1. Costs an extra RTT per call (visible in the access log;
+       Emma signals + AudioStack reports both noted this).
+    2. Silently breaks buyer libs that don't follow redirects on POST
+       (most HTTP clients don't, by default — POSTing to a redirect
+       reverts to GET on the redirected URL, losing the body).
+
+    Stripping a single trailing slash before dispatch is the standard
+    fix; this middleware mutates ``scope["path"]`` and
+    ``scope["raw_path"]`` in-place so downstream routing sees the
+    canonical form. Only applies to non-root paths so we don't
+    accidentally route ``/`` to ``''``.
+    """
+
+    async def _middleware(scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") in {"http", "websocket"}:
+            path = scope.get("path", "")
+            if len(path) > 1 and path.endswith("/"):
+                # Mutate the scope's mutable copy — Starlette guarantees
+                # a fresh dict per request so this doesn't leak across
+                # connections.
+                new_scope = dict(scope)
+                new_scope["path"] = path.rstrip("/")
+                raw_path = new_scope.get("raw_path")
+                if isinstance(raw_path, bytes) and len(raw_path) > 1 and raw_path.endswith(b"/"):
+                    new_scope["raw_path"] = raw_path.rstrip(b"/")
+                scope = new_scope
+        await app(scope, receive, send)
+
+    return _middleware
+
+
+def _wrap_with_size_limit(app: Any, max_request_size: int | None) -> Any:
+    """Wrap an ASGI app with the request-body size cap.
+
+    ``None`` = use the module default (10 MB). ``0`` = disable — skip
+    the middleware entirely so sellers who genuinely need unlimited
+    bodies can opt out. Any positive int overrides the default.
+
+    Negative values raise ``ValueError`` — they have no meaningful
+    interpretation and almost certainly indicate a typo (e.g. the
+    author meant ``0`` for "disable" or a positive cap for "N bytes").
+    Failing loudly at configure time beats a silent opt-out that only
+    surfaces when an attacker finds it.
+    """
+    import logging
+
+    from adcp.server._size_limit import (
+        DEFAULT_MAX_REQUEST_BYTES,
+        RequestSizeLimitMiddleware,
+    )
+
+    if max_request_size is not None and max_request_size < 0:
+        raise ValueError(
+            f"max_request_size must be >= 0 (got {max_request_size}). "
+            "Use 0 to disable the cap entirely, or a positive int in bytes."
+        )
+    if max_request_size == 0:
+        # Load-bearing warning — 0 disables the only Pydantic-validation
+        # DoS guard. Operators should know, and a typo that lands on 0
+        # should leave a breadcrumb in the startup log rather than
+        # silently opt out.
+        logging.getLogger("adcp.server").warning(
+            "max_request_size=0 disables ASGI body cap; relying on upstream "
+            "proxy or WAF to bound request size. This is a security-relevant "
+            "configuration choice."
+        )
+        return app
+    cap = max_request_size if max_request_size is not None else DEFAULT_MAX_REQUEST_BYTES
+    return RequestSizeLimitMiddleware(app, max_bytes=cap)
+
+
+def _bind_reusable_socket(host: str, port: int) -> Any:
+    """Create a listening socket with SO_REUSEADDR set.
+
+    Without ``SO_REUSEADDR``, rapid restarts (common during tests and
+    storyboard runs) hit ``TIME_WAIT`` on the prior socket and the new
+    process hangs on bind for up to 2×MSL (roughly a minute on macOS).
+    Setting ``SO_REUSEADDR`` on the listening socket is the standard,
+    portable fix on Linux and macOS; it is safe because listeners are
+    unique by (addr, port) and the kernel still rejects a second live
+    listener on the same tuple.
+
+    On Windows ``SO_REUSEADDR`` has different semantics (it allows
+    hijacking a live listener). FastMCP's streamable-http and uvicorn
+    support Windows, so we guard with ``SO_EXCLUSIVEADDRUSE`` there —
+    but since the ADCP server primarily targets Linux/macOS and the
+    Windows path is rarely exercised, the guard is best-effort.
+
+    EADDRINUSE collisions (port already bound by another process) are
+    re-raised as ``OSError`` with a friendly remediation hint —
+    every Emma backend test reported being lost in a raw ``[Errno 48]
+    Address already in use`` with no pointer to the fix. The wrapped
+    error tells adopters exactly what to do (set ``port=`` or
+    ``ADCP_PORT``).
+    """
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if os.name == "nt":
+            # Windows: prevent hijacking; don't set SO_REUSEADDR.
+            exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
+            if exclusive is not None:
+                sock.setsockopt(socket.SOL_SOCKET, exclusive, 1)
+        else:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, port))
+        sock.listen(128)
+        sock.set_inheritable(True)
+    except OSError as exc:
+        sock.close()
+        # EADDRINUSE on Linux/macOS = errno 98/48 (per platform). The
+        # raw message is opaque ("[Errno 48] Address already in use"
+        # — Emma reports flagged this as P1 friction). Project to a
+        # remediation-bearing message that points adopters at the
+        # ``port=`` / ``ADCP_PORT`` knobs.
+        import errno
+
+        if exc.errno in (errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", -1)):
+            raise OSError(
+                exc.errno,
+                (
+                    f"Port {port} on {host} is already in use — another process "
+                    "is bound there (a stale dev server, a peer agent, or your "
+                    "previous run). Pick a different port: pass ``port=<N>`` to "
+                    "``adcp.decisioning.serve.serve(...)`` (or "
+                    "``adcp.server.serve(...)``), or set the ``ADCP_PORT`` "
+                    "environment variable. Default ADCP port is 3001 — common "
+                    "alternates are 3011, 3021, 8080."
+                ),
+            ) from exc
+        raise
+    except Exception:
+        sock.close()
+        raise
+    return sock
+
+
+def _serve_mcp(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    mcp_result_text: MCPResultText | None = None,
+    name: str,
+    port: int | None,
+    host: str | None = None,
+    transport: str,
+    instructions: str | None,
+    test_controller: TestControllerStore | None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    streaming_responses: bool = False,
+    stateless_http: bool = False,
+    session_idle_timeout: float | None = 1800.0,
+    max_active_sessions: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+) -> None:
+    """Start an MCP server."""
+    mcp = create_mcp_server(
+        handler,
+        name=name,
+        port=port,
+        host=host,
+        instructions=instructions,
+        mcp_result_text=mcp_result_text,
+        include_test_controller=test_controller is not None,
+        context_factory=context_factory,
+        middleware=middleware,
+        advertise_all=advertise_all,
+        streaming_responses=streaming_responses,
+        stateless_http=stateless_http,
+        session_idle_timeout=session_idle_timeout,
+        max_active_sessions=max_active_sessions,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+    )
+
+    if test_controller is not None:
+        from adcp.server.test_controller import register_test_controller
+
+        register_test_controller(
+            mcp,
+            test_controller,
+            context_factory=context_factory,
+            account_resolver=test_controller_account_resolver,
+        )
+
+    if transport in ("streamable-http", "sse"):
+        _run_mcp_http(
+            mcp,
+            transport=transport,
+            unauthenticated_routes=unauthenticated_routes,
+            asgi_middleware=asgi_middleware,
+            max_request_size=max_request_size,
+            discovery_name=name,
+            discovery_base_url=base_url,
+            discovery_specialisms=specialisms,
+            discovery_description=description,
+            auth=auth,
+            request_signature_verification=request_signature_verification,
+        )
+    else:
+        # stdio — no listening socket, no HTTP layer to authenticate. Auth
+        # over stdio doesn't apply (no Authorization header). Warn loudly
+        # rather than silently ignore so adopters notice the misconfig.
+        if auth is not None:
+            logger.warning(
+                "auth=BearerTokenAuth ignored on transport='stdio' — stdio "
+                "has no HTTP layer for bearer-token validation. Wire your "
+                "own out-of-band auth or use transport='streamable-http'."
+            )
+        if asgi_middleware:
+            logger.warning(
+                "asgi_middleware is ignored on transport='stdio'; ASGI middleware will not run"
+            )
+        mcp.run(transport=transport)
+
+
+def _run_mcp_http(
+    mcp: Any,
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    transport: str,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    max_request_size: int | None = None,
+    discovery_name: str = "adcp-agent",
+    discovery_base_url: str | None = None,
+    discovery_specialisms: list[str] | None = None,
+    discovery_description: str | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+) -> None:
+    """Run FastMCP's HTTP transports with a pre-bound SO_REUSEADDR socket.
+
+    FastMCP builds its own ``uvicorn.Server(config).serve()`` inside
+    ``run_*_async`` and does not expose hooks to pass a pre-bound socket,
+    so we reproduce the minimal setup here and hand uvicorn the socket
+    directly via ``Server.serve([sock])``. This keeps the public surface
+    (``serve()``) unchanged while fixing the readiness-flake on reruns.
+    """
+    import anyio
+    import uvicorn
+
+    # Intentional server listener fallback; deployment settings select the host.
+    host = getattr(mcp.settings, "host", "0.0.0.0")  # nosec B104
+    port = int(mcp.settings.port)
+    log_level = getattr(mcp.settings, "log_level", "INFO").lower()
+
+    if transport == "streamable-http":
+        app = mcp.streamable_http_app()
+    else:
+        app = mcp.sse_app()
+
+    from adcp.server.discovery import resolve_base_url
+
+    resolved_base_url = resolve_base_url(host, port, discovery_base_url)
+
+    # Auth wraps innermost so the spec-mandated MCP discovery bypass
+    # (initialize / tools/list / get_adcp_capabilities) sees the
+    # JSON-RPC body before the path-normalizer / discovery wrapper /
+    # operator-supplied asgi_middleware get a turn.
+    app = _wrap_mcp_with_auth(app, auth)
+    app = _wrap_with_path_normalize(app)
+    # Signature verification sits outside the path normalizer: the signed
+    # ``@target-uri`` is the path the buyer sent, trailing slash included.
+    app = wrap_with_signature_verification(
+        app, request_signature_verification, transport="mcp", bearer_configured=auth is not None
+    )
+    app = _wrap_with_discovery(
+        app,
+        name=discovery_name,
+        transports=["mcp"],
+        base_url=resolved_base_url,
+        description=discovery_description,
+        specialisms=discovery_specialisms,
+    )
+    app = wrap_operational_routes(app, unauthenticated_routes)
+    app = _wrap_with_size_limit(app, max_request_size)
+    app = HostOriginMiddleware(app, settings=mcp.settings.transport_security)
+    app = _apply_asgi_middleware(app, asgi_middleware)
+
+    sock = _bind_reusable_socket(host, port)
+    try:
+        # One INFO line at the bind boundary so adopters know exactly
+        # what URL the buyer should hit. uvicorn's default startup logs
+        # are filtered/quieted in many configurations; this line is
+        # framework-controlled and always lands. Emma signals/sales
+        # backend tests both flagged silent-boot as P1 friction.
+        mcp_path = "/mcp" if transport == "streamable-http" else "/sse"
+        logger.info(
+            "MCP listening on http://%s:%s%s (transport=%s)",
+            host,
+            port,
+            mcp_path,
+            transport,
+        )
+        # Storyboard/MCP clients reuse pooled sockets between tool calls.
+        # Five-second idle expiry races their next request and can drop a
+        # mutation before the client receives its response.
+        config = uvicorn.Config(app, log_level=log_level, timeout_keep_alive=30)
+        server = uvicorn.Server(config)
+
+        async def _serve() -> None:
+            await server.serve(sockets=[sock])
+
+        anyio.run(_serve)
+    finally:
+        sock.close()
+
+
+def _build_a2a_app(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    name: str,
+    port: int,
+    test_controller: TestControllerStore | None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    task_store: TaskStore | None = None,
+    push_config_store: PushNotificationConfigStore | None = None,
+    push_sender: PushNotificationSender | None = None,
+    request_handler: RequestHandler | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    message_parser: MessageParser | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+    public_url: str | PublicUrlResolver | None = None,
+    include_discovery: bool = True,
+) -> Any:
+    """Build the production A2A ASGI app without binding a socket."""
+    from adcp.server.a2a_server import create_a2a_server
+    from adcp.server.discovery import resolve_base_url
+
+    # The URL resolver translates the wildcard listener into a usable public URL.
+    resolved_base_url = resolve_base_url("0.0.0.0", port, base_url)  # nosec B104
+
+    app = create_a2a_server(
+        handler,
+        name=name,
+        port=port,
+        test_controller=test_controller,
+        test_controller_account_resolver=test_controller_account_resolver,
+        context_factory=context_factory,
+        task_store=task_store,
+        push_config_store=push_config_store,
+        push_sender=push_sender,
+        request_handler=request_handler,
+        middleware=middleware,
+        message_parser=message_parser,
+        advertise_all=advertise_all,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+        auth=auth,
+        public_url=public_url,
+    )
+    # Auth wraps the A2A app innermost (closer to the inner Starlette
+    # router than the discovery + size-limit + asgi_middleware
+    # wrappers) so bad tokens 401 before the request hits any
+    # operator-supplied layer.
+    app = _wrap_a2a_with_auth(app, auth, message_parser=message_parser)
+    app = wrap_with_signature_verification(
+        app,
+        request_signature_verification,
+        transport="a2a",
+        message_parser=message_parser,
+        bearer_configured=auth is not None,
+    )
+    if include_discovery:
+        app = _wrap_with_discovery(
+            app,
+            name=name,
+            transports=["a2a"],
+            base_url=resolved_base_url,
+            description=description,
+            specialisms=specialisms,
+        )
+    app = wrap_operational_routes(app, unauthenticated_routes)
+    app = _wrap_with_size_limit(app, max_request_size)
+    app = HostOriginMiddleware(
+        app,
+        settings=transport_security_settings(
+            allowed_hosts, allowed_origins, enable_dns_rebinding_protection
+        ),
+    )
+    return _apply_asgi_middleware(app, asgi_middleware)
+
+
+def _serve_a2a(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    name: str,
+    port: int | None,
+    test_controller: TestControllerStore | None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    task_store: TaskStore | None = None,
+    push_config_store: PushNotificationConfigStore | None = None,
+    push_sender: PushNotificationSender | None = None,
+    request_handler: RequestHandler | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    message_parser: MessageParser | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+    public_url: str | PublicUrlResolver | None = None,
+) -> None:
+    """Start an A2A server using uvicorn."""
+    import uvicorn
+
+    resolved_port = port or int(os.environ.get("PORT", "3001"))
+    app = _build_a2a_app(
+        handler,
+        name=name,
+        unauthenticated_routes=unauthenticated_routes,
+        port=resolved_port,
+        test_controller=test_controller,
+        test_controller_account_resolver=test_controller_account_resolver,
+        context_factory=context_factory,
+        task_store=task_store,
+        push_config_store=push_config_store,
+        push_sender=push_sender,
+        request_handler=request_handler,
+        middleware=middleware,
+        asgi_middleware=asgi_middleware,
+        message_parser=message_parser,
+        advertise_all=advertise_all,
+        max_request_size=max_request_size,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        base_url=base_url,
+        specialisms=specialisms,
+        description=description,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+        auth=auth,
+        request_signature_verification=request_signature_verification,
+        public_url=public_url,
+    )
+    # Intentional public serving socket; authentication is composed by the app.
+    sock = _bind_reusable_socket("0.0.0.0", resolved_port)  # nosec B104
+    try:
+        # Same bind-boundary INFO as the MCP path so A2A adopters
+        # also see one framework-controlled line confirming the
+        # listener is up.
+        logger.info("A2A listening on http://0.0.0.0:%s/", resolved_port)
+        config = uvicorn.Config(app, timeout_keep_alive=30)
+        server = uvicorn.Server(config)
+        import anyio
+
+        async def _serve() -> None:
+            await server.serve(sockets=[sock])
+
+        anyio.run(_serve)
+    finally:
+        sock.close()
+
+
+def _build_mcp_and_a2a_app(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    mcp_result_text: MCPResultText | None = None,
+    name: str,
+    port: int,
+    host: str,
+    instructions: str | None,
+    test_controller: TestControllerStore | None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    task_store: TaskStore | None = None,
+    push_config_store: PushNotificationConfigStore | None = None,
+    push_sender: PushNotificationSender | None = None,
+    request_handler: RequestHandler | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    message_parser: MessageParser | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    streaming_responses: bool = False,
+    stateless_http: bool = False,
+    session_idle_timeout: float | None = 1800.0,
+    max_active_sessions: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+    public_url: str | PublicUrlResolver | None = None,
+    on_startup: Sequence[LifespanHook] | None = None,
+    on_shutdown: Sequence[LifespanHook] | None = None,
+    include_discovery: bool = True,
+) -> Any:
+    """Build the unified MCP+A2A ASGI app without starting a server.
+
+    Split out from :func:`_serve_mcp_and_a2a` so tests can route
+    requests through Starlette's ``TestClient`` against the same
+    dispatcher production uses.
+
+    Returns the size-limit-wrapped ASGI app. Wire to uvicorn /
+    Starlette / your test harness as you would any other ASGI app.
+    """
+
+    from starlette.applications import Starlette
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
+    from adcp.server.a2a_server import create_a2a_server
+
+    # MCP app — FastMCP registers its streamable-http endpoint at
+    # ``streamable_http_path`` (default ``/mcp``). The dispatcher
+    # below preserves the full request path when routing to MCP, so
+    # the inner Starlette router matches ``/mcp`` directly without
+    # needing a Mount-based prefix strip.
+    mcp = create_mcp_server(
+        handler,
+        name=name,
+        port=port,
+        host=host,
+        instructions=instructions,
+        mcp_result_text=mcp_result_text,
+        include_test_controller=test_controller is not None,
+        context_factory=context_factory,
+        middleware=middleware,
+        advertise_all=advertise_all,
+        streaming_responses=streaming_responses,
+        stateless_http=stateless_http,
+        session_idle_timeout=session_idle_timeout,
+        max_active_sessions=max_active_sessions,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+    )
+    if test_controller is not None:
+        from adcp.server.test_controller import register_test_controller
+
+        register_test_controller(
+            mcp,
+            test_controller,
+            context_factory=context_factory,
+            account_resolver=test_controller_account_resolver,
+        )
+    mcp_inner = mcp.streamable_http_app()
+    # Auth wraps the FastMCP Starlette app *before* the path
+    # normalizer / dispatcher capture references. Wiring auth after
+    # ``mcp_app`` is captured by ``_dispatch`` would silently bypass
+    # the middleware on the MCP leg — the closure would already point
+    # at the unwrapped reference.
+    #
+    # Reassigning the return value (rather than relying on
+    # ``add_middleware``'s in-place mutation) future-proofs the call
+    # site: if a future refactor changes ``_wrap_mcp_with_auth`` to
+    # return a fresh ASGI callable, this line keeps wiring auth
+    # instead of silently dropping it.
+    mcp_inner = _wrap_mcp_with_auth(mcp_inner, auth)
+    # Wrap with the standard trailing-slash normalizer so ``/mcp/``
+    # and ``/mcp`` resolve to the same FastMCP endpoint. Keep the
+    # unwrapped ``mcp_inner`` reference so the lifespan composer
+    # below can reach ``.router.lifespan_context``.
+    mcp_app = _wrap_with_path_normalize(mcp_inner)
+    mcp_app = wrap_with_signature_verification(
+        mcp_app, request_signature_verification, transport="mcp", bearer_configured=auth is not None
+    )
+
+    # A2A app — built via the a2a-sdk wrapper. It mounts at the root
+    # of its own app and handles ``/.well-known/agent.json``, ``/``,
+    # and the message / push-notif endpoints.
+    #
+    # Keep the unwrapped ``a2a_inner`` reference so the lifespan
+    # composer below can reach ``.router.lifespan_context``; wrap the
+    # dispatch reference separately so requests flow through auth on
+    # their way to the inner Starlette app.
+    a2a_inner = create_a2a_server(
+        handler,
+        name=name,
+        port=port,
+        test_controller=test_controller,
+        test_controller_account_resolver=test_controller_account_resolver,
+        context_factory=context_factory,
+        task_store=task_store,
+        push_config_store=push_config_store,
+        push_sender=push_sender,
+        request_handler=request_handler,
+        middleware=middleware,
+        message_parser=message_parser,
+        advertise_all=advertise_all,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+        auth=auth,
+        public_url=public_url,
+    )
+    # Auth wraps both legs *before* ``_dispatch`` captures references —
+    # otherwise the closure points at unwrapped apps and auth is
+    # silently bypassed on whichever leg hadn't been wrapped yet. The
+    # MCP wrap above used ``add_middleware`` so it mutates in place;
+    # the A2A wrap returns a new ASGI callable layered on
+    # ``a2a_inner``.
+    a2a_app = _wrap_a2a_with_auth(a2a_inner, auth, message_parser=message_parser)
+    a2a_app = wrap_with_signature_verification(
+        a2a_app,
+        request_signature_verification,
+        transport="a2a",
+        message_parser=message_parser,
+        bearer_configured=auth is not None,
+    )
+
+    # Lifespan composition: FastMCP's session manager initializes a
+    # task group on startup; a2a-sdk's stores have their own init.
+    # Compose both inner lifespans on a parent Starlette; the
+    # dispatcher routes ``lifespan`` scope events to the parent so
+    # both initializers run before any request lands.
+    #
+    # User-supplied ``on_startup`` / ``on_shutdown`` hooks run *inside*
+    # both framework lifespans — startup hooks fire after MCP+A2A have
+    # finished their own initialization, so user code can rely on the
+    # framework being ready; shutdown hooks fire before the framework
+    # tears down, so user code can still use framework state. Startup
+    # hook exceptions abort boot via Starlette's
+    # ``lifespan.startup.failed`` event; shutdown hooks run inside a
+    # ``finally`` so a failing earlier hook does not block the rest.
+    user_startup = tuple(on_startup or ())
+    user_shutdown = tuple(on_shutdown or ())
+
+    @contextlib.asynccontextmanager
+    async def _composed_lifespan(_app):  # type: ignore[no-untyped-def]
+        async with mcp_inner.router.lifespan_context(mcp_inner):
+            async with a2a_inner.router.lifespan_context(a2a_inner):
+                async with _user_lifespan_hooks(user_startup, user_shutdown):
+                    yield
+
+    parent = Starlette(lifespan=_composed_lifespan)
+
+    async def _dispatch(scope: Scope, receive: Receive, send: Send) -> None:
+        """Path-based ASGI dispatcher.
+
+        ``/mcp`` and ``/mcp/...`` route to the FastMCP streamable-http
+        app with the full original path preserved (FastMCP's inner
+        route is at ``/mcp``). Everything else goes to A2A. Lifespan
+        events route to the parent Starlette which composes both
+        inner lifespans.
+        """
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path == "/mcp" or path.startswith("/mcp/"):
+                await mcp_app(scope, receive, send)
+                return
+            await a2a_app(scope, receive, send)
+            return
+        if scope["type"] == "lifespan":
+            await parent(scope, receive, send)
+            return
+        # Websocket and other scopes: route to A2A by default. MCP
+        # streamable-http doesn't use websockets; A2A doesn't either
+        # in the default a2a-sdk shape, but if either grows that
+        # surface the dispatcher needs an explicit branch.
+        await a2a_app(scope, receive, send)
+
+    app: ASGIApp = _dispatch
+    from adcp.server.discovery import resolve_base_url
+
+    resolved_base_url = resolve_base_url(host, port, base_url)
+    if include_discovery:
+        app = _wrap_with_discovery(
+            app,
+            name=name,
+            transports=["mcp", "a2a"],
+            base_url=resolved_base_url,
+            description=description,
+            specialisms=specialisms,
+        )
+    app = wrap_operational_routes(app, unauthenticated_routes)
+    app = _wrap_with_size_limit(app, max_request_size)
+    return HostOriginMiddleware(app, settings=mcp.settings.transport_security)
+
+
+def _serve_mcp_and_a2a(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    mcp_result_text: MCPResultText | None = None,
+    name: str,
+    port: int | None,
+    host: str | None = None,
+    instructions: str | None,
+    test_controller: TestControllerStore | None,
+    test_controller_account_resolver: Any | None = None,
+    context_factory: ContextFactory | None = None,
+    task_store: TaskStore | None = None,
+    push_config_store: PushNotificationConfigStore | None = None,
+    push_sender: PushNotificationSender | None = None,
+    request_handler: RequestHandler | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    asgi_middleware: Sequence[ASGIMiddlewareEntry] | None = None,
+    message_parser: MessageParser | None = None,
+    advertise_all: bool = False,
+    max_request_size: int | None = None,
+    streaming_responses: bool = False,
+    stateless_http: bool = False,
+    session_idle_timeout: float | None = 1800.0,
+    max_active_sessions: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    base_url: str | None = None,
+    specialisms: list[str] | None = None,
+    description: str | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+    auth: BearerTokenAuth | None = None,
+    request_signature_verification: RequestSignatureVerification | None = None,
+    public_url: str | PublicUrlResolver | None = None,
+    on_startup: Sequence[LifespanHook] | None = None,
+    on_shutdown: Sequence[LifespanHook] | None = None,
+) -> None:
+    """Serve MCP and A2A on a single port via path dispatch.
+
+    JS sellers host both transports on one Express/Hono app; this is
+    the Python parity. Build both apps independently with the same
+    handler, ``context_factory``, ``middleware``, etc., then route
+    by URL path: ``/mcp`` and ``/mcp/...`` go to the MCP streamable-http
+    app, everything else (``/``, ``/.well-known/agent.json``,
+    A2A push endpoints) goes to the A2A app.
+
+    Both apps see the same ``ToolContext`` and middleware chain because
+    they share the same ``handler`` instance — adopters writing audit
+    or rate-limit middleware get one wiring point that applies to both
+    transports automatically.
+    """
+    import anyio
+    import uvicorn
+
+    from adcp.server.version_policy import resolve_supported_versions
+
+    supported_versions = resolve_supported_versions(
+        supported_versions,
+        handler=handler,
+        adcp_version=_resolve_handler_adcp_version(handler, None),
+    )
+    resolved_port = port or int(os.environ.get("PORT", "3001"))
+    # Intentional server default, configurable by argument or deployment env.
+    resolved_host = host or os.environ.get("ADCP_HOST", "0.0.0.0")  # nosec B104
+    log_level = "info"
+
+    app = _build_mcp_and_a2a_app(
+        handler,
+        name=name,
+        unauthenticated_routes=unauthenticated_routes,
+        port=resolved_port,
+        host=resolved_host,
+        instructions=instructions,
+        mcp_result_text=mcp_result_text,
+        test_controller=test_controller,
+        test_controller_account_resolver=test_controller_account_resolver,
+        context_factory=context_factory,
+        task_store=task_store,
+        push_config_store=push_config_store,
+        push_sender=push_sender,
+        request_handler=request_handler,
+        middleware=middleware,
+        message_parser=message_parser,
+        advertise_all=advertise_all,
+        max_request_size=max_request_size,
+        streaming_responses=streaming_responses,
+        stateless_http=stateless_http,
+        session_idle_timeout=session_idle_timeout,
+        max_active_sessions=max_active_sessions,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        base_url=base_url,
+        specialisms=specialisms,
+        description=description,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+        enable_dns_rebinding_protection=enable_dns_rebinding_protection,
+        auth=auth,
+        request_signature_verification=request_signature_verification,
+        public_url=public_url,
+        on_startup=on_startup,
+        on_shutdown=on_shutdown,
+    )
+    app = _apply_asgi_middleware(app, asgi_middleware)
+
+    sock = _bind_reusable_socket(resolved_host, resolved_port)
+    try:
+        logger.info(
+            "MCP+A2A unified listening on http://%s:%s (MCP at /mcp, A2A at /)",
+            resolved_host,
+            resolved_port,
+        )
+        config = uvicorn.Config(app, log_level=log_level, timeout_keep_alive=30)
+        server = uvicorn.Server(config)
+
+        async def _serve() -> None:
+            await server.serve(sockets=[sock])
+
+        anyio.run(_serve)
+    finally:
+        sock.close()
+
+
+def _expand_allowed_hosts(hosts: Sequence[str]) -> list[str]:
+    """Synthesize ``host:*`` siblings for bare hosts.
+
+    FastMCP's :class:`TransportSecurityMiddleware` matches the request's
+    ``Host`` header literally against the configured ``allowed_hosts``
+    list. A bare host like ``acme.localhost`` matches a request without
+    a port suffix; the same request from a browser hitting
+    ``http://acme.localhost:3001`` carries ``Host: acme.localhost:3001``
+    and is rejected with ``421 Misdirected Request``.
+
+    Adopters had to register both ``acme.localhost`` and
+    ``acme.localhost:*`` explicitly. This helper synthesizes the second
+    form when the input has no ``:`` separator, mirroring the
+    port-stripping done in ``InMemorySubdomainTenantRouter`` so the two
+    surfaces stay symmetric. Hosts that already include ``:`` (already
+    have an explicit port or wildcard) pass through unchanged.
+
+    Idempotent: if the adopter passed both ``acme.localhost`` and
+    ``acme.localhost:*``, the result still contains each only once.
+
+    IPv6 literals (bracketed ``[::1]`` or raw ``::1``) contain ``:`` and
+    pass through without synthesis — no malformed ``::1:*`` siblings.
+    Adopters running on custom IPv6 hosts pass the explicit
+    ``[::1]:*`` form themselves.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for host in hosts:
+        if host not in seen:
+            seen.add(host)
+            result.append(host)
+        if ":" not in host:
+            wildcard = f"{host}:*"
+            if wildcard not in seen:
+                seen.add(wildcard)
+                result.append(wildcard)
+    return result
+
+
+class _ADCPMCPSettingsProxy:
+    """Mutable compatibility wrapper around MCP v2's pydantic settings."""
+
+    def __init__(self, upstream: Any) -> None:
+        object.__setattr__(self, "_upstream", upstream)
+        object.__setattr__(self, "_extras", {})
+
+    def __getattr__(self, name: str) -> Any:
+        extras = object.__getattribute__(self, "_extras")
+        if name in extras:
+            return extras[name]
+        return getattr(object.__getattribute__(self, "_upstream"), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        upstream = object.__getattribute__(self, "_upstream")
+        try:
+            setattr(upstream, name, value)
+        except ValueError:
+            object.__getattribute__(self, "_extras")[name] = value
+
+    def __repr__(self) -> str:
+        return repr(object.__getattribute__(self, "_upstream"))
+
+
+def create_mcp_server(
+    handler: ADCPHandler[Any],
+    *,
+    unauthenticated_routes: Sequence[Route | Mount] | None = None,
+    name: str = "adcp-agent",
+    port: int | None = None,
+    host: str | None = None,
+    mcp_result_text: MCPResultText | None = None,
+    instructions: str | None = None,
+    include_test_controller: bool = False,
+    context_factory: ContextFactory | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    advertise_all: bool = False,
+    schema_mode: SchemaMode = "compact",
+    streaming_responses: bool = False,
+    stateless_http: bool = False,
+    session_idle_timeout: float | None = 1800.0,
+    max_active_sessions: int | None = None,
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    allowed_hosts: Sequence[str] | None = None,
+    allowed_origins: Sequence[str] | None = None,
+    enable_dns_rebinding_protection: bool | None = None,
+) -> Any:
+    """Create a FastMCP server from an ADCP handler without starting it.
+
+    Use this when you need to customize the server before running it,
+    or when you need to add extra non-ADCP tools.
+
+    Args:
+        handler: An ADCPHandler subclass instance.
+        name: Server name.
+        port: Port to listen on.
+        instructions: Optional system instructions.
+        mcp_result_text: Optional response field name or sync/async callback
+            for concise MCP text. None preserves the JSON fallback;
+            structured content uses the unchanged canonical conversion.
+        include_test_controller: When False (default), skip registering
+            ``comply_test_controller`` as a handler tool. Sellers who want
+            compliance-testing support should pass ``test_controller=`` to
+            :func:`serve`, which registers a store-backed implementation
+            via :func:`register_test_controller` and sets this flag
+            implicitly. Registering the handler stub unconditionally would
+            advertise a tool the seller didn't opt into.
+        context_factory: Optional callable invoked per tool call to build
+            a :class:`ToolContext` from the incoming :class:`RequestMetadata`.
+            **Wiring this is how the server-side idempotency middleware
+            gets the caller identity and tenant it needs for per-principal
+            scoping** — a factory that returns ``caller_identity=None``
+            effectively disables idempotency dedup. Sellers wiring their
+            own HTTP auth middleware pass this to inject the authenticated
+            principal into ``ToolContext.caller_identity``. See
+            :data:`ContextFactory` for the recommended contextvars
+            pattern. When ``None``, handlers receive a bare
+            ``ToolContext()`` (no caller identity, no tenant).
+        middleware: Optional sequence of :data:`SkillMiddleware` callables
+            wrapping every tool dispatch. Symmetric with A2A's
+            ``create_a2a_server(middleware=...)`` — the same list works
+            on both transports. Use for audit logging, rate limiting,
+            tracing, activity-feed hooks. See :data:`SkillMiddleware`
+            for signature and composition semantics.
+        advertise_all: When True, advertise every tool the handler type
+            supports — even those whose method is still the SDK's
+            ``not_supported`` default. Defaults to ``False``, which
+            shrinks ``tools/list`` to only the tools the handler
+            actually implements (subclass overrode the method). See
+            :func:`~adcp.server.get_tools_for_handler` for semantics;
+            use ``True`` for spec-compliance storyboards or when you
+            deliberately want to expose a ``not_supported`` tool.
+        schema_mode: Pydantic-derived MCP input discovery shape.
+            ``"compact"`` (default) keeps every root request field while
+            bounding nested detail; ``"defs"`` keeps the complete referenced
+            schema; ``"inline"`` preserves the historical fully expanded
+            shape for clients that do not resolve local JSON Schema references.
+        host: Network interface to bind to. Defaults to the ``ADCP_HOST``
+            environment variable, then ``"0.0.0.0"`` (all interfaces).
+            Use ``"127.0.0.1"`` for local-only development.
+        streaming_responses: When ``False`` (default), the streamable-http
+            transport returns one ``application/json`` response per
+            request — the right shape for AdCP tools today (none of which
+            emit progress events). The FastMCP SSE-internal streaming
+            default also has an upstream bug that drops the ASGI response
+            without completing, blocking the storyboard runner. Set to
+            ``True`` only if your tools genuinely emit progress
+            notifications and your clients consume the SSE stream.
+        stateless_http: When ``False`` (default), MCP keeps a
+            per-client session task alive across requests so subsequent
+            ``tools/call`` posts skip the per-request transport-
+            construction tax — meaningfully faster for chatty clients,
+            and the only mode where ``StreamableHTTPSessionManager``'s
+            idle-reap path actually runs. (Stateless mode in upstream
+            MCP holds GET-SSE streams open with no idle eviction —
+            connections accumulate.) The SDK threads the originating
+            Starlette ``Request`` into
+            ``RequestMetadata.request_context``; the bundled
+            :func:`~adcp.server.auth_context_factory` reads auth off
+            ``request.state`` and works in both stateless and stateful.
+            Custom factories using :mod:`contextvars` set in ASGI
+            middleware should migrate — those vars do NOT propagate
+            from the HTTP request task to the stateful session's
+            dispatch task. Multi-replica stateful deployments need
+            sticky load balancing on ``Mcp-Session-Id``; set
+            ``stateless_http=True`` only when affinity isn't possible.
+            Do not memoize per-call state on ``mcp.Context`` or
+            session-manager-scoped objects in stateful mode — that
+            smears identity across calls.
+        session_idle_timeout: Idle reap deadline (seconds) for stateful
+            sessions. Each request pushes the deadline forward; idle
+            sessions are terminated and their per-session state freed.
+            Defaults to 1800 (30 minutes); set to ``None`` to disable
+            reaping. Ignored when ``stateless_http=True``. Required
+            because without it
+            ``StreamableHTTPSessionManager._server_instances`` grows
+            without bound for clients that disconnect without DELETE.
+        max_active_sessions: Optional cap for active stateful MCP
+            sessions. When the cap is reached, new session-creating
+            requests are rejected with HTTP 429; requests that carry an
+            existing ``Mcp-Session-Id`` continue. Set this on public or
+            service-to-service sellers that need a hard ceiling against
+            clients opening one session per operation. Ignored when
+            ``stateless_http=True``.
+        response_enhancer: Optional server-wide
+            :data:`~adcp.server.ResponseEnhancer` applied to successes and
+            raised-error responses after the context echo and, for
+            successes, before schema validation. See
+            :data:`~adcp.server.ResponseEnhancer` for the exact coverage
+            (including two non-enhanced paths), supported arities, and
+            failure / idempotency semantics.
+
+    Returns:
+        A configured FastMCP server instance. Call ``mcp.run()`` to start,
+        or ``mcp.streamable_http_app()`` to get the Starlette ASGI app for
+        mounting behind a reverse proxy / adding HTTP middleware.
+
+    Authentication:
+        The SDK does not enforce authentication itself. Two integration
+        patterns work:
+
+        1. **Reverse-proxy auth** (simplest): the proxy (nginx, Caddy,
+           Envoy) validates credentials and forwards only authenticated
+           requests. The SDK trusts the proxy's decision.
+
+        2. **In-process HTTP middleware**: call
+           ``mcp.streamable_http_app()`` to get the Starlette app, then
+           ``app.add_middleware(YourAuthMiddleware)``. The middleware
+           extracts auth state per request (token, tenant, principal)
+           into ContextVars; ``context_factory`` reads those to build a
+           typed ``ToolContext``. Tools in
+           :data:`adcp.server.DISCOVERY_TOOLS` (``get_adcp_capabilities``)
+           should bypass auth per AdCP spec. See
+           ``examples/mcp_with_auth_middleware.py`` and
+           ``docs/handler-authoring.md``.
+
+    Example (basic):
+        >>> mcp = create_mcp_server(MyAgent(), name="my-agent")
+        >>> mcp.run(transport="streamable-http")
+
+    Example (custom auth + typed context via contextvars):
+        >>> from contextvars import ContextVar
+        >>> from adcp.server import RequestMetadata, ToolContext, create_mcp_server
+        >>>
+        >>> _principal: ContextVar[str | None] = ContextVar("p", default=None)
+        >>> _tenant: ContextVar[str | None] = ContextVar("t", default=None)
+        >>>
+        >>> def build_context(meta: RequestMetadata) -> ToolContext:
+        ...     return ToolContext(
+        ...         caller_identity=_principal.get(),
+        ...         tenant_id=_tenant.get(),
+        ...     )
+        >>>
+        >>> mcp = create_mcp_server(
+        ...     MyAgent(), name="my-agent", context_factory=build_context
+        ... )
+        >>> app = mcp.streamable_http_app()
+        >>> app.add_middleware(MyAuthMiddleware)  # sets the ContextVars
+        >>> # run via uvicorn
+    """
+    from mcp.server import MCPServer
+
+    from adcp.server.version_policy import resolve_supported_versions
+
+    supported_versions = resolve_supported_versions(
+        supported_versions,
+        handler=handler,
+        adcp_version=_resolve_handler_adcp_version(handler, None),
+    )
+    resolved_port = port or int(os.environ.get("PORT", "3001"))
+    # Intentional server default, configurable by argument or deployment env.
+    resolved_host = (
+        host if host is not None else (os.environ.get("ADCP_HOST") or "0.0.0.0")  # nosec B104
+    )
+    mcp: Any = MCPServer(name, instructions=instructions)
+    mcp._adcp_supported_versions = supported_versions
+    mcp._adcp_default_version = (
+        _resolve_handler_adcp_version(handler, None) or DEFAULT_UNNEGOTIATED_ADCP_VERSION
+    )
+    mcp._adcp_operational_routes = prepare_operational_routes(unauthenticated_routes)
+    mcp.settings = _ADCPMCPSettingsProxy(mcp.settings)
+    object.__setattr__(mcp.settings, "host", resolved_host)
+    object.__setattr__(mcp.settings, "port", resolved_port)
+    if not streaming_responses:
+        object.__setattr__(mcp.settings, "json_response", True)
+    else:
+        object.__setattr__(mcp.settings, "json_response", False)
+    object.__setattr__(mcp.settings, "stateless_http", stateless_http)
+    object.__setattr__(
+        mcp.settings,
+        "transport_security",
+        transport_security_settings(
+            allowed_hosts, allowed_origins, enable_dns_rebinding_protection
+        ),
+    )
+    object.__setattr__(mcp.settings, "session_idle_timeout", session_idle_timeout)
+    object.__setattr__(mcp.settings, "max_active_sessions", max_active_sessions)
+    object.__setattr__(mcp.settings, "retry_interval", None)
+    # Tenant-aware middleware may own Host validation. Explicitly configured
+    # Origins remain enforced when DNS-rebinding protection is disabled.
+    _register_handler_tools(
+        mcp,
+        handler,
+        include_test_controller=include_test_controller,
+        context_factory=context_factory,
+        middleware=middleware,
+        advertise_all=advertise_all,
+        schema_mode=schema_mode,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        mcp_result_text=mcp_result_text,
+    )
+    if session_idle_timeout is not None and session_idle_timeout <= 0:
+        raise ValueError(
+            f"session_idle_timeout must be positive (got {session_idle_timeout!r}); "
+            "set None to disable reaping."
+        )
+    _install_adcp_mcp_transport_methods(mcp)
+    if max_active_sessions is not None and (
+        isinstance(max_active_sessions, bool)
+        or not isinstance(max_active_sessions, int)
+        or max_active_sessions <= 0
+    ):
+        raise ValueError(
+            f"max_active_sessions must be a positive integer (got {max_active_sessions!r}); "
+            "set None to disable the guard."
+        )
+    mcp._session_manager = None
+    if hasattr(handler, "production"):
+        from adcp.reporting.production.service import register_production_mount
+
+        register_production_mount(handler, mcp, transport="mcp", dispatcher=mcp)
+    return mcp
+
+
+def _create_adcp_mcp_session_manager(
+    mcp: Any, **overrides: Any
+) -> ADCPStreamableHTTPSessionManager:
+    stateless = overrides.get("stateless_http", getattr(mcp.settings, "stateless_http", False))
+    idle_timeout = overrides.get(
+        "session_idle_timeout", getattr(mcp.settings, "session_idle_timeout", None)
+    )
+    if stateless:
+        idle_timeout = None
+    return ADCPStreamableHTTPSessionManager(
+        app=mcp._lowlevel_server,
+        event_store=overrides.get("event_store", None),
+        retry_interval=overrides.get(
+            "retry_interval", getattr(mcp.settings, "retry_interval", None)
+        ),
+        json_response=overrides.get("json_response", getattr(mcp.settings, "json_response", False)),
+        stateless=stateless,
+        security_settings=overrides.get(
+            "transport_security", getattr(mcp.settings, "transport_security", None)
+        ),
+        session_idle_timeout=idle_timeout,
+        max_active_sessions=getattr(mcp.settings, "max_active_sessions", None),
+        max_request_body_size=overrides.get("max_request_body_size", 4_194_304),
+    )
+
+
+def _install_adcp_mcp_transport_methods(mcp: Any) -> None:
+    def streamable_http_app(
+        self: Any,
+        *,
+        unauthenticated_routes: Sequence[Route | Mount] | None = None,
+        streamable_http_path: str = "/mcp",
+        json_response: bool | None = None,
+        stateless_http: bool | None = None,
+        event_store: Any = None,
+        retry_interval: int | None = None,
+        max_request_body_size: int = 4_194_304,
+        transport_security: Any = None,
+        host: str | None = None,
+    ) -> Any:
+        from mcp.server.streamable_http_manager import StreamableHTTPASGIApp
+        from mcp.server.transport_security import TransportSecuritySettings
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.routing import Route
+
+        operational_routes = (
+            prepare_operational_routes(unauthenticated_routes)
+            if unauthenticated_routes is not None
+            else self._adcp_operational_routes
+        )
+        if operational_routes is not None:
+            operational_routes.validate_protocol_paths([streamable_http_path])
+        resolved_host = host if host is not None else getattr(self.settings, "host", "127.0.0.1")
+        resolved_transport_security = (
+            transport_security
+            if transport_security is not None
+            else getattr(self.settings, "transport_security", None)
+        )
+        if resolved_transport_security is None and resolved_host in (
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        ):
+            resolved_transport_security = TransportSecuritySettings(
+                enable_dns_rebinding_protection=True,
+                allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"],
+                allowed_origins=[
+                    "http://127.0.0.1:*",
+                    "http://localhost:*",
+                    "http://[::1]:*",
+                ],
+            )
+
+        live_endpoint: StreamableHTTPASGIApp | None = None
+
+        @contextlib.asynccontextmanager
+        async def lifespan(app: Any) -> AsyncIterator[None]:
+            nonlocal live_endpoint
+            if live_endpoint is not None:
+                raise RuntimeError("MCP app lifespan is already running")
+            manager = _create_adcp_mcp_session_manager(
+                self,
+                event_store=event_store,
+                retry_interval=retry_interval,
+                json_response=(
+                    getattr(self.settings, "json_response", False)
+                    if json_response is None
+                    else json_response
+                ),
+                stateless_http=(
+                    getattr(self.settings, "stateless_http", False)
+                    if stateless_http is None
+                    else stateless_http
+                ),
+                transport_security=(
+                    resolved_transport_security.model_copy(
+                        update={"enable_dns_rebinding_protection": False}
+                    )
+                    if resolved_transport_security is not None
+                    else None
+                ),
+                max_request_body_size=max_request_body_size,
+            )
+            self._session_manager = manager
+            live_endpoint = StreamableHTTPASGIApp(manager)
+            try:
+                async with manager.run():
+                    yield
+            finally:
+                live_endpoint = None
+                if self._session_manager is manager:
+                    self._session_manager = None
+
+        class ADCPStreamableHTTPASGIApp:
+            async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                if getattr(mcp, "_adcp_receipt_ingress", False):
+                    from adcp.reporting.receipts.transport import receipt_body_receive
+
+                    receive = receipt_body_receive(scope, receive, limit=max_request_body_size)
+                token = _ADCP_MCP_REQUEST_CONTEXT.set(Request(scope, receive))
+                try:
+                    endpoint = live_endpoint
+                    if endpoint is None:
+                        from starlette.responses import Response
+
+                        await Response("MCP app lifespan is not running", status_code=503)(
+                            scope, receive, send
+                        )
+                        return
+                    await endpoint(scope, receive, send)
+                finally:
+                    _ADCP_MCP_REQUEST_CONTEXT.reset(token)
+
+        app = Starlette(
+            debug=getattr(self.settings, "debug", False),
+            routes=[Route(streamable_http_path, endpoint=ADCPStreamableHTTPASGIApp())],
+            lifespan=lifespan,
+        )
+        if operational_routes is not None:
+            from adcp.server._size_limit import RequestSizeLimitMiddleware
+
+            app.state.adcp_operational_routes = operational_routes
+            app.add_middleware(OperationalRoutesMiddleware, routes=operational_routes)
+            app.add_middleware(RequestSizeLimitMiddleware, max_bytes=max_request_body_size)
+        app.add_middleware(HostOriginMiddleware, settings=resolved_transport_security)
+        return app
+
+    def sse_app(
+        self: Any, *, unauthenticated_routes: Sequence[Route | Mount] | None = None, **kwargs: Any
+    ) -> Any:
+        operational_routes = (
+            prepare_operational_routes(unauthenticated_routes)
+            if unauthenticated_routes is not None
+            else self._adcp_operational_routes
+        )
+        if operational_routes is not None:
+            operational_routes.validate_protocol_paths(
+                [kwargs.get("sse_path", "/sse"), kwargs.get("message_path", "/messages/")]
+            )
+        settings = kwargs.pop("transport_security", None) or self.settings.transport_security
+        app = type(self).sse_app(
+            self,
+            transport_security=settings.model_copy(
+                update={"enable_dns_rebinding_protection": False}
+            ),
+            **kwargs,
+        )
+        if operational_routes is not None:
+            import inspect
+
+            from adcp.server._size_limit import RequestSizeLimitMiddleware
+
+            app.state.adcp_operational_routes = operational_routes
+            app.add_middleware(OperationalRoutesMiddleware, routes=operational_routes)
+            # MCP 2.0 SSE has no SDK body-size setting. When the installed
+            # SDK supplies one, apply that same cap before operational dispatch.
+            body_size = inspect.signature(type(self).sse_app).parameters.get(
+                "max_request_body_size"
+            )
+            if body_size is not None:
+                app.add_middleware(
+                    RequestSizeLimitMiddleware,
+                    max_bytes=kwargs.get("max_request_body_size", body_size.default),
+                )
+        app.add_middleware(HostOriginMiddleware, settings=settings)
+        return app
+
+    def run(self: Any, transport: str = "stdio", **kwargs: Any) -> None:
+        if transport == "streamable-http":
+            kwargs.setdefault("host", getattr(self.settings, "host", "127.0.0.1"))
+            kwargs.setdefault("port", int(getattr(self.settings, "port", 8000)))
+            kwargs.setdefault("json_response", getattr(self.settings, "json_response", False))
+            kwargs.setdefault("stateless_http", getattr(self.settings, "stateless_http", False))
+            kwargs.setdefault(
+                "transport_security", getattr(self.settings, "transport_security", None)
+            )
+        elif transport == "sse":
+            kwargs.setdefault("host", getattr(self.settings, "host", "127.0.0.1"))
+            kwargs.setdefault("port", int(getattr(self.settings, "port", 8000)))
+            kwargs.setdefault(
+                "transport_security", getattr(self.settings, "transport_security", None)
+            )
+        type(self).run(self, transport=transport, **kwargs)
+        return None
+
+    mcp.streamable_http_app = MethodType(streamable_http_app, mcp)
+    mcp.sse_app = MethodType(sse_app, mcp)
+    mcp.run = MethodType(run, mcp)
+
+
+def _register_handler_tools(
+    mcp: Any,
+    handler: ADCPHandler[Any],
+    *,
+    mcp_result_text: MCPResultText | None = None,
+    include_test_controller: bool = False,
+    context_factory: ContextFactory | None = None,
+    middleware: Sequence[SkillMiddleware] | None = None,
+    advertise_all: bool = False,
+    schema_mode: SchemaMode = "compact",
+    validation: ValidationHookConfig | None = DEFAULT_VALIDATION,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+) -> None:
+    """Register all ADCP tools from a handler onto an MCP server."""
+    # Freeze middleware ordering at registration time. Tuple both guards
+    # against a mutable list being reshuffled mid-request and matches the
+    # A2A executor's handling.
+    middleware_tuple: tuple[SkillMiddleware, ...] = tuple(middleware or ())
+
+    resolved_adcp_version = _resolve_handler_adcp_version(handler, None)
+    tool_defs = get_tools_for_handler(
+        handler,
+        advertise_all=advertise_all,
+        adcp_version=resolved_adcp_version,
+        schema_mode=schema_mode,
+    )
+    registered: list[str] = []
+    for tool_def in tool_defs:
+        tool_name = tool_def["name"]
+        # Gate comply_test_controller on explicit opt-in. The handler base
+        # class has a not-supported stub; registering it as an MCP tool
+        # would advertise compliance-testing the seller didn't declare.
+        if tool_name == "comply_test_controller" and not include_test_controller:
+            continue
+        description = tool_def.get("description", "")
+        input_schema = tool_def.get("inputSchema", {"type": "object", "properties": {}})
+        output_schema = tool_def.get("outputSchema")
+        hook = (pre_validation_hooks or {}).get(tool_name)
+        caller = create_tool_caller(
+            handler,
+            tool_name,
+            validation=validation,
+            pre_validation_hook=hook,
+            response_enhancer=response_enhancer,
+            supported_versions=supported_versions,
+            default_unnegotiated_adcp_version=(
+                resolved_adcp_version or DEFAULT_UNNEGOTIATED_ADCP_VERSION
+            ),
+        )
+        _register_tool(
+            mcp,
+            tool_name,
+            description,
+            input_schema,
+            caller,
+            context_factory=context_factory,
+            middleware=middleware_tuple,
+            output_schema=output_schema,
+            response_enhancer=response_enhancer,
+            mcp_result_text=mcp_result_text,
+        )
+        registered.append(tool_name)
+
+    _log_advertised_tools(
+        transport="mcp",
+        handler=handler,
+        advertise_all=advertise_all,
+        registered=registered,
+    )
+    registered_set = set(registered)
+    warn_if_discovery_payload_is_oversized(
+        tool_defs=[tool for tool in tool_defs if tool["name"] in registered_set],
+        advertise_all=advertise_all,
+    )
+
+
+def _register_tool(
+    mcp: Any,
+    name: str,
+    description: str,
+    input_schema: dict[str, Any],
+    caller: Callable[..., Any],
+    *,
+    mcp_result_text: MCPResultText | None = None,
+    context_factory: ContextFactory | None = None,
+    middleware: tuple[SkillMiddleware, ...] = (),
+    output_schema: dict[str, Any] | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+) -> None:
+    """Register a single ADCP tool on an MCP server.
+
+    Creates a Tool with a permissive arg model that accepts any fields,
+    then overrides the advertised schema with the Pydantic-generated one.
+    This ensures MCP clients see the correct schema while the handler
+    receives all parameters as a plain dict.
+    """
+    from mcp.server.mcpserver.tools import Tool
+    from mcp.server.mcpserver.utilities.func_metadata import ArgModelBase, FuncMetadata
+    from mcp.types import CallToolResult
+    from pydantic import ConfigDict
+
+    from adcp.exceptions import ADCPError
+    from adcp.server.translate import (
+        _get_decisioning_adcp_error_types,
+        build_mcp_error_result,
+    )
+
+    frozen_reporting_feed = getattr(caller, "_adcp_frozen_reporting_feed", False)
+    if name == "sync_reporting_receipts" or frozen_reporting_feed:
+        object.__setattr__(mcp, "_adcp_receipt_ingress", True)
+
+    async def fn(**kwargs: Any) -> dict[str, Any]:
+        if name == "sync_reporting_receipts" or frozen_reporting_feed:
+            request_context = _get_starlette_request_for_dispatch()
+            if request_context is not None:
+                from adcp.reporting.receipts.transport import (
+                    RAW_RECEIPT_BODY_SCOPE_KEY,
+                    mcp_receipt_parameters,
+                )
+
+                kwargs = mcp_receipt_parameters(
+                    request_context.scope.get(RAW_RECEIPT_BODY_SCOPE_KEY), task=name
+                )
+        # Caller identity: FastMCP does not expose an authenticated principal
+        # at the SDK level (``Context.client_id`` is a session hint, not an
+        # authenticated user). Sellers wire auth via HTTP middleware on
+        # ``mcp.streamable_http_app()`` and pass ``context_factory`` to
+        # ``create_mcp_server()``. ``RequestMetadata.request_context`` carries
+        # the originating Starlette ``Request`` so the factory can read
+        # ``request.state.*`` set by middleware — this works in both
+        # stateless and stateful streamable-http modes, where the older
+        # ``contextvars.ContextVar`` pattern only works in stateless (the
+        # stateful session task is a separate async task than the HTTP
+        # request task and does not see middleware-set ContextVars).
+        # The A2A transport derives ``caller_identity`` from
+        # ``ServerCallContext.user`` automatically.
+        context: ToolContext | None = None
+        if context_factory is not None:
+            request_context = _get_starlette_request_for_dispatch()
+            meta = RequestMetadata(
+                tool_name=name,
+                transport="mcp",
+                request_context=request_context,
+            )
+            context = context_factory(meta)
+            if not isinstance(context, ToolContext):
+                # Catch downstream factories that return a dict or other
+                # shape early — otherwise the handler explodes deep inside
+                # with an AttributeError on caller_identity.
+                raise TypeError(
+                    f"context_factory for tool {name!r} returned "
+                    f"{type(context).__name__}, not a ToolContext instance"
+                )
+        # Framework-verified request signature (serve(request_signature_
+        # verification=...)): overlay the signer's identity after the factory
+        # so a bearer placeholder is upgraded to the verified agent.
+        context = apply_verified_signer(context, _get_starlette_request_for_dispatch())
+
+        async def _call_handler() -> Any:
+            return await caller(kwargs, context=context)
+
+        try:
+            if middleware:
+                # Middleware requires a concrete ToolContext to match the
+                # declared SkillMiddleware signature; synthesise an empty
+                # one when no factory is configured so the chain still
+                # runs. Handler itself keeps receiving ``None`` semantics
+                # via ``context`` closed over by _call_handler.
+                mw_context = context if context is not None else ToolContext()
+                result = await _dispatch_with_middleware(
+                    middleware,
+                    name,
+                    kwargs,
+                    mw_context,
+                    _call_handler,
+                    frozen_reporting_feed=frozen_reporting_feed,
+                )
+            else:
+                result = await _call_handler()
+        except ADCPError as exc:
+            # AdCP-typed exceptions (IdempotencyConflictError, ADCPTaskError
+            # with a spec code, etc.) project to a CallToolResult with
+            # ``isError=True`` AND ``structuredContent.adcp_error`` populated
+            # — matching transport-errors.mdx §MCP Binding. Returning the
+            # result directly bypasses FastMCP's ``_make_error_result`` path
+            # which strips ``structuredContent`` from error envelopes. The
+            # ``-> dict[str, Any]`` annotation drives FastMCP's output_schema
+            # derivation; the actual return type is broader (CallToolResult
+            # is a valid return per the lowlevel handler's contract).
+            #
+            # ``kwargs`` is the raw request dict — passing it lets the
+            # builder echo the request's ``context`` extension into the
+            # error envelope, symmetric with the success path's
+            # ``inject_context`` call (mcp_tools.py). ``response_enhancer``
+            # + ``context`` thread the seller's enhancer onto the error
+            # envelope too (after the context echo).
+            return build_mcp_error_result(  # type: ignore[return-value]
+                exc,
+                params=kwargs,
+                method_name=name,
+                response_enhancer=response_enhancer,
+                context=context,
+            )
+        except Exception as exc:
+            # Decisioning ``AdcpError`` is NOT a subclass of
+            # ``adcp.exceptions.ADCPError`` (different class hierarchy
+            # — ``adcp.decisioning.types.AdcpError``). Catch it explicitly
+            # and project the same structured envelope.
+            if isinstance(exc, _get_decisioning_adcp_error_types()):
+                return build_mcp_error_result(  # type: ignore[return-value]
+                    exc,
+                    params=kwargs,
+                    method_name=name,
+                    response_enhancer=response_enhancer,
+                    context=context,
+                )
+            raise
+        # Pre-built CallToolResult (error envelope from build_mcp_error_result)
+        # passes through FastMCP's convert_result and the lowlevel handler
+        # without re-validation against the success-path output_model — the
+        # custom FuncMetadata subclass below handles the bypass.
+        if isinstance(result, CallToolResult):
+            return result  # type: ignore[return-value]
+        if hasattr(result, "model_dump"):
+            result_dict = result.model_dump(mode="json", exclude_none=True)
+        elif isinstance(result, dict):
+            result_dict = result
+        else:
+            result_dict = {"result": result}
+        if mcp_result_text is not None:
+            # Use MCP's normal conversion before formatting so datetime,
+            # Decimal, aliases and nested models have exactly the baseline's
+            # JSON representation in both the callback and structured content.
+            canonical_result = FuncMetadata.convert_result(tool.fn_metadata, result_dict)
+            assert isinstance(canonical_result, CallToolResult)
+            if canonical_result.structured_content is not None:
+                result_dict = canonical_result.structured_content
+            if isinstance(mcp_result_text, str):
+                summary = result_dict.get(mcp_result_text)
+                if not isinstance(summary, str):
+                    summary = None
+            else:
+                # A formatter cannot mutate the canonical payload, even if it
+                # annotates a nested product while composing its summary.
+                summary = mcp_result_text(name, deepcopy(result_dict), context)
+                if inspect.isawaitable(summary):
+                    summary = await summary
+            if summary is not None:
+                if not isinstance(summary, str):
+                    raise TypeError("mcp_result_text must return str or None")
+                from mcp.types import TextContent
+
+                return CallToolResult(  # type: ignore[return-value]
+                    content=[TextContent(type="text", text=summary)],
+                    structured_content=result_dict,
+                )
+            return canonical_result  # type: ignore[return-value]
+        return result_dict  # type: ignore[no-any-return]
+
+    # Create tool from function (gives us proper fn_metadata scaffolding)
+    tool = Tool.from_function(fn, name=name, description=description, structured_output=True)
+
+    # Override the advertised schema with the Pydantic-generated one
+    tool.parameters = input_schema
+
+    # Override fn_metadata with a permissive model that passes through
+    # all fields as individual kwargs (instead of wrapping in a "kwargs" field).
+    # Keep the output_schema/output_model so structuredContent is populated.
+    class _AdcpArgs(ArgModelBase):
+        model_config = ConfigDict(extra="allow")
+
+        def model_dump_one_level(self) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            for field_name in self.__class__.model_fields:
+                result[field_name] = getattr(self, field_name)
+            if self.model_extra:
+                result.update(self.model_extra)
+            return result
+
+    class _AdcpFuncMetadata(FuncMetadata):
+        """Keep prebuilt success/error envelopes intact through MCP conversion.
+
+        Handler dictionaries have already gone through SDK validation. MCP
+        summaries carry that same structured payload; passing through avoids
+        wrapping content a second time. Error envelopes use a different schema.
+        """
+
+        def convert_result(self, result: Any) -> Any:
+            if isinstance(result, CallToolResult):
+                return result
+            return super().convert_result(result)
+
+    # Advertise the spec response schema on ``tools/list`` when one is
+    # available. FastMCP serializes ``Tool.output_schema`` (which reads
+    # ``fn_metadata.output_schema``) into the ``outputSchema`` field of
+    # the ``tools/list`` response — matches the TS port. Falls back to
+    # the auto-derived shape from the ``fn`` return annotation when no
+    # spec schema is mapped (e.g. handler-only custom tools).
+    effective_output_schema = (
+        output_schema if output_schema is not None else tool.fn_metadata.output_schema
+    )
+    tool.fn_metadata = _AdcpFuncMetadata(
+        arg_model=_AdcpArgs,
+        output_schema=effective_output_schema,
+        output_model=tool.fn_metadata.output_model,
+        wrap_output=False,
+    )
+
+    # FastMCP does not expose a public API for registering pre-built Tool
+    # objects with custom schemas. This accesses internals; requires mcp>=1.23.
+    mcp._tool_manager._tools[name] = tool

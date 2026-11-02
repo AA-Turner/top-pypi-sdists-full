@@ -1,0 +1,47 @@
+"""Server placement and per-app bootstrap facts (``client.server_status``)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from crowdypy._generated import operations as ops
+from crowdypy.domains._base import Domain
+from crowdypy.utils import bigint
+
+__all__ = ["ServerStatusAPI"]
+
+
+class ServerStatusAPI(Domain):
+    async def server_with_least_clients(self) -> dict[str, Any] | None:
+        """Assign a replication server for this app token and install its UDP session.
+
+        The native replication client calls this itself when it connects; the answer
+        carries ``ip4``/``ip6`` and the ``clientPort`` to send signed datagrams to.
+        """
+        result: dict[str, Any] | None = await self._request(ops.SERVER_WITH_LEAST_CLIENTS)
+        return result
+
+    async def list_all(self) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = await self._request(ops.GRAPHQL_SERVERS)
+        return result
+
+    async def list_active_graphql_servers(self) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = await self._request(ops.ACTIVE_GRAPH_QL_SERVERS)
+        return result
+
+    async def version_info(self) -> dict[str, Any]:
+        result: dict[str, Any] = await self._request(ops.VERSION_INFO)
+        return result
+
+    async def game_client_bootstrap(self, app_id: str | int) -> dict[str, Any]:
+        """Per-app version info, UDP status, spatial limits and the app's endpoints.
+
+        ``runtimeGate`` (``status``, ``reason``) answers for a paused app too: tell the player
+        the world is paused when :func:`crowdypy.is_app_paused` says so, instead of showing an
+        empty one. ``wildernessWritesOpen`` false means voxel edits on land only the world
+        grid covers are refused, so a client can stop a player before sending one.
+        """
+        result: dict[str, Any] = await self._request(
+            ops.GAME_CLIENT_BOOTSTRAP, {"appId": bigint(app_id)}
+        )
+        return result

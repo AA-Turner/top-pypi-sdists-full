@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: channel-advisor-api-python
+Version: 0.2.3
+Summary: 
+Author: Brian Peterson
+Author-email: brian.peterson@cloudshift.cc
+Requires-Python: >=3.11,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: aws-lambda-powertools (>=3.5.0,<4.0.0)
+Requires-Dist: pydantic (>=2.10.6,<3.0.0)
+Requires-Dist: requests (>=2.32.3,<3.0.0)
+Description-Content-Type: text/markdown
+
+

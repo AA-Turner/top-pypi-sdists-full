@@ -1,0 +1,102 @@
+"""`tracker sprints` commands."""
+
+from typing import Annotated
+
+import typer
+
+from ycli.cli.typedefs import values_option
+from ycli.yandex.models import Ack, ItemList
+from ycli.yandex.tracker.client import TrackerClient
+from ycli.yandex.tracker.sprints.models import (
+    Sprint,
+    SprintBoardInput,
+    SprintCreate,
+    SprintStatus,
+    SprintUpdate,
+)
+
+app = typer.Typer(name="sprints", help="Tracker board sprints.", no_args_is_help=True)
+
+SprintIDArg = Annotated[int, typer.Argument(metavar="SPRINT_ID", help="Numeric sprint identifier.")]
+SprintVersionOpt = Annotated[
+    int | None, typer.Option(help="Current sprint version for the optimistic lock (?version=).")
+]
+
+
+@app.command("list")
+def list_(
+    board_id: Annotated[int, typer.Argument(metavar="BOARD_ID", help="Numeric board identifier.")],
+    *,
+    tracker: TrackerClient,
+) -> ItemList[Sprint]:
+    """List all sprints on board BOARD_ID."""
+    return tracker.sprints.list(board_id=board_id)
+
+
+@app.command()
+def get(sprint_id: SprintIDArg, *, tracker: TrackerClient) -> Sprint:
+    """Get one sprint by SPRINT_ID."""
+    return tracker.sprints.get(sprint_id=sprint_id)
+
+
+@app.command()
+def create(
+    board_id: Annotated[str, typer.Option(help="Identifier of the board the sprint belongs to.")],
+    name: Annotated[str, typer.Option(help="Name of the new sprint.")],
+    start_date: Annotated[str, typer.Option(help="Planned start date (YYYY-MM-DD).")],
+    end_date: Annotated[str, typer.Option(help="Planned end date (YYYY-MM-DD).")],
+    *,
+    tracker: TrackerClient,
+) -> Sprint:
+    """Create a sprint (POST /sprints)."""
+    body = SprintCreate(
+        name=name,
+        board=SprintBoardInput(id=board_id),
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return tracker.sprints.create(body)
+
+
+@app.command()
+def update(
+    sprint_id: SprintIDArg,
+    name: Annotated[str | None, typer.Option(help="New sprint name.")] = None,
+    start_date: Annotated[str | None, typer.Option(help="New start date (YYYY-MM-DD).")] = None,
+    end_date: Annotated[str | None, typer.Option(help="New end date (YYYY-MM-DD).")] = None,
+    status: Annotated[str | None, values_option(SprintStatus, help="New status.")] = None,
+    version: SprintVersionOpt = None,
+    *,
+    tracker: TrackerClient,
+) -> Sprint:
+    """Edit a sprint SPRINT_ID (PATCH /sprints/{id}?version=) — only supplied fields are sent."""
+    body = SprintUpdate(
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+    )
+    return tracker.sprints.update(sprint_id, body, version=version)
+
+
+@app.command()
+def delete(sprint_id: SprintIDArg, *, tracker: TrackerClient) -> Ack:
+    """Delete a sprint SPRINT_ID (DELETE /sprints/{sprint_id})."""
+    tracker.sprints.delete(sprint_id=sprint_id)
+    return Ack.deleted("sprint", sprint_id)
+
+
+@app.command()
+def start(
+    sprint_id: SprintIDArg, version: SprintVersionOpt = None, *, tracker: TrackerClient
+) -> Sprint:
+    """Start a sprint SPRINT_ID (POST /sprints/{id}/_start?version=; status → in_progress)."""
+    return tracker.sprints.start(sprint_id=sprint_id, version=version)
+
+
+@app.command()
+def archive(
+    sprint_id: SprintIDArg, version: SprintVersionOpt = None, *, tracker: TrackerClient
+) -> Sprint:
+    """Archive a sprint SPRINT_ID (POST /sprints/{id}/_archive?version=; status → archived)."""
+    return tracker.sprints.archive(sprint_id=sprint_id, version=version)

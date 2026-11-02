@@ -1,0 +1,706 @@
+#!/usr/bin/env python3
+"""SessionStart hook: inject the SMALL session essentials - the memory-retrieval standing rule,
+a pending miss-audit, and the self-silencing nudges.
+
+The big skills-first banner is emitted by its OWN hook command (session-banner.py). The split is
+load-bearing: the harness persists an oversized additionalContext to a file and injects only a
+~2KB preview, so anything appended AFTER a ~10KB banner (this hook's essentials, before the split)
+never reached context. Emitted separately and kept SMALL (see the size test), the essentials always
+land inline.
+
+Emits the Claude Code SessionStart contract on stdout:
+  {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "..."}}
+plus an optional top-level "systemMessage" - a one-line, self-silencing reminder to enable
+marketplace auto-update when it is off (it cannot set it; only the user/admin can).
+json.dumps does the escaping (newlines/quotes), so no hand-rolled JSON escaping.
+
+Pure standard library. Every failure path emits nothing and exits 0, so a broken
+or slow hook never blocks or delays a session.
+"""
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import open_work
+from self_improve_signals import (
+    MEMORY_DIRNAME,
+    audit_file,
+    claim_label,
+    dream_due,
+    dream_mode,
+    knowledge_store_empty,
+    load_config,
+    mark_seeded,
+    project_unseeded,
+    read_contributions,
+)
+
+
+_RETRIEVAL_TMPL = (
+    "<BITRANOX-MEMORY-RETRIEVAL>\n"
+    "Your loaded context includes a memory index: lines of the form\n"
+    "  - [Title](mem:<slug>) - hook\n"
+    "in the CLAUDE.local.md cascade. Those are always-loaded POINTERS - the Title + hook are present, "
+    "but the full fact BODY is NOT preloaded. When a hook is relevant to your CURRENT task and you need "
+    "the detail behind it, retrieve that body ON DEMAND by Reading:\n"
+    "  %(anchor)s/.claude-memory/facts/<slug>.md\n"
+    "(example: mem:no-em-dashes -> %(anchor)s/.claude-memory/facts/no-em-dashes.md)\n"
+    "Do this mid-task whenever a relevant hook needs its body; the per-prompt recall hook only surfaces "
+    "keyword matches at prompt time, so pull anything else yourself. Read a body ONLY when its hook is "
+    "genuinely relevant - never bulk-read the index.\n"
+    "</BITRANOX-MEMORY-RETRIEVAL>"
+)
+
+
+def retrieval_context(proj):
+    """A standing rule teaching the model to fetch a fact body ON DEMAND from the central UUID store,
+    with the concrete anchor path baked in. Returns None when there is no anchor or no store yet (so a
+    fresh project with no facts is not told to retrieve from an empty store). Fail-open."""
+    try:
+        import uuid_store as us
+        anchor = us.resolve_anchor(proj)
+        if anchor is None or not us.central_facts_dir(anchor).is_dir():
+            return None
+        return _RETRIEVAL_TMPL % {"anchor": str(anchor)}
+    except Exception:  # noqa: BLE001 - a hook must never wedge a session
+        return None
+
+
+def _read_event():
+    try:
+        return json.load(sys.stdin)
+    except Exception:  # noqa: BLE001 - no/invalid stdin: fall back, never wedge
+        return {}
+
+
+def _proj(event):
+    return event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+
+
+def level_home(proj):
+    """The directory whose memory chain this session may scaffold: `proj` itself, or - when `proj`
+    sits inside a directory its repository git-ignores - the parent of the highest such directory.
+
+    The session's cwd is wherever the shell stood when the event fired (a compaction keeps the
+    shell's cwd), so a cwd inside an ignored scratch tree such as `.plan/<batch>/` would make the
+    heal create a CLAUDE.md / CLAUDE.local.md pair at every gap level down to it. Those then count
+    as curated levels inside a tree git never tracks. The repository root is never ignored. Outside
+    a repository, or when git cannot answer, `proj` is returned unchanged (fail-open: the previous
+    behaviour). IMPURE (runs git).
+    """
+    try:
+        here = Path(proj).resolve()
+        top = (_git(here, "rev-parse", "--show-toplevel") or "").strip()
+        if not top:
+            return proj
+        root = Path(top).resolve()
+        ladder = [d for d in [here, *here.parents] if d != root and root in d.parents]
+        if not ladder:
+            return proj
+        # --no-index: an ignored DIRECTORY holding tracked files must still read as ignored, and
+        # the question is about the pattern, not about what happens to be in the index.
+        rel = [d.relative_to(root).as_posix() + "/" for d in ladder]
+        # None covers both "nothing ignored" (exit 1) and a failed call: either way no level moves.
+        out = _git(root, "check-ignore", "--no-index", *rel) or ""
+        ignored = {line.strip() for line in out.splitlines() if line.strip()}
+        highest = None
+        for d, r in zip(ladder, rel):
+            if r in ignored or r.rstrip("/") in ignored:
+                highest = d                          # ladder runs upward: the last hit is highest
+        return str(highest.parent) if highest is not None else proj
+    except Exception:  # noqa: BLE001 - no git, a timeout: keep the cwd, never wedge the start
+        return proj
+
+
+def audit_context(proj):
+    """Surface (and consume) a pending SessionEnd miss-audit for this project, if any.
+
+    The SessionEnd hook (self-improve-audit.py) writes candidate gate-misses to a per-project
+    file; here we inject it once so the model reviews them, then delete it so it is not
+    resurfaced.
+    """
+    try:
+        path = audit_file(proj)
+        if not path.is_file():
+            return None
+        text = path.read_text(encoding="utf-8").strip()
+        path.unlink()  # consume once
+    except Exception:  # noqa: BLE001 - unreadable/undeletable: skip, never wedge
+        return None
+    return text or None
+
+
+def dream_room(proj):
+    """True where a memory consolidation is the session's own business: a plugin marketplace repo,
+    the memory store itself, or any cwd once `dream_mode` is `auto`.
+
+    Everywhere else the session is doing some project's work, and the maintenance nudges below
+    collapse to one line there. Measured over three weeks of transcripts (2026-09-04): the full
+    dream ask and the full contribution listing at the start of an ordinary session were where a
+    consolidation, or a queued tooling change, got run INLINE in a project whose work it was not -
+    one of the triggers behind instrumentation growing from a sixth to over a quarter of
+    work-session time. The room test is structural, never a directory name: a marketplace is a
+    repo with `.claude-plugin/marketplace.json`, and the store is the dir named MEMORY_DIRNAME.
+    """
+    try:
+        if dream_mode(proj) == "auto":
+            return True
+        p = Path(proj)
+        if p.name == MEMORY_DIRNAME:
+            return True
+        return (p / ".claude-plugin" / "marketplace.json").is_file()
+    except Exception:  # noqa: BLE001 - a room test must never wedge a session start
+        return False
+
+
+def contrib_context(proj, budget=None):
+    """Surface PENDING upstream contributions - and, unlike the audit, do NOT consume them.
+
+    A learning that warrants a skill/hook change used to reach the marketplace only if the model
+    authored the self-PR before the session ended: nothing recorded the INTENT, so it died with the
+    context while the private fact survived. The queue is that missing state, so it must SURVIVE
+    being read - it stands until it actually ships and is drained.
+
+    Outside a dream room only the COUNT is shown: the listing reads as an invitation to pick an
+    entry up now, and the entries are the dream's to read. Inside one the listing gets `budget`
+    bytes, what the other essentials left: unbounded, a full queue measured 11481 bytes against
+    the 3300 ceiling, and over the ceiling the harness persists the WHOLE essentials block and
+    injects a ~2KB preview, so every other block went with it.
+    """
+    try:
+        recs = read_contributions(proj)
+    except OSError as exc:
+        allowed = _ESSENTIALS_CEILING_BYTES if budget is None else budget
+        return _fitting_pointer(_contrib_unreadable(exc), allowed)
+    except Exception:  # noqa: BLE001 - never wedge a session start
+        return None
+    try:
+        if not recs:
+            return None
+        if not dream_room(proj):
+            return ("%d PENDING UPSTREAM CONTRIBUTION(S) wait in the queue for a dream - not this "
+                    "session's work. They persist until a dream drains them; `contrib_queue.py "
+                    "list` shows them." % len(recs))
+        head = ("%d PENDING UPSTREAM CONTRIBUTION(S) - learnings already judged skill/hook-worthy "
+                "that have NOT shipped yet. They persist until shipped, so pick them up when the "
+                "work suits (route via bitranox:meta-self-improve -> references/upstream-propagation.md; "
+                "a dream drains the queue once they land):\n" % len(recs))
+        lines = ["- %s%s%s%s" % (claim_label(r), r.get("what") or "",
+                                 " -> %s" % r["target"] if r.get("target") else "",
+                                 " (%s)" % r["why"] if r.get("why") else "")
+                 for r in recs]
+        allowed = _ESSENTIALS_CEILING_BYTES if budget is None else budget
+        if allowed < _listing_floor(head, lines, _CONTRIB_MORE):
+            return _fitting_pointer(contrib_pointer(proj), allowed)
+        return _fit_listing(head, lines, allowed, _CONTRIB_MORE)
+    except Exception:  # noqa: BLE001 - never wedge a session start
+        return None
+
+
+def contrib_pointer(proj):
+    """The one line the contribution block degrades to, or None when the queue is empty.
+
+    Its own size is what `main` holds back before sizing the backlog, so the two are the same
+    string: measured as a `budget=0` probe instead, a pointer that stops fitting stops being
+    reserved, and the reservation silently becomes zero.
+    """
+    try:
+        recs = read_contributions(proj)
+        return (_CONTRIB_COMPACT % len(recs)) if recs else None
+    except OSError as exc:
+        return _contrib_unreadable(exc)
+    except Exception:  # noqa: BLE001 - never wedge a session start
+        return None
+
+
+def _contrib_unreadable(exc):
+    """The line for a queue that exists but could not be read.
+
+    The readers raise there rather than answer [] (an empty answer is what an emptied queue gives,
+    and the next add would rewrite the file with one entry). Turning that error into silence here
+    hid pending contributions the same way, so the block names it instead."""
+    why = getattr(exc, "strerror", None) or type(exc).__name__
+    return _CONTRIB_UNREADABLE % why
+
+
+def _fitting_pointer(pointer, allowed):
+    """A degraded pointer only while it fits: the queue's line yields before the backlog's.
+
+    Two pointers that each fit ALONE still breached the ceiling together, and over the ceiling the
+    harness persists the whole essentials block and previews ~2KB of it - which hides the backlog,
+    the one block that must survive. So the queue's pointer goes rather than both being cut.
+    """
+    if pointer is None or len(pointer.encode("utf-8")) > allowed:
+        return None
+    return pointer
+
+
+_CONTRIB_MORE = "- ... and %d more; `contrib_queue.py list` shows them"
+_CONTRIB_COMPACT = ("%d PENDING UPSTREAM CONTRIBUTION(S) - no room to list them here; "
+                    "`contrib_queue.py list` shows them.")
+_CONTRIB_UNREADABLE = ("The UPSTREAM CONTRIBUTION queue could not be read (%s), so pending "
+                       "contributions may be hidden; `contrib_queue.py list` names the file.")
+
+
+def _listing_floor(head, lines, more):
+    """Bytes a listing needs to show its first line plus the line counting the rest."""
+    need = len(head.encode("utf-8")) + len(lines[0].encode("utf-8")) + 1
+    if len(lines) > 1:
+        need += len((more % (len(lines) - 1)).encode("utf-8")) + 1
+    return need
+
+
+def _fit_listing(head, lines, allowed, more):
+    """`head` plus as many `lines` as fit in `allowed` bytes, then one line counting the rest.
+
+    The count line is reserved BEFORE a line is admitted, never appended after the loop: appended
+    after, a listing cut close to its limit overran it by the count line's own length. The first
+    line is always admitted, so one oversized entry cannot shrink a block to its bare header.
+    """
+    shown, used = [], len(head.encode("utf-8"))
+    for index, line in enumerate(lines):
+        left = len(lines) - index - 1
+        reserve = len((more % left).encode("utf-8")) + 1 if left else 0
+        cost = len(line.encode("utf-8")) + 1
+        if shown and used + cost + reserve > allowed:
+            break
+        shown.append(line)
+        used += cost
+    hidden = len(lines) - len(shown)
+    if hidden:
+        shown.append(more % hidden)
+    return head + "\n".join(shown)
+
+
+#: A closed line keeps its number, and this block lists open items only, so a number held by a
+#: closed line looks free to whoever picks the next rank - measured over 22 real backlogs, 7 had an
+#: open item sharing its rank with another line.
+_SHARED_RANK = ("%s %s label%s more than one line of OPEN-WORK.md (closed lines included): give "
+                "the open item a free number before citing it as 'rank N'.\n")
+_ISO_DATE_RX = re.compile(r"(\d{4})-(\d{2})-(\d{2})\??$")
+#: The whole essentials block must stay small or the harness persists it to a file and injects
+#: only a ~2KB preview, which is how the retrieval rule once stopped reaching context at all.
+#: The open-work block therefore gets what the OTHER blocks left, never a fixed share: a fixed
+#: item COUNT recreated the sink it exists to remove, and a fixed BYTE share passed its unit test
+#: on a fixture that had no other blocks in it, then overran on the real repo by 429 bytes.
+_OPEN_WORK_HEADER = (
+    "%d OPEN-WORK ITEM(S) - the standing backlog at OPEN-WORK.md, ordered by RANK and "
+    "NOT by what was touched last. It persists until an item is closed there, so reading it "
+    "does not clear it. Whatever you do next should be the top-ranked item, or you should say "
+    "plainly why a lower-ranked one goes first:\n"
+)
+_ESSENTIALS_CEILING_BYTES = 3300
+#: When the other blocks have spent the ceiling, the backlog degrades to this one line rather
+#: than to nothing (hiding it is the failure the file exists to stop) or to a breach (going
+#: over makes the harness persist the WHOLE essentials block and preview ~2KB, which hides it
+#: anyway - a floor that protects the backlog by a mechanism that hides it is self-defeating).
+_OPEN_WORK_COMPACT = "%d OPEN-WORK ITEM(S) standing - read OPEN-WORK.md; no room to list them here."
+_OPEN_WORK_MORE = "- ... and %d more in OPEN-WORK.md"
+_OPEN_WORK_HEAD_CHARS = 96
+
+
+def _backlog_items(text):
+    """(line, item) for every item `open_work` reads in `text`, so this listing and the backlog
+    tools agree on what is an item: a fenced example line is none to either."""
+    lines = text.split("\n")   # not splitlines(): it also breaks on U+2028 and form feed
+    return [(lines[i], item) for i, item in open_work.iter_items(lines)]
+
+
+def _parse_open_work(text, today=None):
+    """Open items from OPEN-WORK.md as (rank, raised_date, text), ordered by RANK then age.
+
+    Ordering by rank rather than by file order is the whole point: the failure this file exists
+    to stop is a fresh micro-task outranking a standing one purely by being recent. The date is
+    taken as written and parsed after, because every honest form for "nobody recorded this" must
+    survive - a trailing "?" and the bare word "unknown" both.
+    """
+    today = today or datetime.date.today()
+    items = [(item["rank"], _parse_raised(item["raised"]), open_work.item_text(line))
+             for line, item in _backlog_items(text) if item["state"] == "open"]
+    # An undated item sorts last within its rank: it makes no age claim, so it cannot displace one
+    # that does. datetime.date.max is the sentinel because None will not compare against a date.
+    items.sort(key=lambda it: (it[0], it[1] or datetime.date.max))
+    return items
+
+
+def _shared_rank_warning(text):
+    """One line naming each rank an OPEN item shares with any other line, or "" when none does.
+
+    Two closed lines on one number are history and are not named: nothing new can be cited by it.
+    """
+    states = {}
+    for _line, item in _backlog_items(text):
+        states.setdefault(item["rank"], []).append(item["state"] == "open")
+    shared = sorted(rank for rank, opened in states.items() if len(opened) > 1 and any(opened))
+    if not shared:
+        return ""
+    plural = len(shared) > 1
+    return _SHARED_RANK % ("Ranks" if plural else "Rank", ", ".join(map(str, shared)),
+                           "" if plural else "s")
+
+
+def _parse_raised(token):
+    """The date a line claims, or None when it admits it does not have one."""
+    m = _ISO_DATE_RX.match(token.strip())
+    if not m:
+        return None                                   # "unknown", empty, anything unparseable
+    try:
+        return datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:                                # a typo'd date must not drop the item
+        return None
+
+
+def _age(raised, today):
+    if raised is None:
+        return "date unknown"
+    days = (today - raised).days
+    if days <= 0:
+        return "raised today"
+    return "raised %d day%s ago" % (days, "" if days == 1 else "s")
+
+
+#: git reads these before cwd, and a push from a linked worktree exports GIT_DIR to its hooks: an
+#: inherited one would answer every question below about some other repository.
+_GIT_SCOPE_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                   "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE",
+                   "GIT_PREFIX", "GIT_QUARANTINE_PATH",
+                   # the pathspec modes change how check-ignore matches the paths it is handed
+                   "GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS",
+                   "GIT_ICASE_PATHSPECS")
+_BEHIND_READ_UPSTREAM = ("This checkout is %(n)s behind %(ref)s as of the last fetch, so this list "
+                         "is read from %(ref)s. Other files on disk (handover.md too) are older "
+                         "than %(ref)s: fast-forward the checkout before reading them.\n")
+_BEHIND_KEPT_LOCAL = ("This checkout is %(n)s behind %(ref)s as of the last fetch and has its own "
+                      "changes to OPEN-WORK.md, so this list is the local copy and may be stale: "
+                      "merge %(ref)s before trusting it.\n")
+_BEHIND_NO_UPSTREAM_COPY = ("This checkout is %(n)s behind %(ref)s as of the last fetch, and "
+                            "%(ref)s has no OPEN-WORK.md, so this list is the local copy and may "
+                            "be stale.\n")
+
+
+def _git(proj, *args):
+    """stdout of a read-only git call in `proj`, or None on any failure. Never raises."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_SCOPE_VARS}
+    env["LC_ALL"] = "C"
+    try:
+        done = subprocess.run(["git", *args], cwd=str(proj), env=env, capture_output=True,
+                              text=True, encoding="utf-8", errors="replace", timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
+def _upstream_ref(proj):
+    """The ref this checkout should be compared with: its upstream, else origin/HEAD.
+
+    Worktree branches are created with no upstream, and origin/HEAD is what they fall behind.
+    """
+    for args in (("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+                 ("symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD")):
+        ref = (_git(proj, *args) or "").strip()
+        if ref:
+            return ref
+    return None
+
+
+def _backlog_text(proj):
+    """(OPEN-WORK.md text, note) - the upstream copy when this checkout only lags behind it.
+
+    Nothing fast-forwards a main checkout while the work happens in worktrees, and a stale file
+    reads exactly like a current one: measured, a checkout 219 commits behind listed seven items
+    closed upstream. Only the LAST FETCH is consulted - a session start never touches the network.
+    When the checkout changed the file itself (committed or not), that change exists nowhere
+    else, so the local copy is kept and the note says it may be stale.
+    """
+    disk = (Path(proj) / "OPEN-WORK.md").read_text(encoding="utf-8", errors="replace")
+    ref = _upstream_ref(proj)
+    behind = (_git(proj, "rev-list", "--count", "HEAD..%s" % ref) or "").strip() if ref else ""
+    if not behind.isdigit() or behind == "0":
+        return disk, ""
+    fill = {"n": "%s commit%s" % (behind, "" if behind == "1" else "s"), "ref": ref}
+    base = (_git(proj, "merge-base", "HEAD", ref) or "").strip()
+    untouched = base and _git(proj, "diff", "--quiet", base, "--", "OPEN-WORK.md") is not None
+    if not untouched:
+        return disk, _BEHIND_KEPT_LOCAL % fill
+    upstream = _git(proj, "show", "%s:./OPEN-WORK.md" % ref)
+    if upstream is None:
+        return disk, _BEHIND_NO_UPSTREAM_COPY % fill
+    return upstream, _BEHIND_READ_UPSTREAM % fill
+
+
+def open_work_context(proj, today=None, budget=None):
+    """Surface the STANDING backlog, ranked, and - like the contribution queue - do NOT consume it.
+
+    `handover.md` describes one moment and is overwritten wholesale, so anything outliving the
+    session survives only by being retyped from memory, and shrinks on every rewrite: measured,
+    five tracked items lost their sizes and then their heading across three rewrites in one day.
+    This block is the durable half, and it prints rank-first so age cannot be mistaken for
+    priority. Fail-open: any problem reading or parsing it emits nothing.
+    """
+    try:
+        today = today or datetime.date.today()
+        raw, note = _backlog_text(proj)
+        items = _parse_open_work(raw, today)
+        if not items:
+            return None
+        head = note + _OPEN_WORK_HEADER % len(items)
+        allowed = _ESSENTIALS_CEILING_BYTES if budget is None else budget
+        # The first item is always shown, however long: one oversized item must not reduce the
+        # whole block to a bare count, which would hide the very item ranked most urgent.
+        lines = ["- [%d] (%s) %s" % (rank, _age(raised, today), what[:_OPEN_WORK_HEAD_CHARS])
+                 for rank, raised, what in items]
+        # Measured against the REAL first line and the REAL count line, not against a head-plus-96
+        # estimate: the estimate let a budget through that the always-shown first line and the
+        # count line then overran together, by up to that count line's own length.
+        if allowed < _listing_floor(head, lines, _OPEN_WORK_MORE):
+            return note + _OPEN_WORK_COMPACT % len(items)
+        plain = _fit_listing(head, lines, allowed, _OPEN_WORK_MORE)
+        # The shared-rank line is the first thing to go when room is short: it is kept only when
+        # it costs no listed item, because the listing is what must survive and an ambiguous
+        # number is a nuisance rather than a hidden item.
+        warning = _shared_rank_warning(raw)
+        if warning and allowed >= _listing_floor(note + warning + head[len(note):], lines,
+                                                 _OPEN_WORK_MORE):
+            warned = _fit_listing(note + warning + head[len(note):], lines, allowed,
+                                  _OPEN_WORK_MORE)
+            if warned.replace(warning, "", 1) == plain:
+                return warned
+        return plain
+    except Exception:  # noqa: BLE001 - never wedge a session start
+        return None
+
+
+_NUDGE = (
+    "bitranox-skills: marketplace auto-update is OFF, so you will not get fixes and new skills "
+    "automatically. Enable it: /plugin > Marketplaces > bitranox-skills > Enable auto-update, or "
+    'add "autoUpdate": true to the "bitranox-skills" entry under extraKnownMarketplaces in '
+    "~/.claude/settings.json. (Auto-update runs at startup; a running session still needs "
+    "/reload-plugins or a restart to load an update.) To silence this without enabling, create "
+    "~/.claude/.bitranox-no-autoupdate-nudge"
+)
+
+
+def _autoupdate_enabled(proj):
+    """True if extraKnownMarketplaces['bitranox-skills'].autoUpdate is set in user/project settings."""
+    candidates = [
+        Path.home() / ".claude" / "settings.json",
+        Path(proj) / ".claude" / "settings.json",
+        Path(proj) / ".claude" / "settings.local.json",
+    ]
+    for c in candidates:
+        try:
+            data = json.loads(c.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - missing/invalid: skip this source
+            continue
+        entry = (data.get("extraKnownMarketplaces") or {}).get("bitranox-skills") or {}
+        if entry.get("autoUpdate") is True:
+            return True
+    return False
+
+
+def autoupdate_nudge(proj):
+    """A one-line, self-silencing reminder to enable marketplace auto-update; None when off."""
+    try:
+        optout = Path.home() / ".claude" / ".bitranox-no-autoupdate-nudge"
+        if optout.exists() or _autoupdate_enabled(proj):
+            return None
+    except Exception:  # noqa: BLE001 - never let detection wedge the session
+        return None
+    return _NUDGE
+
+
+_DREAM_NUDGE = (
+    "<BITRANOX-DREAM-DUE>\n"
+    "A memory consolidation is due. Run bitranox:meta-dream-tree to dedup / merge / generalize / prune "
+    "the memory store (it backs up first), or say 'skip'. Adjust via bitranox:meta-memory-settings: "
+    "dream_mode 'off' silences this, 'auto' stops the per-change asking.\n"
+    "</BITRANOX-DREAM-DUE>"
+)
+
+#: The same fact, stated as a deferral rather than an ask. One line, and it names the room a dream
+#: is run from, because the ask in a work session is where a consolidation got run inline.
+_DREAM_DEFERRED = (
+    "<BITRANOX-DREAM-DUE>A memory consolidation is due - not in this session, which has a project's "
+    "work to do: run bitranox:meta-dream-tree in a session of its own (say 'dream' there), or set "
+    "dream_mode via bitranox:meta-memory-settings.</BITRANOX-DREAM-DUE>"
+)
+
+
+def dream_nudge(proj):
+    """Self-silencing nudge to run meta-dream-tree when a consolidation is due (off when mode=off).
+
+    The full ask only in a dream room (see `dream_room`); elsewhere the one-line deferral.
+    """
+    try:
+        if not dream_due(proj):
+            return None
+    except Exception:  # noqa: BLE001 - detection must never wedge the session
+        return None
+    return _DREAM_NUDGE if dream_room(proj) else _DREAM_DEFERRED
+
+
+_NEWPROJECT_NUDGE = (
+    "<BITRANOX-NEW-PROJECT>\n"
+    "This project has no memory yet. Run bitranox:meta-collect-knowledge (/collect-knowledge) to seed "
+    "it from your existing knowledge tree, so it starts informed. Say 'skip' to ignore.\n"
+    "</BITRANOX-NEW-PROJECT>"
+)
+
+
+def _collect_skill_available():
+    """True if the meta-collect-knowledge skill is installed (Phase 2). The new-project nudge stays
+    dormant until it is, so it never points at a missing skill."""
+    try:
+        root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+        base = Path(root) if root else Path(__file__).resolve().parent.parent
+        return (base / "skills" / "meta-collect-knowledge" / "SKILL.md").is_file()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def newproject_nudge(proj):
+    """Fire ONCE for a fresh, unseeded project - only when the collect skill is installed AND there
+    is knowledge elsewhere to seed from. Marks the project seeded so it self-silences."""
+    try:
+        if not _collect_skill_available():
+            return None
+        if not project_unseeded(proj) or knowledge_store_empty(proj):
+            return None
+        mark_seeded(proj)  # fire once
+    except Exception:  # noqa: BLE001 - never wedge the session
+        return None
+    return _NEWPROJECT_NUDGE
+
+
+def _nudges_on():
+    """Honor the user's config: nudges can be switched off (decision recorded, not re-asked)."""
+    try:
+        return bool(load_config().get("nudges", True))
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _self_heal(proj):
+    """Best-effort repair of the project's memory chain every session (missing/malformed stores,
+    markers, index files). Fail-open: any error is swallowed so a broken store never wedges a start."""
+    try:
+        import memory_engine
+        memory_engine.heal(proj)
+    except Exception:  # noqa: BLE001 - a hook must never block a session
+        pass
+
+
+_DECOY_CHECK_INTERVAL_S = 86400
+"""How often the decoy-anchor scan actually runs. It is a full `os.walk` of the tree (measured 1.34s
+over a 97-level tree), far too slow to pay on every start, and a decoy appears only when a migration
+leaves a drained sub-store behind - twice in two months on the tree that motivated this. Daily closes
+the gap at a fiftieth of the cost."""
+
+
+def decoy_context(proj):
+    """Warn when the tree holds a `.claude-memory` BELOW its top - a decoy anchor that silently
+    breaks body retrieval for a whole subtree.
+
+    `find_decoy_anchors` has existed for a while, but only `reconcile --check-tree` ran it, and that
+    runs only during a dream - so a decoy could shadow real bodies for however long sits between two
+    dreams. The walk-up retrieval text resolves a slug to the NEAREST store first, so a drained
+    sub-store answers with a stale or empty-stub body while the real one at the top is never read,
+    and nothing reports an error.
+
+    Throttled to :data:`_DECOY_CHECK_INTERVAL_S` via a stamp file, and fail-open like every other
+    part of this hook: a broken check must never wedge a session start.
+    """
+    try:
+        import self_improve_signals as sig
+        import uuid_store as us
+
+        # find_decoy_anchors is only meaningful below a RESOLVED anchor - a CLAUDE.md-bearing
+        # ancestor. memory_engine._anchor falls back to `proj` itself when there is none, which
+        # breaks the precondition in both directions: every live per-tree store underneath then
+        # reads as a decoy and the message tells the reader to remove it, and the walk root
+        # becomes the cwd, so a session started in a home directory walks the whole of it.
+        anchor = us.resolve_anchor(proj)
+        if anchor is None:
+            return ""
+        # Keyed per PROJECT, like audit_file beside it. One machine-wide stamp let whichever
+        # project started a session first each day consume every other tree's daily check, so a
+        # tree that really did carry a decoy was warned about only if it won that race.
+        stamp = sig._audit_dir() / (sig.proj_key(proj) + ".decoy-check.stamp")
+        if stamp.exists() and (time.time() - stamp.stat().st_mtime) < _DECOY_CHECK_INTERVAL_S:
+            return ""
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "skills" / "meta-self-improve"))
+        import reconcile_memory_index as rmi
+
+        found = rmi.find_decoy_anchors(anchor)
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(time.strftime("%Y-%m-%dT%H:%M:%S"), encoding="utf-8")
+        # The pre-5.299.2 machine-wide stamp is dead once the key is per-project, but it is a file
+        # in the user's audit dir with no owner left to remove it and nothing in it saying why it
+        # is there. Swept on the first run that writes a per-project one; missing is the normal case.
+        try:
+            (sig._audit_dir() / "decoy-check.stamp").unlink()
+        except OSError:
+            pass
+        if not found:
+            return ""
+        listed = "\n".join(f"  {d}" for d in found[:5])
+        return (
+            f"MEMORY STORE: {len(found)} decoy anchor(s) under {anchor} - a `.claude-memory` BELOW "
+            f"the tree top:\n{listed}\nWalk-up retrieval resolves a slug to the NEAREST store, so "
+            "these shadow the real bodies at the top and return stale or empty ones with no error. "
+            "A migration that centralized bodies should have deleted them. Verify each is drained, "
+            "then remove it; `reconcile_memory_index.py --check-tree` reports them in full."
+        )
+    except Exception:  # noqa: BLE001 - a hook must never block a session
+        return ""
+
+
+def _joined_bytes(blocks):
+    """Bytes these blocks cost once joined into the essentials, separators included."""
+    return sum(len(p.encode("utf-8")) + 2 for p in blocks if p)
+
+
+def main():
+    event = _read_event()
+    proj = _proj(event)
+    # Only the scaffolding steps move out of an ignored dir; the audit, backlog and retrieval
+    # blocks stay keyed on the real cwd, where the hooks that wrote them looked.
+    home = level_home(proj)
+    _self_heal(home)
+    # Everything else is assembled FIRST so the two listings can be given what is actually left.
+    # Sized against a fixture instead, the backlog overran the ceiling on the real repo while its
+    # test stayed green. The backlog is ranked work someone is waiting on, so it is sized before the
+    # contribution listing, which is the dream's business and degrades to its count line - and that
+    # line's size is held back first, so the backlog cannot spend it.
+    retrieval, audit, decoy = retrieval_context(proj), audit_context(proj), decoy_context(proj)
+    tail = [dream_nudge(home), newproject_nudge(home)] if _nudges_on() else []
+    left = _ESSENTIALS_CEILING_BYTES - _joined_bytes([retrieval, audit, decoy] + tail)
+    contrib_floor = _joined_bytes([contrib_pointer(proj)])
+    open_work = open_work_context(proj, budget=left - contrib_floor)
+    contrib = contrib_context(proj, budget=left - _joined_bytes([open_work]))
+    ctx = [p for p in [retrieval, audit, open_work, contrib, decoy] + tail if p]
+    nudge = autoupdate_nudge(proj)
+    if not ctx and not nudge:
+        return 0
+    out = {}
+    if ctx:
+        out["hookSpecificOutput"] = {
+            "hookEventName": "SessionStart",
+            "additionalContext": "\n\n".join(ctx),
+        }
+    if nudge:
+        out["systemMessage"] = nudge
+    sys.stdout.write(json.dumps(out))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:  # noqa: BLE001 - a broken hook must never block a session
+        sys.exit(0)

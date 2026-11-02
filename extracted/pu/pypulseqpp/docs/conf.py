@@ -1,0 +1,575 @@
+"""Configuration for the pypulseqpp documentation."""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import sys
+from pathlib import Path
+
+from sphinx_gallery.sorting import ExplicitOrder
+
+# The generators and the figure style live beside this file rather than on the
+# path the build was started from.
+sys.path.insert(0, str(Path(__file__).parent))
+
+import colab  # noqa: E402
+from figure_style import (  # noqa: E402
+    FIGURE_RCPARAMS,
+    column_scraper,
+    gallery_house_style,
+)
+
+project = "pypulseqpp"
+copyright = "2026, pypulseqpp contributors"  # noqa: A001
+author = "pypulseqpp contributors"
+
+extensions = [
+    "sphinx_copybutton",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.viewcode",
+    "matplotlib.sphinxext.plot_directive",
+    "sphinx_gallery.gen_gallery",
+    "myst_parser",
+]
+
+templates_path = ["_templates"]
+# A gallery header is Markdown pulled into the generated index.rst by an
+# include, so it travels into the output directory beside it and must not also
+# be built as a page of its own.
+exclude_patterns = [
+    "build",
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "**/_gallery_header.md",
+    # The catalogue includes these by path, so they must not also be built as
+    # pages, which would give every table a page of its own.
+    "generated/sequences/tables/*",
+]
+
+#: Set by ``scripts/build_docs_pdf.sh``. The manual is built from ``manual.md``,
+#: which places the landing page and the six sections side by side and adds
+#: the page of every API object: the site reaches those from the API tables
+#: rather than from the navigation, and a printed page has no links to follow.
+PDF_MANUAL = os.environ.get("PYPULSEQPP_DOCS_PDF") == "1"
+if PDF_MANUAL:
+    root_doc = "manual"
+else:
+    exclude_patterns.append("manual.md")
+
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "linkify"]
+myst_footnote_transition = False
+
+# Named, not True: with True the pages to read are taken from the environment
+# left by the previous build, which is empty on a clean checkout, and no stub is
+# written at all. `api_objects.rst` carries every object list and is written
+# ahead of autosummary's own handler.
+autosummary_generate = ["api_objects.rst"]
+autodoc_inherit_docstrings = True
+autodoc_member_order = "bysource"
+autodoc_typehints = "none"
+autodoc_class_signature = "mixed"
+autodoc_preserve_defaults = True
+
+# Object headings remain compact; the NumPy-style Parameters section is the
+# authoritative readable signature.
+
+# Minigalleries are reserved for objects that are the subject of an example,
+# rather than objects used incidentally throughout the gallery.
+GALLERY_BACKREFERENCES = {
+    "pypulseqpp.sequences.Labels",
+    "pypulseqpp.sequences.parameters",
+    "pypulseqpp.sequences.write",
+    "pypulseqpp.sequences.SequenceModule",
+    "pypulseqpp.sequences.SpatialSelectiveExcitation",
+    "pypulseqpp.sequences.LineReadout2D",
+    "pypulseqpp.sequences.SpiralReadout2D",
+}
+GALLERY_BACKREFERENCES.update(
+    f"pypulseqpp.sequences.{name}"
+    for name in (
+        "gre2D_sequence",
+        "gre3D_sequence",
+        "gre_multiecho2D_sequence",
+        "gre_multiecho3D_sequence",
+        "gre_propeller2D_sequence",
+        "gre_radial2D_sequence",
+        "gre_spiral2D_sequence",
+        "gre_stack_of_blades3D_sequence",
+        "gre_stack_of_spirals3D_sequence",
+        "gre_stack_of_stars3D_sequence",
+        "se2D_sequence",
+        "se3D_sequence",
+        "se_epi_propeller2D_sequence",
+        "se_propeller2D_sequence",
+        "se_radial2D_sequence",
+        "se_spiral2D_sequence",
+        "se_stack_of_blades3D_sequence",
+        "se_stack_of_spirals3D_sequence",
+        "se_stack_of_stars3D_sequence",
+        "mprage3D_sequence",
+        "mprage_stack_of_spirals3D_sequence",
+        "mprage_stack_of_stars3D_sequence",
+        "fse3D_sequence",
+        "bssfp2D_sequence",
+        "bssfp3D_sequence",
+        "epi2D_sequence",
+        "epi3D_sequence",
+        "zte3D_sequence",
+    )
+)
+autosummary_context = {"gallery_backreferences": GALLERY_BACKREFERENCES}
+
+napoleon_numpy_docstring = True
+napoleon_use_admonition_for_references = True
+# An Attributes section renders as a field list, as Parameters does, rather
+# than as one attribute directive per entry.
+napoleon_custom_sections = [("Attributes", "params_style")]
+
+pygments_style = "sphinx"
+highlight_language = "python"
+
+intersphinx_timeout = 10
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+}
+
+#: The gallery's subsections, in the order sphinx-gallery writes them. One
+#: directory per landing page under ``docs/examples``; sphinx-gallery nests one
+#: level only, so the hierarchy a reader navigates is built by those pages.
+GALLERY_SECTIONS = [
+    "../gallery/01-course",
+    "../gallery/02-tours",
+    "../gallery/10-gradient-echo",
+    "../gallery/11-spin-echo",
+    "../gallery/13-fast-spin-echo",
+    "../gallery/12-mprage",
+    "../gallery/14-bssfp",
+    "../gallery/15-epi",
+    "../gallery/16-zte",
+]
+
+sphinx_gallery_conf = {
+    "doc_module": "pypulseqpp",
+    "backreferences_dir": "generated/gallery_backreferences",
+    "reference_url": {"pypulseqpp": None},
+    "examples_dirs": ["../gallery"],
+    "gallery_dirs": ["generated/gallery"],
+    # Every script is executed: the sections are ordered by the list above and
+    # the scripts within a section by the numeric prefix of their file names.
+    "filename_pattern": r".*\.py",
+    "nested_sections": True,
+    "subsection_order": ExplicitOrder(GALLERY_SECTIONS),
+    "within_subsection_order": "FileNameSortKey",
+    # sphinx-gallery calls rcdefaults() before each script, so the house style
+    # is re-applied behind its own resets rather than set once in this file.
+    "reset_modules": ("matplotlib", "seaborn", gallery_house_style),
+    # Figures wider than the column are narrowed to it before they are saved;
+    # see `figure_style.column_scraper`.
+    "image_scrapers": (column_scraper,),
+    # Left off deliberately: it would strip the ignore flags before the page is
+    # written, and _hide_ignored_code_from_the_page_only needs them there.
+    "remove_config_comments": False,
+    # The Markdown section headers travel into the output directory, where the
+    # generated index.rst of each section pulls one in by an include. The root
+    # index sphinx-gallery writes is left to it: it carries every category and
+    # its thumbnails, and it is an orphan, so the gallery contributes no
+    # navigation entries of its own. `docs/examples/index.md` is the page the
+    # global navigation points at, and the landing pages under it own the
+    # example pages in hidden toctrees, which is what nests them in the sidebar.
+    "copyfile_regex": r".*\.md",
+    "exclude_implicit_doc": {"pypulseqpp.Sequence"},
+    # A cell ending in a plotting call would otherwise print the returned
+    # figure, axis label or diagram namespace beneath the figure itself.
+    "ignore_repr_types": r"matplotlib|SimpleNamespace",
+}
+
+# `reset_modules` holds a function, which Sphinx cannot pickle into its
+# configuration cache. The cache is an optimisation, and the build runs under
+# `-W`, so the note it emits would otherwise fail it.
+suppress_warnings = ["config.cache"]
+
+
+class _InventoryOutageFilter(logging.Filter):
+    """Drop the warning intersphinx logs when it cannot fetch an inventory.
+
+    The message carries no warning type, so `suppress_warnings` has no name to
+    match it by, and the build runs under `-W`: an outage at somebody else's
+    documentation host would fail this build. Cross-references into a project
+    whose inventory is missing render as their own text instead.
+
+    Deciding reachability here rather than in the mapping matters: a check of
+    our own is a second fetch with its own headers and timeout, and a project
+    it judges unreachable but intersphinx could have read loses every link
+    into it silently.
+    """
+
+    _MESSAGE = "failed to reach any of the inventories"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return self._MESSAGE not in record.getMessage()
+
+
+def _compact_signature(
+    _app, what, _name, _obj, _options, _signature, return_annotation
+):
+    """Render callable headings compactly; leave data and attributes unchanged."""
+    if what in {"function", "method", "class", "exception"}:
+        return "()", return_annotation
+    return None
+
+
+#: Links the repository README carries for readers on GitHub and PyPI, and
+#: what they become once the same file is the documentation's landing page:
+#: figures on ``main`` become this build's static copies, and a page of any
+#: published version becomes that page in this build, so each version's landing
+#: page links within that version. Badges, which link a version's root rather
+#: than one of its pages, are left as they are.
+README_REWRITES = (
+    (
+        re.compile(
+            r"https://raw\.githubusercontent\.com/pulserver/pypulseqpp/main/docs/_static/"
+        ),
+        "_static/",
+    ),
+    (
+        re.compile(
+            r"https://pulserver\.github\.io/pypulseqpp/[^/\s]+/([^\s)\"'<>#]+)\.html"
+        ),
+        r"\1.md",
+    ),
+)
+
+
+#: A ``<picture>`` in the README that chooses its variant by the reader's
+#: colour scheme: the dark ``<source>`` and the light ``<img>``.
+_PICTURE = re.compile(
+    r"<picture>\s*<source[^>]*srcset=\"(?P<dark>[^\"]+)\"[^>]*>\s*"
+    r"<img (?P<attributes>[^>]*)src=\"(?P<light>[^\"]+)\"(?P<rest>[^>]*)>\s*</picture>"
+)
+
+
+def _readme_for_docs(text: str) -> str:
+    """Apply `README_REWRITES` to the README's text.
+
+    A rewritten page link is relative to ``docs/``, the directory of the page
+    that includes the README, which is what MyST resolves it against. A
+    ``<picture>`` becomes the two images the theme shows one of, since the
+    theme's light and dark switch does not reach a media query.
+    """
+    for pattern, replacement in README_REWRITES:
+        text = pattern.sub(replacement, text)
+    return _PICTURE.sub(
+        r'<img class="only-light" \g<attributes>src="\g<light>"\g<rest>>'
+        r'<img class="only-dark" \g<attributes>src="\g<dark>"\g<rest>>',
+        text,
+    )
+
+
+def _local_readme(_app, docname, source):
+    """Rewrite the README's links when the repository README is the index page."""
+    if docname == "index":
+        source[0] = _readme_for_docs(source[0])
+
+
+def _included_readme(_app, _relative_path, parent_docname, content):
+    """Rewrite the same links in the README pulled in by an ``include``.
+
+    ``source-read`` fires on the landing page before its ``include`` runs, so
+    the README's own text is never in the source that handler sees.
+    """
+    if parent_docname == "index":
+        content[0] = _readme_for_docs(content[0])
+
+
+def _public_bases(_app, _name, _obj, _options, bases):
+    """List a private base as the nearest public class it is built on.
+
+    A private class has no page to link to, and a public class built on one
+    carries its documentation already.
+    """
+    bases[:] = [
+        next(klass for klass in base.__mro__ if not klass.__name__.startswith("_"))
+        if isinstance(base, type)
+        else base
+        for base in bases
+    ]
+
+
+def _hide_ignored_code_from_the_page_only() -> None:
+    """Strip an example's hidden blocks from the page and from nothing else.
+
+    sphinx-gallery removes the regions between ``sphinx_gallery_start_ignore``
+    and ``sphinx_gallery_end_ignore`` once, before it writes either the page or
+    the downloadable notebook, so the notebook is missing whatever the page
+    hides and fails on the first cell that needed it. Removing them as the page
+    is written instead leaves the downloadable script and notebook executable.
+
+    A cell hidden in full renders as nothing rather than as an empty
+    ``code-block`` directive. Its output is emitted separately and is kept
+    either way.
+    """
+    from sphinx_gallery import gen_rst, py_source_parser
+
+    strip = py_source_parser.remove_ignore_blocks
+
+    def keep(code):
+        strip(code)  # for its check that every flag has its partner
+        return code
+
+    py_source_parser.remove_ignore_blocks = keep
+
+    original = gen_rst.codestr2rst
+
+    def codestr2rst(code, *args, **kwargs):
+        shown = strip(code)
+        return original(shown, *args, **kwargs) if shown.strip() else ""
+
+    gen_rst.codestr2rst = codestr2rst
+
+    write_notebook = gen_rst.jupyter_notebook
+
+    def jupyter_notebook(script_blocks, *args, **kwargs):
+        """The notebook keeps the code, without the flags that hid it."""
+        return write_notebook(
+            [
+                block._replace(content=_unflagged(block.content))
+                for block in script_blocks
+            ],
+            *args,
+            **kwargs,
+        )
+
+    gen_rst.jupyter_notebook = jupyter_notebook
+
+
+def _unflagged(content: str) -> str:
+    """``content`` without the comment lines that mark a hidden region."""
+    return "\n".join(
+        line
+        for line in content.splitlines()
+        if line.strip()
+        not in ("# sphinx_gallery_start_ignore", "# sphinx_gallery_end_ignore")
+    )
+
+
+def _draw_explanation_figures(app) -> None:
+    """Render the explanation pages' figures with the pypulseqpp being built.
+
+    They are designed and analysed at build time rather than drawn once and
+    committed, so a figure cannot outlive the behaviour it reports.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(app.srcdir)))
+    from explanation_figures import render
+
+    render(Path(app.srcdir, "generated", "figures"))
+
+
+def _write_api_object_index(app) -> None:
+    """Generate every object's stub page from a page outside the navigation tree.
+
+    The API pages list their objects without ``:toctree:``; this collects the
+    same lists into an orphan page that writes the stubs, so the sidebar can
+    show the Examples hierarchy without also showing every method stub.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(app.srcdir)))
+    from api_objects import write
+
+    write(app.srcdir)
+
+
+def _write_sequence_pages(app) -> None:
+    """Write a reference page for every shipped complete sequence.
+
+    Each page is written before Sphinx reads its sources, from the table in
+    ``sequence_reference.py`` and from the sequence function's own docstring.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(app.srcdir)))
+    from sequence_reference import render
+
+    render(app.srcdir)
+
+
+_TOCTREE = re.compile(r"```\{toctree\}.*?```\n?", re.S)
+
+
+def _landing_page_in_the_manual(_app, docname, source):
+    """Drop the landing page's toctree when ``manual.md`` holds the sections."""
+    if PDF_MANUAL and docname == "index":
+        source[0] = _TOCTREE.sub("", source[0])
+
+
+def _object_pages_in_the_manual(_app, doctree) -> None:
+    """Unwrap autosummary's toctrees, for the PDF only.
+
+    The single-page builder inlines each object's page where the toctree
+    naming it stands, and the HTML writer skips everything inside the node
+    autosummary wraps its toctree in.
+    """
+    if not PDF_MANUAL:
+        return
+    from sphinx.ext.autosummary import autosummary_toc
+
+    for node in list(doctree.findall(autosummary_toc)):
+        node.replace_self(node.children)
+
+
+def _colab_badge(_app, docname, source) -> None:
+    """Put the Open in Colab badge under a gallery example's title."""
+    source[0] = colab.with_badge(source[0], docname, DOCS_RELEASE)
+
+
+def _colab_notebooks(app, exception) -> None:
+    """Write the Colab copies of the gallery's notebooks into the built HTML site."""
+    if exception is None and app.builder.name == "html" and not PDF_MANUAL:
+        colab.write(Path(app.srcdir), Path(app.outdir), DOCS_RELEASE)
+
+
+def _constant_comment(_app, what, name, obj, _options, lines) -> None:
+    """Document a re-exported constant by the ``#:`` comment where it is defined.
+
+    Autodoc reads such a comment only from the module it documents the name
+    in, and otherwise prints the docstring of the constant's type.
+    """
+    if what != "data" or lines[:1] != (type(obj).__doc__ or "").splitlines()[:1]:
+        return
+    import sys
+
+    from sphinx.errors import PycodeError
+    from sphinx.pycode import ModuleAnalyzer
+
+    attribute = name.rpartition(".")[2]
+    for module_name, module in list(sys.modules.items()):
+        if (
+            not module_name.startswith("pypulseqpp")
+            or getattr(module, attribute, None) is not obj
+        ):
+            continue
+        try:
+            comment = ModuleAnalyzer.for_module(module_name).find_attr_docs()
+        except PycodeError:
+            continue
+        if ("", attribute) in comment:
+            lines[:] = list(comment[("", attribute)])
+            return
+
+
+def setup(app):
+    """Install the filter ahead of Sphinx's own, which count the warning."""
+    _hide_ignored_code_from_the_page_only()
+    app.connect("autodoc-process-bases", _public_bases)
+    app.connect("autodoc-process-signature", _compact_signature)
+    app.connect("autodoc-process-docstring", _constant_comment)
+    app.connect("source-read", _local_readme)
+    app.connect("include-read", _included_readme)
+    app.connect("source-read", _colab_badge)
+    app.connect("source-read", _landing_page_in_the_manual)
+    app.connect("doctree-read", _object_pages_in_the_manual)
+    app.connect("build-finished", _colab_notebooks)
+    app.connect("builder-inited", _draw_explanation_figures)
+    # Ahead of autosummary's own handler, which reads the sources for the
+    # objects it writes stubs for: a page written after it would only be read
+    # on the next build, and its stubs would be a build behind the templates.
+    app.connect("builder-inited", _write_api_object_index, priority=100)
+    app.connect("builder-inited", _write_sequence_pages, priority=100)
+    handlers = logging.getLogger("sphinx").handlers
+    if not handlers:
+        print("conf.py: no Sphinx log handler; an inventory outage will fail the build")
+    for handler in handlers:
+        handler.filters.insert(0, _InventoryOutageFilter())
+
+
+DOCS_VERSION = os.environ.get("PYPULSEQPP_DOCS_VERSION", "latest")
+PAGES_URL = "https://pulserver.github.io/pypulseqpp"
+
+#: Which published version this build is: ``latest`` for main, the tag for a
+#: release. The switcher marks it and warns on a page older than the newest
+#: release; ``DOCS_VERSION`` is the canonical name instead, ``stable`` for a
+#: release, which is what the page links point at.
+DOCS_RELEASE = os.environ.get("PYPULSEQPP_DOCS_RELEASE", "latest")
+
+#: The theme decides whether to warn that a page is not the current release by
+#: comparing this with the version marked preferred in `versions.json`, not by
+#: the `version_match` above -- so leaving it unset warns on every page,
+#: `stable` included. A release build carries its tag and matches; `latest` is
+#: not a version and does not, which is what the banner is for.
+version = release = DOCS_RELEASE
+
+html_theme = "sphinx_book_theme"
+html_theme_options = {
+    "repository_url": "https://github.com/pulserver/pypulseqpp",
+    # Where the pages live in the repository: the edit button links to the
+    # source file under it, and defaults to the repository root without this.
+    "path_to_docs": "docs",
+    "use_repository_button": True,
+    "use_issues_button": True,
+    "use_edit_page_button": True,
+    "home_page_in_toc": True,
+    # Two files rather than one SVG with a colour-scheme media query: inside an
+    # <img> such a query follows the operating system, not the site's toggle.
+    "logo": {
+        "image_light": "_static/pypulseqpp-mark.svg",
+        "image_dark": "_static/pypulseqpp-mark-dark.svg",
+        "alt_text": "pypulseqpp",
+    },
+    # The list every published version is in, written beside the versions by
+    # scripts/publish_docs.py. The page fetches it when it loads, so a build
+    # served from anywhere else leaves the switcher out. The theme's check of
+    # the list at build time is off: the list exists only once a version has
+    # been published.
+    "switcher": {
+        "json_url": f"{PAGES_URL}/versions.json",
+        "version_match": DOCS_RELEASE,
+    },
+    "check_switcher": False,
+    "show_version_warning_banner": True,
+    # The sidebar carries the hierarchy, not every leaf: the Examples tree
+    # down to its sequence families, and the API reference down to its
+    # category pages. Individual examples are reached from the tables on the
+    # landing pages, and individual objects from the tables on the API pages,
+    # whose stubs are generated from `docs/api_objects.rst` and so never
+    # enter this tree.
+    "max_navbar_depth": 3,
+    "show_navbar_depth": 1,
+    # pydata-sphinx-theme puts a second search field in the header on wide
+    # screens; the one in the sidebar is enough.
+    "navbar_persistent": [],
+}
+
+#: The theme's own sidebar, with the version switcher under the title.
+html_sidebars = {
+    "**": [
+        "navbar-logo.html",
+        "icon-links.html",
+        "version-switcher.html",
+        "search-button-field.html",
+        "sbt-sidebar-nav.html",
+    ]
+}
+html_baseurl = f"{PAGES_URL}/{DOCS_VERSION}/"
+html_title = "pypulseqpp documentation"
+# The landing page is the repository README, whose figures are rewritten to
+# these copies by the handlers above, and the PDF cover reads the wordmark
+# from here as well.
+html_static_path = ["_static"]
+html_css_files = ["pypulseqpp.css"]
+plot_include_source = True
+plot_html_show_source_link = False
+plot_formats = [("svg", 96)]
+plot_rcparams = FIGURE_RCPARAMS
+plot_apply_rcparams = True

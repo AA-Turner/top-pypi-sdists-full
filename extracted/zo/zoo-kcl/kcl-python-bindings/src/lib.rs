@@ -1,0 +1,1515 @@
+#![allow(clippy::useless_conversion)]
+use std::future::Future;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use anyhow::Result;
+use kcl_api::UnitAngle;
+use kcl_api::UnitLength;
+use kcl_lib::ExecState;
+use kcl_lib::ExecutorContext;
+use kcl_lib::IsRetryable;
+use kcl_lib::Program;
+use kcl_lib::lint::Discovered;
+use kcl_lib::lint::FindingFamily;
+use kcl_lib::lint::checks;
+use kcl_lib::unit_conversion::ToKcmc;
+use kittycad_modeling_cmds::ImageFormat;
+use kittycad_modeling_cmds::ImportFile;
+use kittycad_modeling_cmds::ModelingCmd;
+use kittycad_modeling_cmds::format::InputFormat3d;
+use kittycad_modeling_cmds::format::OutputFormat3d;
+use kittycad_modeling_cmds::ok_response::OkModelingCmdResponse;
+use kittycad_modeling_cmds::shared::FileExportFormat;
+use kittycad_modeling_cmds::websocket::OkWebSocketResponseData;
+use kittycad_modeling_cmds::websocket::RawFile;
+use kittycad_modeling_cmds::{self as kcmc};
+use pyo3::Bound;
+use pyo3::Py;
+use pyo3::PyErr;
+use pyo3::PyResult;
+use pyo3::Python;
+use pyo3::exceptions::PyException;
+use pyo3::prelude::PyModuleMethods;
+use pyo3::pyclass;
+use pyo3::pyfunction;
+use pyo3::pymethods;
+use pyo3::pymodule;
+use pyo3::types::PyAny;
+use pyo3::types::PyAnyMethods;
+use pyo3::types::PyModule;
+use pyo3::wrap_pyfunction;
+use pyo3_stub_gen::define_stub_info_gatherer;
+use serde::Deserialize;
+use serde::Serialize;
+use uuid::Uuid;
+
+use crate::bridge::bounding_box::BoundingBoxResponse;
+use crate::bridge::compilation_issue::CompilationIssue;
+use crate::bridge::physical_properties::PhysicalPropertiesRequest;
+use crate::bridge::physical_properties::PhysicalPropertiesResponse;
+use crate::bridge::sketch_constraints::KclErrorInfo;
+use crate::bridge::sketch_constraints::SketchConstraintReport;
+
+const HEARTBEAT_INTERVAL_SECONDS: u64 = 5;
+
+mod bridge;
+mod kcl_session;
+
+fn tokio() -> &'static tokio::runtime::Runtime {
+    use std::sync::OnceLock;
+    static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+    RT.get_or_init(|| tokio::runtime::Runtime::new().unwrap())
+}
+
+async fn spawn_py<T, Fut>(future: Fut) -> PyResult<T>
+where
+    T: Send + 'static,
+    Fut: Future<Output = PyResult<T>> + Send + 'static,
+{
+    struct AbortOnDrop(tokio::task::AbortHandle);
+
+    impl Drop for AbortOnDrop {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
+
+    let task = tokio().spawn(future);
+    // Python cancellation drops this future; the native task must stop with it.
+    let _abort_on_drop = AbortOnDrop(task.abort_handle());
+    task.await.map_err(|err| PyException::new_err(err.to_string()))?
+}
+
+fn into_rich_error(error: kcl_lib::KclErrorWithOutputs, filename: &str, code: &str) -> PyErr {
+    let retryable = error.is_retryable();
+    let error_text = render_miette(error.clone(), code);
+    let constraint_report = sketch_constraint_report_from_error(&error, filename, code, error_text.clone());
+    Python::attach(|py| -> PyResult<PyErr> {
+        let exception = Bound::new(
+            py,
+            PyKclError {
+                retryable,
+                sketch_constraint_report: Some(constraint_report),
+                partial_execution: Some(error),
+            },
+        )?;
+        // We must set the exception's arguments here, because constructing it directly
+        // in Rust (above) bypasses the usual Python constructor, which usually sets the exception arguments.
+        exception.setattr("args", (error_text, retryable))?;
+        Ok(PyErr::from_value(exception.into_any()))
+    })
+    .unwrap_or_else(|error| error)
+}
+
+fn render_miette(error: kcl_lib::KclErrorWithOutputs, code: &str) -> String {
+    let fallback = error.error.to_string();
+    match error.into_miette_report_with_outputs(code) {
+        Ok(report) => format!("{:?}", miette::Report::new(report)),
+        Err(_) => fallback,
+    }
+}
+
+fn into_miette_for_parse(filename: &str, input: &str, error: kcl_lib::KclError) -> PyErr {
+    let retryable = error.is_retryable();
+    PyErr::new::<PyKclError, _>((render_miette_for_parse(filename, input, error), retryable))
+}
+
+fn render_miette_for_parse(filename: &str, input: &str, error: kcl_lib::KclError) -> String {
+    let report = kcl_lib::Report {
+        kcl_source: input.to_string(),
+        error,
+        filename: filename.to_string(),
+        label: filename.to_string(),
+    };
+    let report = miette::Report::new(report);
+    format!("{report:?}")
+}
+
+fn add_execution_issues(
+    report: &mut SketchConstraintReport,
+    issues: Vec<kcl_lib::CompilationIssue>,
+    render: impl Fn(kcl_lib::CompilationIssue) -> String,
+) {
+    for issue in issues {
+        let severity = issue.severity;
+        let rendered = render(issue);
+        if severity.is_fatal() {
+            report.execution_fatals.push(rendered);
+        } else if severity.is_err() {
+            report.execution_errors.push(rendered);
+        } else {
+            report.warnings.push(rendered);
+        }
+    }
+}
+
+fn sketch_constraint_report_from_error(
+    error: &kcl_lib::KclErrorWithOutputs,
+    filename: &str,
+    code: &str,
+    error_text: String,
+) -> SketchConstraintReport {
+    let mut report: SketchConstraintReport = error.sketch_constraint_report().into();
+    add_execution_issues(&mut report, error.non_fatal.clone(), |issue| {
+        kcl_lib::render_compilation_issue_miette(filename, code, &error.source_files, issue)
+    });
+    report.is_complete = false;
+    report.kcl_error = Some(KclErrorInfo {
+        phase: "execution".to_string(),
+        text: error_text,
+    });
+    report
+}
+
+fn incomplete_sketch_constraint_report(phase: &str, text: String) -> SketchConstraintReport {
+    SketchConstraintReport {
+        fully_constrained: Vec::new(),
+        under_constrained: Vec::new(),
+        over_constrained: Vec::new(),
+        errors: Vec::new(),
+        warnings: Vec::new(),
+        execution_errors: Vec::new(),
+        execution_fatals: Vec::new(),
+        is_complete: false,
+        kcl_error: Some(KclErrorInfo {
+            phase: phase.to_string(),
+            text,
+        }),
+    }
+}
+
+/// Get the path to the current file from the path given, and read the code.
+async fn get_code_and_file_path(path: &str) -> Result<(String, std::path::PathBuf)> {
+    let mut path = std::path::PathBuf::from(path);
+    // Check if the path is a directory, if so we want to look for a main.kcl inside.
+    if path.is_dir() {
+        path = path.join("main.kcl");
+        if !path.exists() {
+            return Err(anyhow::anyhow!("Directory must contain a main.kcl file"));
+        }
+    } else {
+        // Otherwise be sure we have a kcl file.
+        if let Some(ext) = path.extension()
+            && ext != "kcl"
+        {
+            return Err(anyhow::anyhow!("File must have a .kcl extension"));
+        }
+    }
+
+    let code = tokio::fs::read_to_string(&path).await?;
+    Ok((code, path))
+}
+
+enum KclInput {
+    Path(String),
+    Code(String),
+}
+
+struct KclProgram {
+    code: String,
+    program: kcl_lib::Program,
+    path: Option<PathBuf>,
+    filename: String,
+}
+
+fn into_kcl_exception(error: kcl_lib::KclError) -> PyErr {
+    let retryable = error.is_retryable();
+    PyErr::new::<PyKclError, _>((error.to_string(), retryable))
+}
+
+// Keep the stub for this exception manual in `kcl.pyi`. `pyo3_stub_gen`
+// generates code for this `PyException` subclass that does not compile on
+// PyPy, because it references `pyo3::prepare_freethreaded_python`.
+/// A rich KCL error that does more than just error reporting:
+/// it also lets you get data about the failed execution, like sketch reports,
+/// whether or not to retry, etc.
+#[pyclass(name = "KclError", extends = PyException, from_py_object)]
+#[derive(Debug, Clone)]
+struct PyKclError {
+    retryable: bool,
+    #[pyo3(get)]
+    sketch_constraint_report: Option<SketchConstraintReport>,
+    partial_execution: Option<kcl_lib::KclErrorWithOutputs>,
+}
+
+#[pymethods]
+impl PyKclError {
+    // TODO: Do we even want this constructor? We surely want users
+    // to pass in the sketch constraint report and partial execution result.
+    #[new]
+    #[pyo3(signature = (_message, retryable = false))]
+    fn new(_message: &Bound<'_, PyAny>, retryable: bool) -> Self {
+        Self {
+            retryable,
+            sketch_constraint_report: None,
+            partial_execution: None,
+        }
+    }
+
+    /// Render a sketch created before execution failed as a PNG.
+    /// Use instance_index from the partial constraint report for duplicate names.
+    #[pyo3(signature = (sketch_name, *, instance_index=None))]
+    fn render_sketch_png(&self, sketch_name: &str, instance_index: Option<usize>) -> PyResult<Vec<u8>> {
+        let partial_execution = self
+            .partial_execution
+            .as_ref()
+            .ok_or_else(|| PyException::new_err("No partial execution is available for sketch rendering"))?;
+        partial_execution
+            .render_sketch_png_instance(sketch_name, instance_index)
+            .map_err(to_py_exception)
+    }
+
+    fn is_retryable(&self) -> bool {
+        self.retryable
+    }
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone, Copy)]
+pub struct DefaultUnits {
+    length: UnitLength,
+    angle: UnitAngle,
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pymethods]
+impl DefaultUnits {
+    #[getter]
+    fn length(&self) -> PyResult<UnitLength> {
+        Ok(self.length)
+    }
+
+    #[getter]
+    fn angle(&self) -> PyResult<UnitAngle> {
+        Ok(self.angle)
+    }
+}
+
+async fn load_and_parse(input: KclInput) -> PyResult<KclProgram> {
+    let (code, path, filename) = match input {
+        KclInput::Path(input_path) => {
+            let (code, path) = get_code_and_file_path(&input_path).await.map_err(to_py_exception)?;
+            let filename = path.display().to_string();
+            (code, Some(path), filename)
+        }
+        KclInput::Code(code) => (code, None, String::new()),
+    };
+
+    let program = kcl_lib::Program::parse_no_errs(&code).map_err(|err| into_miette_for_parse(&filename, &code, err))?;
+
+    Ok(KclProgram {
+        code,
+        program,
+        path,
+        filename,
+    })
+}
+
+fn executor_settings(
+    current_file: Option<PathBuf>,
+    highlight_edges: Option<bool>,
+    geometry_only: bool,
+) -> kcl_lib::ExecutorSettings {
+    let mut settings: kcl_lib::ExecutorSettings = kcl_lib::ExecutorSettings {
+        heartbeats: Some(HEARTBEAT_INTERVAL_SECONDS),
+        geometry_only,
+        ..Default::default()
+    };
+    if let Some(current_file) = current_file {
+        settings.with_current_file(kcl_lib::TypedPath(current_file));
+    }
+    if let Some(highlight_edges) = highlight_edges {
+        settings.highlight_edges = highlight_edges;
+    }
+    // Must turn on SSAO, without it, transparent images will look opaque.
+    settings.enable_ssao = true;
+    settings
+}
+
+#[derive(Debug, Default)]
+struct ContextParams {
+    current_file: Option<PathBuf>,
+    mock: bool,
+    highlight_edges: Option<bool>,
+    geometry_only: bool,
+    video_res_width: Option<u32>,
+    video_res_height: Option<u32>,
+    token: Option<String>,
+    base_url: Option<String>,
+}
+
+// Keep the Python session's independent keyword options explicit at this boundary.
+async fn new_context_state(
+    kcl_version: kcl_lib::KclVersion,
+    ContextParams {
+        current_file,
+        mock,
+        highlight_edges,
+        geometry_only,
+        video_res_width,
+        video_res_height,
+        token,
+        base_url,
+    }: ContextParams,
+) -> Result<(ExecutorContext, kcl_lib::ExecState)> {
+    let mut settings = executor_settings(current_file, highlight_edges, geometry_only);
+    settings.video_res_width = video_res_width;
+    settings.video_res_height = video_res_height;
+    let ctx = if mock {
+        ExecutorContext::new_mock(Some(settings)).await
+    } else {
+        ExecutorContext::new_with_client(settings, token, base_url, kcl_version).await?
+    };
+    let state = kcl_lib::ExecState::new(&ctx);
+    Ok((ctx, state))
+}
+
+/// Returned from execution functions.
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone)]
+struct ExecOutcome {
+    inner: Arc<kcl_lib::ExecOutcome>,
+    code: Arc<str>,
+    filename: Arc<str>,
+}
+
+impl ExecOutcome {
+    /// Render the issue against the module source its range points into,
+    /// falling back to the top-level source captured at execution time.
+    fn render_issue(&self, issue: kcl_lib::CompilationIssue) -> String {
+        kcl_lib::render_compilation_issue_miette(&self.filename, &self.code, &self.inner.source_files, issue)
+    }
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pymethods]
+impl ExecOutcome {
+    fn issues(&self) -> PyResult<Vec<CompilationIssue>> {
+        Ok(self.inner.issues.iter().cloned().map(CompilationIssue::from).collect())
+    }
+
+    /// Render the given compilation issue as a miette report string, using
+    /// the source code and filenames captured at execution time.
+    fn report(&self, issue: &CompilationIssue) -> String {
+        self.render_issue(issue.inner.clone())
+    }
+
+    /// Analyze all sketches from this execution and group them by constraint
+    /// status.
+    fn sketch_constraint_report(&self) -> SketchConstraintReport {
+        let mut report: SketchConstraintReport = self.inner.sketch_constraint_report().into();
+        add_execution_issues(&mut report, self.inner.issues.clone(), |issue| self.render_issue(issue));
+        report
+    }
+
+    /// Render one sketch from this execution as a PNG, colored by solver
+    /// freedom. For duplicate names, pass the zero-based instance_index
+    /// from the constraint report for this entrypoint and source.
+    #[pyo3(signature = (sketch_name, *, instance_index=None))]
+    fn render_sketch_png(&self, sketch_name: &str, instance_index: Option<usize>) -> PyResult<Vec<u8>> {
+        self.inner
+            .render_sketch_png_instance(sketch_name, instance_index)
+            .map_err(to_py_exception)
+    }
+
+    fn report_all(&self) -> Vec<String> {
+        self.inner
+            .issues
+            .iter()
+            .cloned()
+            .map(CompilationIssue::from)
+            .map(|issue| self.report(&issue))
+            .collect()
+    }
+}
+
+struct ExecutedKcl {
+    ctx: ExecutorContext,
+    state: kcl_lib::ExecState,
+    outcome: kcl_lib::ExecOutcome,
+    program: kcl_lib::Program,
+    code: String,
+    filename: String,
+}
+
+/// If mock execution, execute locally.
+/// Otherwise, execute remote on engine, to minimize latency.
+async fn execute_in_context(
+    ctx: &ExecutorContext,
+    state: &mut ExecState,
+    program: &Program,
+) -> Result<kcl_lib::ExecOutcome, kcl_lib::KclErrorWithOutputs> {
+    if ctx.is_mock() {
+        let (env_ref, _) = ctx.run(program, state).await?;
+        state
+            .clone()
+            .into_exec_outcome(env_ref, ctx)
+            .await
+            .map_err(kcl_lib::KclErrorWithOutputs::no_outputs)
+    } else {
+        ctx.execute_remote_project(program, state).await
+    }
+}
+
+async fn run_kcl(
+    input: KclInput,
+    mock: bool,
+    highlight_edges: Option<bool>,
+    geometry_only: bool,
+) -> PyResult<ExecutedKcl> {
+    let KclProgram {
+        code,
+        program,
+        path,
+        filename,
+    } = load_and_parse(input).await?;
+
+    let (ctx, mut state) = new_context_state(
+        program
+            .language_version()
+            .map_err(|err| into_miette_for_parse(&filename, &code, err))?,
+        ContextParams {
+            current_file: path,
+            mock,
+            highlight_edges,
+            geometry_only,
+            ..Default::default()
+        },
+    )
+    .await
+    .map_err(to_py_exception)?;
+    let outcome = match execute_in_context(&ctx, &mut state, &program).await {
+        Ok(result) => result,
+        Err(err) => {
+            ctx.close().await;
+            return Err(into_rich_error(err, &filename, &code));
+        }
+    };
+    Ok(ExecutedKcl {
+        ctx,
+        state,
+        outcome,
+        program,
+        code,
+        filename,
+    })
+}
+
+async fn execute_impl(input: KclInput, mock: bool, geometry_only: bool) -> PyResult<ExecOutcome> {
+    let ExecutedKcl {
+        ctx,
+        outcome,
+        code,
+        filename,
+        ..
+    } = run_kcl(input, mock, None, geometry_only).await?;
+    ctx.close().await;
+    Ok(ExecOutcome {
+        inner: Arc::new(outcome),
+        code: code.into(),
+        filename: filename.into(),
+    })
+}
+
+async fn sketch_constraint_report_impl(input: KclInput) -> PyResult<SketchConstraintReport> {
+    let (code, path, filename) = match input {
+        KclInput::Path(input_path) => {
+            let (code, path) = get_code_and_file_path(&input_path).await.map_err(to_py_exception)?;
+            let filename = path.display().to_string();
+            (code, Some(path), filename)
+        }
+        KclInput::Code(code) => (code, None, String::new()),
+    };
+
+    let program = match kcl_lib::Program::parse_no_errs(&code) {
+        Ok(program) => program,
+        Err(err) => {
+            let error_text = render_miette_for_parse(&filename, &code, err);
+            return Ok(incomplete_sketch_constraint_report("parse", error_text));
+        }
+    };
+
+    let kcl_version = match program.language_version() {
+        Ok(version) => version,
+        Err(err) => {
+            let error_text = render_miette_for_parse(&filename, &code, err);
+            return Ok(incomplete_sketch_constraint_report("parse", error_text));
+        }
+    };
+
+    let (ctx, mut state) = new_context_state(
+        kcl_version,
+        ContextParams {
+            current_file: path,
+            mock: false,
+            geometry_only: false,
+            ..Default::default()
+        },
+    )
+    .await
+    .map_err(to_py_exception)?;
+    let result = match execute_in_context(&ctx, &mut state, &program).await {
+        Ok(outcome) => {
+            let mut report: SketchConstraintReport = outcome.sketch_constraint_report().into();
+            add_execution_issues(&mut report, outcome.issues, |issue| {
+                kcl_lib::render_compilation_issue_miette(&filename, &code, &outcome.source_files, issue)
+            });
+            Ok(report)
+        }
+        Err(err) => {
+            if err.is_retryable() {
+                ctx.close().await;
+                return Err(into_rich_error(err, &filename, &code));
+            }
+            let error_text = render_miette(err.clone(), &code);
+            Ok(sketch_constraint_report_from_error(&err, &filename, &code, error_text))
+        }
+    };
+    ctx.close().await;
+    result
+}
+
+async fn execute_and_snapshot_views_impl(
+    input: KclInput,
+    image_format: ImageFormat,
+    snapshot_options: Vec<SnapshotOptions>,
+    zoom: bool,
+    highlight_edges: Option<bool>,
+) -> PyResult<Vec<Vec<u8>>> {
+    let geometry_only = true;
+    let ExecutedKcl { ctx, mut state, .. } = run_kcl(input, false, highlight_edges, geometry_only).await?;
+    let result = take_snaps(&ctx, &mut state, image_format, snapshot_options, zoom).await;
+    ctx.close().await;
+    result
+}
+
+async fn execute_and_measure_impl(
+    input: KclInput,
+    request: PhysicalPropertiesRequest,
+    geometry_only: bool,
+) -> PyResult<PhysicalPropertiesResponse> {
+    let ExecutedKcl { ctx, .. } = run_kcl(input, false, None, geometry_only).await?;
+    let result = measure_model_properties(&ctx, request).await;
+    ctx.close().await;
+    result
+}
+
+fn parse_uuid(entity_id: &str) -> PyResult<Uuid> {
+    Uuid::parse_str(entity_id).map_err(|err| PyException::new_err(format!("Invalid ID `{entity_id}`: {err}")))
+}
+
+fn parse_entity_ids(entity_ids: Vec<String>) -> PyResult<Vec<Uuid>> {
+    entity_ids.into_iter().map(|s| parse_uuid(&s)).collect()
+}
+
+async fn execute_and_bounding_box_impl(
+    input: KclInput,
+    entity_ids: Vec<String>,
+    output_unit: Option<UnitLength>,
+    geometry_only: bool,
+) -> PyResult<BoundingBoxResponse> {
+    let entity_ids = parse_entity_ids(entity_ids)?;
+    let ExecutedKcl { ctx, .. } = run_kcl(input, false, None, geometry_only).await?;
+    let result = get_bounding_box(&ctx, entity_ids, output_unit).await;
+    ctx.close().await;
+    result
+}
+
+async fn execute_and_export_impl(
+    input: KclInput,
+    export_format: FileExportFormat,
+    geometry_only: bool,
+) -> PyResult<Vec<RawFile>> {
+    let ExecutedKcl {
+        ctx,
+        program,
+        code,
+        filename,
+        ..
+    } = run_kcl(input, false, None, geometry_only).await?;
+
+    let result = export_from_executed(&ctx, &program, &code, &filename, export_format).await;
+    ctx.close().await;
+    result
+}
+
+/// This will not close the connection on error, caller should close if they're done with the connection.
+async fn export_from_executed(
+    ctx: &ExecutorContext,
+    program: &Program,
+    code: &str,
+    filename: &str,
+    export_format: FileExportFormat,
+) -> PyResult<Vec<RawFile>> {
+    let settings = match program.meta_settings() {
+        Ok(x) => x.unwrap_or_default(),
+        Err(err) => {
+            return Err(into_miette_for_parse(filename, code, err));
+        }
+    };
+    let units: UnitLength = settings.default_length_units.into();
+
+    // This will not return until there are files.
+    let export_res = ctx
+        .engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            uuid::Uuid::new_v4(),
+            kcl_lib::SourceRange::default(),
+            &kittycad_modeling_cmds::ModelingCmd::Export(
+                kittycad_modeling_cmds::Export::builder()
+                    .entity_ids(vec![])
+                    .format(OutputFormat3d::new(
+                        &export_format,
+                        kcmc::format::OutputFormat3dOptions::new(units.to_kcmc()),
+                    ))
+                    .build(),
+            ),
+        )
+        .await;
+    let resp = match export_res {
+        Ok(x) => x,
+        Err(e) => {
+            return Err(into_kcl_exception(e));
+        }
+    };
+
+    let files = match resp {
+        kittycad_modeling_cmds::websocket::OkWebSocketResponseData::Export { files } => files,
+        _ => {
+            return Err(pyo3::exceptions::PyException::new_err(format!(
+                "Unexpected response from engine: {resp:?}"
+            )));
+        }
+    };
+    Ok(files)
+}
+
+/// Parse the kcl code from a file path.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn parse(path: String) -> PyResult<bool> {
+    spawn_py(async move {
+        let _parsed = load_and_parse(KclInput::Path(path)).await?;
+
+        Ok(true)
+    })
+    .await
+}
+
+/// Get the default length and angle units from a kcl file.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn default_units(path: String) -> PyResult<DefaultUnits> {
+    spawn_py(async move {
+        let KclProgram {
+            code,
+            program,
+            filename,
+            ..
+        } = load_and_parse(KclInput::Path(path)).await?;
+
+        let settings = program
+            .meta_settings()
+            .map_err(|err| into_miette_for_parse(&filename, &code, err))?
+            .unwrap_or_default();
+
+        Ok(DefaultUnits {
+            length: settings.default_length_units,
+            angle: settings.default_angle_units,
+        })
+    })
+    .await
+}
+
+/// Parse the kcl code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn parse_code(code: String) -> PyResult<bool> {
+    let _program = kcl_lib::Program::parse_no_errs(&code).map_err(|err| into_miette_for_parse("", &code, err))?;
+
+    Ok(true)
+}
+
+/// Execute the kcl code from a file path.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, *, geometry_only=false))]
+async fn execute(path: String, geometry_only: bool) -> PyResult<ExecOutcome> {
+    spawn_py(async move { execute_impl(KclInput::Path(path), false, geometry_only).await }).await
+}
+
+/// Execute the kcl code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (code, *, geometry_only=false))]
+async fn execute_code(code: String, geometry_only: bool) -> PyResult<ExecOutcome> {
+    spawn_py(async move { execute_impl(KclInput::Code(code), false, geometry_only).await }).await
+}
+
+/// Mock execute the kcl code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn mock_execute_code(code: String) -> PyResult<ExecOutcome> {
+    spawn_py(async move { execute_impl(KclInput::Code(code), true, false).await }).await
+}
+
+/// Mock execute the kcl code from a file path.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn mock_execute(path: String) -> PyResult<ExecOutcome> {
+    spawn_py(async move { execute_impl(KclInput::Path(path), true, false).await }).await
+}
+
+/// Execute a kcl file and return a report of sketch constraint status.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn get_sketch_constraint_status(path: String) -> PyResult<SketchConstraintReport> {
+    spawn_py(async move { sketch_constraint_report_impl(KclInput::Path(path)).await }).await
+}
+
+/// Execute kcl code and return a report of sketch constraint status.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn get_sketch_constraint_status_code(code: String) -> PyResult<SketchConstraintReport> {
+    spawn_py(async move { sketch_constraint_report_impl(KclInput::Code(code)).await }).await
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (filepaths, format, image_format, *, zoom=None, highlight_edges=None))]
+async fn import_and_snapshot(
+    filepaths: Vec<String>,
+    format: InputFormat3d,
+    image_format: ImageFormat,
+    zoom: Option<bool>,
+    highlight_edges: Option<bool>,
+) -> PyResult<Vec<u8>> {
+    let zoom = zoom.unwrap_or(true);
+    let img = import_and_snapshot_views(filepaths, format, image_format, Vec::new(), Some(zoom), highlight_edges)
+        .await?
+        .pop();
+    Ok(img.unwrap())
+}
+
+fn to_py_exception(err: impl std::fmt::Display) -> PyErr {
+    PyException::new_err(err.to_string())
+}
+
+/// Get the allowed relevant file extensions (imports + kcl).
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn relevant_file_extensions() -> PyResult<Vec<String>> {
+    Ok(kcl_lib::RELEVANT_FILE_EXTENSIONS
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>())
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (filepaths, format, image_format, snapshot_options, *, zoom=None, highlight_edges=None))]
+async fn import_and_snapshot_views(
+    filepaths: Vec<String>,
+    format: InputFormat3d,
+    image_format: ImageFormat,
+    snapshot_options: Vec<SnapshotOptions>,
+    zoom: Option<bool>,
+    highlight_edges: Option<bool>,
+) -> PyResult<Vec<Vec<u8>>> {
+    let zoom = zoom.unwrap_or(true);
+    let geometry_only = true;
+    spawn_py(async move {
+        let (ctx, mut state) = new_context_state(
+            kcl_lib::KclVersion::default(),
+            ContextParams {
+                mock: false,
+                highlight_edges,
+                geometry_only,
+                ..Default::default()
+            },
+        )
+        .await
+        .map_err(to_py_exception)?;
+        if let Err(e) = import(&ctx, filepaths, format).await {
+            ctx.close().await;
+            return Err(e);
+        }
+        let result = take_snaps(&ctx, &mut state, image_format, snapshot_options, zoom).await;
+        ctx.close().await;
+        result
+    })
+    .await
+}
+
+/// Make an absolute path not absolute. We need to do this to re-root files
+/// under a directory by using [Path::join].
+pub(crate) fn unabs_path(path: &Path) -> &Path {
+    if !path.is_absolute() {
+        return path;
+    }
+    path.strip_prefix("/").expect("not possible given is_absolute check")
+}
+
+/// Return the ID of the imported object.
+async fn import(ctx: &ExecutorContext, filepaths: Vec<String>, format: InputFormat3d) -> PyResult<Uuid> {
+    let mut files = Vec::with_capacity(filepaths.len());
+    for filepath in filepaths {
+        let filepath = Path::new(&filepath);
+        let file_contents = tokio::fs::read(&filepath).await.map_err(to_py_exception)?;
+        let relative_filepath = unabs_path(filepath);
+        files.push(
+            ImportFile::builder()
+                .path(relative_filepath.display().to_string())
+                .data(file_contents)
+                .build(),
+        );
+    }
+    let resp = ctx
+        .engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            Uuid::new_v4(),
+            Default::default(),
+            &kcmc::ModelingCmd::ImportFiles(kcmc::ImportFiles::builder().files(files).format(format).build()),
+        )
+        .await
+        .map_err(into_kcl_exception)?;
+    let kittycad_modeling_cmds::websocket::OkWebSocketResponseData::Modeling {
+        modeling_response: OkModelingCmdResponse::ImportFiles(data),
+    } = resp
+    else {
+        return Err(pyo3::exceptions::PyException::new_err(format!(
+            "Unexpected response from engine: {resp:?}",
+        )));
+    };
+    Ok(data.object_id)
+}
+
+/// Execute a kcl file and snapshot it in a specific format.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, image_format, *, zoom=None, highlight_edges=None))]
+async fn execute_and_snapshot(
+    path: String,
+    image_format: ImageFormat,
+    zoom: Option<bool>,
+    highlight_edges: Option<bool>,
+) -> PyResult<Vec<u8>> {
+    let zoom = zoom.unwrap_or(true);
+    let img = execute_and_snapshot_views(path, image_format, Vec::new(), Some(zoom), highlight_edges)
+        .await?
+        .pop();
+    Ok(img.unwrap())
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, image_format, snapshot_options, *, zoom=None, highlight_edges=None))]
+async fn execute_and_snapshot_views(
+    path: String,
+    image_format: ImageFormat,
+    snapshot_options: Vec<SnapshotOptions>,
+    zoom: Option<bool>,
+    highlight_edges: Option<bool>,
+) -> PyResult<Vec<Vec<u8>>> {
+    let zoom = zoom.unwrap_or(true);
+    spawn_py(async move {
+        execute_and_snapshot_views_impl(
+            KclInput::Path(path),
+            image_format,
+            snapshot_options,
+            zoom,
+            highlight_edges,
+        )
+        .await
+    })
+    .await
+}
+
+/// Execute a kcl file and measure physical properties of the resulting model.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, request, *, geometry_only=false))]
+async fn execute_and_measure(
+    path: String,
+    request: PhysicalPropertiesRequest,
+    geometry_only: bool,
+) -> PyResult<PhysicalPropertiesResponse> {
+    spawn_py(async move { execute_and_measure_impl(KclInput::Path(path), request, geometry_only).await }).await
+}
+
+/// Execute a kcl file and return the model's bounding box.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, entity_ids=None, output_unit=None, *, geometry_only=false))]
+async fn execute_and_bounding_box(
+    path: String,
+    entity_ids: Option<Vec<String>>,
+    output_unit: Option<UnitLength>,
+    geometry_only: bool,
+) -> PyResult<BoundingBoxResponse> {
+    let entity_ids = entity_ids.unwrap_or_default();
+    spawn_py(async move {
+        execute_and_bounding_box_impl(KclInput::Path(path), entity_ids, output_unit, geometry_only).await
+    })
+    .await
+}
+
+/// Customize a snapshot.
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+pub struct SnapshotOptions {
+    /// If none, will use isometric view.
+    pub camera: Option<bridge::CameraLookAt>,
+    /// How much to pad the view frame by, as a fraction of the object(s) bounding box size.
+    /// Negative padding will crop the view of the object proportionally.
+    /// e.g. padding = 0.2 means the view will span 120% of the object(s) bounding box,
+    /// and padding = -0.2 means the view will span 80% of the object(s) bounding box.
+    pub padding: f32,
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pymethods]
+impl SnapshotOptions {
+    #[new]
+    /// Takes a kcl.CameraLookAt, and a padding number.
+    fn new(camera: Option<bridge::CameraLookAt>, padding: f32) -> Self {
+        Self { camera, padding }
+    }
+
+    #[staticmethod]
+    /// Takes a padding number.
+    fn isometric_view(padding: f32) -> Self {
+        Self::new(None, padding)
+    }
+}
+
+async fn take_snaps(
+    ctx: &ExecutorContext,
+    exec_state: &mut ExecState,
+    image_format: ImageFormat,
+    snapshot_options: Vec<SnapshotOptions>,
+    zoom: bool,
+) -> PyResult<Vec<Vec<u8>>> {
+    if ctx.settings.geometry_only {
+        // Once we call this, we have to be careful to disable graphics again before we
+        // early terminate.
+        ctx.enable_engine_graphics(exec_state).await.map_err(to_py_exception)?;
+        if let Err(e) = ctx
+            .enable_engine_graphics_settings(exec_state)
+            .await
+            .map_err(to_py_exception)
+        {
+            ctx.disable_engine_graphics(exec_state).await.map_err(to_py_exception)?;
+            return Err(e);
+        }
+        let snapshot_res = take_snaps_inner(ctx, image_format, snapshot_options, zoom).await;
+        ctx.disable_engine_graphics(exec_state).await.map_err(to_py_exception)?;
+        snapshot_res
+    } else {
+        take_snaps_inner(ctx, image_format, snapshot_options, zoom).await
+    }
+}
+
+async fn take_snaps_inner(
+    ctx: &ExecutorContext,
+    image_format: ImageFormat,
+    snapshot_options: Vec<SnapshotOptions>,
+    zoom: bool,
+) -> PyResult<Vec<Vec<u8>>> {
+    if snapshot_options.is_empty() {
+        let data_bytes = snapshot(ctx, image_format, 0.1, zoom).await?;
+        return Ok(vec![data_bytes]);
+    }
+
+    let mut snaps = Vec::with_capacity(snapshot_options.len());
+    for pre_snap in snapshot_options {
+        if let Some(camera) = pre_snap.camera {
+            let view_cmd = kcmc::DefaultCameraLookAt::from(camera);
+            let view_cmd = kcmc::ModelingCmd::DefaultCameraLookAt(view_cmd);
+            ctx.engine
+                .send_modeling_cmd(&ctx.engine_batch, uuid::Uuid::new_v4(), Default::default(), &view_cmd)
+                .await
+                .map_err(into_kcl_exception)?;
+        } else {
+            let view_cmd = kcmc::ModelingCmd::ViewIsometric(kcmc::ViewIsometric::builder().padding(0.0).build());
+            ctx.engine
+                .send_modeling_cmd(&ctx.engine_batch, uuid::Uuid::new_v4(), Default::default(), &view_cmd)
+                .await
+                .map_err(into_kcl_exception)?;
+        }
+        let data_bytes = snapshot(ctx, image_format, pre_snap.padding, zoom).await?;
+        snaps.push(data_bytes);
+    }
+    // TODO: Disable gfx if geometry_only_connection
+    Ok(snaps)
+}
+
+async fn snapshot(ctx: &ExecutorContext, image_format: ImageFormat, padding: f32, zoom: bool) -> PyResult<Vec<u8>> {
+    // Set orthographic projection
+    ctx.engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            uuid::Uuid::new_v4(),
+            kcl_lib::SourceRange::default(),
+            &kittycad_modeling_cmds::ModelingCmd::DefaultCameraSetOrthographic(
+                kittycad_modeling_cmds::DefaultCameraSetOrthographic::builder().build(),
+            ),
+        )
+        .await
+        .map_err(into_kcl_exception)?;
+
+    // Zoom to fit.
+    if zoom {
+        ctx.engine
+            .send_modeling_cmd(
+                &ctx.engine_batch,
+                uuid::Uuid::new_v4(),
+                kcl_lib::SourceRange::default(),
+                &kittycad_modeling_cmds::ModelingCmd::ZoomToFit(
+                    kittycad_modeling_cmds::ZoomToFit::builder()
+                        .padding(padding)
+                        .animated(false)
+                        .object_ids(Default::default())
+                        .build(),
+                ),
+            )
+            .await
+            .map_err(into_kcl_exception)?;
+    }
+
+    // Send a snapshot request to the engine.
+    let resp = ctx
+        .engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            uuid::Uuid::new_v4(),
+            kcl_lib::SourceRange::default(),
+            &kittycad_modeling_cmds::ModelingCmd::TakeSnapshot(
+                kittycad_modeling_cmds::TakeSnapshot::builder()
+                    .format(image_format.into())
+                    .build(),
+            ),
+        )
+        .await
+        .map_err(into_kcl_exception)?;
+
+    let kittycad_modeling_cmds::websocket::OkWebSocketResponseData::Modeling {
+        modeling_response: OkModelingCmdResponse::TakeSnapshot(data),
+    } = resp
+    else {
+        return Err(pyo3::exceptions::PyException::new_err(format!(
+            "Unexpected response from engine: {resp:?}",
+        )));
+    };
+
+    Ok(data.contents.0)
+}
+
+async fn measure_model_properties(
+    ctx: &ExecutorContext,
+    request: PhysicalPropertiesRequest,
+) -> PyResult<PhysicalPropertiesResponse> {
+    let Some(command) = request.modeling_cmd() else {
+        return Ok(PhysicalPropertiesResponse::default());
+    };
+    let response = ctx
+        .engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            uuid::Uuid::new_v4(),
+            kcl_lib::SourceRange::default(),
+            &command,
+        )
+        .await
+        .map_err(into_kcl_exception)?;
+    let OkWebSocketResponseData::Modeling { modeling_response } = response else {
+        return Err(PyException::new_err(format!(
+            "Unexpected response from engine: {response:?}"
+        )));
+    };
+    let mut out = PhysicalPropertiesResponse::default();
+    match modeling_response {
+        OkModelingCmdResponse::PhysicalProperties(properties) => {
+            out.volume = request.volume.map(|_| properties.volume);
+            out.mass = request.mass.map(|_| properties.mass);
+            out.center_of_mass = request.center_of_mass.map(|_| properties.center_of_mass);
+            out.surface_area = request.surface_area.map(|_| properties.surface_area);
+            out.density = request.density.map(|_| properties.density);
+            out.bounding_box = request.bounding_box.map(|_| properties.bounding_box);
+        }
+        OkModelingCmdResponse::Volume(value) => out.volume = Some(value),
+        OkModelingCmdResponse::Mass(value) => out.mass = Some(value),
+        OkModelingCmdResponse::CenterOfMass(value) => out.center_of_mass = Some(value),
+        OkModelingCmdResponse::SurfaceArea(value) => out.surface_area = Some(value),
+        OkModelingCmdResponse::Density(value) => out.density = Some(value),
+        OkModelingCmdResponse::BoundingBox(value) => out.bounding_box = Some(value),
+        other => {
+            return Err(PyException::new_err(format!(
+                "Unexpected response from engine: {other:?}"
+            )));
+        }
+    }
+    Ok(out)
+}
+
+async fn get_bounding_box(
+    ctx: &ExecutorContext,
+    entity_ids: Vec<Uuid>,
+    output_unit: Option<UnitLength>,
+) -> PyResult<BoundingBoxResponse> {
+    let bounding_box_resp = ctx
+        .engine
+        .send_modeling_cmd(
+            &ctx.engine_batch,
+            uuid::Uuid::new_v4(),
+            kcl_lib::SourceRange::default(),
+            &ModelingCmd::from(
+                kcmc::BoundingBox::builder()
+                    .maybe_output_unit(output_unit.map(ToKcmc::to_kcmc))
+                    .entity_ids(entity_ids)
+                    .build(),
+            ),
+        )
+        .await
+        .map_err(into_kcl_exception)?;
+    let OkWebSocketResponseData::Modeling {
+        modeling_response: OkModelingCmdResponse::BoundingBox(bounding_box_resp),
+    } = bounding_box_resp
+    else {
+        return Err(pyo3::exceptions::PyException::new_err(format!(
+            "Unexpected response from engine: {bounding_box_resp:?}",
+        )));
+    };
+
+    Ok(bounding_box_resp.into())
+}
+
+/// Execute a kcl file and export it to a specific file format.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction(signature = (path, export_format, *, geometry_only=false))]
+async fn execute_and_export(
+    path: String,
+    export_format: FileExportFormat,
+    geometry_only: bool,
+) -> PyResult<Vec<RawFile>> {
+    spawn_py(async move { execute_and_export_impl(KclInput::Path(path), export_format, geometry_only).await }).await
+}
+
+/// Format the kcl code. This will return the formatted code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn format(code: String) -> PyResult<String> {
+    let program = kcl_lib::Program::parse_no_errs(&code).map_err(|err| into_miette_for_parse("", &code, err))?;
+    let recasted = program.recast();
+
+    Ok(recasted)
+}
+
+/// Format a whole directory of kcl code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+async fn format_dir(dir: String) -> PyResult<()> {
+    spawn_py(async move {
+        kcl_lib::recast_dir(std::path::Path::new(&dir), &Default::default())
+            .await
+            .map_err(|err| pyo3::exceptions::PyException::new_err(err.to_string()))
+    })
+    .await
+}
+
+/// Lint the kcl code.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn lint(code: String) -> PyResult<Vec<Discovered>> {
+    let program = kcl_lib::Program::parse_no_errs(&code).map_err(|err| into_miette_for_parse("", &code, err))?;
+    let lints = program
+        .lint(checks::lint_variables)
+        .map_err(|err| pyo3::exceptions::PyException::new_err(err.to_string()))?;
+
+    Ok(lints)
+}
+
+/// Result from linting and fixing automatically.
+/// Shows the new code after applying fixes,
+/// and any lints that couldn't be automatically applied.
+#[derive(Serialize, Debug, Clone)]
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyclass(from_py_object)]
+pub struct FixedLints {
+    /// Code after suggestions have been applied.
+    pub new_code: String,
+    /// Any lints that didn't have suggestions or couldn't be applied.
+    pub unfixed_lints: Vec<Discovered>,
+}
+
+#[pymethods]
+impl FixedLints {
+    #[getter]
+    fn unfixed_lints(&self) -> PyResult<Vec<Discovered>> {
+        Ok(self.unfixed_lints.clone())
+    }
+
+    #[getter]
+    fn new_code(&self) -> PyResult<String> {
+        Ok(self.new_code.clone())
+    }
+}
+
+/// Lint the kcl code. Fix any lints that can be fixed with automatic suggestions.
+/// Returns any unfixed lints.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn lint_and_fix_all(code: String) -> PyResult<FixedLints> {
+    let (new_code, unfixed_lints) =
+        kcl_lib::lint::lint_and_fix_all(code).map_err(|err| pyo3::exceptions::PyException::new_err(err.to_string()))?;
+    Ok(FixedLints {
+        new_code,
+        unfixed_lints,
+    })
+}
+
+/// Lint the kcl code. Fix any lints that can be fixed with automatic suggestions,
+/// and are in the list of families to fix.
+/// Returns any unfixed lints.
+#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[pyfunction]
+fn lint_and_fix_families(code: String, families_to_fix: Vec<FindingFamily>) -> PyResult<FixedLints> {
+    let (new_code, unfixed_lints) = kcl_lib::lint::lint_and_fix_families(code, &families_to_fix)
+        .map_err(|err| pyo3::exceptions::PyException::new_err(err.to_string()))?;
+    Ok(FixedLints {
+        new_code,
+        unfixed_lints,
+    })
+}
+
+/// The kcl python module.
+#[pymodule]
+fn kcl(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Add our types to the module.
+    m.add_class::<PyKclError>()?;
+    m.add_class::<DefaultUnits>()?;
+    m.add_class::<ImageFormat>()?;
+    m.add_class::<RawFile>()?;
+    m.add_class::<FileExportFormat>()?;
+    m.add_class::<Discovered>()?;
+    m.add_class::<BoundingBoxResponse>()?;
+    m.add_class::<PhysicalPropertiesRequest>()?;
+    m.add_class::<PhysicalPropertiesResponse>()?;
+    m.add_class::<SnapshotOptions>()?;
+    m.add_class::<bridge::Point3d>()?;
+    m.add_class::<bridge::CameraLookAt>()?;
+    m.add_class::<kcmc::format::InputFormat3d>()?;
+    m.add_class::<FindingFamily>()?;
+    m.add_class::<bridge::sketch_constraints::ConstraintKind>()?;
+    m.add_class::<bridge::sketch_constraints::KclErrorInfo>()?;
+    m.add_class::<bridge::sketch_constraints::SketchConstraintStatus>()?;
+    m.add_class::<bridge::sketch_constraints::SketchConstraintReport>()?;
+
+    m.add_class::<kcl_api::UnitAngle>()?;
+    m.add_class::<kcl_api::UnitArea>()?;
+    m.add_class::<kcl_api::UnitDensity>()?;
+    m.add_class::<kcl_api::UnitLength>()?;
+    m.add_class::<kcl_api::UnitMass>()?;
+    m.add_class::<kcl_api::UnitVolume>()?;
+
+    m.add_class::<kcl_session::KclSession>()?;
+    m.add_class::<ExecOutcome>()?;
+    m.add_function(wrap_pyfunction!(kcl_session::new_kcl_session, m)?)?;
+    m.add_function(wrap_pyfunction!(kcl_session::new_kcl_session_code, m)?)?;
+
+    // These are fine to add top level since we rename them in pyo3 derives.
+    m.add_class::<kcmc::format::step::import::Options>()?;
+    m.add_class::<kcmc::format::step::export::Options>()?;
+    m.add_class::<kcmc::format::gltf::import::Options>()?;
+    m.add_class::<kcmc::format::gltf::export::Options>()?;
+    m.add_class::<kcmc::format::obj::import::Options>()?;
+    m.add_class::<kcmc::format::obj::export::Options>()?;
+    m.add_class::<kcmc::format::ply::import::Options>()?;
+    m.add_class::<kcmc::format::ply::export::Options>()?;
+    m.add_class::<kcmc::format::stl::import::Options>()?;
+    m.add_class::<kcmc::format::stl::export::Options>()?;
+    m.add_class::<kcmc::format::sldprt::import::Options>()?;
+
+    // Add our functions to the module.
+    m.add_function(wrap_pyfunction!(parse, m)?)?;
+    m.add_function(wrap_pyfunction!(default_units, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_code, m)?)?;
+    m.add_function(wrap_pyfunction!(execute, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_code, m)?)?;
+    m.add_function(wrap_pyfunction!(mock_execute, m)?)?;
+    m.add_function(wrap_pyfunction!(mock_execute_code, m)?)?;
+    m.add_function(wrap_pyfunction!(get_sketch_constraint_status, m)?)?;
+    m.add_function(wrap_pyfunction!(get_sketch_constraint_status_code, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_and_snapshot, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_and_snapshot_views, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_and_measure, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_and_bounding_box, m)?)?;
+    m.add_function(wrap_pyfunction!(import_and_snapshot, m)?)?;
+    m.add_function(wrap_pyfunction!(import_and_snapshot_views, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_and_export, m)?)?;
+    m.add_function(wrap_pyfunction!(format, m)?)?;
+    m.add_function(wrap_pyfunction!(format_dir, m)?)?;
+    m.add_function(wrap_pyfunction!(lint, m)?)?;
+    m.add_function(wrap_pyfunction!(lint_and_fix_all, m)?)?;
+    m.add_function(wrap_pyfunction!(lint_and_fix_families, m)?)?;
+    m.add_function(wrap_pyfunction!(relevant_file_extensions, m)?)?;
+
+    m.add("PanicException", _py.get_type::<pyo3::panic::PanicException>())?;
+
+    Ok(())
+}
+
+// Define a function to gather stub information.
+define_stub_info_gatherer!(stub_info);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn spawn_py_cancellation_drops_native_task() {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (dropped_tx, dropped_rx) = tokio::sync::oneshot::channel::<()>();
+        let caller = tokio::spawn(spawn_py(async move {
+            let _drop_signal = dropped_tx;
+            started_tx.send(()).unwrap();
+            std::future::pending::<PyResult<()>>().await
+        }));
+
+        started_rx.await.unwrap();
+        caller.abort();
+        assert!(caller.await.unwrap_err().is_cancelled());
+        tokio::time::timeout(std::time::Duration::from_secs(1), dropped_rx)
+            .await
+            .expect("native task remained alive after caller cancellation")
+            .expect_err("native task should drop its sender");
+    }
+
+    #[test]
+    fn executor_settings_preserve_default_edge_visibility_without_override() {
+        let settings = executor_settings(None, None, false);
+
+        assert!(settings.highlight_edges);
+    }
+
+    #[test]
+    fn executor_settings_apply_edge_visibility_override() {
+        let settings = executor_settings(None, Some(false), false);
+
+        assert!(!settings.highlight_edges);
+    }
+
+    /// Cube and cylinder positioned so they do not overlap, then subtracted.
+    /// The engine should report no intersection, which the executor records as
+    /// a no-overlap warning on the `subtract(...)` source range.
+    const NO_OVERLAP_SUBTRACT_KCL: &str = r#"@settings(kclVersion = 2.0)
+
+cubeSketch = sketch(on = XY) {
+  bottom = line(start = [var 0, var 0], end = [var 10, var 0])
+  right = line(start = [var 10, var 0], end = [var 10, var 10])
+  top = line(start = [var 10, var 10], end = [var 0, var 10])
+  left = line(start = [var 0, var 10], end = [var 0, var 0])
+  coincident([bottom.end, right.start])
+  coincident([right.end, top.start])
+  coincident([top.end, left.start])
+  coincident([left.end, bottom.start])
+}
+cube = extrude(region(point = [5, 5], sketch = cubeSketch), length = 10)
+
+cylinderSketch = sketch(on = XY) {
+  c = circle(start = [var 102, var 100], center = [var 100, var 100])
+}
+hidden001 = hide(cylinderSketch)
+region001 = region(point = [98.0025mm, 100mm], sketch = cylinderSketch)
+cylinder = extrude(region001, length = 10)
+
+result = subtract(cube, tools = [cylinder])
+"#;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn exec_outcome_report_renders_csg_no_overlap_warning() {
+        let outcome = execute_impl(KclInput::Code(NO_OVERLAP_SUBTRACT_KCL.to_string()), false, false)
+            .await
+            .expect("execute_impl should succeed for valid non-overlapping subtract");
+
+        let issues = outcome.issues().expect("issues should convert");
+        let warning = issues
+            .iter()
+            .find(|issue| issue.is_warning())
+            .unwrap_or_else(|| panic!("expected at least one warning issue, got: {issues:?}"));
+        assert!(!warning.is_err());
+        assert!(!warning.is_fatal());
+
+        let report = outcome.report(warning);
+
+        assert!(
+            report.contains("had no overlap"),
+            "report missing warning message text: {report}"
+        );
+        // The labeled span should point at the `subtract(...)` call site, so
+        // that line of the KCL source should appear in the rendered snippet.
+        assert!(
+            report.contains("result = subtract(cube, tools = [cylinder])"),
+            "report should include the subtract call from the source snippet: {report}"
+        );
+        // miette renders a line:column header for the labeled span. The
+        // `subtract` call is on line 18, column 10 of the KCL source.
+        assert!(
+            report.contains("[22:10]"),
+            "report should include a line:column marker for the source span: {report}"
+        );
+    }
+
+    /// A short top-level file that calls a function defined in a longer
+    /// imported module. Evaluating the function body multiplies numbers with
+    /// unknown units, so execution emits an `unknown-numeric-units` warning
+    /// whose source range points into the imported module, past the end of
+    /// the top-level source. The report must render that range against the
+    /// imported module's source, not the top-level file.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn mock_exec_outcome_report_renders_imported_module_warning_against_imported_source() {
+        let project_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/files/imported_warning");
+        let outcome = execute_impl(KclInput::Path(project_dir.to_owned()), true, false)
+            .await
+            .expect("mock execute_impl should succeed for a project that only warns");
+
+        let issues = outcome.issues().expect("issues should convert");
+        let warning = issues
+            .iter()
+            .find(|issue| issue.is_warning() && issue.message().contains("unknown or incompatible units"))
+            .unwrap_or_else(|| panic!("expected an unknown-numeric-units warning, got: {issues:?}"));
+
+        let report = outcome.report(warning);
+
+        assert!(
+            !report.contains("Failed to read contents") && !report.contains("OutOfBounds"),
+            "imported range should not be read against the top-level source: {report}"
+        );
+        assert!(
+            report.contains("derived.kcl"),
+            "report should name the imported file: {report}"
+        );
+        assert!(
+            report.contains("PI * 2"),
+            "report should include the offending line from the imported source snippet: {report}"
+        );
+
+        // The sketch constraint report renders the same issues through the
+        // shared helper; it must also resolve the imported module's source.
+        let constraint_report = outcome.sketch_constraint_report();
+        assert!(
+            !constraint_report.warnings.is_empty(),
+            "constraint report should carry the rendered execution warning"
+        );
+        for rendered in &constraint_report.warnings {
+            assert!(
+                !rendered.contains("Failed to read contents") && !rendered.contains("OutOfBounds"),
+                "constraint report warning should render against the imported source: {rendered}"
+            );
+        }
+        assert!(
+            constraint_report.warnings.iter().any(|w| w.contains("PI * 2")),
+            "a constraint report warning should include the imported source snippet: {:?}",
+            constraint_report.warnings
+        );
+    }
+}

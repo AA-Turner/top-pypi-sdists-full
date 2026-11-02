@@ -1,0 +1,317 @@
+"""Pinning an image ref to the digest its registry serves, reading its manifests and blobs, and writing an index of its
+images, over a fake registry's OCI distribution API."""
+
+import base64
+import hashlib
+import json
+
+import httpx
+import pytest
+
+from agent_env.store import RegistryAuth
+from agent_env.store.image_store import registry_api
+from agent_env.store.image_store.registry_api import (
+    NoSuchImageError,
+    RegistryRefusedError,
+    pin_digest,
+    pinned_from,
+    read_blob,
+    read_manifest,
+)
+
+DIGEST = "sha256:" + "a" * 64
+OTHER = "sha256:" + "b" * 64
+
+
+@pytest.fixture
+def fake_registry(monkeypatch):
+    """Route the resolver's HTTP client to ``handler`` and record each request it makes."""
+    seen: list[httpx.Request] = []
+    real = httpx.Client
+
+    def route(handler):
+        def recorded(request):
+            seen.append(request)
+            return handler(request)
+
+        monkeypatch.setattr(registry_api.httpx, "Client", lambda **kwargs: real(transport=httpx.MockTransport(recorded),
+                                                                               **kwargs))
+        return seen
+
+    return route
+
+
+def _served(digest=DIGEST):
+    return httpx.Response(200, headers={"Docker-Content-Digest": digest})
+
+
+def test_a_tag_is_pinned_to_its_digest_through_the_registrys_anonymous_token(fake_registry):
+    def ghcr(request):
+        if request.url.path == "/token":
+            assert request.url.params["scope"] == "repository:org/tool:pull"
+            return httpx.Response(200, json={"token": "anon"})
+        if request.headers.get("authorization") == "Bearer anon":
+            return _served()
+        return httpx.Response(401, headers={"WWW-Authenticate": 'Bearer realm="https://ghcr.io/token",service="ghcr.io",'
+                                                                  'scope="repository:org/tool:pull"'})
+
+    seen = fake_registry(ghcr)
+
+    assert pin_digest("ghcr.io/org/tool:v1", None) == f"ghcr.io/org/tool:v1@{DIGEST}"
+    assert [r.method for r in seen] == ["HEAD", "GET", "HEAD"]
+    assert seen[0].url == "https://ghcr.io/v2/org/tool/manifests/v1"
+    assert "application/vnd.oci.image.index.v1+json" in seen[0].headers["accept"]
+
+
+def test_the_image_stores_credentials_go_to_a_registry_that_takes_them_directly(fake_registry):
+    def ecr(request):
+        expected = "Basic " + base64.b64encode(b"AWS:token").decode()
+        return _served() if request.headers.get("authorization") == expected else httpx.Response(401)
+
+    fake_registry(ecr)
+
+    ref = "123456789012.dkr.ecr.us-west-2.amazonaws.com/team/app:v2"
+    assert pin_digest(ref, RegistryAuth("123456789012.dkr.ecr.us-west-2.amazonaws.com", "AWS", "token")) == f"{ref}@{DIGEST}"
+
+
+def test_no_tag_means_latest_and_docker_hub_names_its_library(fake_registry):
+    seen = fake_registry(lambda request: _served())
+
+    assert pin_digest("docker.io/alpine", None) == f"docker.io/alpine:latest@{DIGEST}"
+    assert seen[0].url == "https://registry-1.docker.io/v2/library/alpine/manifests/latest"
+
+
+def test_a_digest_is_kept_once_the_registry_serves_it(fake_registry):
+    seen = fake_registry(lambda request: _served())
+
+    assert pin_digest(f"ghcr.io/org/tool@{DIGEST}", None) == f"ghcr.io/org/tool@{DIGEST}"
+    assert seen[0].url == f"https://ghcr.io/v2/org/tool/manifests/{DIGEST}"
+
+
+def test_a_tag_and_digest_must_agree_since_a_pull_goes_by_the_digest(fake_registry):
+    fake_registry(lambda request: _served(DIGEST if request.url.path.endswith(DIGEST) else OTHER))
+
+    with pytest.raises(ValueError, match=f"the tag 'v1' names {OTHER} now, not {DIGEST}"):
+        pin_digest(f"ghcr.io/org/tool:v1@{DIGEST}", None)
+
+
+def test_a_registry_on_this_machine_is_read_over_plain_http(fake_registry):
+    seen = fake_registry(lambda request: _served())
+
+    assert pin_digest("localhost:5000/team/img:v1", None) == f"localhost:5000/team/img:v1@{DIGEST}"
+    assert seen[0].url == "http://localhost:5000/v2/team/img/manifests/v1"
+
+
+def test_a_registry_that_omits_the_digest_header_is_hashed_from_the_manifest(fake_registry):
+    body = b'{"schemaVersion": 2}'
+    fake_registry(lambda request: httpx.Response(200, content=body if request.method == "GET" else b""))
+
+    assert pin_digest("ghcr.io/org/tool:v1", None) == f"ghcr.io/org/tool:v1@sha256:{hashlib.sha256(body).hexdigest()}"
+
+
+def test_the_manifest_is_fetched_with_the_credentials_the_registry_took(fake_registry):
+    body = b'{"schemaVersion": 2}'
+    expected = "Basic " + base64.b64encode(b"AWS:token").decode()
+
+    def private(request):
+        if request.headers.get("authorization") != expected:
+            return httpx.Response(401)
+        return httpx.Response(200, content=body if request.method == "GET" else b"")
+
+    seen = fake_registry(private)
+
+    ref = "123456789012.dkr.ecr.us-west-2.amazonaws.com/team/app:v2"
+    auth = RegistryAuth("123456789012.dkr.ecr.us-west-2.amazonaws.com", "AWS", "token")
+    assert pin_digest(ref, auth) == f"{ref}@sha256:{hashlib.sha256(body).hexdigest()}"
+    assert [r.method for r in seen] == ["HEAD", "GET"]
+
+
+@pytest.mark.parametrize("header", ["sha256:xyz", "sha256:" + "a" * 32, "sha256:" + "A" * 64])
+def test_a_digest_header_docker_couldnt_pull_by_is_refused(fake_registry, header):
+    fake_registry(lambda request: _served(header))
+
+    with pytest.raises(ValueError, match=f"ghcr.io answered with '{header}', which isn't a digest"):
+        pin_digest("ghcr.io/org/tool:v1", None)
+
+
+@pytest.mark.parametrize("answer", [
+    httpx.Response(200, html="<html>Sign in</html>"),
+    httpx.Response(200, json=[]),
+    httpx.Response(200, json={"error": "denied"}),
+])
+def test_a_token_service_that_answers_without_a_token_is_named(fake_registry, answer):
+    def registry(request):
+        if request.url.path == "/token":
+            return answer
+        return httpx.Response(401, headers={"WWW-Authenticate": 'Bearer realm="https://ghcr.io/token",service="ghcr.io"'})
+
+    fake_registry(registry)
+
+    with pytest.raises(ValueError, match="ghcr.io/org/tool:v1: the token service at https://ghcr.io/token answered "
+                                         "without a token"):
+        pin_digest("ghcr.io/org/tool:v1", None)
+
+
+def test_a_token_service_that_refuses_leaves_the_registrys_refusal(fake_registry):
+    def registry(request):
+        if request.url.path == "/token":
+            return httpx.Response(403)
+        return httpx.Response(401, headers={"WWW-Authenticate": 'Bearer realm="https://ghcr.io/token",service="ghcr.io"'})
+
+    fake_registry(registry)
+
+    with pytest.raises(ValueError, match="ghcr.io refused to serve it \\(HTTP 401\\)"):
+        pin_digest("ghcr.io/org/tool:v1", None)
+
+
+@pytest.mark.parametrize("status, message", [
+    (404, "ghcr.io/org/tool:v9: ghcr.io has no such image"),
+    (401, "ghcr.io/org/tool:v9: ghcr.io refused to serve it \\(HTTP 401\\); agent-env reaches a private registry only"),
+    (500, "ghcr.io/org/tool:v9: ghcr.io answered HTTP 500"),
+])
+def test_what_the_registry_answers_is_named(fake_registry, status, message):
+    fake_registry(lambda request: httpx.Response(status))
+
+    with pytest.raises(ValueError, match=message):
+        pin_digest("ghcr.io/org/tool:v9", None)
+
+
+@pytest.mark.parametrize("status, kind", [(404, NoSuchImageError), (401, RegistryRefusedError),
+                                          (403, RegistryRefusedError), (500, None)])
+def test_a_missing_image_and_a_refusal_each_have_their_own_error(fake_registry, status, kind):
+    fake_registry(lambda request: httpx.Response(status))
+
+    with pytest.raises(ValueError) as raised:
+        pin_digest("ghcr.io/org/tool:v9", None)
+
+    assert type(raised.value) is (kind or ValueError)
+
+
+def test_an_unreachable_registry_is_named(fake_registry):
+    def down(request):
+        raise httpx.ConnectError("connection refused")
+
+    fake_registry(down)
+
+    with pytest.raises(ValueError, match="ghcr.io/org/tool:v1: couldn't read its manifest from ghcr.io: ConnectError"):
+        pin_digest("ghcr.io/org/tool:v1", None)
+
+
+@pytest.mark.parametrize("digest", ["sha256:xyz", "sha256:" + "a" * 32, "sha256:" + "A" * 64, "md5:" + "a" * 32])
+def test_a_digest_docker_couldnt_pull_by_is_refused_before_any_request(fake_registry, digest):
+    seen = fake_registry(lambda request: _served())
+
+    with pytest.raises(ValueError, match=f"'{digest}' isn't a sha256, sha384 or sha512 digest"):
+        pin_digest(f"ghcr.io/org/tool@{digest}", None)
+    assert seen == []
+
+
+@pytest.mark.parametrize("pinned, ref, pins", [
+    (f"ghcr.io/acme/app:1@{DIGEST}", "ghcr.io/acme/app:1", True),
+    (f"ghcr.io/acme/app:latest@{DIGEST}", "ghcr.io/acme/app", True),
+    (f"localhost:5000/team/app:1@{DIGEST}", "localhost:5000/team/app:1", True),
+    (f"ghcr.io/acme/app@{DIGEST}", f"ghcr.io/acme/app@{DIGEST}", True),
+    (f"ghcr.io/acme/app:1@{DIGEST}", "ghcr.io/acme/app:2", False),
+    (f"ghcr.io/acme/app:1@{DIGEST}", "ghcr.io/acme/other:1", False),
+    (f"ghcr.io/acme/app@{DIGEST}", f"ghcr.io/acme/app@{OTHER}", False),
+    ("ghcr.io/acme/app:1", "ghcr.io/acme/app:1", False),
+], ids=["tag", "latest", "loopback port", "digest", "another tag", "another name", "another digest", "unpinned"])
+def test_a_pin_pins_the_ref_it_was_pinned_from(pinned, ref, pins):
+    assert pinned_from(pinned, ref) is pins
+
+
+def _ghcr(served):
+    """GHCR's anonymous token dance in front of ``served``, a handler for requests that carry the token."""
+    def handler(request):
+        if request.url.path == "/token":
+            return httpx.Response(200, json={"token": "anon"})
+        if request.headers.get("authorization") == "Bearer anon":
+            return served(request)
+        return httpx.Response(401, headers={"WWW-Authenticate": 'Bearer realm="https://ghcr.io/token",service="ghcr.io",'
+                                                                  'scope="repository:org/desk:pull"'})
+    return handler
+
+
+def test_a_manifest_and_a_blob_are_read_with_the_registrys_token_and_the_blob_checked(fake_registry, tmp_path):
+    layer = b"layer bytes"
+    digest = f"sha256:{hashlib.sha256(layer).hexdigest()}"
+    index = {"mediaType": "application/vnd.oci.image.index.v1+json", "manifests": []}
+
+    def served(request):
+        if request.url.path.endswith(f"/manifests/{DIGEST}"):
+            return httpx.Response(200, json=index)
+        if request.url.path.endswith(f"/blobs/{digest}"):
+            return httpx.Response(200, content=layer)
+        return httpx.Response(404)
+
+    seen = fake_registry(_ghcr(served))
+
+    assert read_manifest(f"ghcr.io/org/desk:1@{DIGEST}", None) == index
+    read_blob(f"ghcr.io/org/desk:1@{DIGEST}", digest, None, tmp_path / "layer")
+    assert (tmp_path / "layer").read_bytes() == layer
+    assert [str(r.url).split("?")[0] for r in seen] == [
+        f"https://ghcr.io/v2/org/desk/manifests/{DIGEST}", "https://ghcr.io/token",
+        f"https://ghcr.io/v2/org/desk/manifests/{DIGEST}",
+        f"https://ghcr.io/v2/org/desk/blobs/{digest}", "https://ghcr.io/token", f"https://ghcr.io/v2/org/desk/blobs/{digest}"]
+    assert "application/vnd.oci.image.index.v1+json" in seen[0].headers["accept"]
+
+
+def test_a_blob_that_doesnt_hash_to_its_digest_is_refused_and_not_kept(fake_registry, tmp_path):
+    fake_registry(lambda request: httpx.Response(200, content=b"something else"))
+
+    with pytest.raises(ValueError, match="hashes to sha256:"):
+        read_blob("localhost:5000/desk:1", DIGEST, None, tmp_path / "layer")
+    assert not (tmp_path / "layer").exists()
+
+
+@pytest.mark.parametrize("status, error", [(404, NoSuchImageError), (403, RegistryRefusedError), (500, ValueError)])
+def test_what_the_registry_refuses_is_raised_as_pin_digest_raises_it(fake_registry, tmp_path, status, error):
+    seen = fake_registry(lambda request: httpx.Response(status))
+
+    with pytest.raises(error):
+        read_manifest("localhost:5000/desk:1", None)
+    with pytest.raises(error):
+        read_blob("localhost:5000/desk:1", DIGEST, None, tmp_path / "layer")
+    assert str(seen[0].url) == "http://localhost:5000/v2/desk/manifests/1"
+
+
+DOCKER_IMAGE, OCI_IMAGE = "application/vnd.docker.distribution.manifest.v2+json", "application/vnd.oci.image.manifest.v1+json"
+OCI_INDEX = "application/vnd.oci.image.index.v1+json"
+
+
+@pytest.mark.parametrize("arm64, written", [("index", OCI_INDEX),
+                                            ("docker", "application/vnd.docker.distribution.manifest.list.v2+json")])
+def test_an_index_of_images_is_written_with_a_token_that_pushes_and_an_image_that_is_an_index_keeps_its_manifests(
+        fake_registry, arm64, written):
+    amd64 = b'{"schemaVersion": 2}'
+    children = [{"mediaType": OCI_IMAGE, "digest": "sha256:" + "c" * 64, "size": 400,
+                 "platform": {"architecture": "arm64", "os": "linux"}},
+                {"mediaType": OCI_IMAGE, "digest": "sha256:" + "d" * 64, "size": 500,
+                 "platform": {"architecture": "unknown", "os": "unknown"}}]
+    served = {DIGEST: (DOCKER_IMAGE, amd64),
+              OTHER: (OCI_INDEX, json.dumps({"manifests": children}).encode()) if arm64 == "index" else (DOCKER_IMAGE, amd64)}
+    put = []
+
+    def ghcr(request):
+        scope = "repository:org/desk:pull,push" if request.method == "PUT" else "repository:org/desk:pull"
+        if request.url.path == "/token":
+            return httpx.Response(200, json={"token": request.url.params["scope"]})
+        if request.headers.get("authorization") != f"Bearer {scope}":
+            return httpx.Response(401, headers={"WWW-Authenticate": f'Bearer realm="https://ghcr.io/token",scope="{scope}"'})
+        if request.method == "PUT":
+            put.append(request)
+            return httpx.Response(201)
+        media, body = served[request.url.path.rpartition("/")[2]]
+        return httpx.Response(200, content=body, headers={"Content-Type": media})
+
+    fake_registry(ghcr)
+    registry_api.write_index("ghcr.io/org/desk:index-1", {"linux/amd64": f"ghcr.io/org/desk:a@{DIGEST}",
+                                                          "linux/arm64": f"ghcr.io/org/desk:b@{OTHER}"}, None)
+
+    (request,) = put
+    assert request.url.path == "/v2/org/desk/manifests/index-1" and request.headers["content-type"] == written
+    amd64_entry = {"mediaType": DOCKER_IMAGE, "digest": DIGEST, "size": len(amd64),
+                   "platform": {"architecture": "amd64", "os": "linux"}}
+    assert json.loads(request.content) == {"schemaVersion": 2, "mediaType": written, "manifests": [
+        amd64_entry, *(children if arm64 == "index" else [{**amd64_entry, "digest": OTHER,
+                                                           "platform": {"architecture": "arm64", "os": "linux"}}])]}

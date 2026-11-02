@@ -121,9 +121,9 @@ def route(argv: list[str]) -> Route:
         return Route()
     local = any(parsed.params.get(option) for path, option in LOCAL_SIDE_EFFECTS if path == parsed.path)
     if parsed.path in MOVED and not parsed.help and not parsed.root_options and not local:
-        ctx = precheck.command_context(argv)
-        if ctx is not None:
-            return Route(call=Call(parsed.path, dict(ctx.params), ctx))
+        context = precheck.command_context(argv)
+        if context is not None:
+            return Route(call=Call(parsed.path, dict(context.params), context))
     return Route(read=parsed.path)
 
 
@@ -232,14 +232,14 @@ def answer(call: Call, env: Mapping[str, str], deadline: float) -> tuple[int | N
     return printed.code, printed.out, printed.err
 
 
-def _usage_width(ctx: Any, env: Mapping[str, str]) -> None:
+def _usage_width(context: Any, env: Mapping[str, str]) -> None:
     """A usage error wraps where the spawned CLI's did: click's help width from
     that CLI's COLUMNS, never the process's."""
     try:
         columns = int(env.get("COLUMNS") or 80)
     except ValueError:
         columns = 80
-    ctx.terminal_width = max(min(columns, ctx.max_content_width or 80) - 2, 50)
+    context.terminal_width = max(min(columns, context.max_content_width or 80) - 2, 50)
 
 
 def _failed(call: Call, env: Mapping[str, str], exc: Exception) -> tuple[int | None, str, str] | None:

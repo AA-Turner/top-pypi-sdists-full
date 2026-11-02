@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import errno as errno_module
 import os
+from pathlib import Path
 import re
 import shutil
 import time
-from pathlib import Path
 
 from ...._shared import oscompat
 from ....foundation.durable.durable import file_lock
@@ -20,19 +20,8 @@ _GLOBAL_RANK_VARS = ("SLURM_PROCID", "RANK", "OMPI_COMM_WORLD_RANK")
 
 
 def _rank_suffix(environ=None) -> str | None:
-    """A per-rank directory component, or None for a single-process job.
-
-    A distributed job puts every rank on ONE journal when $HOME is shared (the normal SLURM
-    layout): one `.append.lock`, one `.seq`, one `ops/`, so the append flock serialises metric
-    logging across every rank on every node, a cluster-wide mutex on the path meant to be cheap.
-
-    Splitting per rank fixes that without moving the queue somewhere volatile. Node-local
-    scratch would be faster and is the wrong trade: $SLURM_TMPDIR is reaped when the job ends,
-    destroying a queue that had not drained, the thing durability exists to survive.
-
-    A single-process run gets no suffix: the default path is byte-identical to before and
-    nothing needs migrating.
-    """
+    """A per-rank directory component, or None for a single-process job: one journal per rank on a
+    shared $HOME, so the append flock is not a cluster-wide mutex."""
     env = os.environ if environ is None else environ
     for var in _GLOBAL_RANK_VARS:
         raw = (env.get(var) or "").strip()
@@ -285,5 +274,68 @@ def prune_credential_queues(
             for handle in handles:
                 handle.close()
     return removed
+
+
+class QueueDiscoveryMixin:
+    """Part of Journal: its methods run with `self` the Journal; fold_parts() copies them into Journal."""
+
+    # -- layout -------------------------------------------------------------
+    def usable(self) -> str | None:
+        """None when this queue can take appends, else why it cannot (plan 1.5). Checked once,
+        when a `Client` builds its journal, WITHOUT creating the queue (a read-only command must
+        not leave an outbox behind): a file is created and `flock`-ed, then removed, in the
+        nearest existing directory of the queue's path. A read-only or chmod-500 HOME, a volume
+        out of inodes, or a filesystem without `flock` (ENOSYS: Lustre without ``-o flock``, some
+        overlays) dropped EVERY write, a warning apiece. The lock is a fresh file's, never the
+        queue's own, so a busy queue (another process appending) cannot read as unusable (Codex,
+        round 2)."""
+        import tempfile
+
+        probe_dir = self.ops_dir
+        while not probe_dir.exists() and probe_dir.parent != probe_dir:
+            probe_dir = probe_dir.parent
+        try:
+            with tempfile.TemporaryFile(dir=probe_dir, prefix=".probe-usable-") as handle:
+                try:
+                    oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+                    oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+                except OSError as exc:
+                    if exc.errno in _UNUSABLE_LOCK_ERRNOS:
+                        return f"{probe_dir} does not support file locks ({exc.strerror or exc})"
+        except OSError as exc:
+            return f"{probe_dir} is not writable ({exc.strerror or exc})"
+        return None
+
+    @staticmethod
+    def discover(environ=None) -> list[Path]:
+        """Every outbox directory of this user here, each holding a queue: the default root, the trusted
+        $TMPDIR fallback and their ``rank-*`` children. Offline and per-credential queues are not roots."""
+        found: list[Path] = []
+        roots = [(default_root(environ), False)] + [(root, True) for root in _fallback_roots(environ)]
+        for root, untrusted_place in roots:
+            candidates = [root]
+            try:
+                candidates += sorted(
+                    child for child in root.iterdir() if child.name.startswith("rank-")
+                )
+            except OSError:
+                pass
+            for candidate in candidates:
+                if candidate in found:
+                    continue
+                if untrusted_place and not trusted_dir(candidate):
+                    continue
+                if os.path.islink(candidate):
+                    continue
+                if (
+                    (candidate / "ops").is_dir()
+                    or (candidate / "status.json").exists()
+                    # Every write of it queued under a stamped credential (#2041): the directory
+                    # holds no queue of its own.
+                    or (candidate / CREDENTIAL_NAMESPACE).is_dir()
+                ):
+                    found.append(candidate)
+        return found
+
 from probe.sdk.delivery.journal.failures.discards import DiscardCounts, _holds_discards, _move_discards  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE, DELIVERY_NAMESPACE, _safe_component  # noqa: E402 -- pieces need each other; the front door loads this one first

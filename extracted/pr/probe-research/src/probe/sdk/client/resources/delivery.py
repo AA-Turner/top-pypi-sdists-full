@@ -1,8 +1,8 @@
 """DeliveryMixin, Client's methods: flush, drain for close, delivery receipts and state,
-discard/resume, queued artifact uploads (twin: app/artifacts)."""
+discard/resume, queued artifact uploads (twin: app/files/artifacts)."""
 
 from __future__ import annotations
-from ...delivery.ops.ops import UNPLACED_PROJECT
+from ...routes import UNPLACED_PROJECT
 from ...delivery.journal.journal import Journal
 
 
@@ -30,10 +30,11 @@ class DeliveryMixin:
         drain stops at the first stuck op in the whole queue no matter whose
         it is.
 
-        FIFO is not weakened by scoping: ops are still attempted in enqueue
-        order within the scope, and a run's own writes only ever need to be
-        ordered against each other. `Run._queue_deferred_finish` depends on
-        that and no more.
+        FIFO is not weakened by scoping: each lane keeps its enqueue order,
+        and a run's own writes only ever need to be ordered against each
+        other. What rides a lane of its own (the open's archive), which
+        nothing of the run waits for, goes only once the run's lane is through.
+        `Run._queue_deferred_finish` depends on that and no more.
 
         ``on_error`` observes typed delivery errors and may raise to leave the
         current operation queued for a caller that owns its retry policy.

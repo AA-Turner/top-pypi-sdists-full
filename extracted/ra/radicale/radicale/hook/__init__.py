@@ -1,0 +1,132 @@
+# This file is related to Radicale - CalDAV and CardDAV server
+# for email notifications
+# Copyright © 2020-2023 Tuna Celik <tuna@jakpark.com>
+# Copyright © 2025-2025 Nate Harris
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import json
+from enum import Enum
+from typing import Sequence
+
+from radicale import pathutils, utils
+from radicale.log import logger
+
+INTERNAL_TYPES: Sequence[str] = ("none", "rabbitmq", "email")
+
+
+def load(configuration):
+    """Load the storage module chosen in configuration."""
+    try:
+        return utils.load_plugin(
+            INTERNAL_TYPES, "hook", "Hook", BaseHook, configuration)
+    except Exception as e:
+        logger.warning(e)
+        logger.warning(
+            'Hook "%s" failed to load, falling back to "none".',
+            configuration.get("hook", "type"))
+        configuration = configuration.copy()
+        configuration.update({"hook": {"type": "none"}}, "hook", privileged=True)
+        return utils.load_plugin(
+            INTERNAL_TYPES, "hook", "Hook", BaseHook, configuration)
+
+
+class BaseHook:
+    def __init__(self, configuration):
+        """Initialize BaseHook.
+
+        ``configuration`` see ``radicale.config`` module.
+        The ``configuration`` must not change during the lifetime of
+        this object, it is kept as an internal reference.
+
+        """
+        self.configuration = configuration
+
+    @property
+    def enabled(self) -> bool:
+        """Check if this hook is enabled."""
+        raise NotImplementedError
+
+    def notify(self, notification_item):
+        """Upload a new or replace an existing item."""
+        raise NotImplementedError
+
+
+class HookNotificationItemTypes(Enum):
+    CPATCH = "cpatch"
+    UPSERT = "upsert"
+    DELETE = "delete"
+
+
+def _cleanup(path):
+    sane_path = pathutils.strip_path(path)
+    attributes = sane_path.split("/") if sane_path else []
+
+    if len(attributes) < 2:
+        return ""
+    return attributes[0] + "/" + attributes[1]
+
+
+class HookNotificationItem:
+
+    def __init__(self, notification_item_type, path, content=None, content_type=None, uid=None, new_content=None,
+                 old_content=None, actor=None):
+        self.type = notification_item_type.value
+        self.point = _cleanup(path)
+        self.actor = actor
+        self._content_legacy = content
+        self.content_type = content_type
+        self.uid = uid
+        self.new_content = new_content
+        self.old_content = old_content
+
+    @property
+    def content(self):  # For backward compatibility
+        return self._content_legacy or self.uid or self.new_content or self.old_content
+
+    @property
+    def is_calendar_item(self) -> bool:
+        """Check if this notification item is related to a VCALENDAR item."""
+        if not self.content_type:
+            return False
+
+        return self.content_type.upper().strip() == "VCALENDAR"
+
+    @property
+    def is_card_item(self) -> bool:
+        """Check if this notification item is related to a VCARD item."""
+        if not self.content_type:
+            return False
+
+        return self.content_type.upper().strip() == "VCARD"
+
+    @property
+    def is_addressbook_item(self) -> bool:
+        """Check if this notification item is related to a VADDRESSBOOK item."""
+        if not self.content_type:
+            return False
+
+        return self.content_type.upper().strip() == "VADDRESSBOOK"
+
+    @property
+    def replaces_existing_item(self) -> bool:
+        """Check if this notification item replaces/deletes an existing item."""
+        return self.old_content is not None
+
+    def to_json(self):
+        return json.dumps(
+            {**self.__dict__, "content": self.content},
+            sort_keys=True,
+            indent=4
+        )

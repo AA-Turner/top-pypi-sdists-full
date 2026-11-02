@@ -1,0 +1,100 @@
+from pathlib import Path
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from rock import env_vars
+
+"""Configuration for LLM Service."""
+
+# Log file configuration
+LOG_DIR = env_vars.ROCK_MODEL_SERVICE_DATA_DIR
+LOG_FILE = LOG_DIR + "/LLMService.log"
+TRAJ_FILE = LOG_DIR + "/LLMTraj.jsonl"
+
+# Polling configuration
+POLLING_INTERVAL_SECONDS = 0.1  # seconds
+REQUEST_TIMEOUT = None  # Infinite timeout as requested
+
+# Request markers
+REQUEST_START_MARKER = "LLM_REQUEST_START"
+REQUEST_END_MARKER = "LLM_REQUEST_END"
+RESPONSE_START_MARKER = "LLM_RESPONSE_START"
+RESPONSE_END_MARKER = "LLM_RESPONSE_END"
+SESSION_END_MARKER = "SESSION_END"
+
+
+class ModelServiceConfig(BaseModel):
+    """Configuration for the LLM Model Service."""
+
+    # validate_assignment=True so the recording/replay mutex below also fires when
+    # CLI overrides are applied field-by-field (not only at construction time).
+    model_config = ConfigDict(validate_assignment=True)
+
+    host: str = "0.0.0.0"
+    """Server host address."""
+
+    port: int = 8080
+    """Server port."""
+
+    proxy_base_url: str | None = Field(default=None)
+    """Direct proxy base URL, takes precedence over proxy_rules."""
+
+    proxy_rules: dict[str, str] = Field(
+        default_factory=lambda: {
+            "gpt-3.5-turbo": "https://api.openai.com/v1",
+            "default": "https://api-inference.modelscope.cn/v1",
+        },
+    )
+    """Mapping of model names to backend URLs."""
+
+    retryable_status_codes: list[int] = Field(default_factory=lambda: [429, 500])
+    """List of status codes that trigger retry. Only these codes will trigger a retry.
+    Codes not in this list (e.g., 400, 401, 403, or certain 5xx/6xx) will fail immediately."""
+
+    request_timeout: int = Field(default=120)
+    """Request timeout in seconds."""
+
+    recording_file: str | None = Field(default=None)
+    """Recording mode output: where ForwardBackend writes the trajectory JSONL.
+    None → uses TRAJ_FILE (LOG_DIR/LLMTraj.jsonl)."""
+
+    replay_file: str | None = Field(default=None)
+    """Replay mode input: a .jsonl trajectory file. When set, ReplayBackend serves
+    requests from recorded responses instead of calling a real upstream."""
+
+    @model_validator(mode="after")
+    def _recording_replay_mutually_exclusive(self):
+        if self.recording_file and self.replay_file:
+            raise ValueError(
+                "recording_file and replay_file are mutually exclusive — "
+                "set one (recording mode) or the other (replay mode), not both."
+            )
+        return self
+
+    @classmethod
+    def from_file(cls, config_path: str | None = None):
+        """
+        Factory method to create a config instance from a YAML file.
+
+        Args:
+            config_path: Path to the YAML file. If None, returns default config.
+
+        Returns:
+            ModelServiceConfig instance.
+        """
+        if not config_path:
+            return cls()
+
+        config_file = Path(config_path)
+
+        if not config_file.exists():
+            raise FileNotFoundError(f"Config file {config_file} not found")
+
+        with open(config_file, encoding="utf-8") as f:
+            config_data = yaml.safe_load(f)
+
+        if config_data is None:
+            return cls()
+
+        return cls(**config_data)

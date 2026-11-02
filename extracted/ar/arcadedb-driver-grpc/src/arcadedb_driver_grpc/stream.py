@@ -1,0 +1,433 @@
+"""The streaming wrappers: `stream_query`, `insert_stream`, `time_series_query` and
+`time_series_write_stream`."""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncIterable, Iterable, Iterator, Sequence
+from dataclasses import dataclass
+
+from ._generated import arcadedb_server_pb2 as messages
+from ._generated.arcadedb_server_pb2_grpc import ArcadeDbServiceStub
+
+__all__ = [
+    "InsertStreamRequest",
+    "TimeSeriesWriteStreamRequest",
+    "insert_stream",
+    "stream_query",
+    "time_series_query",
+    "time_series_write_stream",
+]
+
+
+def _as_metadata(
+    metadata: Sequence[tuple[str, str | bytes]] | None,
+) -> tuple[tuple[str, str | bytes], ...] | None:
+    """Adapts the sync facade's public `Sequence` parameter to the sync stub's own type.
+
+    `grpc-stubs` types the SYNC multi-callables' `__call__` `metadata` (unary-unary,
+    unary-stream and stream-unary alike) as `tuple[tuple[str, str | bytes], ...] | None` -
+    a concrete homogeneous tuple, not `Sequence` - while `grpc.aio`'s equivalent accepts
+    the broader `Metadata | Sequence[MetadatumType]`, which is why `aio.py` needs no
+    equivalent conversion. Narrowing the facade's own public parameter to a tuple would
+    fix the mismatch too, but `Sequence` is what a caller most naturally has on hand (a
+    list built up in a loop) and is already the shape `auth.Auth.metadata` documents, so
+    the conversion happens here instead of pushing a tuple requirement onto every caller.
+
+    Lives here rather than in `transaction.py`, which uses it for `TransactionHandle`'s
+    unary methods, because `transaction.py` imports this module: the streaming wrappers
+    below need it too, and the reverse import would be circular.
+    """
+    return None if metadata is None else tuple(metadata)
+
+
+def stream_query(
+    raw: ArcadeDbServiceStub,
+    request: messages.StreamQueryRequest,
+    *,
+    timeout: float | None = None,
+    metadata: Sequence[tuple[str, str | bytes]] | None = None,
+) -> Iterator[messages.GrpcRecord]:
+    """Streams a query's results row by row.
+
+    Wraps the server-streaming `StreamQuery`, flattening the batching the wire protocol
+    uses: the server sends `QueryResult` batches, this yields each `GrpcRecord` on its own.
+
+    Thin by design. `retrieval_mode` and `batch_size` pass through to the server exactly
+    as given and this wrapper picks no defaults for either, because CURSOR,
+    MATERIALIZE_ALL and PAGED have materially different memory and consistency behaviour
+    that only the caller can judge.
+
+    `timeout` and `metadata` are forwarded to the stub call as given. `metadata` is
+    per-call gRPC metadata, APPENDED to whatever the channel's auth interceptor adds
+    (see `auth.py`) - never a substitute for channel auth.
+    """
+    for result in raw.StreamQuery(request, timeout=timeout, metadata=_as_metadata(metadata)):
+        yield from result.records
+
+
+def time_series_query(
+    raw: ArcadeDbServiceStub,
+    request: messages.TimeSeriesQueryRequest,
+    *,
+    timeout: float | None = None,
+    metadata: Sequence[tuple[str, str | bytes]] | None = None,
+) -> Iterator[messages.TimeSeriesQueryResult]:
+    """Streams a time-series answer message by message.
+
+    Wraps the server-streaming `TimeSeriesQuery`. Deliberately THINNER than `stream_query`
+    above, which flattens `QueryResult` batches into individual `GrpcRecord`s:
+    `TimeSeriesQueryResult` cannot be flattened the same way. `truncated` and `last` are
+    carried per-message (`truncated` is only meaningful on the message where `last` is
+    true), and a raw answer's `rows` versus an aggregated answer's `buckets` are shaped
+    differently. Flattening either away would throw away the information a caller needs to
+    tell "the stream ended" from "the stream ended early because of `limit`" - so this
+    yields the messages exactly as the server sent them.
+
+    Also reachable, bound to an open transaction, as `TransactionHandle.time_series_query`
+    (see `transaction.py`), since `TimeSeriesQueryRequest` carries a `transaction` field
+    (issue #7370): a query naming an open transaction runs on that transaction's own
+    thread and observes its uncommitted points, where a query with no transaction runs on
+    a gRPC worker and sees only committed data.
+
+    `request.tags` and `request.limit` pass straight through, including their server-side
+    enforcement: an unknown tag name in `tags` and a `limit` above
+    `arcadedb.server.grpcTimeSeriesMaxResultRows` are both refused by the server, not by
+    this package - see the README's "Time series" section.
+
+    `timeout` and `metadata` are forwarded to the stub call as given. `metadata` is
+    per-call gRPC metadata, APPENDED to whatever the channel's auth interceptor adds
+    (see `auth.py`) - never a substitute for channel auth.
+    """
+    yield from raw.TimeSeriesQuery(request, timeout=timeout, metadata=_as_metadata(metadata))
+
+
+@dataclass
+class InsertStreamRequest:
+    """A client-streaming insert.
+
+    `chunks` is the sequence of row batches to send - each element becomes exactly one
+    wire `InsertChunk`. This wrapper owns the envelope bookkeeping around those batches
+    (`session_id`, `chunk_seq`, first-chunk-only `database`, final-chunk `last`); it does
+    not decide how rows are batched, which is the caller's call.
+
+    `transaction` IS FORWARDED. It is set on every chunk, exactly as the caller gave it,
+    because the `.proto` declares the field - including any inline `begin`/`commit`/
+    `rollback` flags, which this wrapper does not police. `TransactionHandle.insert_stream`
+    is the safe spelling: its `_bind` replaces `database` and `transaction` with the
+    handle's own (id and database only, no flags) before this envelope ever sees the
+    request.
+
+    On 26.8.1 and earlier the server ignored `TransactionContext` for `InsertStream`
+    entirely (ArcadeData/arcadedb#6607). The fix (`79d931070b`) shipped in 26.9.1; measured
+    against real 26.8.1, 26.9.1 and 26.10.1 servers - begin over `BeginTransaction`, insert
+    with that server-issued `transaction_id`, then roll back - the rows survive the rollback
+    on 26.8.1 and are discarded on both later versions, with a commit persisting them on all
+    three. Every server in the compatibility table is 26.9.1 or later; against an older one
+    the rows of a rolled-back transaction would survive.
+    """
+
+    database: str
+    chunks: Iterable[Sequence[messages.GrpcRecord]] | AsyncIterable[Sequence[messages.GrpcRecord]]
+    credentials: messages.DatabaseCredentials | None = None
+    options: messages.InsertOptions | None = None
+    transaction: messages.TransactionContext | None = None
+
+
+def _build_chunk(
+    request: InsertStreamRequest,
+    session_id: str,
+    seq: int,
+    rows: Sequence[messages.GrpcRecord],
+    *,
+    last: bool,
+) -> messages.InsertChunk:
+    chunk = messages.InsertChunk(session_id=session_id, chunk_seq=seq, rows=rows, last=last)
+    if request.credentials is not None:
+        chunk.credentials.CopyFrom(request.credentials)
+    if request.transaction is not None:
+        chunk.transaction.CopyFrom(request.transaction)
+    if seq == 1:
+        # `database` on the first chunk only, per the .proto contract. It is NOT copied into
+        # `options.database`: servers before 26.9.1 read only that field
+        # (ArcadeData/arcadedb#6597), and clients up to 0.2.0 mirrored it there; the mirror
+        # was retired in 0.3.0 because every supported server reads the chunk's `database`.
+        chunk.database = request.database
+    if request.options is not None:
+        # The caller's options, exactly as given, on every chunk. `CopyFrom` copies into
+        # the chunk's own message, so the caller's `InsertOptions` is never touched.
+        chunk.options.CopyFrom(request.options)
+    return chunk
+
+
+class _EndOfStream:
+    """Sentinel distinguishing "no more chunks" from a row batch that happens to be `None`.
+
+    `next(iterator, None)` would conflate the two: a caller whose generator yields `None` -
+    easy to produce from a `dict.get()` in a batching helper - would have the REST OF THE
+    STREAM SILENTLY DROPPED, because the lookahead below would mistake that `None` batch for
+    end-of-stream. The server would then report a smaller `received` than the caller sent and
+    nothing would raise anywhere: a silent partial insert, the worst failure mode this wrapper
+    could have. A private sentinel object (never equal or identical to any real value the
+    caller could produce) closes that hole.
+    """
+
+
+_END_OF_STREAM = _EndOfStream()
+
+
+def _envelope_chunks(request: InsertStreamRequest, session_id: str) -> Iterator[messages.InsertChunk]:
+    """Turns `request.chunks` into wire `InsertChunk`s, adding the envelope bookkeeping.
+
+    Validates `request.chunks` EAGERLY, in this function's own body, rather than inside the
+    generator that does the actual iterating (`_envelope_chunks_inner`). A generator's body
+    does not run AT ALL until the first `next()` pull - for `insert_stream`, that pull happens
+    only once grpc itself starts consuming the request iterator to open the RPC. A `raise`
+    written inside that generator would not fire until then, and grpc catches it there and
+    re-raises its own opaque `_InactiveRpcError` (`StatusCode.UNKNOWN`, "Exception iterating
+    requests!") instead of this function's message ever reaching the caller - verified against
+    a real in-process server. Splitting the eager check into this plain (non-generator)
+    function, which merely returns the generator `_envelope_chunks_inner` produces, is what
+    makes the `TypeError` below raise synchronously in the caller's own stack frame, before any
+    RPC is opened at all.
+    """
+    if not isinstance(request.chunks, Iterable):
+        raise TypeError(
+            "insert_stream: `chunks` is an async iterable, which the sync facade cannot consume. "
+            "Use arcadedb_driver_grpc.aio.create_client, or pass a synchronous iterable."
+        )
+    return _envelope_chunks_inner(request, session_id)
+
+
+def _envelope_chunks_inner(request: InsertStreamRequest, session_id: str) -> Iterator[messages.InsertChunk]:
+    """The chunk-by-chunk iteration itself, once `_envelope_chunks` has confirmed `request.chunks`
+    is synchronous."""
+    # `request.chunks` is a synchronous `Iterable` here - `_envelope_chunks` already checked -
+    # but mypy cannot see that guarantee across the function boundary, so the declared type is
+    # still the full sync/async union. `iter()` only accepts the synchronous half of it.
+    iterator = iter(request.chunks)  # type: ignore[arg-type]
+
+    # The iterator is pulled MANUALLY rather than with a plain `for`, because knowing
+    # which chunk is last needs one-element lookahead. Manual pulling means finalisation
+    # is not automatic: if this generator is abandoned early - the RPC aborts mid-stream,
+    # or the caller stops consuming - nothing would otherwise close the caller's own
+    # iterator, and any `finally` they wrote around it (closing a file handle, a database
+    # cursor) would never run. The try/finally makes that cleanup happen on every exit
+    # path, not only on normal completion.
+    try:
+        current = next(iterator, _END_OF_STREAM)
+        if isinstance(current, _EndOfStream):
+            # An empty stream is a legitimate outcome, not an error: a filter that matched
+            # nothing produces one. Send a single empty final chunk and let the server
+            # answer with whatever summary it likes, rather than inventing a result or
+            # raising. Verified against a real server during M1b.
+            yield _build_chunk(request, session_id, 1, [], last=True)
+            return
+
+        seq = 1
+        while True:
+            nxt = next(iterator, _END_OF_STREAM)
+            yield _build_chunk(request, session_id, seq, current, last=isinstance(nxt, _EndOfStream))
+            if isinstance(nxt, _EndOfStream):
+                return
+            current = nxt
+            seq += 1
+    finally:
+        # `callable(...)`, not merely `is not None`: a custom iterable that happens to
+        # carry a non-callable attribute named `close` (a plain data field, unrelated to
+        # generator cleanup) would otherwise make this raise `TypeError` while trying to
+        # call it, which is worse than the missing cleanup this guard exists to provide.
+        close = getattr(iterator, "close", None)
+        if callable(close):
+            close()
+
+
+def insert_stream(
+    raw: ArcadeDbServiceStub,
+    request: InsertStreamRequest,
+    *,
+    timeout: float | None = None,
+    metadata: Sequence[tuple[str, str | bytes]] | None = None,
+) -> messages.InsertSummary:
+    """Streams rows to the server in chunks and returns the server's single `InsertSummary`.
+
+    Handles the `session_id` / `chunk_seq` / `database` / `last` envelope bookkeeping a
+    caller would otherwise hand-roll:
+
+    - one `session_id` (a fresh UUID), stable for the whole stream
+    - `chunk_seq` starting at 1 and incrementing by 1
+    - `database` on the first chunk only, per the .proto contract; `request.options` is
+      sent as given and `options.database` is never set by this wrapper. A server before
+      26.9.1 ignores the chunk's `database` (ArcadeData/arcadedb#6597) and reports the rows
+      as `received` with `inserted=0` in a SUCCESSFUL call, so against one this stream
+      silently inserts nothing; such servers are outside the supported range
+    - `last=True` on the final chunk only
+
+    An empty `request.chunks` sends a single chunk with zero rows and `last=True` rather
+    than raising.
+
+    Also reachable, bound to an open transaction, as `TransactionHandle.insert_stream`
+    (see `transaction.py`), which replaces `database` and `transaction` with the handle's
+    own so the rows commit or roll back with it. Servers before 26.9.1, outside the
+    compatibility table, ignored `TransactionContext` here (ArcadeData/arcadedb#6607) - see
+    `InsertStreamRequest`.
+
+    `timeout` and `metadata` are forwarded to the stub call as given. `metadata` is
+    per-call gRPC metadata, APPENDED to whatever the channel's auth interceptor adds
+    (see `auth.py`) - never a substitute for channel auth.
+    """
+    return raw.InsertStream(
+        _envelope_chunks(request, str(uuid.uuid4())), timeout=timeout, metadata=_as_metadata(metadata)
+    )
+
+
+@dataclass
+class TimeSeriesWriteStreamRequest:
+    """A client-streaming time-series write.
+
+    `chunks` is the sequence of point batches to send - each element becomes exactly one
+    wire `TimeSeriesWriteChunk`. Unlike `InsertStreamRequest`, there is no
+    session/sequence/last envelope for this wrapper to own: `TimeSeriesWriteChunk` declares
+    only `database`, `credentials`, `type` and `precision` alongside its `points`, with no
+    `session_id`, `chunk_seq` or `last` field on the message at all - so those four are
+    simply repeated on every chunk (see `_build_time_series_chunk`). There is no
+    `options.database`-style second home for `database` to fill here either:
+    ArcadeData/arcadedb#6597 (a server reading the database only from `InsertOptions`,
+    fixed in 26.9.1) was confirmed specific to `InsertStream`/`InsertContext`, and
+    `TimeSeriesWriteChunk` was never shown to share it, so a workaround for it would be
+    cargo-culting a fix onto an RPC that never needed one.
+
+    Repeating the envelope on every chunk is a deliberate SIMPLIFICATION, not something the
+    `.proto` asks for - an earlier version of this docstring claimed the contract required
+    it, and the contract says the opposite. `TimeSeriesWriteChunk.database` is documented
+    there as "REQUIRED on the first chunk; ignored on later ones (the server caches the
+    first chunk's database)", so a first-chunk-only semantic DOES exist on this RPC.
+    Sending `database` again on later chunks is harmless precisely because the server
+    throws those copies away, and it spares this wrapper a first-chunk special case it has
+    no other reason to carry. The repetition does cost one thing: the contract documents
+    `type` as a per-CHUNK default and advertises switching measurement between chunks, so a
+    single stream-wide `type` cannot express that. This wrapper does not expose the
+    per-chunk default - a caller who needs to mix measurements sets `type` on each
+    `TimeSeriesPoint` instead, which still works.
+
+    `precision` is REQUIRED here, deliberately (D-M6-1) - the one place this wrapper
+    diverges from "pass everything through unchanged". `TimeSeriesPrecision`'s proto3 zero
+    value is `TS_PRECISION_MILLISECONDS` (0), and the wire cannot distinguish "the caller
+    omitted precision" from "the caller explicitly chose milliseconds". The HTTP
+    `/ts/{database}/write` endpoint speaks InfluxDB Line Protocol, whose omitted-precision
+    default is NANOSECONDS - a factor of 10**6 away. A caller porting a working HTTP ingest
+    to gRPC who drops this field would have every timestamp misread by that factor,
+    silently, with no error on either side. Requiring the field on this dataclass (no
+    default) removes that failure mode by construction rather than documenting around it.
+
+    `transaction` is NOT a field here, unlike `InsertStreamRequest` - `TimeSeriesWriteChunk`
+    carries no `transaction` field on the wire at all, so there is nothing to forward and
+    `time_series_write_stream` is correspondingly never offered on `TransactionHandle`.
+    """
+
+    database: str
+    type: str
+    precision: messages.TimeSeriesPrecision.ValueType
+    chunks: Iterable[Sequence[messages.TimeSeriesPoint]] | AsyncIterable[Sequence[messages.TimeSeriesPoint]]
+    credentials: messages.DatabaseCredentials | None = None
+
+
+def _build_time_series_chunk(
+    request: TimeSeriesWriteStreamRequest, points: Sequence[messages.TimeSeriesPoint]
+) -> messages.TimeSeriesWriteChunk:
+    """Builds one wire `TimeSeriesWriteChunk`, setting `database`, `type` and `precision`
+    from `request` on EVERY chunk - see `TimeSeriesWriteStreamRequest` for why this,
+    unlike `insert_stream`'s envelope, needs no first-chunk-only special case."""
+    chunk = messages.TimeSeriesWriteChunk(
+        database=request.database, type=request.type, precision=request.precision, points=points
+    )
+    if request.credentials is not None:
+        chunk.credentials.CopyFrom(request.credentials)
+    return chunk
+
+
+def _time_series_chunks_inner(request: TimeSeriesWriteStreamRequest) -> Iterator[messages.TimeSeriesWriteChunk]:
+    """The chunk-by-chunk iteration itself, once `_envelope_time_series_chunks` has
+    confirmed `request.chunks` is synchronous.
+
+    No one-element lookahead is needed here, unlike `_envelope_chunks_inner`: there is no
+    `last` flag to compute, so a plain `for` loop suffices. That loop does NOT, by itself,
+    close `request.chunks` if this generator is abandoned early (a plain Python `for` never
+    closes the iterable it consumes on early exit - unlike a JS `for await...of`, whose
+    IteratorClose semantics give the TypeScript twin this behaviour for free without a
+    try/finally of its own). The try/finally below is what makes that cleanup happen here
+    too, exactly as `_envelope_chunks_inner` does for `insert_stream`.
+    """
+    # `request.chunks` is a synchronous `Iterable` here - `_envelope_time_series_chunks`
+    # already checked - but mypy cannot see that guarantee across the function boundary.
+    iterator = iter(request.chunks)  # type: ignore[arg-type]
+    try:
+        for points in iterator:
+            yield _build_time_series_chunk(request, points)
+    finally:
+        close = getattr(iterator, "close", None)
+        if callable(close):
+            close()
+
+
+def _envelope_time_series_chunks(request: TimeSeriesWriteStreamRequest) -> Iterator[messages.TimeSeriesWriteChunk]:
+    """Turns `request.chunks` into wire `TimeSeriesWriteChunk`s.
+
+    Validates `request.chunks` EAGERLY, in this function's own (non-generator) body,
+    exactly as `_envelope_chunks` does for `insert_stream` and for the same reason: a
+    generator's body does not run at all until the first `next()` pull, which for this RPC
+    happens only once grpc itself starts consuming the request iterator - a `raise` written
+    inside that generator would not reach the caller, since grpc catches it there and
+    re-raises its own opaque `_InactiveRpcError` instead.
+    """
+    if not isinstance(request.chunks, Iterable):
+        raise TypeError(
+            "time_series_write_stream: `chunks` is an async iterable, which the sync facade cannot consume. "
+            "Use arcadedb_driver_grpc.aio.create_client, or pass a synchronous iterable."
+        )
+    return _time_series_chunks_inner(request)
+
+
+def time_series_write_stream(
+    raw: ArcadeDbServiceStub,
+    request: TimeSeriesWriteStreamRequest,
+    *,
+    timeout: float | None = None,
+    metadata: Sequence[tuple[str, str | bytes]] | None = None,
+) -> messages.TimeSeriesWriteSummary:
+    """Streams points to the server in chunks and returns the server's `TimeSeriesWriteSummary`.
+
+    Sets `database`, `credentials`, `type` and `precision` on EVERY wire chunk - see
+    `TimeSeriesWriteStreamRequest` for why this wrapper repeats the envelope rather than
+    sending `database` on the first chunk only, as `insert_stream` does.
+
+    An empty `request.chunks` sends ZERO wire chunks, rather than `insert_stream`'s
+    single-empty-chunk special case: `TimeSeriesWriteChunk` has no `last`/first-chunk field
+    forcing that workaround. What the server does with a stream that never told it
+    `database`, `type` or `precision` is now MEASURED against a real server, not guessed at:
+    it does NOT raise. The call is accepted cleanly and returns an all-zero
+    `TimeSeriesWriteSummary` - `received == written == dropped == 0`, with
+    `unknown_types`, `non_time_series_types` and `unavailable_types` all empty. This
+    wrapper still invents nothing; it hands back whatever summary the server sent.
+
+    Returns the server's `TimeSeriesWriteSummary` WHOLE (D-M6-3): `received`, `written`,
+    `dropped`, `unknown_types`, `non_time_series_types`, `unavailable_types`,
+    `undeclared_keys` and `execution_time_ms` all survive unchanged. A write is NOT atomic - each measurement's
+    batch commits its own shard transaction as it is appended - so a SUCCESSFUL call can
+    still report `written < received`. A caller who checks only that this returned without
+    raising has not checked that its data landed; this wrapper never reduces the summary to
+    a boolean or a count.
+
+    NOT available on a `TransactionHandle`: `TimeSeriesWriteChunk` carries no `transaction`
+    field on the wire at all (unlike `TimeSeriesQueryRequest`/`TimeSeriesLatestRequest`), so
+    there is nothing to bind. `TimeSeriesWrite` (the unary write) needs no wrapper either -
+    its request has no `transaction` field, so `raw.TimeSeriesWrite` already works
+    unassisted.
+
+    `timeout` and `metadata` are forwarded to the stub call as given. `metadata` is
+    per-call gRPC metadata, APPENDED to whatever the channel's auth interceptor adds
+    (see `auth.py`) - never a substitute for channel auth.
+    """
+    return raw.TimeSeriesWriteStream(
+        _envelope_time_series_chunks(request), timeout=timeout, metadata=_as_metadata(metadata)
+    )

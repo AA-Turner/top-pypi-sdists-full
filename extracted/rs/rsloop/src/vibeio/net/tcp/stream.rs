@@ -1,0 +1,1022 @@
+//! TCP stream types for async I/O.
+#![warn(clippy::undocumented_unsafe_blocks)]
+//!
+//! This module provides:
+//! - [`TcpStream`]: An async TCP stream that can use either completion-based or
+//!   poll-based I/O.
+//! - [`PollTcpStream`]: A poll-only variant that always uses readiness-based
+//!   operations.
+//!
+//! # Implementation details
+//!
+//! - On Linux with io_uring support, TCP operations use native async syscalls
+//!   via the async driver.
+//! - When io_uring completion is available, operations complete directly.
+//! - Poll mode uses nonblocking socket calls and driver readiness
+//!   notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration
+//!   without one returns an error; direct address/option queries need no
+//!   current runtime.
+
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawSocket, IntoRawSocket, RawSocket};
+use std::{
+    cell::RefCell,
+    future::poll_fn,
+    io::{self, IoSlice},
+    net::{Shutdown, SocketAddr, ToSocketAddrs},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
+use mio::Interest;
+use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
+#[cfg(windows)]
+use windows_sys::Win32::Networking::WinSock::SOCKADDR_STORAGE;
+
+use crate::vibeio::{
+    driver::RegistrationMode,
+    fd_inner::InnerRawHandle,
+    io::{
+        AsInnerRawHandle, AsyncRead, AsyncReadPoll, AsyncWrite, AsyncWritePoll, IoBuf, IoBufMut,
+        IoBufTemporaryPoll, IoVectoredBuf, IoVectoredBufMut,
+    },
+    op::{ConnectOp, ReadOp, ReadinessOp, ReadvOp, RecvOp, WriteOp, WritevOp, socket_addr_to_raw},
+};
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+#[cfg(unix)]
+fn new_socket(
+    address: SocketAddr,
+) -> Result<(std::net::TcpStream, libc::sockaddr_storage, libc::socklen_t), io::Error> {
+    let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(address),
+        socket2::Type::STREAM,
+        None,
+    )?;
+    Ok((socket.into(), raw_addr, raw_addr_len))
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+#[cfg(windows)]
+fn new_socket(
+    address: SocketAddr,
+) -> Result<(std::net::TcpStream, SOCKADDR_STORAGE, i32), io::Error> {
+    let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(address),
+        socket2::Type::STREAM,
+        None,
+    )?;
+    Ok((socket.into(), raw_addr, raw_addr_len))
+}
+
+/// An async TCP stream that can use either completion-based or poll-based I/O.
+///
+/// This is the async version of [`std::net::TcpStream`].
+///
+/// # Implementation details
+///
+/// - On Linux with io_uring support, TCP operations use native async syscalls
+///   via the async driver.
+/// - When io_uring completion is available, operations complete directly.
+/// - Poll mode uses nonblocking socket calls and driver readiness
+///   notifications.
+/// - Registration needs an entered runtime and returns an error without one.
+///   Drive async I/O inside a runtime; direct socket queries need no current
+///   runtime.
+///
+/// # Examples
+///
+/// See "TCP loopback with the Tokio I/O adapter" in
+/// `tools/vibeio-check/EXAMPLES.md` for a timeout-bounded exchange that handles
+/// partial transfers and flushes buffered writes.
+pub struct TcpStream {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
+    inner: Arc<std::net::TcpStream>,
+}
+
+/// A poll-only variant that always uses readiness-based operations.
+///
+/// This type is useful when you want to ensure readiness-based I/O is used,
+/// for example when integrating with other readiness-based systems.
+///
+/// # Implementation details
+///
+/// - Always uses readiness-based I/O through the owning runtime driver.
+/// - Can be converted to [`TcpStream`] with adaptive or completion mode.
+pub struct PollTcpStream {
+    stream: TcpStream,
+    write_ready: RefCell<bool>,
+    read_ready: RefCell<bool>,
+    #[cfg(target_os = "linux")]
+    read_drained: bool,
+}
+
+impl TcpStream {
+    /// Connects to the specified address.
+    ///
+    /// This is the async version of [`std::net::TcpStream::connect`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations:
+    /// - DNS resolution fails
+    /// - Connection refused
+    /// - Network unreachable
+    /// - The runtime is not active
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "TcpStream", future = true)
+    )]
+    #[inline]
+    pub async fn connect(address: impl ToSocketAddrs) -> Result<Self, io::Error> {
+        let addresses = address.to_socket_addrs()?;
+        let mut last_error = None;
+        for address in addresses {
+            match Self::connect_one(address).await {
+                Ok(stream) => return Ok(stream),
+                Err(err) => last_error = Some(err),
+            }
+        }
+        Err(last_error
+            .unwrap_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no addresses")))
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "TcpStream", future = true)
+    )]
+    #[inline]
+    async fn connect_one(address: SocketAddr) -> Result<Self, io::Error> {
+        let (inner, raw_addr, raw_addr_len) = new_socket(address)?;
+        let stream = Self::from_std(inner)?;
+
+        let handle = &stream.handle;
+        let mut op = ConnectOp::new(handle, raw_addr, raw_addr_len)?;
+        poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
+
+        Ok(stream)
+    }
+
+    /// Returns the local address of this connection.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying socket is not
+    /// connected.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn local_addr(&self) -> Result<SocketAddr, io::Error> {
+        self.inner.local_addr()
+    }
+
+    /// Returns the remote address of this connection.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying socket is not
+    /// connected.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn peer_addr(&self) -> Result<SocketAddr, io::Error> {
+        self.inner.peer_addr()
+    }
+
+    /// Returns the current state of the TCP_NODELAY option for this socket.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying socket is not
+    /// connected.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn nodelay(&self) -> Result<bool, io::Error> {
+        self.inner.nodelay()
+    }
+
+    /// Sets the value of the TCP_NODELAY option for this socket.
+    ///
+    /// When set, this disables the Nagle algorithm, which means that small
+    /// packets are sent immediately rather than being buffered.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying socket is not
+    /// connected.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn set_nodelay(&self, nodelay: bool) -> Result<(), io::Error> {
+        self.inner.set_nodelay(nodelay)
+    }
+
+    /// Shuts down the connection.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn shutdown(&self, how: Shutdown) -> Result<(), io::Error> {
+        match self.inner.shutdown(how) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::NotConnected => Ok(()), // macOS-specific behavior
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Peeks at data from the socket without removing it from the buffer.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying socket is not
+    /// connected.
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "TcpStream", future = true)
+    )]
+    #[inline]
+    pub async fn peek<B: IoBufMut>(&self, buf: B) -> (Result<usize, io::Error>, B) {
+        let handle = &self.handle;
+        let mut op = RecvOp::new_peek(handle, buf);
+        let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
+        (result, op.take_bufs())
+    }
+
+    /// Creates a new `TcpStream` from a standard library `TcpStream`.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if registration with the async driver
+    /// fails.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn from_std(inner: std::net::TcpStream) -> Result<Self, io::Error> {
+        Self::from_std_with_mode(inner, RegistrationMode::Completion)
+    }
+
+    /// Creates a new `TcpStream` from a standard library `TcpStream` with a
+    /// specific registration mode.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub(crate) fn from_std_with_mode(
+        inner: std::net::TcpStream,
+        mode: RegistrationMode,
+    ) -> Result<Self, io::Error> {
+        Self::from_shared_with_mode(Arc::new(inner), mode)
+    }
+
+    /// Creates a stream registration that shares ownership of a standard TCP
+    /// stream with another I/O path.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn from_shared(
+        inner: Arc<std::net::TcpStream>,
+        mode: RegistrationMode,
+    ) -> Result<Self, io::Error> {
+        Self::from_shared_with_mode(inner, mode)
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    fn from_shared_with_mode(
+        inner: Arc<std::net::TcpStream>,
+        mode: RegistrationMode,
+    ) -> Result<Self, io::Error> {
+        #[cfg(unix)]
+        let handle = InnerRawHandle::new_with_mode(
+            inner.as_raw_fd(),
+            Interest::READABLE | Interest::WRITABLE,
+            mode,
+        )?;
+        #[cfg(windows)]
+        let handle = InnerRawHandle::new_with_mode(
+            crate::vibeio::fd_inner::RawOsHandle::Socket(inner.as_raw_socket()),
+            Interest::READABLE | Interest::WRITABLE,
+            mode,
+        )?;
+        inner.set_nonblocking(!handle.uses_completion())?;
+        Ok(Self { inner, handle })
+    }
+
+    /// Converts this stream into a poll-only variant.
+    ///
+    /// The returned `PollTcpStream` will always use readiness-based I/O.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TcpStream"))]
+    #[inline]
+    pub fn into_poll(self) -> Result<PollTcpStream, io::Error> {
+        let mut stream = self;
+        stream.handle.rebind_mode(RegistrationMode::Poll)?;
+        stream
+            .inner
+            .set_nonblocking(!stream.handle.uses_completion())?;
+        Ok(PollTcpStream {
+            stream,
+            write_ready: RefCell::new(false),
+            read_ready: RefCell::new(false),
+            #[cfg(target_os = "linux")]
+            read_drained: false,
+        })
+    }
+}
+
+impl PollTcpStream {
+    /// Connects to the specified address using poll-based I/O.
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "PollTcpStream", future = true)
+    )]
+    #[inline]
+    pub async fn connect(address: impl ToSocketAddrs) -> Result<Self, io::Error> {
+        let addresses = address.to_socket_addrs()?;
+        let mut last_error = None;
+        for address in addresses {
+            match Self::connect_one(address).await {
+                Ok(stream) => return Ok(stream),
+                Err(err) => last_error = Some(err),
+            }
+        }
+        Err(last_error
+            .unwrap_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no addresses")))
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "PollTcpStream", future = true)
+    )]
+    #[inline]
+    async fn connect_one(address: SocketAddr) -> Result<Self, io::Error> {
+        let (inner, raw_addr, raw_addr_len) = new_socket(address)?;
+        let stream = Self::from_std(inner)?;
+
+        let handle = &stream.stream.handle;
+        let mut op = ConnectOp::new(handle, raw_addr, raw_addr_len)?;
+        poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
+
+        Ok(stream)
+    }
+
+    /// Creates a new `PollTcpStream` from a standard library `TcpStream`.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn from_std(inner: std::net::TcpStream) -> Result<Self, io::Error> {
+        Ok(Self {
+            stream: TcpStream::from_std_with_mode(inner, RegistrationMode::Poll)?,
+            write_ready: RefCell::new(false),
+            read_ready: RefCell::new(false),
+            #[cfg(target_os = "linux")]
+            read_drained: false,
+        })
+    }
+
+    /// Creates a poll stream that shares ownership of a standard TCP stream.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn from_shared(inner: Arc<std::net::TcpStream>) -> Result<Self, io::Error> {
+        Ok(Self {
+            stream: TcpStream::from_shared_with_mode(inner, RegistrationMode::Poll)?,
+            write_ready: RefCell::new(false),
+            read_ready: RefCell::new(false),
+            #[cfg(target_os = "linux")]
+            read_drained: false,
+        })
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    /// Register an endpoint whose nonblocking mode the transport established.
+    #[allow(dead_code, reason = "Used by the Python transport embedding")]
+    pub(crate) fn from_shared_nonblocking(
+        inner: std::sync::Arc<std::net::TcpStream>,
+    ) -> Result<Self, io::Error> {
+        #[cfg(unix)]
+        let raw = inner.as_raw_fd();
+        #[cfg(windows)]
+        let raw = crate::vibeio::RawOsHandle::Socket(inner.as_raw_socket());
+        let handle = InnerRawHandle::new_with_mode(
+            raw,
+            Interest::READABLE | Interest::WRITABLE,
+            RegistrationMode::Poll,
+        )?;
+        Ok(Self {
+            stream: TcpStream { inner, handle },
+            read_ready: RefCell::new(false),
+            write_ready: RefCell::new(false),
+            #[cfg(target_os = "linux")]
+            read_drained: false,
+        })
+    }
+
+    /// Converts this poll stream into an adaptive `TcpStream`.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn into_adaptive(self) -> TcpStream {
+        self.stream
+    }
+
+    /// Converts this poll stream into a completion-based `TcpStream`.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn into_completion(self) -> Result<TcpStream, io::Error> {
+        let mut stream = self.stream;
+        stream.handle.rebind_mode(RegistrationMode::Completion)?;
+        stream
+            .inner
+            .set_nonblocking(!stream.handle.uses_completion())?;
+        Ok(stream)
+    }
+
+    /// Returns the local address of this connection.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn local_addr(&self) -> Result<SocketAddr, io::Error> {
+        self.stream.local_addr()
+    }
+
+    /// Returns the remote address of this connection.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn peer_addr(&self) -> Result<SocketAddr, io::Error> {
+        self.stream.peer_addr()
+    }
+
+    /// Returns the current state of the TCP_NODELAY option for this socket.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn nodelay(&self) -> Result<bool, io::Error> {
+        self.stream.nodelay()
+    }
+
+    /// Sets the value of the TCP_NODELAY option for this socket.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn set_nodelay(&self, nodelay: bool) -> Result<(), io::Error> {
+        self.stream.set_nodelay(nodelay)
+    }
+
+    /// Shuts down the connection.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn shutdown(&self, how: Shutdown) -> Result<(), io::Error> {
+        self.stream.shutdown(how)
+    }
+
+    /// Peeks at data from the socket without removing it from the buffer.
+    ///
+    /// This method uses readiness-based I/O and is compatible with `tokio::io`.
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "PollTcpStream", future = true)
+    )]
+    #[inline]
+    pub async fn peek(&self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        let handle = &self.stream.handle;
+        poll_fn(move |cx| {
+            // SAFETY: the caller exclusively lends initialized writable bytes
+            // for this poll. The local operation only uses synchronous poll I/O
+            // and is destroyed before returning, including when it is Pending.
+            let buf = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
+            let mut op = RecvOp::new_peek(handle, buf);
+            handle.poll_op_poll(cx, &mut op)
+        })
+        .await
+    }
+
+    /// Tries to perform an I/O operation on the socket, returning an error if
+    /// it is not ready.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn try_io_readable<Io, IoR>(&self, io: Io) -> io::Result<IoR>
+    where
+        Io: FnOnce() -> io::Result<IoR>,
+    {
+        crate::vibeio::net::try_io_ready(&self.read_ready, "read not ready", io)
+    }
+
+    /// Tries to perform an I/O operation on the socket, returning an error if
+    /// it is not ready.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PollTcpStream"))]
+    #[inline]
+    pub fn try_io_writable<Io, IoR>(&self, io: Io) -> io::Result<IoR>
+    where
+        Io: FnOnce() -> io::Result<IoR>,
+    {
+        crate::vibeio::net::try_io_ready(&self.write_ready, "write not ready", io)
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsRawFd>")
+    )]
+    #[inline]
+    fn as_raw_fd(&self) -> RawFd {
+        self.inner.as_raw_fd()
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as AsRawFd>")
+    )]
+    #[inline]
+    fn as_raw_fd(&self) -> RawFd {
+        self.stream.inner.as_raw_fd()
+    }
+}
+
+#[cfg(unix)]
+impl IntoRawFd for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as IntoRawFd>")
+    )]
+    #[inline]
+    fn into_raw_fd(self) -> RawFd {
+        let Self { handle, inner } = self;
+        drop(handle);
+        match Arc::try_unwrap(inner) {
+            Ok(inner) => inner.into_raw_fd(),
+            Err(inner) => inner
+                .try_clone()
+                .expect("failed to duplicate shared TCP stream")
+                .into_raw_fd(),
+        }
+    }
+}
+
+#[cfg(unix)]
+impl IntoRawFd for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as IntoRawFd>")
+    )]
+    #[inline]
+    fn into_raw_fd(self) -> RawFd {
+        self.stream.into_raw_fd()
+    }
+}
+
+#[cfg(windows)]
+impl AsRawSocket for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsRawSocket>")
+    )]
+    #[inline]
+    fn as_raw_socket(&self) -> RawSocket {
+        self.inner.as_raw_socket()
+    }
+}
+
+#[cfg(windows)]
+impl IntoRawSocket for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as IntoRawSocket>")
+    )]
+    #[inline]
+    fn into_raw_socket(self) -> RawSocket {
+        let Self { handle, inner } = self;
+        drop(handle);
+        match Arc::try_unwrap(inner) {
+            Ok(inner) => inner.into_raw_socket(),
+            Err(inner) => inner
+                .try_clone()
+                .expect("failed to duplicate shared TCP stream")
+                .into_raw_socket(),
+        }
+    }
+}
+
+#[cfg(windows)]
+impl AsRawSocket for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as AsRawSocket>")
+    )]
+    #[inline]
+    fn as_raw_socket(&self) -> RawSocket {
+        self.stream.as_raw_socket()
+    }
+}
+
+#[cfg(windows)]
+impl IntoRawSocket for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as IntoRawSocket>")
+    )]
+    #[inline]
+    fn into_raw_socket(self) -> RawSocket {
+        self.stream.into_raw_socket()
+    }
+}
+
+impl<'a> AsInnerRawHandle<'a> for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsInnerRawHandle < 'a >>")
+    )]
+    #[inline]
+    fn as_inner_raw_handle(&'a self) -> &'a InnerRawHandle {
+        &self.handle
+    }
+}
+
+impl<'a> AsInnerRawHandle<'a> for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as AsInnerRawHandle < 'a >>")
+    )]
+    #[inline]
+    fn as_inner_raw_handle(&'a self) -> &'a InnerRawHandle {
+        self.stream.as_inner_raw_handle()
+    }
+}
+
+impl AsyncRead for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsyncRead>", future = true)
+    )]
+    #[inline]
+    async fn read<B: IoBufMut>(&mut self, buf: B) -> (Result<usize, io::Error>, B) {
+        let handle = &self.handle;
+        let mut op = ReadOp::new(handle, buf);
+        let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
+        (result, op.take_bufs())
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsyncRead>", future = true)
+    )]
+    #[inline]
+    async fn read_vectored<B: IoVectoredBufMut>(
+        &mut self,
+        bufs: B,
+    ) -> (Result<usize, io::Error>, B) {
+        if bufs.is_empty() {
+            return (Ok(0), bufs);
+        }
+        let handle = &self.handle;
+        let mut op = ReadvOp::new(handle, bufs);
+        let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
+        (result, op.take_bufs())
+    }
+}
+
+impl TokioAsyncRead for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncRead>")
+    )]
+    #[inline]
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<Result<(), io::Error>> {
+        if buf.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
+
+        let this = self.get_mut();
+        #[cfg(target_os = "linux")]
+        if std::mem::take(&mut this.read_drained) && !this.stream.handle.take_unclaimed_readiness()
+        {
+            // A short Linux TCP read consumed the currently available data.
+            // Register before yielding; new data and FIN both wake this reader.
+            // A spurious poll is harmless: the next read handles WouldBlock.
+            return this
+                .stream
+                .handle
+                .poll_op_poll(cx, &mut ReadinessOp::new_readable(&this.stream.handle));
+        }
+        #[cfg(target_os = "linux")]
+        this.stream.handle.clear_readiness();
+        // SAFETY: only a raw pointer is passed to the synchronous read below;
+        // no initialized-byte reference is formed and no pointer is retained.
+        let unfilled = unsafe { buf.unfilled_mut() };
+        // SAFETY: ReadBuf exclusively owns this writable region for this poll.
+        let buf_temp =
+            unsafe { IoBufTemporaryPoll::new_uninit(unfilled.as_mut_ptr().cast(), unfilled.len()) };
+        let mut op = ReadOp::new(&this.stream.handle, buf_temp);
+        match this.stream.handle.poll_op_poll(cx, &mut op) {
+            Poll::Ready(Ok(read)) => {
+                #[cfg(target_os = "linux")]
+                {
+                    this.read_drained = read > 0 && read < buf.remaining();
+                }
+                // SAFETY: the successful read initialized exactly this prefix.
+                unsafe {
+                    buf.assume_init(read);
+                }
+                buf.advance(read);
+                Poll::Ready(Ok(()))
+            }
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl AsyncWrite for TcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsyncWrite>", future = true)
+    )]
+    #[inline]
+    async fn write<B: IoBuf>(&mut self, buf: B) -> (Result<usize, io::Error>, B) {
+        let handle = &self.handle;
+        let mut op = WriteOp::new(handle, buf);
+        let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
+        (result, op.take_bufs())
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsyncWrite>", future = true)
+    )]
+    #[inline]
+    async fn flush(&mut self) -> Result<(), io::Error> {
+        Ok(())
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TcpStream as AsyncWrite>", future = true)
+    )]
+    #[inline]
+    async fn write_vectored<B: IoVectoredBuf>(&mut self, bufs: B) -> (Result<usize, io::Error>, B) {
+        if bufs.is_empty() {
+            return (Ok(0), bufs);
+        }
+        let handle = &self.handle;
+        let mut op = WritevOp::new(handle, bufs);
+        let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
+        (result, op.take_bufs())
+    }
+}
+
+impl TokioAsyncWrite for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncWrite>")
+    )]
+    #[inline]
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let this = self.get_mut();
+        // SAFETY: the source remains initialized and borrowed for this call.
+        // WriteOp only reads it; poll_op_poll rejects completion submission and
+        // the local operation cannot retain the pointer after returning
+        // Pending.
+        let buf = unsafe { IoBufTemporaryPoll::new(buf.as_ptr() as *mut u8, buf.len()) };
+        let mut op = WriteOp::new(&this.stream.handle, buf);
+        this.stream.handle.poll_op_poll(cx, &mut op)
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncWrite>")
+    )]
+    #[inline]
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<Result<usize, io::Error>> {
+        if bufs.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+        let this = self.get_mut();
+        // std socket writes consume the borrowed IoSlice descriptors directly;
+        // neither payload nor descriptor ownership crosses this poll.
+        this.stream.handle.poll_io(cx, Interest::WRITABLE, || {
+            std::io::Write::write_vectored(&mut (&*this.stream.inner), bufs)
+        })
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncWrite>")
+    )]
+    #[inline]
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncWrite>")
+    )]
+    #[inline]
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as TokioAsyncWrite>")
+    )]
+    #[inline]
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(self.get_mut().shutdown(Shutdown::Write))
+    }
+}
+
+impl AsyncReadPoll for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as AsyncReadPoll>")
+    )]
+    #[inline]
+    fn poll_readable(&self, cx: &mut std::task::Context) -> std::task::Poll<io::Result<()>> {
+        if *self.read_ready.borrow() {
+            return Poll::Ready(Ok(()));
+        }
+        let poll = self
+            .stream
+            .handle
+            .poll_op_poll(cx, &mut ReadinessOp::new_readable(&self.stream.handle))?;
+        *self.read_ready.borrow_mut() = true;
+        poll.map(Ok)
+    }
+}
+
+impl AsyncWritePoll for PollTcpStream {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<PollTcpStream as AsyncWritePoll>")
+    )]
+    #[inline]
+    fn poll_writable(&self, cx: &mut std::task::Context) -> std::task::Poll<io::Result<()>> {
+        if *self.write_ready.borrow() {
+            return Poll::Ready(Ok(()));
+        }
+        let poll = self
+            .stream
+            .handle
+            .poll_op_poll(cx, &mut ReadinessOp::new_writable(&self.stream.handle))?;
+        *self.write_ready.borrow_mut() = true;
+        poll.map(Ok)
+    }
+}
+
+#[cfg(test)]
+mod socket_creation_tests {
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn short_reads_preserve_readiness_cancellation_and_eof() {
+        use std::{future::Future, io::Write, net::Shutdown};
+
+        use tokio::io::AsyncReadExt;
+
+        use crate::vibeio::{Runtime, driver::AnyDriver};
+
+        for driver in [
+            AnyDriver::new_mio().unwrap(),
+            AnyDriver::new_uring().unwrap(),
+        ] {
+            Runtime::new(driver).block_on(async {
+                crate::vibeio::time::timeout(crate::vibeio::test_support::WATCHDOG, async {
+                    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+                    let socket =
+                        std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+                    let (mut peer, _) = listener.accept().unwrap();
+                    let mut stream = PollTcpStream::from_std(socket).unwrap();
+                    let mut bytes = [0; 64];
+                    peer.write_all(b"first").unwrap();
+                    assert_eq!(stream.read(&mut bytes).await.unwrap(), 5);
+                    assert_eq!(&bytes[..5], b"first");
+
+                    // Cancel the readiness wait, then deliver data before the
+                    // replacement read installs its waiter.
+                    let mut read = Box::pin(stream.read(&mut bytes));
+                    assert!(
+                        read.as_mut()
+                            .poll(&mut Context::from_waker(std::task::Waker::noop()))
+                            .is_pending()
+                    );
+                    drop(read);
+                    peer.write_all(b"next").unwrap();
+                    assert_eq!(stream.read(&mut bytes).await.unwrap(), 4);
+                    assert_eq!(&bytes[..4], b"next");
+
+                    // Let the driver observe new data while this reader has
+                    // no waiter, as happens when a transport pauses reading.
+                    peer.write_all(b"queued").unwrap();
+                    crate::vibeio::time::sleep(std::time::Duration::from_millis(1)).await;
+                    assert_eq!(stream.read(&mut bytes).await.unwrap(), 6);
+                    assert_eq!(&bytes[..6], b"queued");
+
+                    // Both data and FIN can be present before we await
+                    // readiness.
+                    peer.write_all(b"last").unwrap();
+                    peer.shutdown(Shutdown::Write).unwrap();
+                    assert_eq!(stream.read(&mut bytes).await.unwrap(), 4);
+                    assert_eq!(&bytes[..4], b"last");
+                    assert_eq!(stream.read(&mut bytes).await.unwrap(), 0);
+                })
+                .await
+                .unwrap();
+            });
+        }
+    }
+
+    #[test]
+    fn vectored_poll_preserves_partial_writes_and_readiness() {
+        let runtime = crate::vibeio::RuntimeBuilder::new()
+            .enable_timer(true)
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (peer, _) = listener.accept().unwrap();
+            socket2::SockRef::from(&socket)
+                .set_send_buffer_size(4096)
+                .unwrap();
+            peer.set_read_timeout(Some(crate::vibeio::test_support::WATCHDOG))
+                .unwrap();
+            let writer = PollTcpStream::from_std(socket).unwrap();
+            crate::vibeio::test_support::check_vectored_backpressure(writer, peer).await;
+        });
+    }
+
+    use super::*;
+
+    #[test]
+    fn cancelled_poll_peek_releases_buffer_without_consuming_data() {
+        use std::{future::Future, io::Write};
+
+        use crate::vibeio::{Runtime, driver::AnyDriver};
+        #[cfg(unix)]
+        let driver = AnyDriver::new_mio().unwrap();
+        #[cfg(windows)]
+        let driver = AnyDriver::new_iocp().unwrap();
+        Runtime::new(driver).block_on(async {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut stream = PollTcpStream::from_std(socket).unwrap();
+            let mut buffer = [b'_'; 8];
+            let mut pending = Box::pin(stream.peek(&mut buffer));
+            assert!(
+                pending
+                    .as_mut()
+                    .poll(&mut Context::from_waker(std::task::Waker::noop()))
+                    .is_pending()
+            );
+            drop(pending);
+            assert_eq!(buffer, [b'_'; 8]);
+            buffer.fill(b'x');
+            peer.write_all(b"peek").unwrap();
+            crate::vibeio::time::timeout(crate::vibeio::test_support::WATCHDOG, async {
+                let count = stream.peek(&mut buffer).await.unwrap();
+                assert!(count > 0 && count <= 4);
+                assert_eq!(&buffer[..count], &b"peek"[..count]);
+                assert!(buffer[count..].iter().all(|byte| *byte == b'x'));
+                let mut received = [0; 4];
+                tokio::io::AsyncReadExt::read_exact(&mut stream, &mut received)
+                    .await
+                    .unwrap();
+                assert_eq!(&received, b"peek");
+            })
+            .await
+            .unwrap();
+        });
+    }
+
+    #[test]
+    fn created_socket_is_close_on_exec() {
+        let socket = new_socket("127.0.0.1:0".parse().unwrap()).unwrap().0;
+        #[cfg(unix)]
+        {
+            // SAFETY: socket owns the live descriptor; F_GETFD has no pointer
+            // arguments.
+            let flags = unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFD) };
+            assert_ne!(flags, -1);
+            assert_ne!(flags & libc::FD_CLOEXEC, 0);
+        }
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::Foundation::{GetHandleInformation, HANDLE_FLAG_INHERIT};
+            let mut flags = 0;
+            // SAFETY: socket owns the live kernel handle and flags is writable.
+            let result =
+                unsafe { GetHandleInformation(socket.as_raw_socket() as *mut _, &mut flags) };
+            assert_ne!(result, 0, "{}", io::Error::last_os_error());
+            assert_eq!(flags & HANDLE_FLAG_INHERIT, 0);
+        }
+    }
+}

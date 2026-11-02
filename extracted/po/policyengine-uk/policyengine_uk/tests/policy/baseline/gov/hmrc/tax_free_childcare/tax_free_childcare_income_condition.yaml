@@ -1,0 +1,179 @@
+# Tests for age under 18 bracket (threshold: £1,331 quarterly)
+- name: Under threshold for age 15 with low income - ineligible
+  period: 2025
+  input:
+    age: 15
+    employment_income: 4_500
+    self_employment_income: 500
+  output:
+    tax_free_childcare_meets_income_requirements: false
+
+# Tests for age 18-20 bracket (threshold: £1,788 quarterly)
+- name: Under threshold for age 19 - ineligible
+  period: 2025
+  input:
+    age: 19
+    employment_income: 7_000
+    self_employment_income: 0
+  output:
+    tax_free_childcare_meets_income_requirements: false
+
+- name: At threshold for age 18 - eligible
+  period: 2025
+  input:
+    age: 18
+    tax_free_childcare_expected_declaration_period_income: 2_080
+    self_employment_income: 0
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+# Tests for age 21+ bracket (threshold: £2,379 quarterly)
+- name: Under threshold for age 22 - ineligible
+  period: 2025
+  input:
+    age: 22
+    employment_income: 9_000
+    self_employment_income: 0
+  output:
+    tax_free_childcare_meets_income_requirements: false
+
+- name: age 19 - eligible
+  period: 2025
+  input:
+    age: 19
+    employment_income: 18_716
+    self_employment_income: 3_000
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+# Tests with mixed income sources
+- name: Mixed employment and self-employment income
+  period: 2025
+  input:
+    age: 22
+    employment_income: 8_000
+    self_employment_income: 4_000
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+# Test income limit
+- name: over 100k
+  period: 2025
+  input:
+    age: 18
+    employment_income: 200_000
+    self_employment_income: 17_152
+    adjusted_net_income: 217_152
+  output:
+    tax_free_childcare_meets_income_requirements: false
+
+- name: At income limit
+  period: 2025
+  input:
+    age: 22
+    tax_free_childcare_expected_declaration_period_income: 10_000
+    adjusted_net_income: 100_000
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+- name: Self-employment start-up period waives minimum income threshold
+  period: 2025
+  input:
+    age: 22
+    tax_free_childcare_expected_declaration_period_income: 0
+    tax_free_childcare_self_employment_start_up_period: true
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+
+# SI 2015/448 reg 13(2)(b): a person regarded as in paid work under reg 13 has
+# expected income equal to the minimum weekly income, so meets the minimum
+# income requirement with no earnings. With a £10 minimum wage the threshold is
+# 10 x 16 x 13 = £2,080 a declaration period; the earner's £20,000 a year is
+# £5,000 a period.
+- name: A non-working partner on Carer's Allowance whose partner works meets the income requirement
+  period: 2025
+  input:
+    people:
+      earner:
+        age: 40
+        employment_income: 20_000
+        adjusted_net_income: 20_000
+        minimum_wage: 10
+      carer:
+        age: 38
+        carers_allowance: 4_000
+        adjusted_net_income: 4_000
+        minimum_wage: 10
+    benunits:
+      benunit:
+        members: [earner, carer]
+  output:
+    tax_free_childcare_regarded_as_in_paid_work: [false, true]
+    tax_free_childcare_meets_income_requirements: [true, true]
+
+- name: A lone Carer's Allowance recipient with no earnings does not meet the income requirement
+  period: 2025
+  input:
+    people:
+      carer:
+        age: 38
+        carers_allowance: 4_000
+        adjusted_net_income: 4_000
+        minimum_wage: 10
+    benunits:
+      benunit:
+        members: [carer]
+  output:
+    tax_free_childcare_regarded_as_in_paid_work: false
+    tax_free_childcare_meets_income_requirements: false
+
+# Reg 13 deems work and minimum income only; reg 15's £100,000 adjusted net
+# income limit still applies.
+- name: A Carer's Allowance recipient over the adjusted net income limit does not meet the income requirement
+  period: 2025
+  input:
+    people:
+      earner:
+        age: 40
+        employment_income: 20_000
+        adjusted_net_income: 20_000
+        minimum_wage: 10
+      carer:
+        age: 38
+        carers_allowance: 4_000
+        adjusted_net_income: 150_000
+        minimum_wage: 10
+    benunits:
+      benunit:
+        members: [earner, carer]
+  output:
+    tax_free_childcare_regarded_as_in_paid_work: [false, true]
+    tax_free_childcare_meets_income_requirements: [true, false]
+
+# 2023-24 thresholds use the 1 April 2023 rates (S.I. 2023/354): 16 hours x 13
+# weeks at £10.42 (23 or over) is £2,167.36, and at £10.18 (21 or 22) is
+# £2,117.44. The April 2022 rates gave £1,976 and £1,909.44.
+- name: 2023-24 expected income between the 2022-23 and 2023-24 thresholds, age 30 - ineligible
+  period: 2023
+  input:
+    age: 30
+    tax_free_childcare_expected_declaration_period_income: 2_100
+  output:
+    tax_free_childcare_meets_income_requirements: false
+
+- name: 2023-24 expected income above the 2023-24 threshold, age 30 - eligible
+  period: 2023
+  input:
+    age: 30
+    tax_free_childcare_expected_declaration_period_income: 2_200
+  output:
+    tax_free_childcare_meets_income_requirements: true
+
+- name: 2023-24 expected income between the 2022-23 and 2023-24 thresholds, age 22 - ineligible
+  period: 2023
+  input:
+    age: 22
+    tax_free_childcare_expected_declaration_period_income: 2_000
+  output:
+    tax_free_childcare_meets_income_requirements: false

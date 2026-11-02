@@ -1,0 +1,22 @@
+[package]
+name = "ryo3-dev"
+version.workspace = true
+authors.workspace = true
+categories.workspace = true
+documentation.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ryo3-dev crate"
+readme = "README.md"
+
+[dependencies]
+pyo3.workspace = true
+ryo3-core.workspace = true
+ryo3-macro-rules.workspace = true
+
+[lints]
+workspace = true

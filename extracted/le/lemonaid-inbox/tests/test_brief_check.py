@@ -1,0 +1,478 @@
+"""`brief check`: what it finds wrong with a brief, and the verbs and Stop hook that use it."""
+
+import argparse
+import contextlib
+import io
+import json
+from pathlib import Path
+
+import pytest
+
+from lemonaid.brief import (
+    attached,
+    check,
+    doc_table,
+    frontmatter,
+    identity,
+    now_edit,
+    store,
+    write_cli,
+)
+from lemonaid.inbox import db
+
+_BRIEF = """\
+# the task
+
+Status: working
+
+Lemon-ID: task.QuickOdd
+
+## Now
+
+### Next
+
+- write the docs
+
+### PRs
+
+| Work | PR | Review |
+|---|---|---|
+| Brief verbs | [lemonaid#125](https://github.com/o/lemonaid/pull/125) | |
+
+### Done
+
+- parser merged
+
+## Goal
+The thing exists.
+
+```bash
+# not a heading
+## nor this
+```
+
+## Waiters
+- lemonaid inbox watch --self
+"""
+
+
+def test_a_well_formed_brief_has_no_problems():
+    assert check.structure(_BRIEF) == []
+
+
+def test_done_brief_warns_when_its_present_summary_is_empty():
+    text = _BRIEF.replace("Status: working", "Status: done").replace(
+        "## Goal", "## Executive Summary of Results\n\n## Goal"
+    )
+
+    assert check.structure(text) == []
+    assert "`## Executive Summary of Results` is empty on a done brief" in check.warnings(text)
+
+
+def test_old_done_briefs_and_filled_summaries_do_not_warn():
+    old = _BRIEF.replace("Status: working", "Status: done")
+    filled = old.replace(
+        "## Goal", "## Executive Summary of Results\n\nCompleted the work.\n\n## Goal"
+    )
+
+    assert all("migrate" in warning for warning in check.warnings(old))
+    assert all("migrate" in warning for warning in check.warnings(filled))
+
+
+def test_every_line_doubled_is_caught():
+    doubled = "".join(line + line for line in _BRIEF.splitlines(keepends=True))
+
+    problems = check.structure(doubled)
+
+    assert any("Brief-ID" in p for p in problems)
+    assert any("`## Now` appears 2 times" in p for p in problems)
+    assert any("Status" in p for p in problems)
+
+
+def test_a_second_lemon_id_run_into_the_first_is_caught():
+    problems = check.structure(
+        _BRIEF.replace("Lemon-ID: task.QuickOdd", "Lemon-ID: task.QuickOddLemon-ID: task.QuickOdd")
+    )
+
+    assert problems == ["Brief-ID line holds a second Brief-ID"]
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "found"),
+    [
+        ("Status: working", "Status: done - PR #12", "is not one word of"),
+        ("Status: working\n", "", ""),
+        ("Status: working", "Status: waiting", ""),
+        ("Status: working", "Status: working\nStatus: done", "2 `Status:` lines"),
+        ("### PRs", "### Needs you\n\n- x\n\n### PRs", ""),
+        ("- write the docs\n", "", "`### Next` in ## Now is empty"),
+        ("|---|---|---|\n", "", "`|---|---|---|`"),
+        ("[lemonaid#125](https://github.com/o/lemonaid/pull/125)", "#125", "no pull-request link"),
+        ("| Brief verbs |", "| Brief verbs | extra |", "three-column"),
+        ("## Goal", "## Waiters\n- x\n\n## Goal", "appears 2 times"),
+        ("\n## Waiters\n- lemonaid inbox watch --self\n", "", ""),
+        ("### Next\n\n", "### Next\n", "needs a blank line around it"),
+        ("| |\n\n### Done", "| |\n### Done", "`### Done` in ## Now needs a blank line"),
+        (
+            "| Brief verbs | [lemonaid#125](https://github.com/o/lemonaid/pull/125) | |\n",
+            "",
+            "no rows",
+        ),
+    ],
+)
+def test_each_problem_is_named(before, after, found):
+    problems = check.structure(_BRIEF.replace(before, after, 1))
+
+    assert any(found in p for p in problems) if found else problems == []
+
+
+def test_waiters_must_be_last():
+    problems = check.structure(_BRIEF + "\n## Notes\nlate\n")
+
+    assert problems == ["`## Waiters` is not the last section"]
+
+
+def _registered(text: str = _BRIEF):
+    path = store.briefs_dir() / "task.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    with db.connect() as conn:
+        identity.ensure(conn, path)
+    return path
+
+
+def test_a_lemon_id_the_database_does_not_record_for_the_brief_is_caught():
+    path = _registered()
+
+    with db.connect() as conn:
+        problems = check.recorded(conn, path, _BRIEF.replace("QuickOdd", "SlowEven"))
+
+    assert problems == ["Brief-ID is task.SlowEven, but this brief is task.QuickOdd"]
+
+
+def _run(capsys, *argv: str) -> dict:
+    parser = argparse.ArgumentParser()
+    write_cli.add_parsers(parser.add_subparsers())
+    args = parser.parse_args([*argv, "--json"])
+    with contextlib.suppress(SystemExit):
+        args.func(args)
+
+    return json.loads(capsys.readouterr().out)
+
+
+def _attached(text: str = _BRIEF):
+    path = _registered(text)
+    with db.connect() as conn:
+        db.add(conn, "codex:t1", "", metadata={"tmux_session": "work", "tmux_window": "2"})
+        attached.attach(conn, "codex:t1", path)
+    return path
+
+
+def test_check_reports_by_lemon_and_by_file(capsys):
+    path = _attached(_BRIEF.replace("Status: working", "Status: busy"))
+
+    by_lemon = _run(capsys, "check", "--channel", "codex:t1")
+    by_file = _run(capsys, "check", str(path))
+
+    assert by_lemon["problems"] == by_file["problems"]
+    assert "Status 'busy'" in by_lemon["problems"][0]
+
+
+def test_check_warns_without_refusing_done_status(capsys):
+    text = _BRIEF.replace("Status: working", "Status: running").replace(
+        "## Goal", "## Executive Summary of Results\n\n## Goal"
+    )
+    path = _attached(text)
+
+    changed = _run(capsys, "status", "--channel", "codex:t1", "done")
+    checked = _run(capsys, "check", str(path))
+
+    assert changed["error"] is None
+    assert checked["problems"] == []
+    assert "`## Executive Summary of Results` is empty on a done brief" in checked["warnings"]
+
+
+def test_existing_unmatched_question_does_not_block_unrelated_verbs(capsys):
+    text = _BRIEF.replace("## Goal", "## Questions\n\n### old decision\n\n- Context\n\n## Goal")
+    path = _attached(text)
+
+    assert _run(capsys, "status", "--channel", "codex:t1", "running")["error"] is None
+    assert _run(capsys, "bullet", "add", "--channel", "codex:t1", "Next", "review")["error"] is None
+    assert _run(capsys, "waiter", "rm", "--channel", "codex:t1", "inbox")["error"] is None
+    assert "Status: running" in frontmatter.legacy(path.read_text())
+    assert check.structure(path.read_text()) == [
+        "`### old decision` in ## Questions has no matching bullet under ### Needs"
+    ]
+
+
+def test_edit_refuses_a_new_unmatched_question(capsys):
+    text = _BRIEF.replace("### Next", "### Needs you\n\n- merge #12\n\n### Next", 1).replace(
+        "## Goal", "## Questions\n\n### merge #12\n\n- Context\n\n## Goal"
+    )
+    path = _attached(text)
+
+    refused = _run(capsys, "bullet", "rm", "--channel", "codex:t1", "merge #12")
+
+    assert "`### merge #12` in ## Questions has no matching bullet" in refused["error"]
+    assert path.read_text() == text
+
+
+def test_the_verbs_edit_the_attached_brief(capsys):
+    path = _attached()
+
+    _run(capsys, "bullet", "add", "--channel", "codex:t1", "Needs you", "merge #125")
+    _run(capsys, "bullet", "set", "--channel", "codex:t1", "write", "docs written")
+    _run(capsys, "pr", "rm", "--channel", "codex:t1", "125")
+    result = _run(
+        capsys, "pr", "add", "--channel", "codex:t1", "https://github.com/o/r/pull/7", "Fix"
+    )
+
+    text = path.read_text()
+    assert result["error"] is None
+    assert "### Needs you\n\n- merge #125\n" in text
+    assert "- docs written\n" in text
+    assert "| Fix | [r#7](https://github.com/o/r/pull/7) | |" in text
+    assert "lemonaid#125" not in text
+    assert check.structure(text) == []
+
+
+def test_the_waiter_verbs_edit_the_attached_brief(capsys):
+    path = _attached()
+
+    _run(capsys, "waiter", "add", "--channel", "codex:t1", "lemonaid watch pr --wait 7 --head a1")
+    _run(capsys, "waiter", "set", "--channel", "codex:t1", "--wait 7", "--head", "b2")
+    _run(capsys, "waiter", "rm", "--channel", "codex:t1", "inbox")
+    refused = _run(capsys, "waiter", "rm", "--channel", "codex:t1", "inbox")
+
+    assert path.read_text().endswith("## Waiters\n- `lemonaid watch pr --wait 7 --head b2`\n")
+    assert "No waiter" in refused["error"]
+
+
+def test_an_edit_that_would_break_the_brief_is_refused(capsys):
+    path = _attached()
+
+    refused = _run(capsys, "now", "--channel", "codex:t1", "--replace-all", "- x\n\n## Goal\nagain")
+
+    assert "Refused" in refused["error"] and "`## Goal` appears 2 times" in refused["error"]
+    assert path.read_text() == _BRIEF
+
+
+def test_a_brief_that_already_fails_takes_only_the_edit_that_fixes_it(capsys):
+    path = _attached(_BRIEF.replace("Status: working", "Status: done - PR #12"))
+
+    refused = _run(capsys, "bullet", "add", "--channel", "codex:t1", "Next", "more")
+    fixed = _run(capsys, "status", "--channel", "codex:t1", "done")
+
+    assert "is not one word of" in refused["error"]
+    assert fixed["error"] is None
+    assert "Status: done\n" in frontmatter.legacy(path.read_text())
+    assert "- more" not in path.read_text()
+
+
+def test_now_lays_out_progress_and_preserves_omitted_prs(capsys):
+    path = _attached()
+    table = now_edit.now_of(path.read_text()).sections[1]
+
+    _run(capsys, "now", "--channel", "codex:t1", "### Done\n- x\n### Next\n- y\n### Running\n- run")
+
+    now = now_edit.now_of(path.read_text())
+    assert [section.heading for section in now.sections] == ["Done", "Next", "Running", "PRs"]
+    assert now.sections[0].body == ("- x",)
+    assert now.sections[1].body == ("- y",)
+    assert now.sections[3] == table
+    assert check.structure(path.read_text()) == []
+
+
+def test_a_review_doc_in_a_vault_becomes_an_obsidian_link(capsys, monkeypatch, tmp_path):
+    vault = tmp_path / "trove"
+    (vault / "reviews").mkdir(parents=True)
+    (vault / "reviews" / "r-7.md").write_text("")
+    config = tmp_path / "config.toml"
+    config.write_text(f'[brief]\nvaults = ["{vault}"]\n')
+    monkeypatch.setenv("LEMONAID_CONFIG", str(config))
+    path = _attached()
+
+    _run(
+        capsys,
+        "pr",
+        "add",
+        "--channel",
+        "codex:t1",
+        "https://github.com/o/r/pull/7",
+        "Fix",
+        "--review",
+        str(vault / "reviews" / "r-7.md"),
+    )
+    refused = _run(capsys, "pr", "add", "--channel", "codex:t1", "7", "Fix")
+
+    assert "[review doc](obsidian://open?vault=trove&file=reviews%2Fr-7)" in path.read_text()
+    assert "pr_url" in refused["error"]
+
+
+def test_a_review_doc_is_watched_for_all_edits_and_a_comment_watch_is_upgraded(
+    capsys, monkeypatch, tmp_path
+):
+    vault = tmp_path / "trove"
+    (vault / "reviews").mkdir(parents=True)
+    first, second = vault / "reviews" / "r-7.md", vault / "reviews" / "r-8.md"
+    first.write_text("")
+    second.write_text("")
+    config = tmp_path / "config.toml"
+    config.write_text(f'[brief]\nvaults = ["{vault}"]\n')
+    monkeypatch.setenv("LEMONAID_CONFIG", str(config))
+    path = _attached()
+    path.write_text(doc_table.add(path.read_text(), second, "My docket"))
+
+    for number, doc in ((7, first), (8, second)):
+        _run(
+            capsys,
+            "pr",
+            "add",
+            "--channel",
+            "codex:t1",
+            f"https://github.com/o/r/pull/{number}",
+            "Fix",
+            "--review",
+            str(doc),
+        )
+
+    rows = {row.path: row for row in doc_table.rows(path.read_text())}
+    assert rows[first.resolve()].watch == doc_table.Watch.ALL_EDITS
+    assert rows[second.resolve()] == doc_table.Row(
+        second.resolve(), "My docket", doc_table.Watch.ALL_EDITS
+    )
+
+
+def test_check_all_lists_every_live_brief_and_fails_if_one_does(capsys):
+    _attached()
+    gone = store.briefs_dir() / "gone.md"
+    gone.write_text(_BRIEF.replace("QuickOdd", "GoneAway"))
+    with db.connect() as conn:
+        db.add(conn, "claude:g", "", metadata={"tmux_session": "g", "tmux_window": "2"})
+        attached.attach(conn, "claude:g", gone)
+    gone.unlink()
+    other = store.briefs_dir() / "other.md"
+    other.write_text("# other\n\nStatus: busy\n")
+    with db.connect() as conn:
+        db.add(conn, "claude:o", "", metadata={"tmux_session": "o", "tmux_window": "2"})
+        attached.attach(conn, "claude:o", other)
+
+    parser = argparse.ArgumentParser()
+    write_cli.add_parsers(parser.add_subparsers())
+    args = parser.parse_args(["check", "--all", "--json"])
+    with pytest.raises(SystemExit):
+        args.func(args)
+
+    results = {Path(r["path"]).name: r["problems"] for r in json.loads(capsys.readouterr().out)}
+    assert results["task.md"] == []
+    assert "Status 'busy'" in results["other.md"][0]
+    assert results["gone.md"] == ["The attached brief does not exist"]
+
+
+def test_structure_flags_a_heading_line_with_an_unpaired_backtick():
+    text = _BRIEF.replace("## Goal", "## Waiters` is where they go", 1)
+    assert any("unpaired backtick" in p for p in check.structure(text))
+    assert not any("unpaired backtick" in p for p in check.structure(_BRIEF))
+
+
+def test_a_name_another_active_lemon_holds_is_a_warning_not_a_problem(capsys):
+    path = _attached()
+    other = store.briefs_dir() / "other.md"
+    other.write_text("# other\n\nLemon-ID: other.QuickOdd\n")
+    with db.connect() as conn:
+        identity.ensure(conn, other)
+
+    result = _run(capsys, "check", str(path))
+
+    assert result["problems"] == []
+    assert "QuickOdd is also the name of other.QuickOdd" in result["warnings"][0]
+
+
+def test_a_malformed_name_word_is_a_problem():
+    text = _BRIEF.replace(
+        "Lemon-ID: task.QuickOdd", "Lemon-ID: task.QuickOdd\nName words: audit ok"
+    )
+    path = _registered(text)
+
+    with db.connect() as conn:
+        problems = check.problems(conn, path, text)
+
+    assert problems == ["`Name words:` ok is not five or three letters"]
+
+
+def test_generic_section_cli_and_migrate_are_explicit(capsys, monkeypatch):
+    path = _attached()
+    before = path.read_text()
+    shown = _run(capsys, "section", "show", "--channel", "codex:t1", "Next")
+    assert shown["body"] == "- write the docs"
+    assert path.read_text() == before
+    monkeypatch.setattr(
+        "sys.stdin", io.StringIO("- custom bullet\n\n### Details\n\nNested body.\n")
+    )
+    result = _run(capsys, "section", "set", "--channel", "codex:t1", "Notes")
+    assert result["error"] is None
+    assert "## Notes\n\n- custom bullet" in path.read_text()
+    edited = _run(
+        capsys, "bullet", "set", "--channel", "codex:t1", "custom", "updated", "--heading", "Notes"
+    )
+    assert edited["error"] is None
+    assert "Nested body." in path.read_text()
+    migrated = _run(capsys, "migrate", "--channel", "codex:t1")
+    assert migrated["error"] is None
+    assert "\n## Next\n" in path.read_text()
+    refused = _run(capsys, "now", "--channel", "codex:t1", "### Next\n\n- old")
+    assert "brief section set" in refused["error"]
+    removed = _run(capsys, "section", "rm", "--channel", "codex:t1", "Notes")
+    assert removed["error"] is None
+    assert "Details" not in path.read_text()
+
+
+def test_migrate_all_handles_attached_briefs_and_is_idempotent(capsys):
+    path = _attached()
+    result = _run(capsys, "migrate", "--all")
+    assert result["error"] is None
+    first = path.read_text()
+    assert "\n## PRs\n" in first
+    assert _run(capsys, "migrate", "--all")["error"] is None
+    assert path.read_text() == first
+
+
+@pytest.mark.parametrize("names", [("Needs Sam", "Needs Ben"), ("Needs", "Needs Sam")])
+def test_needs_headings_for_different_people_are_valid(names):
+    text = _BRIEF.replace(
+        "### Next", f"### {names[0]}\n\n- decision\n\n### {names[1]}\n\n- review\n\n### Next"
+    )
+    assert check.structure(text) == []
+
+
+@pytest.mark.parametrize("second", ["Needs Sam", "needs sam"])
+def test_duplicate_needs_heading_names_are_refused(second):
+    text = _BRIEF.replace(
+        "### Next", f"### Needs Sam\n\n- decision\n\n### {second}\n\n- review\n\n### Next"
+    )
+    assert check.structure(text) == [
+        f"`### {second}` appears twice in ## Now; Needs headings must have different names (case-insensitive)"
+    ]
+
+
+def test_now_edits_migrated_layout_and_preserves_other_sections(capsys):
+    text = (
+        _BRIEF.replace("### Next", "## Next")
+        .replace("### PRs", "## PRs")
+        .replace("### Done", "## Done")
+    )
+    path = _attached(text)
+    result = _run(capsys, "now", "--channel", "codex:t1", "Updated progress.")
+
+    assert result["error"] is None
+    assert "## Now\n\nUpdated progress.\n" in path.read_text()
+    assert path.read_text().split("## Next", 1)[1] == text.split("## Next", 1)[1]
+
+
+def test_now_refusal_names_an_executable_replacement_command(capsys):
+    text = _BRIEF.replace("### Next", "## Next")
+    path = _attached(text)
+    result = _run(capsys, "now", "--channel", "codex:t1", "### Next\n\n- new")
+
+    assert 'lemonaid brief section set --self "Next" -' in result["error"]
+    assert path.read_text() == text

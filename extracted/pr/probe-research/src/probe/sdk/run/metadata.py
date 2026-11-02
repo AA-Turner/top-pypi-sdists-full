@@ -6,6 +6,7 @@ from typing import Any
 
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from .context.context import FailureContext, UnitContext
+from probe.sdk.routes import WriteOp, path_for
 
 
 class MetadataMixin:
@@ -80,8 +81,8 @@ class MetadataMixin:
         written for. `run.tags` would also keep reporting the pre-write list.
         One tag write per run is not loop traffic, so the round trip is free
         in the only sense that matters here."""
-        data = self._client.write(
-            "PATCH", f"/v1/runs/{self.id}", {"tags": list(tags)}, strict=strict, sync=True
+        data = self._client.send(
+            "PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"tags": list(tags)}, strict=strict
         )
         if data:
             self._client._verify_tags_written(list(tags), data, "PATCH /v1/runs/{id}")
@@ -95,7 +96,7 @@ class MetadataMixin:
         new-wins via RunPatch, so a late-discovered id attaches without clobbering
         earlier keys and no read-modify-write round-trip is needed."""
         data = self._client.write(
-            "PATCH", f"/v1/runs/{self.id}", {"foreign_keys": foreign_keys}, strict=strict
+            "PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"foreign_keys": foreign_keys}, strict=strict
         )
         if data:
             self._data = data
@@ -137,7 +138,7 @@ class MetadataMixin:
                 return None
             data = self._client.write(
                 "PATCH",
-                f"/v1/runs/{self.id}",
+                path_for(WriteOp.RUN_PATCH, self.id),
                 {"metric_expectations": wire},
                 strict=strict,
             )

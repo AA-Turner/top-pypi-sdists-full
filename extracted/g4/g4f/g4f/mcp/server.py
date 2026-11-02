@@ -40,6 +40,7 @@ from .tools import (
     ImageGenerationTool,
     PythonExecuteTool,
     ShellExecuteTool,
+    PolliPublishAppTool,
     FileReadTool,
     FileListTool,
     FileDeleteTool,
@@ -64,6 +65,12 @@ from .tools import (
     BrowserExistsTool,
     NotebookCreateTool,
     NotebookListTool,
+    BrowsingSearchTool,
+    LiveFeedTool,
+    BrowsingTriggerTool,
+    BrowsingCatalogTool,
+    FastBrowseTool,
+    BrowsingExecuteTool,
 )
 
 
@@ -175,6 +182,7 @@ class MCPServer:
             "text_to_audio": TextToAudioTool(),
             "mark_it_down": MarkItDownTool(),
             "python_execute": PythonExecuteTool(safe_mode=safe_mode),
+            "polli_publish_app": PolliPublishAppTool(),
             "apply_patch": ApplyPatchTool(),
             "file_read": FileReadTool(),
             "file_list": FileListTool(safe_mode=safe_mode),
@@ -183,6 +191,12 @@ class MCPServer:
             "file_write": FileWriteTool(),
             "replace_string_in_file": ReplaceStringInFileTool(),
             "fetch_webpage": FetchWebpageTool(),
+            "browsing_search": BrowsingSearchTool(),
+            "live_feed": LiveFeedTool(),
+            "browsing_triggers": BrowsingTriggerTool(),
+            "browsing_apis": BrowsingCatalogTool(),
+            "fast_browse": FastBrowseTool(),
+            "browsing_execute": BrowsingExecuteTool(),
             "file_search_glob": FileSearchGlobTool(),
             "grep_search": GrepSearchTool(),
             "github_repo": GithubRepoTool(False, self.github_token),
@@ -207,7 +221,8 @@ class MCPServer:
             self.tools["shell_execute"] = ShellExecuteTool()
         description = (
             "MCP server providing web search, scraping, image generation, "
-            "safe Python execution, and workspace file management capabilities"
+            "safe Python execution, workspace file management, and "
+            "Pollinations app publishing capabilities"
         )
         if self.shell_enabled:
             description += ", plus shell/terminal command execution (host mode)"
@@ -628,7 +643,11 @@ class MCPServer:
             """List all PA providers from workspace."""
             from .pa_provider import get_pa_registry
 
-            providers = get_pa_registry().list_providers()
+            # Loading provider files can touch the filesystem and execute
+            # sandboxed code; keep it off the server event loop.
+            providers = await asyncio.to_thread(
+                get_pa_registry().list_providers
+            )
             return web.json_response(
                 providers, headers={"access-control-allow-origin": "*"}
             )

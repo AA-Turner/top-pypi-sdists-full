@@ -1,0 +1,795 @@
+"""The `targets` verb: what it selects, what it refuses, and what it says about the refusals."""
+
+import io
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+import audit_local
+
+
+def _skills(parent, *names):
+    d = parent / "skills"
+    for n in names or ("demo",):
+        (d / n).mkdir(parents=True)
+        (d / n / "SKILL.md").write_text("---\nname: %s\n---\n" % n, encoding="utf-8")
+    return d
+
+
+def _manifest(root, kind):
+    (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    (root / ".claude-plugin" / kind).write_text("{}", encoding="utf-8")
+    return root
+
+
+@pytest.fixture
+def tree(tmp_path, monkeypatch):
+    """A work tree holding one ordinary project and one plugin repo, beside an isolated home."""
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    work = tmp_path / "work"
+    project = _skills(work / "provmm" / ".claude", "provmm-build")
+    shipped = _skills(_manifest(work / "igittigitt", "plugin.json"), "python-gitignore")
+    personal = _skills(home / ".claude", "toolbox")
+    return type("Tree", (), dict(home=home, work=work, project=project,
+                                 shipped=shipped, personal=personal))
+
+
+def _run(argv):
+    out, err = io.StringIO(), io.StringIO()
+    args = audit_local.build_parser().parse_args(argv)
+    code = audit_local.cmd_targets(args, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+def test_targets_selects_the_project_and_personal_dirs(tree):
+    code, out, _ = _run(["targets", "--root", str(tree.work)])
+    assert code == 0
+    assert str(tree.project) in out
+    assert str(tree.personal) in out
+
+
+def test_targets_refuses_a_plugin_owned_dir(tree):
+    """The whole point: a tool repo's mirrored twin must never be selected for editing."""
+    _, out, _ = _run(["targets", "--root", str(tree.work)])
+    assert str(tree.shipped) not in out.split("skipped")[0]
+
+
+def test_no_personal_leaves_the_home_dir_out(tree):
+    _, out, _ = _run(["targets", "--root", str(tree.work), "--no-personal"])
+    assert str(tree.project) in out
+    assert str(tree.personal) not in out
+
+
+def test_json_envelope_carries_targets_and_reasons(tree):
+    code, out, _ = _run(["targets", "--root", str(tree.work), "--json"])
+    payload = json.loads(out)
+    assert code == 0
+    assert payload["ok"] is True and payload["command"] == "targets"
+    assert str(tree.project) in payload["data"]["targets"]
+    assert payload["data"]["count"] == len(payload["data"]["targets"])
+
+
+def test_exit_code_is_one_when_nothing_is_selected(tmp_path, monkeypatch):
+    """Format-independent codes: 0 found, 1 none found, 2 error."""
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    empty = tmp_path / "work"
+    empty.mkdir()
+    code, _, _ = _run(["targets", "--root", str(empty)])
+    assert code == 1
+
+
+def test_a_missing_root_is_refused_like_check_refuses_it(tree):
+    """A typo in --root used to warn and go on, exiting 0 or 1 - an answer about a tree that was
+    never walked. `check` already refused it with 2; `targets` now agrees. The diagnostic stays on
+    stderr and `--json` still prints a parseable envelope, with ok false."""
+    code, out, err = _run(["targets", "--root", str(tree.work),
+                           "--root", str(tree.work / "nope"), "--json"])
+    assert code == 2
+    assert "nope" in err
+    payload = json.loads(out)
+    assert payload["ok"] is False and payload["command"] == "targets"
+    assert set(payload) >= {"ok", "command", "data", "skipped"}
+
+
+@pytest.mark.parametrize("flag", ["--root", "--home"])
+def test_check_refusal_prints_an_envelope_under_json(tree, flag):
+    code, out, err = _run_check(["check", flag, str(tree.work / "typo"), "--json"])
+    assert code == 2 and "typo" in err
+    payload = json.loads(out)
+    assert payload["ok"] is False and payload["command"] == "check"
+    assert set(payload) >= {"ok", "command", "data", "skipped"}
+
+
+# --- the check verb ---------------------------------------------------------------------------
+
+def _run_check(argv):
+    out, err = io.StringIO(), io.StringIO()
+    args = audit_local.build_parser().parse_args(argv)
+    code = audit_local.cmd_check(args, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+def test_check_is_clean_and_exits_zero_for_a_healthy_tree(tree):
+    """The control. A check that can only ever report findings is not a check."""
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: provmm-build\ndescription: Use when building provmm images from source.\n---\n",
+        encoding="utf-8")
+    code, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal"])
+    assert code == 0 and "clean" in out
+
+
+def test_check_reports_a_description_that_is_not_trigger_first(tree):
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: provmm-build\ndescription: Builds the provmm images from source.\n---\n",
+        encoding="utf-8")
+    code, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal"])
+    assert code == 1 and "trigger-first" in out
+
+
+def test_check_reports_a_name_that_disagrees_with_its_dir(tree):
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: wrong-name\ndescription: Use when building provmm images from source.\n---\n",
+        encoding="utf-8")
+    _, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal"])
+    assert "[frontmatter]" in out and "wrong-name" in out
+
+
+def test_check_reports_an_unmanaged_twin_against_a_shipped_catalogue(tree, tmp_path):
+    desc = "Use when parsing gitignore files and filtering paths with the igittigitt library."
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: provmm-build\ndescription: %s\n---\n" % desc, encoding="utf-8")
+    catalogue = tmp_path / "mkt" / "coding-python-gitignore"
+    catalogue.mkdir(parents=True)
+    (catalogue / "SKILL.md").write_text("---\nname: coding-python-gitignore\ndescription: %s\n---\n"
+                                        % desc, encoding="utf-8")
+    _, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal",
+                            "--shipped", str(tmp_path / "mkt")])
+    assert "[unmanaged-twin]" in out and "coding-python-gitignore" in out
+
+
+def test_check_reports_a_skill_shipping_a_script_with_no_test(tree):
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: provmm-build\ndescription: Use when building provmm images from source.\n---\n",
+        encoding="utf-8")
+    (tree.project / "provmm-build" / "scripts").mkdir()
+    (tree.project / "provmm-build" / "scripts" / "tool.py").write_text("x = 1\n", encoding="utf-8")
+    _, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal"])
+    assert "[tests-missing]" in out
+
+
+def test_check_json_envelope_counts_findings(tree):
+    (tree.project / "provmm-build" / "SKILL.md").write_text(
+        "---\nname: provmm-build\ndescription: Builds the images.\n---\n", encoding="utf-8")
+    code, out, _ = _run_check(["check", "--root", str(tree.work), "--no-personal", "--json"])
+    payload = json.loads(out)
+    assert code == 1 and payload["command"] == "check"
+    assert payload["data"]["finding_count"] == sum(
+        len(r["findings"]) for r in payload["data"]["results"])
+
+
+def test_check_personal_reports_a_registration_naming_a_missing_file(tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"Stop": [
+        {"matcher": "*", "hooks": [{"type": "command",
+                                    "command": "bash %s/.claude/hooks/gone.sh" % home}]}]}}),
+        encoding="utf-8")
+    found = audit_local.check_personal(home)
+    assert any(check == "registration" and "gone.sh" in message for check, message in found)
+
+
+def test_check_personal_is_quiet_when_every_registration_resolves(tmp_path):
+    home = tmp_path / "home"
+    hooks = home / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "live.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    (home / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"Stop": [
+        {"matcher": "*", "hooks": [{"type": "command", "command": "bash %s/live.sh" % hooks}]}]}}),
+        encoding="utf-8")
+    assert [c for c, _ in audit_local.check_personal(home) if c == "registration"] == []
+
+
+def test_home_override_aims_a_run_at_a_fixture(tmp_path, monkeypatch):
+    """Without it, auditing a sandbox silently mixes in the operator's real ~/.claude findings."""
+    real, fixture = tmp_path / "real", tmp_path / "fixture"
+    for home in (real, fixture):
+        (home / ".claude" / "skills" / "s").mkdir(parents=True)
+        (home / ".claude" / "skills" / "s" / "SKILL.md").write_text(
+            "---\nname: s\ndescription: Use when doing something specific here.\n---\n",
+            encoding="utf-8")
+    monkeypatch.setenv("HOME", str(real))
+    monkeypatch.setenv("USERPROFILE", str(real))
+    out = io.StringIO()
+    args = audit_local.build_parser().parse_args(["targets", "--home", str(fixture)])
+    audit_local.cmd_targets(args, out=out, err=io.StringIO())
+    assert str(fixture) in out.getvalue()
+    assert str(real) not in out.getvalue()
+
+
+def test_refused_dirs_are_reported_with_their_owner(tree):
+    """A filter whose work leaves no trace reads exactly like a filter that never ran.
+
+    Asserted against the whole output rather than a section split on the word itself: pytest names
+    its tmp dir after the test, so a split on a word in the test's own name cuts inside the path."""
+    code, out, _ = _run(["targets", "--root", str(tree.work)])
+    assert code == 0
+    assert "%s\n      shipped by the plugin at %s" % (tree.shipped, tree.shipped.parent) in out
+
+
+# --- the personal harness is a target in its own right ------------------------------------------
+
+def _personal_home_with_hook_defects(tmp_path):
+    """A home whose ~/.claude/hooks holds real defects and whose skills dir is absent."""
+    home = tmp_path / "home"
+    hooks = home / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    (home / ".claude" / "settings.json").write_text(
+        json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
+            {"type": "command", "command": "bash $HOME/.claude/hooks/gone.sh"}]}]}}),
+        encoding="utf-8")
+    (hooks / "orphan-hook.sh").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    return home
+
+
+def test_personal_hooks_are_checked_when_no_personal_skills_dir_exists(tmp_path):
+    """A machine with hooks but no personal SKILL must not get a silent all-clear.
+
+    The hooks half used to run only as a rider on the ~/.claude/skills target, so a home with
+    no skills dir reported `0 finding(s) across 0 target(s)` and exit 0 while its hooks were
+    broken - the exact false-clean the skill exists to prevent."""
+    home = _personal_home_with_hook_defects(tmp_path)
+    assert not (home / ".claude" / "skills").exists()
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1, out
+    assert "[registration]" in out and "gone.sh" in out
+    assert "[orphan-hook]" in out
+
+
+def test_personal_hooks_are_checked_when_the_skills_dir_is_present_but_empty(tmp_path):
+    """An empty skills dir yields no target either, so it must not suppress the hooks half."""
+    home = _personal_home_with_hook_defects(tmp_path)
+    (home / ".claude" / "skills").mkdir()
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1, out
+    assert "[registration]" in out and "[orphan-hook]" in out
+
+
+def test_no_personal_still_suppresses_the_personal_harness(tmp_path):
+    """The per-tree dream passes --no-personal; it must keep opting out of ~/.claude entirely."""
+    home = _personal_home_with_hook_defects(tmp_path)
+    code, out, _ = _run_check(["check", "--home", str(home), "--no-personal"])
+    assert code == 0, out
+    assert "[registration]" not in out and "[orphan-hook]" not in out
+
+
+def test_personal_findings_are_not_double_reported_when_a_skills_dir_exists(tmp_path):
+    """With a real personal skill present, each hook finding must still appear exactly once."""
+    home = _personal_home_with_hook_defects(tmp_path)
+    skill = home / ".claude" / "skills" / "demo"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Use when you need a demo skill.\n---\n\n# demo\n",
+        encoding="utf-8")
+    _, out, _ = _run_check(["check", "--home", str(home)])
+    assert out.count("[orphan-hook]") == 1, out
+
+
+# ---- a local file the plugin now ships too -------------------------------------------------------
+
+def _plugin_with(tmp_path, hooks=(), scripts=()):
+    """A plugin tree: <plug>/hooks/*.py and <plug>/skills/compuse-toolbox/scripts/*.py."""
+    plug = tmp_path / "plug"
+    (plug / "hooks").mkdir(parents=True)
+    for name, text in hooks:
+        (plug / "hooks" / name).write_text(text, encoding="utf-8")
+    sd = plug / "skills" / "compuse-toolbox" / "scripts"
+    sd.mkdir(parents=True)
+    for name, text in scripts:
+        (sd / name).write_text(text, encoding="utf-8")
+    return plug
+
+
+def test_a_local_hook_the_plugin_now_ships_is_reported(tmp_path):
+    """The PR case: the twin lands in a LATER session, so nothing retires the local copy.
+
+    Contributing upstream is asynchronous for anyone without commit rights, so the moment the
+    shipped copy appears there is no session standing at the contribution to clean up after it.
+    A recurring dedup pass is the only thing that closes the window.
+    """
+    plug = _plugin_with(tmp_path, hooks=[("venv-guard.py", "print('shipped')\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "venv-guard.py").write_text("print('local')\n", encoding="utf-8")
+    found = audit_local.check_personal(home, shipped_root=plug)
+    assert any(c == "duplicate-of-shipped" and "venv-guard.py" in m for c, m in found)
+
+
+def test_a_retired_tombstone_is_NOT_reported_as_a_duplicate(tmp_path):
+    """A tombstone is the FIX, not the rot - flagging it would push you to re-arm the trap."""
+    plug = _plugin_with(tmp_path, hooks=[("venv-guard.py", "print('shipped')\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "venv-guard.py").write_text(
+        '"""RETIRED 2026-08-02 - superseded by the plugin\'s hooks/venv-guard.py."""\n'
+        "raise SystemExit(1)\n", encoding="utf-8")
+    found = audit_local.check_personal(home, shipped_root=plug)
+    assert not [m for c, m in found if c == "duplicate-of-shipped"]
+
+
+def test_a_DRIFTED_pair_is_not_told_to_delete_the_local_copy(tmp_path):
+    """A local copy can be drifted because it is AHEAD - a local fix, or a wider scope.
+
+    Deduping that by deletion destroys the improvement instead of sharing it, so a drifted pair
+    must read as a CONTRIBUTE signal first and a retire signal only after the improvement lands.
+    """
+    plug = _plugin_with(tmp_path, hooks=[("h.py", "a\nb\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "h.py").write_text("a\nb\nLOCAL FIX\n", encoding="utf-8")
+    msg = [m for c, m in audit_local.check_personal(home, shipped_root=plug)
+           if c == "duplicate-of-shipped"][0]
+    assert "DIFFERS" in msg
+    assert "CONTRIBUTE" in msg and "Do NOT delete" in msg
+
+
+def test_an_IDENTICAL_pair_is_safe_to_retire(tmp_path):
+    """The other half: no information lives only in the local copy, so retiring it costs nothing."""
+    plug = _plugin_with(tmp_path, hooks=[("h.py", "a\nb\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "h.py").write_text("a\nb\n", encoding="utf-8")
+    msg = [m for c, m in audit_local.check_personal(home, shipped_root=plug)
+           if c == "duplicate-of-shipped"][0]
+    assert "byte-identical" in msg and "Retire the local copy" in msg
+
+
+def test_a_local_only_hook_is_not_reported(tmp_path):
+    """Must-not-break: a hook with no shipped twin is the normal case."""
+    plug = _plugin_with(tmp_path, hooks=[("other.py", "x\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "mine.py").write_text("x\n", encoding="utf-8")
+    found = audit_local.check_personal(home, shipped_root=plug)
+    assert not [m for c, m in found if c == "duplicate-of-shipped"]
+
+
+def test_the_module_docstring_states_check_s_own_exit_codes(tmp_path):
+    """One line sat under BOTH synopses and described only `targets`.
+
+    The two verbs answer OPPOSITE questions with the same numbers: `targets` exits 0 when it FOUND
+    targets, `check` exits 0 when it found NO findings. A reader wiring CI off the shared line
+    inverts the meaning of a clean run."""
+    text = Path(audit_local.__file__).read_text(encoding="utf-8")
+    doc = text.split('"""')[1]
+    assert "0 targets found, 1 none found" not in doc.replace("\n", " ") or "check" in doc, doc
+    # the docstring must say, for `check`, that 0 means no findings
+    lowered = " ".join(doc.split()).lower()
+    assert "check" in lowered and "0 = no findings" in lowered, (
+        "the docstring never states check's own exit-code meaning")
+
+
+# ---- a settings file Claude Code cannot load kills every hook in it -----------------------------
+
+def _settings_home(tmp_path, raw):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / "settings.json").write_bytes(raw)
+    return home
+
+
+def _gone_hook(home):
+    return json.dumps({"hooks": {"Stop": [{"matcher": "*", "hooks": [
+        {"type": "command", "command": "bash %s/.claude/hooks/gone.sh" % home}]}]}})
+
+
+def test_an_unparseable_settings_file_is_a_finding_not_clean(tmp_path):
+    home = tmp_path / "home"
+    good = _gone_hook(home)
+    home = _settings_home(tmp_path, good[:-1].encode("utf-8"))      # the closing brace is gone
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1, out
+    assert "[settings-unparseable]" in out and "settings.json" in out
+
+
+def test_the_same_settings_file_parsed_reports_its_dead_registration(tmp_path):
+    """The control: with the brace back, the registration finding is what shows."""
+    home = tmp_path / "home"
+    home = _settings_home(tmp_path, _gone_hook(home).encode("utf-8"))
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1 and "[registration]" in out and "[settings-unparseable]" not in out
+
+
+# The wording is harness_checks.scan_hook_registrations', which owns the one shape rule; this file
+# only asserts that each surfaces as a finding naming the offending part.
+@pytest.mark.parametrize("raw, why", [
+    (b'{"hooks": {"Stop": "bash x.sh"}}', '"hooks.Stop" is a string'),
+    (b'{"x": "caf\xe9"}', "not UTF-8"),
+], ids=["string-event", "not-utf8"])
+def test_a_settings_file_claude_code_rejects_whole_is_unparseable(tmp_path, raw, why):
+    home = _settings_home(tmp_path, raw)
+    code, out, err = _run_check(["check", "--home", str(home)])
+    assert code == 1, out + err
+    assert "[settings-unparseable]" in out and why in out, out
+
+
+@pytest.mark.parametrize("raw, why", [
+    (b"[]", "the top level is list"),
+    (b'{"hooks": []}', '"hooks" is list'),
+    (b'{"hooks": {"Stop": {}}}', '"hooks.Stop" is dict'),
+    (b'{"hooks": {"Stop": ["bash x.sh"]}}', 'a "hooks.Stop" group is str'),
+    (b'{"hooks": {"Stop": [{"hooks": "bash x.sh"}]}}', '"hooks.Stop[].hooks" is str'),
+    (b'{"hooks": {"Stop": [{"hooks": ["bash x.sh"]}]}}', 'a "hooks.Stop" hook is str'),
+    (b'{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": 7}]}]}}',
+     'a "hooks.Stop" command is int'),
+])
+def test_a_malformed_entry_is_a_per_entry_finding_not_a_dead_file(tmp_path, raw, why):
+    home = _settings_home(tmp_path, raw)
+    code, out, err = _run_check(["check", "--home", str(home)])
+    assert code == 1, out + err
+    assert "[settings-malformed-entry]" in out and why in out, out
+    assert "[settings-unparseable]" not in out, out
+
+
+def test_a_malformed_entry_does_not_hide_the_files_other_registrations(tmp_path):
+    """Claude Code 2.1.289 keeps running the rest of a file past a malformed entry, and so must
+    this audit: the well-shaped PreToolUse registration beside a malformed Stop is still checked,
+    so its missing target is still reported."""
+    home = tmp_path / "home"
+    raw = json.dumps({"hooks": {
+        "PreToolUse": [{"matcher": "*", "hooks": [
+            {"type": "command", "command": "bash %s/.claude/hooks/gone.sh" % home}]}],
+        "Stop": {},
+    }}).encode("utf-8")
+    home = _settings_home(tmp_path, raw)
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1, out
+    assert "[settings-malformed-entry]" in out and "[settings-unparseable]" not in out, out
+    assert "[registration]" in out and "gone.sh" in out, out
+
+
+def test_a_settings_file_the_registration_reader_refuses_is_the_same_finding(tmp_path):
+    """One shape rule: whatever `hook_registrations` refuses, the unparseable screen reports, so
+    no settings file can pass the screen and then crash the registration check behind it."""
+    home = _settings_home(tmp_path, b'{"hooks": {"Stop": "bash x.sh"}}')
+    assert audit_local.settings_problem(home / ".claude" / "settings.json") is not None
+
+
+@pytest.mark.parametrize("raw", [b'{"model": "x", "hooks": {}}', b'{"model": "x"}',
+                                 b'{"hooks": {"Stop": [{"matcher": "*"}]}}',
+                                 b'{"hooks": {"Stop": null}}'])
+def test_a_well_formed_settings_file_without_hooks_is_clean(tmp_path, raw):
+    home = _settings_home(tmp_path, raw)
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 0 and "clean" in out, out
+
+
+def test_a_settings_file_with_a_bom_is_named_for_what_it_is_and_still_checked(tmp_path):
+    """Whether Claude Code loads a settings file that opens with a BOM is not measured here, so
+    the finding states the fact about the file, and the registrations in it are still checked -
+    this audit's own reader decodes through the BOM."""
+    home = tmp_path / "home"
+    raw = b"\xef\xbb\xbf" + _gone_hook(home).encode("utf-8")
+    home = _settings_home(tmp_path, raw)
+    code, out, _ = _run_check(["check", "--home", str(home)])
+    assert code == 1, out
+    assert "[settings-bom]" in out and "byte-order mark" in out
+    assert "commonly refuse" not in out and "[settings-unparseable]" not in out
+    assert "[registration]" in out and "gone.sh" in out
+
+
+# ---- a typo in a path argument must not read as a clean audit -----------------------------------
+
+def test_check_refuses_a_missing_shipped_dir(tree):
+    code, _, err = _run_check(["check", "--root", str(tree.work), "--no-personal",
+                               "--shipped", str(tree.work / "skilz")])
+    assert code == 2 and "skilz" in err
+
+
+def test_check_refuses_a_missing_root(tree):
+    code, out, err = _run_check(["check", "--root", str(tree.work / "does-not-exist"),
+                                 "--no-personal"])
+    assert code == 2 and "does-not-exist" in err
+    assert "finding(s)" not in out
+
+
+def test_check_refuses_a_missing_home(tmp_path):
+    code, _, err = _run_check(["check", "--home", str(tmp_path / "typo-home")])
+    assert code == 2 and "typo-home" in err
+
+
+def test_shipped_given_as_dot_still_finds_the_plugin_root(tmp_path, monkeypatch):
+    plug = _plugin_with(tmp_path, hooks=[("h.py", "a\nb\n")])
+    home = tmp_path / "home"
+    (home / ".claude" / "hooks").mkdir(parents=True)
+    (home / ".claude" / "hooks" / "h.py").write_text("a\nb\n", encoding="utf-8")
+    monkeypatch.chdir(plug / "skills")
+    code, out, _ = _run_check(["check", "--home", str(home), "--shipped", "."])
+    assert code == 1 and "[duplicate-of-shipped]" in out and "byte-identical" in out
+
+
+# ---- an unreadable subtree is reported, not dropped ---------------------------------------------
+
+_POSIX_NONROOT = pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="needs POSIX permissions, non-root")
+
+
+@_POSIX_NONROOT
+def test_an_unlistable_dir_is_named_by_targets(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    locked = tmp_path / "work" / "locked"
+    _skills(locked / "p" / ".claude")
+    locked.chmod(0)
+    try:
+        code, out, err = _run(["targets", "--root", str(tmp_path / "work"), "--no-personal"])
+    finally:
+        locked.chmod(0o755)
+    assert code == 2        # unreadable input: the answer does not cover the tree it was asked about
+    assert str(locked) in out and "cannot list" in out
+    assert str(locked) in err
+
+
+@_POSIX_NONROOT
+def test_an_unlistable_dir_makes_check_report_a_finding_not_clean(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    locked = tmp_path / "work" / "locked"
+    _skills(locked / "p" / ".claude")
+    locked.chmod(0)
+    try:
+        code, out, _ = _run_check(["check", "--root", str(tmp_path / "work"), "--no-personal"])
+    finally:
+        locked.chmod(0o755)
+    assert code == 2, out   # still reported, never read as clean - and never as a mere finding
+    assert "[unlistable]" in out and str(locked) in out
+
+
+# ---- main(): the real entry point and its exit codes --------------------------------------------
+
+def _healthy_project(tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    skill = tmp_path / "work" / "p" / ".claude" / "skills" / "demo"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Use when building provmm images from source.\n---\n",
+        encoding="utf-8")
+    return home, skill
+
+
+def test_main_exits_zero_on_a_clean_tree(tmp_path, capsys):
+    home, _ = _healthy_project(tmp_path)
+    assert audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home)]) == 0
+
+
+def test_main_exits_one_on_findings(tmp_path, capsys):
+    home, skill = _healthy_project(tmp_path)
+    (skill / "SKILL.md").write_text("---\nname: demo\ndescription: Builds things.\n---\n",
+                                    encoding="utf-8")
+    assert audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home)]) == 1
+
+
+class _BrokenConsole:
+    """A stdout whose every write fails: the console is the true external edge of this CLI."""
+
+    def write(self, _text):
+        raise RuntimeError("console went away")
+
+    def flush(self):
+        pass
+
+
+def test_main_exits_two_not_one_when_a_check_crashes(tmp_path, capsys, monkeypatch):
+    """One means "findings"; a crash must never be read as that. A non-string hook command used to
+    be the crash input here, and it is a settings finding now - so the crash comes from the one
+    thing this CLI does not own, its console."""
+    home, _ = _healthy_project(tmp_path)
+    monkeypatch.setattr(sys, "stdout", _BrokenConsole())
+    code = audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home)])
+    assert code == 2
+    assert "console went away" in capsys.readouterr().err
+
+
+def test_main_prints_an_envelope_when_a_json_run_crashes(tmp_path, capsys, monkeypatch):
+    """A --json caller parses stdout; a crash that printed only a stderr line left it nothing to
+    parse. The envelope is printed on every exit, 2 included, with ok false."""
+    home, _ = _healthy_project(tmp_path)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("SENTINEL crash")
+
+    monkeypatch.setattr(audit_local, "check_personal", boom)
+    code = audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home), "--json"])
+    captured = capsys.readouterr()
+    assert code == 2 and "SENTINEL crash" in captured.err
+    payload = json.loads(captured.out)
+    assert payload["ok"] is False and payload["command"] == "check" and "SENTINEL" in payload["error"]
+
+
+def test_main_reports_a_non_string_hook_command_as_a_finding_not_a_crash(tmp_path, capsys):
+    home, _ = _healthy_project(tmp_path)
+    (home / ".claude" / "settings.json").write_text(
+        '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": 7}]}]}}', encoding="utf-8")
+    code = audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home)])
+    assert code == 1
+    assert "[settings-malformed-entry]" in capsys.readouterr().out
+
+
+def test_main_reports_an_undecodable_skill_md_as_a_finding(tmp_path, capsys):
+    """An undecodable SKILL.md is a finding about the file (exit 1) now that the front-matter
+    readers decode it the way the router does, not a crash of the audit."""
+    home, skill = _healthy_project(tmp_path)
+    (skill / "SKILL.md").write_bytes(b"---\nname: demo\ndescription: caf\xe9\n---\n")
+    code = audit_local.main(["check", "--root", str(tmp_path / "work"), "--home", str(home)])
+    assert code == 1
+    assert "not valid UTF-8" in capsys.readouterr().out
+
+
+def test_main_targets_exit_codes(tmp_path, capsys):
+    home, _ = _healthy_project(tmp_path)
+    assert audit_local.main(["targets", "--root", str(tmp_path / "work"), "--home", str(home),
+                             "--no-personal"]) == 0
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert audit_local.main(["targets", "--root", str(empty), "--home", str(home),
+                             "--no-personal"]) == 1
+
+
+def test_cp1252_stdout_does_not_crash_on_a_cjk_path(tmp_path):
+    home, _ = _healthy_project(tmp_path)
+    cjk = tmp_path / "work" / "日本" / ".claude" / "skills" / "demo2"
+    cjk.mkdir(parents=True)
+    (cjk / "SKILL.md").write_text(
+        "---\nname: demo2\ndescription: Use when you need a second demo.\n---\n", encoding="utf-8")
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), PYTHONIOENCODING="cp1252")
+    env.pop("PYTHONUTF8", None)
+    r = subprocess.run([sys.executable, audit_local.__file__, "targets", "--root",
+                        str(tmp_path / "work"), "--home", str(home), "--no-personal"],
+                       capture_output=True, env=env)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
+    assert b"targets (2)" in r.stdout
+
+
+# ---- branches the suite never reached -----------------------------------------------------------
+
+def test_a_candidate_inside_a_plugin_repo_is_skipped_with_its_reason(tree):
+    inner = _skills(tree.work / "igittigitt" / ".claude", "inner")
+    code, out, _ = _run(["targets", "--root", str(tree.work), "--no-personal", "--json"])
+    payload = json.loads(out)
+    assert str(inner) not in payload["data"]["targets"]
+    assert any(e["path"] == str(inner) and e["reason"] for e in payload["skipped"])
+
+
+def test_a_parked_bak_dir_is_reported_as_a_graveyard(tmp_path):
+    home = tmp_path / "home"
+    parked = home / ".claude" / "skills.bak" / "old"
+    parked.mkdir(parents=True)
+    (parked / "SKILL.md").write_text("---\nname: old\n---\n", encoding="utf-8")
+    found = audit_local.check_personal(home)
+    assert ("graveyard", "%s: parked dir holding 1 skill(s)" % (home / ".claude" / "skills.bak")) \
+        in found
+
+
+def test_an_uncollectable_hooks_test_dir_is_reported(tmp_path):
+    home = tmp_path / "home"
+    tests = home / ".claude" / "hooks" / "tests"
+    tests.mkdir(parents=True)
+    (tests / "test_broken.py").write_text("import no_such_module_xyz\n\ndef test_x():\n    pass\n",
+                                          encoding="utf-8")
+    found = audit_local.check_personal(home)
+    assert any(c.startswith("tests-u") and "test_broken.py" in m for c, m in found), found
+
+
+def test_an_uncollectable_skill_test_dir_is_reported(tmp_path):
+    skills = _skills(tmp_path / "p" / ".claude", "demo")
+    tests = skills / "demo" / "tests"
+    tests.mkdir()
+    (tests / "test_broken.py").write_text("import no_such_module_xyz\n\ndef test_x():\n    pass\n",
+                                          encoding="utf-8")
+    found = audit_local.check_skills(skills)
+    assert any(c.startswith("tests-u") and "test_broken.py" in m for c, m in found), found
+
+
+# ---- PEP 723 tools and the claude.ai skill sync ----------------------------------------------------
+
+PEP723 = ('# /// script\n# requires-python = ">=3.12"\n# dependencies = [\n'
+          '#   "pydantic>=2.7",\n#   "httpx2",\n# ]\n# ///\nprint("hi")\n')
+
+
+def test_pep723_dependencies_are_read_from_the_skill_s_scripts(tmp_path):
+    skill = tmp_path / "tool"
+    (skill / "tests").mkdir(parents=True)
+    (skill / "tool.py").write_text(PEP723, encoding="utf-8")
+    (skill / "tests" / "test_tool.py").write_text(PEP723, encoding="utf-8")   # tests do not count
+    (skill / "plain.py").write_text("print(1)\n", encoding="utf-8")
+    assert audit_local.pep723_dependencies(skill) == ["httpx2", "pydantic>=2.7"]
+
+
+def test_a_malformed_pep723_block_declares_nothing(tmp_path):
+    skill = tmp_path / "tool"
+    skill.mkdir()
+    (skill / "tool.py").write_text("# /// script\n# dependencies = [\n# ///\n", encoding="utf-8")
+    assert audit_local.pep723_dependencies(skill) == []
+
+
+def test_check_skills_hands_a_skill_s_declared_deps_to_the_collection_check(tmp_path):
+    skills = _skills(tmp_path / "p" / ".claude", "tool")
+    (skills / "tool" / "tool.py").write_text(PEP723, encoding="utf-8")
+    (skills / "tool" / "tests").mkdir()
+    seen = {}
+
+    def collect(tests_dir, extra_deps=()):
+        seen[Path(tests_dir).parent.name] = tuple(extra_deps)
+        return []
+
+    audit_local.check_skills(skills, collect=collect)
+    assert seen == {"tool": ("httpx2", "pydantic>=2.7")}
+
+
+def _synced_home(tmp_path):
+    home = tmp_path / "home"
+    synced = home / ".claude" / "skills" / "synced" / "acct-1234" / "markitdown"
+    synced.mkdir(parents=True)
+    (synced / "SKILL.md").write_text("---\nname: markitdown\n---\n", encoding="utf-8")
+    (synced / "batch_convert.py").write_text("print('x')\n", encoding="utf-8")
+    return home
+
+
+def test_the_account_skill_sync_dir_is_not_audited_as_a_local_skill(tmp_path):
+    home = _synced_home(tmp_path)
+    found = audit_local.check_skills(home / ".claude" / "skills",
+                                     external=(home / ".claude" / "skills" / "synced",))
+    assert not [m for _c, m in found if "synced" in m], found
+
+
+def test_control_the_same_dir_unmarked_is_audited(tmp_path):
+    home = _synced_home(tmp_path)
+    found = audit_local.check_skills(home / ".claude" / "skills")
+    assert any(c == "tests-missing" and "synced" in m for c, m in found), found
+
+
+def test_a_synced_copy_of_a_shipped_script_is_not_a_duplicate_finding(tmp_path):
+    plug = _plugin_with(tmp_path, hooks=[])
+    shipped = plug / "skills" / "markitdown"
+    shipped.mkdir(parents=True)
+    (shipped / "batch_convert.py").write_text("print('x')\n", encoding="utf-8")
+    home = _synced_home(tmp_path)
+    found = audit_local.check_personal(home, shipped_root=plug)
+    assert not [m for c, m in found if c == "duplicate-of-shipped"], found
+
+
+def test_check_reports_the_sync_dir_as_externally_owned(tmp_path, monkeypatch, capsys):
+    home = _synced_home(tmp_path)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    rc = audit_local.main(["check", "--home", str(home), "--json"])
+    env = json.loads(capsys.readouterr().out)
+    reasons = {s["path"]: s["reason"] for s in env["skipped"]}
+    synced = str(home / ".claude" / "skills" / "synced")
+    assert synced in reasons and "claude.ai" in reasons[synced], reasons
+    assert rc == 0, env
+
+
+def test_control_a_personal_non_synced_copy_is_still_a_duplicate_finding(tmp_path):
+    plug = _plugin_with(tmp_path, hooks=[])
+    shipped = plug / "skills" / "markitdown"
+    shipped.mkdir(parents=True)
+    (shipped / "batch_convert.py").write_text("print('x')\n", encoding="utf-8")
+    home = tmp_path / "home"
+    mine = home / ".claude" / "skills" / "markitdown"
+    mine.mkdir(parents=True)
+    (mine / "batch_convert.py").write_text("print('x')\n", encoding="utf-8")
+    found = audit_local.check_personal(home, shipped_root=plug)
+    assert [m for c, m in found if c == "duplicate-of-shipped"], found

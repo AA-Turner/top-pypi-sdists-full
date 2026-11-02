@@ -1,5 +1,4 @@
 import logging
-import operator
 from typing import Optional, Tuple, Type, Union
 
 from . import ast, exceptions as ex
@@ -23,8 +22,12 @@ def typecheck(
         ArgumentTypeException
     """
     actual_type = infer_type(node)
-    compare = operator.contains if isinstance(expected_type, tuple) else operator.eq
-    if actual_type and not compare(expected_type, actual_type):
+    is_expected = (
+        actual_type in expected_type
+        if isinstance(expected_type, tuple)
+        else actual_type == expected_type
+    )
+    if actual_type and not is_expected:
         allowed = (
             [t.__name__ for t in expected_type]
             if isinstance(expected_type, tuple)
@@ -51,7 +54,7 @@ def infer_type(node: ast._Node) -> Optional[Type[ast._Node]]:
     if isinstance(node, ast.Call):
         return infer_return_type(node)
 
-    log.warning("Failed to infer type for %s", node)
+    log.debug("Failed to infer type for %s", node)
     return None
 
 

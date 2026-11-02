@@ -1,5 +1,6 @@
 """AuthResource (client.auth, typed reads) and AuthMixin, Client's methods: sign-in, tokens, run
-tokens, client installations and credential grants (twins: app/auth, app/client_installations)."""
+tokens, client installations and credential grants
+(twins: app/accounts/auth, app/capture/clients/installations)."""
 
 from __future__ import annotations
 from ....generated.models import ClientInstallationsOut, TokenOut

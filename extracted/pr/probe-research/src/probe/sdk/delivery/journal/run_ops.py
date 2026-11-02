@@ -1,25 +1,15 @@
 """count one run's ops that may hold its close, here and in the outbox's other queues."""
 
 from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
 
 
 class RunOps:
-    """One run's ops that may hold its close, counted from directory LISTINGS.
-
-    `Run.finish()` asks "what of mine is still queued / dead-lettered?" after every pass of its
-    deadline loop. ``journal.pending()`` parsed the WHOLE machine-wide queue each time (every
-    run's ops, every 0.25 s): most of the loop's cost at a 20k-op backlog (plan 1.9 side note).
-    Op files are immutable in the two fields asked about (``run_ref``, ``blocking``) while in
-    one directory, so each ``(directory, name)`` is parsed once and remembered; later calls cost
-    one ``listdir``. ``blocking`` flips only on the move INTO ``failed/``: a new
-    ``(directory, name)`` key, parsed fresh.
-
-    Same selection as `Run._queued_ops`: ``run_ref`` matches and ``blocking`` is not False (a
-    best-effort diagnostic never holds a close).
-    """
+    """One run's ops that may hold its close (``run_ref`` matches, ``blocking`` not False), counted
+    from directory listings: each op file is parsed once, then one ``listdir`` per call (plan 1.9)."""
 
     def __init__(
         self,
@@ -87,5 +77,36 @@ class RunOps:
 
     def failed(self) -> list[Path]:
         return [path for queue in self._queues for path in self._scan(queue.failed_dir)]
+
+
+class RunOpsMixin:
+    """Part of Journal: its methods run with `self` the Journal; fold_parts() copies them into Journal."""
+
+    def run_ops(self, run_ref: str) -> "RunOps":
+        """A counter of ONE run's blocking ops that parses each op file once."""
+        return RunOps(self, run_ref)
+
+    def own_namespaces(self) -> "list[Journal]":
+        """`namespaces` without the credential queues under a root: what the
+        root's own worker serves."""
+        return [
+            queue
+            for queue in self.namespaces()
+            if queue.dir == self.dir or queue.dir == self.dir / DELIVERY_NAMESPACE
+        ]
+
+    def other_queues(self) -> "list[Journal]":
+        """`outbox_queues` minus this queue and its own receipt namespace."""
+        mine = {self.dir, self.dir / DELIVERY_NAMESPACE}
+        return [queue for queue in self.outbox_queues() if queue.dir not in mine]
+
+    def run_ops_elsewhere(self, run_ref: str, *, min_epoch: int | None = None) -> "RunOps":
+        """ONE run's blocking ops in the outbox's OTHER queues: writes of the
+        same run queued under another credential (#2035), which this queue's
+        order cannot see and a close queued here could overtake. ``min_epoch``
+        leaves out an older attempt's (round 5)."""
+        return RunOps(self, run_ref, queues=self.other_queues(), min_epoch=min_epoch)
+
 from probe.sdk.delivery.journal.journal import Journal  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _write_epoch_of  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ops import DELIVERY_NAMESPACE  # noqa: E402 -- pieces need each other; the front door loads this one first

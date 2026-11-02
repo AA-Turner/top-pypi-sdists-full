@@ -1,0 +1,179 @@
+[package]
+name = "docling"
+description = "DocumentConverter and format backends for docling.rs (a Rust port of docling)."
+version = "2.62.0"
+edition = "2021"
+# The integration tests are listed below (`[[test]]`): most are modules of
+# one binary, `tests/suite/main.rs` — one link instead of one per file.
+autotests = false
+license = "MIT"
+repository = "https://github.com/docling-project/docling.rs"
+homepage = "https://github.com/docling-project/docling.rs"
+readme = "README.md"
+keywords = ["docling", "document", "pdf", "markdown", "converter"]
+categories = ["text-processing", "parser-implementations"]
+rust-version = "1.92.0"
+# The 25 MB output-regression corpus under tests/ is dev-only — keep it out of
+# the published crate (and under crates.io's size limit). benches/ reference that
+# corpus by path, so they're dev-only too.
+exclude = ["tests", "benches"]
+
+[features]
+# HEIC/HEIF image input (#211): forwards to docling-pdf's libheif decode.
+heif = ["pdf", "docling-pdf/heif"]
+# The default build is the full converter. The ML pipelines and the HTTP
+# client are feature-sliced so `--no-default-features` leaves the pure-Rust
+# declarative converters (DOCX/HTML/MD/XLSX/PPTX/… → md/json) — a set that
+# compiles for wasm32-unknown-unknown (issue #79, see crates/docling-wasm).
+default = ["pdf", "asr", "fetch-images", "fetch-url", "vlm", "ner", "youtube"]
+# PDF/image/METS-GBS ML pipeline (the pure-Rust renderer + ONNX Runtime via
+# docling-pdf). resvg rides along so SVG input (#212) can rasterize into the
+# same image pipeline; the non-ML SVG path (direct <text> extraction) needs
+# no deps.
+pdf = ["dep:docling-pdf", "docling-pdf/ml", "dep:resvg"]
+# pdfium as an opt-in renderer (`DOCLING_RS_RENDERER=pdfium`, docling's
+# pypdfium2 chain) and the last resort for a file lopdf cannot read — off by
+# default; forwards to docling-pdf's `pdfium` feature.
+pdfium = ["pdf", "docling-pdf/pdfium"]
+# Named-entity detection (person / organization / location) for the PII
+# redaction pass (#621) — docling-pdf's `ner` module on the ML stack; the
+# model under `.models/ner/` is optional (missing → pattern-only, one
+# warning). No extra crate: in the default set.
+ner = ["pdf", "docling-pdf/ner"]
+# Text-layer-only PDF conversion (docling-pdf's pure-Rust parser, no ONNX) —
+# the wasm32 PDF path. Subsumed by `pdf`, which converts everything.
+pdf-text = ["dep:docling-pdf"]
+# Audio → Whisper ASR (symphonia + ONNX Runtime via docling-asr).
+asr = ["dep:docling-asr"]
+# Blocking HTTP fetch of remote <img src> images (DocumentConverter::fetch_images).
+fetch-images = ["dep:ureq", "dep:url"]
+# Blocking HTTP fetch of a document by URL (`SourceDocument::from_url`, the
+# CLI's URL sources, docling-serve's URL inputs — #668), with the SSRF guard.
+fetch-url = ["dep:ureq", "dep:url"]
+# A YouTube watch URL as a document (#681, MarkItDown's `_youtube_converter`):
+# the page's title, metadata and description, then the caption transcript
+# fetched as WebVTT and read by the WebVTT backend (timed items, `--to vtt`).
+# Rides on the URL fetch; nothing is downloaded but the captions.
+youtube = ["fetch-url"]
+# Remote VLM pipeline (#77): render PDF pages (the Rust renderer) and convert them
+# through an OpenAI-compatible vision endpoint (LM Studio / Ollama / vLLM /
+# hosted), parsing the returned DocLang with the existing reader. Rides on the
+# crate's existing blocking HTTP client; no model code compiled in.
+vlm = ["pdf", "dep:ureq"]
+# Optional headless-browser HTML pre-render (the `--use-web-browser` flag /
+# `DocumentConverter::use_web_browser`). Off by default so the standard build
+# stays pure-Rust with no browser/runtime dependency; enable with
+# `--features web-browser`. Drives the system Chromium over the DevTools
+# protocol purely from Rust (no Node/Playwright) via `headless_chrome`.
+web-browser = ["dep:headless_chrome", "dep:tempfile"]
+# Tokenization-aware chunking (docling-core's HybridChunker + HF tokenizer).
+chunking = ["docling-core/chunking"]
+# GPU execution providers for the ML pipelines (#74 PDF; #288 ASR) —
+# pass-through to docling-pdf and docling-asr; select at runtime with
+# DOCLING_RS_EP (default: cpu).
+cuda = ["pdf", "docling-pdf/cuda", "docling-asr?/cuda"]
+tensorrt = ["pdf", "docling-pdf/tensorrt", "docling-asr?/tensorrt"]
+directml = ["pdf", "docling-pdf/directml", "docling-asr?/directml"]
+coreml = ["pdf", "docling-pdf/coreml", "docling-asr?/coreml"]
+xnnpack = ["pdf", "docling-pdf/xnnpack", "docling-asr?/xnnpack"]
+# ONNX Runtime loaded at run time (`dlopen`) instead of linked from pyke's
+# prebuilt binaries (#504): the build for targets they do not cover — IBM Z
+# `s390x-unknown-linux-gnu` — and for deployments bringing their own
+# `libonnxruntime.so`. Without the library the ML stages degrade like a
+# missing model; every declarative format and the PDF text layer are
+# unaffected. See `docling_onnx::runtime_library` for the lookup.
+ort-load-dynamic = ["pdf", "docling-pdf/ort-load-dynamic", "docling-asr?/ort-load-dynamic"]
+
+[dependencies]
+calamine = { version = "0.37", features = ["dates"] }
+csv = "1.4.0"
+# DjVu input (#434): pure-Rust decoder — hidden text layer + JB2/IW44 raster —
+# MIT, no GPL deps (written from the public spec), so no DjVuLibre binary or
+# subprocess; compiles for wasm too. Default features = `std` only.
+djvu-rs = "0.33"
+headless_chrome = { version = "1.0", optional = true }
+# O_EXCL temp file with an unpredictable name for the browser pre-render page
+# (avoids a predictable /tmp path a local attacker could pre-plant a symlink at).
+tempfile = { version = "3", optional = true }
+docling-asr = { path = "../docling-asr", version = "2.62.0", optional = true }
+docling-core = { path = "../docling-core", version = "2.62.0" }
+docling-pdf = { path = "../docling-pdf", version = "2.62.0", optional = true, default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp"] }
+# EXIF of JPEG/PNG/TIFF/WebP/HEIF inputs for the document metadata (#679);
+# pure Rust, no image decoding.
+kamadak-exif = "0.6"
+mail-parser = "0.11"
+pulldown-cmark = { version = "0.13.4", default-features = false }
+quick-xml = "0.41"
+# Data-parallel fan-out over independent OOXML parts (XLSX sheets, PPTX
+# slides) — see the profile in the module docs of `backend/xlsx.rs`.
+rayon = "1.10"
+regex = "1.11"
+# SVG → PNG rasterization for the image ML pipeline (#212). Pure Rust
+# (usvg + tiny-skia); gated behind `pdf` since without ML the raster has
+# no consumer — the wasm/pdf-text SVG path extracts <text> directly.
+# 0.48 brought the harfrust/skrifa font stack (font-types 0.12.2+, rustc
+# 1.89+), which the 1.88 MSRV once pinned out; the floor is 1.92 since #598.
+resvg = { version = "0.48", optional = true }
+roxmltree = "0.20"
+scraper = "0.27.0"
+# scraper's DOM arena, for naming its node references in the HTML item-tree
+# port (`html_tree.rs`); the version scraper 0.27 itself pins.
+ego-tree = "0.11"
+# WHATWG charset decoding for non-UTF-8 HTML (#371): BOM / declared
+# `<meta charset>` / windows-1252 fallback, the way BeautifulSoup's
+# UnicodeDammit reads bytes for docling. Already in the tree via calamine.
+encoding_rs = "0.8"
+# NFC composition of LaTeX accent macros (`\'e` → é), as pylatexenc's
+# latex2text does with `unicodedata.normalize` (docling#4517).
+unicode-normalization = "0.1"
+# Statistical charset detection for text inputs that are neither UTF-8 nor
+# plainly windows-1252 (#675): Firefox's detector, on top of encoding_rs.
+chardetng = "1"
+# EBCDIC copybook layouts (#252) deserialize with derive.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Blocking HTTP client for fetching remote <img src> images when image fetching
+# is enabled (DocumentConverter::fetch_images). 3.x matches the version `ort`
+# already pulls in (so the graph keeps a single ureq); it needs Rust 1.85, which
+# this crate already requires transitively via docling-pdf → ort. 3.5 at least:
+# the SSRF guard (`fetch.rs`, #752) implements ureq's `unversioned` resolver
+# API, which ureq exempts from semver — 3.5 added `per_read` / `per_write` to
+# `NextTimeout` (and a `Default` the tests build it with, so the next added
+# field does not break them again).
+ureq = { version = "3.5", optional = true }
+# Resolve relative / protocol-relative <img src> against the page's base URL
+# when the HTML was fetched from the web (fetch_images). Gated with ureq.
+url = { version = "2", optional = true }
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+# AbiWord .zabw / gzip-compressed .abw (#216); already in the tree via zip.
+flate2 = "1"
+# Raw-block Snappy decode for Apple iWork's IWA members (#213); pure Rust, so
+# the backend rides along in every build including wasm.
+snap = "1"
+# Password-protected Office documents ([MS-OFFCRYPTO], #625): AES for OOXML
+# Agile/Standard encryption, SHA-1/SHA-512/MD5 for the key derivations (RC4
+# itself is a dozen lines in `offcrypto.rs`). The RustCrypto generation lopdf
+# already pulls in for PDF decryption — the default build gains only `sha1`.
+# Pure Rust, every build including wasm.
+aes = "0.9"
+sha1 = "0.11"
+sha2 = "0.11"
+md-5 = "0.11"
+base64 = "0.22"
+
+[[example]]
+name = "convert"
+path = "examples/convert.rs"
+
+[[example]]
+name = "stream"
+path = "examples/stream.rs"
+
+[[example]]
+name = "register_backend"
+path = "examples/register_backend.rs"
+test = true
+
+[dev-dependencies]
+criterion = "0.5"

@@ -1,0 +1,57 @@
+name: Docs
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Build docs
+        run: uv run --group dev -- sphinx-build -W -b html docs docs/_build/html
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare versioned deploy
+        run: |
+          git fetch origin gh-pages:gh-pages || true
+          mkdir -p deploy
+          # Carry forward existing versions from gh-pages
+          if git show gh-pages:versions.json > /dev/null 2>&1; then
+            git archive gh-pages | tar -x -C deploy
+          fi
+          # Copy new version
+          rm -rf "deploy/${{ steps.version.outputs.tag }}"
+          cp -r docs/_build/html "deploy/${{ steps.version.outputs.tag }}"
+          # Update latest
+          rm -rf deploy/latest
+          cp -r docs/_build/html deploy/latest
+          # Update versions.json
+          python3 scripts/update_versions_json.py deploy/versions.json "${{ steps.version.outputs.tag }}"
+          # Ensure .nojekyll and index.html exist
+          touch deploy/.nojekyll
+          cat > deploy/index.html << 'HEREDOC'
+          <!DOCTYPE html>
+          <html><head><meta http-equiv="refresh" content="0; url=latest/"></head>
+          <body><a href="latest/">Redirect</a></body></html>
+          HEREDOC
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          force_orphan: false

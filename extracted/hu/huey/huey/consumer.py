@@ -1,5 +1,7 @@
+import contextlib
 import logging
 import os
+import select
 import signal
 import sys
 import threading
@@ -20,9 +22,11 @@ from huey.constants import WORKER_PROCESS
 from huey.constants import WORKER_THREAD
 from huey.constants import WORKER_TYPES
 from huey.exceptions import ConfigurationError
-from huey.utils import greenlet_timeout
-from huey.utils import process_timeout
-from huey.utils import thread_timeout
+from huey.exceptions import TaskTimeout
+from huey.utils import noop_context
+
+
+logger = logging.getLogger('huey.consumer')
 
 
 class ConsumerStopped(Exception): pass
@@ -123,17 +127,16 @@ class Worker(BaseProcess):
         else:
             if task is not None:
                 self.delay = self.default_delay
+                self.task_count += 1
                 try:
                     self.huey.execute(task, now)
                 except Exception:
                     self._logger.exception('Unhandled error during execution '
                                            'of task %s.', task.id)
-                finally:
-                    self.task_count += 1
-                    if self.max_tasks and self.task_count >= self.max_tasks:
-                        self._logger.info('Worker reached max tasks (%d), '
-                                          'exiting.', self.max_tasks)
-                        raise WorkerRecycle()
+                if self.max_tasks and self.task_count >= self.max_tasks:
+                    self._logger.info('Worker reached max tasks (%d), '
+                                      'exiting.', self.max_tasks)
+                    raise WorkerRecycle()
             elif not self.huey.storage.blocking:
                 self.sleep()
 
@@ -186,9 +189,7 @@ class Scheduler(BaseProcess):
                     self._logger.exception('Error enqueueing %s.', task)
 
         if self.periodic and self._next_periodic <= time.monotonic():
-            # If the scheduler stalled (e.g. suspend/resume), skip past any
-            # missed checks rather than running them all back-to-back, which
-            # would enqueue duplicates for the current minute.
+            # Skip checks missed during a stall (e.g. suspend) to avoid dupes.
             while self._next_periodic <= time.monotonic():
                 self._next_periodic += self.periodic_task_seconds
             self.enqueue_periodic_tasks(now)
@@ -206,18 +207,53 @@ class Scheduler(BaseProcess):
                                        task)
 
 
+class ForkSafeFlag(object):
+    # Flag for forked worker processes. The problem w/mp.Event is that the
+    # process holding it can be killed while it's held, which causes the
+    # shutdown to hang.
+    def __init__(self):
+        self._r, self._w = os.pipe()
+
+    def set(self):
+        if not self.is_set():
+            os.write(self._w, b'x')
+
+    def is_set(self):
+        return self.wait(0)
+
+    def wait(self, timeout=None):
+        poller = select.poll()
+        poller.register(self._r, select.POLLIN)
+        return bool(poller.poll(None if timeout is None else timeout * 1000))
+
+
 class Environment(object):
     """
     Provide a common interface to the supported concurrent environments.
     """
+    forks = False
+
+    def __init__(self, graceful=signal.SIGINT, interrupt=signal.SIGTERM):
+        self.graceful = graceful
+        self.interrupt = interrupt
+
     def get_stop_flag(self):
         raise NotImplementedError
 
     def create_process(self, runnable, name):
         raise NotImplementedError
 
+    def init_child(self, process):
+        pass
+
     def is_alive(self, proc):
         raise NotImplementedError
+
+    def timeout(self, seconds):
+        return noop_context()
+
+    def interrupt_workers(self, procs):
+        pass
 
 
 class ThreadEnvironment(Environment):
@@ -232,33 +268,52 @@ class ThreadEnvironment(Environment):
     def is_alive(self, proc):
         return proc.is_alive()
 
-    def set_timeout_handler(self, huey):
-        huey.set_timeout_handler(thread_timeout)
-
 
 class GreenletEnvironment(Environment):
+    def __init__(self, *args):
+        if Greenlet is None:
+            raise ImportError('Could not import gevent - is it installed?')
+        if not monkey.is_module_patched('socket'):
+            logger.warning('Gevent monkey-patch has not been applied, this '
+                           'may result in incorrect or unpredictable '
+                           'behavior.')
+        super().__init__(*args)
+
     def get_stop_flag(self):
         return GreenEvent()
 
     def create_process(self, runnable, name):
         def run_wrapper():
-            gevent.sleep()
-            runnable()
-            gevent.sleep()
+            try:
+                gevent.sleep()
+                runnable()
+            except KeyboardInterrupt:
+                pass
         return Greenlet(run=run_wrapper)
 
     def is_alive(self, proc):
         return not proc.dead
 
-    def set_timeout_handler(self, huey):
-        huey.set_timeout_handler(greenlet_timeout)
+    @contextlib.contextmanager
+    def timeout(self, seconds):
+        timer = gevent.Timeout(seconds, TaskTimeout('timeout (%ss)' % seconds))
+        timer.start()
+        try:
+            yield
+        finally:
+            timer.cancel()
+
+    def interrupt_workers(self, procs):
+        # Interrupt worker greenlets that are blocked on I/O.
+        gevent.killall(procs, KeyboardInterrupt)
 
 
 class ProcessEnvironment(Environment):
-    def __init__(self):
-        # Huey's worker/scheduler runnables are closures over live objects
-        # (sockets, locks, the Huey instance itself) and cannot be pickled,
-        # so the spawn/forkserver start methods cannot work.
+    forks = True
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        # Runnables are closures over live objects and can't be pickled.
         try:
             self.mp = multiprocessing.get_context('fork')
         except ValueError:
@@ -267,23 +322,59 @@ class ProcessEnvironment(Environment):
                 'and cannot be used on this platform.')
 
     def get_stop_flag(self):
-        return self.mp.Event()
+        return ForkSafeFlag()
 
     def create_process(self, runnable, name):
         p = self.mp.Process(target=runnable, name=name)
         p.daemon = True
         return p
 
+    def init_child(self, process):
+        def interrupt(signum, frame):
+            if process.huey._tasks_in_flight:
+                # Interrupt if the task is currently running. Otherwise it
+                # should exit through the stop flag.
+                raise KeyboardInterrupt
+        signal.signal(self.graceful, signal.SIG_IGN)
+        signal.signal(self.interrupt, interrupt)
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
     def is_alive(self, proc):
         return proc.is_alive()
 
-    def set_timeout_handler(self, huey):
-        huey.set_timeout_handler(process_timeout)
+    @contextlib.contextmanager
+    def timeout(self, seconds):
+        def _handle_alrm(signum, frame):
+            raise TaskTimeout('timeout (%ss)' % seconds)
+
+        orig = signal.signal(signal.SIGALRM, _handle_alrm)
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+        try:
+            yield
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)  # Cancel any pending alarm.
+            signal.signal(signal.SIGALRM, orig)
+
+    def interrupt_workers(self, procs):
+        # The mp exit handler terminates children w/SIGTERM, which they
+        # ignore when it is the graceful signal.
+        for proc in procs:
+            if proc.is_alive():
+                try:
+                    os.kill(proc.pid, self.interrupt)
+                except OSError:
+                    pass
+        # Brief join so the exit handler cannot interrupt mid-cleanup.
+        deadline = time.monotonic() + 1
+        for proc in procs:
+            proc.join(max(deadline - time.monotonic(), 0))
 
 
 WORKER_TO_ENVIRONMENT = {
     WORKER_THREAD: ThreadEnvironment,
     WORKER_GREENLET: GreenletEnvironment,
+    'gevent': GreenletEnvironment,
     WORKER_PROCESS: ProcessEnvironment,
 }
 
@@ -331,9 +422,6 @@ class Consumer(object):
             raise ConfigurationError('Scheduler interval must be a factor '
                                      'of 60, e.g. 1, 2, 3, 4, 5, 6, 10, 12...')
 
-        if worker_type == 'gevent': worker_type = WORKER_GREENLET
-        if worker_type == WORKER_GREENLET and Greenlet is None:
-            raise ImportError('Could not import gevent - is it installed?')
         self.worker_type = worker_type  # What process model are we using?
 
         # Configure health-check and consumer main-loop attributes.
@@ -341,24 +429,24 @@ class Consumer(object):
         self._health_check = check_worker_health
         self._health_check_interval = float(health_check_interval)
 
-        # Create the execution environment helper.
-        self.environment = self.get_environment(self.worker_type)
-
-        # Install environment-specific timeout handler.
-        self.environment.set_timeout_handler(self.huey)
-
-        # Create the event used to signal the process should terminate. We'll
-        # also store a boolean flag to indicate whether we should restart after
-        # the processes are cleaned up.
-        self._received_signal = False
+        # Signal -> (restart, graceful).
+        self._graceful_sig, self._interrupt_sig = (
+            (signal.SIGTERM, signal.SIGINT) if graceful_signal == 'TERM'
+            else (signal.SIGINT, signal.SIGTERM))
+        self._signal_actions = {
+            self._interrupt_sig: (False, False),
+            self._graceful_sig: (False, True),
+        }
+        if hasattr(signal, 'SIGHUP'):
+            self._signal_actions[signal.SIGHUP] = (True, True)
         self._signum = None
         self._restart = False
         self._graceful = True
+
+        # Create the execution environment helper.
+        self.environment = self.get_environment(self.worker_type)
+        self.huey._timeout_handler = self.environment.timeout
         self.stop_flag = self.environment.get_stop_flag()
-        if graceful_signal == 'TERM':
-            self._signals = (signal.SIGTERM, signal.SIGINT)
-        else:
-            self._signals = (signal.SIGINT, signal.SIGTERM)
 
         # In the event the consumer was killed while running a task that held
         # a lock, this ensures that all locks are flushed before starting.
@@ -392,7 +480,8 @@ class Consumer(object):
         if worker_type not in WORKER_TO_ENVIRONMENT:
             raise ValueError('worker_type must be one of %s.' %
                              ', '.join(WORKER_TYPES))
-        return WORKER_TO_ENVIRONMENT[worker_type]()
+        return WORKER_TO_ENVIRONMENT[worker_type](self._graceful_sig,
+                                                  self._interrupt_sig)
 
     def _create_worker(self):
         return self.worker_class(
@@ -416,11 +505,9 @@ class Consumer(object):
         exceptions in the `loop()` method will cause the process to terminate.
         """
         def _run():
-            if self.worker_type == WORKER_PROCESS:
-                self._set_child_signal_handlers()
-
-            process.initialize()
+            self.environment.init_child(process)
             try:
+                process.initialize()
                 while not self.stop_flag.is_set():
                     process.loop()
             except KeyboardInterrupt:
@@ -430,7 +517,10 @@ class Consumer(object):
             except:
                 self._logger.exception('Process %s died!', name)
             finally:
-                process.shutdown()
+                try:
+                    process.shutdown()
+                except KeyboardInterrupt:
+                    pass
         return self.environment.create_process(_run, name)
 
     def start(self):
@@ -442,13 +532,6 @@ class Consumer(object):
                 'Consumer cannot be run with Huey instances where immediate '
                 'is enabled. Please check your configuration and ensure that '
                 '"huey.immediate = False".')
-
-        # Check if gevent is used, and if monkey-patch applied properly.
-        if self.worker_type == WORKER_GREENLET:
-            if not monkey.is_module_patched('socket'):
-                self._logger.warning('Gevent monkey-patch has not been applied'
-                                     ', this may result in incorrect or '
-                                     'unpredictable behavior.')
 
         # Log startup message.
         self._logger.info('Huey consumer started with %s %s, PID %s at %s',
@@ -466,7 +549,7 @@ class Consumer(object):
         self._logger.info('\n'.join(msg))
 
         # Forked children must not share the parent's storage connection.
-        if self.worker_type == WORKER_PROCESS:
+        if self.environment.forks:
             self.huey.storage.close()
 
         # Start the scheduler and workers.
@@ -505,23 +588,7 @@ class Consumer(object):
         self._logger.info('Shutting down')
 
     def _interrupt_workers(self):
-        if self.worker_type == WORKER_GREENLET:
-            # Interrupt worker greenlets that are blocked on I/O.
-            gevent.killall([t for _, t in self.worker_threads],
-                           KeyboardInterrupt)
-        elif self.worker_type == WORKER_PROCESS:
-            # The mp exit handler terminates children w/SIGTERM, which they
-            # ignore when it is the graceful signal.
-            for _, proc in self.worker_threads:
-                if self.environment.is_alive(proc):
-                    try:
-                        os.kill(proc.pid, self._signals[1])
-                    except OSError:
-                        pass
-            # Brief join so the exit handler cannot interrupt mid-cleanup.
-            deadline = time.monotonic() + 1
-            for _, proc in self.worker_threads:
-                proc.join(max(deadline - time.monotonic(), 0))
+        self.environment.interrupt_workers([p for _, p in self.worker_threads])
 
     def _join_workers(self):
         deadline = None
@@ -553,17 +620,11 @@ class Consumer(object):
         if self._restart:
             self._logger.info('Consumer will restart.')
             python = sys.executable
-            if not python:
-                self._logger.error('Could not determine Python executable, '
-                                   'unable to restart.')
-            else:
-                os.execl(python, python, *sys.argv)
+            os.execl(python, python, *sys.argv)
         else:
             self._logger.info('Consumer exiting.')
 
     def loop(self, health_check_ts=None):
-        # Do not touch the stop-flag after stop(). An interrupted worker may
-        # have exited holding its shared lock.
         try:
             stopped = self.stop_flag.wait(timeout=self._stop_flag_timeout)
         except KeyboardInterrupt:
@@ -575,7 +636,7 @@ class Consumer(object):
             self.stop()
             stopped = True
         else:
-            if self._received_signal:
+            if self._signum is not None:
                 self._logger.info('Received %s',
                                   signal.Signals(self._signum).name)
                 self.stop(graceful=self._graceful)
@@ -626,54 +687,12 @@ class Consumer(object):
         return not restart_occurred
 
     def _set_signal_handlers(self):
-        graceful, interrupt = self._signals
-        signal.signal(interrupt, self._handle_stop_signal)
-        if graceful == signal.SIGINT and self.worker_type == WORKER_PROCESS:
-            signal.signal(signal.SIGINT, signal.default_int_handler)
-        else:
-            # Add a special handler for the graceful signal. For gevent, if
-            # the running greenlet is not the main hub, then Gevent will raise
-            # a KeyboardInterrupt in the running greenlet by default on INT.
-            # This ensures that when the signal is received we properly flag
-            # the main loop for graceful shutdown and do NOT propagate the
-            # exception. This is also added for threads to ensure that, in the
-            # event of a SIGHUP followed by a SIGINT, we respect the SIGINT.
-            signal.signal(graceful, self._handle_graceful_signal)
-        if hasattr(signal, 'SIGHUP'):
-            signal.signal(signal.SIGHUP, self._handle_restart_signal)
+        for signum in self._signal_actions:
+            signal.signal(signum, self._handle_signal)
 
-    # Note: the signal handlers below only set simple flags.
-    def _handle_graceful_signal(self, sig_num, frame):
-        self._received_signal = True
-        self._signum = sig_num
-        self._restart = False
-        self._graceful = True
-        signal.signal(sig_num, signal.default_int_handler)
-
-    def _handle_stop_signal(self, sig_num, frame):
-        self._received_signal = True
-        self._signum = sig_num
-        self._restart = False
-        self._graceful = False
-
-    def _handle_restart_signal(self, sig_num, frame):
-        self._received_signal = True
-        self._signum = sig_num
-        self._restart = True
-        self._graceful = True  # Restart shuts down gracefully.
-
-    def _set_child_signal_handlers(self):
-        # Install signal handlers in child process. We ignore SIGHUP (restart)
-        # and the graceful signal, as these are handled by the main process.
-        # Upon the interrupt signal, we raise a KeyboardInterrupt, which is
-        # caught below (and in the worker execute() code), to allow immediate
-        # shutdown.
-        graceful, interrupt = self._signals
-        signal.signal(graceful, signal.SIG_IGN)
-        signal.signal(interrupt, self._handle_stop_signal_worker)
-        if hasattr(signal, 'SIGHUP'):
-            signal.signal(signal.SIGHUP, signal.SIG_IGN)
-
-    def _handle_stop_signal_worker(self, sig_num, frame):
-        # Raise an interrupt in the subprocess' main loop.
-        raise KeyboardInterrupt
+    def _handle_signal(self, signum, frame):
+        self._signum = signum
+        self._restart, self._graceful = self._signal_actions[signum]
+        if self._graceful and not self._restart:
+            # A second graceful signal interrupts the shutdown.
+            signal.signal(signum, signal.default_int_handler)

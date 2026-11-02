@@ -1,4 +1,4 @@
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyBytes};
 use std::num::NonZeroU16;
 
 use crate::signing_key_pair::SigningKeyPair;
@@ -22,6 +22,8 @@ impl From<davey::CommitWelcome> for CommitWelcome {
 #[pyclass]
 pub struct DaveSession {
   inner: Box<davey::DaveSession>,
+  // Reused in encrypt & decrypt to avoid reallocating
+  buffer: Vec<u8>,
 }
 
 #[pymethods]
@@ -52,6 +54,7 @@ impl DaveSession {
 
     Ok(Self {
       inner: Box::new(session),
+      buffer: Vec::new(),
     })
   }
 
@@ -133,6 +136,11 @@ impl DaveSession {
     self.inner.is_ready()
   }
 
+  #[getter]
+  fn can_encrypt(&self) -> bool {
+    self.inner.can_encrypt()
+  }
+
   fn get_epoch_authenticator(&self) -> Option<&[u8]> {
     self.inner.get_epoch_authenticator().map(|ea| ea.as_slice())
   }
@@ -175,22 +183,41 @@ impl DaveSession {
     Ok(result.map(CommitWelcome::from))
   }
 
-  fn process_welcome(&mut self, welcome: &[u8]) -> PyResult<()> {
+  #[pyo3(signature = (welcome, recognized_user_ids=None))]
+  fn process_welcome(
+    &mut self,
+    welcome: &[u8],
+    recognized_user_ids: Option<Vec<u64>>,
+  ) -> PyResult<()> {
     self
       .inner
-      .process_welcome(welcome)
+      .process_welcome(welcome, recognized_user_ids.as_deref())
       .map_err(|err| py_value_error!("Failed to process welcome: {err:?}"))?;
 
     Ok(())
   }
 
-  fn process_commit(&mut self, commit: &[u8]) -> PyResult<()> {
+  fn process_commit(&mut self, commit: &[u8]) -> PyResult<bool> {
     self
       .inner
       .process_commit(commit)
-      .map_err(|err| py_value_error!("Failed to process commit: {err:?}"))?;
+      .map_err(|err| py_value_error!("Failed to process commit: {err:?}"))
+  }
+
+  fn prepare_transition(&mut self, transition_id: u16, protocol_version: u16) -> PyResult<()> {
+    self
+      .inner
+      .prepare_transition(transition_id, protocol_version)
+      .map_err(|err| py_value_error!("Failed to prepare transition: {err:?}"))?;
 
     Ok(())
+  }
+
+  fn execute_transition(&mut self, transition_id: u16) -> PyResult<bool> {
+    self
+      .inner
+      .execute_transition(transition_id)
+      .map_err(|err| py_value_error!("Failed to execute transition: {err:?}"))
   }
 
   fn get_verification_code(&self, user_id: u64) -> PyResult<String> {
@@ -207,22 +234,23 @@ impl DaveSession {
       .map_err(|e| py_value_error!("failed to generate pairwise fingerprint: {:?}", e))
   }
 
-  fn encrypt(
+  fn encrypt<'py>(
     &mut self,
+    py: Python<'py>,
     media_type: davey::MediaType,
     codec: davey::Codec,
     packet: &[u8],
-  ) -> PyResult<Vec<u8>> {
-    let result = self
+  ) -> PyResult<Bound<'py, PyBytes>> {
+    self
       .inner
-      .encrypt(media_type, codec, packet)
+      .encrypt_into(media_type, codec, packet, &mut self.buffer)
       .map_err(|err| py_value_error!("Failed to encrypt: {err:?}"))?;
 
-    Ok(result.into_owned().to_vec())
+    Ok(PyBytes::new(py, &self.buffer))
   }
 
-  fn encrypt_opus(&mut self, packet: &[u8]) -> PyResult<Vec<u8>> {
-    self.encrypt(davey::MediaType::AUDIO, davey::Codec::OPUS, packet)
+  fn encrypt_opus<'py>(&mut self, py: Python<'py>, packet: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    self.encrypt(py, davey::MediaType::AUDIO, davey::Codec::OPUS, packet)
   }
 
   #[pyo3(signature = (media_type=None))]
@@ -236,18 +264,20 @@ impl DaveSession {
       .map(|s| s.to_owned())
   }
 
-  fn decrypt(
+  fn decrypt<'py>(
     &mut self,
+    py: Python<'py>,
     user_id: u64,
     media_type: davey::MediaType,
     packet: &[u8],
-  ) -> PyResult<Vec<u8>> {
-    let result = self
+  ) -> PyResult<Bound<'py, PyBytes>> {
+    self.buffer.resize(packet.len(), 0);
+    let frame_length = self
       .inner
-      .decrypt(user_id, media_type, packet)
+      .decrypt_into(user_id, media_type, packet, &mut self.buffer)
       .map_err(|err| py_value_error!("Failed to decrypt: {err:?}"))?;
 
-    Ok(result.to_owned().to_vec())
+    Ok(PyBytes::new(py, &self.buffer[..frame_length]))
   }
 
   #[pyo3(signature = (user_id, media_type=None))]
@@ -264,17 +294,8 @@ impl DaveSession {
     Ok(result.map(|s| s.to_owned()))
   }
 
-  fn get_user_ids(&self) -> Vec<String> {
-    self
-      .inner
-      .get_user_ids()
-      .map(|ids| {
-        ids
-          .into_iter()
-          .map(|id| id.to_string())
-          .collect::<Vec<String>>()
-      })
-      .unwrap_or_default()
+  fn get_user_ids(&self) -> Vec<u64> {
+    self.inner.get_user_ids().unwrap_or_default()
   }
 
   fn can_passthrough(&self, user_id: u64) -> bool {
@@ -288,15 +309,14 @@ impl DaveSession {
       .set_passthrough_mode(passthrough_mode, transition_expiry);
   }
 
-  fn __repr__(&self) -> &'static str {
-    let s = format!(
+  fn __repr__(&self) -> String {
+    format!(
       "<DaveSession protocol_version={}, user_id={}, channel_id={}, ready={}, status={:?}>",
       self.inner.protocol_version(),
       self.inner.user_id(),
       self.inner.channel_id(),
       self.inner.is_ready(),
       self.inner.status()
-    );
-    Box::leak(s.into_boxed_str())
+    )
   }
 }

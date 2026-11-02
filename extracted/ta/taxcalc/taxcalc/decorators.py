@@ -1,0 +1,512 @@
+"""
+Implement numba JIT decorators used to speed-up the execution
+of Tax-Calculator functions in the calcfunctions.py module.
+"""
+# CODING-STYLE CHECKS:
+# pycodestyle decorators.py
+# pylint --disable=locally-disabled decorators.py
+
+import os
+import sys
+import io
+import ast
+import time
+import shutil
+import inspect
+import hashlib
+import tempfile
+import functools
+import numpy as np
+import numba
+from numba.misc.appdirs import user_cache_dir
+from taxcalc.policy import Policy
+
+
+DO_JIT = True
+# One way to use the Python debugger is to do these two things:
+#  (a) change the line immediately above this comment from
+#      "DO_JIT = True" to "DO_JIT = False", and
+#  (b) import pdb package and call pdb.set_trace() in either the
+#      calculator.py or calcfunctions.py file.
+
+
+def id_wrapper(*dec_args, **dec_kwargs):  # pylint: disable=unused-argument
+    """
+    Function wrapper when numba package is not being used during debugging.
+    """
+    def wrap(fnc):
+        """
+        wrap function nested in id_wrapper function.
+        """
+        def wrapped_f(*args, **kwargs):
+            """
+            wrapped_f function nested in wrap function.
+            """
+            return fnc(*args, **kwargs)
+        return wrapped_f
+    return wrap
+
+
+# Functions defined in the CACHED_MODULE, and the apply-style functions
+# made from them, have their JIT-compiled code cached on disk in a folder
+# whose name is a hash of the source code the compiled code depends on.
+CACHED_MODULE = "taxcalc.calcfunctions"
+
+# Cache folders for other source hashes that have not been used for more
+# than JIT_CACHE_MAX_AGE_DAYS days are deleted when taxcalc is imported.
+JIT_CACHE_MAX_AGE_DAYS = 90
+
+
+def jit_cache_root():
+    """
+    Return path of folder that holds the on-disk cache of JIT-compiled
+    functions, which is the TAXCALC_JIT_CACHE_DIR environment variable
+    value if set, otherwise the taxcalc subfolder of the NUMBA_CACHE_DIR
+    folder if set, otherwise the taxcalc folder in the user's cache folder.
+    """
+    root = os.environ.get("TAXCALC_JIT_CACHE_DIR")
+    if root:
+        return root
+    numba_root = os.environ.get("NUMBA_CACHE_DIR")
+    if numba_root:
+        return os.path.join(numba_root, "taxcalc")
+    return user_cache_dir(appname="taxcalc", appauthor=False, opinion=False)
+
+
+def source_hash():
+    """
+    Return hash of the calcfunctions.py and decorators.py source code
+    and of the Python, NumPy, and Numba versions, all of which affect the
+    JIT-compiled code.  Any change in these produces a new hash value.
+    """
+    hsh = hashlib.sha256()
+    here = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("calcfunctions.py", "decorators.py"):
+        with open(os.path.join(here, fname), "rb") as sfile:
+            hsh.update(sfile.read())
+    for version in (sys.version, np.__version__, numba.__version__):
+        hsh.update(version.encode())
+    return hsh.hexdigest()[:16]
+
+
+def prune_jit_cache(root, current):
+    """
+    Mark the current cache folder in the root folder as used now, and
+    delete the other cache folders in the root folder that have not
+    been used for more than JIT_CACHE_MAX_AGE_DAYS days.  Only folders
+    whose names look like a source_hash() value are ever deleted.
+    """
+    os.utime(os.path.join(root, current))
+    oldest = time.time() - JIT_CACHE_MAX_AGE_DAYS * 24 * 60 * 60
+    hexdigits = set("0123456789abcdef")
+    for entry in os.scandir(root):
+        if (
+                entry.name == current or
+                len(entry.name) != len(current) or
+                not set(entry.name) <= hexdigits or
+                not entry.is_dir(follow_symlinks=False)
+        ):
+            continue
+        if entry.stat(follow_symlinks=False).st_mtime < oldest:
+            shutil.rmtree(entry.path, ignore_errors=True)
+
+
+@functools.cache
+def jit_cache_class():
+    """
+    Return the Numba cache class that stores the compiled code in the
+    jit_cache_root()/source_hash() folder, or None if that folder is not
+    writable or if Numba does not provide the internal classes needed to
+    construct the cache class.
+    """
+    # pylint: disable=import-outside-toplevel
+    try:
+        from numba.core.caching import (
+            _CacheLocator, CompileResultCacheImpl, FunctionCache
+        )
+    except ImportError:
+        return None
+    root = jit_cache_root()
+    current = source_hash()
+    cache_path = os.path.join(root, current)
+    try:
+        os.makedirs(cache_path, exist_ok=True)
+        tempfile.TemporaryFile(dir=cache_path).close()
+    except OSError:
+        return None
+    try:
+        prune_jit_cache(root, current)
+    except OSError:
+        pass
+
+    class Locator(_CacheLocator):
+        """
+        Numba cache locator that puts every cached function in the
+        cache_path folder, which changes whenever the source code the
+        compiled code depends on changes.
+        """
+        def __init__(self, py_func):
+            self._tag = py_func.taxcalc_cache_tag
+
+        def get_cache_path(self):
+            return cache_path
+
+        def get_source_stamp(self):
+            return os.path.basename(cache_path)
+
+        def get_disambiguator(self):
+            return self._tag
+
+        @classmethod
+        def from_function(cls, py_func, py_file):
+            if not hasattr(py_func, "taxcalc_cache_tag"):
+                return None
+            return cls(py_func)
+
+    class CacheImpl(CompileResultCacheImpl):
+        """
+        Numba cache implementation that uses only the Locator class.
+        """
+        _locator_classes = [Locator]
+
+    class Cache(FunctionCache):
+        """
+        Numba function cache that uses the CacheImpl class.
+        """
+        _impl_class = CacheImpl
+
+    return Cache
+
+
+def enable_jit_cache(dispatcher, tag):
+    """
+    Turn on on-disk caching of the specified Numba dispatcher's compiled
+    code, where tag uniquely identifies the dispatcher's function.  If
+    the cache folder is not writable, the dispatcher is left uncached.
+    """
+    cache_class = jit_cache_class()
+    if cache_class is None:
+        return
+    dispatcher.py_func.taxcalc_cache_tag = tag
+    try:
+        # pylint: disable=protected-access
+        dispatcher._cache = cache_class(dispatcher.py_func)
+    except (OSError, RuntimeError):
+        pass
+
+
+def cached_jit(cache_tag=None, **kwargs):
+    """
+    Return a decorator that JIT-compiles a function using numba.jit with
+    the specified kwargs and caches the compiled code on disk if the
+    function is defined in the CACHED_MODULE or if cache_tag is not None.
+    """
+    def wrap(func):
+        """
+        wrap function nested in cached_jit function.
+        """
+        dispatcher = numba.jit(**kwargs)(func)
+        tag = cache_tag
+        if tag is None and func.__module__ == CACHED_MODULE:
+            tag = func.__qualname__
+        if tag is not None:
+            enable_jit_cache(dispatcher, tag)
+        return dispatcher
+    return wrap
+
+
+if DO_JIT is False or "NOTAXCALCJIT" in os.environ:
+    JIT = id_wrapper
+else:
+    JIT = cached_jit
+
+
+class GetReturnNode(ast.NodeVisitor):
+    """
+    A NodeVisitor to get the return tuple names from a calc-style function.
+    """
+    def visit_Return(self, node):  # pylint: disable=invalid-name
+        """
+        visit_Return is used by NodeVisitor.visit method.
+        """
+        if isinstance(node.value, ast.Tuple):
+            return [e.id for e in node.value.elts]
+        return [node.value.id]
+
+
+def create_apply_function_string(sigout, sigin, parameters):
+    """
+    Create a string for a function of the form::
+
+       def ap_fuc(x_0, x_1, x_2, ...):
+           for i in range(len(x_0)):
+               x_0[i], ... = jitted_f(x_j[i], ...)
+           return x_0[i], ...
+
+    where the specific args to jitted_f and the number of
+    values to return is determined by sigout and sigin.
+
+    Parameters
+    ----------
+    sigout: iterable of the out arguments
+
+    sigin: iterable of the in arguments
+
+    parameters: iterable of which of the args (from in_args) are parameter
+                variables (as opposed to column records). This influences
+                how we construct the apply-style function
+
+    Returns
+    -------
+    a String representing the function
+    """
+    fstr = io.StringIO()
+    total_len = len(sigout) + len(sigin)
+    out_args = ["x_" + str(i) for i in range(0, len(sigout))]
+    in_args = ["x_" + str(i) for i in range(len(sigout), total_len)]
+
+    all_args = ",".join(out_args + in_args)
+    fstr.write(f"def ap_func({all_args}):\n")
+    fstr.write("  for i in range(len(x_0)):\n")
+    out_index = [x + "[i]" for x in out_args]
+    in_index = []
+    for arg, _var in zip(in_args, sigin):
+        in_index.append(arg + "[i]" if _var not in parameters else arg)
+    fstr.write("    " + ",".join(out_index) + " = ")
+    fstr.write("jitted_f(" + ",".join(in_index) + ")\n")
+    fstr.write("  return " + ",".join(out_args) + "\n")
+    return fstr.getvalue()
+
+
+def create_toplevel_function_string(args_out, args_in, pm_or_pf):
+    """
+    Create a string for a function of the form:
+
+        def hl_func(x_0, x_1, x_2, ...):
+            outputs = (...) = calc_func(...)
+            header = [...]
+            return DataFrame(data, columns=header)
+
+    Parameters
+    ----------
+    args_out: iterable of the out arguments
+
+    args_in: iterable of the in arguments
+
+    pm_or_pf: iterable of strings for object that holds each arg
+
+    Returns
+    -------
+    a String representing the function
+    """
+    fstr = io.StringIO()
+    fstr.write("def hl_func(pm, pf")
+    fstr.write("):\n")
+    fstr.write("    from pandas import DataFrame\n")
+    fstr.write("    import numpy as np\n")
+    fstr.write("    import pandas as pd\n")
+    fstr.write("    def get_values(x):\n")
+    fstr.write("        if isinstance(x, pd.Series):\n")
+    fstr.write("            return x.values\n")
+    fstr.write("        else:\n")
+    fstr.write("            return x\n")
+    fstr.write("    outputs = \\\n")
+
+    outs = []
+    for ppp, attr in zip(pm_or_pf, args_out + args_in):
+        outs.append(ppp + "." + attr + ", ")
+    outs = [m_or_f + "." + arg for m_or_f, arg in zip(pm_or_pf, args_out)]
+    fstr.write("        (" + ", ".join(outs) + ") = \\\n")
+    fstr.write("        " + "applied_f(")
+    for ppp, attr in zip(pm_or_pf, args_out + args_in):
+        # Bring Policy parameter values down a dimension.
+        if ppp == "pm":
+            attr += "[0]"
+        fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
+    fstr.write(")\n")
+    fstr.write("    header = [")
+    col_headers = ["'" + out + "'" for out in args_out]
+    fstr.write(", ".join(col_headers))
+    fstr.write("]\n")
+    if len(args_out) == 1:
+        fstr.write("    return DataFrame(data=outputs,"
+                   "columns=header)")
+    else:
+        fstr.write("    return DataFrame(data=np.column_stack("
+                   "outputs),columns=header)")
+    return fstr.getvalue()
+
+
+def make_apply_function(func, out_args, in_args, parameters,
+                        do_jit=DO_JIT, **kwargs):
+    """
+    Takes a calc-style function and creates the necessary Python code for
+    an apply-style function. Will also jit the function if desired.
+
+    Parameters
+    ----------
+    func: the calc-style function
+
+    out_args: list of out arguments for the apply-style function
+
+    in_args: list of in arguments for the apply-style function
+
+    parameters: iterable of which of the args (from in_args) are parameter
+                variables (as opposed to column records).  This influences
+                how we construct the apply-style function.
+
+    do_jit: Bool, if True, jit the resulting apply-style function
+
+    Returns
+    -------
+    apply-style function
+    """
+    if do_jit:
+        jitted_f = JIT(**kwargs)(func)
+    else:
+        jitted_f = func
+    apfunc = create_apply_function_string(out_args, in_args, parameters)
+    func_code = compile(apfunc, "<string>", "exec")
+    fakeglobals = {}
+    # __name__ must be an importable module for Numba to load cached code
+    eval(func_code,  # pylint: disable=eval-used
+         {"jitted_f": jitted_f, "__name__": __name__}, fakeglobals)
+    if do_jit:
+        cache_tag = None
+        if func.__module__ == CACHED_MODULE:
+            aphash = hashlib.sha256(apfunc.encode()).hexdigest()[:12]
+            cache_tag = f"ap_{func.__name__}_{aphash}"
+        return JIT(cache_tag=cache_tag, **kwargs)(fakeglobals["ap_func"])
+    return fakeglobals["ap_func"]
+
+
+def apply_jit(dtype_sig_out, dtype_sig_in, parameters=None, **kwargs):
+    """
+    Make a decorator that takes in a calc-style function, handle apply step.
+    """
+    if not parameters:
+        parameters = []
+
+    def make_wrapper(func):
+        """
+        make_wrapper function nested in apply_jit function.
+        """
+        theargs = inspect.getfullargspec(func).args
+        jitted_apply = make_apply_function(func, dtype_sig_out,
+                                           dtype_sig_in, parameters, **kwargs)
+
+        def wrapper(*args):
+            """
+            wrapper function nested in make_wrapper function.
+            """
+            in_arrays = []
+            out_arrays = []
+            for farg in theargs:
+                if hasattr(args[0], farg):
+                    in_arrays.append(getattr(args[0], farg))
+                else:
+                    in_arrays.append(getattr(args[1], farg))
+            for farg in dtype_sig_out:
+                if hasattr(args[0], farg):
+                    out_arrays.append(getattr(args[0], farg))
+                else:
+                    out_arrays.append(getattr(args[1], farg))
+            final_array = out_arrays + in_arrays
+            ans = jitted_apply(*final_array)
+            return ans
+
+        return wrapper
+    return make_wrapper
+
+
+def iterate_jit(parameters=None, **kwargs):
+    """
+    Public decorator for a calc-style function (see calcfunctions.py) that
+    transforms the calc-style function into an apply-style function that
+    can be called by Calculator class methods (see calculator.py).
+    """
+
+    if not parameters:
+        parameters = []
+
+    def make_wrapper(func):
+        """
+        make_wrapper function nested in iterate_jit decorator
+        wraps specified func using apply_jit.
+        """
+        # pylint: disable=too-many-locals
+        # Get the input arguments from the function
+        in_args = inspect.getfullargspec(func).args
+        # Get the numba.jit arguments
+        jit_args_list = inspect.getfullargspec(numba.jit).args + ["nopython"]
+        kwargs_for_jit = {}
+        for key, val in kwargs.items():
+            if key in jit_args_list:
+                kwargs_for_jit[key] = val
+
+        # Any name that is a parameter
+        # Boolean flag is given special treatment.
+        # Identify those names here
+        param_list = Policy.parameter_list()
+        allowed_parameters = param_list
+        allowed_parameters += list(arg[1:] for arg in param_list)
+        additional_parameters = [arg for arg in in_args if
+                                 arg in allowed_parameters]
+        additional_parameters += parameters
+        # Remote duplicates
+        all_parameters = list(set(additional_parameters))
+
+        src = inspect.getsourcelines(func)[0]
+
+        # Discover the return arguments by walking
+        # the AST of the function
+        grn = GetReturnNode()
+        all_out_args = None
+        for node in ast.walk(ast.parse("".join(src))):
+            all_out_args = grn.visit(node)
+            if all_out_args:
+                break
+        if not all_out_args:
+            raise ValueError("Can't find return statement in function!")
+
+        # Now create the apply-style possibly-jitted function
+        applied_jitted_f = make_apply_function(func,
+                                               list(reversed(all_out_args)),
+                                               in_args,
+                                               parameters=all_parameters,
+                                               do_jit=DO_JIT,
+                                               **kwargs_for_jit)
+
+        def wrapper(*args, **kwargs):
+            """
+            wrapper function nested in make_wrapper function nested
+            in iterate_jit decorator.
+            """
+            # os TESTING environment only accepts string arguments
+            if os.getenv("TESTING") == "True":
+                return func(*args, **kwargs)
+
+            in_arrays = []
+            pm_or_pf = []
+            for farg in all_out_args + in_args:
+                if hasattr(args[0], farg):
+                    in_arrays.append(getattr(args[0], farg))
+                    pm_or_pf.append("pm")
+                elif hasattr(args[1], farg):
+                    in_arrays.append(getattr(args[1], farg))
+                    pm_or_pf.append("pf")
+            # Create the high level function
+            high_level_func = create_toplevel_function_string(all_out_args,
+                                                              list(in_args),
+                                                              pm_or_pf)
+            func_code = compile(high_level_func, "<string>", "exec")
+            fakeglobals = {}
+            eval(func_code,  # pylint: disable=eval-used
+                 {"applied_f": applied_jitted_f}, fakeglobals)
+            high_level_fn = fakeglobals["hl_func"]
+            ans = high_level_fn(*args, **kwargs)
+            return ans
+
+        return wrapper
+
+    return make_wrapper

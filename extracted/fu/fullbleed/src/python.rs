@@ -1,0 +1,10558 @@
+use crate::assets::{is_supported_font_path, resolve_image_asset};
+use crate::canvas::{
+    META_DIAGNOSTIC_SCOPE_BEGIN_KEY, META_DIAGNOSTIC_SCOPE_END_KEY, META_FLOWABLE_BBOX_KEY,
+    META_PAGINATION_EVENT_KEY,
+};
+use crate::html_dom::parse_html;
+use crate::jit::Transform;
+use crate::pdf_native::{Document as LoDocument, Error as LoError, Object as LoObject};
+use crate::python_abi::{
+    Bound, Py, PyAny, PyBytes, PyDict, PyErr, PyList, PyObject, PyRef, PyResult, PyValueError,
+    Python,
+};
+use crate::{
+    A11yVerifierCoreReport, A11yVerifierEvidence, A11yVerifierFinding, Asset, AssetBundle,
+    AssetKind, Color, ColorSpace, Command, Document, FullBleed, FullBleedBuilder, FullBleedError,
+    GlyphCoverageReport, JitMode, LayoutStrategy, Margins, OutputIntent, PageDataContext,
+    PageDataValue, PaginationTraceSummary, PdfProfile, PdfVersion, PmrCoreAudit, PmrCoreContext,
+    PmrCoreEvidence, PmrCoreReport, Pt, Size, WatermarkLayer, WatermarkSemantics, WatermarkSpec,
+    composition_compatibility_issues, inspect_pdf_bytes, inspect_pdf_path,
+    require_pdf_composition_compatibility,
+};
+use fullbleed_audit_contract as audit_contract;
+use fullbleed_audit_contract::sha256::Sha256;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::io::Read;
+use std::path::{Path, PathBuf};
+
+#[derive(Clone)]
+struct PyAsset {
+    asset: Asset,
+}
+
+impl PyAsset {
+    fn info(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let info = PyDict::new(py);
+        info.set_item("name", self.asset.name.clone())?;
+        info.set_item("kind", self.asset.kind.as_str())?;
+        info.set_item("bytes", self.asset.bytes_len())?;
+        info.set_item("trusted", self.asset.trusted)?;
+        if let Some(source) = &self.asset.source {
+            info.set_item("source", source.clone())?;
+        }
+        if self.asset.kind == AssetKind::Font {
+            if let Some(font_name) =
+                crate::font::font_primary_name_from_bytes(&self.asset.data, Some(&self.asset.name))
+            {
+                info.set_item("font", font_name)?;
+            }
+        } else if self.asset.kind == AssetKind::Pdf {
+            let report =
+                inspect_pdf_bytes(&self.asset.data).map_err(pdf_asset_inspect_err_to_py)?;
+            info.set_item("pdf_version", report.pdf_version.as_str())?;
+            info.set_item("page_count", report.page_count)?;
+            info.set_item("encrypted", report.encrypted)?;
+            let profile = PyDict::new(py);
+            profile.set_item("claims", PyList::new(py, &report.profile.claims)?)?;
+            profile.set_item("metadata_present", report.profile.metadata_present)?;
+            profile.set_item(
+                "output_intent_present",
+                report.profile.output_intent_present,
+            )?;
+            profile.set_item(
+                "embedded_files_present",
+                report.profile.embedded_files_present,
+            )?;
+            profile.set_item(
+                "pdf_declaration_present",
+                report.profile.pdf_declaration_present,
+            )?;
+            profile.set_item("dpart_root_present", report.profile.dpart_root_present)?;
+            profile.set_item("dpart_present", report.profile.dpart_present)?;
+            profile.set_item("page_dpart_present", report.profile.page_dpart_present)?;
+            profile.set_item(
+                "pdfvt_dpart_root_node_valid",
+                report.profile.pdfvt_dpart_root_node_valid,
+            )?;
+            profile.set_item(
+                "pdfvt_dpart_parent_valid",
+                report.profile.pdfvt_dpart_parent_valid,
+            )?;
+            profile.set_item(
+                "pdfvt_dpart_node_name_list_valid",
+                report.profile.pdfvt_dpart_node_name_list_valid,
+            )?;
+            profile.set_item(
+                "pdfvt_dpart_leaf_valid",
+                report.profile.pdfvt_dpart_leaf_valid,
+            )?;
+            profile.set_item(
+                "pdfvt_dpart_page_range_valid",
+                report.profile.pdfvt_dpart_page_range_valid,
+            )?;
+            profile.set_item(
+                "pdfvt_dpart_graph_valid",
+                report.profile.pdfvt_dpart_graph_valid,
+            )?;
+            profile.set_item(
+                "seed_blockers",
+                PyList::new(py, &report.profile.seed_blockers)?,
+            )?;
+            info.set_item("profile", profile)?;
+            let issues = composition_compatibility_issues(&report);
+            let issue_list = PyList::empty(py);
+            for issue in &issues {
+                issue_list.append(issue.as_str())?;
+            }
+            info.set_item("composition_supported", issues.is_empty())?;
+            info.set_item("composition_issues", issue_list)?;
+        }
+        Ok(info.unbind().into_any())
+    }
+}
+
+#[derive(Clone, Default)]
+struct PyAssetBundle {
+    bundle: AssetBundle,
+}
+
+impl PyAssetBundle {
+    fn new() -> Self {
+        Self {
+            bundle: AssetBundle::default(),
+        }
+    }
+
+    fn add(&mut self, asset: PyRef<'_, PyAsset>) {
+        self.bundle.add(asset.asset.clone());
+    }
+
+    fn add_file(
+        &mut self,
+        py: Python<'_>,
+        path: &str,
+        kind: &str,
+        name: Option<String>,
+        trusted: bool,
+        remote: bool,
+    ) -> PyResult<PyAsset> {
+        let kind = parse_asset_kind(kind)?;
+        let asset = build_asset(py, path, kind, name, trusted, remote)?;
+        let wrapper = PyAsset {
+            asset: asset.clone(),
+        };
+        self.bundle.add(asset);
+        Ok(wrapper)
+    }
+
+    fn css(&self) -> String {
+        self.bundle.css_text()
+    }
+
+    fn assets_info(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let list = PyList::empty(py);
+        for asset in &self.bundle.assets {
+            let wrapper = PyAsset {
+                asset: asset.clone(),
+            };
+            list.append(wrapper.info(py)?)?;
+        }
+        Ok(list.unbind().into_any())
+    }
+}
+
+fn parse_asset_kind(raw: &str) -> PyResult<AssetKind> {
+    AssetKind::from_str(raw).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "unknown asset kind: {raw:?} (expected css|font|image|pdf|svg|other)"
+        ))
+    })
+}
+
+fn infer_asset_name(source: &str, name: Option<String>) -> String {
+    if let Some(name) = name {
+        return name;
+    }
+    if source.starts_with("http://") || source.starts_with("https://") {
+        if let Some(last) = source.rsplit('/').next() {
+            if !last.is_empty() {
+                return last.to_string();
+            }
+        }
+        return "remote_asset".to_string();
+    }
+    Path::new(source)
+        .file_name()
+        .and_then(|v| v.to_str())
+        .unwrap_or(source)
+        .to_string()
+}
+
+fn load_asset_bytes(py: Python<'_>, source: &str, remote: bool) -> PyResult<Vec<u8>> {
+    if source.starts_with("http://") || source.starts_with("https://") {
+        if !remote {
+            return Err(PyValueError::new_err(
+                "remote asset disabled (set remote=True to fetch)",
+            ));
+        }
+        let urllib = py.import("urllib.request")?;
+        let response = urllib.call_method1("urlopen", (source,))?;
+        let data = response.call_method0("read")?;
+        let bytes = data.downcast::<PyBytes>()?;
+        return Ok(bytes.as_bytes().to_vec());
+    }
+    std::fs::read(source).map_err(|err| PyValueError::new_err(err.to_string()))
+}
+
+fn build_asset(
+    py: Python<'_>,
+    source: &str,
+    kind: AssetKind,
+    name: Option<String>,
+    trusted: bool,
+    remote: bool,
+) -> PyResult<Asset> {
+    let asset_name = infer_asset_name(source, name);
+    if kind == AssetKind::Font && !remote {
+        let path = Path::new(source);
+        if !is_supported_font_path(path) {
+            return Err(PyValueError::new_err(
+                "unsupported font format (expected .ttf or .otf)",
+            ));
+        }
+    }
+    let data = load_asset_bytes(py, source, remote)?;
+    if kind == AssetKind::Font {
+        if crate::font::font_primary_name_from_bytes(&data, Some(&asset_name)).is_none() {
+            return Err(PyValueError::new_err("invalid font data (unable to parse)"));
+        }
+    } else if kind == AssetKind::Pdf {
+        let report = inspect_pdf_bytes(&data).map_err(pdf_asset_inspect_err_to_py)?;
+        require_pdf_composition_compatibility(&report).map_err(pdf_asset_inspect_err_to_py)?;
+    }
+    Ok(Asset::new(
+        asset_name,
+        kind,
+        data,
+        Some(source.to_string()),
+        trusted,
+    ))
+}
+
+#[derive(Debug, Clone)]
+struct TemplateCatalogReportItem {
+    template_id: String,
+    pdf_path: String,
+    report: crate::PdfInspectReport,
+    issues: Vec<crate::PdfInspectErrorCode>,
+}
+
+fn inspect_report_to_py(
+    py: Python<'_>,
+    path: &str,
+    report: &crate::PdfInspectReport,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("path", path)?;
+    out.set_item("pdf_version", report.pdf_version.as_str())?;
+    out.set_item("page_count", report.page_count)?;
+    out.set_item("encrypted", report.encrypted)?;
+    out.set_item("file_size_bytes", report.file_size_bytes)?;
+
+    let warnings = PyList::empty(py);
+    for warning in &report.warnings {
+        let d = PyDict::new(py);
+        d.set_item("code", warning.code.clone())?;
+        d.set_item("message", warning.message.clone())?;
+        warnings.append(d)?;
+    }
+    out.set_item("warnings", warnings)?;
+
+    let profile = PyDict::new(py);
+    profile.set_item("claims", PyList::new(py, &report.profile.claims)?)?;
+    profile.set_item("metadata_present", report.profile.metadata_present)?;
+    profile.set_item(
+        "output_intent_present",
+        report.profile.output_intent_present,
+    )?;
+    profile.set_item(
+        "struct_tree_root_present",
+        report.profile.struct_tree_root_present,
+    )?;
+    profile.set_item("mark_info_present", report.profile.mark_info_present)?;
+    profile.set_item("lang_present", report.profile.lang_present)?;
+    profile.set_item("embedded_font_count", report.profile.embedded_font_count)?;
+    profile.set_item(
+        "embedded_files_present",
+        report.profile.embedded_files_present,
+    )?;
+    profile.set_item(
+        "pdf_declaration_present",
+        report.profile.pdf_declaration_present,
+    )?;
+    profile.set_item("dpart_root_present", report.profile.dpart_root_present)?;
+    profile.set_item("dpart_present", report.profile.dpart_present)?;
+    profile.set_item("page_dpart_present", report.profile.page_dpart_present)?;
+    profile.set_item(
+        "pdfvt_dpart_root_node_valid",
+        report.profile.pdfvt_dpart_root_node_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_dpart_parent_valid",
+        report.profile.pdfvt_dpart_parent_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_dpart_node_name_list_valid",
+        report.profile.pdfvt_dpart_node_name_list_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_dpart_leaf_valid",
+        report.profile.pdfvt_dpart_leaf_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_dpart_page_range_valid",
+        report.profile.pdfvt_dpart_page_range_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_dpart_graph_valid",
+        report.profile.pdfvt_dpart_graph_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_mod_date_matches_xmp",
+        report.profile.pdfvt_mod_date_matches_xmp,
+    )?;
+    profile.set_item(
+        "seed_blockers",
+        PyList::new(py, &report.profile.seed_blockers)?,
+    )?;
+    profile.set_item("pdfx_contract_valid", report.profile.pdfx_contract_valid)?;
+    profile.set_item("pdfvt_record_level", report.profile.pdfvt_record_level)?;
+    profile.set_item("pdfvt_record_count", report.profile.pdfvt_record_count)?;
+    profile.set_item("pdfvt_document_count", report.profile.pdfvt_document_count)?;
+    profile.set_item("pdfvt_dpm_node_count", report.profile.pdfvt_dpm_node_count)?;
+    profile.set_item("pdfvt_dpm_valid", report.profile.pdfvt_dpm_valid)?;
+    profile.set_item(
+        "pdfvt_reuse_hint_count",
+        report.profile.pdfvt_reuse_hint_count,
+    )?;
+    profile.set_item(
+        "pdfvt_encapsulated_xobject_count",
+        report.profile.pdfvt_encapsulated_xobject_count,
+    )?;
+    profile.set_item(
+        "pdfvt_reuse_hints_valid",
+        report.profile.pdfvt_reuse_hints_valid,
+    )?;
+    profile.set_item(
+        "pdfvt_parts",
+        pdf_vt::parts_to_py(py, &report.profile.pdfvt_parts)?,
+    )?;
+    profile.set_item(
+        "document_timestamp",
+        report.profile.document_timestamp.clone(),
+    )?;
+    out.set_item("profile", profile)?;
+
+    let issues = composition_compatibility_issues(report);
+    let issue_codes = PyList::empty(py);
+    for issue in &issues {
+        issue_codes.append(issue.as_str())?;
+    }
+    let compat = PyDict::new(py);
+    compat.set_item("supported", issues.is_empty())?;
+    compat.set_item("issues", issue_codes)?;
+    out.set_item("composition", compat)?;
+
+    Ok(out.unbind().into_any())
+}
+
+fn inspect_template_catalog_entries(
+    templates: &[(String, String)],
+) -> PyResult<Vec<TemplateCatalogReportItem>> {
+    if templates.is_empty() {
+        return Err(PyValueError::new_err("template catalog cannot be empty"));
+    }
+
+    let mut seen_ids: BTreeSet<&str> = BTreeSet::new();
+    let mut out = Vec::with_capacity(templates.len());
+    for (idx, (template_id_raw, pdf_path_raw)) in templates.iter().enumerate() {
+        let template_id = template_id_raw.trim();
+        if template_id.is_empty() {
+            return Err(PyValueError::new_err(format!(
+                "template catalog item {} has empty template_id",
+                idx
+            )));
+        }
+        if !seen_ids.insert(template_id) {
+            return Err(PyValueError::new_err(format!(
+                "duplicate template_id in template catalog: {}",
+                template_id
+            )));
+        }
+
+        let pdf_path = pdf_path_raw.trim();
+        if pdf_path.is_empty() {
+            return Err(PyValueError::new_err(format!(
+                "template catalog item {} has empty pdf_path",
+                idx
+            )));
+        }
+
+        let report = inspect_pdf_path(Path::new(pdf_path)).map_err(pdf_inspect_err_to_py)?;
+        let issues = composition_compatibility_issues(&report);
+        out.push(TemplateCatalogReportItem {
+            template_id: template_id.to_string(),
+            pdf_path: pdf_path.to_string(),
+            report,
+            issues,
+        });
+    }
+
+    Ok(out)
+}
+
+fn template_catalog_entries_to_py(
+    py: Python<'_>,
+    entries: &[TemplateCatalogReportItem],
+) -> PyResult<PyObject> {
+    let templates = PyList::empty(py);
+    let mut compatible = 0usize;
+    let mut total_pages = 0usize;
+    for entry in entries {
+        if entry.issues.is_empty() {
+            compatible += 1;
+        }
+        total_pages += entry.report.page_count;
+
+        let d = PyDict::new(py);
+        d.set_item("template_id", entry.template_id.clone())?;
+        d.set_item("path", entry.pdf_path.clone())?;
+        d.set_item("pdf_version", entry.report.pdf_version.as_str())?;
+        d.set_item("page_count", entry.report.page_count)?;
+        d.set_item("encrypted", entry.report.encrypted)?;
+        d.set_item("file_size_bytes", entry.report.file_size_bytes)?;
+
+        let warnings = PyList::empty(py);
+        for warning in &entry.report.warnings {
+            let w = PyDict::new(py);
+            w.set_item("code", warning.code.clone())?;
+            w.set_item("message", warning.message.clone())?;
+            warnings.append(w)?;
+        }
+        d.set_item("warnings", warnings)?;
+
+        let issues = PyList::empty(py);
+        for issue in &entry.issues {
+            issues.append(issue.as_str())?;
+        }
+        let composition = PyDict::new(py);
+        composition.set_item("supported", entry.issues.is_empty())?;
+        composition.set_item("issues", issues)?;
+        d.set_item("composition", composition)?;
+
+        templates.append(d)?;
+    }
+
+    let metrics = PyDict::new(py);
+    metrics.set_item("templates", entries.len())?;
+    metrics.set_item("compatible_templates", compatible)?;
+    metrics.set_item(
+        "incompatible_templates",
+        entries.len().saturating_sub(compatible),
+    )?;
+    metrics.set_item("total_template_pages", total_pages)?;
+
+    let out = PyDict::new(py);
+    out.set_item("ok", true)?;
+    out.set_item("templates", templates)?;
+    out.set_item("metrics", metrics)?;
+    Ok(out.unbind().into_any())
+}
+
+fn build_features(py: Python<'_>) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.build_features.v1")?;
+    out.set_item("python", cfg!(feature = "python"))?;
+    out.set_item("svg_raster", cfg!(feature = "svg_raster"))?;
+    out.set_item("compiled_reflow", true)?;
+    out.set_item("explicit_table_headers", true)?;
+    out.set_item("logical_table_pagination", true)?;
+    out.set_item("bundled_standard_font_previews", true)?;
+    out.set_item("embedded_stylesheets", true)?;
+    out.set_item(
+        "compiled_flow_compression_modes",
+        PyList::new(py, ["throughput", "compact"])?,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+fn inspect_pdf(py: Python<'_>, path: &str) -> PyResult<PyObject> {
+    let report = inspect_pdf_path(Path::new(path)).map_err(pdf_inspect_err_to_py)?;
+    let out = inspect_report_to_py(py, path, &report)?;
+    let dict = out.bind(py).downcast::<PyDict>()?;
+    dict.set_item("ok", true)?;
+    Ok(out)
+}
+
+fn extract_pdf_page_texts(py: Python<'_>, pdf_path: &str) -> PyResult<PyObject> {
+    let path = Path::new(pdf_path);
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.page_text_extract.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("pdf_path", pdf_path)?;
+    out.set_item("extractor", "lopdf")?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+
+    let warnings = PyList::empty(py);
+    let pages_out = PyList::empty(py);
+    let mut ok = false;
+    let mut page_count: usize = 0;
+    let mut non_empty_pages: usize = 0;
+    let mut total_chars: usize = 0;
+
+    match LoDocument::load(path) {
+        Ok(doc) => {
+            let pages = doc.get_pages();
+            page_count = pages.len();
+            for (page_num, _id) in &pages {
+                let chunks = doc.extract_text_chunks(&[*page_num]);
+                let mut page_text = String::new();
+                let mut chunk_count: usize = 0;
+                let mut non_empty_chunk_count: usize = 0;
+                for chunk in chunks {
+                    chunk_count += 1;
+                    match chunk {
+                        Ok(text) => {
+                            let trimmed = text.trim();
+                            if trimmed.is_empty() {
+                                continue;
+                            }
+                            if !page_text.is_empty() {
+                                page_text.push('\n');
+                            }
+                            page_text.push_str(trimmed);
+                            non_empty_chunk_count += 1;
+                        }
+                        Err(err) => {
+                            let w = PyDict::new(py);
+                            w.set_item("code", "PAGE_TEXT_CHUNK_ERROR")?;
+                            w.set_item("page", *page_num)?;
+                            w.set_item("message", err.to_string())?;
+                            warnings.append(w)?;
+                        }
+                    }
+                }
+
+                if !page_text.trim().is_empty() {
+                    non_empty_pages += 1;
+                    total_chars += page_text.len();
+                }
+                let page_char_count = page_text.len();
+
+                let page_row = PyDict::new(py);
+                page_row.set_item("page_index", (*page_num as usize).saturating_sub(1))?;
+                page_row.set_item("page", *page_num)?;
+                page_row.set_item("text", page_text)?;
+                page_row.set_item("char_count", page_char_count)?;
+                page_row.set_item("chunk_count", chunk_count)?;
+                page_row.set_item("non_empty_chunk_count", non_empty_chunk_count)?;
+                pages_out.append(page_row)?;
+            }
+            ok = true;
+        }
+        Err(err) => {
+            let w = PyDict::new(py);
+            w.set_item("code", "PDF_PARSE_ERROR")?;
+            w.set_item("message", err.to_string())?;
+            warnings.append(w)?;
+        }
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", page_count)?;
+    summary.set_item("non_empty_pages", non_empty_pages)?;
+    summary.set_item("total_chars", total_chars)?;
+    out.set_item("ok", ok)?;
+    out.set_item("pages", pages_out)?;
+    out.set_item("summary", summary)?;
+    out.set_item("warnings", warnings)?;
+    Ok(out.unbind().into_any())
+}
+
+fn resolve_pdf_obj<'a>(
+    doc: &'a LoDocument,
+    mut obj: &'a LoObject,
+) -> Result<&'a LoObject, LoError> {
+    loop {
+        match obj {
+            LoObject::Reference(id) => {
+                obj = doc.get_object(*id)?;
+            }
+            _ => return Ok(obj),
+        }
+    }
+}
+
+fn read_pdf_catalog_flags(
+    path: &Path,
+) -> Result<(LoDocument, bool, bool, bool, bool, bool, usize), LoError> {
+    let doc = LoDocument::load(path)?;
+    let page_count = doc.get_pages().len();
+    let mut struct_tree_root_present = false;
+    let mut mark_info_present = false;
+    let mut marked_true_present = false;
+    let mut lang_token_present = false;
+    let mut title_token_present = false;
+
+    if let Ok(root_obj) = doc.trailer.get(b"Root") {
+        let root_obj = resolve_pdf_obj(&doc, root_obj)?;
+        if let Ok(root_dict) = root_obj.as_dict() {
+            if root_dict.get(b"StructTreeRoot").is_ok() {
+                struct_tree_root_present = true;
+            }
+            if root_dict.get(b"Lang").is_ok() {
+                lang_token_present = true;
+            }
+            if let Ok(mark_info_obj) = root_dict.get(b"MarkInfo") {
+                mark_info_present = true;
+                let mark_info_obj = resolve_pdf_obj(&doc, mark_info_obj)?;
+                if let Ok(mark_info_dict) = mark_info_obj.as_dict() {
+                    if let Ok(LoObject::Boolean(v)) = mark_info_dict.get(b"Marked") {
+                        marked_true_present = *v;
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(info_obj) = doc.trailer.get(b"Info") {
+        let info_obj = resolve_pdf_obj(&doc, info_obj)?;
+        if let Ok(info_dict) = info_obj.as_dict() {
+            if info_dict.get(b"Title").is_ok() {
+                title_token_present = true;
+            }
+        }
+    }
+    Ok((
+        doc,
+        struct_tree_root_present,
+        mark_info_present,
+        marked_true_present,
+        lang_token_present,
+        title_token_present,
+        page_count,
+    ))
+}
+
+fn export_pdf_reading_order_trace(py: Python<'_>, pdf_path: &str) -> PyResult<PyObject> {
+    let path = Path::new(pdf_path);
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.reading_order_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("seed_only", true)?;
+    out.set_item("pdf_path", pdf_path)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+
+    let warnings = PyList::empty(py);
+    let pages_out = PyList::empty(py);
+    let mut total_blocks: usize = 0;
+    let mut non_empty_pages: usize = 0;
+    let mut page_count: usize = 0;
+    let mut ok = false;
+
+    match LoDocument::load(path) {
+        Ok(doc) => {
+            let pages = doc.get_pages();
+            page_count = pages.len();
+            for (page_num, _id) in &pages {
+                let chunks = doc.extract_text_chunks(&[*page_num]);
+                let blocks = PyList::empty(py);
+                let mut block_count = 0usize;
+                for (idx, chunk) in chunks.into_iter().enumerate() {
+                    match chunk {
+                        Ok(text) => {
+                            let text = text.trim();
+                            if text.is_empty() {
+                                continue;
+                            }
+                            let d = PyDict::new(py);
+                            d.set_item("index", idx)?;
+                            d.set_item("text", text)?;
+                            blocks.append(d)?;
+                            block_count += 1;
+                        }
+                        Err(err) => {
+                            let w = PyDict::new(py);
+                            w.set_item("code", "READING_TRACE_CHUNK_ERROR")?;
+                            w.set_item("message", format!("page {}: {}", page_num, err))?;
+                            warnings.append(w)?;
+                        }
+                    }
+                }
+                let page_row = PyDict::new(py);
+                page_row.set_item("page_index", (*page_num as usize).saturating_sub(1))?;
+                page_row.set_item("page", *page_num)?;
+                page_row.set_item("width", py.None())?;
+                page_row.set_item("height", py.None())?;
+                page_row.set_item("block_count", block_count)?;
+                page_row.set_item("blocks", blocks)?;
+                pages_out.append(page_row)?;
+                total_blocks += block_count;
+                if block_count > 0 {
+                    non_empty_pages += 1;
+                }
+            }
+            ok = true;
+            out.set_item("extractor", "lopdf")?;
+        }
+        Err(err) => {
+            let w = PyDict::new(py);
+            w.set_item("code", "PDF_PARSE_ERROR")?;
+            w.set_item("message", err.to_string())?;
+            warnings.append(w)?;
+            out.set_item("extractor", "lopdf")?;
+        }
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", page_count)?;
+    summary.set_item("total_blocks", total_blocks)?;
+    summary.set_item("non_empty_pages", non_empty_pages)?;
+    out.set_item("ok", ok)?;
+    out.set_item("pages", pages_out)?;
+    out.set_item("summary", summary)?;
+    out.set_item("warnings", warnings)?;
+    Ok(out.unbind().into_any())
+}
+
+fn export_pdf_structure_trace(py: Python<'_>, pdf_path: &str) -> PyResult<PyObject> {
+    let path = Path::new(pdf_path);
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.structure_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("seed_only", true)?;
+    out.set_item("pdf_path", pdf_path)?;
+    out.set_item("extractor", "lopdf")?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    let warnings = PyList::empty(py);
+
+    let bytes = std::fs::read(path)
+        .map_err(|e| PyValueError::new_err(format!("failed to read pdf: {e}")))?;
+    let token_counts = PyDict::new(py);
+    for token in [
+        "/StructTreeRoot",
+        "/StructElem",
+        "/MarkInfo",
+        "/Marked",
+        "/MCID",
+        "/Alt",
+        "/ActualText",
+        "/Figure",
+        "/Table",
+        "/TH",
+        "/TD",
+        "/TR",
+    ] {
+        token_counts.set_item(
+            token.trim_start_matches('/'),
+            bytes
+                .windows(token.len())
+                .filter(|w| *w == token.as_bytes())
+                .count(),
+        )?;
+    }
+    match read_pdf_catalog_flags(path) {
+        Ok((
+            _doc,
+            struct_tree_root_present,
+            mark_info_present,
+            marked_true_present,
+            lang_token_present,
+            title_token_present,
+            _page_count,
+        )) => {
+            let summary = PyDict::new(py);
+            summary.set_item("bytes_len", bytes.len())?;
+            summary.set_item("struct_tree_root_present", struct_tree_root_present)?;
+            summary.set_item("mark_info_present", mark_info_present)?;
+            summary.set_item("marked_true_present", marked_true_present)?;
+            summary.set_item("lang_token_present", lang_token_present)?;
+            summary.set_item("title_token_present", title_token_present)?;
+            out.set_item("ok", true)?;
+            out.set_item("summary", summary)?;
+        }
+        Err(err) => {
+            let w = PyDict::new(py);
+            w.set_item("code", "PDF_PARSE_ERROR")?;
+            w.set_item("message", err.to_string())?;
+            warnings.append(w)?;
+            let summary = PyDict::new(py);
+            summary.set_item("bytes_len", bytes.len())?;
+            summary.set_item("struct_tree_root_present", false)?;
+            summary.set_item("mark_info_present", false)?;
+            summary.set_item("marked_true_present", false)?;
+            summary.set_item("lang_token_present", false)?;
+            summary.set_item("title_token_present", false)?;
+            out.set_item("ok", false)?;
+            out.set_item("summary", summary)?;
+        }
+    }
+    out.set_item("token_counts", token_counts)?;
+    out.set_item("warnings", warnings)?;
+    Ok(out.unbind().into_any())
+}
+
+fn verify_pdf_ua_seed(py: Python<'_>, pdf_path: &str, mode: &str) -> PyResult<PyObject> {
+    let structure = export_pdf_structure_trace(py, pdf_path)?;
+    let reading = export_pdf_reading_order_trace(py, pdf_path)?;
+    let structure_dict = structure.bind(py).downcast::<PyDict>()?;
+    let reading_dict = reading.bind(py).downcast::<PyDict>()?;
+    let extract_summary_bool = |root: &Bound<'_, PyDict>, key: &str| -> bool {
+        if let Ok(Some(summary_obj)) = root.get_item("summary") {
+            if let Ok(summary_dict) = summary_obj.downcast::<PyDict>() {
+                if let Ok(Some(v)) = summary_dict.get_item(key) {
+                    if let Ok(b) = v.extract::<bool>() {
+                        return b;
+                    }
+                }
+            }
+        }
+        false
+    };
+    let extract_summary_usize = |root: &Bound<'_, PyDict>, key: &str| -> usize {
+        if let Ok(Some(summary_obj)) = root.get_item("summary") {
+            if let Ok(summary_dict) = summary_obj.downcast::<PyDict>() {
+                if let Ok(Some(v)) = summary_dict.get_item(key) {
+                    if let Ok(n) = v.extract::<usize>() {
+                        return n;
+                    }
+                }
+            }
+        }
+        0
+    };
+
+    let struct_tree_root_present = extract_summary_bool(structure_dict, "struct_tree_root_present");
+    let mark_info_present = extract_summary_bool(structure_dict, "mark_info_present");
+    let marked_true_present = extract_summary_bool(structure_dict, "marked_true_present");
+    let lang_token_present = extract_summary_bool(structure_dict, "lang_token_present");
+    let title_token_present = extract_summary_bool(structure_dict, "title_token_present");
+    let total_blocks = extract_summary_usize(reading_dict, "total_blocks");
+
+    let checks = PyList::empty(py);
+    let mut critical_fail_count = 0usize;
+    let mut nonpass_count = 0usize;
+    let mut push_check = |id: &str,
+                          verdict: &str,
+                          severity: &str,
+                          critical: bool,
+                          message: String,
+                          evidence: Option<Bound<'_, PyDict>>|
+     -> PyResult<()> {
+        let d = PyDict::new(py);
+        d.set_item("id", id)?;
+        d.set_item("verdict", verdict)?;
+        d.set_item("severity", severity)?;
+        d.set_item("critical", critical)?;
+        d.set_item("message", message)?;
+        if let Some(ev) = evidence {
+            d.set_item("evidence", ev)?;
+        }
+        if critical && verdict == "fail" {
+            critical_fail_count += 1;
+        }
+        if matches!(verdict, "fail" | "warn" | "manual_needed") {
+            nonpass_count += 1;
+        }
+        checks.append(d)?;
+        Ok(())
+    };
+    push_check(
+        "pdf.mark_info.present",
+        if mark_info_present { "pass" } else { "fail" },
+        "error",
+        true,
+        if mark_info_present {
+            "PDF MarkInfo token present".into()
+        } else {
+            "PDF MarkInfo token not found".into()
+        },
+        None,
+    )?;
+    push_check(
+        "pdf.mark_info.marked_true",
+        if marked_true_present { "pass" } else { "fail" },
+        "error",
+        true,
+        if marked_true_present {
+            "PDF /Marked true present".into()
+        } else {
+            "PDF /Marked true not found".into()
+        },
+        None,
+    )?;
+    push_check(
+        "pdf.structure_root.present",
+        if struct_tree_root_present {
+            "pass"
+        } else {
+            "fail"
+        },
+        "error",
+        true,
+        if struct_tree_root_present {
+            "PDF StructTreeRoot present".into()
+        } else {
+            "PDF StructTreeRoot not found".into()
+        },
+        None,
+    )?;
+    push_check(
+        "pdf.catalog.lang.present_seed",
+        if lang_token_present { "pass" } else { "warn" },
+        "warn",
+        false,
+        if lang_token_present {
+            "PDF /Lang present".into()
+        } else {
+            "PDF /Lang not found".into()
+        },
+        None,
+    )?;
+    push_check(
+        "pdf.metadata.title.present_seed",
+        if title_token_present { "pass" } else { "warn" },
+        "warn",
+        false,
+        if title_token_present {
+            "PDF title metadata token present".into()
+        } else {
+            "PDF title metadata token not found".into()
+        },
+        None,
+    )?;
+    let ro_ev = PyDict::new(py);
+    ro_ev.set_item("extractor", reading_dict.get_item("extractor")?)?;
+    ro_ev.set_item("total_blocks", total_blocks)?;
+    push_check(
+        "pdf.trace.reading_order.emitted",
+        if total_blocks > 0 {
+            "pass"
+        } else {
+            "manual_needed"
+        },
+        "warn",
+        false,
+        if total_blocks > 0 {
+            "Reading-order trace contains extractable text chunks".into()
+        } else {
+            "Reading-order trace emitted but no text chunks extracted; manual verification required"
+                .into()
+        },
+        Some(ro_ev),
+    )?;
+    let st_ev = PyDict::new(py);
+    st_ev.set_item("extractor", "lopdf")?;
+    st_ev.set_item("struct_tree_root_present", struct_tree_root_present)?;
+    st_ev.set_item("marked_true_present", marked_true_present)?;
+    push_check(
+        "pdf.trace.structure.emitted",
+        if struct_tree_root_present {
+            "pass"
+        } else {
+            "manual_needed"
+        },
+        "warn",
+        false,
+        if struct_tree_root_present {
+            "Structure trace indicates tagged structure".into()
+        } else {
+            "Structure trace emitted but tagged structure not detected; manual verification required".into()
+        },
+        Some(st_ev),
+    )?;
+
+    let gate_ok = critical_fail_count == 0 || !mode.eq_ignore_ascii_case("error");
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.ua_seed_verify.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("seed_only", true)?;
+    out.set_item("pdf_path", pdf_path)?;
+    out.set_item("mode", mode)?;
+    out.set_item("ok", gate_ok)?;
+    let gate = PyDict::new(py);
+    gate.set_item("ok", gate_ok)?;
+    gate.set_item("critical_fail_count", critical_fail_count)?;
+    gate.set_item("nonpass_count", nonpass_count)?;
+    gate.set_item("mode", mode)?;
+    out.set_item("gate", gate)?;
+    out.set_item("checks", checks)?;
+    let warnings = PyList::empty(py);
+    for src in [structure_dict, reading_dict] {
+        if let Ok(Some(src_warnings)) = src.get_item("warnings") {
+            for item in src_warnings.downcast::<PyList>()?.iter() {
+                warnings.append(item)?;
+            }
+        }
+    }
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    let meta = audit_contract::metadata();
+    let tooling = PyDict::new(py);
+    tooling.set_item("audit_contract_id", meta.contract_id)?;
+    tooling.set_item("audit_contract_version", meta.contract_version)?;
+    tooling.set_item(
+        "audit_contract_fingerprint",
+        meta.contract_fingerprint_sha256,
+    )?;
+    out.set_item("tooling", tooling)?;
+    Ok(out.unbind().into_any())
+}
+
+fn inspect_template_catalog(
+    py: Python<'_>,
+    templates: Vec<(String, String)>,
+) -> PyResult<PyObject> {
+    let entries = inspect_template_catalog_entries(&templates)?;
+    template_catalog_entries_to_py(py, &entries)
+}
+
+fn vendored_asset(
+    py: Python<'_>,
+    source: &str,
+    kind: &str,
+    name: Option<String>,
+    trusted: bool,
+    remote: bool,
+) -> PyResult<PyAsset> {
+    let kind = parse_asset_kind(kind)?;
+    let asset = build_asset(py, source, kind, name, trusted, remote)?;
+    Ok(PyAsset { asset })
+}
+
+fn fetch_asset(py: Python<'_>, url: &str) -> PyResult<Py<PyBytes>> {
+    let urllib = py.import("urllib.request")?;
+    let response = urllib.call_method1("urlopen", (url,))?;
+    let data = response.call_method0("read")?;
+    let bytes = data.downcast::<PyBytes>()?;
+    Ok(bytes.clone().unbind())
+}
+
+fn concat_css(parts: Vec<String>) -> PyResult<String> {
+    Ok(parts.join("\n"))
+}
+
+fn finalize_stamp_pdf(
+    template: &str,
+    overlay: &str,
+    out: &str,
+    page_map: Option<Vec<(usize, usize)>>,
+    dx: f32,
+    dy: f32,
+) -> PyResult<PyObject> {
+    let summary = crate::stamp_overlay_on_template_pdf(
+        std::path::Path::new(template),
+        std::path::Path::new(overlay),
+        std::path::Path::new(out),
+        page_map.as_deref(),
+        dx,
+        dy,
+    )
+    .map_err(to_py_err)?;
+    Python::with_gil(|py| {
+        let d = PyDict::new(py);
+        d.set_item("ok", true)?;
+        d.set_item("pages_written", summary.pages_written)?;
+        Ok(d.unbind().into_any())
+    })
+}
+
+fn finalize_compose_pdf(
+    templates: Vec<(String, String)>,
+    plan: Vec<(String, usize, usize, f32, f32)>,
+    overlay: &str,
+    out: &str,
+    annotation_mode: Option<&str>,
+) -> PyResult<PyObject> {
+    let mode = parse_compose_annotation_mode(annotation_mode)?;
+    let mut catalog = crate::TemplateCatalog::default();
+    for (template_id, pdf_path) in templates {
+        catalog
+            .insert(crate::TemplateAsset {
+                template_id,
+                pdf_path: PathBuf::from(pdf_path),
+                sha256: None,
+                page_count: None,
+            })
+            .map_err(to_py_err)?;
+    }
+    let mut page_plan = Vec::with_capacity(plan.len());
+    for (template_id, template_page_index, overlay_page_index, dx, dy) in plan {
+        page_plan.push(crate::ComposePagePlan {
+            template_id,
+            template_page_index,
+            overlay_page_index,
+            dx,
+            dy,
+        });
+    }
+    let summary = crate::compose_overlay_with_template_catalog_with_annotation_mode(
+        &catalog,
+        std::path::Path::new(overlay),
+        std::path::Path::new(out),
+        &page_plan,
+        mode,
+    )
+    .map_err(to_py_err)?;
+
+    Python::with_gil(|py| {
+        let d = PyDict::new(py);
+        d.set_item("ok", true)?;
+        d.set_item("pages_written", summary.pages_written)?;
+        d.set_item("annotation_mode", compose_annotation_mode_name(mode))?;
+        Ok(d.unbind().into_any())
+    })
+}
+
+fn parse_compose_annotation_mode(raw: Option<&str>) -> PyResult<crate::ComposeAnnotationMode> {
+    let Some(raw) = raw else {
+        return Ok(crate::ComposeAnnotationMode::default());
+    };
+    let mode = raw.trim().to_ascii_lowercase();
+    if mode.is_empty() || mode == "default" || mode == "link_only" || mode == "link-only" {
+        return Ok(crate::ComposeAnnotationMode::LinkOnly);
+    }
+    if mode == "none" || mode == "off" {
+        return Ok(crate::ComposeAnnotationMode::None);
+    }
+    if mode == "carry_widgets"
+        || mode == "carry-widgets"
+        || mode == "widgets"
+        || mode == "link_and_widgets"
+    {
+        return Ok(crate::ComposeAnnotationMode::CarryWidgets);
+    }
+    Err(PyValueError::new_err(
+        "annotation_mode must be one of: link_only, none, carry_widgets",
+    ))
+}
+
+fn compose_annotation_mode_name(mode: crate::ComposeAnnotationMode) -> &'static str {
+    match mode {
+        crate::ComposeAnnotationMode::None => "none",
+        crate::ComposeAnnotationMode::LinkOnly => "link_only",
+        crate::ComposeAnnotationMode::CarryWidgets => "carry_widgets",
+    }
+}
+
+fn div_round_i128(num: i128, den: i128) -> Option<i64> {
+    if den == 0 {
+        return None;
+    }
+    let den = den.abs();
+    let out = if num >= 0 {
+        (num + (den / 2)) / den
+    } else {
+        -(((-num) + (den / 2)) / den)
+    };
+    i64::try_from(out).ok()
+}
+
+fn parse_decimal_to_rational(s: &str) -> Option<(i128, i128)> {
+    // Parse a decimal string into an exact rational num/den.
+    // Examples: "8.5" => (85,10), "-0.125" => (-125,1000)
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+
+    let mut sign: i128 = 1;
+    let mut rest = s;
+    if let Some(stripped) = rest.strip_prefix('-') {
+        sign = -1;
+        rest = stripped;
+    } else if let Some(stripped) = rest.strip_prefix('+') {
+        rest = stripped;
+    }
+
+    let (whole, frac) = rest.split_once('.').unwrap_or((rest, ""));
+    if whole.is_empty() && frac.is_empty() {
+        return None;
+    }
+    if !whole.chars().all(|c| c.is_ascii_digit()) || !frac.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+
+    let whole_val: i128 = if whole.is_empty() {
+        0
+    } else {
+        whole.parse::<i128>().ok()?
+    };
+
+    if frac.is_empty() {
+        return Some((sign * whole_val, 1));
+    }
+
+    // Limit fractional digits to avoid overflow; round the last digit if longer.
+    let max_frac = 9usize;
+    let mut frac_str = frac.to_string();
+    let mut round_up = false;
+    if frac_str.len() > max_frac {
+        let (keep, drop) = frac_str.split_at(max_frac);
+        let next_digit = drop.chars().next().unwrap_or('0');
+        round_up = next_digit >= '5';
+        frac_str = keep.to_string();
+    }
+
+    let frac_val: i128 = frac_str.parse::<i128>().ok()?;
+    let mut den: i128 = 1;
+    for _ in 0..frac_str.len() {
+        den = den.saturating_mul(10);
+    }
+    let mut num = whole_val.saturating_mul(den).saturating_add(frac_val);
+    if round_up {
+        num = num.saturating_add(1);
+    }
+
+    Some((sign * num, den))
+}
+
+fn parse_length_to_points(s: &str) -> Option<f32> {
+    // Deterministic parser: returns points rounded to 0.001pt (milli-point) via integer math.
+    // Accepts plain numbers (points) or "<number><unit>" where unit is one of: pt, in, mm, cm, px.
+    let raw = s.trim();
+    if raw.is_empty() {
+        return None;
+    }
+
+    // Split numeric prefix from unit suffix.
+    let mut split = raw.len();
+    for (i, ch) in raw.char_indices() {
+        if !(ch.is_ascii_digit() || ch == '.' || ch == '-' || ch == '+') {
+            split = i;
+            break;
+        }
+    }
+    let (num_str, unit_str) = raw.split_at(split);
+    let (num, den) = parse_decimal_to_rational(num_str)?;
+    let unit = unit_str.trim().to_ascii_lowercase();
+
+    // Convert to milli-points (1/1000 pt), then back to f32.
+    let mpt: i64 = match unit.as_str() {
+        "" | "pt" => div_round_i128(num.saturating_mul(1000), den)?,
+        "in" => div_round_i128(num.saturating_mul(72_000), den)?,
+        "px" => div_round_i128(num.saturating_mul(750), den)?, // 1px = 0.75pt
+        "mm" => div_round_i128(num.saturating_mul(720_000), den.saturating_mul(254))?,
+        "cm" => div_round_i128(num.saturating_mul(7_200_000), den.saturating_mul(254))?,
+        _ => return None,
+    };
+
+    Some((mpt as f32) / 1000.0)
+}
+
+fn parse_py_length(arg: Option<&Bound<'_, PyAny>>) -> PyResult<Option<f32>> {
+    let Some(arg) = arg else {
+        return Ok(None);
+    };
+    if let Ok(v) = arg.extract::<f32>() {
+        return Ok(Some(v));
+    }
+    if let Ok(v) = arg.extract::<i64>() {
+        return Ok(Some(v as f32));
+    }
+    if let Ok(s) = arg.extract::<String>() {
+        return parse_length_to_points(&s)
+            .ok_or_else(|| PyValueError::new_err(format!("Invalid length: {s:?}")))
+            .map(Some);
+    }
+    Err(PyValueError::new_err(
+        "page_width/page_height must be a number (points) or a string like '8.5in'/'210mm'",
+    ))
+}
+
+fn parse_py_margins(arg: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Margins>> {
+    let Some(arg) = arg else { return Ok(None) };
+    if let Ok(v) = arg.extract::<f32>() {
+        return Ok(Some(Margins::all(v)));
+    }
+    if let Ok(v) = arg.extract::<i64>() {
+        return Ok(Some(Margins::all(v as f32)));
+    }
+    if let Ok(s) = arg.extract::<String>() {
+        return parse_length_to_points(&s)
+            .ok_or_else(|| PyValueError::new_err(format!("Invalid length: {s:?}")))
+            .map(|v| Some(Margins::all(v)));
+    }
+    if let Ok(d) = arg.downcast::<PyDict>() {
+        // Accept {top/right/bottom/left: <length>} where <length> can be number or "12mm" etc.
+        let get_len = |k: &str| -> PyResult<Option<f32>> {
+            let v = d.get_item(k)?;
+            match v {
+                Some(v) => parse_py_length(Some(&v)),
+                None => Ok(None),
+            }
+        };
+        let top = Pt::from_f32(get_len("top")?.unwrap_or(0.0));
+        let right = Pt::from_f32(get_len("right")?.unwrap_or(0.0));
+        let bottom = Pt::from_f32(get_len("bottom")?.unwrap_or(0.0));
+        let left = Pt::from_f32(get_len("left")?.unwrap_or(0.0));
+        return Ok(Some(Margins {
+            top,
+            right,
+            bottom,
+            left,
+        }));
+    }
+    Err(PyValueError::new_err(
+        "page_margins values must be a number (points) or a dict like {'top':'20mm','right':'10mm','bottom':'10mm','left':'10mm'}",
+    ))
+}
+
+fn parse_template_binding_spec(value: &Bound<'_, PyAny>) -> PyResult<crate::TemplateBindingSpec> {
+    let dict = value.downcast::<PyDict>().map_err(|_| {
+        PyValueError::new_err(
+            "template_binding must be a dict like {'default_template_id':'tpl-default','by_page_template':{'Page1':'tpl-a'},'by_feature':{'i9':'tpl-b'},'feature_prefix':'fb.feature.'}",
+        )
+    })?;
+    let mut spec = crate::TemplateBindingSpec::default();
+
+    if let Some(v) = dict.get_item("default_template_id")? {
+        let id = v.extract::<String>().map_err(|_| {
+            PyValueError::new_err("template_binding.default_template_id must be a string")
+        })?;
+        if id.trim().is_empty() {
+            return Err(PyValueError::new_err(
+                "template_binding.default_template_id cannot be empty",
+            ));
+        }
+        spec.default_template_id = Some(id);
+    }
+
+    if let Some(v) = dict.get_item("feature_prefix")? {
+        let prefix = v.extract::<String>().map_err(|_| {
+            PyValueError::new_err("template_binding.feature_prefix must be a string")
+        })?;
+        if prefix.trim().is_empty() {
+            return Err(PyValueError::new_err(
+                "template_binding.feature_prefix cannot be empty",
+            ));
+        }
+        spec.feature_prefix = prefix;
+    }
+
+    if let Some(v) = dict.get_item("by_page_template")? {
+        let by = v.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err("template_binding.by_page_template must be a dict[str, str]")
+        })?;
+        let mut out: BTreeMap<String, String> = BTreeMap::new();
+        for (k, val) in by.iter() {
+            let key = k.extract::<String>().map_err(|_| {
+                PyValueError::new_err("template_binding.by_page_template keys must be strings")
+            })?;
+            let mapped = val.extract::<String>().map_err(|_| {
+                PyValueError::new_err("template_binding.by_page_template values must be strings")
+            })?;
+            if key.trim().is_empty() || mapped.trim().is_empty() {
+                return Err(PyValueError::new_err(
+                    "template_binding.by_page_template entries cannot be empty",
+                ));
+            }
+            out.insert(key, mapped);
+        }
+        spec.by_page_template = out;
+    }
+
+    if let Some(v) = dict.get_item("by_feature")? {
+        let by = v.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err("template_binding.by_feature must be a dict[str, str]")
+        })?;
+        let mut out: BTreeMap<String, String> = BTreeMap::new();
+        for (k, val) in by.iter() {
+            let key = k.extract::<String>().map_err(|_| {
+                PyValueError::new_err("template_binding.by_feature keys must be strings")
+            })?;
+            let mapped = val.extract::<String>().map_err(|_| {
+                PyValueError::new_err("template_binding.by_feature values must be strings")
+            })?;
+            if key.trim().is_empty() || mapped.trim().is_empty() {
+                return Err(PyValueError::new_err(
+                    "template_binding.by_feature entries cannot be empty",
+                ));
+            }
+            out.insert(key, mapped);
+        }
+        spec.by_feature = out;
+    }
+
+    Ok(spec)
+}
+
+fn parse_color_hex(s: &str) -> Option<Color> {
+    let s = s.trim();
+    let hex = s.strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()? as f32 / 255.0;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()? as f32 / 255.0;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()? as f32 / 255.0;
+    Some(Color { r, g, b })
+}
+
+fn parse_color_space(raw: &str) -> PyResult<ColorSpace> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "rgb" | "srgb" => Ok(ColorSpace::Rgb),
+        "cmyk" => Ok(ColorSpace::Cmyk),
+        _ => Err(PyValueError::new_err(format!(
+            "unsupported color_space: {} (expected 'rgb' or 'cmyk')",
+            raw
+        ))),
+    }
+}
+
+fn parse_layout_strategy(raw: &str) -> PyResult<LayoutStrategy> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "eager" => Ok(LayoutStrategy::Eager),
+        "lazy" => Ok(LayoutStrategy::Lazy),
+        _ => Err(PyValueError::new_err(format!(
+            "invalid layout_strategy '{raw}' (expected 'eager' or 'lazy')"
+        ))),
+    }
+}
+
+#[derive(Clone)]
+struct PyWatermarkSpec {
+    kind: String,
+    value: String,
+    layer: String,
+    semantics: Option<String>,
+    opacity: f32,
+    rotation_deg: f32,
+    font_name: Option<String>,
+    font_size: Option<f32>,
+    color: Option<String>,
+}
+
+impl PyWatermarkSpec {
+    fn new(
+        kind: String,
+        value: String,
+        layer: &str,
+        semantics: Option<String>,
+        opacity: f32,
+        rotation_deg: f32,
+        font_name: Option<String>,
+        font_size: Option<f32>,
+        color: Option<String>,
+    ) -> Self {
+        Self {
+            kind,
+            value,
+            layer: layer.to_string(),
+            semantics,
+            opacity,
+            rotation_deg,
+            font_name,
+            font_size,
+            color,
+        }
+    }
+}
+
+fn parse_watermark_layer(raw: &str) -> PyResult<WatermarkLayer> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "background" | "bg" | "back" => Ok(WatermarkLayer::Background),
+        "overlay" | "fg" | "front" => Ok(WatermarkLayer::Overlay),
+        _ => Err(PyValueError::new_err(format!(
+            "Invalid watermark layer: {raw:?}. Expected 'background' or 'overlay'."
+        ))),
+    }
+}
+
+fn parse_watermark_semantics(raw: &str) -> PyResult<WatermarkSemantics> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "visual" => Ok(WatermarkSemantics::Visual),
+        "artifact" => Ok(WatermarkSemantics::Artifact),
+        "ocg" => Ok(WatermarkSemantics::Ocg),
+        _ => Err(PyValueError::new_err(format!(
+            "Invalid watermark semantics: {raw:?}. Expected 'visual', 'artifact', or 'ocg'."
+        ))),
+    }
+}
+
+fn load_output_intent_profile(source: &str) -> PyResult<Vec<u8>> {
+    if source.starts_with("data:") {
+        let mut parts = source.splitn(2, ',');
+        let header = parts.next().unwrap_or_default();
+        let payload = parts.next().ok_or_else(|| {
+            PyValueError::new_err("output_intent_icc data URI is missing payload")
+        })?;
+        if header.contains("base64") {
+            return crate::base64::decode_standard(payload).map_err(|err| {
+                PyValueError::new_err(format!(
+                    "failed to decode base64 output_intent_icc data URI: {err}"
+                ))
+            });
+        }
+        return Ok(payload.as_bytes().to_vec());
+    }
+
+    std::fs::read(source).map_err(|err| {
+        PyValueError::new_err(format!(
+            "failed to read output_intent_icc path {}: {}",
+            source, err
+        ))
+    })
+}
+
+fn parse_output_intent(
+    icc_source: Option<String>,
+    identifier: Option<String>,
+    info: Option<String>,
+    n_components: Option<u8>,
+) -> PyResult<Option<OutputIntent>> {
+    if icc_source.is_none() && identifier.is_none() && info.is_none() && n_components.is_none() {
+        return Ok(None);
+    }
+
+    let source = icc_source.ok_or_else(|| {
+        PyValueError::new_err(
+            "output intent parameters require output_intent_icc (path or data URI)",
+        )
+    })?;
+    let icc_profile = load_output_intent_profile(&source)?;
+    if icc_profile.is_empty() {
+        return Err(PyValueError::new_err(
+            "output_intent_icc resolved to empty bytes",
+        ));
+    }
+    let n_components = n_components.unwrap_or(3);
+    if !matches!(n_components, 1 | 3 | 4) {
+        return Err(PyValueError::new_err(format!(
+            "output_intent_components must be one of 1, 3, or 4 (got {n_components})"
+        )));
+    }
+    let identifier = identifier
+        .unwrap_or_else(|| "Custom".to_string())
+        .trim()
+        .to_string();
+    if identifier.is_empty() {
+        return Err(PyValueError::new_err(
+            "output_intent_identifier cannot be empty",
+        ));
+    }
+    Ok(Some(OutputIntent::new(
+        icc_profile,
+        n_components,
+        identifier,
+        info,
+    )))
+}
+
+fn watermark_spec_from_py(spec: &PyWatermarkSpec) -> PyResult<WatermarkSpec> {
+    let layer = parse_watermark_layer(&spec.layer)?;
+    let opacity = spec.opacity.clamp(0.0, 1.0);
+    let rotation_deg = spec.rotation_deg;
+
+    let mut out = match spec.kind.trim().to_ascii_lowercase().as_str() {
+        "text" => WatermarkSpec::text(spec.value.clone()),
+        "html" => WatermarkSpec::html(spec.value.clone()),
+        "image" | "img" => WatermarkSpec::image(spec.value.clone()),
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "Invalid watermark kind: {:?}. Expected 'text', 'html', or 'image'.",
+                spec.kind
+            )));
+        }
+    };
+
+    out.layer = layer;
+    out.semantics = match spec.semantics.as_deref() {
+        Some(raw) => parse_watermark_semantics(raw)?,
+        None => WatermarkSemantics::Artifact,
+    };
+    out.opacity = opacity;
+    out.rotation_deg = rotation_deg;
+
+    if let Some(font_name) = &spec.font_name {
+        out.font_name = font_name.clone();
+    }
+    if let Some(font_size) = spec.font_size {
+        out.font_size = Pt::from_f32(font_size);
+    }
+    if let Some(color_str) = &spec.color {
+        if let Some(color) = parse_color_hex(color_str) {
+            out.color = color;
+        } else {
+            return Err(PyValueError::new_err(format!(
+                "Invalid watermark color: {color_str:?}. Expected '#RRGGBB'."
+            )));
+        }
+    }
+
+    Ok(out)
+}
+
+fn parse_pdf_profile(arg: Option<&Bound<'_, PyAny>>) -> PyResult<Option<PdfProfile>> {
+    let Some(arg) = arg else {
+        return Ok(None);
+    };
+    if arg.is_none() {
+        return Ok(None);
+    }
+    if let Ok(s) = arg.extract::<String>() {
+        return s
+            .parse::<PdfProfile>()
+            .map(Some)
+            .map_err(|error| PyValueError::new_err(error.to_string()));
+    }
+    Err(PyValueError::new_err(
+        "pdf_profile must be a string like 'pdfua1', 'pdfua2', 'pdfa2a', 'pdfa2u', 'pdfa4', 'pdfa4e', 'pdfa4f', 'pdfvt1', 'wtpdf1r', 'wtpdf1a', 'tagged', or 'pdfx4'",
+    ))
+}
+
+fn parse_pdf_version(arg: Option<&Bound<'_, PyAny>>) -> PyResult<Option<PdfVersion>> {
+    let Some(arg) = arg else {
+        return Ok(None);
+    };
+    if arg.is_none() {
+        return Ok(None);
+    }
+    if let Ok(s) = arg.extract::<String>() {
+        let raw = s.trim().to_ascii_lowercase();
+        let version = match raw.as_str() {
+            "" => return Ok(None),
+            "1.6" | "16" | "pdf1.6" | "pdf16" => PdfVersion::Pdf16,
+            "1.7" | "1" | "17" | "pdf1.7" | "pdf17" => PdfVersion::Pdf17,
+            "2.0" | "2" | "20" | "pdf2.0" | "pdf20" => PdfVersion::Pdf20,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid pdf_version: {s:?}. Expected one of: 1.6, 1.7, 2.0"
+                )));
+            }
+        };
+        return Ok(Some(version));
+    }
+    Err(PyValueError::new_err(
+        "pdf_version must be a string like '1.6', '1.7' or '2.0'",
+    ))
+}
+
+fn page_data_value_to_py(py: Python<'_>, v: &PageDataValue) -> PyResult<PyObject> {
+    let d = PyDict::new(py);
+    match v {
+        PageDataValue::Every(items) => {
+            d.set_item("op", "every")?;
+            d.set_item("value", PyList::new(py, items)?)?;
+        }
+        PageDataValue::Count(n) => {
+            d.set_item("op", "count")?;
+            d.set_item("value", *n)?;
+        }
+        PageDataValue::Sum { scale, value } => {
+            d.set_item("op", "sum")?;
+            d.set_item("scale", *scale)?;
+            d.set_item("value", *value)?;
+            d.set_item(
+                "formatted",
+                crate::page_data::format_scaled_int(*value, *scale),
+            )?;
+        }
+    }
+    Ok(d.unbind().into_any())
+}
+
+fn page_data_context_to_py(py: Python<'_>, ctx: &PageDataContext) -> PyResult<PyObject> {
+    let root = PyDict::new(py);
+    root.set_item("page_count", ctx.page_count)?;
+
+    let pages = PyList::empty(py);
+    for (idx0, page) in ctx.pages.iter().enumerate() {
+        let pd = PyDict::new(py);
+        pd.set_item("page", idx0 + 1)?;
+        for (k, v) in page {
+            pd.set_item(k, page_data_value_to_py(py, v)?)?;
+        }
+        pages.append(pd)?;
+    }
+    root.set_item("pages", pages)?;
+
+    let totals = PyDict::new(py);
+    for (k, v) in &ctx.totals {
+        totals.set_item(k, page_data_value_to_py(py, v)?)?;
+    }
+    root.set_item("totals", totals)?;
+
+    Ok(root.unbind().into_any())
+}
+
+fn template_binding_decisions_to_py(
+    py: Python<'_>,
+    decisions: &[crate::PageBindingDecision],
+) -> PyResult<PyObject> {
+    let list = PyList::empty(py);
+    for decision in decisions {
+        let d = PyDict::new(py);
+        d.set_item("page_index", decision.page_index)?;
+        d.set_item("page", decision.page_index + 1)?;
+        d.set_item("page_template_name", decision.page_template_name.clone())?;
+        d.set_item("feature_hits", PyList::new(py, &decision.feature_hits)?)?;
+        d.set_item("template_id", decision.template_id.clone())?;
+        let source = match decision.source {
+            crate::BindingSource::Feature => "feature",
+            crate::BindingSource::PageTemplate => "page_template",
+            crate::BindingSource::Default => "default",
+        };
+        d.set_item("source", source)?;
+        list.append(d)?;
+    }
+    Ok(list.unbind().into_any())
+}
+
+fn compose_plan_to_py(
+    py: Python<'_>,
+    decisions: &[crate::PageBindingDecision],
+    template_page_counts: &BTreeMap<String, usize>,
+    dx: f32,
+    dy: f32,
+) -> PyResult<PyObject> {
+    if decisions.is_empty() {
+        return Err(PyValueError::new_err(
+            "compose planning requires non-empty template bindings",
+        ));
+    }
+
+    let mut sorted = decisions.to_vec();
+    sorted.sort_by_key(|d| d.page_index);
+
+    let mut seen_pages: BTreeSet<usize> = BTreeSet::new();
+    let plan = PyList::empty(py);
+    for decision in &sorted {
+        if !seen_pages.insert(decision.page_index) {
+            return Err(PyValueError::new_err(format!(
+                "duplicate template binding for overlay page {}",
+                decision.page_index
+            )));
+        }
+        let template_page_count =
+            *template_page_counts
+                .get(&decision.template_id)
+                .ok_or_else(|| {
+                    PyValueError::new_err(format!(
+                        "binding references unknown template_id at page {}: {}",
+                        decision.page_index + 1,
+                        decision.template_id
+                    ))
+                })?;
+        if template_page_count == 0 {
+            return Err(PyValueError::new_err(format!(
+                "template has zero pages for template_id: {}",
+                decision.template_id
+            )));
+        }
+        let template_page = decision.page_index % template_page_count;
+        let row = PyDict::new(py);
+        row.set_item("page_index", decision.page_index)?;
+        row.set_item("page", decision.page_index + 1)?;
+        row.set_item("template_id", decision.template_id.clone())?;
+        row.set_item("template_page", template_page)?;
+        row.set_item("overlay_page", decision.page_index)?;
+        row.set_item("dx", dx)?;
+        row.set_item("dy", dy)?;
+        plan.append(row)?;
+    }
+    Ok(plan.unbind().into_any())
+}
+
+#[derive(Clone)]
+struct TraceTextState {
+    transform: Transform,
+    font_name: String,
+    font_size: Pt,
+}
+
+impl TraceTextState {
+    fn new() -> Self {
+        Self {
+            transform: Transform::identity(),
+            font_name: "Helvetica".to_string(),
+            font_size: Pt::from_f32(12.0),
+        }
+    }
+}
+
+fn estimate_trace_text_bbox(
+    engine: Option<&FullBleed>,
+    state: &TraceTextState,
+    x: Pt,
+    y: Pt,
+    text: &str,
+) -> (f32, f32, f32, f32) {
+    let width = if let Some(e) = engine {
+        e.measure_text_width_for_trace(&state.font_name, state.font_size, text)
+    } else {
+        let approx = text.chars().count() as f32 * 0.6;
+        Pt::from_f32(state.font_size.to_f32() * approx)
+    };
+    let height = state.font_size;
+    let x0 = x.to_f32();
+    let y0 = y.to_f32();
+    let x1 = x0 + width.to_f32();
+    let y1 = y0 + height.to_f32();
+    let corners = [
+        state.transform.apply(x0, y0),
+        state.transform.apply(x1, y0),
+        state.transform.apply(x1, y1),
+        state.transform.apply(x0, y1),
+    ];
+    let mut min_x = corners[0].0;
+    let mut min_y = corners[0].1;
+    let mut max_x = corners[0].0;
+    let mut max_y = corners[0].1;
+    for (cx, cy) in &corners[1..] {
+        min_x = min_x.min(*cx);
+        min_y = min_y.min(*cy);
+        max_x = max_x.max(*cx);
+        max_y = max_y.max(*cy);
+    }
+    (min_x, min_y, max_x, max_y)
+}
+
+#[derive(Clone)]
+struct TraceTextBlockRow {
+    index: usize,
+    command_index: usize,
+    kind: &'static str,
+    text: String,
+    bbox: (f32, f32, f32, f32),
+    requested_font_name: Option<String>,
+    resolved_font_name: String,
+    fallback_reason: Option<String>,
+    font_size: f32,
+    top_role: Option<String>,
+    tag_path: Vec<String>,
+    owner: TraceOwnerContext,
+}
+
+#[derive(Default)]
+struct TracePageTextCollection {
+    blocks: Vec<TraceTextBlockRow>,
+    artifact_text_blocks_excluded: usize,
+    draw_form_count: usize,
+    define_form_count: usize,
+    untagged_text_blocks: usize,
+}
+
+#[derive(Clone)]
+struct TraceTextOverlapSample {
+    overlap_bbox: (f32, f32, f32, f32),
+    a_index: usize,
+    a_command_index: usize,
+    a_top_role: Option<String>,
+    a_text: String,
+    b_index: usize,
+    b_command_index: usize,
+    b_top_role: Option<String>,
+    b_text: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct TraceOwnerContext {
+    selector: Option<String>,
+    dom_path: Option<String>,
+    role: Option<String>,
+    component: Option<String>,
+    tag: Option<String>,
+    id: Option<String>,
+    classes: Option<String>,
+}
+
+impl TraceOwnerContext {
+    fn apply_meta(&mut self, key: &str, value: &str) {
+        let value = value.trim();
+        let value = (!value.is_empty()).then(|| value.to_string());
+        match key {
+            "fb.owner.selector" => self.selector = value,
+            "fb.owner.dom_path" => self.dom_path = value,
+            "fb.owner.role" => self.role = value,
+            "fb.owner.component" => self.component = value,
+            "fb.owner.tag" => self.tag = value,
+            "fb.owner.id" => self.id = value,
+            "fb.owner.classes" => self.classes = value,
+            _ => {}
+        }
+    }
+
+    fn has_identity(&self) -> bool {
+        self.selector.is_some()
+            || self.dom_path.is_some()
+            || self.role.is_some()
+            || self.component.is_some()
+            || self.tag.is_some()
+            || self.id.is_some()
+    }
+
+    fn label(&self) -> Option<String> {
+        self.component
+            .clone()
+            .or_else(|| self.selector.clone())
+            .or_else(|| self.dom_path.clone())
+            .or_else(|| self.role.clone())
+            .or_else(|| self.tag.clone())
+    }
+
+    fn stable_key(&self) -> Option<String> {
+        self.selector
+            .clone()
+            .or_else(|| self.dom_path.clone())
+            .or_else(|| self.component.clone())
+            .or_else(|| self.role.clone())
+            .or_else(|| self.id.clone())
+            .or_else(|| self.tag.clone())
+    }
+}
+
+fn trace_owner_to_py(py: Python<'_>, owner: &TraceOwnerContext) -> PyResult<PyObject> {
+    if !owner.has_identity() {
+        return Ok(py.None());
+    }
+    let out = PyDict::new(py);
+    out.set_item("selector", owner.selector.clone())?;
+    out.set_item("dom_path", owner.dom_path.clone())?;
+    out.set_item("role", owner.role.clone())?;
+    out.set_item("component", owner.component.clone())?;
+    out.set_item("tag", owner.tag.clone())?;
+    out.set_item("id", owner.id.clone())?;
+    out.set_item("classes", owner.classes.clone())?;
+    out.set_item("label", owner.label())?;
+    Ok(out.unbind().into_any())
+}
+
+fn accumulate_owner_score(
+    scores: &mut BTreeMap<String, (TraceOwnerContext, f64)>,
+    owner: &TraceOwnerContext,
+    delta: f64,
+) {
+    let Some(key) = owner.stable_key() else {
+        return;
+    };
+    let entry = scores.entry(key).or_insert_with(|| (owner.clone(), 0.0));
+    entry.1 += delta.max(0.0);
+}
+
+fn accumulate_owner_hint(
+    scores: &mut BTreeMap<String, (TraceOwnerContext, usize)>,
+    owner: &TraceOwnerContext,
+) {
+    let Some(key) = owner.stable_key() else {
+        return;
+    };
+    let entry = scores.entry(key).or_insert_with(|| (owner.clone(), 0usize));
+    entry.1 = entry.1.saturating_add(1);
+}
+
+fn collect_render_time_text_blocks_for_page(
+    page: &crate::canvas::Page,
+    page_height: Pt,
+    engine: Option<&FullBleed>,
+) -> TracePageTextCollection {
+    let mut out = TracePageTextCollection::default();
+    let mut tag_stack: Vec<String> = Vec::new();
+    let mut artifact_depth = 0usize;
+    let mut state = TraceTextState::new();
+    let mut state_stack: Vec<TraceTextState> = Vec::new();
+    let mut pending_requested_font_name: Option<String> = None;
+    let mut pending_fallback_reason: Option<String> = None;
+    let mut current_owner = TraceOwnerContext::default();
+    let mut owner_stack: Vec<TraceOwnerContext> = Vec::new();
+
+    for (cmd_index, cmd) in page.commands.iter().enumerate() {
+        match cmd {
+            Command::SaveState => state_stack.push(state.clone()),
+            Command::RestoreState => {
+                state = state_stack.pop().unwrap_or_else(TraceTextState::new);
+            }
+            Command::Translate(..)
+            | Command::CssTransformOrigin { .. }
+            | Command::Scale(..)
+            | Command::Rotate(..)
+            | Command::ConcatMatrix { .. } => {
+                state.transform = state
+                    .transform
+                    .mul(Transform::for_command(cmd, page_height).unwrap());
+            }
+            Command::SetFontName(name) => state.font_name = name.clone(),
+            Command::SetFontSize(size) => state.font_size = *size,
+            Command::SetTextRenderingMode(_) => {}
+            Command::Meta { key, value } if key == "font.requested_name" => {
+                pending_requested_font_name = Some(value.clone());
+            }
+            Command::Meta { key, value } if key == "font.fallback_reason" => {
+                pending_fallback_reason = Some(value.clone());
+            }
+            Command::Meta { key, .. } if key == META_DIAGNOSTIC_SCOPE_BEGIN_KEY => {
+                owner_stack.push(current_owner.clone());
+            }
+            Command::Meta { key, .. } if key == META_DIAGNOSTIC_SCOPE_END_KEY => {
+                current_owner = owner_stack.pop().unwrap_or_default();
+            }
+            Command::Meta { key, value } => {
+                current_owner.apply_meta(key, value);
+            }
+            Command::BeginTag { role, .. } | Command::BeginTagActualText { role, .. } => {
+                tag_stack.push(role.clone());
+            }
+            Command::EndTag => {
+                let _ = tag_stack.pop();
+            }
+            Command::BeginArtifact { .. } => artifact_depth = artifact_depth.saturating_add(1),
+            Command::EndMarkedContent => {
+                if artifact_depth > 0 {
+                    artifact_depth -= 1;
+                }
+            }
+            Command::DefineForm { .. } | Command::DefineIsolatedForm { .. } => {
+                out.define_form_count = out.define_form_count.saturating_add(1);
+            }
+            Command::DrawForm { .. } | Command::DrawFilteredForm { .. } => {
+                out.draw_form_count = out.draw_form_count.saturating_add(1);
+            }
+            Command::DrawString { x, y, text } => {
+                if artifact_depth > 0 {
+                    out.artifact_text_blocks_excluded =
+                        out.artifact_text_blocks_excluded.saturating_add(1);
+                    continue;
+                }
+                let bbox = estimate_trace_text_bbox(engine, &state, *x, *y, text);
+                if tag_stack.last().is_none() {
+                    out.untagged_text_blocks = out.untagged_text_blocks.saturating_add(1);
+                }
+                out.blocks.push(TraceTextBlockRow {
+                    index: out.blocks.len(),
+                    command_index: cmd_index,
+                    kind: "draw_string",
+                    text: text.clone(),
+                    bbox,
+                    requested_font_name: pending_requested_font_name.take(),
+                    resolved_font_name: state.font_name.clone(),
+                    fallback_reason: pending_fallback_reason.take(),
+                    font_size: state.font_size.to_f32(),
+                    top_role: tag_stack.last().cloned(),
+                    tag_path: tag_stack.clone(),
+                    owner: current_owner.clone(),
+                });
+            }
+            Command::DrawStringTransformed {
+                x,
+                y,
+                text,
+                m00,
+                m01,
+                m10,
+                m11,
+            } => {
+                if artifact_depth > 0 {
+                    out.artifact_text_blocks_excluded =
+                        out.artifact_text_blocks_excluded.saturating_add(1);
+                    continue;
+                }
+                let text_state = TraceTextState {
+                    transform: state.transform.mul(Transform::page_basis(page_height)).mul(
+                        Transform::matrix(*m00, *m01, *m10, *m11, x.to_f32(), y.to_f32()),
+                    ),
+                    ..state.clone()
+                };
+                let bbox = estimate_trace_text_bbox(engine, &text_state, Pt::ZERO, Pt::ZERO, text);
+                if tag_stack.last().is_none() {
+                    out.untagged_text_blocks = out.untagged_text_blocks.saturating_add(1);
+                }
+                out.blocks.push(TraceTextBlockRow {
+                    index: out.blocks.len(),
+                    command_index: cmd_index,
+                    kind: "draw_string_transformed",
+                    text: text.clone(),
+                    bbox,
+                    requested_font_name: pending_requested_font_name.take(),
+                    resolved_font_name: state.font_name.clone(),
+                    fallback_reason: pending_fallback_reason.take(),
+                    font_size: state.font_size.to_f32(),
+                    top_role: tag_stack.last().cloned(),
+                    tag_path: tag_stack.clone(),
+                    owner: current_owner.clone(),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    out
+}
+
+fn collect_text_overlap_samples(
+    blocks: &[TraceTextBlockRow],
+    max_samples: usize,
+) -> (usize, Vec<TraceTextOverlapSample>) {
+    let mut count = 0usize;
+    let mut samples = Vec::new();
+    for i in 0..blocks.len() {
+        let a = &blocks[i];
+        let (ax0, ay0, ax1, ay1) = a.bbox;
+        for b in blocks.iter().skip(i + 1) {
+            let (bx0, by0, bx1, by1) = b.bbox;
+            let ix0 = ax0.max(bx0);
+            let iy0 = ay0.max(by0);
+            let ix1 = ax1.min(bx1);
+            let iy1 = ay1.min(by1);
+            let iw = ix1 - ix0;
+            let ih = iy1 - iy0;
+            if iw <= 0.0 || ih <= 0.0 {
+                continue;
+            }
+            if iw < 1.0 || ih < 1.0 || (iw * ih) < 4.0 {
+                continue;
+            }
+            count = count.saturating_add(1);
+            if samples.len() < max_samples {
+                samples.push(TraceTextOverlapSample {
+                    overlap_bbox: (ix0, iy0, iw, ih),
+                    a_index: a.index,
+                    a_command_index: a.command_index,
+                    a_top_role: a.top_role.clone(),
+                    a_text: trace_text_sample(&a.text),
+                    b_index: b.index,
+                    b_command_index: b.command_index,
+                    b_top_role: b.top_role.clone(),
+                    b_text: trace_text_sample(&b.text),
+                });
+            }
+        }
+    }
+    (count, samples)
+}
+
+fn trace_text_token_stats(text: &str) -> (usize, usize, usize, usize, usize, usize, usize) {
+    let mut token_count = 0usize;
+    let mut single_char_token_count = 0usize;
+    let mut max_token_len = 0usize;
+    let mut char_count = 0usize;
+    let mut alpha_char_count = 0usize;
+    let mut whitespace_char_count = 0usize;
+    let mut uppercase_alpha_count = 0usize;
+    for ch in text.chars() {
+        if ch.is_control() {
+            continue;
+        }
+        char_count = char_count.saturating_add(1);
+        if ch.is_whitespace() {
+            whitespace_char_count = whitespace_char_count.saturating_add(1);
+        }
+        if ch.is_alphabetic() {
+            alpha_char_count = alpha_char_count.saturating_add(1);
+            if ch.is_uppercase() {
+                uppercase_alpha_count = uppercase_alpha_count.saturating_add(1);
+            }
+        }
+    }
+    for token in text.split_whitespace() {
+        let token_len = token.chars().count();
+        if token_len == 0 {
+            continue;
+        }
+        token_count = token_count.saturating_add(1);
+        max_token_len = max_token_len.max(token_len);
+        if token_len == 1 {
+            single_char_token_count = single_char_token_count.saturating_add(1);
+        }
+    }
+    (
+        token_count,
+        single_char_token_count,
+        max_token_len,
+        char_count,
+        alpha_char_count,
+        whitespace_char_count,
+        uppercase_alpha_count,
+    )
+}
+
+fn bbox_width(bbox: (f32, f32, f32, f32)) -> f32 {
+    (bbox.2 - bbox.0).max(0.0)
+}
+
+fn bbox_height(bbox: (f32, f32, f32, f32)) -> f32 {
+    (bbox.3 - bbox.1).max(0.0)
+}
+
+fn union_bbox(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> (f32, f32, f32, f32) {
+    (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3))
+}
+
+fn build_render_time_typography_drift_trace_py(
+    py: Python<'_>,
+    doc: &Document,
+    engine: &FullBleed,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.typography_drift_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("extractor", "render_time_commands")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let page_width = doc.page_size.width.to_f32().max(1.0);
+    let pages_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+
+    let mut block_count = 0usize;
+    let mut flagged_block_count = 0usize;
+    let mut fallback_sensitive_block_count = 0usize;
+    let mut token_fragmentation_block_count = 0usize;
+    let mut wrap_drift_block_count = 0usize;
+    let mut short_label_lockup_block_count = 0usize;
+    let mut suspicious_char_width_block_count = 0usize;
+
+    for (page_index, page) in doc.pages.iter().enumerate() {
+        let text_collection = collect_render_time_text_blocks_for_page(
+            page,
+            crate::canvas::PageGeometry::for_page(page, doc.page_size)
+                .logical_size
+                .height,
+            Some(engine),
+        );
+        let flagged_blocks = PyList::empty(py);
+        let mut page_flagged_count = 0usize;
+
+        for block in &text_collection.blocks {
+            block_count = block_count.saturating_add(1);
+            let (
+                token_count,
+                single_char_token_count,
+                max_token_len,
+                char_count,
+                alpha_char_count,
+                whitespace_char_count,
+                uppercase_alpha_count,
+            ) = trace_text_token_stats(&block.text);
+            let box_width = bbox_width(block.bbox);
+            let avg_char_width = if alpha_char_count > 0 {
+                box_width / alpha_char_count as f32
+            } else if char_count > 0 {
+                box_width / char_count as f32
+            } else {
+                0.0
+            };
+            let char_width_ratio = if block.font_size > 0.0 {
+                avg_char_width / block.font_size.max(1.0)
+            } else {
+                0.0
+            };
+            let uppercase_ratio = if alpha_char_count > 0 {
+                uppercase_alpha_count as f32 / alpha_char_count as f32
+            } else {
+                0.0
+            };
+            let whitespace_ratio = if char_count > 0 {
+                whitespace_char_count as f32 / char_count as f32
+            } else {
+                0.0
+            };
+            let token_fragmentation_risk =
+                token_count >= 4 && single_char_token_count.saturating_mul(2) >= token_count;
+            let wrap_drift_risk =
+                token_count >= 8 && max_token_len >= 6 && (box_width / page_width) >= 0.72;
+            let fallback_sensitive =
+                block.fallback_reason.is_some() || block.requested_font_name.is_some();
+            let short_label_lockup_risk = char_count <= 42
+                && token_count > 0
+                && token_count <= 6
+                && uppercase_ratio >= 0.45
+                && fallback_sensitive;
+            let suspicious_char_width_risk =
+                alpha_char_count >= 3 && (char_width_ratio < 0.18 || char_width_ratio > 0.95);
+
+            if fallback_sensitive {
+                fallback_sensitive_block_count = fallback_sensitive_block_count.saturating_add(1);
+            }
+            if token_fragmentation_risk {
+                token_fragmentation_block_count = token_fragmentation_block_count.saturating_add(1);
+            }
+            if wrap_drift_risk {
+                wrap_drift_block_count = wrap_drift_block_count.saturating_add(1);
+            }
+            if short_label_lockup_risk {
+                short_label_lockup_block_count = short_label_lockup_block_count.saturating_add(1);
+            }
+            if suspicious_char_width_risk {
+                suspicious_char_width_block_count =
+                    suspicious_char_width_block_count.saturating_add(1);
+            }
+
+            if !(token_fragmentation_risk
+                || wrap_drift_risk
+                || short_label_lockup_risk
+                || suspicious_char_width_risk
+                || fallback_sensitive)
+            {
+                continue;
+            }
+
+            flagged_block_count = flagged_block_count.saturating_add(1);
+            page_flagged_count = page_flagged_count.saturating_add(1);
+            let row = PyDict::new(py);
+            row.set_item("page", page_index + 1)?;
+            row.set_item("index", block.index)?;
+            row.set_item("command_index", block.command_index)?;
+            row.set_item("kind", block.kind)?;
+            row.set_item("text", trace_text_sample(&block.text))?;
+            let bbox = PyDict::new(py);
+            bbox.set_item("x", block.bbox.0)?;
+            bbox.set_item("y", block.bbox.1)?;
+            bbox.set_item("w", bbox_width(block.bbox))?;
+            bbox.set_item("h", bbox_height(block.bbox))?;
+            row.set_item("bbox", bbox)?;
+            row.set_item("font_size", block.font_size)?;
+            row.set_item("resolved_font_name", block.resolved_font_name.clone())?;
+            row.set_item("requested_font_name", block.requested_font_name.clone())?;
+            row.set_item("fallback_reason", block.fallback_reason.clone())?;
+            row.set_item("owner", trace_owner_to_py(py, &block.owner)?)?;
+            row.set_item("token_count", token_count)?;
+            row.set_item("single_char_token_count", single_char_token_count)?;
+            row.set_item("char_count", char_count)?;
+            row.set_item("alpha_char_count", alpha_char_count)?;
+            row.set_item("uppercase_ratio", uppercase_ratio)?;
+            row.set_item("whitespace_ratio", whitespace_ratio)?;
+            row.set_item("avg_char_width", avg_char_width)?;
+            row.set_item("char_width_ratio", char_width_ratio)?;
+            let risk_codes = PyList::empty(py);
+            if fallback_sensitive {
+                risk_codes.append("fallback_sensitive")?;
+            }
+            if token_fragmentation_risk {
+                risk_codes.append("token_fragmentation")?;
+            }
+            if wrap_drift_risk {
+                risk_codes.append("wrap_drift_risk")?;
+            }
+            if short_label_lockup_risk {
+                risk_codes.append("short_label_lockup_risk")?;
+            }
+            if suspicious_char_width_risk {
+                risk_codes.append("suspicious_char_width")?;
+            }
+            row.set_item("risk_codes", risk_codes)?;
+            flagged_blocks.append(row)?;
+        }
+
+        let page_row = PyDict::new(py);
+        page_row.set_item("page_index", page_index)?;
+        page_row.set_item("page", page_index + 1)?;
+        page_row.set_item("block_count", text_collection.blocks.len())?;
+        page_row.set_item("flagged_block_count", page_flagged_count)?;
+        page_row.set_item("flagged_blocks", flagged_blocks)?;
+        pages_out.append(page_row)?;
+    }
+
+    if token_fragmentation_block_count > 0 {
+        let row = PyDict::new(py);
+        row.set_item("code", "TOKEN_FRAGMENTATION_DETECTED")?;
+        row.set_item("count", token_fragmentation_block_count)?;
+        warnings.append(row)?;
+    }
+    if wrap_drift_block_count > 0 {
+        let row = PyDict::new(py);
+        row.set_item("code", "TYPOGRAPHY_WRAP_DRIFT_DETECTED")?;
+        row.set_item("count", wrap_drift_block_count)?;
+        warnings.append(row)?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", doc.pages.len())?;
+    summary.set_item("block_count", block_count)?;
+    summary.set_item("flagged_block_count", flagged_block_count)?;
+    summary.set_item(
+        "fallback_sensitive_block_count",
+        fallback_sensitive_block_count,
+    )?;
+    summary.set_item(
+        "token_fragmentation_block_count",
+        token_fragmentation_block_count,
+    )?;
+    summary.set_item("wrap_drift_block_count", wrap_drift_block_count)?;
+    summary.set_item(
+        "short_label_lockup_block_count",
+        short_label_lockup_block_count,
+    )?;
+    summary.set_item(
+        "suspicious_char_width_block_count",
+        suspicious_char_width_block_count,
+    )?;
+
+    out.set_item("pages", pages_out)?;
+    out.set_item("summary", summary)?;
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+fn build_render_time_region_text_alignment_trace_py(
+    py: Python<'_>,
+    doc: &Document,
+    engine: &FullBleed,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.region_text_alignment_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("extractor", "render_time_commands")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let pages_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+
+    let mut table_like_page_count = 0usize;
+    let mut row_count = 0usize;
+    let mut dense_row_risk_count = 0usize;
+    let mut fragmented_cell_count = 0usize;
+    let mut dense_region_candidate_page_count = 0usize;
+
+    for (page_index, page) in doc.pages.iter().enumerate() {
+        let text_collection = collect_render_time_text_blocks_for_page(
+            page,
+            crate::canvas::PageGeometry::for_page(page, doc.page_size)
+                .logical_size
+                .height,
+            Some(engine),
+        );
+        let mut table_blocks: Vec<&TraceTextBlockRow> = text_collection
+            .blocks
+            .iter()
+            .filter(|block| {
+                matches!(block.top_role.as_deref(), Some("TH") | Some("TD"))
+                    || block
+                        .tag_path
+                        .iter()
+                        .any(|role| matches!(role.as_str(), "TABLE" | "TR" | "TH" | "TD"))
+            })
+            .collect();
+        table_blocks.sort_by(|left, right| {
+            let ly = left.bbox.1;
+            let ry = right.bbox.1;
+            ly.partial_cmp(&ry)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    left.bbox
+                        .0
+                        .partial_cmp(&right.bbox.0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        });
+
+        let page_rows = PyList::empty(py);
+        let dense_regions = PyList::empty(py);
+        if !table_blocks.is_empty() {
+            table_like_page_count = table_like_page_count.saturating_add(1);
+            let mut clustered_rows: Vec<Vec<&TraceTextBlockRow>> = Vec::new();
+            for block in table_blocks {
+                let center_y = (block.bbox.1 + block.bbox.3) * 0.5;
+                if let Some(last_row) = clustered_rows.last_mut() {
+                    let last_center_y = last_row
+                        .iter()
+                        .map(|row_block| (row_block.bbox.1 + row_block.bbox.3) * 0.5)
+                        .sum::<f32>()
+                        / last_row.len() as f32;
+                    let tolerance = 6.0f32.max(block.font_size * 0.8);
+                    if (center_y - last_center_y).abs() <= tolerance {
+                        last_row.push(block);
+                        continue;
+                    }
+                }
+                clustered_rows.push(vec![block]);
+            }
+
+            for (row_index, row_blocks) in clustered_rows.iter_mut().enumerate() {
+                row_blocks.sort_by(|left, right| {
+                    left.bbox
+                        .0
+                        .partial_cmp(&right.bbox.0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                row_count = row_count.saturating_add(1);
+                let mut row_bbox = row_blocks[0].bbox;
+                let cells = PyList::empty(py);
+                let mut row_char_count = 0usize;
+                let mut row_token_count = 0usize;
+                let mut row_fragmented_cells = 0usize;
+                for block in row_blocks.iter() {
+                    row_bbox = union_bbox(row_bbox, block.bbox);
+                    let (token_count, single_char_token_count, _, char_count, ..) =
+                        trace_text_token_stats(&block.text);
+                    row_char_count = row_char_count.saturating_add(char_count);
+                    row_token_count = row_token_count.saturating_add(token_count);
+                    let cell_fragmented = token_count >= 4
+                        && single_char_token_count.saturating_mul(2) >= token_count;
+                    if cell_fragmented {
+                        fragmented_cell_count = fragmented_cell_count.saturating_add(1);
+                        row_fragmented_cells = row_fragmented_cells.saturating_add(1);
+                    }
+                    let cell = PyDict::new(py);
+                    cell.set_item("text", trace_text_sample(&block.text))?;
+                    cell.set_item("kind", block.kind)?;
+                    cell.set_item("top_role", block.top_role.clone())?;
+                    cell.set_item("owner", trace_owner_to_py(py, &block.owner)?)?;
+                    let bbox = PyDict::new(py);
+                    bbox.set_item("x", block.bbox.0)?;
+                    bbox.set_item("y", block.bbox.1)?;
+                    bbox.set_item("w", bbox_width(block.bbox))?;
+                    bbox.set_item("h", bbox_height(block.bbox))?;
+                    cell.set_item("bbox", bbox)?;
+                    cell.set_item("token_count", token_count)?;
+                    cell.set_item("char_count", char_count)?;
+                    cell.set_item("fragmentation_risk", cell_fragmented)?;
+                    cells.append(cell)?;
+                }
+                let dense_row_risk =
+                    row_blocks.len() >= 6 || row_char_count >= 80 || row_token_count >= 18;
+                if dense_row_risk {
+                    dense_row_risk_count = dense_row_risk_count.saturating_add(1);
+                }
+                let row = PyDict::new(py);
+                row.set_item("row_index", row_index)?;
+                row.set_item("page", page_index + 1)?;
+                let bbox = PyDict::new(py);
+                bbox.set_item("x", row_bbox.0)?;
+                bbox.set_item("y", row_bbox.1)?;
+                bbox.set_item("w", bbox_width(row_bbox))?;
+                bbox.set_item("h", bbox_height(row_bbox))?;
+                row.set_item("bbox", bbox)?;
+                row.set_item("cell_count", row_blocks.len())?;
+                row.set_item("char_count", row_char_count)?;
+                row.set_item("token_count", row_token_count)?;
+                row.set_item("dense_row_risk", dense_row_risk)?;
+                row.set_item("fragmented_cell_count", row_fragmented_cells)?;
+                row.set_item("cells", cells)?;
+                page_rows.append(row)?;
+            }
+        } else if text_collection.blocks.len() >= 24 {
+            dense_region_candidate_page_count = dense_region_candidate_page_count.saturating_add(1);
+            let row = PyDict::new(py);
+            row.set_item("page", page_index + 1)?;
+            row.set_item("text_block_count", text_collection.blocks.len())?;
+            row.set_item("kind", "dense_text_page")?;
+            dense_regions.append(row)?;
+        }
+
+        let page_row = PyDict::new(py);
+        page_row.set_item("page_index", page_index)?;
+        page_row.set_item("page", page_index + 1)?;
+        page_row.set_item("text_block_count", text_collection.blocks.len())?;
+        page_row.set_item("table_row_count", page_rows.len())?;
+        page_row.set_item("table_rows", page_rows)?;
+        page_row.set_item("dense_region_candidates", dense_regions)?;
+        pages_out.append(page_row)?;
+    }
+
+    if dense_row_risk_count > 0 {
+        let row = PyDict::new(py);
+        row.set_item("code", "SEMANTIC_TABLE_ALIGNMENT_DRIFT")?;
+        row.set_item("count", dense_row_risk_count)?;
+        warnings.append(row)?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", doc.pages.len())?;
+    summary.set_item("table_like_page_count", table_like_page_count)?;
+    summary.set_item("row_count", row_count)?;
+    summary.set_item("dense_row_risk_count", dense_row_risk_count)?;
+    summary.set_item("fragmented_cell_count", fragmented_cell_count)?;
+    summary.set_item(
+        "dense_region_candidate_page_count",
+        dense_region_candidate_page_count,
+    )?;
+
+    out.set_item("pages", pages_out)?;
+    out.set_item("summary", summary)?;
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct RenderTimeFontUsageKey {
+    requested_name: String,
+    resolved_name: String,
+    fallback_reason: Option<String>,
+}
+
+#[derive(Default, Clone)]
+struct RenderTimeFontUsage {
+    text_draw_count: usize,
+    transformed_text_draw_count: usize,
+    glyph_run_count: usize,
+    sample_text: Option<String>,
+}
+
+fn normalized_font_name(name: &str) -> String {
+    name.trim().trim_matches('"').trim_matches('\'').to_string()
+}
+
+fn is_base14_font_name(name: &str) -> bool {
+    let normalized = normalized_font_name(name).to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "courier"
+            | "courier-bold"
+            | "courier-oblique"
+            | "courier-boldoblique"
+            | "helvetica"
+            | "helvetica-bold"
+            | "helvetica-oblique"
+            | "helvetica-boldoblique"
+            | "times-roman"
+            | "times-bold"
+            | "times-italic"
+            | "times-bolditalic"
+            | "symbol"
+            | "zapfdingbats"
+    )
+}
+
+fn trace_text_sample(text: &str) -> String {
+    const MAX_CHARS: usize = 48;
+    let mut out = String::new();
+    for (idx, ch) in text.chars().enumerate() {
+        if idx >= MAX_CHARS {
+            out.push_str("...");
+            break;
+        }
+        if ch.is_control() {
+            out.push(' ');
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+fn record_font_usage_sample(entry: &mut RenderTimeFontUsage, sample: Option<&str>) {
+    if entry.sample_text.is_some() {
+        return;
+    }
+    let Some(sample) = sample else {
+        return;
+    };
+    let sample = sample.trim();
+    if sample.is_empty() {
+        return;
+    }
+    entry.sample_text = Some(trace_text_sample(sample));
+}
+
+fn collect_form_definitions(commands: &[Command], definitions: &mut HashMap<String, Vec<Command>>) {
+    for cmd in commands {
+        match cmd {
+            Command::DefineForm {
+                resource_id,
+                commands: form_commands,
+                ..
+            }
+            | Command::DefineIsolatedForm {
+                resource_id,
+                commands: form_commands,
+                ..
+            } => {
+                definitions
+                    .entry(resource_id.clone())
+                    .or_insert_with(|| form_commands.clone());
+                collect_form_definitions(form_commands, definitions);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_font_usage_in_commands(
+    commands: &[Command],
+    form_definitions: &HashMap<String, Vec<Command>>,
+    current_font: &mut String,
+    pending_requested_name: &mut Option<String>,
+    pending_fallback_reason: &mut Option<String>,
+    usage: &mut BTreeMap<RenderTimeFontUsageKey, RenderTimeFontUsage>,
+    active_forms: &mut BTreeSet<String>,
+) {
+    for cmd in commands {
+        match cmd {
+            Command::SetFontName(name) => *current_font = name.clone(),
+            Command::Meta { key, value } => {
+                if key == "font.requested_name" {
+                    *pending_requested_name = Some(value.clone());
+                } else if key == "font.fallback_reason" {
+                    *pending_fallback_reason = Some(value.clone());
+                }
+            }
+            Command::DrawString { text, .. } => {
+                let usage_key = RenderTimeFontUsageKey {
+                    requested_name: pending_requested_name
+                        .take()
+                        .unwrap_or_else(|| current_font.clone()),
+                    resolved_name: current_font.clone(),
+                    fallback_reason: pending_fallback_reason.take(),
+                };
+                let entry = usage.entry(usage_key).or_default();
+                entry.text_draw_count = entry.text_draw_count.saturating_add(1);
+                record_font_usage_sample(entry, Some(text));
+            }
+            Command::DrawStringTransformed { text, .. } => {
+                let usage_key = RenderTimeFontUsageKey {
+                    requested_name: pending_requested_name
+                        .take()
+                        .unwrap_or_else(|| current_font.clone()),
+                    resolved_name: current_font.clone(),
+                    fallback_reason: pending_fallback_reason.take(),
+                };
+                let entry = usage.entry(usage_key).or_default();
+                entry.transformed_text_draw_count =
+                    entry.transformed_text_draw_count.saturating_add(1);
+                record_font_usage_sample(entry, Some(text));
+            }
+            Command::DrawGlyphRun { .. } | Command::DrawSyntheticBoldGlyphRun { .. } => {
+                let usage_key = RenderTimeFontUsageKey {
+                    requested_name: pending_requested_name
+                        .take()
+                        .unwrap_or_else(|| current_font.clone()),
+                    resolved_name: current_font.clone(),
+                    fallback_reason: pending_fallback_reason.take(),
+                };
+                let entry = usage.entry(usage_key).or_default();
+                entry.glyph_run_count = entry.glyph_run_count.saturating_add(1);
+            }
+            Command::DrawForm { resource_id, .. }
+            | Command::DrawFilteredForm { resource_id, .. } => {
+                if !active_forms.insert(resource_id.clone()) {
+                    continue;
+                }
+                if let Some(form_commands) = form_definitions.get(resource_id) {
+                    let mut nested_font = current_font.clone();
+                    let mut nested_requested_name = pending_requested_name.clone();
+                    let mut nested_fallback_reason = pending_fallback_reason.clone();
+                    collect_font_usage_in_commands(
+                        form_commands,
+                        form_definitions,
+                        &mut nested_font,
+                        &mut nested_requested_name,
+                        &mut nested_fallback_reason,
+                        usage,
+                        active_forms,
+                    );
+                }
+                active_forms.remove(resource_id);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_render_time_font_usage(
+    doc: &Document,
+) -> BTreeMap<RenderTimeFontUsageKey, RenderTimeFontUsage> {
+    let mut usage: BTreeMap<RenderTimeFontUsageKey, RenderTimeFontUsage> = BTreeMap::new();
+    for page in &doc.pages {
+        let mut form_definitions: HashMap<String, Vec<Command>> = HashMap::new();
+        collect_form_definitions(&page.commands, &mut form_definitions);
+        let mut current_font = "Helvetica".to_string();
+        let mut pending_requested_name = None;
+        let mut pending_fallback_reason = None;
+        let mut active_forms = BTreeSet::new();
+        collect_font_usage_in_commands(
+            &page.commands,
+            &form_definitions,
+            &mut current_font,
+            &mut pending_requested_name,
+            &mut pending_fallback_reason,
+            &mut usage,
+            &mut active_forms,
+        );
+    }
+    usage
+}
+
+fn build_pdf_font_target_py(
+    py: Python<'_>,
+    engine: &FullBleed,
+    requested_name: &str,
+    resolved_name: &str,
+) -> PyResult<(PyObject, bool, bool)> {
+    let out = PyDict::new(py);
+    let normalized_requested = normalized_font_name(requested_name);
+    let normalized_resolved = normalized_font_name(resolved_name);
+    if let Some(trace) = engine.resolve_registered_font_trace(&normalized_resolved) {
+        out.set_item("target", "pdf")?;
+        out.set_item("outcome", "registered")?;
+        out.set_item("source", trace.source_kind.as_str())?;
+        out.set_item("deterministic", true)?;
+        out.set_item("requested_name", normalized_requested)?;
+        out.set_item("resolved_name", trace.resolved_name)?;
+        out.set_item("resolved_file_name", trace.source_file_name)?;
+        out.set_item("program_kind", trace.program_kind.as_str())?;
+        let debug = PyDict::new(py);
+        debug.set_item("source_identifier", trace.source_identifier)?;
+        out.set_item("debug", debug)?;
+        return Ok((out.unbind().into_any(), true, false));
+    }
+    if is_base14_font_name(&normalized_resolved) {
+        out.set_item("target", "pdf")?;
+        out.set_item(
+            "outcome",
+            if normalized_requested != normalized_resolved {
+                "base14_fallback"
+            } else {
+                "base14"
+            },
+        )?;
+        out.set_item("source", "base14")?;
+        out.set_item("deterministic", true)?;
+        out.set_item("requested_name", normalized_requested)?;
+        out.set_item("resolved_name", normalized_resolved)?;
+        out.set_item("resolved_file_name", py.None())?;
+        out.set_item("program_kind", py.None())?;
+        return Ok((out.unbind().into_any(), true, false));
+    }
+
+    out.set_item("target", "pdf")?;
+    out.set_item("outcome", "viewer_fallback")?;
+    out.set_item("source", "pdf_viewer")?;
+    out.set_item("deterministic", false)?;
+    out.set_item("requested_name", normalized_requested)?;
+    out.set_item("resolved_name", normalized_resolved)?;
+    out.set_item("resolved_file_name", py.None())?;
+    out.set_item("program_kind", py.None())?;
+    out.set_item(
+        "warning",
+        "Non-base14 font is not registered; PDF output will rely on viewer substitution.",
+    )?;
+    Ok((out.unbind().into_any(), false, true))
+}
+
+fn build_raster_font_target_py(
+    py: Python<'_>,
+    engine: &FullBleed,
+    requested_name: &str,
+    resolved_name: &str,
+) -> PyResult<(PyObject, bool, bool, bool)> {
+    let out = PyDict::new(py);
+    let normalized_requested = normalized_font_name(requested_name);
+    let normalized_resolved = normalized_font_name(resolved_name);
+    if let Some(trace) = engine.resolve_registered_font_trace(&normalized_resolved) {
+        out.set_item("target", "raster_preview")?;
+        out.set_item("outcome", "registered")?;
+        out.set_item("source", trace.source_kind.as_str())?;
+        out.set_item("deterministic", true)?;
+        out.set_item("requested_name", normalized_requested)?;
+        out.set_item("resolved_name", trace.resolved_name)?;
+        out.set_item("resolved_file_name", trace.source_file_name)?;
+        out.set_item("program_kind", trace.program_kind.as_str())?;
+        let debug = PyDict::new(py);
+        debug.set_item("source_identifier", trace.source_identifier)?;
+        out.set_item("debug", debug)?;
+        return Ok((out.unbind().into_any(), true, false, false));
+    }
+    if let Some(font) = crate::builtin_preview_fonts::resolve(&normalized_resolved) {
+        out.set_item("target", "raster_preview")?;
+        out.set_item("outcome", "bundled_substitute")?;
+        out.set_item("source", "bundled")?;
+        out.set_item("deterministic", true)?;
+        out.set_item("requested_name", normalized_requested)?;
+        out.set_item("resolved_name", normalized_resolved)?;
+        out.set_item("resolved_file_name", font.file_name)?;
+        out.set_item("program_kind", "truetype")?;
+        out.set_item("license", "OFL-1.1")?;
+        return Ok((out.unbind().into_any(), true, false, false));
+    }
+    if let Some(trace) = crate::raster::inspect_system_font_resolution(&normalized_resolved) {
+        out.set_item("target", "raster_preview")?;
+        out.set_item("outcome", "system_fallback")?;
+        out.set_item("source", "system")?;
+        out.set_item("deterministic", false)?;
+        out.set_item("requested_name", normalized_requested)?;
+        out.set_item("resolved_name", normalized_resolved)?;
+        out.set_item("matched_family", trace.matched_family)?;
+        out.set_item("resolved_file_name", trace.resolved_file_name)?;
+        out.set_item(
+            "candidate_file_names",
+            PyList::new(py, trace.candidate_file_names)?,
+        )?;
+        let debug = PyDict::new(py);
+        debug.set_item(
+            "resolved_path",
+            trace.resolved_path.to_string_lossy().to_string(),
+        )?;
+        out.set_item("debug", debug)?;
+        out.set_item(
+            "warning",
+            "Raster preview is using a host system font fallback; output may drift across machines.",
+        )?;
+        return Ok((out.unbind().into_any(), false, true, false));
+    }
+
+    out.set_item("target", "raster_preview")?;
+    out.set_item("outcome", "unresolved")?;
+    out.set_item("source", "unresolved")?;
+    out.set_item("deterministic", false)?;
+    out.set_item("requested_name", normalized_requested)?;
+    out.set_item("resolved_name", normalized_resolved)?;
+    out.set_item("resolved_file_name", py.None())?;
+    out.set_item("program_kind", py.None())?;
+    out.set_item(
+        "warning",
+        "Raster preview could not resolve a font for this logical family.",
+    )?;
+    Ok((out.unbind().into_any(), false, false, true))
+}
+
+fn build_render_time_font_resolution_trace_py(
+    py: Python<'_>,
+    doc: &Document,
+    engine: &FullBleed,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.font_resolution_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("extractor", "render_time_commands")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let usage = collect_render_time_font_usage(doc);
+    let fonts_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+    let mut deterministic_font_count = 0usize;
+    let mut nondeterministic_font_count = 0usize;
+    let mut pdf_viewer_fallback_count = 0usize;
+    let mut raster_system_fallback_count = 0usize;
+    let mut unresolved_target_count = 0usize;
+
+    for (usage_key, stats) in usage {
+        let row = PyDict::new(py);
+        row.set_item("requested_name", usage_key.requested_name.clone())?;
+        row.set_item("resolved_name", usage_key.resolved_name.clone())?;
+        row.set_item("fallback_reason", usage_key.fallback_reason.clone())?;
+        row.set_item("text_draw_count", stats.text_draw_count)?;
+        row.set_item(
+            "transformed_text_draw_count",
+            stats.transformed_text_draw_count,
+        )?;
+        row.set_item("glyph_run_count", stats.glyph_run_count)?;
+        row.set_item("sample_text", stats.sample_text)?;
+
+        let (pdf_target, pdf_deterministic, pdf_viewer_fallback) = build_pdf_font_target_py(
+            py,
+            engine,
+            &usage_key.requested_name,
+            &usage_key.resolved_name,
+        )?;
+        let (raster_target, raster_deterministic, raster_system_fallback, raster_unresolved) =
+            build_raster_font_target_py(
+                py,
+                engine,
+                &usage_key.requested_name,
+                &usage_key.resolved_name,
+            )?;
+        row.set_item("pdf_target", pdf_target)?;
+        row.set_item("raster_target", raster_target)?;
+
+        let deterministic = pdf_deterministic && raster_deterministic;
+        row.set_item("deterministic", deterministic)?;
+        if deterministic {
+            deterministic_font_count = deterministic_font_count.saturating_add(1);
+        } else {
+            nondeterministic_font_count = nondeterministic_font_count.saturating_add(1);
+        }
+        if pdf_viewer_fallback {
+            pdf_viewer_fallback_count = pdf_viewer_fallback_count.saturating_add(1);
+        }
+        if raster_system_fallback {
+            raster_system_fallback_count = raster_system_fallback_count.saturating_add(1);
+        }
+        if raster_unresolved {
+            unresolved_target_count = unresolved_target_count.saturating_add(1);
+        }
+        fonts_out.append(row)?;
+    }
+
+    if pdf_viewer_fallback_count > 0 {
+        warnings.append(format!(
+            "pdf viewer fallback detected for {} font request(s)",
+            pdf_viewer_fallback_count
+        ))?;
+    }
+    if raster_system_fallback_count > 0 {
+        warnings.append(format!(
+            "host system raster fallback detected for {} font request(s)",
+            raster_system_fallback_count
+        ))?;
+    }
+    if unresolved_target_count > 0 {
+        warnings.append(format!(
+            "unresolved raster font target detected for {} font request(s)",
+            unresolved_target_count
+        ))?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("font_count", fonts_out.len())?;
+    summary.set_item("deterministic_font_count", deterministic_font_count)?;
+    summary.set_item("nondeterministic_font_count", nondeterministic_font_count)?;
+    summary.set_item("pdf_viewer_fallback_count", pdf_viewer_fallback_count)?;
+    summary.set_item("raster_system_fallback_count", raster_system_fallback_count)?;
+    summary.set_item("unresolved_target_count", unresolved_target_count)?;
+    out.set_item("summary", summary)?;
+    out.set_item("fonts", fonts_out)?;
+    out.set_item("warnings", warnings)?;
+    Ok(out.unbind().into_any())
+}
+
+fn build_render_time_asset_resolution_trace_py(
+    py: Python<'_>,
+    html: &str,
+    engine: &FullBleed,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.asset_resolution_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("extractor", "html_image_sources")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let document = parse_html(html);
+    let mut references: BTreeMap<String, usize> = BTreeMap::new();
+    if let Ok(images) = document.select("img[src]") {
+        for image in images {
+            let attrs = image.attributes.borrow();
+            if let Some(src) = attrs.get("src") {
+                *references.entry(src.to_string()).or_insert(0usize) += 1;
+            }
+        }
+    }
+
+    let assets_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+    let mut resolved_count = 0usize;
+    let mut unresolved_count = 0usize;
+    let mut raster_image_count = 0usize;
+    let mut vector_svg_count = 0usize;
+    let mut rasterized_svg_count = 0usize;
+    let mut unsupported_count = 0usize;
+    let mut bundle_resolved_count = 0usize;
+    let mut file_uri_resolved_count = 0usize;
+    let mut local_path_resolved_count = 0usize;
+    let mut data_uri_resolved_count = 0usize;
+
+    for (src, reference_count) in &references {
+        let resolved = resolve_image_asset(Some(engine.asset_bundle_ref()), src);
+        let row = PyDict::new(py);
+        let mut effective_outcome = resolved.trace.render_outcome.clone();
+        if resolved.trace.success && resolved.trace.content_kind == "svg" {
+            if let Ok(xml) = String::from_utf8(resolved.bytes.clone()) {
+                if engine.svg_raster_fallback_enabled()
+                    && crate::svg::svg_needs_raster_fallback(&xml)
+                {
+                    effective_outcome = "rasterized_svg".to_string();
+                } else {
+                    effective_outcome = "vector_svg".to_string();
+                }
+            }
+        }
+        row.set_item("source_uri", resolved.trace.source_uri.clone())?;
+        row.set_item(
+            "normalized_uri",
+            resolved.trace.normalized_uri.clone().unwrap_or_default(),
+        )?;
+        row.set_item("resolver", resolved.trace.resolver.clone())?;
+        row.set_item("success", resolved.trace.success)?;
+        row.set_item("mime", resolved.trace.mime.clone())?;
+        row.set_item("content_kind", resolved.trace.content_kind.clone())?;
+        row.set_item("render_outcome", effective_outcome.clone())?;
+        row.set_item("asset_name", resolved.trace.asset_name.clone())?;
+        row.set_item("message", resolved.trace.message.clone())?;
+        row.set_item("reference_count", *reference_count)?;
+        assets_out.append(row)?;
+
+        if resolved.trace.success {
+            resolved_count = resolved_count.saturating_add(1);
+            match resolved.trace.resolver.as_str() {
+                "bundle" => bundle_resolved_count = bundle_resolved_count.saturating_add(1),
+                "file_uri" => file_uri_resolved_count = file_uri_resolved_count.saturating_add(1),
+                "local_path" => {
+                    local_path_resolved_count = local_path_resolved_count.saturating_add(1)
+                }
+                "data_uri" => data_uri_resolved_count = data_uri_resolved_count.saturating_add(1),
+                _ => {}
+            }
+            match effective_outcome.as_str() {
+                "raster_image" => raster_image_count = raster_image_count.saturating_add(1),
+                "vector_svg" => vector_svg_count = vector_svg_count.saturating_add(1),
+                "rasterized_svg" => rasterized_svg_count = rasterized_svg_count.saturating_add(1),
+                _ => unsupported_count = unsupported_count.saturating_add(1),
+            }
+        } else {
+            unresolved_count = unresolved_count.saturating_add(1);
+            warnings.append(format!(
+                "unresolved image source: {}",
+                resolved.trace.source_uri
+            ))?;
+        }
+        if effective_outcome == "unsupported" {
+            warnings.append(format!(
+                "unsupported image payload for source: {}",
+                resolved.trace.source_uri
+            ))?;
+        }
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item(
+        "image_reference_count",
+        references.values().copied().sum::<usize>(),
+    )?;
+    summary.set_item("unique_image_source_count", references.len())?;
+    summary.set_item("resolved_count", resolved_count)?;
+    summary.set_item("unresolved_count", unresolved_count)?;
+    summary.set_item("unsupported_count", unsupported_count)?;
+    summary.set_item("raster_image_count", raster_image_count)?;
+    summary.set_item("vector_svg_count", vector_svg_count)?;
+    summary.set_item("rasterized_svg_count", rasterized_svg_count)?;
+    summary.set_item("bundle_resolved_count", bundle_resolved_count)?;
+    summary.set_item("file_uri_resolved_count", file_uri_resolved_count)?;
+    summary.set_item("local_path_resolved_count", local_path_resolved_count)?;
+    summary.set_item("data_uri_resolved_count", data_uri_resolved_count)?;
+    out.set_item("summary", summary)?;
+    out.set_item("assets", assets_out)?;
+    out.set_item("warnings", warnings)?;
+    Ok(out.unbind().into_any())
+}
+
+fn parse_trace_fields(raw: &str) -> HashMap<&str, &str> {
+    let mut out = HashMap::new();
+    for chunk in raw.split('|') {
+        if let Some((key, value)) = chunk.split_once('=') {
+            out.insert(key, value);
+        }
+    }
+    out
+}
+
+fn trace_b64_string(fields: &HashMap<&str, &str>, key: &str) -> Option<String> {
+    let raw = *fields.get(key)?;
+    let bytes = crate::base64::decode_url_safe_no_pad(raw).ok()?;
+    String::from_utf8(bytes).ok()
+}
+
+fn owner_from_trace_fields(fields: &HashMap<&str, &str>) -> TraceOwnerContext {
+    TraceOwnerContext {
+        selector: trace_b64_string(fields, "owner_selector_b64"),
+        dom_path: trace_b64_string(fields, "owner_dom_path_b64"),
+        role: trace_b64_string(fields, "owner_role_b64"),
+        component: trace_b64_string(fields, "owner_component_b64"),
+        tag: trace_b64_string(fields, "owner_tag_b64"),
+        id: trace_b64_string(fields, "owner_id_b64"),
+        classes: trace_b64_string(fields, "owner_classes_b64"),
+    }
+}
+
+fn trace_i64(fields: &HashMap<&str, &str>, key: &str) -> Option<i64> {
+    fields.get(key).and_then(|value| value.parse::<i64>().ok())
+}
+
+fn trace_usize(fields: &HashMap<&str, &str>, key: &str) -> Option<usize> {
+    trace_i64(fields, key).and_then(|value| usize::try_from(value).ok())
+}
+
+fn trace_optional_usize(fields: &HashMap<&str, &str>, key: &str) -> Option<usize> {
+    trace_i64(fields, key).and_then(|value| {
+        if value < 0 {
+            None
+        } else {
+            usize::try_from(value).ok()
+        }
+    })
+}
+
+fn trace_flag(fields: &HashMap<&str, &str>, key: &str) -> bool {
+    matches!(fields.get(key).copied(), Some("1"))
+}
+
+fn milli_to_f32(value: i64) -> f32 {
+    (value as f64 / 1000.0) as f32
+}
+
+fn parse_bbox_meta(raw: &str) -> Option<(f32, f32, f32, f32)> {
+    let mut parts = raw.split(',');
+    let x = parts.next()?.parse::<i64>().ok()?;
+    let y = parts.next()?.parse::<i64>().ok()?;
+    let w = parts.next()?.parse::<i64>().ok()?;
+    let h = parts.next()?.parse::<i64>().ok()?;
+    Some((
+        milli_to_f32(x),
+        milli_to_f32(y),
+        milli_to_f32(w),
+        milli_to_f32(h),
+    ))
+}
+
+fn is_visible_command(cmd: &Command) -> bool {
+    matches!(
+        cmd,
+        Command::DrawString { .. }
+            | Command::DrawStringTransformed { .. }
+            | Command::DrawGlyphRun { .. }
+            | Command::DrawSyntheticBoldGlyphRun { .. }
+            | Command::DrawImage { .. }
+            | Command::DrawForm { .. }
+            | Command::DrawFilteredForm { .. }
+            | Command::ApplyBackdropFilter { .. }
+            | Command::ShadingFill(_)
+            | Command::Fill
+            | Command::FillEvenOdd
+            | Command::Stroke
+            | Command::FillStroke
+            | Command::FillStrokeEvenOdd
+    )
+}
+
+fn count_rect_overlaps(rects: &[(f32, f32, f32, f32)]) -> usize {
+    let mut count = 0usize;
+    for i in 0..rects.len() {
+        let (ax, ay, aw, ah) = rects[i];
+        if aw <= 0.0 || ah <= 0.0 {
+            continue;
+        }
+        let ax1 = ax + aw;
+        let ay1 = ay + ah;
+        for &(bx, by, bw, bh) in rects.iter().skip(i + 1) {
+            if bw <= 0.0 || bh <= 0.0 {
+                continue;
+            }
+            let bx1 = bx + bw;
+            let by1 = by + bh;
+            let iw = ax1.min(bx1) - ax.max(bx);
+            let ih = ay1.min(by1) - ay.max(by);
+            if iw >= 1.0 && ih >= 1.0 && (iw * ih) >= 4.0 {
+                count = count.saturating_add(1);
+            }
+        }
+    }
+    count
+}
+
+fn build_render_time_pagination_trace_py(
+    py: Python<'_>,
+    doc: &Document,
+    engine: &FullBleed,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pagination_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("extractor", "render_time_layout")?;
+    out.set_item("source", "engine_doc_template")?;
+
+    let events_out = PyList::empty(py);
+    let pages_out = PyList::empty(py);
+    let page_break_attribution_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+    let page_size = PyDict::new(py);
+    page_size.set_item("width", doc.page_size.width.to_f32())?;
+    page_size.set_item("height", doc.page_size.height.to_f32())?;
+
+    let page_area = f64::from(doc.page_size.width.to_f32().max(0.0))
+        * f64::from(doc.page_size.height.to_f32().max(0.0));
+
+    let mut event_count = 0usize;
+    let mut transition_count = 0usize;
+    let mut page_transition_count = 0usize;
+    let mut frame_transition_count = 0usize;
+    let mut placement_count = 0usize;
+    let mut split_count = 0usize;
+    let mut overflow_event_count = 0usize;
+    let mut recoverable_overflow_count = 0usize;
+    let mut fatal_overflow_count = 0usize;
+    let mut flowable_overlap_count = 0usize;
+    let mut low_coverage_page_count = 0usize;
+    let mut text_overlap_count = 0usize;
+    let text_overlap_samples_out = PyList::empty(py);
+    let mut break_trigger_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut flowable_issue_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut page_transition_owner_hints: BTreeMap<
+        usize,
+        BTreeMap<String, (TraceOwnerContext, usize)>,
+    > = BTreeMap::new();
+    let collapse_pages_out = PyList::empty(py);
+
+    for (page_index, page) in doc.pages.iter().enumerate() {
+        let mut template_name: Option<String> = None;
+        let mut visible_command_count = 0usize;
+        let mut layout_event_count = 0usize;
+        let mut page_event_count = 0usize;
+        let mut flowable_bboxes: Vec<(f32, f32, f32, f32)> = Vec::new();
+        let mut current_owner = TraceOwnerContext::default();
+        let mut owner_stack: Vec<TraceOwnerContext> = Vec::new();
+        let mut page_owner_scores: BTreeMap<String, (TraceOwnerContext, f64)> = BTreeMap::new();
+        let mut page_transition_reasons: std::collections::BTreeMap<String, usize> =
+            std::collections::BTreeMap::new();
+        let mut page_issue_flowables: std::collections::BTreeMap<String, usize> =
+            std::collections::BTreeMap::new();
+        let text_collection = collect_render_time_text_blocks_for_page(
+            page,
+            crate::canvas::PageGeometry::for_page(page, doc.page_size)
+                .logical_size
+                .height,
+            Some(engine),
+        );
+
+        for cmd in &page.commands {
+            if is_visible_command(cmd) {
+                visible_command_count = visible_command_count.saturating_add(1);
+            }
+            match cmd {
+                Command::Meta { key, value } if key == crate::META_PAGE_TEMPLATE_KEY => {
+                    template_name = Some(value.clone());
+                }
+                Command::Meta { key, .. } if key == META_DIAGNOSTIC_SCOPE_BEGIN_KEY => {
+                    owner_stack.push(current_owner.clone());
+                }
+                Command::Meta { key, .. } if key == META_DIAGNOSTIC_SCOPE_END_KEY => {
+                    current_owner = owner_stack.pop().unwrap_or_default();
+                }
+                Command::Meta { key, value } if key == META_FLOWABLE_BBOX_KEY => {
+                    if let Some(bbox) = parse_bbox_meta(value) {
+                        let area = f64::from(bbox.2.max(0.0)) * f64::from(bbox.3.max(0.0));
+                        accumulate_owner_score(
+                            &mut page_owner_scores,
+                            &current_owner,
+                            area.max(1.0),
+                        );
+                        flowable_bboxes.push(bbox);
+                    }
+                }
+                Command::Meta { key, value } if key == META_PAGINATION_EVENT_KEY => {
+                    let fields = parse_trace_fields(value);
+                    let owner = owner_from_trace_fields(&fields);
+                    let event_type = fields.get("event").copied().unwrap_or("unknown");
+                    let row = PyDict::new(py);
+                    row.set_item("event_index", event_count)?;
+                    row.set_item("event_type", event_type)?;
+                    row.set_item("page_index", page_index)?;
+                    row.set_item("page", page_index + 1)?;
+                    row.set_item("owner", trace_owner_to_py(py, &owner)?)?;
+                    row.set_item("owner_label", owner.label())?;
+
+                    if event_type == "layout" {
+                        layout_event_count = layout_event_count.saturating_add(1);
+                        row.set_item("source_order", trace_usize(&fields, "source_order"))?;
+                        row.set_item("segment_index", trace_usize(&fields, "segment_index"))?;
+                        row.set_item(
+                            "flowable_name",
+                            fields.get("flowable").copied().unwrap_or("unknown"),
+                        )?;
+                        row.set_item("frame_index", trace_usize(&fields, "frame_index"))?;
+                        row.set_item("is_last_frame", trace_flag(&fields, "is_last_frame"))?;
+                        row.set_item(
+                            "placed_on_page_before",
+                            trace_flag(&fields, "placed_on_page_before"),
+                        )?;
+                        let result = fields.get("result").copied().unwrap_or("unknown");
+                        let reason = fields.get("reason").copied().unwrap_or("unknown");
+                        let overflow_severity =
+                            fields.get("overflow_severity").copied().unwrap_or("none");
+                        let flowable_name = fields
+                            .get("flowable")
+                            .copied()
+                            .unwrap_or("unknown")
+                            .to_string();
+                        row.set_item("result", result)?;
+                        row.set_item("reason", reason)?;
+                        row.set_item("overflow_severity", overflow_severity)?;
+
+                        let available_before = PyDict::new(py);
+                        available_before
+                            .set_item("width", trace_i64(&fields, "avail_w").map(milli_to_f32))?;
+                        available_before
+                            .set_item("height", trace_i64(&fields, "avail_h").map(milli_to_f32))?;
+                        available_before.set_item(
+                            "cursor_y",
+                            trace_i64(&fields, "cursor_y_before").map(milli_to_f32),
+                        )?;
+                        row.set_item("available_before", available_before)?;
+
+                        let frame_rect = PyDict::new(py);
+                        frame_rect
+                            .set_item("x", trace_i64(&fields, "frame_x").map(milli_to_f32))?;
+                        frame_rect
+                            .set_item("y", trace_i64(&fields, "frame_y").map(milli_to_f32))?;
+                        frame_rect
+                            .set_item("w", trace_i64(&fields, "frame_w").map(milli_to_f32))?;
+                        frame_rect
+                            .set_item("h", trace_i64(&fields, "frame_h").map(milli_to_f32))?;
+                        row.set_item("frame_rect", frame_rect)?;
+
+                        let wrapped_size = PyDict::new(py);
+                        wrapped_size
+                            .set_item("width", trace_i64(&fields, "wrapped_w").map(milli_to_f32))?;
+                        wrapped_size.set_item(
+                            "height",
+                            trace_i64(&fields, "wrapped_h").map(milli_to_f32),
+                        )?;
+                        row.set_item("wrapped_size", wrapped_size)?;
+
+                        let placed_w = trace_i64(&fields, "placed_w").unwrap_or(0);
+                        let placed_h = trace_i64(&fields, "placed_h").unwrap_or(0);
+                        if placed_w > 0 && placed_h > 0 {
+                            let placed_rect = PyDict::new(py);
+                            placed_rect
+                                .set_item("x", trace_i64(&fields, "placed_x").map(milli_to_f32))?;
+                            placed_rect
+                                .set_item("y", trace_i64(&fields, "placed_y").map(milli_to_f32))?;
+                            placed_rect.set_item("w", Some(milli_to_f32(placed_w)))?;
+                            placed_rect.set_item("h", Some(milli_to_f32(placed_h)))?;
+                            row.set_item("placed_rect", placed_rect)?;
+                        } else {
+                            row.set_item("placed_rect", py.None())?;
+                        }
+
+                        match result {
+                            "placed" => {
+                                placement_count = placement_count.saturating_add(1);
+                            }
+                            "split" => {
+                                split_count = split_count.saturating_add(1);
+                                *page_issue_flowables
+                                    .entry(flowable_name.clone())
+                                    .or_insert(0) += 1;
+                                *flowable_issue_counts.entry(flowable_name).or_insert(0) += 1;
+                            }
+                            "overflow" => {
+                                overflow_event_count = overflow_event_count.saturating_add(1);
+                                *page_issue_flowables
+                                    .entry(flowable_name.clone())
+                                    .or_insert(0) += 1;
+                                *flowable_issue_counts.entry(flowable_name).or_insert(0) += 1;
+                                if overflow_severity == "fatal_unplaceable" {
+                                    fatal_overflow_count = fatal_overflow_count.saturating_add(1);
+                                } else {
+                                    recoverable_overflow_count =
+                                        recoverable_overflow_count.saturating_add(1);
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else if event_type == "transition" {
+                        transition_count = transition_count.saturating_add(1);
+                        let from_page = trace_usize(&fields, "from_page").unwrap_or(page_index + 1);
+                        let to_page = trace_usize(&fields, "to_page").unwrap_or(page_index + 1);
+                        let reason = fields.get("reason").copied().unwrap_or("unknown");
+                        let flowable_name = fields
+                            .get("flowable")
+                            .copied()
+                            .unwrap_or("unknown")
+                            .to_string();
+                        row.set_item("from_page", from_page)?;
+                        row.set_item("to_page", to_page)?;
+                        row.set_item("from_frame_index", trace_usize(&fields, "from_frame_index"))?;
+                        row.set_item("to_frame_index", trace_usize(&fields, "to_frame_index"))?;
+                        row.set_item("flowable_name", flowable_name.clone())?;
+                        row.set_item(
+                            "source_order",
+                            trace_optional_usize(&fields, "source_order"),
+                        )?;
+                        row.set_item(
+                            "segment_index",
+                            trace_optional_usize(&fields, "segment_index"),
+                        )?;
+                        row.set_item("reason", reason)?;
+                        if from_page != to_page {
+                            page_transition_count = page_transition_count.saturating_add(1);
+                            *break_trigger_counts.entry(reason.to_string()).or_insert(0) += 1;
+                            *page_transition_reasons
+                                .entry(reason.to_string())
+                                .or_insert(0) += 1;
+                            *page_issue_flowables
+                                .entry(flowable_name.clone())
+                                .or_insert(0) += 1;
+                            *flowable_issue_counts
+                                .entry(flowable_name.clone())
+                                .or_insert(0) += 1;
+                            accumulate_owner_hint(
+                                page_transition_owner_hints.entry(to_page).or_default(),
+                                &owner,
+                            );
+                            let attribution = PyDict::new(py);
+                            attribution.set_item("page", page_index + 1)?;
+                            attribution.set_item("from_page", from_page)?;
+                            attribution.set_item("to_page", to_page)?;
+                            attribution.set_item("reason", reason)?;
+                            attribution.set_item("flowable_name", flowable_name)?;
+                            attribution.set_item("owner", trace_owner_to_py(py, &owner)?)?;
+                            attribution.set_item("owner_label", owner.label())?;
+                            attribution.set_item(
+                                "source_order",
+                                trace_optional_usize(&fields, "source_order"),
+                            )?;
+                            attribution.set_item(
+                                "segment_index",
+                                trace_optional_usize(&fields, "segment_index"),
+                            )?;
+                            attribution.set_item(
+                                "from_frame_index",
+                                trace_usize(&fields, "from_frame_index"),
+                            )?;
+                            attribution.set_item(
+                                "to_frame_index",
+                                trace_usize(&fields, "to_frame_index"),
+                            )?;
+                            page_break_attribution_out.append(attribution)?;
+                        } else {
+                            frame_transition_count = frame_transition_count.saturating_add(1);
+                        }
+                    }
+
+                    events_out.append(row)?;
+                    event_count = event_count.saturating_add(1);
+                    page_event_count = page_event_count.saturating_add(1);
+                }
+                Command::Meta { key, value } => {
+                    current_owner.apply_meta(key, value);
+                }
+                _ => {}
+            }
+        }
+
+        let overlap_count = count_rect_overlaps(&flowable_bboxes);
+        flowable_overlap_count = flowable_overlap_count.saturating_add(overlap_count);
+        let (page_text_overlap_count, page_text_overlap_samples) =
+            collect_text_overlap_samples(&text_collection.blocks, 4);
+        text_overlap_count = text_overlap_count.saturating_add(page_text_overlap_count);
+        for block in &text_collection.blocks {
+            let width = (block.bbox.2 - block.bbox.0).max(0.0);
+            let height = (block.bbox.3 - block.bbox.1).max(0.0);
+            let area = f64::from(width) * f64::from(height);
+            let score = if area > 0.0 {
+                area
+            } else {
+                block.text.trim().chars().count().max(1) as f64
+            };
+            accumulate_owner_score(&mut page_owner_scores, &block.owner, score.max(1.0));
+        }
+        for sample in page_text_overlap_samples
+            .iter()
+            .take(8usize.saturating_sub(text_overlap_samples_out.len()))
+        {
+            let row = PyDict::new(py);
+            row.set_item("page", page_index + 1)?;
+            let overlap_bbox = PyDict::new(py);
+            overlap_bbox.set_item("x", sample.overlap_bbox.0)?;
+            overlap_bbox.set_item("y", sample.overlap_bbox.1)?;
+            overlap_bbox.set_item("w", sample.overlap_bbox.2)?;
+            overlap_bbox.set_item("h", sample.overlap_bbox.3)?;
+            row.set_item("overlap_bbox", overlap_bbox)?;
+            let a = PyDict::new(py);
+            a.set_item("index", sample.a_index)?;
+            a.set_item("command_index", sample.a_command_index)?;
+            a.set_item("top_role", sample.a_top_role.clone())?;
+            a.set_item("text", sample.a_text.clone())?;
+            row.set_item("a", a)?;
+            let b = PyDict::new(py);
+            b.set_item("index", sample.b_index)?;
+            b.set_item("command_index", sample.b_command_index)?;
+            b.set_item("top_role", sample.b_top_role.clone())?;
+            b.set_item("text", sample.b_text.clone())?;
+            row.set_item("b", b)?;
+            text_overlap_samples_out.append(row)?;
+        }
+
+        let occupied_area: f64 = flowable_bboxes
+            .iter()
+            .map(|(_, _, width, height)| {
+                f64::from((*width).max(0.0)) * f64::from((*height).max(0.0))
+            })
+            .sum();
+        let occupied_area_ratio = if page_area > 0.0 {
+            (occupied_area / page_area).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let low_coverage = visible_command_count == 0
+            || (!flowable_bboxes.is_empty() && occupied_area_ratio < 0.0005f64);
+        if low_coverage {
+            low_coverage_page_count = low_coverage_page_count.saturating_add(1);
+            let warning = PyDict::new(py);
+            warning.set_item("code", "LOW_COVERAGE_PAGE")?;
+            warning.set_item("page", page_index + 1)?;
+            warning.set_item("visible_command_count", visible_command_count)?;
+            warning.set_item("flowable_bbox_count", flowable_bboxes.len())?;
+            warning.set_item("occupied_area_ratio", occupied_area_ratio)?;
+            warnings.append(warning)?;
+        }
+        if overlap_count > 0 {
+            let warning = PyDict::new(py);
+            warning.set_item("code", "FLOWABLE_OVERPRINT")?;
+            warning.set_item("page", page_index + 1)?;
+            warning.set_item("overlap_count", overlap_count)?;
+            warnings.append(warning)?;
+        }
+        if page_text_overlap_count > 0 {
+            let warning = PyDict::new(py);
+            warning.set_item("code", "TEXT_OVERLAP")?;
+            warning.set_item("page", page_index + 1)?;
+            warning.set_item("overlap_count", page_text_overlap_count)?;
+            warnings.append(warning)?;
+        }
+
+        let dominant_owner_entry = page_owner_scores
+            .values()
+            .max_by(|left, right| {
+                left.1
+                    .partial_cmp(&right.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(owner, score)| (owner.clone(), *score, "content_bbox"));
+        let transition_hint_entry = page_transition_owner_hints
+            .get(&(page_index + 1))
+            .and_then(|scores| scores.values().max_by_key(|(_, count)| *count))
+            .map(|(owner, count)| (owner.clone(), *count as f64, "page_transition_hint"));
+        let (dominant_owner, dominant_owner_score, dominant_owner_source) = dominant_owner_entry
+            .or(transition_hint_entry)
+            .unwrap_or((TraceOwnerContext::default(), 0.0, "none"));
+
+        let page_row = PyDict::new(py);
+        page_row.set_item("page_index", page_index)?;
+        page_row.set_item("page", page_index + 1)?;
+        page_row.set_item("width", doc.page_size.width.to_f32())?;
+        page_row.set_item("height", doc.page_size.height.to_f32())?;
+        page_row.set_item("template_name", template_name)?;
+        page_row.set_item("layout_event_count", layout_event_count)?;
+        page_row.set_item("event_count", page_event_count)?;
+        page_row.set_item("visible_command_count", visible_command_count)?;
+        page_row.set_item("flowable_bbox_count", flowable_bboxes.len())?;
+        page_row.set_item("flowable_overlap_count", overlap_count)?;
+        page_row.set_item("text_block_count", text_collection.blocks.len())?;
+        page_row.set_item("text_overlap_count", page_text_overlap_count)?;
+        let page_samples = PyList::empty(py);
+        for sample in &page_text_overlap_samples {
+            let row = PyDict::new(py);
+            row.set_item("page", page_index + 1)?;
+            let overlap_bbox = PyDict::new(py);
+            overlap_bbox.set_item("x", sample.overlap_bbox.0)?;
+            overlap_bbox.set_item("y", sample.overlap_bbox.1)?;
+            overlap_bbox.set_item("w", sample.overlap_bbox.2)?;
+            overlap_bbox.set_item("h", sample.overlap_bbox.3)?;
+            row.set_item("overlap_bbox", overlap_bbox)?;
+            let a = PyDict::new(py);
+            a.set_item("index", sample.a_index)?;
+            a.set_item("command_index", sample.a_command_index)?;
+            a.set_item("top_role", sample.a_top_role.clone())?;
+            a.set_item("text", sample.a_text.clone())?;
+            row.set_item("a", a)?;
+            let b = PyDict::new(py);
+            b.set_item("index", sample.b_index)?;
+            b.set_item("command_index", sample.b_command_index)?;
+            b.set_item("top_role", sample.b_top_role.clone())?;
+            b.set_item("text", sample.b_text.clone())?;
+            row.set_item("b", b)?;
+            page_samples.append(row)?;
+        }
+        page_row.set_item("text_overlap_samples", page_samples)?;
+        page_row.set_item("occupied_area_ratio", occupied_area_ratio)?;
+        page_row.set_item("low_coverage", low_coverage)?;
+        page_row.set_item("dominant_owner", trace_owner_to_py(py, &dominant_owner)?)?;
+        page_row.set_item("dominant_owner_label", dominant_owner.label())?;
+        page_row.set_item("dominant_owner_score", dominant_owner_score)?;
+        page_row.set_item("dominant_owner_source", dominant_owner_source)?;
+        let transition_reason_rows = PyList::empty(py);
+        for (reason, count) in &page_transition_reasons {
+            let row = PyDict::new(py);
+            row.set_item("reason", reason.clone())?;
+            row.set_item("count", *count)?;
+            transition_reason_rows.append(row)?;
+        }
+        page_row.set_item("transition_reasons", &transition_reason_rows)?;
+        let issue_flowable_rows = PyList::empty(py);
+        for (flowable_name, count) in page_issue_flowables.iter().take(5) {
+            let row = PyDict::new(py);
+            row.set_item("flowable_name", flowable_name.clone())?;
+            row.set_item("count", *count)?;
+            issue_flowable_rows.append(row)?;
+        }
+        page_row.set_item("suspect_flowables", &issue_flowable_rows)?;
+        let owner_candidates = PyList::empty(py);
+        let mut owner_candidate_rows: Vec<(TraceOwnerContext, f64)> = page_owner_scores
+            .values()
+            .map(|(owner, score)| (owner.clone(), *score))
+            .collect();
+        owner_candidate_rows.sort_by(|left, right| {
+            right
+                .1
+                .partial_cmp(&left.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        for (owner, score) in owner_candidate_rows.into_iter().take(5) {
+            let row = PyDict::new(py);
+            row.set_item("owner", trace_owner_to_py(py, &owner)?)?;
+            row.set_item("label", owner.label())?;
+            row.set_item("score", score)?;
+            owner_candidates.append(row)?;
+        }
+        if owner_candidates.len() == 0 {
+            if let Some(hints) = page_transition_owner_hints.get(&(page_index + 1)) {
+                let mut hint_rows: Vec<(TraceOwnerContext, usize)> = hints
+                    .values()
+                    .map(|(owner, count)| (owner.clone(), *count))
+                    .collect();
+                hint_rows.sort_by(|left, right| right.1.cmp(&left.1));
+                for (owner, count) in hint_rows.into_iter().take(5) {
+                    let row = PyDict::new(py);
+                    row.set_item("owner", trace_owner_to_py(py, &owner)?)?;
+                    row.set_item("label", owner.label())?;
+                    row.set_item("score", count as f64)?;
+                    row.set_item("source", "page_transition_hint")?;
+                    owner_candidates.append(row)?;
+                }
+            }
+        }
+        page_row.set_item("owner_candidates", owner_candidates.clone())?;
+
+        let suspect_cause_codes = PyList::empty(py);
+        if low_coverage && occupied_area_ratio < 0.0005f64 {
+            suspect_cause_codes.append("content_collapsed_into_small_region")?;
+        }
+        if low_coverage && visible_command_count > 0 {
+            suspect_cause_codes.append("root_or_wrapper_sizing_mismatch")?;
+        }
+        if page_transition_reasons.contains_key("frame_overflow") {
+            suspect_cause_codes.append("overflow_clipping_or_unbreakable_flowable")?;
+        }
+        if overlap_count > 0 {
+            suspect_cause_codes.append("absolute_or_out_of_flow_overlap")?;
+        }
+        if page_text_overlap_count > 0 {
+            suspect_cause_codes.append("text_collision")?;
+        }
+        page_row.set_item("suspect_cause_codes", suspect_cause_codes.clone())?;
+        if low_coverage
+            || !page_transition_reasons.is_empty()
+            || overlap_count > 0
+            || page_text_overlap_count > 0
+        {
+            let collapse_row = PyDict::new(py);
+            collapse_row.set_item("page", page_index + 1)?;
+            collapse_row.set_item("occupied_area_ratio", occupied_area_ratio)?;
+            collapse_row.set_item("visible_command_count", visible_command_count)?;
+            collapse_row.set_item("flowable_bbox_count", flowable_bboxes.len())?;
+            collapse_row.set_item("transition_reasons", transition_reason_rows.clone())?;
+            collapse_row.set_item("suspect_flowables", issue_flowable_rows.clone())?;
+            collapse_row.set_item("dominant_owner", trace_owner_to_py(py, &dominant_owner)?)?;
+            collapse_row.set_item("dominant_owner_label", dominant_owner.label())?;
+            collapse_row.set_item("dominant_owner_source", dominant_owner_source)?;
+            collapse_row.set_item("owner_candidates", owner_candidates)?;
+            collapse_row.set_item("suspect_cause_codes", suspect_cause_codes)?;
+            collapse_pages_out.append(collapse_row)?;
+        }
+        pages_out.append(page_row)?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", doc.pages.len())?;
+    summary.set_item("event_count", event_count)?;
+    summary.set_item("transition_count", transition_count)?;
+    summary.set_item("page_transition_count", page_transition_count)?;
+    summary.set_item("frame_transition_count", frame_transition_count)?;
+    summary.set_item("placement_count", placement_count)?;
+    summary.set_item("split_count", split_count)?;
+    summary.set_item("overflow_event_count", overflow_event_count)?;
+    summary.set_item("recoverable_overflow_count", recoverable_overflow_count)?;
+    summary.set_item("fatal_overflow_count", fatal_overflow_count)?;
+    summary.set_item("low_coverage_page_count", low_coverage_page_count)?;
+    summary.set_item("flowable_overlap_count", flowable_overlap_count)?;
+    summary.set_item("text_overlap_count", text_overlap_count)?;
+    summary.set_item("layout_collapse_detected", low_coverage_page_count > 0)?;
+
+    out.set_item("ok", true)?;
+    out.set_item("page_size", page_size)?;
+    out.set_item("pages", pages_out)?;
+    out.set_item("events", events_out)?;
+    out.set_item("page_break_attribution", page_break_attribution_out)?;
+    out.set_item("text_overlap_samples", text_overlap_samples_out)?;
+    out.set_item("summary", summary)?;
+    let break_trigger_rows = PyList::empty(py);
+    for (reason, count) in &break_trigger_counts {
+        let row = PyDict::new(py);
+        row.set_item("reason", reason.clone())?;
+        row.set_item("count", *count)?;
+        break_trigger_rows.append(row)?;
+    }
+    let issue_flowable_rows = PyList::empty(py);
+    for (flowable_name, count) in flowable_issue_counts.iter().take(8) {
+        let row = PyDict::new(py);
+        row.set_item("flowable_name", flowable_name.clone())?;
+        row.set_item("count", *count)?;
+        issue_flowable_rows.append(row)?;
+    }
+    let collapse_diag = PyDict::new(py);
+    collapse_diag.set_item("detected", low_coverage_page_count > 0)?;
+    collapse_diag.set_item("page_count", collapse_pages_out.len())?;
+    collapse_diag.set_item("pages", collapse_pages_out)?;
+    out.set_item("layout_collapse_diagnostics", collapse_diag)?;
+    out.set_item("dominant_break_triggers", break_trigger_rows)?;
+    out.set_item("suspect_flowables", issue_flowable_rows)?;
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+fn build_render_time_reading_order_trace_py(
+    py: Python<'_>,
+    doc: &Document,
+    engine: Option<&FullBleed>,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.reading_order_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("seed_only", true)?;
+    out.set_item("extractor", "render_time_commands")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let pages_out = PyList::empty(py);
+    let warnings = PyList::empty(py);
+    let mut total_blocks = 0usize;
+    let mut non_empty_pages = 0usize;
+    let mut artifact_text_blocks_excluded = 0usize;
+    let mut draw_form_count_total = 0usize;
+    let mut define_form_count_total = 0usize;
+    let mut untagged_text_blocks = 0usize;
+
+    for (page_index, page) in doc.pages.iter().enumerate() {
+        let blocks = PyList::empty(py);
+        let text_collection = collect_render_time_text_blocks_for_page(
+            page,
+            crate::canvas::PageGeometry::for_page(page, doc.page_size)
+                .logical_size
+                .height,
+            engine,
+        );
+        let block_count = text_collection.blocks.len();
+        let page_draw_form_count = text_collection.draw_form_count;
+        let page_define_form_count = text_collection.define_form_count;
+        let page_artifact_excluded = text_collection.artifact_text_blocks_excluded;
+        untagged_text_blocks =
+            untagged_text_blocks.saturating_add(text_collection.untagged_text_blocks);
+
+        for block in &text_collection.blocks {
+            let row = PyDict::new(py);
+            row.set_item("index", block.index)?;
+            row.set_item("command_index", block.command_index)?;
+            row.set_item("kind", block.kind)?;
+            row.set_item("text", block.text.clone())?;
+            row.set_item("x", block.bbox.0)?;
+            row.set_item("y", block.bbox.1)?;
+            row.set_item("w", (block.bbox.2 - block.bbox.0).max(0.0))?;
+            row.set_item("h", (block.bbox.3 - block.bbox.1).max(0.0))?;
+            let bbox = PyDict::new(py);
+            bbox.set_item("x", block.bbox.0)?;
+            bbox.set_item("y", block.bbox.1)?;
+            bbox.set_item("w", (block.bbox.2 - block.bbox.0).max(0.0))?;
+            bbox.set_item("h", (block.bbox.3 - block.bbox.1).max(0.0))?;
+            row.set_item("bbox", bbox)?;
+            if let Some(top_role) = &block.top_role {
+                row.set_item("top_role", top_role.clone())?;
+            } else {
+                row.set_item("top_role", py.None())?;
+            }
+            row.set_item("tag_path", PyList::new(py, &block.tag_path)?)?;
+            row.set_item("owner", trace_owner_to_py(py, &block.owner)?)?;
+            blocks.append(row)?;
+        }
+
+        total_blocks = total_blocks.saturating_add(block_count);
+        if block_count > 0 {
+            non_empty_pages = non_empty_pages.saturating_add(1);
+        }
+        artifact_text_blocks_excluded =
+            artifact_text_blocks_excluded.saturating_add(page_artifact_excluded);
+        draw_form_count_total = draw_form_count_total.saturating_add(page_draw_form_count);
+        define_form_count_total = define_form_count_total.saturating_add(page_define_form_count);
+
+        let page_row = PyDict::new(py);
+        page_row.set_item("page_index", page_index)?;
+        page_row.set_item("page", page_index + 1)?;
+        let page_size = crate::canvas::PageGeometry::for_page(page, doc.page_size).logical_size;
+        page_row.set_item("width", page_size.width.to_f32())?;
+        page_row.set_item("height", page_size.height.to_f32())?;
+        page_row.set_item("block_count", block_count)?;
+        page_row.set_item("blocks", blocks)?;
+        page_row.set_item("draw_form_count", page_draw_form_count)?;
+        page_row.set_item("define_form_count", page_define_form_count)?;
+        page_row.set_item("artifact_text_blocks_excluded", page_artifact_excluded)?;
+        pages_out.append(page_row)?;
+    }
+
+    if draw_form_count_total > 0 {
+        let w = PyDict::new(py);
+        w.set_item("code", "RENDER_TIME_TRACE_DRAW_FORM_PRESENT")?;
+        w.set_item("message", "Render-time reading-order trace excludes text inside drawn form XObjects (seed limitation).")?;
+        warnings.append(w)?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", doc.pages.len())?;
+    summary.set_item("total_blocks", total_blocks)?;
+    summary.set_item("non_empty_pages", non_empty_pages)?;
+    summary.set_item(
+        "artifact_text_blocks_excluded",
+        artifact_text_blocks_excluded,
+    )?;
+    summary.set_item("untagged_text_blocks", untagged_text_blocks)?;
+    summary.set_item("draw_form_count_total", draw_form_count_total)?;
+    summary.set_item("define_form_count_total", define_form_count_total)?;
+
+    out.set_item("ok", true)?;
+    out.set_item("pages", pages_out)?;
+    out.set_item("summary", summary)?;
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+fn build_render_time_structure_trace_py(py: Python<'_>, doc: &Document) -> PyResult<PyObject> {
+    let table_catalog = crate::table_semantics::CompiledTableCatalog::from_document(doc);
+    let mut table_header_cells = 0usize;
+    let mut table_header_links = 0usize;
+    let mut table_header_issues = std::collections::BTreeMap::<String, usize>::new();
+    crate::table_semantics::for_each_emitted_table_node(doc, |_, _, _, node| {
+        let resolved = table_catalog.resolve(node);
+        if let Some(headers) = &resolved.header_cells {
+            table_header_cells += 1;
+            table_header_links += headers.len();
+        }
+        for issue in resolved.header_issues {
+            *table_header_issues.entry(issue).or_default() += 1;
+        }
+    });
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.pdf.structure_trace.v1")?;
+    out.set_item("schema_version", 1)?;
+    out.set_item("seed_only", true)?;
+    out.set_item("extractor", "render_time_commands")?;
+    out.set_item("source", "engine_render_time")?;
+
+    let warnings = PyList::empty(py);
+    let pages_out = PyList::empty(py);
+    let role_counts = PyDict::new(py);
+
+    let mut begin_tag_count = 0usize;
+    let mut end_tag_count = 0usize;
+    let mut begin_artifact_count = 0usize;
+    let mut end_marked_content_count = 0usize;
+    let mut tagged_text_draw_count = 0usize;
+    let mut untagged_text_draw_count = 0usize;
+    let mut artifact_text_draw_count = 0usize;
+    let mut tagged_pages = 0usize;
+    let mut tag_balance_underflow = 0usize;
+    let mut actual_text_count = 0usize;
+
+    for (page_index, page) in doc.pages.iter().enumerate() {
+        let events = PyList::empty(py);
+        let mut tag_stack: Vec<String> = Vec::new();
+        let mut artifact_depth = 0usize;
+        let mut page_begin_tags = 0usize;
+        let mut page_text_draws = 0usize;
+        let mut page_tagged_text_draws = 0usize;
+
+        for (cmd_index, cmd) in page.commands.iter().enumerate() {
+            match cmd {
+                Command::BeginTag {
+                    role,
+                    mcid,
+                    alt,
+                    scope,
+                    column_span,
+                    row_span,
+                    table_semantics,
+                    ..
+                } => {
+                    begin_tag_count = begin_tag_count.saturating_add(1);
+                    page_begin_tags = page_begin_tags.saturating_add(1);
+                    let role_key = role.clone();
+                    let cur = role_counts
+                        .get_item(&role_key)?
+                        .and_then(|v| v.extract::<usize>().ok())
+                        .unwrap_or(0);
+                    role_counts.set_item(&role_key, cur.saturating_add(1))?;
+                    tag_stack.push(role.clone());
+                    if events.len() < 32 {
+                        let ev = PyDict::new(py);
+                        ev.set_item("command_index", cmd_index)?;
+                        ev.set_item("kind", "begin_tag")?;
+                        ev.set_item("role", role.clone())?;
+                        ev.set_item("mcid", mcid.map(|v| v as u64))?;
+                        ev.set_item("alt_present", alt.is_some())?;
+                        ev.set_item("scope", scope.clone())?;
+                        ev.set_item("column_span", *column_span)?;
+                        ev.set_item("row_span", *row_span)?;
+                        if let Some(node) = table_semantics {
+                            let resolved = table_catalog.resolve(node);
+                            let semantics = PyDict::new(py);
+                            semantics.set_item("table_key", node.table_key)?;
+                            semantics.set_item("cell_key", node.cell_key)?;
+                            semantics.set_item("row_key", node.row_key)?;
+                            semantics.set_item("group_key", node.group_key)?;
+                            semantics.set_item("header_cells", resolved.header_cells)?;
+                            semantics.set_item("header_issues", resolved.header_issues)?;
+                            semantics.set_item(
+                                "logical_row_span",
+                                table_catalog.logical_row_span(node).or(*row_span),
+                            )?;
+                            semantics.set_item("pagination_artifact", artifact_depth > 0)?;
+                            ev.set_item("table_semantics", semantics)?;
+                        }
+                        events.append(ev)?;
+                    }
+                }
+                Command::BeginTagActualText {
+                    role,
+                    mcid,
+                    actual_text,
+                } => {
+                    begin_tag_count = begin_tag_count.saturating_add(1);
+                    actual_text_count = actual_text_count.saturating_add(1);
+                    page_begin_tags = page_begin_tags.saturating_add(1);
+                    let role_key = role.clone();
+                    let cur = role_counts
+                        .get_item(&role_key)?
+                        .and_then(|v| v.extract::<usize>().ok())
+                        .unwrap_or(0);
+                    role_counts.set_item(&role_key, cur.saturating_add(1))?;
+                    tag_stack.push(role.clone());
+                    if events.len() < 32 {
+                        let ev = PyDict::new(py);
+                        ev.set_item("command_index", cmd_index)?;
+                        ev.set_item("kind", "begin_tag_actual_text")?;
+                        ev.set_item("role", role.clone())?;
+                        ev.set_item("mcid", *mcid as u64)?;
+                        ev.set_item("actual_text_present", !actual_text.is_empty())?;
+                        events.append(ev)?;
+                    }
+                }
+                Command::EndTag => {
+                    end_tag_count = end_tag_count.saturating_add(1);
+                    if tag_stack.pop().is_none() {
+                        tag_balance_underflow = tag_balance_underflow.saturating_add(1);
+                    }
+                }
+                Command::BeginArtifact { subtype } => {
+                    begin_artifact_count = begin_artifact_count.saturating_add(1);
+                    artifact_depth = artifact_depth.saturating_add(1);
+                    if events.len() < 32 {
+                        let ev = PyDict::new(py);
+                        ev.set_item("command_index", cmd_index)?;
+                        ev.set_item("kind", "begin_artifact")?;
+                        ev.set_item("subtype", subtype.clone())?;
+                        events.append(ev)?;
+                    }
+                }
+                Command::EndMarkedContent => {
+                    end_marked_content_count = end_marked_content_count.saturating_add(1);
+                    if artifact_depth > 0 {
+                        artifact_depth -= 1;
+                    }
+                }
+                Command::DrawString { .. } | Command::DrawStringTransformed { .. } => {
+                    page_text_draws = page_text_draws.saturating_add(1);
+                    if artifact_depth > 0 {
+                        artifact_text_draw_count = artifact_text_draw_count.saturating_add(1);
+                    } else if tag_stack.is_empty() {
+                        untagged_text_draw_count = untagged_text_draw_count.saturating_add(1);
+                    } else {
+                        tagged_text_draw_count = tagged_text_draw_count.saturating_add(1);
+                        page_tagged_text_draws = page_tagged_text_draws.saturating_add(1);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if page_begin_tags > 0 {
+            tagged_pages = tagged_pages.saturating_add(1);
+        }
+        let page_row = PyDict::new(py);
+        page_row.set_item("page_index", page_index)?;
+        page_row.set_item("page", page_index + 1)?;
+        page_row.set_item("begin_tag_count", page_begin_tags)?;
+        page_row.set_item("text_draw_count", page_text_draws)?;
+        page_row.set_item("tagged_text_draw_count", page_tagged_text_draws)?;
+        page_row.set_item("sample_events", events)?;
+        pages_out.append(page_row)?;
+    }
+
+    let summary = PyDict::new(py);
+    summary.set_item("page_count", doc.pages.len())?;
+    summary.set_item("struct_tree_root_present", begin_tag_count > 0)?;
+    summary.set_item("mark_info_present", begin_tag_count > 0)?;
+    summary.set_item("marked_true_present", begin_tag_count > 0)?;
+    summary.set_item("lang_token_present", py.None())?;
+    summary.set_item("title_token_present", py.None())?;
+    summary.set_item("begin_tag_count", begin_tag_count)?;
+    summary.set_item("actual_text_count", actual_text_count)?;
+    summary.set_item("end_tag_count", end_tag_count)?;
+    summary.set_item("begin_artifact_count", begin_artifact_count)?;
+    summary.set_item("end_marked_content_count", end_marked_content_count)?;
+    summary.set_item("tagged_text_draw_count", tagged_text_draw_count)?;
+    summary.set_item("untagged_text_draw_count", untagged_text_draw_count)?;
+    summary.set_item("artifact_text_draw_count", artifact_text_draw_count)?;
+    summary.set_item("tagged_pages", tagged_pages)?;
+    summary.set_item("tag_balance_underflow_count", tag_balance_underflow)?;
+    summary.set_item("explicit_table_header_cell_count", table_header_cells)?;
+    summary.set_item("resolved_table_header_link_count", table_header_links)?;
+    summary.set_item("table_header_issue_counts", table_header_issues)?;
+    summary.set_item(
+        "tag_balance_ok",
+        tag_balance_underflow == 0 && end_tag_count <= begin_tag_count,
+    )?;
+
+    out.set_item("ok", true)?;
+    out.set_item("summary", summary)?;
+    out.set_item("token_counts", role_counts)?;
+    out.set_item("pages", pages_out)?;
+    out.set_item("warnings", warnings)?;
+    out.set_item(
+        "generated_at_unix_ms",
+        (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()) as u64,
+    )?;
+    Ok(out.unbind().into_any())
+}
+
+fn glyph_report_to_py(py: Python<'_>, report: &GlyphCoverageReport) -> PyResult<PyObject> {
+    let list = PyList::empty(py);
+    for missing in report.missing() {
+        let d = PyDict::new(py);
+        d.set_item("codepoint", missing.codepoint)?;
+        d.set_item("char", missing.ch.to_string())?;
+        d.set_item("fonts_tried", missing.fonts_tried)?;
+        d.set_item("count", missing.count)?;
+        list.append(d)?;
+    }
+    Ok(list.unbind().into_any())
+}
+
+struct PdfEngine {
+    engine: FullBleed,
+    builder: FullBleedBuilder,
+    document_css_href: Option<String>,
+    document_css_source_path: Option<String>,
+    document_css_media: Option<String>,
+    document_css_required: bool,
+}
+
+#[path = "python/pdf_vt.rs"]
+mod pdf_vt;
+
+impl PdfEngine {
+    fn rebuild_from_builder(&mut self) -> PyResult<()> {
+        self.engine = self.builder.clone().build().map_err(to_py_err)?;
+        Ok(())
+    }
+
+    fn normalized_css_href(&self) -> Option<String> {
+        self.document_css_href
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    }
+
+    fn normalized_css_media(&self) -> Option<String> {
+        self.document_css_media
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    }
+
+    fn effective_css_href_for_path(&self, css_path: &str) -> Option<String> {
+        if let Some(href) = self.normalized_css_href() {
+            return Some(href);
+        }
+        Path::new(css_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    }
+
+    fn ensure_css_required(&self, _href: Option<&str>) -> PyResult<()> {
+        if self.document_css_required && self.normalized_css_href().is_none() {
+            return Err(PyValueError::new_err(
+                "document_css_required=True but document_css_href is missing",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut out = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut out, "{:02x}", b);
+    }
+    out
+}
+
+fn sha256_file_hex(path: &str) -> PyResult<String> {
+    let mut file = std::fs::File::open(path).map_err(|e| {
+        PyValueError::new_err(format!("failed to open output file for hashing: {e}"))
+    })?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        let read = file.read(&mut buf).map_err(|e| {
+            PyValueError::new_err(format!("failed to read output file for hashing: {e}"))
+        })?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buf[..read]);
+    }
+    let digest = hasher.finalize();
+    let mut out = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut out, "{:02x}", b);
+    }
+    Ok(out)
+}
+
+fn write_hash_file(path: &str, hash: &str) -> PyResult<()> {
+    std::fs::write(path, hash)
+        .map_err(|e| PyValueError::new_err(format!("failed to write deterministic hash file: {e}")))
+}
+
+fn html_escape_attr(raw: &str) -> String {
+    raw.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\'', "&#x27;")
+}
+
+fn inject_css_link(
+    html_text: &str,
+    css_href: Option<&str>,
+    css_media: Option<&str>,
+) -> (String, bool, bool) {
+    let href = css_href
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let Some(href) = href else {
+        return (html_text.to_string(), false, false);
+    };
+    if html_text.contains("rel=\"stylesheet\"") || html_text.contains("rel='stylesheet'") {
+        return (html_text.to_string(), false, true);
+    }
+    let media_attr = css_media
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!(" media=\"{}\"", html_escape_attr(s)))
+        .unwrap_or_default();
+    let link = format!(
+        "<link rel=\"stylesheet\" href=\"{}\"{} />",
+        html_escape_attr(&href),
+        media_attr
+    );
+    if let Some(idx) = html_text.find("</head>") {
+        let mut out = String::with_capacity(html_text.len() + link.len());
+        out.push_str(&html_text[..idx]);
+        out.push_str(&link);
+        out.push_str(&html_text[idx..]);
+        return (out, true, false);
+    }
+    (html_text.to_string(), false, false)
+}
+
+fn wcag20aa_coverage_summary_to_py(
+    py: Python<'_>,
+    summary: &audit_contract::Wcag20AaCoverageSummary,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("registry_id", summary.registry_id.clone())?;
+    out.set_item("registry_version", summary.registry_version)?;
+    out.set_item("wcag_version", summary.wcag_version.clone())?;
+    out.set_item("target_level", summary.target_level.clone())?;
+    out.set_item("total_entries", summary.total_entries)?;
+    out.set_item("success_criteria_total", summary.success_criteria_total)?;
+    out.set_item(
+        "conformance_requirements_total",
+        summary.conformance_requirements_total,
+    )?;
+    out.set_item("mapped_entry_count", summary.mapped_entry_count)?;
+    out.set_item(
+        "mapped_success_criteria_count",
+        summary.mapped_success_criteria_count,
+    )?;
+    out.set_item(
+        "mapped_conformance_requirement_count",
+        summary.mapped_conformance_requirement_count,
+    )?;
+    out.set_item(
+        "implemented_mapped_entry_count",
+        summary.implemented_mapped_entry_count,
+    )?;
+    out.set_item(
+        "implemented_mapped_entry_evaluated_count",
+        summary.implemented_mapped_entry_evaluated_count,
+    )?;
+    out.set_item(
+        "implemented_mapped_entry_pending_count",
+        summary.implemented_mapped_entry_pending_count,
+    )?;
+    out.set_item(
+        "supporting_only_mapped_entry_count",
+        summary.supporting_only_mapped_entry_count,
+    )?;
+    out.set_item(
+        "planned_only_mapped_entry_count",
+        summary.planned_only_mapped_entry_count,
+    )?;
+    out.set_item("unmapped_entry_count", summary.unmapped_entry_count)?;
+    let counts = PyDict::new(py);
+    counts.set_item("pass", summary.implemented_mapped_result_counts.pass)?;
+    counts.set_item("fail", summary.implemented_mapped_result_counts.fail)?;
+    counts.set_item("warn", summary.implemented_mapped_result_counts.warn)?;
+    counts.set_item(
+        "manual_needed",
+        summary.implemented_mapped_result_counts.manual_needed,
+    )?;
+    counts.set_item(
+        "not_applicable",
+        summary.implemented_mapped_result_counts.not_applicable,
+    )?;
+    counts.set_item("unknown", summary.implemented_mapped_result_counts.unknown)?;
+    out.set_item("implemented_mapped_result_counts", counts)?;
+    Ok(out.unbind().into_any())
+}
+
+fn section508_html_coverage_summary_to_py(
+    py: Python<'_>,
+    summary: &audit_contract::Section508HtmlCoverageSummary,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("registry_id", summary.registry_id.clone())?;
+    out.set_item("registry_version", summary.registry_version)?;
+    out.set_item("profile_id", summary.profile_id.clone())?;
+    out.set_item("total_entries", summary.total_entries)?;
+    out.set_item("specific_entries_total", summary.specific_entries_total)?;
+    out.set_item(
+        "inherited_wcag_entries_total",
+        summary.inherited_wcag_entries_total,
+    )?;
+    out.set_item("mapped_entry_count", summary.mapped_entry_count)?;
+    out.set_item(
+        "implemented_mapped_entry_count",
+        summary.implemented_mapped_entry_count,
+    )?;
+    out.set_item(
+        "implemented_mapped_entry_evaluated_count",
+        summary.implemented_mapped_entry_evaluated_count,
+    )?;
+    out.set_item(
+        "implemented_mapped_entry_pending_count",
+        summary.implemented_mapped_entry_pending_count,
+    )?;
+    out.set_item(
+        "supporting_only_mapped_entry_count",
+        summary.supporting_only_mapped_entry_count,
+    )?;
+    out.set_item(
+        "planned_only_mapped_entry_count",
+        summary.planned_only_mapped_entry_count,
+    )?;
+    out.set_item("unmapped_entry_count", summary.unmapped_entry_count)?;
+    out.set_item(
+        "specific_mapped_entry_count",
+        summary.specific_mapped_entry_count,
+    )?;
+    out.set_item(
+        "specific_implemented_mapped_entry_count",
+        summary.specific_implemented_mapped_entry_count,
+    )?;
+    out.set_item(
+        "specific_implemented_mapped_entry_evaluated_count",
+        summary.specific_implemented_mapped_entry_evaluated_count,
+    )?;
+    out.set_item(
+        "specific_implemented_mapped_entry_pending_count",
+        summary.specific_implemented_mapped_entry_pending_count,
+    )?;
+    out.set_item(
+        "specific_unmapped_entry_count",
+        summary.specific_unmapped_entry_count,
+    )?;
+    out.set_item(
+        "inherited_wcag_registry_id",
+        summary.inherited_wcag_registry_id.clone(),
+    )?;
+    out.set_item(
+        "inherited_wcag_implemented_mapped_entry_count",
+        summary.inherited_wcag_implemented_mapped_entry_count,
+    )?;
+    out.set_item(
+        "inherited_wcag_implemented_mapped_entry_evaluated_count",
+        summary.inherited_wcag_implemented_mapped_entry_evaluated_count,
+    )?;
+    out.set_item(
+        "inherited_wcag_unmapped_entry_count",
+        summary.inherited_wcag_unmapped_entry_count,
+    )?;
+    let counts = PyDict::new(py);
+    counts.set_item("pass", summary.implemented_mapped_result_counts.pass)?;
+    counts.set_item("fail", summary.implemented_mapped_result_counts.fail)?;
+    counts.set_item("warn", summary.implemented_mapped_result_counts.warn)?;
+    counts.set_item(
+        "manual_needed",
+        summary.implemented_mapped_result_counts.manual_needed,
+    )?;
+    counts.set_item(
+        "not_applicable",
+        summary.implemented_mapped_result_counts.not_applicable,
+    )?;
+    counts.set_item("unknown", summary.implemented_mapped_result_counts.unknown)?;
+    out.set_item("implemented_mapped_result_counts", counts)?;
+    Ok(out.unbind().into_any())
+}
+
+fn audit_contract_metadata(py: Python<'_>) -> PyResult<PyObject> {
+    let meta = audit_contract::metadata();
+    let out = PyDict::new(py);
+    out.set_item("contract_id", meta.contract_id)?;
+    out.set_item("contract_version", meta.contract_version)?;
+    out.set_item(
+        "contract_fingerprint",
+        format!("sha256:{}", meta.contract_fingerprint_sha256),
+    )?;
+    let registries = PyList::empty(py);
+
+    let reg_audit = PyDict::new(py);
+    reg_audit.set_item("id", meta.audit_registry_id)?;
+    reg_audit.set_item(
+        "hash",
+        format!("sha256:{}", meta.audit_registry_hash_sha256),
+    )?;
+    registries.append(reg_audit)?;
+
+    let reg_wcag = PyDict::new(py);
+    reg_wcag.set_item("id", meta.wcag20aa_registry_id)?;
+    reg_wcag.set_item(
+        "hash",
+        format!("sha256:{}", meta.wcag20aa_registry_hash_sha256),
+    )?;
+    registries.append(reg_wcag)?;
+
+    let reg_s508 = PyDict::new(py);
+    reg_s508.set_item("id", meta.section508_html_registry_id)?;
+    reg_s508.set_item(
+        "hash",
+        format!("sha256:{}", meta.section508_html_registry_hash_sha256),
+    )?;
+    registries.append(reg_s508)?;
+
+    out.set_item("registries", registries)?;
+    Ok(out.unbind().into_any())
+}
+
+fn audit_contract_registry(name: &str) -> PyResult<String> {
+    audit_contract::registry_json(name)
+        .map(|s| s.to_string())
+        .ok_or_else(|| PyValueError::new_err(format!("unknown audit contract registry: {name}")))
+}
+
+fn audit_contract_wcag20aa_coverage(
+    py: Python<'_>,
+    findings: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let mut owned_pairs: Vec<(String, String)> = Vec::new();
+    let iter = findings.try_iter().map_err(|_| {
+        PyValueError::new_err("findings must be an iterable of mappings with rule_id/verdict")
+    })?;
+    for item in iter {
+        let item = item?;
+        let dict = item
+            .downcast::<PyDict>()
+            .map_err(|_| PyValueError::new_err("findings entries must be dict-like mappings"))?;
+        let rule_id = dict
+            .get_item("rule_id")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        if rule_id.trim().is_empty() {
+            continue;
+        }
+        let verdict = dict
+            .get_item("verdict")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        owned_pairs.push((rule_id, verdict));
+    }
+    let pair_refs: Vec<(&str, &str)> = owned_pairs
+        .iter()
+        .map(|(rid, verdict)| (rid.as_str(), verdict.as_str()))
+        .collect();
+    let summary = audit_contract::wcag20aa_coverage_from_rule_verdicts(pair_refs);
+    wcag20aa_coverage_summary_to_py(py, &summary)
+}
+
+fn audit_contract_section508_html_coverage(
+    py: Python<'_>,
+    findings: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let mut owned_pairs: Vec<(String, String)> = Vec::new();
+    let iter = findings.try_iter().map_err(|_| {
+        PyValueError::new_err("findings must be an iterable of mappings with rule_id/verdict")
+    })?;
+    for item in iter {
+        let item = item?;
+        let dict = item
+            .downcast::<PyDict>()
+            .map_err(|_| PyValueError::new_err("findings entries must be dict-like mappings"))?;
+        let rule_id = dict
+            .get_item("rule_id")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        if rule_id.trim().is_empty() {
+            continue;
+        }
+        let verdict = dict
+            .get_item("verdict")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        owned_pairs.push((rule_id, verdict));
+    }
+    let pair_refs: Vec<(&str, &str)> = owned_pairs
+        .iter()
+        .map(|(rid, verdict)| (rid.as_str(), verdict.as_str()))
+        .collect();
+    let summary = audit_contract::section508_html_coverage_from_rule_verdicts(pair_refs);
+    section508_html_coverage_summary_to_py(py, &summary)
+}
+
+#[derive(Debug, Clone)]
+struct RenderContrastSeedAnalysis {
+    width: u32,
+    height: u32,
+    opaque_pixel_count: u64,
+    ink_pixel_count: u64,
+    background_luminance: f64,
+    foreground_luminance: Option<f64>,
+    estimated_contrast_ratio: Option<f64>,
+    verdict: &'static str,
+    confidence: &'static str,
+    message: String,
+}
+
+#[derive(Debug, Clone)]
+struct SparsePageVisualPairAnalysis {
+    source_preview_png_path: String,
+    render_preview_png_path: String,
+    width: u32,
+    height: u32,
+    sparse_source_page: bool,
+    header_omission_detected: bool,
+    source_ink_ratio: f64,
+    render_ink_ratio: f64,
+    source_header_ink_ratio: f64,
+    render_header_ink_ratio: f64,
+    source_header_occupied_cells: u32,
+    render_header_occupied_cells: u32,
+    missing_header_cell_count: u32,
+    header_omission_ratio: f64,
+    verdict: &'static str,
+    confidence: &'static str,
+    message: String,
+}
+
+fn _srgb_u8_to_linear(v: u8) -> f64 {
+    let x = (v as f64) / 255.0;
+    if x <= 0.04045 {
+        x / 12.92
+    } else {
+        ((x + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn _relative_luminance(r: u8, g: u8, b: u8) -> f64 {
+    (0.2126 * _srgb_u8_to_linear(r))
+        + (0.7152 * _srgb_u8_to_linear(g))
+        + (0.0722 * _srgb_u8_to_linear(b))
+}
+
+fn _percentile(sorted: &[f64], q: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let q = q.clamp(0.0, 1.0);
+    let idx = ((sorted.len() - 1) as f64 * q).round() as usize;
+    sorted[idx.min(sorted.len() - 1)]
+}
+
+fn _load_preview_luma_image(path: &str) -> Result<crate::image_native::GrayImage, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("failed to open preview PNG: {e}"))?;
+    crate::image_native::load_from_memory(&bytes)
+        .map_err(|e| format!("failed to decode preview image: {e}"))
+        .map(|image| image.to_luma8())
+}
+
+fn _ink_ratio(gray: &crate::image_native::GrayImage, threshold: u8) -> f64 {
+    let (width, height) = gray.dimensions();
+    let total = (width as u64) * (height as u64);
+    if total == 0 {
+        return 0.0;
+    }
+    let ink = gray.pixels().filter(|px| px[0] < threshold).count() as u64;
+    ink as f64 / total as f64
+}
+
+fn _band_ink_ratio(
+    gray: &crate::image_native::GrayImage,
+    top: u32,
+    bottom: u32,
+    threshold: u8,
+) -> f64 {
+    let (width, height) = gray.dimensions();
+    if width == 0 || height == 0 || top >= bottom || top >= height {
+        return 0.0;
+    }
+    let y1 = bottom.min(height);
+    let total = (width as u64) * ((y1 - top) as u64);
+    if total == 0 {
+        return 0.0;
+    }
+    let mut ink = 0u64;
+    for y in top..y1 {
+        for x in 0..width {
+            if gray.get_pixel(x, y)[0] < threshold {
+                ink += 1;
+            }
+        }
+    }
+    ink as f64 / total as f64
+}
+
+fn _grid_occupancy(
+    gray: &crate::image_native::GrayImage,
+    cols: u32,
+    rows: u32,
+    threshold: u8,
+    min_cell_ink_ratio: f64,
+) -> Vec<bool> {
+    let (width, height) = gray.dimensions();
+    let mut out = Vec::with_capacity((cols * rows) as usize);
+    if width == 0 || height == 0 || cols == 0 || rows == 0 {
+        return out;
+    }
+    for row in 0..rows {
+        let y0 = ((row as u64) * (height as u64) / (rows as u64)) as u32;
+        let y1 = ((((row + 1) as u64) * (height as u64)) / (rows as u64)) as u32;
+        for col in 0..cols {
+            let x0 = ((col as u64) * (width as u64) / (cols as u64)) as u32;
+            let x1 = ((((col + 1) as u64) * (width as u64)) / (cols as u64)) as u32;
+            let mut ink = 0u64;
+            let mut total = 0u64;
+            for y in y0..y1.max(y0 + 1).min(height) {
+                for x in x0..x1.max(x0 + 1).min(width) {
+                    total += 1;
+                    if gray.get_pixel(x, y)[0] < threshold {
+                        ink += 1;
+                    }
+                }
+            }
+            let ratio = if total == 0 {
+                0.0
+            } else {
+                ink as f64 / total as f64
+            };
+            out.push(ratio >= min_cell_ink_ratio);
+        }
+    }
+    out
+}
+
+fn analyze_sparse_page_visual_pair(
+    source_path: &str,
+    render_path: &str,
+) -> Result<SparsePageVisualPairAnalysis, String> {
+    let source = _load_preview_luma_image(source_path)?;
+    let render = _load_preview_luma_image(render_path)?;
+    let target_width = 240u32;
+    let target_height = 320u32;
+    let source = if source.dimensions() == (target_width, target_height) {
+        source
+    } else {
+        crate::image_native::resize_triangle_gray(&source, target_width, target_height)
+    };
+    let render = if render.dimensions() == (target_width, target_height) {
+        render
+    } else {
+        crate::image_native::resize_triangle_gray(&render, target_width, target_height)
+    };
+
+    let ink_threshold = 245u8;
+    let cell_ratio_threshold = 0.010f64;
+    let source_ink_ratio = _ink_ratio(&source, ink_threshold);
+    let render_ink_ratio = _ink_ratio(&render, ink_threshold);
+    let header_band_bottom = ((target_height as f64) * 0.18).round() as u32;
+    let source_header_ink_ratio = _band_ink_ratio(&source, 0, header_band_bottom, ink_threshold);
+    let render_header_ink_ratio = _band_ink_ratio(&render, 0, header_band_bottom, ink_threshold);
+
+    let grid_cols = 12u32;
+    let grid_rows = 16u32;
+    let header_rows = 3u32;
+    let source_cells = _grid_occupancy(
+        &source,
+        grid_cols,
+        grid_rows,
+        ink_threshold,
+        cell_ratio_threshold,
+    );
+    let render_cells = _grid_occupancy(
+        &render,
+        grid_cols,
+        grid_rows,
+        ink_threshold,
+        cell_ratio_threshold,
+    );
+    let header_limit = (grid_cols * header_rows) as usize;
+    let source_header_occupied_cells = source_cells
+        .iter()
+        .take(header_limit)
+        .filter(|value| **value)
+        .count() as u32;
+    let render_header_occupied_cells = render_cells
+        .iter()
+        .take(header_limit)
+        .filter(|value| **value)
+        .count() as u32;
+    let missing_header_cell_count = source_cells
+        .iter()
+        .zip(render_cells.iter())
+        .take(header_limit)
+        .filter(|(source_cell, render_cell)| **source_cell && !**render_cell)
+        .count() as u32;
+    let header_omission_ratio = if source_header_occupied_cells == 0 {
+        0.0
+    } else {
+        missing_header_cell_count as f64 / source_header_occupied_cells as f64
+    };
+
+    let sparse_source_page = source_ink_ratio <= 0.12;
+    let prominent_source_header =
+        source_header_occupied_cells >= 4 || source_header_ink_ratio >= 0.010;
+    let header_omission_detected = sparse_source_page
+        && prominent_source_header
+        && missing_header_cell_count >= 4
+        && header_omission_ratio >= 0.50
+        && render_header_ink_ratio <= (source_header_ink_ratio * 0.65).max(0.0025);
+
+    let (verdict, confidence, message) = if !sparse_source_page {
+        (
+            "not_applicable",
+            "medium",
+            "Source page is not sparse enough for sparse-page header omission diagnostics."
+                .to_string(),
+        )
+    } else if !prominent_source_header {
+        (
+            "not_applicable",
+            "medium",
+            "Sparse-page source does not contain a prominent header cluster to compare."
+                .to_string(),
+        )
+    } else if header_omission_detected {
+        (
+            "fail",
+            "high",
+            format!(
+                "Sparse-page header omission detected: {} of {} source header cells are missing in the render.",
+                missing_header_cell_count, source_header_occupied_cells
+            ),
+        )
+    } else if header_omission_ratio >= 0.30 {
+        (
+            "warn",
+            "medium",
+            format!(
+                "Sparse-page header drift detected: {} of {} source header cells are missing in the render.",
+                missing_header_cell_count, source_header_occupied_cells
+            ),
+        )
+    } else {
+        (
+            "pass",
+            "medium",
+            "Sparse-page header cluster is materially preserved in the render preview.".to_string(),
+        )
+    };
+
+    Ok(SparsePageVisualPairAnalysis {
+        source_preview_png_path: source_path.to_string(),
+        render_preview_png_path: render_path.to_string(),
+        width: target_width,
+        height: target_height,
+        sparse_source_page,
+        header_omission_detected,
+        source_ink_ratio,
+        render_ink_ratio,
+        source_header_ink_ratio,
+        render_header_ink_ratio,
+        source_header_occupied_cells,
+        render_header_occupied_cells,
+        missing_header_cell_count,
+        header_omission_ratio,
+        verdict,
+        confidence,
+        message,
+    })
+}
+
+fn analyze_render_contrast_seed_png(path: &str) -> Result<RenderContrastSeedAnalysis, String> {
+    let bytes =
+        std::fs::read(path).map_err(|e| format!("failed to open render preview PNG: {e}"))?;
+    let rgba = crate::image_native::load_from_memory(&bytes)
+        .map_err(|e| format!("failed to decode render preview image: {e}"))?
+        .into_rgba8();
+    let (width, height) = rgba.dimensions();
+    let mut lumas: Vec<f64> = Vec::with_capacity((width as usize) * (height as usize));
+    for px in rgba.pixels() {
+        if px[3] == 0 {
+            continue;
+        }
+        lumas.push(_relative_luminance(px[0], px[1], px[2]));
+    }
+    if lumas.is_empty() {
+        return Ok(RenderContrastSeedAnalysis {
+            width,
+            height,
+            opaque_pixel_count: 0,
+            ink_pixel_count: 0,
+            background_luminance: 0.0,
+            foreground_luminance: None,
+            estimated_contrast_ratio: None,
+            verdict: "manual_needed",
+            confidence: "low",
+            message: "Render preview PNG has no opaque pixels; contrast could not be estimated."
+                .to_string(),
+        });
+    }
+    lumas.sort_by(|a, b| a.total_cmp(b));
+    let opaque_pixel_count = lumas.len() as u64;
+    let background_luminance = _percentile(&lumas, 0.98);
+    let ink_threshold = if background_luminance > 0.9 {
+        background_luminance - 0.02
+    } else {
+        background_luminance - 0.05
+    };
+    let ink: Vec<f64> = lumas
+        .iter()
+        .copied()
+        .filter(|v| *v < ink_threshold)
+        .collect();
+    let ink_pixel_count = ink.len() as u64;
+    if ink_pixel_count < 32 || (ink_pixel_count as f64 / opaque_pixel_count as f64) < 0.0001 {
+        return Ok(RenderContrastSeedAnalysis {
+            width,
+            height,
+            opaque_pixel_count,
+            ink_pixel_count,
+            background_luminance,
+            foreground_luminance: None,
+            estimated_contrast_ratio: None,
+            verdict: "manual_needed",
+            confidence: "low",
+            message:
+                "Insufficient foreground signal in render preview PNG for contrast estimation."
+                    .to_string(),
+        });
+    }
+    let mut ink_sorted = ink;
+    ink_sorted.sort_by(|a, b| a.total_cmp(b));
+    let foreground_luminance = _percentile(&ink_sorted, 0.05);
+    let contrast_ratio = ((background_luminance.max(foreground_luminance)) + 0.05)
+        / ((background_luminance.min(foreground_luminance)) + 0.05);
+    let (verdict, confidence, message) = if contrast_ratio >= 4.5 {
+        (
+            "pass",
+            "medium",
+            format!(
+                "Render-based contrast seed estimate is {:.2}:1 (>= 4.5:1).",
+                contrast_ratio
+            ),
+        )
+    } else {
+        (
+            "warn",
+            "medium",
+            format!(
+                "Render-based contrast seed estimate is {:.2}:1 (< 4.5:1); manual confirmation required.",
+                contrast_ratio
+            ),
+        )
+    };
+    Ok(RenderContrastSeedAnalysis {
+        width,
+        height,
+        opaque_pixel_count,
+        ink_pixel_count,
+        background_luminance,
+        foreground_luminance: Some(foreground_luminance),
+        estimated_contrast_ratio: Some(contrast_ratio),
+        verdict,
+        confidence,
+        message,
+    })
+}
+
+fn render_contrast_seed_analysis_to_py(
+    py: Python<'_>,
+    a: &RenderContrastSeedAnalysis,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.contrast.render_seed.v1")?;
+    out.set_item("width", a.width)?;
+    out.set_item("height", a.height)?;
+    out.set_item("opaque_pixel_count", a.opaque_pixel_count)?;
+    out.set_item("ink_pixel_count", a.ink_pixel_count)?;
+    out.set_item("background_luminance", a.background_luminance)?;
+    if let Some(v) = a.foreground_luminance {
+        out.set_item("foreground_luminance", v)?;
+    } else {
+        out.set_item("foreground_luminance", py.None())?;
+    }
+    if let Some(v) = a.estimated_contrast_ratio {
+        out.set_item("estimated_contrast_ratio", v)?;
+    } else {
+        out.set_item("estimated_contrast_ratio", py.None())?;
+    }
+    out.set_item("verdict", a.verdict)?;
+    out.set_item("confidence", a.confidence)?;
+    out.set_item("message", a.message.clone())?;
+    Ok(out.unbind().into_any())
+}
+
+fn sparse_page_visual_pair_analysis_to_py(
+    py: Python<'_>,
+    a: &SparsePageVisualPairAnalysis,
+) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("schema", "fullbleed.visual.sparse_page_pair.v1")?;
+    out.set_item("source_preview_png_path", a.source_preview_png_path.clone())?;
+    out.set_item("render_preview_png_path", a.render_preview_png_path.clone())?;
+    out.set_item("width", a.width)?;
+    out.set_item("height", a.height)?;
+    out.set_item("sparse_source_page", a.sparse_source_page)?;
+    out.set_item("header_omission_detected", a.header_omission_detected)?;
+    out.set_item("source_ink_ratio", a.source_ink_ratio)?;
+    out.set_item("render_ink_ratio", a.render_ink_ratio)?;
+    out.set_item("source_header_ink_ratio", a.source_header_ink_ratio)?;
+    out.set_item("render_header_ink_ratio", a.render_header_ink_ratio)?;
+    out.set_item(
+        "source_header_occupied_cells",
+        a.source_header_occupied_cells,
+    )?;
+    out.set_item(
+        "render_header_occupied_cells",
+        a.render_header_occupied_cells,
+    )?;
+    out.set_item("missing_header_cell_count", a.missing_header_cell_count)?;
+    out.set_item("header_omission_ratio", a.header_omission_ratio)?;
+    out.set_item("verdict", a.verdict)?;
+    out.set_item("confidence", a.confidence)?;
+    out.set_item("message", a.message.clone())?;
+    Ok(out.unbind().into_any())
+}
+
+fn audit_contrast_render_png(py: Python<'_>, png_path: &str) -> PyResult<PyObject> {
+    let analysis = analyze_render_contrast_seed_png(png_path).map_err(PyValueError::new_err)?;
+    render_contrast_seed_analysis_to_py(py, &analysis)
+}
+
+fn audit_sparse_page_visual_pair(
+    py: Python<'_>,
+    source_png_path: &str,
+    render_png_path: &str,
+) -> PyResult<PyObject> {
+    let analysis = analyze_sparse_page_visual_pair(source_png_path, render_png_path)
+        .map_err(PyValueError::new_err)?;
+    sparse_page_visual_pair_analysis_to_py(py, &analysis)
+}
+
+fn a11y_core_evidence_to_py(py: Python<'_>, evidence: &A11yVerifierEvidence) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    if let Some(selector) = &evidence.selector {
+        out.set_item("selector", selector.clone())?;
+    }
+    if !evidence.values.is_empty() {
+        let values = PyDict::new(py);
+        for (k, v) in &evidence.values {
+            values.set_item(k.clone(), v.clone())?;
+        }
+        out.set_item("values", values)?;
+    }
+    Ok(out.unbind().into_any())
+}
+
+fn a11y_core_finding_to_py(py: Python<'_>, finding: &A11yVerifierFinding) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("rule_id", finding.rule_id.clone())?;
+    out.set_item("applicability", finding.applicability.clone())?;
+    out.set_item("verification_mode", finding.verification_mode.clone())?;
+    out.set_item("verdict", finding.verdict.clone())?;
+    out.set_item("severity", finding.severity.clone())?;
+    out.set_item("confidence", finding.confidence.clone())?;
+    out.set_item("stage", finding.stage.clone())?;
+    out.set_item("source", finding.source.clone())?;
+    out.set_item("message", finding.message.clone())?;
+    if !finding.evidence.is_empty() {
+        let evid = PyList::empty(py);
+        for e in &finding.evidence {
+            evid.append(a11y_core_evidence_to_py(py, e)?)?;
+        }
+        out.set_item("evidence", evid)?;
+    }
+    Ok(out.unbind().into_any())
+}
+
+#[derive(Debug, Clone, Default)]
+struct A11yObservabilitySummaryRs {
+    original_finding_count: usize,
+    reported_finding_count: usize,
+    dedup_event_count: usize,
+    dedup_merged_finding_count: usize,
+    correlated_finding_count: usize,
+    stage_counts: std::collections::BTreeMap<String, usize>,
+    source_counts: std::collections::BTreeMap<String, usize>,
+    original_stage_counts: std::collections::BTreeMap<String, usize>,
+    original_source_counts: std::collections::BTreeMap<String, usize>,
+    correlation_index: Vec<A11yCorrelationIndexEntryRs>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct A11yCorrelationIndexEntryRs {
+    rule_id: String,
+    canonical_stage: String,
+    canonical_source: String,
+    canonical_verdict: String,
+    merged_finding_count: usize,
+    merged_pre_render_count: usize,
+    merged_stage_counts: std::collections::BTreeMap<String, usize>,
+    merged_source_counts: std::collections::BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct A11yClaimEvidenceFlagsRs {
+    technology_support_assessed: bool,
+    technology_support_basis_recorded: bool,
+    wcag20_consistent_identification_assessed: bool,
+    wcag20_consistent_identification_basis_recorded: bool,
+    wcag20_multiple_ways_scope_declared: bool,
+    wcag20_multiple_ways_assessed: bool,
+    wcag20_multiple_ways_basis_recorded: bool,
+    wcag20_keyboard_assessed: bool,
+    wcag20_keyboard_basis_recorded: bool,
+    wcag20_keyboard_trap_assessed: bool,
+    wcag20_keyboard_trap_basis_recorded: bool,
+    wcag20_error_suggestion_scope_declared: bool,
+    wcag20_error_suggestion_assessed: bool,
+    wcag20_error_suggestion_basis_recorded: bool,
+    wcag20_error_prevention_scope_declared: bool,
+    wcag20_error_prevention_assessed: bool,
+    wcag20_error_prevention_basis_recorded: bool,
+    wcag20_on_input_assessed: bool,
+    wcag20_on_input_basis_recorded: bool,
+    wcag20_on_focus_assessed: bool,
+    wcag20_on_focus_basis_recorded: bool,
+    wcag20_timing_adjustable_scope_declared: bool,
+    wcag20_timing_adjustable_assessed: bool,
+    wcag20_timing_adjustable_basis_recorded: bool,
+    wcag20_pause_stop_hide_scope_declared: bool,
+    wcag20_pause_stop_hide_assessed: bool,
+    wcag20_pause_stop_hide_basis_recorded: bool,
+    wcag20_three_flashes_scope_declared: bool,
+    wcag20_three_flashes_assessed: bool,
+    wcag20_three_flashes_basis_recorded: bool,
+    wcag20_audio_control_scope_declared: bool,
+    wcag20_audio_control_assessed: bool,
+    wcag20_audio_control_basis_recorded: bool,
+    wcag20_use_of_color_scope_declared: bool,
+    wcag20_use_of_color_assessed: bool,
+    wcag20_use_of_color_basis_recorded: bool,
+    wcag20_resize_text_scope_declared: bool,
+    wcag20_resize_text_assessed: bool,
+    wcag20_resize_text_basis_recorded: bool,
+    wcag20_images_of_text_scope_declared: bool,
+    wcag20_images_of_text_assessed: bool,
+    wcag20_images_of_text_basis_recorded: bool,
+    wcag20_prerecorded_av_alternative_scope_declared: bool,
+    wcag20_prerecorded_av_alternative_assessed: bool,
+    wcag20_prerecorded_av_alternative_basis_recorded: bool,
+    wcag20_prerecorded_captions_scope_declared: bool,
+    wcag20_prerecorded_captions_assessed: bool,
+    wcag20_prerecorded_captions_basis_recorded: bool,
+    wcag20_prerecorded_audio_description_or_media_alternative_scope_declared: bool,
+    wcag20_prerecorded_audio_description_or_media_alternative_assessed: bool,
+    wcag20_prerecorded_audio_description_or_media_alternative_basis_recorded: bool,
+    wcag20_live_captions_scope_declared: bool,
+    wcag20_live_captions_assessed: bool,
+    wcag20_live_captions_basis_recorded: bool,
+    wcag20_prerecorded_audio_description_scope_declared: bool,
+    wcag20_prerecorded_audio_description_assessed: bool,
+    wcag20_prerecorded_audio_description_basis_recorded: bool,
+    wcag20_meaningful_sequence_scope_declared: bool,
+    wcag20_meaningful_sequence_assessed: bool,
+    wcag20_meaningful_sequence_basis_recorded: bool,
+    wcag20_consistent_navigation_scope_declared: bool,
+    wcag20_consistent_navigation_assessed: bool,
+    wcag20_consistent_navigation_basis_recorded: bool,
+    section508_scope_declared: bool,
+    section508_public_facing_determination_recorded: bool,
+    section508_official_communications_determination_recorded: bool,
+    section508_nara_exception_determination_recorded: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct A11yCssFocusSeedFactsRs {
+    focus_selector_signal_count: usize,
+    outline_suppression_signal_count: usize,
+}
+
+fn a11y_css_focus_seed_facts(css_text: &str) -> A11yCssFocusSeedFactsRs {
+    let css_l = css_text.to_ascii_lowercase();
+    let focus_selector_signal_count = css_l.matches(":focus").count();
+    let outline_suppression_signal_count = css_l.matches("outline:none").count()
+        + css_l.matches("outline: none").count()
+        + css_l.matches("outline:0").count()
+        + css_l.matches("outline: 0").count()
+        + css_l.matches("outline-width:0").count()
+        + css_l.matches("outline-width: 0").count();
+    A11yCssFocusSeedFactsRs {
+        focus_selector_signal_count,
+        outline_suppression_signal_count,
+    }
+}
+
+fn py_dict_bool_path(obj: Option<&Bound<'_, PyAny>>, path: &[&str]) -> bool {
+    let Some(root) = obj else {
+        return false;
+    };
+    let mut cur: Bound<'_, PyAny> = root.clone();
+    for (idx, key) in path.iter().enumerate() {
+        let dict = match cur.downcast::<PyDict>() {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
+        let Some(next) = (match dict.get_item(*key) {
+            Ok(v) => v,
+            Err(_) => None,
+        }) else {
+            return false;
+        };
+        if idx == path.len() - 1 {
+            return next.extract::<bool>().unwrap_or(false);
+        }
+        cur = next;
+    }
+    false
+}
+
+fn a11y_claim_evidence_flags_from_py(
+    claim_evidence: Option<&Bound<'_, PyAny>>,
+) -> A11yClaimEvidenceFlagsRs {
+    A11yClaimEvidenceFlagsRs {
+        technology_support_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["technology_support", "assessed"],
+        ),
+        technology_support_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["technology_support", "basis_recorded"],
+        ),
+        wcag20_consistent_identification_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "consistent_identification_assessed"],
+        ),
+        wcag20_consistent_identification_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "consistent_identification_basis_recorded"],
+        ),
+        wcag20_multiple_ways_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "multiple_ways_scope_declared"],
+        ),
+        wcag20_multiple_ways_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "multiple_ways_assessed"],
+        ),
+        wcag20_multiple_ways_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "multiple_ways_basis_recorded"],
+        ),
+        wcag20_keyboard_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "keyboard_assessed"],
+        ),
+        wcag20_keyboard_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "keyboard_basis_recorded"],
+        ),
+        wcag20_keyboard_trap_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "keyboard_trap_assessed"],
+        ),
+        wcag20_keyboard_trap_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "keyboard_trap_basis_recorded"],
+        ),
+        wcag20_error_suggestion_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_suggestion_scope_declared"],
+        ),
+        wcag20_error_suggestion_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_suggestion_assessed"],
+        ),
+        wcag20_error_suggestion_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_suggestion_basis_recorded"],
+        ),
+        wcag20_error_prevention_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_prevention_scope_declared"],
+        ),
+        wcag20_error_prevention_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_prevention_assessed"],
+        ),
+        wcag20_error_prevention_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "error_prevention_basis_recorded"],
+        ),
+        wcag20_on_input_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "on_input_assessed"],
+        ),
+        wcag20_on_input_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "on_input_basis_recorded"],
+        ),
+        wcag20_on_focus_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "on_focus_assessed"],
+        ),
+        wcag20_on_focus_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "on_focus_basis_recorded"],
+        ),
+        wcag20_timing_adjustable_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "timing_adjustable_scope_declared"],
+        ),
+        wcag20_timing_adjustable_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "timing_adjustable_assessed"],
+        ),
+        wcag20_timing_adjustable_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "timing_adjustable_basis_recorded"],
+        ),
+        wcag20_pause_stop_hide_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "pause_stop_hide_scope_declared"],
+        ),
+        wcag20_pause_stop_hide_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "pause_stop_hide_assessed"],
+        ),
+        wcag20_pause_stop_hide_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "pause_stop_hide_basis_recorded"],
+        ),
+        wcag20_three_flashes_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "three_flashes_scope_declared"],
+        ),
+        wcag20_three_flashes_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "three_flashes_assessed"],
+        ),
+        wcag20_three_flashes_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "three_flashes_basis_recorded"],
+        ),
+        wcag20_audio_control_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "audio_control_scope_declared"],
+        ),
+        wcag20_audio_control_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "audio_control_assessed"],
+        ),
+        wcag20_audio_control_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "audio_control_basis_recorded"],
+        ),
+        wcag20_use_of_color_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "use_of_color_scope_declared"],
+        ),
+        wcag20_use_of_color_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "use_of_color_assessed"],
+        ),
+        wcag20_use_of_color_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "use_of_color_basis_recorded"],
+        ),
+        wcag20_resize_text_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "resize_text_scope_declared"],
+        ),
+        wcag20_resize_text_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "resize_text_assessed"],
+        ),
+        wcag20_resize_text_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "resize_text_basis_recorded"],
+        ),
+        wcag20_images_of_text_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "images_of_text_scope_declared"],
+        ),
+        wcag20_images_of_text_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "images_of_text_assessed"],
+        ),
+        wcag20_images_of_text_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "images_of_text_basis_recorded"],
+        ),
+        wcag20_prerecorded_av_alternative_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_av_alternative_scope_declared"],
+        ),
+        wcag20_prerecorded_av_alternative_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_av_alternative_assessed"],
+        ),
+        wcag20_prerecorded_av_alternative_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_av_alternative_basis_recorded"],
+        ),
+        wcag20_prerecorded_captions_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_captions_scope_declared"],
+        ),
+        wcag20_prerecorded_captions_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_captions_assessed"],
+        ),
+        wcag20_prerecorded_captions_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_captions_basis_recorded"],
+        ),
+        wcag20_prerecorded_audio_description_or_media_alternative_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &[
+                "wcag20",
+                "prerecorded_audio_description_or_media_alternative_scope_declared",
+            ],
+        ),
+        wcag20_prerecorded_audio_description_or_media_alternative_assessed: py_dict_bool_path(
+            claim_evidence,
+            &[
+                "wcag20",
+                "prerecorded_audio_description_or_media_alternative_assessed",
+            ],
+        ),
+        wcag20_prerecorded_audio_description_or_media_alternative_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &[
+                "wcag20",
+                "prerecorded_audio_description_or_media_alternative_basis_recorded",
+            ],
+        ),
+        wcag20_live_captions_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "live_captions_scope_declared"],
+        ),
+        wcag20_live_captions_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "live_captions_assessed"],
+        ),
+        wcag20_live_captions_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "live_captions_basis_recorded"],
+        ),
+        wcag20_prerecorded_audio_description_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_audio_description_scope_declared"],
+        ),
+        wcag20_prerecorded_audio_description_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_audio_description_assessed"],
+        ),
+        wcag20_prerecorded_audio_description_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "prerecorded_audio_description_basis_recorded"],
+        ),
+        wcag20_meaningful_sequence_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "meaningful_sequence_scope_declared"],
+        ),
+        wcag20_meaningful_sequence_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "meaningful_sequence_assessed"],
+        ),
+        wcag20_meaningful_sequence_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "meaningful_sequence_basis_recorded"],
+        ),
+        wcag20_consistent_navigation_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "consistent_navigation_scope_declared"],
+        ),
+        wcag20_consistent_navigation_assessed: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "consistent_navigation_assessed"],
+        ),
+        wcag20_consistent_navigation_basis_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["wcag20", "consistent_navigation_basis_recorded"],
+        ),
+        section508_scope_declared: py_dict_bool_path(
+            claim_evidence,
+            &["section508", "scope_declared"],
+        ),
+        section508_public_facing_determination_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["section508", "public_facing_determination_recorded"],
+        ),
+        section508_official_communications_determination_recorded: py_dict_bool_path(
+            claim_evidence,
+            &[
+                "section508",
+                "official_communications_determination_recorded",
+            ],
+        ),
+        section508_nara_exception_determination_recorded: py_dict_bool_path(
+            claim_evidence,
+            &["section508", "nara_exception_determination_recorded"],
+        ),
+    }
+}
+
+fn a11y_diag_map(code: &str) -> Option<&'static str> {
+    match code.trim() {
+        "DOCUMENT_TITLE_MISSING" => Some("fb.a11y.html.title_present_nonempty"),
+        "ID_DUPLICATE" => Some("fb.a11y.ids.duplicate_id"),
+        "IDREF_MISSING" => Some("fb.a11y.aria.reference_target_exists"),
+        "MAIN_MULTIPLE" => Some("fb.a11y.structure.single_main"),
+        "IMAGE_ALT_MISSING" => Some("fb.a11y.images.alt_or_decorative"),
+        "IMAGE_ALT_MISSING_TITLE_PRESENT" => Some("fb.a11y.images.alt_or_decorative"),
+        "IMAGE_SEMANTIC_CONFLICT" => Some("fb.a11y.images.alt_or_decorative"),
+        "SIGNATURE_STATUS_INVALID" => Some("fb.a11y.signatures.text_semantics_present"),
+        "SIGNATURE_METHOD_INVALID" => Some("fb.a11y.signatures.text_semantics_present"),
+        "HEADING_EMPTY" => Some("fb.a11y.headings_labels.present_nonempty"),
+        "LABEL_EMPTY" => Some("fb.a11y.headings_labels.present_nonempty"),
+        "ARIA_LABEL_EMPTY" => Some("fb.a11y.headings_labels.present_nonempty"),
+        "REGION_UNLABELED" => Some("fb.a11y.headings_labels.present_nonempty"),
+        _ => None,
+    }
+}
+
+fn a11y_bridge_findings_from_contract_report(
+    a11y_report: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Vec<A11yVerifierFinding>> {
+    let Some(obj) = a11y_report else {
+        return Ok(Vec::new());
+    };
+    let dict = match obj.downcast::<PyDict>() {
+        Ok(d) => d,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let Some(diags_any) = dict.get_item("diagnostics")? else {
+        return Ok(Vec::new());
+    };
+    let diags = match diags_any.downcast::<PyList>() {
+        Ok(v) => v,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let mut out = Vec::new();
+    for item in diags.iter() {
+        let d = match item.downcast::<PyDict>() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let code = d
+            .get_item("code")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        let Some(rule_id) = a11y_diag_map(&code) else {
+            continue;
+        };
+        let severity_text = d
+            .get_item("severity")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        let is_error = severity_text.trim().eq_ignore_ascii_case("error");
+        let severity = if is_error
+            && matches!(
+                rule_id,
+                "fb.a11y.ids.duplicate_id" | "fb.a11y.aria.reference_target_exists"
+            ) {
+            "critical"
+        } else if is_error {
+            "high"
+        } else {
+            "medium"
+        };
+        let message = d
+            .get_item("message")?
+            .and_then(|v| v.extract::<String>().ok())
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| {
+                if code.is_empty() {
+                    "A11y diagnostic".to_string()
+                } else {
+                    code.clone()
+                }
+            });
+        let path = d
+            .get_item("path")?
+            .and_then(|v| v.extract::<String>().ok())
+            .unwrap_or_default();
+        out.push(A11yVerifierFinding {
+            rule_id: rule_id.to_string(),
+            applicability: "applicable".to_string(),
+            verification_mode: "machine".to_string(),
+            verdict: if is_error { "fail" } else { "warn" }.to_string(),
+            severity: severity.to_string(),
+            confidence: "high".to_string(),
+            stage: "pre-render".to_string(),
+            source: "a11y_contract".to_string(),
+            message,
+            evidence: vec![A11yVerifierEvidence {
+                selector: if path.trim().is_empty() {
+                    None
+                } else {
+                    Some(path.clone())
+                },
+                values: vec![("code".to_string(), code), ("dom_path".to_string(), path)],
+            }],
+        });
+    }
+    Ok(out)
+}
+
+fn a11y_findings_count_by_stage_source(
+    rows: &[A11yVerifierFinding],
+) -> (
+    std::collections::BTreeMap<String, usize>,
+    std::collections::BTreeMap<String, usize>,
+) {
+    let mut stage_counts = std::collections::BTreeMap::new();
+    let mut source_counts = std::collections::BTreeMap::new();
+    for f in rows {
+        *stage_counts.entry(f.stage.clone()).or_insert(0) += 1;
+        *source_counts.entry(f.source.clone()).or_insert(0) += 1;
+    }
+    (stage_counts, source_counts)
+}
+
+fn a11y_verdict_rank(v: &str) -> i32 {
+    match v {
+        "fail" => 5,
+        "warn" => 4,
+        "manual_needed" => 3,
+        "pass" => 2,
+        "not_applicable" => 1,
+        _ => 0,
+    }
+}
+
+fn a11y_severity_rank(v: &str) -> i32 {
+    match v {
+        "critical" => 5,
+        "high" => 4,
+        "medium" => 3,
+        "low" => 2,
+        "info" => 1,
+        _ => 0,
+    }
+}
+
+fn a11y_confidence_rank(v: &str) -> i32 {
+    match v {
+        "certain" => 4,
+        "high" => 3,
+        "medium" => 2,
+        "low" => 1,
+        _ => 0,
+    }
+}
+
+fn a11y_finding_ref(f: &A11yVerifierFinding, idx: usize) -> String {
+    format!("{}:{}:{}:{idx}", f.rule_id, f.stage, f.source)
+}
+
+fn a11y_dedup_and_correlate_findings(
+    rows: Vec<A11yVerifierFinding>,
+) -> (Vec<A11yVerifierFinding>, A11yObservabilitySummaryRs) {
+    let allowlist: std::collections::BTreeSet<&str> = [
+        "fb.a11y.html.title_present_nonempty",
+        "fb.a11y.structure.single_main",
+        "fb.a11y.images.alt_or_decorative",
+        "fb.a11y.headings_labels.present_nonempty",
+    ]
+    .into_iter()
+    .collect();
+
+    let original = rows;
+    let (original_stage_counts, original_source_counts) =
+        a11y_findings_count_by_stage_source(&original);
+    let mut by_rule: std::collections::BTreeMap<String, Vec<usize>> =
+        std::collections::BTreeMap::new();
+    for (idx, f) in original.iter().enumerate() {
+        by_rule.entry(f.rule_id.clone()).or_default().push(idx);
+    }
+
+    let mut merge_plan: std::collections::BTreeMap<usize, Vec<usize>> =
+        std::collections::BTreeMap::new();
+    let mut skip_indexes: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+    for (rule_id, idxs) in by_rule {
+        if !allowlist.contains(rule_id.as_str()) || idxs.len() < 2 {
+            continue;
+        }
+        let pre: Vec<usize> = idxs
+            .iter()
+            .copied()
+            .filter(|i| {
+                let f = &original[*i];
+                f.stage == "pre-render" && f.source == "a11y_contract"
+            })
+            .collect();
+        if pre.is_empty() {
+            continue;
+        }
+        let non_pre: Vec<usize> = idxs.iter().copied().filter(|i| !pre.contains(i)).collect();
+        if non_pre.len() != 1 {
+            continue;
+        }
+        merge_plan.insert(non_pre[0], pre.clone());
+        for i in pre {
+            skip_indexes.insert(i);
+        }
+    }
+
+    let mut dedup_event_count = 0usize;
+    let mut dedup_merged_finding_count = 0usize;
+    let mut correlated_finding_count = 0usize;
+    let mut reported: Vec<A11yVerifierFinding> = Vec::new();
+    let mut correlation_index: Vec<A11yCorrelationIndexEntryRs> = Vec::new();
+
+    for (idx, row) in original.iter().cloned().enumerate() {
+        if skip_indexes.contains(&idx) {
+            continue;
+        }
+        let Some(peer_idxs) = merge_plan.get(&idx).cloned() else {
+            reported.push(row);
+            continue;
+        };
+        dedup_event_count += 1;
+        dedup_merged_finding_count += peer_idxs.len();
+        correlated_finding_count += 1;
+
+        let mut primary = row.clone();
+        let mut group: Vec<(usize, &A11yVerifierFinding)> = Vec::new();
+        group.push((idx, &original[idx]));
+        for peer_idx in &peer_idxs {
+            group.push((*peer_idx, &original[*peer_idx]));
+        }
+
+        if let Some(worst) = group
+            .iter()
+            .map(|(_, f)| f.verdict.as_str())
+            .max_by_key(|v| a11y_verdict_rank(v))
+        {
+            primary.verdict = worst.to_string();
+        }
+        if let Some(worst) = group
+            .iter()
+            .map(|(_, f)| f.severity.as_str())
+            .max_by_key(|v| a11y_severity_rank(v))
+        {
+            primary.severity = worst.to_string();
+        }
+        if let Some(lowest) = group
+            .iter()
+            .map(|(_, f)| f.confidence.as_str())
+            .min_by_key(|v| a11y_confidence_rank(v))
+        {
+            primary.confidence = lowest.to_string();
+        }
+        if group.iter().any(|(_, f)| f.applicability == "applicable") {
+            primary.applicability = "applicable".to_string();
+        } else if group.iter().any(|(_, f)| f.applicability == "unknown") {
+            primary.applicability = "unknown".to_string();
+        } else {
+            primary.applicability = "not_applicable".to_string();
+        }
+
+        let mut merged_evidence: Vec<A11yVerifierEvidence> = Vec::new();
+        for (gidx, f) in &group {
+            let mut evs = if f.evidence.is_empty() {
+                vec![A11yVerifierEvidence {
+                    selector: None,
+                    values: Vec::new(),
+                }]
+            } else {
+                f.evidence.clone()
+            };
+            for ev in evs.iter_mut() {
+                ev.values
+                    .push(("correlated_origin_stage".to_string(), f.stage.clone()));
+                ev.values
+                    .push(("correlated_origin_source".to_string(), f.source.clone()));
+                ev.values
+                    .push(("correlated_origin_verdict".to_string(), f.verdict.clone()));
+                ev.values.push((
+                    "correlated_primary".to_string(),
+                    if *gidx == idx { "true" } else { "false" }.to_string(),
+                ));
+                ev.values.push((
+                    "correlated_origin_ref".to_string(),
+                    a11y_finding_ref(f, *gidx),
+                ));
+            }
+            merged_evidence.extend(evs);
+        }
+        let (group_stage_counts, group_source_counts) = a11y_findings_count_by_stage_source(
+            &group.iter().map(|(_, f)| (*f).clone()).collect::<Vec<_>>(),
+        );
+        let mut summary_values = vec![
+            ("correlation_role".to_string(), "summary".to_string()),
+            (
+                "merged_pre_render_count".to_string(),
+                peer_idxs.len().to_string(),
+            ),
+        ];
+        for (k, v) in &group_stage_counts {
+            summary_values.push((format!("stage_count:{k}"), v.to_string()));
+        }
+        for (k, v) in &group_source_counts {
+            summary_values.push((format!("source_count:{k}"), v.to_string()));
+        }
+        merged_evidence.push(A11yVerifierEvidence {
+            selector: None,
+            values: summary_values,
+        });
+        primary.evidence = merged_evidence;
+        primary.message = format!(
+            "{} (Correlated {} pre-render diagnostic(s) into canonical {} finding.)",
+            primary.message.trim_end(),
+            peer_idxs.len(),
+            primary.stage
+        );
+        let merged_pre_render_count = group
+            .iter()
+            .filter(|(_, f)| f.stage == "pre-render" && f.source == "a11y_contract")
+            .count();
+        correlation_index.push(A11yCorrelationIndexEntryRs {
+            rule_id: primary.rule_id.clone(),
+            canonical_stage: primary.stage.clone(),
+            canonical_source: primary.source.clone(),
+            canonical_verdict: primary.verdict.clone(),
+            merged_finding_count: peer_idxs.len(),
+            merged_pre_render_count,
+            merged_stage_counts: group_stage_counts.clone(),
+            merged_source_counts: group_source_counts.clone(),
+        });
+        reported.push(primary);
+    }
+
+    let (stage_counts, source_counts) = a11y_findings_count_by_stage_source(&reported);
+    let obs = A11yObservabilitySummaryRs {
+        original_finding_count: original.len(),
+        reported_finding_count: reported.len(),
+        dedup_event_count,
+        dedup_merged_finding_count,
+        correlated_finding_count,
+        stage_counts,
+        source_counts,
+        original_stage_counts,
+        original_source_counts,
+        correlation_index,
+    };
+    (reported, obs)
+}
+
+fn py_dict_optional_i64(dict: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<i64>> {
+    match dict.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract::<i64>()?)),
+        _ => Ok(None),
+    }
+}
+
+fn py_dict_optional_bool(dict: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<bool>> {
+    match dict.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract::<bool>()?)),
+        _ => Ok(None),
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct DiagnosticSignals {
+    page_count_mismatch: Option<bool>,
+    layout_collapse_detected: Option<bool>,
+    pagination_overflow_detected: Option<bool>,
+    token_fragmentation_detected: Option<bool>,
+    typography_wrap_drift_detected: Option<bool>,
+    typography_spacing_drift_detected: Option<bool>,
+    sparse_page_header_omission_detected: Option<bool>,
+    semantic_table_alignment_drift: Option<bool>,
+    low_coverage_page_count: Option<i64>,
+    token_fragmentation_block_count: Option<i64>,
+    wrap_drift_block_count: Option<i64>,
+    suspicious_char_width_block_count: Option<i64>,
+    missing_header_cell_count: Option<i64>,
+    semantic_table_row_risk_count: Option<i64>,
+    fragmented_table_cell_count: Option<i64>,
+}
+
+fn pagination_trace_summary_from_py(
+    value: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<PaginationTraceSummary>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_none() {
+        return Ok(None);
+    }
+    let dict = value.downcast::<PyDict>().map_err(|_| {
+        PyValueError::new_err("pagination_trace_summary must be a dict when supplied")
+    })?;
+    Ok(Some(PaginationTraceSummary {
+        page_count: py_dict_optional_i64(dict, "page_count")?,
+        event_count: py_dict_optional_i64(dict, "event_count")?,
+        transition_count: py_dict_optional_i64(dict, "transition_count")?,
+        page_transition_count: py_dict_optional_i64(dict, "page_transition_count")?,
+        frame_transition_count: py_dict_optional_i64(dict, "frame_transition_count")?,
+        placement_count: py_dict_optional_i64(dict, "placement_count")?,
+        split_count: py_dict_optional_i64(dict, "split_count")?,
+        overflow_event_count: py_dict_optional_i64(dict, "overflow_event_count")?,
+        recoverable_overflow_count: py_dict_optional_i64(dict, "recoverable_overflow_count")?,
+        fatal_overflow_count: py_dict_optional_i64(dict, "fatal_overflow_count")?,
+        low_coverage_page_count: py_dict_optional_i64(dict, "low_coverage_page_count")?,
+        flowable_overlap_count: py_dict_optional_i64(dict, "flowable_overlap_count")?,
+        text_overlap_count: py_dict_optional_i64(dict, "text_overlap_count")?,
+    }))
+}
+
+fn pagination_trace_summary_to_py<'py>(
+    py: Python<'py>,
+    summary: &PaginationTraceSummary,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    if let Some(value) = summary.page_count {
+        out.set_item("page_count", value)?;
+    }
+    if let Some(value) = summary.event_count {
+        out.set_item("event_count", value)?;
+    }
+    if let Some(value) = summary.transition_count {
+        out.set_item("transition_count", value)?;
+    }
+    if let Some(value) = summary.page_transition_count {
+        out.set_item("page_transition_count", value)?;
+    }
+    if let Some(value) = summary.frame_transition_count {
+        out.set_item("frame_transition_count", value)?;
+    }
+    if let Some(value) = summary.placement_count {
+        out.set_item("placement_count", value)?;
+    }
+    if let Some(value) = summary.split_count {
+        out.set_item("split_count", value)?;
+    }
+    if let Some(value) = summary.overflow_event_count {
+        out.set_item("overflow_event_count", value)?;
+    }
+    if let Some(value) = summary.recoverable_overflow_count {
+        out.set_item("recoverable_overflow_count", value)?;
+    }
+    if let Some(value) = summary.fatal_overflow_count {
+        out.set_item("fatal_overflow_count", value)?;
+    }
+    if let Some(value) = summary.low_coverage_page_count {
+        out.set_item("low_coverage_page_count", value)?;
+    }
+    if let Some(value) = summary.flowable_overlap_count {
+        out.set_item("flowable_overlap_count", value)?;
+    }
+    if let Some(value) = summary.text_overlap_count {
+        out.set_item("text_overlap_count", value)?;
+    }
+    Ok(out)
+}
+
+fn diagnostic_signals_from_py(
+    value: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<DiagnosticSignals>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_none() {
+        return Ok(None);
+    }
+    let dict = value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err("diagnostic_signals must be a dict when supplied"))?;
+    Ok(Some(DiagnosticSignals {
+        page_count_mismatch: py_dict_optional_bool(dict, "page_count_mismatch")?,
+        layout_collapse_detected: py_dict_optional_bool(dict, "layout_collapse_detected")?,
+        pagination_overflow_detected: py_dict_optional_bool(dict, "pagination_overflow_detected")?,
+        token_fragmentation_detected: py_dict_optional_bool(dict, "token_fragmentation_detected")?,
+        typography_wrap_drift_detected: py_dict_optional_bool(
+            dict,
+            "typography_wrap_drift_detected",
+        )?,
+        typography_spacing_drift_detected: py_dict_optional_bool(
+            dict,
+            "typography_spacing_drift_detected",
+        )?,
+        sparse_page_header_omission_detected: py_dict_optional_bool(
+            dict,
+            "sparse_page_header_omission_detected",
+        )?,
+        semantic_table_alignment_drift: py_dict_optional_bool(
+            dict,
+            "semantic_table_alignment_drift",
+        )?,
+        low_coverage_page_count: py_dict_optional_i64(dict, "low_coverage_page_count")?,
+        token_fragmentation_block_count: py_dict_optional_i64(
+            dict,
+            "token_fragmentation_block_count",
+        )?,
+        wrap_drift_block_count: py_dict_optional_i64(dict, "wrap_drift_block_count")?,
+        suspicious_char_width_block_count: py_dict_optional_i64(
+            dict,
+            "suspicious_char_width_block_count",
+        )?,
+        missing_header_cell_count: py_dict_optional_i64(dict, "missing_header_cell_count")?,
+        semantic_table_row_risk_count: py_dict_optional_i64(dict, "semantic_table_row_risk_count")?,
+        fragmented_table_cell_count: py_dict_optional_i64(dict, "fragmented_table_cell_count")?,
+    }))
+}
+
+fn diagnostic_signals_to_py<'py>(
+    py: Python<'py>,
+    signals: &DiagnosticSignals,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    if let Some(value) = signals.page_count_mismatch {
+        out.set_item("page_count_mismatch", value)?;
+    }
+    if let Some(value) = signals.layout_collapse_detected {
+        out.set_item("layout_collapse_detected", value)?;
+    }
+    if let Some(value) = signals.pagination_overflow_detected {
+        out.set_item("pagination_overflow_detected", value)?;
+    }
+    if let Some(value) = signals.token_fragmentation_detected {
+        out.set_item("token_fragmentation_detected", value)?;
+    }
+    if let Some(value) = signals.typography_wrap_drift_detected {
+        out.set_item("typography_wrap_drift_detected", value)?;
+    }
+    if let Some(value) = signals.typography_spacing_drift_detected {
+        out.set_item("typography_spacing_drift_detected", value)?;
+    }
+    if let Some(value) = signals.sparse_page_header_omission_detected {
+        out.set_item("sparse_page_header_omission_detected", value)?;
+    }
+    if let Some(value) = signals.semantic_table_alignment_drift {
+        out.set_item("semantic_table_alignment_drift", value)?;
+    }
+    if let Some(value) = signals.low_coverage_page_count {
+        out.set_item("low_coverage_page_count", value)?;
+    }
+    if let Some(value) = signals.token_fragmentation_block_count {
+        out.set_item("token_fragmentation_block_count", value)?;
+    }
+    if let Some(value) = signals.wrap_drift_block_count {
+        out.set_item("wrap_drift_block_count", value)?;
+    }
+    if let Some(value) = signals.suspicious_char_width_block_count {
+        out.set_item("suspicious_char_width_block_count", value)?;
+    }
+    if let Some(value) = signals.missing_header_cell_count {
+        out.set_item("missing_header_cell_count", value)?;
+    }
+    if let Some(value) = signals.semantic_table_row_risk_count {
+        out.set_item("semantic_table_row_risk_count", value)?;
+    }
+    if let Some(value) = signals.fragmented_table_cell_count {
+        out.set_item("fragmented_table_cell_count", value)?;
+    }
+    Ok(out)
+}
+
+fn a11y_finding_evidence_selector(finding: &A11yVerifierFinding) -> Option<String> {
+    finding
+        .evidence
+        .iter()
+        .find_map(|evidence| evidence.selector.clone())
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn a11y_finding_evidence_value(finding: &A11yVerifierFinding, key: &str) -> Option<String> {
+    finding
+        .evidence
+        .iter()
+        .flat_map(|evidence| evidence.values.iter())
+        .find_map(|(candidate_key, candidate_value)| {
+            if candidate_key == key && !candidate_value.trim().is_empty() {
+                Some(candidate_value.clone())
+            } else {
+                None
+            }
+        })
+}
+
+fn evidence_list_value(value: Option<String>) -> Option<Vec<String>> {
+    value
+        .map(|raw| {
+            raw.split(',')
+                .map(|part| part.trim().to_string())
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+        })
+        .filter(|items| !items.is_empty())
+}
+
+fn a11y_finding_remediation_hint(finding: &A11yVerifierFinding) -> Option<&'static str> {
+    match finding.rule_id.as_str() {
+        "fb.a11y.html.lang_present_valid" | "fb.a11y.html.title_present_nonempty" => {
+            if a11y_finding_evidence_value(finding, "failure_kind").as_deref()
+                == Some("metadata_mismatch")
+            {
+                Some(
+                    "Set document metadata on the Document/PdfEngine path instead of mutating only emitted HTML.",
+                )
+            } else {
+                None
+            }
+        }
+        "fb.a11y.ids.duplicate_id" => {
+            Some("Make IDs unique and update any aria-labelledby/aria-describedby references.")
+        }
+        "fb.a11y.aria.reference_target_exists" => {
+            Some("Ensure every ARIA id reference resolves to an emitted element ID.")
+        }
+        _ => None,
+    }
+}
+
+fn build_a11y_blocking_issue_summary_py<'py>(
+    py: Python<'py>,
+    findings: &[A11yVerifierFinding],
+    failed_rule_ids: &[String],
+) -> PyResult<Bound<'py, PyList>> {
+    let out = PyList::empty(py);
+    let failed_rule_ids: std::collections::BTreeSet<&str> =
+        failed_rule_ids.iter().map(|value| value.as_str()).collect();
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut candidates: Vec<&A11yVerifierFinding> = findings
+        .iter()
+        .filter(|finding| {
+            failed_rule_ids.contains(finding.rule_id.as_str())
+                || matches!(finding.verdict.as_str(), "fail" | "warn" | "manual_needed")
+        })
+        .collect();
+    candidates.sort_by(|left, right| {
+        a11y_verdict_rank(right.verdict.as_str())
+            .cmp(&a11y_verdict_rank(left.verdict.as_str()))
+            .then_with(|| {
+                a11y_severity_rank(right.severity.as_str())
+                    .cmp(&a11y_severity_rank(left.severity.as_str()))
+            })
+            .then_with(|| left.rule_id.cmp(&right.rule_id))
+    });
+
+    for finding in candidates.into_iter().take(20) {
+        let selector = a11y_finding_evidence_selector(finding);
+        let dom_path = a11y_finding_evidence_value(finding, "dom_path");
+        let page = a11y_finding_evidence_value(finding, "page")
+            .and_then(|value| value.parse::<usize>().ok());
+        let failure_kind = a11y_finding_evidence_value(finding, "failure_kind");
+        let dedup_key = format!(
+            "{}|{}|{}|{}",
+            finding.rule_id,
+            selector.clone().unwrap_or_default(),
+            dom_path.clone().unwrap_or_default(),
+            page.map(|value| value.to_string()).unwrap_or_default()
+        );
+        if !seen.insert(dedup_key) {
+            continue;
+        }
+
+        let row = PyDict::new(py);
+        row.set_item("rule_id", finding.rule_id.clone())?;
+        row.set_item("verdict", finding.verdict.clone())?;
+        row.set_item("severity", finding.severity.clone())?;
+        row.set_item("message", finding.message.clone())?;
+        row.set_item("stage", finding.stage.clone())?;
+        row.set_item("source", finding.source.clone())?;
+        row.set_item(
+            "gate_failed",
+            failed_rule_ids.contains(finding.rule_id.as_str()),
+        )?;
+        if let Some(value) = selector {
+            row.set_item("selector", value)?;
+        }
+        if let Some(value) = dom_path {
+            row.set_item("dom_path", value)?;
+        }
+        if let Some(value) = page {
+            row.set_item("page", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "component") {
+            row.set_item("component", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "role") {
+            row.set_item("role", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "tag") {
+            row.set_item("tag", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "id") {
+            row.set_item("id", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "classes") {
+            row.set_item("classes", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "owner_label") {
+            row.set_item("owner_label", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "owner_source") {
+            row.set_item("owner_source", value)?;
+        }
+        if let Some(values) =
+            evidence_list_value(a11y_finding_evidence_value(finding, "suspect_cause_codes"))
+        {
+            let items = PyList::empty(py);
+            for value in values {
+                items.append(value)?;
+            }
+            row.set_item("suspect_cause_codes", items)?;
+        }
+        if let Some(value) = failure_kind {
+            row.set_item("failure_kind", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "observed_lang")
+            .or_else(|| a11y_finding_evidence_value(finding, "observed_title"))
+        {
+            row.set_item("observed_value", value)?;
+        }
+        if let Some(value) = a11y_finding_evidence_value(finding, "expected_document_lang")
+            .or_else(|| a11y_finding_evidence_value(finding, "expected_document_title"))
+        {
+            row.set_item("expected_value", value)?;
+        }
+        if let Some(hint) = a11y_finding_remediation_hint(finding) {
+            row.set_item("remediation_hint", hint)?;
+        }
+        out.append(row)?;
+    }
+    Ok(out)
+}
+
+fn pmr_audit_evidence_selector(audit: &PmrCoreAudit) -> Option<String> {
+    audit
+        .evidence
+        .iter()
+        .find_map(|evidence| evidence.selector.clone())
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn pmr_audit_evidence_value(audit: &PmrCoreAudit, key: &str) -> Option<String> {
+    audit
+        .evidence
+        .iter()
+        .flat_map(|evidence| evidence.values.iter())
+        .find_map(|(candidate_key, candidate_value)| {
+            if candidate_key == key && !candidate_value.trim().is_empty() {
+                Some(candidate_value.clone())
+            } else {
+                None
+            }
+        })
+}
+
+fn pmr_audit_remediation_hint(audit: &PmrCoreAudit) -> Option<&'static str> {
+    match audit.audit_id.as_str() {
+        "pmr.doc.lang_present_valid" | "pmr.doc.title_present_nonempty" => {
+            if pmr_audit_evidence_value(audit, "failure_kind").as_deref()
+                == Some("metadata_mismatch")
+            {
+                Some(
+                    "Set document metadata on the Document/PdfEngine path instead of patching only emitted HTML.",
+                )
+            } else {
+                None
+            }
+        }
+        "pmr.layout.page_count_target" => Some(
+            "Inspect pagination trace ownership and page-break attribution to find the first overflowing authored region.",
+        ),
+        _ => None,
+    }
+}
+
+fn build_pmr_blocking_audit_summary_py<'py>(
+    py: Python<'py>,
+    audits: &[PmrCoreAudit],
+    failed_audit_ids: &[String],
+) -> PyResult<Bound<'py, PyList>> {
+    let out = PyList::empty(py);
+    let failed_audit_ids: std::collections::BTreeSet<&str> = failed_audit_ids
+        .iter()
+        .map(|value| value.as_str())
+        .collect();
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut candidates: Vec<&PmrCoreAudit> = audits
+        .iter()
+        .filter(|audit| {
+            failed_audit_ids.contains(audit.audit_id.as_str())
+                || matches!(audit.verdict.as_str(), "fail" | "warn" | "manual_needed")
+        })
+        .collect();
+    candidates.sort_by(|left, right| {
+        a11y_verdict_rank(right.verdict.as_str())
+            .cmp(&a11y_verdict_rank(left.verdict.as_str()))
+            .then_with(|| {
+                a11y_severity_rank(right.severity.as_str())
+                    .cmp(&a11y_severity_rank(left.severity.as_str()))
+            })
+            .then_with(|| left.audit_id.cmp(&right.audit_id))
+    });
+
+    for audit in candidates.into_iter().take(20) {
+        let selector = pmr_audit_evidence_selector(audit);
+        let diagnostic_ref = audit
+            .evidence
+            .iter()
+            .find_map(|evidence| evidence.diagnostic_ref.clone())
+            .filter(|value| !value.trim().is_empty());
+        let failure_kind = pmr_audit_evidence_value(audit, "failure_kind");
+        let dedup_key = format!(
+            "{}|{}|{}",
+            audit.audit_id,
+            selector.clone().unwrap_or_default(),
+            diagnostic_ref.clone().unwrap_or_default()
+        );
+        if !seen.insert(dedup_key) {
+            continue;
+        }
+
+        let row = PyDict::new(py);
+        row.set_item("audit_id", audit.audit_id.clone())?;
+        row.set_item("category", audit.category.clone())?;
+        row.set_item("class", audit.class_name.clone())?;
+        row.set_item("verdict", audit.verdict.clone())?;
+        row.set_item("severity", audit.severity.clone())?;
+        row.set_item("message", audit.message.clone())?;
+        row.set_item("stage", audit.stage.clone())?;
+        row.set_item("source", audit.source.clone())?;
+        row.set_item(
+            "gate_failed",
+            failed_audit_ids.contains(audit.audit_id.as_str()),
+        )?;
+        if let Some(value) = selector {
+            row.set_item("selector", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "dom_path") {
+            row.set_item("dom_path", value)?;
+        }
+        if let Some(value) =
+            pmr_audit_evidence_value(audit, "page").and_then(|value| value.parse::<usize>().ok())
+        {
+            row.set_item("page", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "component") {
+            row.set_item("component", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "role") {
+            row.set_item("role", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "tag") {
+            row.set_item("tag", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "id") {
+            row.set_item("id", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "classes") {
+            row.set_item("classes", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "owner_label") {
+            row.set_item("owner_label", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "owner_source") {
+            row.set_item("owner_source", value)?;
+        }
+        if let Some(values) =
+            evidence_list_value(pmr_audit_evidence_value(audit, "suspect_cause_codes"))
+        {
+            let items = PyList::empty(py);
+            for value in values {
+                items.append(value)?;
+            }
+            row.set_item("suspect_cause_codes", items)?;
+        }
+        if let Some(value) = diagnostic_ref {
+            row.set_item("diagnostic_ref", value)?;
+        }
+        if let Some(value) = failure_kind {
+            row.set_item("failure_kind", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "observed_lang")
+            .or_else(|| pmr_audit_evidence_value(audit, "observed_title"))
+        {
+            row.set_item("observed_value", value)?;
+        }
+        if let Some(value) = pmr_audit_evidence_value(audit, "expected_document_lang")
+            .or_else(|| pmr_audit_evidence_value(audit, "expected_document_title"))
+        {
+            row.set_item("expected_value", value)?;
+        }
+        if let Some(hint) = pmr_audit_remediation_hint(audit) {
+            row.set_item("remediation_hint", hint)?;
+        }
+        out.append(row)?;
+    }
+    Ok(out)
+}
+
+fn build_a11y_verify_report_py(
+    py: Python<'_>,
+    core: &A11yVerifierCoreReport,
+    html_path: &str,
+    css_path: &str,
+    mode: &str,
+    render_preview_png_path: Option<&str>,
+    a11y_report: Option<&Bound<'_, PyAny>>,
+    claim_evidence: Option<&Bound<'_, PyAny>>,
+    pagination_trace_summary: Option<&PaginationTraceSummary>,
+    diagnostic_signals: Option<&DiagnosticSignals>,
+) -> PyResult<PyObject> {
+    let mode_norm = {
+        let m = mode.trim().to_ascii_lowercase();
+        if m.is_empty() { "error".to_string() } else { m }
+    };
+    if !matches!(mode_norm.as_str(), "off" | "warn" | "error") {
+        return Err(PyValueError::new_err(format!(
+            "invalid mode {mode:?} (expected off|warn|error)"
+        )));
+    }
+
+    let claim_flags = a11y_claim_evidence_flags_from_py(claim_evidence);
+    let mut adapter_findings: Vec<A11yVerifierFinding> = Vec::new();
+    let complete_processes_applicable = core.profile.eq_ignore_ascii_case("transactional");
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.complete_processes_scope_seed".to_string(),
+        applicability: if complete_processes_applicable {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if complete_processes_applicable {
+            "manual_needed"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if complete_processes_applicable { "medium" } else { "high" }.to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if complete_processes_applicable {
+            "Transactional/profile process conformance requires complete-process scope evidence; manual review required."
+                .to_string()
+        } else {
+            "Complete-processes conformance requirement not applicable without a declared multi-step process scope."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "process_scope_declared".to_string(),
+                    "false".to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let keyboard_target_count = core.facts.link_count + core.facts.form_control_count;
+    let keyboard_custom_click_target_count = core.facts.custom_click_handler_count;
+    let keyboard_pointer_only_signal_count = core.facts.pointer_only_click_handler_count;
+    let keyboard_applicable = keyboard_target_count > 0 || keyboard_custom_click_target_count > 0;
+    let keyboard_claim_evidence_satisfied =
+        claim_flags.wcag20_keyboard_assessed && claim_flags.wcag20_keyboard_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.keyboard.operable_seed".to_string(),
+        applicability: if !keyboard_applicable {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !keyboard_applicable {
+            "not_applicable"
+        } else if keyboard_pointer_only_signal_count > 0 {
+            if keyboard_claim_evidence_satisfied {
+                "warn"
+            } else {
+                "manual_needed"
+            }
+        } else if keyboard_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !keyboard_applicable {
+            "high"
+        } else if keyboard_pointer_only_signal_count > 0 {
+            if keyboard_claim_evidence_satisfied {
+                "medium"
+            } else {
+                "low"
+            }
+        } else if keyboard_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !keyboard_applicable {
+            "No interactive links, form controls, or custom click-handlers detected; keyboard-operable seed not applicable."
+                .to_string()
+        } else if keyboard_pointer_only_signal_count > 0 {
+            if keyboard_claim_evidence_satisfied {
+                "Custom click-handlers without keyboard handlers/tabindex were detected on non-native elements; keyboard review evidence is recorded but manual follow-up remains required."
+                    .to_string()
+            } else {
+                "Custom click-handlers without keyboard handlers/tabindex were detected on non-native elements; keyboard-operability review requires manual evidence."
+                    .to_string()
+            }
+        } else if keyboard_claim_evidence_satisfied {
+            "Keyboard-operability review evidence is recorded for interactive components."
+                .to_string()
+        } else {
+            "Interactive components detected; keyboard-operability review requires manual evidence."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                (
+                    "interactive_keyboard_target_count".to_string(),
+                    keyboard_target_count.to_string(),
+                ),
+                (
+                    "custom_click_handler_count".to_string(),
+                    keyboard_custom_click_target_count.to_string(),
+                ),
+                (
+                    "pointer_only_click_handler_count".to_string(),
+                    keyboard_pointer_only_signal_count.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "keyboard_assessed".to_string(),
+                    claim_flags.wcag20_keyboard_assessed.to_string(),
+                ),
+                (
+                    "keyboard_basis_recorded".to_string(),
+                    claim_flags.wcag20_keyboard_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let keyboard_trap_claim_evidence_satisfied = claim_flags.wcag20_keyboard_trap_assessed
+        && claim_flags.wcag20_keyboard_trap_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.keyboard.no_trap_seed".to_string(),
+        applicability: if keyboard_target_count == 0 {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if keyboard_target_count == 0 {
+            "not_applicable"
+        } else if keyboard_trap_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if keyboard_target_count == 0 {
+            "high"
+        } else if keyboard_trap_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if keyboard_target_count == 0 {
+            "No interactive links or form controls detected; no-keyboard-trap seed not applicable."
+                .to_string()
+        } else if keyboard_trap_claim_evidence_satisfied {
+            "No-keyboard-trap review evidence is recorded for interactive components.".to_string()
+        } else {
+            "Interactive components detected; no-keyboard-trap review requires manual evidence."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                (
+                    "interactive_keyboard_target_count".to_string(),
+                    keyboard_target_count.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "keyboard_trap_assessed".to_string(),
+                    claim_flags.wcag20_keyboard_trap_assessed.to_string(),
+                ),
+                (
+                    "keyboard_trap_basis_recorded".to_string(),
+                    claim_flags.wcag20_keyboard_trap_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let error_suggestion_scope_declared = claim_flags.wcag20_error_suggestion_scope_declared;
+    let error_suggestion_claim_evidence_satisfied = claim_flags.wcag20_error_suggestion_assessed
+        && claim_flags.wcag20_error_suggestion_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.forms.error_suggestion_seed".to_string(),
+        applicability: if error_suggestion_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !error_suggestion_scope_declared {
+            "not_applicable"
+        } else if error_suggestion_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !error_suggestion_scope_declared {
+            "high"
+        } else if error_suggestion_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !error_suggestion_scope_declared {
+            "Error-suggestion criterion not applicable without a declared form-flow error-handling scope."
+                .to_string()
+        } else if error_suggestion_claim_evidence_satisfied {
+            "Error-suggestion review evidence is recorded for the declared form-flow scope."
+                .to_string()
+        } else {
+            "Error-suggestion criterion is in scope for the declared form-flow; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "error_suggestion_scope_declared".to_string(),
+                    error_suggestion_scope_declared.to_string(),
+                ),
+                (
+                    "error_suggestion_assessed".to_string(),
+                    claim_flags.wcag20_error_suggestion_assessed.to_string(),
+                ),
+                (
+                    "error_suggestion_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_error_suggestion_basis_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let error_prevention_scope_declared = claim_flags.wcag20_error_prevention_scope_declared;
+    let error_prevention_claim_evidence_satisfied = claim_flags.wcag20_error_prevention_assessed
+        && claim_flags.wcag20_error_prevention_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.forms.error_prevention_legal_financial_data_seed".to_string(),
+        applicability: if error_prevention_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !error_prevention_scope_declared {
+            "not_applicable"
+        } else if error_prevention_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !error_prevention_scope_declared {
+            "high"
+        } else if error_prevention_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !error_prevention_scope_declared {
+            "Error-prevention (legal/financial/data) criterion not applicable without a declared transactional/legal data form-flow scope."
+                .to_string()
+        } else if error_prevention_claim_evidence_satisfied {
+            "Error-prevention (legal/financial/data) review evidence is recorded for the declared transactional/legal data form-flow scope."
+                .to_string()
+        } else {
+            "Error-prevention (legal/financial/data) criterion is in scope for the declared form-flow; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "error_prevention_scope_declared".to_string(),
+                    error_prevention_scope_declared.to_string(),
+                ),
+                (
+                    "error_prevention_assessed".to_string(),
+                    claim_flags.wcag20_error_prevention_assessed.to_string(),
+                ),
+                (
+                    "error_prevention_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_error_prevention_basis_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let on_input_target_count = core.facts.form_control_count;
+    let on_input_claim_evidence_satisfied =
+        claim_flags.wcag20_on_input_assessed && claim_flags.wcag20_on_input_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.forms.on_input_behavior_seed".to_string(),
+        applicability: if on_input_target_count == 0 {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if on_input_target_count == 0 {
+            "not_applicable"
+        } else if on_input_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if on_input_target_count == 0 {
+            "high"
+        } else if on_input_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if on_input_target_count == 0 {
+            "No form controls detected; on-input behavior seed not applicable.".to_string()
+        } else if on_input_claim_evidence_satisfied {
+            "On-input behavior review evidence is recorded for detected form controls.".to_string()
+        } else {
+            "Form controls detected; on-input behavior review requires manual evidence.".to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "on_input_assessed".to_string(),
+                    claim_flags.wcag20_on_input_assessed.to_string(),
+                ),
+                (
+                    "on_input_basis_recorded".to_string(),
+                    claim_flags.wcag20_on_input_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let on_focus_target_count = keyboard_target_count;
+    let on_focus_claim_evidence_satisfied =
+        claim_flags.wcag20_on_focus_assessed && claim_flags.wcag20_on_focus_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.focus.on_focus_behavior_seed".to_string(),
+        applicability: if on_focus_target_count == 0 {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if on_focus_target_count == 0 {
+            "not_applicable"
+        } else if on_focus_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if on_focus_target_count == 0 {
+            "high"
+        } else if on_focus_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if on_focus_target_count == 0 {
+            "No interactive links or form controls detected; on-focus behavior seed not applicable."
+                .to_string()
+        } else if on_focus_claim_evidence_satisfied {
+            "On-focus behavior review evidence is recorded for interactive components.".to_string()
+        } else {
+            "Interactive components detected; on-focus behavior review requires manual evidence."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "interactive_focus_target_count".to_string(),
+                    on_focus_target_count.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "on_focus_assessed".to_string(),
+                    claim_flags.wcag20_on_focus_assessed.to_string(),
+                ),
+                (
+                    "on_focus_basis_recorded".to_string(),
+                    claim_flags.wcag20_on_focus_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let timing_adjustable_scope_declared = claim_flags.wcag20_timing_adjustable_scope_declared;
+    let timing_adjustable_claim_evidence_satisfied = claim_flags.wcag20_timing_adjustable_assessed
+        && claim_flags.wcag20_timing_adjustable_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.timing.adjustable_seed".to_string(),
+        applicability: if timing_adjustable_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !timing_adjustable_scope_declared {
+            "not_applicable"
+        } else if timing_adjustable_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !timing_adjustable_scope_declared {
+            "high"
+        } else if timing_adjustable_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !timing_adjustable_scope_declared {
+            "Timing-adjustable criterion not applicable without a declared timed-interaction scope."
+                .to_string()
+        } else if timing_adjustable_claim_evidence_satisfied {
+            "Timing-adjustable review evidence is recorded for the declared timed-interaction scope."
+                .to_string()
+        } else {
+            "Timing-adjustable criterion is in scope for the declared timed-interaction flow; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "timing_adjustable_scope_declared".to_string(),
+                    timing_adjustable_scope_declared.to_string(),
+                ),
+                (
+                    "timing_adjustable_assessed".to_string(),
+                    claim_flags.wcag20_timing_adjustable_assessed.to_string(),
+                ),
+                (
+                    "timing_adjustable_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_timing_adjustable_basis_recorded
+                        .to_string(),
+                ),
+                (
+                    "meta_refresh_count".to_string(),
+                    core.facts.meta_refresh_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let pause_stop_hide_scope_declared = claim_flags.wcag20_pause_stop_hide_scope_declared;
+    let pause_stop_hide_claim_evidence_satisfied = claim_flags.wcag20_pause_stop_hide_assessed
+        && claim_flags.wcag20_pause_stop_hide_basis_recorded;
+    let pause_stop_hide_signal_count =
+        core.facts.autoplay_media_count + core.facts.blink_marquee_count;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.timing.pause_stop_hide_seed".to_string(),
+        applicability: if pause_stop_hide_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !pause_stop_hide_scope_declared {
+            "not_applicable"
+        } else if pause_stop_hide_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !pause_stop_hide_scope_declared {
+            "high"
+        } else if pause_stop_hide_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !pause_stop_hide_scope_declared {
+            "Pause/stop/hide criterion not applicable without a declared moving/blinking/updating content scope."
+                .to_string()
+        } else if pause_stop_hide_claim_evidence_satisfied {
+            "Pause/stop/hide review evidence is recorded for the declared moving/blinking/updating content scope."
+                .to_string()
+        } else {
+            "Pause/stop/hide criterion is in scope for declared moving/blinking/updating content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "pause_stop_hide_scope_declared".to_string(),
+                    pause_stop_hide_scope_declared.to_string(),
+                ),
+                (
+                    "pause_stop_hide_assessed".to_string(),
+                    claim_flags.wcag20_pause_stop_hide_assessed.to_string(),
+                ),
+                (
+                    "pause_stop_hide_basis_recorded".to_string(),
+                    claim_flags.wcag20_pause_stop_hide_basis_recorded.to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+                (
+                    "blink_marquee_count".to_string(),
+                    core.facts.blink_marquee_count.to_string(),
+                ),
+                (
+                    "pause_stop_hide_signal_count".to_string(),
+                    pause_stop_hide_signal_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let three_flashes_scope_declared = claim_flags.wcag20_three_flashes_scope_declared;
+    let three_flashes_claim_evidence_satisfied = claim_flags.wcag20_three_flashes_assessed
+        && claim_flags.wcag20_three_flashes_basis_recorded;
+    let flash_signal_count = core.facts.autoplay_media_count + core.facts.blink_marquee_count;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.seizures.three_flashes_seed".to_string(),
+        applicability: if three_flashes_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !three_flashes_scope_declared {
+            "not_applicable"
+        } else if three_flashes_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !three_flashes_scope_declared {
+            "high"
+        } else if three_flashes_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !three_flashes_scope_declared {
+            "Three-flashes criterion not applicable without a declared flashing-content scope."
+                .to_string()
+        } else if three_flashes_claim_evidence_satisfied {
+            "Three-flashes review evidence is recorded for the declared flashing-content scope."
+                .to_string()
+        } else {
+            "Three-flashes criterion is in scope for declared flashing content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "three_flashes_scope_declared".to_string(),
+                    three_flashes_scope_declared.to_string(),
+                ),
+                (
+                    "three_flashes_assessed".to_string(),
+                    claim_flags.wcag20_three_flashes_assessed.to_string(),
+                ),
+                (
+                    "three_flashes_basis_recorded".to_string(),
+                    claim_flags.wcag20_three_flashes_basis_recorded.to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+                (
+                    "blink_marquee_count".to_string(),
+                    core.facts.blink_marquee_count.to_string(),
+                ),
+                ("flash_signal_count".to_string(), flash_signal_count.to_string()),
+            ],
+        }],
+    });
+
+    let audio_control_scope_declared = claim_flags.wcag20_audio_control_scope_declared;
+    let audio_control_claim_evidence_satisfied = claim_flags.wcag20_audio_control_assessed
+        && claim_flags.wcag20_audio_control_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.audio.control_seed".to_string(),
+        applicability: if audio_control_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !audio_control_scope_declared {
+            "not_applicable"
+        } else if audio_control_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !audio_control_scope_declared {
+            "high"
+        } else if audio_control_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !audio_control_scope_declared {
+            "Audio-control criterion not applicable without a declared autoplay/audio playback scope."
+                .to_string()
+        } else if audio_control_claim_evidence_satisfied {
+            "Audio-control review evidence is recorded for the declared autoplay/audio playback scope."
+                .to_string()
+        } else {
+            "Audio-control criterion is in scope for declared autoplay/audio playback content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "audio_control_scope_declared".to_string(),
+                    audio_control_scope_declared.to_string(),
+                ),
+                (
+                    "audio_control_assessed".to_string(),
+                    claim_flags.wcag20_audio_control_assessed.to_string(),
+                ),
+                (
+                    "audio_control_basis_recorded".to_string(),
+                    claim_flags.wcag20_audio_control_basis_recorded.to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let use_of_color_scope_declared = claim_flags.wcag20_use_of_color_scope_declared;
+    let use_of_color_claim_evidence_satisfied =
+        claim_flags.wcag20_use_of_color_assessed && claim_flags.wcag20_use_of_color_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.color.use_of_color_seed".to_string(),
+        applicability: if use_of_color_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !use_of_color_scope_declared {
+            "not_applicable"
+        } else if use_of_color_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !use_of_color_scope_declared {
+            "high"
+        } else if use_of_color_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !use_of_color_scope_declared {
+            "Use-of-color criterion not applicable without a declared color-only meaning scope."
+                .to_string()
+        } else if use_of_color_claim_evidence_satisfied {
+            "Use-of-color review evidence is recorded for the declared color-only meaning scope."
+                .to_string()
+        } else {
+            "Use-of-color criterion is in scope for declared color-only meaning content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "use_of_color_scope_declared".to_string(),
+                    use_of_color_scope_declared.to_string(),
+                ),
+                (
+                    "use_of_color_assessed".to_string(),
+                    claim_flags.wcag20_use_of_color_assessed.to_string(),
+                ),
+                (
+                    "use_of_color_basis_recorded".to_string(),
+                    claim_flags.wcag20_use_of_color_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let resize_text_scope_declared = claim_flags.wcag20_resize_text_scope_declared;
+    let resize_text_claim_evidence_satisfied =
+        claim_flags.wcag20_resize_text_assessed && claim_flags.wcag20_resize_text_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.text.resize_seed".to_string(),
+        applicability: if resize_text_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !resize_text_scope_declared {
+            "not_applicable"
+        } else if resize_text_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !resize_text_scope_declared {
+            "high"
+        } else if resize_text_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !resize_text_scope_declared {
+            "Resize-text criterion not applicable without a declared text-resize review scope."
+                .to_string()
+        } else if resize_text_claim_evidence_satisfied {
+            "Resize-text review evidence is recorded for the declared text-resize scope."
+                .to_string()
+        } else {
+            "Resize-text criterion is in scope for declared text content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "resize_text_scope_declared".to_string(),
+                    resize_text_scope_declared.to_string(),
+                ),
+                (
+                    "resize_text_assessed".to_string(),
+                    claim_flags.wcag20_resize_text_assessed.to_string(),
+                ),
+                (
+                    "resize_text_basis_recorded".to_string(),
+                    claim_flags.wcag20_resize_text_basis_recorded.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let images_of_text_scope_declared = claim_flags.wcag20_images_of_text_scope_declared;
+    let images_of_text_claim_evidence_satisfied = claim_flags.wcag20_images_of_text_assessed
+        && claim_flags.wcag20_images_of_text_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.images.of_text_seed".to_string(),
+        applicability: if images_of_text_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !images_of_text_scope_declared {
+            "not_applicable"
+        } else if images_of_text_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !images_of_text_scope_declared {
+            "high"
+        } else if images_of_text_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !images_of_text_scope_declared {
+            "Images-of-text criterion not applicable without a declared images-of-text review scope."
+                .to_string()
+        } else if images_of_text_claim_evidence_satisfied {
+            "Images-of-text review evidence is recorded for the declared images-of-text scope."
+                .to_string()
+        } else {
+            "Images-of-text criterion is in scope for declared content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "images_of_text_scope_declared".to_string(),
+                    images_of_text_scope_declared.to_string(),
+                ),
+                (
+                    "images_of_text_assessed".to_string(),
+                    claim_flags.wcag20_images_of_text_assessed.to_string(),
+                ),
+                (
+                    "images_of_text_basis_recorded".to_string(),
+                    claim_flags.wcag20_images_of_text_basis_recorded.to_string(),
+                ),
+                ("image_count".to_string(), core.facts.image_count.to_string()),
+                (
+                    "image_title_only_count".to_string(),
+                    core.facts.image_title_only_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let prerecorded_av_alternative_scope_declared =
+        claim_flags.wcag20_prerecorded_av_alternative_scope_declared;
+    let prerecorded_av_alternative_claim_evidence_satisfied = claim_flags
+        .wcag20_prerecorded_av_alternative_assessed
+        && claim_flags.wcag20_prerecorded_av_alternative_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.media.prerecorded_audio_video_alternative_seed".to_string(),
+        applicability: if prerecorded_av_alternative_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !prerecorded_av_alternative_scope_declared {
+            "not_applicable"
+        } else if prerecorded_av_alternative_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !prerecorded_av_alternative_scope_declared {
+            "high"
+        } else if prerecorded_av_alternative_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !prerecorded_av_alternative_scope_declared {
+            "Prerecorded audio-only/video-only alternative criterion not applicable without a declared media-alternative review scope."
+                .to_string()
+        } else if prerecorded_av_alternative_claim_evidence_satisfied {
+            "Prerecorded audio-only/video-only alternative review evidence is recorded for the declared scope."
+                .to_string()
+        } else {
+            "Prerecorded audio-only/video-only alternative criterion is in scope for declared media content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "prerecorded_av_alternative_scope_declared".to_string(),
+                    prerecorded_av_alternative_scope_declared.to_string(),
+                ),
+                (
+                    "prerecorded_av_alternative_assessed".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_av_alternative_assessed
+                        .to_string(),
+                ),
+                (
+                    "prerecorded_av_alternative_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_av_alternative_basis_recorded
+                        .to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let prerecorded_captions_scope_declared =
+        claim_flags.wcag20_prerecorded_captions_scope_declared;
+    let prerecorded_captions_claim_evidence_satisfied = claim_flags
+        .wcag20_prerecorded_captions_assessed
+        && claim_flags.wcag20_prerecorded_captions_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.media.prerecorded_captions_seed".to_string(),
+        applicability: if prerecorded_captions_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !prerecorded_captions_scope_declared {
+            "not_applicable"
+        } else if prerecorded_captions_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !prerecorded_captions_scope_declared {
+            "high"
+        } else if prerecorded_captions_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !prerecorded_captions_scope_declared {
+            "Prerecorded captions criterion not applicable without a declared prerecorded-media captions review scope."
+                .to_string()
+        } else if prerecorded_captions_claim_evidence_satisfied {
+            "Prerecorded captions review evidence is recorded for the declared media scope."
+                .to_string()
+        } else {
+            "Prerecorded captions criterion is in scope for declared prerecorded media; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "prerecorded_captions_scope_declared".to_string(),
+                    prerecorded_captions_scope_declared.to_string(),
+                ),
+                (
+                    "prerecorded_captions_assessed".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_captions_assessed
+                        .to_string(),
+                ),
+                (
+                    "prerecorded_captions_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_captions_basis_recorded
+                        .to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let prerecorded_ad_or_media_alt_scope_declared =
+        claim_flags.wcag20_prerecorded_audio_description_or_media_alternative_scope_declared;
+    let prerecorded_ad_or_media_alt_claim_evidence_satisfied = claim_flags
+        .wcag20_prerecorded_audio_description_or_media_alternative_assessed
+        && claim_flags.wcag20_prerecorded_audio_description_or_media_alternative_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.media.prerecorded_audio_description_or_media_alternative_seed"
+            .to_string(),
+        applicability: if prerecorded_ad_or_media_alt_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !prerecorded_ad_or_media_alt_scope_declared {
+            "not_applicable"
+        } else if prerecorded_ad_or_media_alt_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !prerecorded_ad_or_media_alt_scope_declared {
+            "high"
+        } else if prerecorded_ad_or_media_alt_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !prerecorded_ad_or_media_alt_scope_declared {
+            "Prerecorded audio-description/media-alternative criterion not applicable without a declared review scope."
+                .to_string()
+        } else if prerecorded_ad_or_media_alt_claim_evidence_satisfied {
+            "Prerecorded audio-description/media-alternative review evidence is recorded for the declared media scope."
+                .to_string()
+        } else {
+            "Prerecorded audio-description/media-alternative criterion is in scope for declared prerecorded media; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "prerecorded_audio_description_or_media_alternative_scope_declared"
+                        .to_string(),
+                    prerecorded_ad_or_media_alt_scope_declared.to_string(),
+                ),
+                (
+                    "prerecorded_audio_description_or_media_alternative_assessed"
+                        .to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_audio_description_or_media_alternative_assessed
+                        .to_string(),
+                ),
+                (
+                    "prerecorded_audio_description_or_media_alternative_basis_recorded"
+                        .to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_audio_description_or_media_alternative_basis_recorded
+                        .to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let live_captions_scope_declared = claim_flags.wcag20_live_captions_scope_declared;
+    let live_captions_claim_evidence_satisfied = claim_flags.wcag20_live_captions_assessed
+        && claim_flags.wcag20_live_captions_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.media.live_captions_seed".to_string(),
+        applicability: if live_captions_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !live_captions_scope_declared {
+            "not_applicable"
+        } else if live_captions_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !live_captions_scope_declared {
+            "high"
+        } else if live_captions_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !live_captions_scope_declared {
+            "Live-captions criterion not applicable without a declared live-media captions review scope."
+                .to_string()
+        } else if live_captions_claim_evidence_satisfied {
+            "Live captions review evidence is recorded for the declared live-media scope."
+                .to_string()
+        } else {
+            "Live-captions criterion is in scope for declared live media; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "live_captions_scope_declared".to_string(),
+                    live_captions_scope_declared.to_string(),
+                ),
+                (
+                    "live_captions_assessed".to_string(),
+                    claim_flags.wcag20_live_captions_assessed.to_string(),
+                ),
+                (
+                    "live_captions_basis_recorded".to_string(),
+                    claim_flags.wcag20_live_captions_basis_recorded.to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let prerecorded_audio_description_scope_declared =
+        claim_flags.wcag20_prerecorded_audio_description_scope_declared;
+    let prerecorded_audio_description_claim_evidence_satisfied = claim_flags
+        .wcag20_prerecorded_audio_description_assessed
+        && claim_flags.wcag20_prerecorded_audio_description_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.media.prerecorded_audio_description_seed".to_string(),
+        applicability: if prerecorded_audio_description_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !prerecorded_audio_description_scope_declared {
+            "not_applicable"
+        } else if prerecorded_audio_description_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !prerecorded_audio_description_scope_declared {
+            "high"
+        } else if prerecorded_audio_description_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !prerecorded_audio_description_scope_declared {
+            "Prerecorded audio-description criterion not applicable without a declared prerecorded-audio-description review scope."
+                .to_string()
+        } else if prerecorded_audio_description_claim_evidence_satisfied {
+            "Prerecorded audio-description review evidence is recorded for the declared media scope."
+                .to_string()
+        } else {
+            "Prerecorded audio-description criterion is in scope for declared prerecorded media; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "prerecorded_audio_description_scope_declared".to_string(),
+                    prerecorded_audio_description_scope_declared.to_string(),
+                ),
+                (
+                    "prerecorded_audio_description_assessed".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_audio_description_assessed
+                        .to_string(),
+                ),
+                (
+                    "prerecorded_audio_description_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_prerecorded_audio_description_basis_recorded
+                        .to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let meaningful_sequence_scope_declared = claim_flags.wcag20_meaningful_sequence_scope_declared;
+    let meaningful_sequence_claim_evidence_satisfied = claim_flags
+        .wcag20_meaningful_sequence_assessed
+        && claim_flags.wcag20_meaningful_sequence_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.sequence.meaningful_sequence_seed".to_string(),
+        applicability: if meaningful_sequence_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !meaningful_sequence_scope_declared {
+            "not_applicable"
+        } else if meaningful_sequence_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !meaningful_sequence_scope_declared {
+            "high"
+        } else if meaningful_sequence_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !meaningful_sequence_scope_declared {
+            "Meaningful-sequence criterion not applicable without a declared sequence-dependent content scope."
+                .to_string()
+        } else if meaningful_sequence_claim_evidence_satisfied {
+            "Meaningful-sequence review evidence is recorded for the declared content sequence scope."
+                .to_string()
+        } else {
+            "Meaningful-sequence criterion is in scope for declared content; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "meaningful_sequence_scope_declared".to_string(),
+                    meaningful_sequence_scope_declared.to_string(),
+                ),
+                (
+                    "meaningful_sequence_assessed".to_string(),
+                    claim_flags.wcag20_meaningful_sequence_assessed.to_string(),
+                ),
+                (
+                    "meaningful_sequence_basis_recorded".to_string(),
+                    claim_flags.wcag20_meaningful_sequence_basis_recorded.to_string(),
+                ),
+                (
+                    "table_count".to_string(),
+                    core.facts.tables.len().to_string(),
+                ),
+                (
+                    "body_text_char_count".to_string(),
+                    core.facts.body_text.chars().count().to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let multiple_ways_scope_declared = claim_flags.wcag20_multiple_ways_scope_declared;
+    let multiple_ways_claim_evidence_satisfied = claim_flags.wcag20_multiple_ways_assessed
+        && claim_flags.wcag20_multiple_ways_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.navigation.multiple_ways_seed".to_string(),
+        applicability: if multiple_ways_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !multiple_ways_scope_declared {
+            "not_applicable"
+        } else if multiple_ways_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !multiple_ways_scope_declared {
+            "high"
+        } else if multiple_ways_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !multiple_ways_scope_declared {
+            "Multiple-ways criterion not applicable without a declared page-set navigation scope."
+                .to_string()
+        } else if multiple_ways_claim_evidence_satisfied {
+            "Multiple-ways navigation/access-path review evidence is recorded for the declared page-set scope."
+                .to_string()
+        } else {
+            "Multiple-ways criterion is in scope for the declared page-set; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "multiple_ways_scope_declared".to_string(),
+                    multiple_ways_scope_declared.to_string(),
+                ),
+                (
+                    "multiple_ways_assessed".to_string(),
+                    claim_flags.wcag20_multiple_ways_assessed.to_string(),
+                ),
+                (
+                    "multiple_ways_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_multiple_ways_basis_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let consistent_navigation_scope_declared =
+        claim_flags.wcag20_consistent_navigation_scope_declared;
+    let consistent_navigation_claim_evidence_satisfied = claim_flags
+        .wcag20_consistent_navigation_assessed
+        && claim_flags.wcag20_consistent_navigation_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.navigation.consistent_navigation_seed".to_string(),
+        applicability: if consistent_navigation_scope_declared {
+            "applicable"
+        } else {
+            "not_applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if !consistent_navigation_scope_declared {
+            "not_applicable"
+        } else if consistent_navigation_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if !consistent_navigation_scope_declared {
+            "high"
+        } else if consistent_navigation_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if !consistent_navigation_scope_declared {
+            "Consistent-navigation criterion not applicable without a declared page-set navigation scope."
+                .to_string()
+        } else if consistent_navigation_claim_evidence_satisfied {
+            "Consistent-navigation review evidence is recorded for the declared page-set scope."
+                .to_string()
+        } else {
+            "Consistent-navigation criterion is in scope for the declared page-set; manual evidence is required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("profile".to_string(), core.profile.clone()),
+                (
+                    "consistent_navigation_scope_declared".to_string(),
+                    consistent_navigation_scope_declared.to_string(),
+                ),
+                (
+                    "consistent_navigation_assessed".to_string(),
+                    claim_flags
+                        .wcag20_consistent_navigation_assessed
+                        .to_string(),
+                ),
+                (
+                    "consistent_navigation_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_consistent_navigation_basis_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let ast_signal_count = core.facts.script_element_count
+        + core.facts.embedded_active_content_count
+        + core.facts.autoplay_media_count
+        + core.facts.blink_marquee_count
+        + core.facts.inline_event_handler_attr_count
+        + core.facts.meta_refresh_count;
+    let tech_claim_evidence_satisfied =
+        claim_flags.technology_support_assessed && claim_flags.technology_support_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.accessibility_supported_technologies_seed".to_string(),
+        applicability: "applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if ast_signal_count > 0 {
+            "warn"
+        } else if tech_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if ast_signal_count > 0 {
+            "medium"
+        } else if tech_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if ast_signal_count > 0 {
+            "Potential technology support risk signals detected; accessibility-supported technology claim requires manual evidence."
+                .to_string()
+        } else if tech_claim_evidence_satisfied {
+            "Accessibility-supported technology claim evidence is recorded and no obvious technology-risk signals were detected."
+                .to_string()
+        } else {
+            "No obvious technology-support risk signals detected, but accessibility-supported technology claim still requires manual evidence."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                (
+                    "embedded_active_content_count".to_string(),
+                    core.facts.embedded_active_content_count.to_string(),
+                ),
+                (
+                    "script_element_count".to_string(),
+                    core.facts.script_element_count.to_string(),
+                ),
+                (
+                    "autoplay_media_count".to_string(),
+                    core.facts.autoplay_media_count.to_string(),
+                ),
+                (
+                    "blink_marquee_count".to_string(),
+                    core.facts.blink_marquee_count.to_string(),
+                ),
+                (
+                    "inline_event_handler_attr_count".to_string(),
+                    core.facts.inline_event_handler_attr_count.to_string(),
+                ),
+                (
+                    "meta_refresh_count".to_string(),
+                    core.facts.meta_refresh_count.to_string(),
+                ),
+                ("css_linked".to_string(), core.facts.has_css_link.to_string()),
+                (
+                    "technology_support_assessed".to_string(),
+                    claim_flags.technology_support_assessed.to_string(),
+                ),
+                (
+                    "technology_support_basis_recorded".to_string(),
+                    claim_flags.technology_support_basis_recorded.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let s508_public_scope_evidence = claim_flags.section508_scope_declared
+        && claim_flags.section508_public_facing_determination_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.section508.public_facing_content_applicability_seed".to_string(),
+        applicability: "applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if s508_public_scope_evidence { "pass" } else { "manual_needed" }.to_string(),
+        severity: "medium".to_string(),
+        confidence: if s508_public_scope_evidence { "medium" } else { "low" }.to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if s508_public_scope_evidence {
+            "Section 508 E205.2 public-facing applicability decision evidence is recorded."
+                .to_string()
+        } else {
+            "Section 508 E205.2 public-facing applicability requires agency/content scope evidence; manual review required.".to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("delivery_target".to_string(), "html".to_string()),
+                (
+                    "section508_scope_declared".to_string(),
+                    claim_flags.section508_scope_declared.to_string(),
+                ),
+                (
+                    "public_facing_determination_recorded".to_string(),
+                    claim_flags
+                        .section508_public_facing_determination_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let s508_official_scope_evidence = claim_flags.section508_scope_declared
+        && claim_flags.section508_official_communications_determination_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.section508.official_communications_applicability_seed".to_string(),
+        applicability: "applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if s508_official_scope_evidence { "pass" } else { "manual_needed" }.to_string(),
+        severity: "medium".to_string(),
+        confidence: if s508_official_scope_evidence { "medium" } else { "low" }.to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if s508_official_scope_evidence {
+            "Section 508 E205.3 official communications applicability decision evidence is recorded."
+                .to_string()
+        } else {
+            "Section 508 E205.3 agency official communications applicability requires agency communication-scope evidence; manual review required.".to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("delivery_target".to_string(), "html".to_string()),
+                (
+                    "section508_scope_declared".to_string(),
+                    claim_flags.section508_scope_declared.to_string(),
+                ),
+                (
+                    "official_communications_determination_recorded".to_string(),
+                    claim_flags
+                        .section508_official_communications_determination_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let s508_nara_scope_evidence = claim_flags.section508_nara_exception_determination_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.section508.nara_exception_applicability_seed".to_string(),
+        applicability: "applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if s508_nara_scope_evidence { "pass" } else { "manual_needed" }.to_string(),
+        severity: "low".to_string(),
+        confidence: if s508_nara_scope_evidence { "medium" } else { "low" }.to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if s508_nara_scope_evidence {
+            "Section 508 E205.3 NARA exception applicability decision evidence is recorded."
+                .to_string()
+        } else {
+            "Section 508 E205.3 NARA exception applicability requires organization/content stewardship evidence; manual review required.".to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("delivery_target".to_string(), "html".to_string()),
+                (
+                    "nara_exception_determination_recorded".to_string(),
+                    claim_flags
+                        .section508_nara_exception_determination_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.section508.non_web_document_exceptions_html_seed".to_string(),
+        applicability: "not_applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: "not_applicable".to_string(),
+        severity: "low".to_string(),
+        confidence: "high".to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: "Section 508 E205.4 Exception and E205.4.1 word-substitution rules are not applicable to HTML deliverables (non-web document path not in scope).".to_string(),
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("delivery_target".to_string(), "html".to_string()),
+                ("non_web_document_path".to_string(), "false".to_string()),
+            ],
+        }],
+    });
+
+    let consistent_identification_target_count =
+        core.facts.link_count + core.facts.form_control_count;
+    let consistent_identification_claim_evidence_satisfied = claim_flags
+        .wcag20_consistent_identification_assessed
+        && claim_flags.wcag20_consistent_identification_basis_recorded;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.identification.consistent_identification_seed".to_string(),
+        applicability: if consistent_identification_target_count == 0 {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if consistent_identification_target_count == 0 {
+            "not_applicable"
+        } else if consistent_identification_claim_evidence_satisfied {
+            "pass"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if consistent_identification_target_count == 0 {
+            "high"
+        } else if consistent_identification_claim_evidence_satisfied {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if consistent_identification_target_count == 0 {
+            "No interactive links or form controls detected; consistent-identification seed not applicable."
+                .to_string()
+        } else if consistent_identification_claim_evidence_satisfied {
+            "Consistent-identification review evidence is recorded for interactive components."
+                .to_string()
+        } else {
+            "Interactive components detected; consistent-identification review requires manual evidence."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                (
+                    "interactive_identification_target_count".to_string(),
+                    consistent_identification_target_count.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "consistent_identification_assessed".to_string(),
+                    claim_flags
+                        .wcag20_consistent_identification_assessed
+                        .to_string(),
+                ),
+                (
+                    "consistent_identification_basis_recorded".to_string(),
+                    claim_flags
+                        .wcag20_consistent_identification_basis_recorded
+                        .to_string(),
+                ),
+            ],
+        }],
+    });
+
+    let focus_seed_css_text = std::fs::read_to_string(css_path).unwrap_or_default();
+    let focus_seed_css_facts = a11y_css_focus_seed_facts(&focus_seed_css_text);
+    let focus_interactive_target_count = core.facts.link_count + core.facts.form_control_count;
+    let focus_seed_has_focus_selectors = focus_seed_css_facts.focus_selector_signal_count > 0;
+    let focus_seed_has_outline_suppression =
+        focus_seed_css_facts.outline_suppression_signal_count > 0;
+    adapter_findings.push(A11yVerifierFinding {
+        rule_id: "fb.a11y.focus.visible_seed".to_string(),
+        applicability: if focus_interactive_target_count == 0 {
+            "not_applicable"
+        } else {
+            "applicable"
+        }
+        .to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: if focus_interactive_target_count == 0 {
+            "not_applicable"
+        } else if focus_seed_has_focus_selectors {
+            "pass"
+        } else if focus_seed_has_outline_suppression {
+            "warn"
+        } else {
+            "manual_needed"
+        }
+        .to_string(),
+        severity: "medium".to_string(),
+        confidence: if focus_interactive_target_count == 0 {
+            "high"
+        } else if focus_seed_has_focus_selectors {
+            "medium"
+        } else if focus_seed_has_outline_suppression {
+            "medium"
+        } else {
+            "low"
+        }
+        .to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: if focus_interactive_target_count == 0 {
+            "No interactive links or form controls detected; focus-visible seed not applicable."
+                .to_string()
+        } else if focus_seed_has_focus_selectors {
+            "Focus-style selector signals detected in CSS for interactive content."
+                .to_string()
+        } else if focus_seed_has_outline_suppression {
+            "Outline suppression signals detected without focus-style selector signals; focus visibility may be reduced."
+                .to_string()
+        } else {
+            "Interactive content detected but no explicit focus-style CSS signals found; manual review required."
+                .to_string()
+        },
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                (
+                    "interactive_focus_target_count".to_string(),
+                    focus_interactive_target_count.to_string(),
+                ),
+                ("link_count".to_string(), core.facts.link_count.to_string()),
+                (
+                    "form_control_count".to_string(),
+                    core.facts.form_control_count.to_string(),
+                ),
+                (
+                    "focus_selector_signal_count".to_string(),
+                    focus_seed_css_facts.focus_selector_signal_count.to_string(),
+                ),
+                (
+                    "outline_suppression_signal_count".to_string(),
+                    focus_seed_css_facts.outline_suppression_signal_count.to_string(),
+                ),
+            ],
+        }],
+    });
+
+    if let Some(png_path) = render_preview_png_path {
+        let contrast_finding = match analyze_render_contrast_seed_png(png_path) {
+            Ok(analysis) => A11yVerifierFinding {
+                rule_id: "fb.a11y.contrast.minimum_render_seed".to_string(),
+                applicability: "applicable".to_string(),
+                verification_mode: "hybrid".to_string(),
+                verdict: analysis.verdict.to_string(),
+                severity: "medium".to_string(),
+                confidence: analysis.confidence.to_string(),
+                stage: "post-render".to_string(),
+                source: "adapter".to_string(),
+                message: analysis.message.clone(),
+                evidence: vec![A11yVerifierEvidence {
+                    selector: None,
+                    values: vec![
+                        ("render_preview_png_path".to_string(), png_path.to_string()),
+                        ("width".to_string(), analysis.width.to_string()),
+                        ("height".to_string(), analysis.height.to_string()),
+                        (
+                            "opaque_pixel_count".to_string(),
+                            analysis.opaque_pixel_count.to_string(),
+                        ),
+                        (
+                            "ink_pixel_count".to_string(),
+                            analysis.ink_pixel_count.to_string(),
+                        ),
+                        (
+                            "background_luminance".to_string(),
+                            format!("{:.6}", analysis.background_luminance),
+                        ),
+                        (
+                            "foreground_luminance".to_string(),
+                            analysis
+                                .foreground_luminance
+                                .map(|v| format!("{v:.6}"))
+                                .unwrap_or_default(),
+                        ),
+                        (
+                            "estimated_contrast_ratio".to_string(),
+                            analysis
+                                .estimated_contrast_ratio
+                                .map(|v| format!("{v:.4}"))
+                                .unwrap_or_default(),
+                        ),
+                    ],
+                }],
+            },
+            Err(err) => A11yVerifierFinding {
+                rule_id: "fb.a11y.contrast.minimum_render_seed".to_string(),
+                applicability: "unknown".to_string(),
+                verification_mode: "hybrid".to_string(),
+                verdict: "manual_needed".to_string(),
+                severity: "medium".to_string(),
+                confidence: "low".to_string(),
+                stage: "post-render".to_string(),
+                source: "adapter".to_string(),
+                message: format!("Render-based contrast seed could not run: {err}"),
+                evidence: vec![A11yVerifierEvidence {
+                    selector: None,
+                    values: vec![("render_preview_png_path".to_string(), png_path.to_string())],
+                }],
+            },
+        };
+        adapter_findings.push(contrast_finding);
+    }
+
+    let mut all_findings: Vec<A11yVerifierFinding> = Vec::new();
+    all_findings.extend(core.findings.iter().cloned());
+    all_findings.extend(a11y_bridge_findings_from_contract_report(a11y_report)?);
+    all_findings.extend(adapter_findings.iter().cloned());
+
+    // Compute claim-readiness status from the pre-claim finding set, then append a scaffold finding
+    // so wcag20.conf.level can be tracked as an evaluated implemented mapping.
+    let claim_machine_blocker_count = all_findings.iter().filter(|f| f.verdict == "fail").count();
+    let wcag_pairs_pre: Vec<(&str, &str)> = all_findings
+        .iter()
+        .map(|f| (f.rule_id.as_str(), f.verdict.as_str()))
+        .collect();
+    let wcag_summary_pre = audit_contract::wcag20aa_coverage_from_rule_verdicts(wcag_pairs_pre);
+    let claim_coverage_gap_count = wcag_summary_pre.unmapped_entry_count
+        + wcag_summary_pre.implemented_mapped_entry_pending_count;
+    let claim_status = if claim_machine_blocker_count > 0 {
+        "blocked_machine_failures"
+    } else if claim_coverage_gap_count > 0 {
+        "blocked_coverage_gaps"
+    } else {
+        "manual_evidence_required"
+    };
+    let claim_verdict = if matches!(
+        claim_status,
+        "blocked_machine_failures" | "blocked_coverage_gaps"
+    ) {
+        "warn"
+    } else {
+        "manual_needed"
+    };
+    let claim_finding = A11yVerifierFinding {
+        rule_id: "fb.a11y.claim.wcag20aa_level_readiness".to_string(),
+        applicability: "applicable".to_string(),
+        verification_mode: "hybrid".to_string(),
+        verdict: claim_verdict.to_string(),
+        severity: if claim_status == "blocked_machine_failures" {
+            "high"
+        } else {
+            "medium"
+        }
+        .to_string(),
+        confidence: "high".to_string(),
+        stage: "adapter".to_string(),
+        source: "adapter".to_string(),
+        message: format!("WCAG 2.0 AA conformance-level claim scaffold status: {claim_status}."),
+        evidence: vec![A11yVerifierEvidence {
+            selector: None,
+            values: vec![
+                ("status".to_string(), claim_status.to_string()),
+                (
+                    "machine_blocker_count".to_string(),
+                    claim_machine_blocker_count.to_string(),
+                ),
+                (
+                    "coverage_gap_count".to_string(),
+                    claim_coverage_gap_count.to_string(),
+                ),
+            ],
+        }],
+    };
+    all_findings.push(claim_finding.clone());
+
+    let (reported_findings, observability_summary) =
+        a11y_dedup_and_correlate_findings(all_findings);
+
+    let findings_py = PyList::empty(py);
+    let mut pass_count = 0usize;
+    let mut fail_count = 0usize;
+    let mut warn_count = 0usize;
+    let mut manual_needed_count = 0usize;
+    let mut not_applicable_count = 0usize;
+    for finding in &reported_findings {
+        findings_py.append(a11y_core_finding_to_py(py, finding)?)?;
+        match finding.verdict.as_str() {
+            "pass" => pass_count += 1,
+            "fail" => fail_count += 1,
+            "warn" => warn_count += 1,
+            "manual_needed" => manual_needed_count += 1,
+            "not_applicable" => not_applicable_count += 1,
+            _ => {}
+        }
+    }
+
+    let mut error_count = 0usize;
+    let mut gate_warn_count = 0usize;
+    let mut failed_rule_ids: Vec<String> = Vec::new();
+    for finding in &reported_findings {
+        let verdict = finding.verdict.as_str();
+        if verdict != "fail" && verdict != "warn" {
+            continue;
+        }
+        let gate_level = audit_contract::a11y_effective_gate_level(
+            core.profile.as_str(),
+            finding.rule_id.as_str(),
+        );
+        if mode_norm == "off" || gate_level == "off" {
+            continue;
+        }
+        if mode_norm == "warn" {
+            gate_warn_count += 1;
+            continue;
+        }
+        if verdict == "warn" {
+            gate_warn_count += 1;
+        } else if gate_level == "error" {
+            error_count += 1;
+            failed_rule_ids.push(finding.rule_id.clone());
+        } else {
+            gate_warn_count += 1;
+        }
+    }
+    if let Some(signals) = diagnostic_signals {
+        if signals.page_count_mismatch.unwrap_or(false)
+            && !failed_rule_ids
+                .iter()
+                .any(|value| value == "fb.a11y.layout.page_count_guard")
+        {
+            error_count += 1;
+            failed_rule_ids.push("fb.a11y.layout.page_count_guard".to_string());
+        }
+        if (signals.layout_collapse_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.low_coverage_page_count)
+                .unwrap_or(0)
+                > 0)
+            && !failed_rule_ids
+                .iter()
+                .any(|value| value == "fb.a11y.layout.collapse_guard")
+        {
+            error_count += 1;
+            failed_rule_ids.push("fb.a11y.layout.collapse_guard".to_string());
+        }
+        if signals.typography_spacing_drift_detected.unwrap_or(false)
+            && !failed_rule_ids
+                .iter()
+                .any(|value| value == "fb.a11y.typography.spacing_guard")
+        {
+            error_count += 1;
+            failed_rule_ids.push("fb.a11y.typography.spacing_guard".to_string());
+        }
+        if signals
+            .sparse_page_header_omission_detected
+            .unwrap_or(false)
+            && !failed_rule_ids
+                .iter()
+                .any(|value| value == "fb.a11y.visual.sparse_page_header_guard")
+        {
+            error_count += 1;
+            failed_rule_ids.push("fb.a11y.visual.sparse_page_header_guard".to_string());
+        }
+    }
+
+    let manual_required = manual_needed_count > 0;
+    let conformance_status_text = if fail_count > 0 {
+        "fail_machine_subset"
+    } else if manual_required {
+        "manual_review_required"
+    } else {
+        "pass_machine_subset"
+    };
+
+    let report = PyDict::new(py);
+    report.set_item("schema", "fullbleed.a11y.verify.v1")?;
+
+    let target = PyDict::new(py);
+    target.set_item("html_path", html_path)?;
+    target.set_item("css_path", css_path)?;
+    target.set_item(
+        "target_hash",
+        format!("sha256:{}", sha256_file_hex(html_path)?),
+    )?;
+    report.set_item("target", target)?;
+    if let Some(summary) = pagination_trace_summary {
+        report.set_item(
+            "pagination_trace_summary",
+            pagination_trace_summary_to_py(py, summary)?,
+        )?;
+    }
+    if let Some(signals) = diagnostic_signals {
+        report.set_item("diagnostic_signals", diagnostic_signals_to_py(py, signals)?)?;
+    }
+
+    report.set_item("profile", core.profile.clone())?;
+
+    let conformance_status = PyDict::new(py);
+    conformance_status.set_item("status", conformance_status_text)?;
+    conformance_status.set_item(
+        "claim_scope",
+        if manual_required {
+            "manual_required"
+        } else {
+            "machine_subset"
+        },
+    )?;
+    conformance_status.set_item("manual_review_required", manual_required)?;
+    report.set_item("conformance_status", conformance_status)?;
+
+    let gate = PyDict::new(py);
+    gate.set_item("ok", error_count == 0)?;
+    gate.set_item("mode", mode_norm.clone())?;
+    gate.set_item("error_count", error_count)?;
+    gate.set_item("warn_count", gate_warn_count)?;
+    let failed_list = PyList::empty(py);
+    for rid in &failed_rule_ids {
+        failed_list.append(rid.clone())?;
+    }
+    gate.set_item("failed_rule_ids", failed_list)?;
+    let reason_codes = PyList::empty(py);
+    if let Some(signals) = diagnostic_signals {
+        if signals.page_count_mismatch.unwrap_or(false) {
+            reason_codes.append("page_count_mismatch")?;
+        }
+        if signals.layout_collapse_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.low_coverage_page_count)
+                .unwrap_or(0)
+                > 0
+        {
+            reason_codes.append("layout_collapse_detected")?;
+        }
+        if signals.pagination_overflow_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.overflow_event_count)
+                .unwrap_or(0)
+                > 0
+        {
+            reason_codes.append("pagination_overflow_detected")?;
+        }
+        if signals.token_fragmentation_detected.unwrap_or(false) {
+            reason_codes.append("token_fragmentation_detected")?;
+        }
+        if signals.typography_wrap_drift_detected.unwrap_or(false) {
+            reason_codes.append("typography_wrap_drift_detected")?;
+        }
+        if signals.typography_spacing_drift_detected.unwrap_or(false) {
+            reason_codes.append("typography_spacing_drift_detected")?;
+        }
+        if signals
+            .sparse_page_header_omission_detected
+            .unwrap_or(false)
+        {
+            reason_codes.append("sparse_page_header_omission_detected")?;
+        }
+        if signals.semantic_table_alignment_drift.unwrap_or(false) {
+            reason_codes.append("semantic_table_alignment_drift")?;
+        }
+    }
+    gate.set_item("reason_codes", reason_codes)?;
+    report.set_item("gate", gate)?;
+
+    let summary = PyDict::new(py);
+    summary.set_item("pass_count", pass_count)?;
+    summary.set_item("fail_count", fail_count)?;
+    summary.set_item("warn_count", warn_count)?;
+    summary.set_item("manual_needed_count", manual_needed_count)?;
+    summary.set_item("not_applicable_count", not_applicable_count)?;
+    report.set_item("summary", summary)?;
+
+    report.set_item("findings", &findings_py)?;
+    report.set_item(
+        "blocking_issue_summary",
+        build_a11y_blocking_issue_summary_py(py, &reported_findings, &failed_rule_ids)?,
+    )?;
+
+    let observability = PyDict::new(py);
+    observability.set_item(
+        "original_finding_count",
+        observability_summary.original_finding_count,
+    )?;
+    observability.set_item(
+        "reported_finding_count",
+        observability_summary.reported_finding_count,
+    )?;
+    observability.set_item("dedup_event_count", observability_summary.dedup_event_count)?;
+    observability.set_item(
+        "dedup_merged_finding_count",
+        observability_summary.dedup_merged_finding_count,
+    )?;
+    observability.set_item(
+        "correlated_finding_count",
+        observability_summary.correlated_finding_count,
+    )?;
+    let stage_counts_py = PyDict::new(py);
+    for (k, v) in &observability_summary.stage_counts {
+        stage_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("stage_counts", stage_counts_py)?;
+    let source_counts_py = PyDict::new(py);
+    for (k, v) in &observability_summary.source_counts {
+        source_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("source_counts", source_counts_py)?;
+    let original_stage_counts_py = PyDict::new(py);
+    for (k, v) in &observability_summary.original_stage_counts {
+        original_stage_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("original_stage_counts", original_stage_counts_py)?;
+    let original_source_counts_py = PyDict::new(py);
+    for (k, v) in &observability_summary.original_source_counts {
+        original_source_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("original_source_counts", original_source_counts_py)?;
+    let signal_counts_py = PyDict::new(py);
+    signal_counts_py.set_item(
+        "figure_alt_over_budget_count",
+        core.facts.figure_alt_over_budget_count,
+    )?;
+    signal_counts_py.set_item(
+        "figure_caption_redundancy_count",
+        core.facts.figure_caption_redundancy_count,
+    )?;
+    signal_counts_py.set_item("dl_fragmentation_count", core.facts.dl_fragmentation_count)?;
+    signal_counts_py.set_item(
+        "redundant_aria_count",
+        core.facts.redundant_role_native_count + core.facts.redundant_state_native_count,
+    )?;
+    if let Some(summary) = pagination_trace_summary {
+        if let Some(value) = summary.page_count {
+            signal_counts_py.set_item("pagination_page_count", value)?;
+        }
+        if let Some(value) = summary.overflow_event_count {
+            signal_counts_py.set_item("pagination_overflow_event_count", value)?;
+        }
+        if let Some(value) = summary.low_coverage_page_count {
+            signal_counts_py.set_item("pagination_low_coverage_page_count", value)?;
+        }
+        if let Some(value) = summary.flowable_overlap_count {
+            signal_counts_py.set_item("pagination_flowable_overlap_count", value)?;
+        }
+        if let Some(value) = summary.text_overlap_count {
+            signal_counts_py.set_item("pagination_text_overlap_count", value)?;
+        }
+        if let Some(value) = summary.transition_count {
+            signal_counts_py.set_item("pagination_transition_count", value)?;
+        }
+    }
+    if let Some(signals) = diagnostic_signals {
+        if let Some(value) = signals.low_coverage_page_count {
+            signal_counts_py.set_item("diagnostic_low_coverage_page_count", value)?;
+        }
+        if let Some(value) = signals.token_fragmentation_block_count {
+            signal_counts_py.set_item("diagnostic_token_fragmentation_block_count", value)?;
+        }
+        if let Some(value) = signals.wrap_drift_block_count {
+            signal_counts_py.set_item("diagnostic_wrap_drift_block_count", value)?;
+        }
+        if let Some(value) = signals.suspicious_char_width_block_count {
+            signal_counts_py.set_item("diagnostic_suspicious_char_width_block_count", value)?;
+        }
+        if let Some(value) = signals.missing_header_cell_count {
+            signal_counts_py.set_item("diagnostic_missing_header_cell_count", value)?;
+        }
+        if let Some(value) = signals.semantic_table_row_risk_count {
+            signal_counts_py.set_item("diagnostic_semantic_table_row_risk_count", value)?;
+        }
+        if let Some(value) = signals.fragmented_table_cell_count {
+            signal_counts_py.set_item("diagnostic_fragmented_table_cell_count", value)?;
+        }
+    }
+    observability.set_item("signal_counts", signal_counts_py)?;
+    let correlation_index_py = PyList::empty(py);
+    for item in &observability_summary.correlation_index {
+        let row = PyDict::new(py);
+        row.set_item("rule_id", item.rule_id.clone())?;
+        row.set_item("canonical_stage", item.canonical_stage.clone())?;
+        row.set_item("canonical_source", item.canonical_source.clone())?;
+        row.set_item("canonical_verdict", item.canonical_verdict.clone())?;
+        row.set_item("merged_finding_count", item.merged_finding_count)?;
+        row.set_item("merged_pre_render_count", item.merged_pre_render_count)?;
+        let stage_map = PyDict::new(py);
+        for (k, v) in &item.merged_stage_counts {
+            stage_map.set_item(k, *v)?;
+        }
+        row.set_item("merged_stage_counts", stage_map)?;
+        let source_map = PyDict::new(py);
+        for (k, v) in &item.merged_source_counts {
+            source_map.set_item(k, *v)?;
+        }
+        row.set_item("merged_source_counts", source_map)?;
+        correlation_index_py.append(row)?;
+    }
+    observability.set_item("correlation_index", correlation_index_py)?;
+    report.set_item("observability", observability)?;
+
+    let coverage = PyDict::new(py);
+    coverage.set_item("evaluated_rule_count", reported_findings.len())?;
+    coverage.set_item(
+        "applicable_rule_count",
+        reported_findings
+            .iter()
+            .filter(|f| f.applicability == "applicable")
+            .count(),
+    )?;
+    coverage.set_item(
+        "machine_rule_count",
+        reported_findings
+            .iter()
+            .filter(|f| f.verification_mode == "machine")
+            .count(),
+    )?;
+    coverage.set_item(
+        "manual_rule_count",
+        reported_findings
+            .iter()
+            .filter(|f| f.verification_mode == "manual")
+            .count(),
+    )?;
+    coverage.set_item("manual_needed_count", manual_needed_count)?;
+    coverage.set_item("not_evaluated_rule_count", 0)?;
+    let rule_pack_coverage = PyList::empty(py);
+    let engine_pack = PyDict::new(py);
+    engine_pack.set_item("pack_id", "fullbleed.a11y.engine_core.v1")?;
+    engine_pack.set_item("evaluated", reported_findings.len())?;
+    engine_pack.set_item("total", reported_findings.len())?;
+    rule_pack_coverage.append(engine_pack)?;
+
+    let wcag_pairs: Vec<(&str, &str)> = reported_findings
+        .iter()
+        .map(|f| (f.rule_id.as_str(), f.verdict.as_str()))
+        .collect();
+    let wcag_summary = audit_contract::wcag20aa_coverage_from_rule_verdicts(wcag_pairs);
+    let section508_summary = audit_contract::section508_html_coverage_from_rule_verdicts(
+        reported_findings
+            .iter()
+            .map(|f| (f.rule_id.as_str(), f.verdict.as_str())),
+    );
+    let wcag_cov = wcag20aa_coverage_summary_to_py(py, &wcag_summary)?;
+    coverage.set_item("wcag20aa", &wcag_cov)?;
+    let section508_cov = section508_html_coverage_summary_to_py(py, &section508_summary)?;
+    coverage.set_item("section508", &section508_cov)?;
+    let wcag_pack = PyDict::new(py);
+    wcag_pack.set_item("pack_id", "wcag20aa.implemented_map.v1")?;
+    wcag_pack.set_item(
+        "evaluated",
+        wcag_summary.implemented_mapped_entry_evaluated_count,
+    )?;
+    wcag_pack.set_item("total", wcag_summary.implemented_mapped_entry_count)?;
+    rule_pack_coverage.append(wcag_pack)?;
+    let s508_pack = PyDict::new(py);
+    s508_pack.set_item("pack_id", "section508_html.implemented_map.v1")?;
+    s508_pack.set_item(
+        "evaluated",
+        section508_summary.implemented_mapped_entry_evaluated_count,
+    )?;
+    s508_pack.set_item("total", section508_summary.implemented_mapped_entry_count)?;
+    rule_pack_coverage.append(s508_pack)?;
+    coverage.set_item("rule_pack_coverage", rule_pack_coverage)?;
+    report.set_item("coverage", coverage)?;
+
+    let wcag_claim = PyDict::new(py);
+    wcag_claim.set_item("target", "wcag20aa")?;
+    wcag_claim.set_item("status", claim_status)?;
+    wcag_claim.set_item("claim_ready", false)?;
+    wcag_claim.set_item("manual_review_required", true)?;
+    wcag_claim.set_item("manual_review_debt_count", 0usize)?;
+    wcag_claim.set_item("machine_blocker_count", claim_machine_blocker_count)?;
+    wcag_claim.set_item("coverage_gap_count", claim_coverage_gap_count)?;
+    wcag_claim.set_item(
+        "implemented_mapped_entry_count",
+        wcag_summary.implemented_mapped_entry_count,
+    )?;
+    wcag_claim.set_item(
+        "implemented_mapped_entry_evaluated_count",
+        wcag_summary.implemented_mapped_entry_evaluated_count,
+    )?;
+    wcag_claim.set_item(
+        "implemented_mapped_entry_pending_count",
+        wcag_summary.implemented_mapped_entry_pending_count,
+    )?;
+    wcag_claim.set_item("unmapped_entry_count", wcag_summary.unmapped_entry_count)?;
+    let wcag_claim_notes = PyList::empty(py);
+    if wcag_summary.unmapped_entry_count > 0 {
+        wcag_claim_notes.append("WCAG target registry still contains unmapped entries.")?;
+    }
+    if wcag_summary.implemented_mapped_entry_pending_count > 0 {
+        wcag_claim_notes
+            .append("Implemented mapped WCAG entries remain unevaluated in this report.")?;
+    }
+    wcag_claim_notes
+        .append("Manual claim evidence is required for WCAG conformance assertions.")?;
+    wcag_claim.set_item("notes", wcag_claim_notes)?;
+    report.set_item("wcag20aa_claim_readiness", wcag_claim)?;
+
+    let tooling = PyDict::new(py);
+    tooling.set_item("fullbleed_version", env!("CARGO_PKG_VERSION"))?;
+    tooling.set_item("engine_version", env!("CARGO_PKG_VERSION"))?;
+    tooling.set_item("report_schema_version", "1.0.0-draft")?;
+    let contract_meta = audit_contract::metadata();
+    tooling.set_item("audit_contract_id", contract_meta.contract_id)?;
+    tooling.set_item("audit_contract_version", contract_meta.contract_version)?;
+    tooling.set_item(
+        "audit_contract_fingerprint",
+        format!("sha256:{}", contract_meta.contract_fingerprint_sha256),
+    )?;
+    tooling.set_item(
+        "audit_registry_hash",
+        format!("sha256:{}", contract_meta.audit_registry_hash_sha256),
+    )?;
+    tooling.set_item(
+        "wcag20aa_registry_hash",
+        format!("sha256:{}", contract_meta.wcag20aa_registry_hash_sha256),
+    )?;
+    tooling.set_item(
+        "section508_html_registry_hash",
+        format!(
+            "sha256:{}",
+            contract_meta.section508_html_registry_hash_sha256
+        ),
+    )?;
+    let dt = py.import("datetime")?;
+    let tz = dt.getattr("timezone")?.getattr("utc")?;
+    let now = dt.getattr("datetime")?.call_method1("now", (tz,))?;
+    let iso = now.call_method0("isoformat")?.extract::<String>()?;
+    tooling.set_item("generated_at", iso.replace("+00:00", "Z"))?;
+    report.set_item("tooling", tooling)?;
+
+    let artifacts = PyDict::new(py);
+    artifacts.set_item(
+        "html_hash",
+        format!("sha256:{}", sha256_file_hex(html_path)?),
+    )?;
+    artifacts.set_item("css_hash", format!("sha256:{}", sha256_file_hex(css_path)?))?;
+    artifacts.set_item("css_linked", core.facts.has_css_link)?;
+    artifacts.set_item(
+        "packaging_mode",
+        if core.facts.has_css_link {
+            "linked-css"
+        } else {
+            "separate-files"
+        },
+    )?;
+    report.set_item("artifacts", artifacts)?;
+
+    Ok(report.unbind().into_any())
+}
+
+fn pmr_core_evidence_to_py(py: Python<'_>, evidence: &PmrCoreEvidence) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    if let Some(selector) = &evidence.selector {
+        out.set_item("selector", selector.clone())?;
+    }
+    if let Some(diagnostic_ref) = &evidence.diagnostic_ref {
+        out.set_item("diagnostic_ref", diagnostic_ref.clone())?;
+    }
+    if !evidence.values.is_empty() {
+        let values = PyDict::new(py);
+        for (k, v) in &evidence.values {
+            values.set_item(k.clone(), v.clone())?;
+        }
+        out.set_item("values", values)?;
+    }
+    Ok(out.unbind().into_any())
+}
+
+fn pmr_core_audit_to_py(py: Python<'_>, audit: &PmrCoreAudit) -> PyResult<PyObject> {
+    let out = PyDict::new(py);
+    out.set_item("audit_id", audit.audit_id.clone())?;
+    out.set_item("category", audit.category.clone())?;
+    out.set_item("weight", audit.weight)?;
+    out.set_item("class", audit.class_name.clone())?;
+    out.set_item("verification_mode", audit.verification_mode.clone())?;
+    out.set_item("severity", audit.severity.clone())?;
+    out.set_item("stage", audit.stage.clone())?;
+    out.set_item("source", audit.source.clone())?;
+    out.set_item("verdict", audit.verdict.clone())?;
+    out.set_item("scored", audit.scored)?;
+    if let Some(score) = audit.score {
+        out.set_item("score", score)?;
+    }
+    out.set_item("message", audit.message.clone())?;
+    if let Some(fix_hint) = &audit.fix_hint {
+        out.set_item("fix_hint", fix_hint.clone())?;
+    }
+    if !audit.evidence.is_empty() {
+        let evid = PyList::empty(py);
+        for e in &audit.evidence {
+            evid.append(pmr_core_evidence_to_py(py, e)?)?;
+        }
+        out.set_item("evidence", evid)?;
+    }
+    Ok(out.unbind().into_any())
+}
+
+fn build_pmr_report_py(
+    py: Python<'_>,
+    core: &PmrCoreReport,
+    html_path: &str,
+    css_path: &str,
+    pagination_trace_summary: Option<&PaginationTraceSummary>,
+    diagnostic_signals: Option<&DiagnosticSignals>,
+) -> PyResult<PyObject> {
+    let report = PyDict::new(py);
+    report.set_item("schema", "fullbleed.pmr.v1")?;
+
+    let target = PyDict::new(py);
+    target.set_item("html_path", html_path)?;
+    target.set_item("css_path", css_path)?;
+    report.set_item("target", target)?;
+    if let Some(summary) = pagination_trace_summary {
+        report.set_item(
+            "pagination_trace_summary",
+            pagination_trace_summary_to_py(py, summary)?,
+        )?;
+    }
+    if let Some(signals) = diagnostic_signals {
+        report.set_item("diagnostic_signals", diagnostic_signals_to_py(py, signals)?)?;
+    }
+
+    report.set_item("profile", core.profile.clone())?;
+
+    let mut gate_ok = core.gate.ok;
+    let mut gate_error_count = core.gate.error_count;
+    let gate_warn_count = core.gate.warn_count;
+    let mut gate_failed_audit_ids = core.gate.failed_audit_ids.clone();
+    if let Some(signals) = diagnostic_signals {
+        if signals.page_count_mismatch.unwrap_or(false)
+            && !gate_failed_audit_ids
+                .iter()
+                .any(|value| value == "pmr.layout.page_count_guard")
+        {
+            gate_ok = false;
+            gate_error_count += 1;
+            gate_failed_audit_ids.push("pmr.layout.page_count_guard".to_string());
+        }
+        if (signals.layout_collapse_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.low_coverage_page_count)
+                .unwrap_or(0)
+                > 0)
+            && !gate_failed_audit_ids
+                .iter()
+                .any(|value| value == "pmr.layout.collapse_guard")
+        {
+            gate_ok = false;
+            gate_error_count += 1;
+            gate_failed_audit_ids.push("pmr.layout.collapse_guard".to_string());
+        }
+        if signals.typography_spacing_drift_detected.unwrap_or(false)
+            && !gate_failed_audit_ids
+                .iter()
+                .any(|value| value == "pmr.typography.spacing_guard")
+        {
+            gate_ok = false;
+            gate_error_count += 1;
+            gate_failed_audit_ids.push("pmr.typography.spacing_guard".to_string());
+        }
+        if signals
+            .sparse_page_header_omission_detected
+            .unwrap_or(false)
+            && !gate_failed_audit_ids
+                .iter()
+                .any(|value| value == "pmr.visual.sparse_page_header_guard")
+        {
+            gate_ok = false;
+            gate_error_count += 1;
+            gate_failed_audit_ids.push("pmr.visual.sparse_page_header_guard".to_string());
+        }
+    }
+
+    let rank = PyDict::new(py);
+    rank.set_item("score", core.rank.score)?;
+    rank.set_item("confidence", core.rank.confidence)?;
+    rank.set_item("band", core.rank.band.clone())?;
+    rank.set_item("raw_score", core.rank.raw_score)?;
+    report.set_item("rank", rank)?;
+
+    let gate = PyDict::new(py);
+    gate.set_item("ok", gate_ok)?;
+    gate.set_item("mode", core.gate.mode.clone())?;
+    gate.set_item("error_count", gate_error_count)?;
+    gate.set_item("warn_count", gate_warn_count)?;
+    let failed = PyList::empty(py);
+    for aid in &gate_failed_audit_ids {
+        failed.append(aid.clone())?;
+    }
+    gate.set_item("failed_audit_ids", failed)?;
+    let reason_codes = PyList::empty(py);
+    if let Some(signals) = diagnostic_signals {
+        if signals.page_count_mismatch.unwrap_or(false) {
+            reason_codes.append("page_count_mismatch")?;
+        }
+        if signals.layout_collapse_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.low_coverage_page_count)
+                .unwrap_or(0)
+                > 0
+        {
+            reason_codes.append("layout_collapse_detected")?;
+        }
+        if signals.pagination_overflow_detected.unwrap_or(false)
+            || pagination_trace_summary
+                .and_then(|summary| summary.overflow_event_count)
+                .unwrap_or(0)
+                > 0
+        {
+            reason_codes.append("pagination_overflow_detected")?;
+        }
+        if signals.token_fragmentation_detected.unwrap_or(false) {
+            reason_codes.append("token_fragmentation_detected")?;
+        }
+        if signals.typography_wrap_drift_detected.unwrap_or(false) {
+            reason_codes.append("typography_wrap_drift_detected")?;
+        }
+        if signals.typography_spacing_drift_detected.unwrap_or(false) {
+            reason_codes.append("typography_spacing_drift_detected")?;
+        }
+        if signals
+            .sparse_page_header_omission_detected
+            .unwrap_or(false)
+        {
+            reason_codes.append("sparse_page_header_omission_detected")?;
+        }
+        if signals.semantic_table_alignment_drift.unwrap_or(false) {
+            reason_codes.append("semantic_table_alignment_drift")?;
+        }
+    }
+    gate.set_item("reason_codes", reason_codes)?;
+    report.set_item("gate", gate)?;
+
+    let categories = PyList::empty(py);
+    for cat in &core.categories {
+        let d = PyDict::new(py);
+        d.set_item("id", cat.id.clone())?;
+        d.set_item("name", cat.name.clone())?;
+        d.set_item("weight", cat.weight)?;
+        d.set_item("score", cat.score)?;
+        d.set_item("confidence", cat.confidence)?;
+        d.set_item("audit_count", cat.audit_count)?;
+        d.set_item("fail_count", cat.fail_count)?;
+        d.set_item("warn_count", cat.warn_count)?;
+        categories.append(d)?;
+    }
+    report.set_item("categories", categories)?;
+
+    let audits = PyList::empty(py);
+    let failed_audit_ids: std::collections::BTreeSet<String> =
+        gate_failed_audit_ids.iter().cloned().collect();
+    let mut stage_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut source_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut category_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut class_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut verdict_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let correlation_index = PyList::empty(py);
+    for audit in &core.audits {
+        audits.append(pmr_core_audit_to_py(py, audit)?)?;
+        *stage_counts.entry(audit.stage.clone()).or_insert(0) += 1;
+        *source_counts.entry(audit.source.clone()).or_insert(0) += 1;
+        *category_counts.entry(audit.category.clone()).or_insert(0) += 1;
+        *class_counts.entry(audit.class_name.clone()).or_insert(0) += 1;
+        *verdict_counts.entry(audit.verdict.clone()).or_insert(0) += 1;
+        let include_corr = matches!(audit.verdict.as_str(), "fail" | "warn" | "manual_needed")
+            || audit.fix_hint.is_some();
+        if include_corr {
+            let row = PyDict::new(py);
+            row.set_item("audit_id", audit.audit_id.clone())?;
+            row.set_item("category", audit.category.clone())?;
+            row.set_item("class", audit.class_name.clone())?;
+            row.set_item("verdict", audit.verdict.clone())?;
+            row.set_item("severity", audit.severity.clone())?;
+            row.set_item("stage", audit.stage.clone())?;
+            row.set_item("source", audit.source.clone())?;
+            row.set_item("gate_failed", failed_audit_ids.contains(&audit.audit_id))?;
+            row.set_item(
+                "gate_relevant",
+                matches!(audit.verdict.as_str(), "fail" | "warn"),
+            )?;
+            row.set_item(
+                "opportunity",
+                audit.fix_hint.is_some() || audit.class_name == "opportunity",
+            )?;
+            row.set_item("scored", audit.scored)?;
+            row.set_item("has_fix_hint", audit.fix_hint.is_some())?;
+            if let Some(score) = audit.score {
+                row.set_item("score", score)?;
+            }
+            correlation_index.append(row)?;
+        }
+    }
+    report.set_item("audits", audits)?;
+    report.set_item(
+        "blocking_audit_summary",
+        build_pmr_blocking_audit_summary_py(py, &core.audits, &core.gate.failed_audit_ids)?,
+    )?;
+
+    let observability = PyDict::new(py);
+    observability.set_item("original_audit_count", core.audits.len())?;
+    observability.set_item("reported_audit_count", core.audits.len())?;
+    observability.set_item("dedup_event_count", 0usize)?;
+    observability.set_item("dedup_merged_audit_count", 0usize)?;
+    observability.set_item("correlated_audit_count", correlation_index.len())?;
+    let stage_counts_py = PyDict::new(py);
+    for (k, v) in &stage_counts {
+        stage_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("stage_counts", stage_counts_py)?;
+    let source_counts_py = PyDict::new(py);
+    for (k, v) in &source_counts {
+        source_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("source_counts", source_counts_py)?;
+    let category_counts_py = PyDict::new(py);
+    for (k, v) in &category_counts {
+        category_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("category_counts", category_counts_py)?;
+    let class_counts_py = PyDict::new(py);
+    for (k, v) in &class_counts {
+        class_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("class_counts", class_counts_py)?;
+    let verdict_counts_py = PyDict::new(py);
+    for (k, v) in &verdict_counts {
+        verdict_counts_py.set_item(k, *v)?;
+    }
+    observability.set_item("verdict_counts", verdict_counts_py)?;
+    let signal_counts_py = PyDict::new(py);
+    signal_counts_py.set_item(
+        "figure_alt_over_budget_count",
+        core.facts.figure_alt_over_budget_count,
+    )?;
+    signal_counts_py.set_item(
+        "figure_caption_redundancy_count",
+        core.facts.figure_caption_redundancy_count,
+    )?;
+    signal_counts_py.set_item("dl_fragmentation_count", core.facts.dl_fragmentation_count)?;
+    signal_counts_py.set_item(
+        "redundant_aria_count",
+        core.facts.redundant_role_native_count + core.facts.redundant_state_native_count,
+    )?;
+    if let Some(summary) = pagination_trace_summary {
+        if let Some(value) = summary.page_count {
+            signal_counts_py.set_item("pagination_page_count", value)?;
+        }
+        if let Some(value) = summary.overflow_event_count {
+            signal_counts_py.set_item("pagination_overflow_event_count", value)?;
+        }
+        if let Some(value) = summary.low_coverage_page_count {
+            signal_counts_py.set_item("pagination_low_coverage_page_count", value)?;
+        }
+        if let Some(value) = summary.flowable_overlap_count {
+            signal_counts_py.set_item("pagination_flowable_overlap_count", value)?;
+        }
+        if let Some(value) = summary.text_overlap_count {
+            signal_counts_py.set_item("pagination_text_overlap_count", value)?;
+        }
+        if let Some(value) = summary.transition_count {
+            signal_counts_py.set_item("pagination_transition_count", value)?;
+        }
+    }
+    if let Some(signals) = diagnostic_signals {
+        if let Some(value) = signals.low_coverage_page_count {
+            signal_counts_py.set_item("diagnostic_low_coverage_page_count", value)?;
+        }
+        if let Some(value) = signals.token_fragmentation_block_count {
+            signal_counts_py.set_item("diagnostic_token_fragmentation_block_count", value)?;
+        }
+        if let Some(value) = signals.wrap_drift_block_count {
+            signal_counts_py.set_item("diagnostic_wrap_drift_block_count", value)?;
+        }
+        if let Some(value) = signals.suspicious_char_width_block_count {
+            signal_counts_py.set_item("diagnostic_suspicious_char_width_block_count", value)?;
+        }
+        if let Some(value) = signals.missing_header_cell_count {
+            signal_counts_py.set_item("diagnostic_missing_header_cell_count", value)?;
+        }
+        if let Some(value) = signals.semantic_table_row_risk_count {
+            signal_counts_py.set_item("diagnostic_semantic_table_row_risk_count", value)?;
+        }
+        if let Some(value) = signals.fragmented_table_cell_count {
+            signal_counts_py.set_item("diagnostic_fragmented_table_cell_count", value)?;
+        }
+    }
+    observability.set_item("signal_counts", signal_counts_py)?;
+    observability.set_item("correlation_index", correlation_index)?;
+    report.set_item("observability", observability)?;
+
+    let manual_debt = PyDict::new(py);
+    manual_debt.set_item("item_count", core.manual_debt_item_count)?;
+    manual_debt.set_item("high_risk_count", core.manual_debt_high_risk_count)?;
+    if !core.manual_debt_items.is_empty() {
+        let items = PyList::empty(py);
+        for item in &core.manual_debt_items {
+            let d = PyDict::new(py);
+            d.set_item("id", item.id.clone())?;
+            d.set_item("reason", item.reason.clone())?;
+            d.set_item("severity", item.severity.clone())?;
+            if let Some(category) = &item.category {
+                d.set_item("category", category.clone())?;
+            }
+            items.append(d)?;
+        }
+        manual_debt.set_item("items", items)?;
+    }
+    report.set_item("manual_debt", manual_debt)?;
+
+    let coverage = PyDict::new(py);
+    coverage.set_item("evaluated_audit_count", core.coverage.evaluated_audit_count)?;
+    coverage.set_item(
+        "applicable_audit_count",
+        core.coverage.applicable_audit_count,
+    )?;
+    coverage.set_item("scored_audit_count", core.coverage.scored_audit_count)?;
+    coverage.set_item("manual_needed_count", core.coverage.manual_needed_count)?;
+    coverage.set_item(
+        "not_evaluated_audit_count",
+        core.coverage.not_evaluated_audit_count,
+    )?;
+    report.set_item("coverage", coverage)?;
+
+    let tooling = PyDict::new(py);
+    tooling.set_item("fullbleed_version", env!("CARGO_PKG_VERSION"))?;
+    tooling.set_item("report_schema_version", "1.0.0-draft")?;
+    let contract_meta = audit_contract::metadata();
+    tooling.set_item("audit_contract_id", contract_meta.contract_id)?;
+    tooling.set_item("audit_contract_version", contract_meta.contract_version)?;
+    tooling.set_item(
+        "audit_contract_fingerprint",
+        format!("sha256:{}", contract_meta.contract_fingerprint_sha256),
+    )?;
+    tooling.set_item(
+        "audit_registry_hash",
+        format!("sha256:{}", contract_meta.audit_registry_hash_sha256),
+    )?;
+    tooling.set_item(
+        "wcag20aa_registry_hash",
+        format!("sha256:{}", contract_meta.wcag20aa_registry_hash_sha256),
+    )?;
+    tooling.set_item(
+        "section508_html_registry_hash",
+        format!(
+            "sha256:{}",
+            contract_meta.section508_html_registry_hash_sha256
+        ),
+    )?;
+    let dt = py.import("datetime")?;
+    let tz = dt.getattr("timezone")?.getattr("utc")?;
+    let now = dt.getattr("datetime")?.call_method1("now", (tz,))?;
+    let iso = now.call_method0("isoformat")?.extract::<String>()?;
+    tooling.set_item("generated_at", iso.replace("+00:00", "Z"))?;
+    report.set_item("tooling", tooling)?;
+
+    let artifacts = PyDict::new(py);
+    artifacts.set_item(
+        "html_hash",
+        format!("sha256:{}", sha256_file_hex(html_path)?),
+    )?;
+    artifacts.set_item("css_hash", format!("sha256:{}", sha256_file_hex(css_path)?))?;
+    artifacts.set_item("css_linked", core.facts.has_css_link)?;
+    artifacts.set_item(
+        "packaging_mode",
+        if core.facts.has_css_link {
+            "linked-css"
+        } else {
+            "separate-files"
+        },
+    )?;
+    report.set_item("artifacts", artifacts)?;
+
+    Ok(report.unbind().into_any())
+}
+
+impl PdfEngine {
+    fn new(
+        page_width: Option<&Bound<'_, PyAny>>,
+        page_height: Option<&Bound<'_, PyAny>>,
+        margin: Option<&Bound<'_, PyAny>>,
+        page_margins: Option<&Bound<'_, PyAny>>,
+        font_dirs: Option<Vec<String>>,
+        font_files: Option<Vec<String>>,
+        reuse_xobjects: bool,
+        svg_form_xobjects: bool,
+        svg_raster_fallback: bool,
+        unicode_support: bool,
+        shape_text: bool,
+        unicode_metrics: bool,
+        pdf_version: Option<&Bound<'_, PyAny>>,
+        pdf_profile: Option<&Bound<'_, PyAny>>,
+        output_intent_icc: Option<String>,
+        output_intent_identifier: Option<String>,
+        output_intent_info: Option<String>,
+        output_intent_components: Option<u8>,
+        color_space: Option<String>,
+        document_lang: Option<String>,
+        document_title: Option<String>,
+        header_first: Option<String>,
+        header_each: Option<String>,
+        header_last: Option<String>,
+        header_x: Option<&Bound<'_, PyAny>>,
+        header_y_from_top: Option<&Bound<'_, PyAny>>,
+        header_font_name: Option<String>,
+        header_font_size: Option<f32>,
+        header_color: Option<String>,
+        header_html_first: Option<String>,
+        header_html_each: Option<String>,
+        header_html_last: Option<String>,
+        header_html_x: Option<&Bound<'_, PyAny>>,
+        header_html_y_from_top: Option<&Bound<'_, PyAny>>,
+        header_html_width: Option<&Bound<'_, PyAny>>,
+        header_html_height: Option<&Bound<'_, PyAny>>,
+        footer_first: Option<String>,
+        footer_each: Option<String>,
+        footer_last: Option<String>,
+        footer_x: Option<&Bound<'_, PyAny>>,
+        footer_y_from_bottom: Option<&Bound<'_, PyAny>>,
+        footer_font_name: Option<String>,
+        footer_font_size: Option<f32>,
+        footer_color: Option<String>,
+        watermark: Option<PyWatermarkSpec>,
+        watermark_text: Option<String>,
+        watermark_html: Option<String>,
+        watermark_image: Option<String>,
+        watermark_layer: &str,
+        watermark_semantics: &str,
+        watermark_opacity: f32,
+        watermark_rotation: f32,
+        watermark_font_name: Option<String>,
+        watermark_font_size: Option<f32>,
+        watermark_color: Option<String>,
+        paginated_context: Option<HashMap<String, String>>,
+        template_binding: Option<&Bound<'_, PyAny>>,
+        layout_strategy: Option<String>,
+        accept_lazy_layout_cost: bool,
+        lazy_max_passes: usize,
+        lazy_budget_ms: f64,
+        jit_mode: Option<String>,
+        debug: bool,
+        debug_out: Option<String>,
+        perf: bool,
+        perf_out: Option<String>,
+        document_timestamp: Option<String>,
+        pdf_vt_job: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let mut builder = FullBleed::builder();
+        let page_width = parse_py_length(page_width)?;
+        let page_height = parse_py_length(page_height)?;
+        if let (Some(width), Some(height)) = (page_width, page_height) {
+            builder = builder.page_size(Size {
+                width: Pt::from_f32(width),
+                height: Pt::from_f32(height),
+            });
+        }
+        if let Some(margin) = margin {
+            if let Some(m) = parse_py_margins(Some(margin))? {
+                builder = builder.margins(m);
+            }
+        }
+
+        if let Some(pm) = page_margins {
+            let dict = pm.downcast::<PyDict>().map_err(|_| {
+                PyValueError::new_err("page_margins must be a dict like {1: {'top':'30mm',...}, 2: 24, 'n': {'top':'20mm',...}}")
+            })?;
+
+            // Determine numeric pages so we can map "n"/"each" to the last template index.
+            let mut max_numeric = 1usize;
+            let mut has_n = false;
+            for (k, _v) in dict.iter() {
+                if let Ok(i) = k.extract::<usize>() {
+                    max_numeric = max_numeric.max(i.max(1));
+                    continue;
+                }
+                if let Ok(s) = k.extract::<String>() {
+                    let s = s.trim().to_ascii_lowercase();
+                    if s == "n" || s == "each" {
+                        has_n = true;
+                        continue;
+                    }
+                    if let Ok(i) = s.parse::<usize>() {
+                        max_numeric = max_numeric.max(i.max(1));
+                        continue;
+                    }
+                }
+            }
+            let n_page = max_numeric.saturating_add(1);
+
+            for (k, v) in dict.iter() {
+                let page_number = if let Ok(i) = k.extract::<usize>() {
+                    i.max(1)
+                } else if let Ok(s) = k.extract::<String>() {
+                    let s = s.trim().to_ascii_lowercase();
+                    if s == "n" || s == "each" {
+                        n_page
+                    } else {
+                        s.parse::<usize>().map_err(|_| {
+                            PyValueError::new_err(format!(
+                                "page_margins key must be an int page number or 'n'/'each', got {s:?}"
+                            ))
+                        })?.max(1)
+                    }
+                } else {
+                    return Err(PyValueError::new_err(
+                        "page_margins keys must be integers (1, 2, ...) or strings ('n'/'each')",
+                    ));
+                };
+
+                let margins = parse_py_margins(Some(&v))?.ok_or_else(|| {
+                    PyValueError::new_err("page_margins values must be a number or dict")
+                })?;
+                builder = builder.page_margin(page_number, margins);
+            }
+
+            let _ = has_n;
+        }
+        builder = builder.reuse_xobjects(reuse_xobjects);
+        builder = builder.svg_form_xobjects(svg_form_xobjects);
+        builder = builder.svg_raster_fallback(svg_raster_fallback);
+        builder = builder.unicode_support(unicode_support);
+        builder = builder.shape_text(shape_text);
+        builder = builder.unicode_metrics(unicode_metrics);
+        if let Some(version) = parse_pdf_version(pdf_version)? {
+            builder = builder.pdf_version(version);
+        }
+        if let Some(profile) = parse_pdf_profile(pdf_profile)? {
+            builder = builder.pdf_profile(profile);
+        }
+        if let Some(intent) = parse_output_intent(
+            output_intent_icc,
+            output_intent_identifier,
+            output_intent_info,
+            output_intent_components,
+        )? {
+            builder = builder.output_intent(intent);
+        }
+        if let Some(color_space) = color_space {
+            builder = builder.color_space(parse_color_space(&color_space)?);
+        }
+        if let Some(lang) = document_lang {
+            builder = builder.document_lang(lang);
+        }
+        if let Some(title) = document_title {
+            builder = builder.document_title(title);
+        }
+
+        if let Some(timestamp) = document_timestamp {
+            builder = builder.document_timestamp(
+                timestamp
+                    .parse::<crate::PdfTimestamp>()
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            );
+        }
+
+        if let Some(job) = pdf_vt::parse_job(pdf_vt_job)? {
+            builder = builder.pdf_vt_job(job);
+        }
+
+        // Prefer HTML header if provided; otherwise fall back to plain text header.
+        if header_html_first.is_some() || header_html_each.is_some() || header_html_last.is_some() {
+            let hx = parse_py_length(header_html_x)?.unwrap_or(36.0);
+            let hy = parse_py_length(header_html_y_from_top)?.unwrap_or(18.0);
+            let hw = parse_py_length(header_html_width)?.unwrap_or(540.0);
+            let hh = parse_py_length(header_html_height)?.unwrap_or(42.0);
+            builder = builder.page_header_html(
+                header_html_first,
+                header_html_each,
+                header_html_last,
+                hx,
+                hy,
+                hw,
+                hh,
+            );
+        } else {
+            let header_x = parse_py_length(header_x)?.unwrap_or(36.0);
+            let header_y_from_top = parse_py_length(header_y_from_top)?.unwrap_or(18.0);
+            let header_font_name = header_font_name.unwrap_or_else(|| "Helvetica".to_string());
+            let header_font_size = header_font_size.unwrap_or(9.0);
+            let header_color = header_color
+                .as_deref()
+                .and_then(parse_color_hex)
+                .unwrap_or(Color {
+                    r: 0.333,
+                    g: 0.333,
+                    b: 0.333,
+                });
+
+            if header_first.is_some() || header_each.is_some() || header_last.is_some() {
+                builder = builder.page_header(
+                    header_first,
+                    header_each,
+                    header_last,
+                    header_x,
+                    header_y_from_top,
+                    header_font_name,
+                    header_font_size,
+                    header_color,
+                );
+            }
+        }
+
+        let footer_x = parse_py_length(footer_x)?.unwrap_or(36.0);
+        let footer_y_from_bottom = parse_py_length(footer_y_from_bottom)?.unwrap_or(24.0);
+        let footer_font_name = footer_font_name.unwrap_or_else(|| "Helvetica".to_string());
+        let footer_font_size = footer_font_size.unwrap_or(9.0);
+        let footer_color = footer_color
+            .as_deref()
+            .and_then(parse_color_hex)
+            .unwrap_or(Color {
+                r: 0.333,
+                g: 0.333,
+                b: 0.333,
+            });
+
+        if footer_first.is_some() || footer_each.is_some() || footer_last.is_some() {
+            builder = builder.page_footer(
+                footer_first,
+                footer_each,
+                footer_last,
+                footer_x,
+                footer_y_from_bottom,
+                footer_font_name,
+                footer_font_size,
+                footer_color,
+            );
+        }
+
+        let parsed_watermark_semantics = parse_watermark_semantics(watermark_semantics)?;
+        let mut watermark_spec: Option<WatermarkSpec> = None;
+        if let Some(spec) = watermark {
+            watermark_spec = Some(watermark_spec_from_py(&spec)?);
+        } else if watermark_text.is_some() || watermark_html.is_some() || watermark_image.is_some()
+        {
+            let layer = parse_watermark_layer(&watermark_layer)?;
+            let mut spec = if let Some(text) = watermark_text {
+                WatermarkSpec::text(text)
+            } else if let Some(html) = watermark_html {
+                WatermarkSpec::html(html)
+            } else if let Some(image) = watermark_image {
+                WatermarkSpec::image(image)
+            } else {
+                WatermarkSpec::text(String::new())
+            };
+            spec.layer = layer;
+            spec.semantics = parsed_watermark_semantics;
+            spec.opacity = watermark_opacity.clamp(0.0, 1.0);
+            spec.rotation_deg = watermark_rotation;
+            if let Some(font_name) = watermark_font_name {
+                spec.font_name = font_name;
+            }
+            if let Some(font_size) = watermark_font_size {
+                spec.font_size = Pt::from_f32(font_size);
+            }
+            if let Some(color_str) = watermark_color {
+                if let Some(color) = parse_color_hex(&color_str) {
+                    spec.color = color;
+                } else {
+                    return Err(PyValueError::new_err(format!(
+                        "Invalid watermark_color: {color_str:?}. Expected '#RRGGBB'."
+                    )));
+                }
+            }
+            watermark_spec = Some(spec);
+        }
+        if let Some(spec) = watermark_spec {
+            builder = builder.watermark(spec);
+        }
+
+        if let Some(spec_map) = paginated_context {
+            let mut ops = HashMap::new();
+            for (key, op_raw) in spec_map {
+                let Some(op) = crate::PaginatedContextSpec::parse_op(&op_raw) else {
+                    return Err(PyValueError::new_err(format!(
+                        "Invalid paginated_context op for key {key:?}: {op_raw:?}. Expected one of: 'every', 'count', 'sum', 'sum:<scale>'"
+                    )));
+                };
+                ops.insert(key, op);
+            }
+            builder = builder.paginated_context(crate::PaginatedContextSpec::new(ops));
+        }
+        if let Some(raw) = template_binding {
+            let spec = parse_template_binding_spec(raw)?;
+            builder = builder.template_binding_spec(spec);
+        }
+        if let Some(strategy_raw) = layout_strategy {
+            let strategy = parse_layout_strategy(&strategy_raw)?;
+            builder = builder.layout_strategy(strategy);
+        }
+        builder = builder.accept_lazy_layout_cost(accept_lazy_layout_cost);
+        builder = builder.lazy_layout_limits(lazy_max_passes, lazy_budget_ms);
+        if let Some(mode) = jit_mode {
+            let mode = mode.trim().to_ascii_lowercase();
+            let jit_mode = match mode.as_str() {
+                "off" => JitMode::Off,
+                "plan" | "plan-only" | "plan_only" => JitMode::PlanOnly,
+                "replay" | "plan-and-replay" | "plan_and_replay" => JitMode::PlanAndReplay,
+                _ => {
+                    return Err(PyValueError::new_err(format!(
+                        "invalid jit_mode '{mode}' (expected off, plan, replay)"
+                    )));
+                }
+            };
+            builder = builder.jit_mode(jit_mode);
+        }
+        if debug {
+            let path = debug_out.unwrap_or_else(|| "fullbleed_jit.log".to_string());
+            builder = builder.debug_log(path);
+        }
+        if perf || perf_out.is_some() {
+            let path = perf_out.unwrap_or_else(|| "fullbleed_perf.log".to_string());
+            builder = builder.perf_log(path);
+        }
+        if let Some(dirs) = font_dirs {
+            for dir in dirs {
+                builder = builder.register_font_dir(dir);
+            }
+        }
+        if let Some(files) = font_files {
+            for file in files {
+                builder = builder.register_font_file(file);
+            }
+        }
+        let engine = builder.clone().build().map_err(to_py_err)?;
+        Ok(Self {
+            engine,
+            builder,
+            document_css_href: None,
+            document_css_source_path: None,
+            document_css_media: Some("all".to_string()),
+            document_css_required: false,
+        })
+    }
+
+    fn register_bundle(&mut self, bundle: PyRef<'_, PyAssetBundle>) -> PyResult<()> {
+        self.builder = self.builder.clone().register_bundle(bundle.bundle.clone());
+        self.rebuild_from_builder()
+    }
+
+    fn document_lang(&self) -> Option<String> {
+        self.builder
+            .document_lang_value()
+            .map(std::string::ToString::to_string)
+    }
+
+    fn set_document_lang(&mut self, value: Option<String>) -> PyResult<()> {
+        self.builder = match value {
+            Some(lang) => self.builder.clone().document_lang(lang),
+            None => self.builder.clone().clear_document_lang(),
+        };
+        self.rebuild_from_builder()
+    }
+
+    fn document_title(&self) -> Option<String> {
+        self.builder
+            .document_title_value()
+            .map(std::string::ToString::to_string)
+    }
+
+    fn set_document_title(&mut self, value: Option<String>) -> PyResult<()> {
+        self.builder = match value {
+            Some(title) => self.builder.clone().document_title(title),
+            None => self.builder.clone().clear_document_title(),
+        };
+        self.rebuild_from_builder()
+    }
+
+    fn document_css_href(&self) -> Option<String> {
+        self.normalized_css_href()
+    }
+
+    fn set_document_css_href(&mut self, value: Option<String>) -> PyResult<()> {
+        self.document_css_href = value
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        Ok(())
+    }
+
+    fn document_css_source_path(&self) -> Option<String> {
+        self.document_css_source_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    }
+
+    fn set_document_css_source_path(&mut self, value: Option<String>) -> PyResult<()> {
+        self.document_css_source_path = value
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        Ok(())
+    }
+
+    fn document_css_media(&self) -> Option<String> {
+        self.normalized_css_media()
+    }
+
+    fn set_document_css_media(&mut self, value: Option<String>) -> PyResult<()> {
+        self.document_css_media = value
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        Ok(())
+    }
+
+    fn document_css_required(&self) -> bool {
+        self.document_css_required
+    }
+
+    fn set_document_css_required(&mut self, value: bool) -> PyResult<()> {
+        self.document_css_required = value;
+        Ok(())
+    }
+
+    fn document_metadata(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let out = PyDict::new(py);
+        out.set_item("document_lang", self.document_lang())?;
+        out.set_item("document_title", self.document_title())?;
+        out.set_item("document_css_href", self.document_css_href())?;
+        out.set_item("document_css_source_path", self.document_css_source_path())?;
+        out.set_item("document_css_media", self.document_css_media())?;
+        out.set_item("document_css_required", self.document_css_required())?;
+        Ok(out.unbind().into_any())
+    }
+
+    fn emit_html(&self, html: &str, out_path: &str, wrap_document: bool) -> PyResult<String> {
+        let html_text = self
+            .engine
+            .emit_html_artifact(html, out_path, wrap_document)
+            .map_err(to_py_err)?;
+        let css_href = self.normalized_css_href();
+        self.ensure_css_required(css_href.as_deref())?;
+        let (patched, injected, _preexisting) = inject_css_link(
+            &html_text,
+            css_href.as_deref(),
+            self.normalized_css_media().as_deref(),
+        );
+        if injected {
+            std::fs::write(out_path, patched.as_bytes()).map_err(|e| {
+                PyValueError::new_err(format!("failed to write html artifact: {e}"))
+            })?;
+            Ok(patched)
+        } else {
+            Ok(html_text)
+        }
+    }
+
+    fn emit_css(&self, css: &str, out_path: &str) -> PyResult<String> {
+        self.engine
+            .emit_css_artifact(css, out_path)
+            .map_err(to_py_err)
+    }
+
+    fn emit_artifacts(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        html_path: &str,
+        css_path: &str,
+        wrap_document: bool,
+    ) -> PyResult<PyObject> {
+        let (html_text, css_text) = self
+            .engine
+            .emit_html_css_artifacts(html, css, html_path, css_path, wrap_document)
+            .map_err(to_py_err)?;
+        let css_href = self.effective_css_href_for_path(css_path);
+        self.ensure_css_required(css_href.as_deref())?;
+        let css_media = self.normalized_css_media();
+        let (patched, injected, preexisting) =
+            inject_css_link(&html_text, css_href.as_deref(), css_media.as_deref());
+        let html_effective = if injected {
+            std::fs::write(html_path, patched.as_bytes()).map_err(|e| {
+                PyValueError::new_err(format!("failed to write html artifact: {e}"))
+            })?;
+            patched
+        } else {
+            html_text
+        };
+        let out = PyDict::new(py);
+        out.set_item("html_path", html_path)?;
+        out.set_item("css_path", css_path)?;
+        out.set_item("html", html_effective)?;
+        out.set_item("css", css_text)?;
+        out.set_item("css_link_href", css_href)?;
+        out.set_item("css_link_media", css_media)?;
+        out.set_item("css_link_injected", injected)?;
+        out.set_item("css_link_preexisting", preexisting)?;
+        Ok(out.unbind().into_any())
+    }
+
+    fn verify_accessibility_html(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        profile: &str,
+        mode: &str,
+        render_preview_png_path: Option<&str>,
+        a11y_report: Option<PyObject>,
+        claim_evidence: Option<PyObject>,
+        pagination_trace_summary: Option<PyObject>,
+        diagnostic_signals: Option<PyObject>,
+    ) -> PyResult<PyObject> {
+        let core = self.engine.verify_accessibility_html_core(html, profile);
+        let pagination_trace_summary = pagination_trace_summary_from_py(
+            pagination_trace_summary.as_ref().map(|v| v.bind(py)),
+        )?;
+        let diagnostic_signals =
+            diagnostic_signals_from_py(diagnostic_signals.as_ref().map(|v| v.bind(py)))?;
+
+        // For in-memory HTML verification we emit a schema-shaped report without artifact hashes/paths.
+        // Reuse the file-based path with temporary files to keep the report shape stable for now.
+        let tmp_dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let html_path = tmp_dir.join(format!("fullbleed_a11y_verify_{pid}_{ts}.html"));
+        let css_path = tmp_dir.join(format!("fullbleed_a11y_verify_{pid}_{ts}.css"));
+        std::fs::write(&html_path, html).map_err(|e| {
+            PyValueError::new_err(format!("failed to write temp html for verification: {e}"))
+        })?;
+        std::fs::write(&css_path, css).map_err(|e| {
+            PyValueError::new_err(format!("failed to write temp css for verification: {e}"))
+        })?;
+        let report = build_a11y_verify_report_py(
+            py,
+            &core,
+            &html_path.to_string_lossy(),
+            &css_path.to_string_lossy(),
+            mode,
+            render_preview_png_path,
+            a11y_report.as_ref().map(|v| v.bind(py)),
+            claim_evidence.as_ref().map(|v| v.bind(py)),
+            pagination_trace_summary.as_ref(),
+            diagnostic_signals.as_ref(),
+        );
+        let _ = std::fs::remove_file(&html_path);
+        let _ = std::fs::remove_file(&css_path);
+        report
+    }
+
+    fn verify_accessibility_artifacts(
+        &self,
+        py: Python<'_>,
+        html_path: &str,
+        css_path: &str,
+        profile: &str,
+        mode: &str,
+        render_preview_png_path: Option<&str>,
+        a11y_report: Option<PyObject>,
+        claim_evidence: Option<PyObject>,
+        pagination_trace_summary: Option<PyObject>,
+        diagnostic_signals: Option<PyObject>,
+    ) -> PyResult<PyObject> {
+        let html = std::fs::read_to_string(html_path).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to read html artifact for accessibility verification: {e}"
+            ))
+        })?;
+        // Ensure CSS file is readable/existing even though current core checks are HTML-focused.
+        let _css = std::fs::read_to_string(css_path).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to read css artifact for accessibility verification: {e}"
+            ))
+        })?;
+        let pagination_trace_summary = pagination_trace_summary_from_py(
+            pagination_trace_summary.as_ref().map(|v| v.bind(py)),
+        )?;
+        let diagnostic_signals =
+            diagnostic_signals_from_py(diagnostic_signals.as_ref().map(|v| v.bind(py)))?;
+        let core = self.engine.verify_accessibility_html_core(&html, profile);
+        build_a11y_verify_report_py(
+            py,
+            &core,
+            html_path,
+            css_path,
+            mode,
+            render_preview_png_path,
+            a11y_report.as_ref().map(|v| v.bind(py)),
+            claim_evidence.as_ref().map(|v| v.bind(py)),
+            pagination_trace_summary.as_ref(),
+            diagnostic_signals.as_ref(),
+        )
+    }
+
+    fn verify_paged_media_rank_html(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        profile: &str,
+        mode: &str,
+        overflow_count: Option<i64>,
+        known_loss_count: Option<i64>,
+        source_page_count: Option<i64>,
+        render_page_count: Option<i64>,
+        review_queue_items: Option<i64>,
+        pagination_trace_summary: Option<PyObject>,
+        diagnostic_signals: Option<PyObject>,
+    ) -> PyResult<PyObject> {
+        let tmp_dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let html_path = tmp_dir.join(format!("fullbleed_pmr_{pid}_{ts}.html"));
+        let css_path = tmp_dir.join(format!("fullbleed_pmr_{pid}_{ts}.css"));
+        std::fs::write(&html_path, html).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to write temp html for PMR verification: {e}"
+            ))
+        })?;
+        std::fs::write(&css_path, css).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to write temp css for PMR verification: {e}"
+            ))
+        })?;
+        let pagination_trace_summary = pagination_trace_summary_from_py(
+            pagination_trace_summary.as_ref().map(|v| v.bind(py)),
+        )?;
+        let diagnostic_signals =
+            diagnostic_signals_from_py(diagnostic_signals.as_ref().map(|v| v.bind(py)))?;
+        let ctx = PmrCoreContext {
+            overflow_count,
+            known_loss_count,
+            pagination_summary: pagination_trace_summary.clone(),
+            source_page_count,
+            render_page_count,
+            review_queue_items,
+            html_artifact_bytes: Some(html.len() as u64),
+            css_artifact_bytes: Some(css.len() as u64),
+        };
+        let core = self
+            .engine
+            .verify_paged_media_rank_html_core(html, profile, mode, &ctx);
+        let report = build_pmr_report_py(
+            py,
+            &core,
+            &html_path.to_string_lossy(),
+            &css_path.to_string_lossy(),
+            pagination_trace_summary.as_ref(),
+            diagnostic_signals.as_ref(),
+        );
+        let _ = std::fs::remove_file(&html_path);
+        let _ = std::fs::remove_file(&css_path);
+        report
+    }
+
+    fn verify_paged_media_rank_artifacts(
+        &self,
+        py: Python<'_>,
+        html_path: &str,
+        css_path: &str,
+        profile: &str,
+        mode: &str,
+        overflow_count: Option<i64>,
+        known_loss_count: Option<i64>,
+        source_page_count: Option<i64>,
+        render_page_count: Option<i64>,
+        review_queue_items: Option<i64>,
+        pagination_trace_summary: Option<PyObject>,
+        diagnostic_signals: Option<PyObject>,
+    ) -> PyResult<PyObject> {
+        let html = std::fs::read_to_string(html_path).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to read html artifact for PMR verification: {e}"
+            ))
+        })?;
+        let css = std::fs::read_to_string(css_path).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to read css artifact for PMR verification: {e}"
+            ))
+        })?;
+        let pagination_trace_summary = pagination_trace_summary_from_py(
+            pagination_trace_summary.as_ref().map(|v| v.bind(py)),
+        )?;
+        let diagnostic_signals =
+            diagnostic_signals_from_py(diagnostic_signals.as_ref().map(|v| v.bind(py)))?;
+        let ctx = PmrCoreContext {
+            overflow_count,
+            known_loss_count,
+            pagination_summary: pagination_trace_summary.clone(),
+            source_page_count,
+            render_page_count,
+            review_queue_items,
+            html_artifact_bytes: Some(html.len() as u64),
+            css_artifact_bytes: Some(css.len() as u64),
+        };
+        let core = self
+            .engine
+            .verify_paged_media_rank_html_core(&html, profile, mode, &ctx);
+        build_pmr_report_py(
+            py,
+            &core,
+            html_path,
+            css_path,
+            pagination_trace_summary.as_ref(),
+            diagnostic_signals.as_ref(),
+        )
+    }
+
+    fn render_pdf(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<Py<PyBytes>> {
+        let bytes = py
+            .allow_threads(|| self.engine.render_to_buffer(html, css))
+            .map_err(to_py_err)?;
+        if let Some(path) = deterministic_hash.as_deref() {
+            write_hash_file(path, &sha256_hex(&bytes))?;
+        }
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn render_image_pages(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        dpi: u32,
+    ) -> PyResult<PyObject> {
+        let pages = py
+            .allow_threads(|| self.engine.render_image_pages(html, css, dpi))
+            .map_err(to_py_err)?;
+        let out = PyList::empty(py);
+        for page in pages {
+            out.append(PyBytes::new(py, &page))?;
+        }
+        Ok(out.unbind().into_any())
+    }
+
+    fn render_image_pages_to_dir(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        out_dir: &str,
+        dpi: u32,
+        stem: Option<String>,
+    ) -> PyResult<PyObject> {
+        let stem = stem.unwrap_or_else(|| "render".to_string());
+        let paths = py
+            .allow_threads(|| {
+                self.engine
+                    .render_image_pages_to_dir(html, css, out_dir, &stem, dpi)
+            })
+            .map_err(to_py_err)?;
+        let out = PyList::empty(py);
+        for path in paths {
+            out.append(path.to_string_lossy().to_string())?;
+        }
+        Ok(out.unbind().into_any())
+    }
+
+    fn render_finalized_pdf_image_pages(
+        &self,
+        py: Python<'_>,
+        pdf_path: &str,
+        dpi: u32,
+    ) -> PyResult<PyObject> {
+        let pages = py
+            .allow_threads(|| self.engine.render_finalized_pdf_image_pages(pdf_path, dpi))
+            .map_err(to_py_err)?;
+        let out = PyList::empty(py);
+        for page in pages {
+            out.append(PyBytes::new(py, &page))?;
+        }
+        Ok(out.unbind().into_any())
+    }
+
+    fn render_finalized_pdf_image_pages_to_dir(
+        &self,
+        py: Python<'_>,
+        pdf_path: &str,
+        out_dir: &str,
+        dpi: u32,
+        stem: Option<String>,
+    ) -> PyResult<PyObject> {
+        let stem = stem.unwrap_or_else(|| "render".to_string());
+        let paths = py
+            .allow_threads(|| {
+                self.engine
+                    .render_finalized_pdf_image_pages_to_dir(pdf_path, out_dir, &stem, dpi)
+            })
+            .map_err(to_py_err)?;
+        let out = PyList::empty(py);
+        for path in paths {
+            out.append(path.to_string_lossy().to_string())?;
+        }
+        Ok(out.unbind().into_any())
+    }
+
+    fn render_pdf_with_page_data(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject)> {
+        let (bytes, page_data) = py
+            .allow_threads(|| self.engine.render_with_page_data(html, css))
+            .map_err(to_py_err)?;
+
+        let data_obj = match page_data {
+            Some(ctx) => page_data_context_to_py(py, &ctx)?,
+            None => py.None(),
+        };
+
+        Ok((PyBytes::new(py, &bytes).unbind(), data_obj))
+    }
+
+    fn render_pdf_with_page_data_and_glyph_report(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject, PyObject)> {
+        let (bytes, page_data, report) = py
+            .allow_threads(|| {
+                self.engine
+                    .render_with_page_data_and_glyph_report(html, css)
+            })
+            .map_err(to_py_err)?;
+
+        let data_obj = match page_data {
+            Some(ctx) => page_data_context_to_py(py, &ctx)?,
+            None => py.None(),
+        };
+        let report_obj = glyph_report_to_py(py, &report)?;
+
+        Ok((PyBytes::new(py, &bytes).unbind(), data_obj, report_obj))
+    }
+
+    fn export_render_time_reading_order_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_reading_order_trace_py(py, &doc, Some(&self.engine))
+    }
+
+    fn export_render_time_structure_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_structure_trace_py(py, &doc)
+    }
+
+    fn export_render_time_font_resolution_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_font_resolution_trace_py(py, &doc, &self.engine)
+    }
+
+    fn export_render_time_asset_resolution_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let _ = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_asset_resolution_trace_py(py, html, &self.engine)
+    }
+
+    fn export_render_time_pagination_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_pagination_trace_py(py, &doc, &self.engine)
+    }
+
+    fn export_render_time_typography_drift_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_typography_drift_trace_py(py, &doc, &self.engine)
+    }
+
+    fn export_render_time_region_text_alignment_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<PyObject> {
+        let doc = py
+            .allow_threads(|| self.engine.render_to_document(html, css))
+            .map_err(to_py_err)?;
+        build_render_time_region_text_alignment_trace_py(py, &doc, &self.engine)
+    }
+
+    fn render_pdf_with_page_data_and_template_bindings(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject, PyObject)> {
+        let (bytes, page_data, template_bindings) = py
+            .allow_threads(|| {
+                self.engine
+                    .render_with_page_data_and_template_bindings(html, css)
+            })
+            .map_err(to_py_err)?;
+
+        let data_obj = match page_data {
+            Some(ctx) => page_data_context_to_py(py, &ctx)?,
+            None => py.None(),
+        };
+        let bindings_obj = match template_bindings {
+            Some(bindings) => template_binding_decisions_to_py(py, &bindings)?,
+            None => py.None(),
+        };
+
+        Ok((PyBytes::new(py, &bytes).unbind(), data_obj, bindings_obj))
+    }
+
+    fn render_pdf_with_page_data_and_template_bindings_and_glyph_report(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject, PyObject, PyObject)> {
+        let (bytes, page_data, template_bindings, report) = py
+            .allow_threads(|| {
+                self.engine
+                    .render_with_page_data_and_template_bindings_and_glyph_report(html, css)
+            })
+            .map_err(to_py_err)?;
+
+        let data_obj = match page_data {
+            Some(ctx) => page_data_context_to_py(py, &ctx)?,
+            None => py.None(),
+        };
+        let bindings_obj = match template_bindings {
+            Some(bindings) => template_binding_decisions_to_py(py, &bindings)?,
+            None => py.None(),
+        };
+        let report_obj = glyph_report_to_py(py, &report)?;
+
+        Ok((
+            PyBytes::new(py, &bytes).unbind(),
+            data_obj,
+            bindings_obj,
+            report_obj,
+        ))
+    }
+
+    fn plan_template_compose(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+        templates: Vec<(String, String)>,
+        dx: f32,
+        dy: f32,
+    ) -> PyResult<PyObject> {
+        let entries = inspect_template_catalog_entries(&templates)?;
+        let mut template_page_counts: BTreeMap<String, usize> = BTreeMap::new();
+        for entry in &entries {
+            if !entry.issues.is_empty() {
+                let issue_codes: Vec<&str> = entry.issues.iter().map(|i| i.as_str()).collect();
+                return Err(PyValueError::new_err(format!(
+                    "template catalog item is not composition-compatible for template_id={}: {} (issues={:?})",
+                    entry.template_id, entry.pdf_path, issue_codes
+                )));
+            }
+            template_page_counts.insert(entry.template_id.clone(), entry.report.page_count);
+        }
+
+        let (_bytes, page_data, template_bindings) = py
+            .allow_threads(|| {
+                self.engine
+                    .render_with_page_data_and_template_bindings(html, css)
+            })
+            .map_err(to_py_err)?;
+
+        let bindings = template_bindings.ok_or_else(|| {
+            PyValueError::new_err(
+                "template compose planning requires template_binding on PdfEngine and non-empty bindings",
+            )
+        })?;
+        if bindings.is_empty() {
+            return Err(PyValueError::new_err(
+                "template compose planning requires non-empty template bindings",
+            ));
+        }
+
+        let mut sorted_bindings = bindings.clone();
+        sorted_bindings.sort_by_key(|item| item.page_index);
+        let plan_obj = compose_plan_to_py(py, &sorted_bindings, &template_page_counts, dx, dy)?;
+
+        let out = PyDict::new(py);
+        out.set_item("ok", true)?;
+        out.set_item("dx", dx)?;
+        out.set_item("dy", dy)?;
+        let page_data_obj = match page_data {
+            Some(ctx) => page_data_context_to_py(py, &ctx)?,
+            None => py.None(),
+        };
+        out.set_item("page_data", page_data_obj)?;
+        out.set_item(
+            "bindings",
+            template_binding_decisions_to_py(py, &sorted_bindings)?,
+        )?;
+        out.set_item("plan", plan_obj)?;
+        out.set_item(
+            "template_catalog",
+            template_catalog_entries_to_py(py, &entries)?,
+        )?;
+
+        let metrics = PyDict::new(py);
+        metrics.set_item("pages", sorted_bindings.len())?;
+        metrics.set_item("templates", template_page_counts.len())?;
+        metrics.set_item("dx", dx)?;
+        metrics.set_item("dy", dy)?;
+        out.set_item("metrics", metrics)?;
+
+        Ok(out.unbind().into_any())
+    }
+
+    fn render_pdf_with_glyph_report(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject)> {
+        let (bytes, report) = py
+            .allow_threads(|| self.engine.render_with_glyph_report(html, css))
+            .map_err(to_py_err)?;
+        let report_obj = glyph_report_to_py(py, &report)?;
+        Ok((PyBytes::new(py, &bytes).unbind(), report_obj))
+    }
+
+    fn render_pdf_with_glyph_report_and_render_time_reading_order_trace(
+        &self,
+        py: Python<'_>,
+        html: &str,
+        css: &str,
+    ) -> PyResult<(Py<PyBytes>, PyObject, PyObject)> {
+        let (bytes, report, doc) = py
+            .allow_threads(|| self.engine.render_with_glyph_report_and_document(html, css))
+            .map_err(to_py_err)?;
+        let report_obj = glyph_report_to_py(py, &report)?;
+        let trace_obj = build_render_time_reading_order_trace_py(py, &doc, Some(&self.engine))?;
+        Ok((PyBytes::new(py, &bytes).unbind(), report_obj, trace_obj))
+    }
+
+    fn render_pdf_to_file(
+        &self,
+        html: &str,
+        css: &str,
+        path: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<usize> {
+        let written = Python::with_gil(|py| {
+            py.allow_threads(|| self.engine.render_to_file(html, css, path))
+                .map_err(to_py_err)
+        })?;
+        if let Some(hash_path) = deterministic_hash.as_deref() {
+            let hash = sha256_file_hex(path)?;
+            write_hash_file(hash_path, &hash)?;
+        }
+        Ok(written)
+    }
+
+    fn render_pdf_batch(
+        &self,
+        py: Python<'_>,
+        html_list: Vec<String>,
+        css: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<Py<PyBytes>> {
+        let bytes = py
+            .allow_threads(|| self.engine.render_many_to_buffer(&html_list, css))
+            .map_err(to_py_err)?;
+        if let Some(path) = deterministic_hash.as_deref() {
+            write_hash_file(path, &sha256_hex(&bytes))?;
+        }
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn render_pdf_batch_to_file(
+        &self,
+        html_list: Vec<String>,
+        css: &str,
+        path: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<usize> {
+        let written = Python::with_gil(|py| {
+            py.allow_threads(|| self.engine.render_many_to_file(&html_list, css, path))
+                .map_err(to_py_err)
+        })?;
+        if let Some(hash_path) = deterministic_hash.as_deref() {
+            let hash = sha256_file_hex(path)?;
+            write_hash_file(hash_path, &hash)?;
+        }
+        Ok(written)
+    }
+
+    fn render_pdf_batch_with_css(
+        &self,
+        py: Python<'_>,
+        jobs: Vec<(String, String)>,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<Py<PyBytes>> {
+        let bytes = py
+            .allow_threads(|| self.engine.render_many_to_buffer_with_css(&jobs))
+            .map_err(to_py_err)?;
+        if let Some(path) = deterministic_hash.as_deref() {
+            write_hash_file(path, &sha256_hex(&bytes))?;
+        }
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn render_pdf_batch_with_css_to_file(
+        &self,
+        jobs: Vec<(String, String)>,
+        path: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<usize> {
+        let written = Python::with_gil(|py| {
+            py.allow_threads(|| self.engine.render_many_to_file_with_css(&jobs, path))
+                .map_err(to_py_err)
+        })?;
+        if let Some(hash_path) = deterministic_hash.as_deref() {
+            let hash = sha256_file_hex(path)?;
+            write_hash_file(hash_path, &hash)?;
+        }
+        Ok(written)
+    }
+
+    // Parallel batch (common CSS). Uses Rust threads; releases the GIL for the duration.
+    fn render_pdf_batch_parallel(
+        &self,
+        py: Python<'_>,
+        html_list: Vec<String>,
+        css: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<Py<PyBytes>> {
+        let bytes = py
+            .allow_threads(|| self.engine.render_many_to_buffer_parallel(&html_list, css))
+            .map_err(to_py_err)?;
+        if let Some(path) = deterministic_hash.as_deref() {
+            write_hash_file(path, &sha256_hex(&bytes))?;
+        }
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn render_pdf_batch_to_file_parallel_with_page_data(
+        &self,
+        html_list: Vec<String>,
+        css: &str,
+        path: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<(usize, PyObject)> {
+        let (bytes_written, page_data) = Python::with_gil(|py| {
+            py.allow_threads(|| {
+                self.engine
+                    .render_many_to_file_parallel_with_page_data(&html_list, css, path)
+            })
+            .map_err(to_py_err)
+        })?;
+        if let Some(hash_path) = deterministic_hash.as_deref() {
+            let hash = sha256_file_hex(path)?;
+            write_hash_file(hash_path, &hash)?;
+        }
+        Python::with_gil(|py| {
+            let list = PyList::empty(py);
+            for ctx in page_data {
+                let obj = match ctx {
+                    Some(c) => page_data_context_to_py(py, &c)?,
+                    None => py.None(),
+                };
+                list.append(obj)?;
+            }
+            Ok((bytes_written, list.unbind().into_any()))
+        })
+    }
+
+    fn render_pdf_batch_to_file_parallel(
+        &self,
+        html_list: Vec<String>,
+        css: &str,
+        path: &str,
+        deterministic_hash: Option<String>,
+    ) -> PyResult<usize> {
+        let written = Python::with_gil(|py| {
+            py.allow_threads(|| {
+                self.engine
+                    .render_many_to_file_parallel(&html_list, css, path)
+            })
+            .map_err(to_py_err)
+        })?;
+        if let Some(hash_path) = deterministic_hash.as_deref() {
+            let hash = sha256_file_hex(path)?;
+            write_hash_file(hash_path, &hash)?;
+        }
+        Ok(written)
+    }
+}
+
+fn to_py_err(err: FullBleedError) -> PyErr {
+    PyValueError::new_err(err.to_string())
+}
+
+fn pdf_asset_inspect_err_to_py(err: crate::PdfInspectError) -> PyErr {
+    match err.code {
+        crate::PdfInspectErrorCode::PdfParseFailed => {
+            PyValueError::new_err(format!("invalid pdf data: {}", err.message))
+        }
+        crate::PdfInspectErrorCode::PdfEncryptedUnsupported => {
+            PyValueError::new_err("encrypted pdf assets are not supported")
+        }
+        crate::PdfInspectErrorCode::PdfEmptyOrNoPages => {
+            PyValueError::new_err("invalid pdf data: pdf has no pages")
+        }
+        crate::PdfInspectErrorCode::PdfIoError => PyValueError::new_err(err.message),
+    }
+}
+
+fn pdf_inspect_err_to_py(err: crate::PdfInspectError) -> PyErr {
+    PyValueError::new_err(format!("{}: {}", err.code.as_str(), err.message))
+}
+
+mod abi_exports;

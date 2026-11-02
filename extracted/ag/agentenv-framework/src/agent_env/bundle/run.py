@@ -1,0 +1,627 @@
+"""Run a bundle from its folder: plan it, write what changed, and run each selected task once.
+
+The run covers the tasks selected on their own and every task a selected eval names, each run once, at most
+four at a time, at the version materializing wrote or reused. A run that fails is kept on its ``TaskRun``
+and the others go on. Each run's sandboxes are torn down as it ends, unless ``keep`` holds them up. Ctrl-C or
+SIGTERM cancels the runs: each one that started is marked cancelled and torn down, and a second one stops the
+teardown. A bundle's evals run only the bundle's own tasks for now, so one naming a store task is refused
+before anything is written, and so is a deploy its sandbox provider can't serve (``preflight``). The infra envs a
+gateway deploy on the local provider needs are set up once the writes are done, before any task starts: pulled from
+their published images, or built. A dry run makes every check the run makes before its first task, and writes, builds
+and runs nothing.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import shlex
+import time
+import uuid
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from enum import Enum
+from pathlib import Path
+
+from agent_env.artifact.artifacts.docker_image import DockerImageArtifact
+from agent_env.env.bootstrap import InfraSetup, ensure_default_envs
+from agent_env.env.envs.computer.utils.composer import Composing
+from agent_env.providers import build_sandbox_provider
+from agent_env.store.base import NotFoundError
+from agent_env.store.routing import namespace_routing, run_scope
+from agent_env.task.store import record_task_cancelled
+from agent_env.task.interrupts import Interrupts
+from agent_env.task.task import Task, recorded_scores
+from agent_env.task.teardown import TeardownReport, teardown_run
+from agent_env.task_step.context import TaskStepContext, sandbox_overrides
+
+from .installed import installed_bundles
+from .materialize import Materialization, Materialized, materialize
+from .parse import BundleEntry, BundleError, BundleKind, parse_bundle
+from .plan import AliasUse, Plan, Write, plan_bundle
+from .preflight import Preflight, preflight_run
+from .requires import Declaring, declare, declaring_for
+from .resolve import (BuiltImage, BundleImage, Reference, ReferencedImage, ResolvedEntry, resolve_bundle,
+                      without_played_agents)
+
+logger = logging.getLogger(__name__)
+
+MAX_CONCURRENT_RUNS = 4
+
+
+class Outcome(Enum):
+    PASSED = "passed"  # it has a score, and every score is at least 1
+    BELOW_ONE = "scored below 1"
+    UNSCORED = "unscored"
+    FAILED = "failed"  # the run raised, or a step failed without stopping it
+    CANCELLED = "cancelled"  # Ctrl-C or SIGTERM stopped it, or stopped it starting
+
+
+@dataclass(frozen=True)
+class TaskRun:
+    """One run of a bundle task, with the context it left, kept when it raised."""
+
+    entry: BundleEntry
+    task: Task
+    context: TaskStepContext
+    error: Exception | None
+    duration: float  # seconds
+    cancelled: bool = False
+    started: bool = True  # False when it was cancelled before it started
+    torn_down: TeardownReport | None = None  # None while its sandboxes are kept up
+
+    @property
+    def instance_id(self) -> str | None:
+        """None when the instance couldn't be recorded."""
+        return self.context.instance_id
+
+    @property
+    def failed_steps(self) -> list[dict]:
+        """The step failures a retry didn't recover from."""
+        return [failure for failure in self.context.metadata.get("failed_steps") or [] if not failure.get("retried")]
+
+    @property
+    def scores(self) -> dict[str, float]:
+        """Every score the run recorded, by the id of the step that recorded it, or by its verification's key
+        when that isn't a step's verifier id."""
+        return recorded_scores(self.task.steps, self.context)
+
+    @property
+    def models(self) -> dict[str, dict[str, str | None]]:
+        """The model each step asked for, by role then step id; None leaves it to the agent."""
+        return self.context.metadata.get("models") or {}
+
+    @property
+    def outcome(self) -> Outcome:
+        if self.cancelled:
+            return Outcome.CANCELLED
+        if self.error is not None or self.failed_steps:
+            return Outcome.FAILED
+        if not self.scores:
+            return Outcome.UNSCORED
+        return Outcome.PASSED if all(score >= 1 for score in self.scores.values()) else Outcome.BELOW_ONE
+
+
+@dataclass(frozen=True)
+class EvalRun:
+    entry: BundleEntry
+    version: int
+    runs: tuple[TaskRun, ...]  # in the eval's order
+
+
+@dataclass(frozen=True)
+class BundleRun:
+    materialization: Materialization
+    runs: tuple[TaskRun, ...]  # each task once, in the plan's order
+    evals: tuple[EvalRun, ...]
+    skipped: tuple[BundleEntry, ...]  # the tasks no eval names, which running every eval leaves out
+
+    @property
+    def failed(self) -> bool:
+        return any(run.outcome is Outcome.FAILED for run in self.runs)
+
+    def path(self, entry: BundleEntry) -> str:
+        """``entry``'s path in the bundle, as the summary names it (``tasks/hello.json``)."""
+        return self.materialization.plan.path(entry)
+
+    def teardown(self) -> BundleRun:
+        """Tear down the runs whose sandboxes were kept up, as ``run_bundle(keep=True)`` leaves them, and
+        return this result with each one's report. Ctrl-C or SIGTERM stops it early and raises
+        ``RunInterrupted`` with what it reached; the rest stays up. It runs its own event loop, like
+        ``run_bundle``."""
+        kept = [run for run in self.runs if run.torn_down is None]
+        if not kept:
+            return self
+        with Interrupts() as interrupts:
+            reports = interrupts.run(interrupts.stopping(teardown_run(run.context) for run in kept))
+            result = self._with_reports(kept, reports)
+            if interrupts.count:
+                raise RunInterrupted(result, interrupts.signum)
+        return result
+
+    def _with_reports(self, runs: list[TaskRun], reports: list[TeardownReport]) -> BundleRun:
+        done = {id(run): replace(run, torn_down=report) for run, report in zip(runs, reports)}
+
+        def swapped(runs: tuple[TaskRun, ...]) -> tuple[TaskRun, ...]:
+            return tuple(done.get(id(run), run) for run in runs)
+
+        return replace(self, runs=swapped(self.runs),
+                       evals=tuple(replace(eval_run, runs=swapped(eval_run.runs)) for eval_run in self.evals))
+
+
+@dataclass(frozen=True)
+class DryRun:
+    """What ``run_bundle`` would write and run, found without writing or running anything."""
+
+    materialization: Materialization  # each write at the version it would leave, and why
+    runs: tuple[BundleEntry, ...]  # the tasks that would run, each once, in the plan's order
+    skipped: tuple[BundleEntry, ...]  # the tasks no eval names, which running every eval leaves out
+    infra: tuple[InfraSetup, ...] = ()  # the infra envs the run would set up first
+    built_here: frozenset[str] = frozenset()  # the images the run would build on this machine, for its deploys here
+
+    def path(self, entry: BundleEntry) -> str:
+        """``entry``'s path in the bundle (``tasks/hello.json``)."""
+        return self.materialization.plan.path(entry)
+
+    def images(self) -> tuple[str, ...]:
+        """A line per image the bundle writes, an image key's or an image folder's: which, the version it would leave,
+        and how it would be written."""
+        plan = self.materialization.plan
+        return tuple(
+            f"{_label(plan, done.write)} v{done.version}: "
+            + ("pulled from its registry, its tag pinned to a digest when it's written"
+               + (", with its build context beside it, which a deploy builds only when it can't pull it"
+                  if done.write.source.dockerfile else "")
+               if isinstance(done.write.source, ReferencedImage)
+               else f"{plan.published[done.write.id].ref}, published for its sources, which each deploy pulls by its "
+                    "digest, or builds from its build context when it can't"
+               if done.write.id in plan.published
+               else "a build context, built with docker on this machine"
+               if done.write.id in self.built_here
+               else "a build context, which each deploy builds where it runs, for its sandbox's platform")
+            for done in self.materialization.writes if isinstance(done.write.source, BundleImage)
+        )
+
+
+@dataclass(frozen=True)
+class PreparedBundle:
+    """A bundle as ``run_bundle`` leaves it before its first task: planned, its deploys checked, what changed
+    written and its infra envs built. ``tasks`` are the selected ones, each at the version written or reused."""
+
+    plan: Plan
+    materialization: Materialization
+    tasks: tuple[tuple[BundleEntry, Task], ...]
+
+
+class RunInterrupted(KeyboardInterrupt):
+    """Ctrl-C or SIGTERM stopped ``run_bundle``. ``result`` holds every run, those it cancelled included, each
+    torn down unless a second signal stopped that."""
+
+    def __init__(self, result: BundleRun, signum: int):
+        super().__init__(signum)
+        self.result = result
+        self.signum = signum
+
+
+def run_bundle(
+    root: Path | str,
+    *,
+    tasks: Sequence[str] = (),
+    evals: Sequence[str] = (),
+    model: str | None = None,
+    user_model: str | None = None,
+    judge_model: str | None = None,
+    agent: str | None = None,
+    sandbox: str | None = None,
+    on_progress: Callable[[str], None] | None = None,
+    id_root: str | None = None,
+    keep: bool = False,
+    emulate: bool = True,
+) -> BundleRun:
+    """Write what the tasks and evals selected in ``root`` need, as ``plan_bundle`` selects them, then run
+    each of their tasks once. ``model``, ``user_model`` and ``judge_model`` replace the models the solver, the
+    user simulator and the judges run on, and ``agent`` the agent the solver runs as (``Plan.agent``), leaving the
+    tasks as written; ``sandbox`` is the provider that computer envs compose on and that envs,
+    agents, sandboxes and the judge deploy on; a computer env composing there emulates an arch no link runs natively
+    unless ``emulate`` is False, which leaves it skipped. ``on_progress`` is given a line of text
+    at each write and step. ``id_root`` roots the ids of a bundle an installed package provides
+    (``InstalledBundle.id_root``); a folder's ids otherwise come from its path.
+
+    Each run's sandboxes are torn down as it ends, so the contexts returned record sandboxes that are gone.
+    ``keep`` leaves them up instead, for the caller to use and then remove with ``BundleRun.teardown()``.
+    Ctrl-C or SIGTERM cancels the runs and tears down every one, kept or not, then raises ``RunInterrupted``
+    with the result.
+
+    It runs its own event loop, and turns namespace routing on for the whole process while it runs, so it
+    suits the CLI and scripts, not a service. From async code, call it in a thread; there it can't take over
+    the process's signal handlers, so a Ctrl-C doesn't reach its runs, though each is still torn down as it
+    ends.
+
+    Before anything is written, raises RuntimeError when an event loop is already running, ValueError when
+    ``sandbox`` names no provider, and BundleError when the bundle can't be planned or a deploy can't run where
+    it would (``preflight``). A task that fails its preflight raises BundleError once the entities it reads are
+    written, before any task is. Building an infra env the run needs raises what the build raises, before any task
+    runs."""
+    _refuse_a_running_loop()
+    composing = _composing(sandbox, emulate)
+    say = _progress(on_progress)
+    with namespace_routing():
+        prepared = _prepare(root, tasks, evals, sandbox, id_root, agent, False, say,
+                            declaring_for(Path(root), installed=id_root is not None, dry_run=False), composing)
+        plan, entries = prepared.plan, [entry for entry, _ in prepared.tasks]
+        with Interrupts() as interrupts:
+            overrides = _overrides(sandbox, user_model, judge_model)
+            runs = interrupts.run(_run_all(plan, list(prepared.tasks), model, overrides,
+                                           solver_params(plan, prepared.materialization), keep, say, interrupts))
+            _mark_cancelled(runs, interrupts.reason)
+            result = _bundle_run(plan, prepared.materialization, runs,
+                                 _skipped(plan, entries, every=not tasks and not evals))
+            if not interrupts.count:
+                return result
+            if interrupts.count == 1:
+                try:
+                    result = result.teardown()
+                except RunInterrupted as stopped:
+                    result = stopped.result
+            raise RunInterrupted(result, interrupts.signum)
+
+
+def prepare_bundle(
+    root: Path | str,
+    *,
+    tasks: Sequence[str] = (),
+    evals: Sequence[str] = (),
+    sandbox: str | None = None,
+    on_progress: Callable[[str], None] | None = None,
+    id_root: str | None = None,
+    played: bool = False,
+    agent: str | None = None,
+    solver_endpoint: bool = False,
+) -> PreparedBundle:
+    """Do what ``run_bundle`` with these arguments does before its first task runs, and stop there. ``played``
+    leaves out what each task's only prompted agent would deploy, for a caller that plays that agent itself
+    (``EpisodeSpec``), so the agent needn't exist. With ``solver_endpoint`` the caller gives the solver's deploys their
+    model endpoint in each run's ``step_params``, so the config needn't set one.
+
+    It doesn't turn namespace routing on: the caller keeps it on for as long as it runs the tasks
+    (``agent_env.store.routing.namespace_routing``), which suits a service that runs nothing else. Raises what
+    ``run_bundle`` raises before its first task runs, except for a running event loop, which it doesn't need."""
+    composing = _composing(sandbox)
+    return _prepare(root, tasks, evals, sandbox, id_root, agent, played, _progress(on_progress), _hint(id_root),
+                    composing, solver_endpoint=solver_endpoint)
+
+
+def _write_bundle(
+    root: Path | str, *, id_root: str | None = None, on_progress: Callable[[str], None] | None = None,
+) -> Materialization:
+    """Write what the bundle in ``root`` needs and set up the infra envs its tasks deploy on, as ``run_bundle`` does
+    before it runs them, and run nothing. Raises what ``run_bundle`` raises before a task runs."""
+    say = _progress(on_progress)
+    with namespace_routing():
+        plan, preflight = _planned(root, (), (), id_root, None, None)
+        _say_plan(plan, say, _hint(id_root))
+        return _written_with_infra(plan, preflight, say)
+
+
+def _written_with_infra(plan: Plan, preflight: Preflight, say: Callable[[str], None],
+                        composing: Composing = Composing()) -> Materialization:
+    """Write ``plan``, its computer envs composed as ``composing`` says, then set up the infra envs its runs deploy
+    on."""
+    materialization = materialize(
+        plan,
+        on_wait=lambda: say("waiting for another agent-env run to finish writing this bundle's ids"),
+        on_build=lambda write: say(f"{_label(plan, write)}: building with docker, which can take minutes"),
+        on_write=lambda done: say(_written(plan, done)),
+        build_here=preflight.built_here,
+        composing=composing,
+        on_progress=lambda write, line: say(f"{_label(plan, write)}: {line}"),
+    )
+    if preflight.infra:
+        ensure_default_envs(preflight.infra_kinds, say=say)
+    return materialization
+
+
+def dry_run_bundle(
+    root: Path | str,
+    *,
+    tasks: Sequence[str] = (),
+    evals: Sequence[str] = (),
+    sandbox: str | None = None,
+    agent: str | None = None,
+    on_progress: Callable[[str], None] | None = None,
+    id_root: str | None = None,
+    emulate: bool = True,
+) -> DryRun:
+    """Check what ``run_bundle`` with these arguments checks before its first task runs, and say what it would
+    write and run, writing and running nothing: no entity, ledger row, lock or instance. Each write's version is
+    the one it would reuse or the store's next, which another run writing the id first can take. ``on_progress``
+    is given the line ``run_bundle`` gives for each write, as it is checked, and for each computer env it reuses
+    with pairs left, what it would compose on ``sandbox`` (``emulate`` as ``run_bundle`` takes it).
+
+    It raises what ``run_bundle`` raises before its first task runs, a failed preflight included. Like
+    ``run_bundle``, it turns namespace routing on for the whole process while it runs, so it suits the CLI and
+    scripts, not a service; it runs no event loop, so a running one isn't refused."""
+    composing = _composing(sandbox, emulate)
+    say = _progress(on_progress)
+    with namespace_routing():
+        plan, preflight = _planned(root, tasks, evals, id_root, sandbox, agent)
+        _say_plan(plan, say, declaring_for(Path(root), installed=id_root is not None, dry_run=True))
+        materialization = materialize(plan, dry_run=True, on_write=lambda done: say(_written(plan, done)),
+                                      composing=composing,
+                                      on_progress=lambda write, line: say(f"{_label(plan, write)}: {line}"))
+        runs = _to_run(plan)
+        return DryRun(materialization, runs, _skipped(plan, runs, every=not tasks and not evals), preflight.infra,
+                      preflight.built_here)
+
+
+def _mark_cancelled(runs: tuple[TaskRun, ...], reason: str) -> None:
+    """Mark each run a signal stopped mid-way as cancelled. It runs once the loop has closed, which waits for every
+    store write the runs' unwinding started, so the mark lands last: a failure write a second signal cut short
+    can't overwrite it."""
+    for run in runs:
+        if run.cancelled and run.instance_id:
+            with run_scope(run.task.id):
+                record_task_cancelled(run.instance_id, reason, Task._utc_now_str())
+
+
+def _bundle_run(plan: Plan, materialization: Materialization, runs: tuple[TaskRun, ...],
+                skipped: tuple[BundleEntry, ...]) -> BundleRun:
+    by_id = {run.task.id: run for run in runs}
+    eval_runs = tuple(
+        EvalRun(entry.entry, materialization.version_of("eval", entry.entry.id),
+                tuple(by_id[ref.id] for ref in entry.references))
+        for entry in plan.evals
+    )
+    return BundleRun(materialization, runs, eval_runs, skipped)
+
+
+def _prepare(root: Path | str, tasks: Sequence[str], evals: Sequence[str], sandbox: str | None, id_root: str | None,
+             agent: str | None, played: bool, say: Callable[[str], None], declaring: Declaring,
+             composing: Composing = Composing(), *, solver_endpoint: bool = False) -> PreparedBundle:
+    plan, preflight = _planned(root, tasks, evals, id_root, sandbox, agent, played=played,
+                               solver_endpoint=solver_endpoint)
+    _say_plan(plan, say, declaring)
+    materialization = _written_with_infra(plan, preflight, say, composing)
+    to_run = tuple((entry, Task.get(entry.id, materialization.version_of("task", entry.id))) for entry in _to_run(plan))
+    return PreparedBundle(plan, materialization, to_run)
+
+
+def _planned(root: Path | str, tasks: Sequence[str], evals: Sequence[str], id_root: str | None,
+             sandbox: str | None, agent: str | None = None, *, played: bool = False,
+             solver_endpoint: bool = False) -> tuple[Plan, Preflight]:
+    resolved = resolve_bundle(parse_bundle(Path(root), id_root=id_root))
+    plan = plan_bundle(without_played_agents(resolved) if played else resolved, tasks=tasks, evals=evals,
+                       installed=installed_bundles, agent=agent)
+    refuse_store_tasks(plan)
+    to_run = set(_to_run(plan))
+    return plan, preflight_run(plan, [write.source for write in plan.writes
+                                      if write.kind is BundleKind.TASK and write.source.entry in to_run], sandbox,
+                               played=played, solver_endpoint=solver_endpoint)
+
+
+def _composing(sandbox: str | None, emulate: bool = True) -> Composing:
+    """How a run composes its computer envs: on the provider ``sandbox`` names, and emulating unless ``emulate`` is
+    False. Raises ValueError when ``sandbox`` names no provider."""
+    return Composing(build_sandbox_provider(sandbox) if sandbox else None, emulate)
+
+
+def planned_tasks(root: Path | str, *, tasks: Sequence[str] = (), evals: Sequence[str] = (),
+                  agent: str | None = None) -> tuple[ResolvedEntry, ...]:
+    """The tasks ``run_bundle`` with these arguments would run, as resolved, without checking or writing anything.
+    Namespace routing must be on, as for ``plan_bundle``."""
+    plan = plan_bundle(resolve_bundle(parse_bundle(Path(root))), tasks=tasks, evals=evals, installed=installed_bundles,
+                       agent=agent)
+    selected = set(_to_run(plan))
+    return tuple(write.source for write in plan.writes if write.kind is BundleKind.TASK and write.source.entry in selected)
+
+
+def _to_run(plan: Plan) -> tuple[BundleEntry, ...]:
+    """The tasks selected on their own and every task a selected eval names, each once, in the plan's order."""
+    wanted = {entry.entry.id for entry in plan.tasks}
+    wanted.update(ref.id for entry in plan.evals for ref in entry.references)
+    return tuple(write.source.entry for write in plan.writes if write.kind is BundleKind.TASK and write.id in wanted)
+
+
+def _skipped(plan: Plan, runs: Sequence[BundleEntry], every: bool) -> tuple[BundleEntry, ...]:
+    """When every eval runs, the tasks none of them names."""
+    if not every:
+        return ()
+    ran = {entry.id for entry in runs}
+    return tuple(entry.entry for entry in plan.bundle.entries
+                 if entry.entry.kind is BundleKind.TASK and entry.entry.id not in ran)
+
+
+def refuse_store_tasks(plan: Plan) -> None:
+    """Refuse a selected eval that names a store task: a bundle's evals run only the bundle's own tasks."""
+    problems = [
+        f"{plan.path(entry.entry)}: {ref.where.partition('.')[0]}: {ref.id!r} is a store task, and a bundle's "
+        f"evals run only the bundle's own tasks for now; run it on its own with {_task_run_command(ref)}"
+        for entry in plan.evals for ref in entry.references if ref.local is None
+    ]
+    if problems:
+        raise BundleError(problems)
+
+
+def _say_plan(plan: Plan, say: Callable[[str], None], declaring: Declaring) -> None:
+    """Say what each agent, env and artifact alias names, what the solver deploys in place of the tasks' agents, and
+    what plugin packages the bundle uses that its bundle.toml doesn't require, as ``declaring`` says (``declare``)."""
+    for use in (use for uses in plan.alias_uses.values() for use in uses.values()):
+        say(_aliased(use))
+    if plan.agent is not None:
+        runs = _to_run(plan)
+        solved = sum(entry.id in plan.agent.steps for entry in runs)
+        say(f"--agent {plan.agent.name}: the solver deploys {plan.agent.agent_id}, in {solved} of {len(runs)} "
+            f"task{'s' if len(runs) != 1 else ''}")
+    for line in declare(plan.bundle, declaring):
+        say(line)
+
+
+def _hint(id_root: str | None) -> Declaring:
+    """How a service writing a bundle declares its plugins: nothing for an installed bundle, else a hint."""
+    return Declaring.QUIET if id_root is not None else Declaring.HINT
+
+
+def solver_params(plan: Plan, materialization: Materialization) -> dict[str, dict[str, dict]]:
+    """Each task's ``step_params`` that deploy ``Plan.agent`` at its solver steps: at the version this run wrote, for
+    an agent it writes, or the store's version the plan read."""
+    if plan.agent is None:
+        return {}
+    written = any(write.kind is BundleKind.AGENT and write.id == plan.agent.agent_id for write in plan.writes)
+    version = materialization.version_of(BundleKind.AGENT.store, plan.agent.agent_id) if written else plan.agent.version
+    choice = {"a2a_agent_id": plan.agent.agent_id, "a2a_agent_version": version}
+    return {task_id: {step_id: dict(choice) for step_id in steps} for task_id, steps in plan.agent.steps.items()}
+
+
+def _overrides(sandbox: str | None, user_model: str | None, judge_model: str | None) -> dict[str, str]:
+    """The run's ``user_overrides``: where everything deploys, and the models the user simulator and judges run on."""
+    overrides = sandbox_overrides(sandbox) if sandbox else {}
+    return {**overrides, **{key: value for key, value in (("user_model", user_model), ("judge_model", judge_model))
+                            if value}}
+
+
+async def _run_all(
+    plan: Plan, to_run: list[tuple[BundleEntry, Task]], model: str | None, overrides: dict[str, str],
+    step_params: Mapping[str, dict], keep: bool, say: Callable[[str], None], interrupts: Interrupts,
+) -> tuple[TaskRun, ...]:
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_RUNS)
+    run_group_id = uuid.uuid4().hex
+    running: set[asyncio.Task] = set()  # the runs holding a slot
+
+    async def settle(context: TaskStepContext, cancelled: bool) -> TeardownReport | None:
+        """Tear a run down unless it's kept. A second signal stops that."""
+        try:
+            if keep and not cancelled:
+                return None
+            if interrupts.count > 1:
+                return TeardownReport.skipped(context)
+            return await teardown_run(context)
+        except asyncio.CancelledError:
+            return TeardownReport.skipped(context)
+
+    async def run_one(entry: BundleEntry, task: Task) -> TaskRun:
+        tag = f"[{plan.path(entry)}]"
+        metadata = {"run_group_id": run_group_id, "task_id": task.id}
+        user_overrides = {**overrides, **({"step_params": step_params[entry.id]} if entry.id in step_params else {})}
+        if user_overrides:
+            metadata["user_overrides"] = user_overrides
+        context = TaskStepContext(metadata=metadata)
+        try:
+            await semaphore.acquire()
+        except asyncio.CancelledError:
+            return TaskRun(entry, task, context, None, 0.0, cancelled=True, started=False, torn_down=TeardownReport())
+        me = asyncio.current_task()
+        running.add(me)
+        began = time.monotonic()
+        error, cancelled = None, False
+        try:
+            try:
+                await task.run(
+                    on_step_start=lambda i, total, step, _: say(f"{tag} step {i + 1}/{total} {step.id} ({step.type})"),
+                    on_step_complete=lambda i, total, step, _, seconds: say(
+                        f"{tag} step {i + 1}/{total} {step.id} done in {seconds:.1f}s"),
+                    agent_model=model,
+                    context=context,
+                )
+            except Exception as e:
+                error = e
+            except asyncio.CancelledError:
+                if me.cancelling() == 0:  # a step's own, not a signal's
+                    await teardown_run(context)
+                    raise
+                cancelled = True
+            duration = time.monotonic() - began
+            report = await settle(context, cancelled)
+        finally:
+            running.discard(me)
+            semaphore.release()
+        run = TaskRun(entry, task, context, error, duration, cancelled=cancelled, torn_down=report)
+        say(f"{tag} {run.outcome.value} in {run.duration:.1f}s")
+        for sandbox_record, why in (report.failed if report else ()):
+            say(f"{tag} couldn't tear down {sandbox_record.sandbox_id}: {why}")
+        return run
+
+    def on_signal(count: int) -> None:
+        if count == 1:
+            say(f"Cancelling: tearing down {len(running)} run{'s' if len(running) != 1 else ''} "
+                "(Ctrl-C again to stop now)")
+        else:
+            say("Stopping the teardown now")
+
+    runs = await interrupts.gather((run_one(entry, task) for entry, task in to_run), on_signal)
+    if any(run.cancelled() for run in runs):
+        kept = [run.result().context for run in runs if not run.cancelled() and run.result().torn_down is None]
+        await asyncio.gather(*(teardown_run(context) for context in kept))
+        raise asyncio.CancelledError
+    return tuple(run.result() for run in runs)
+
+
+def _refuse_a_running_loop() -> None:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    raise RuntimeError("run_bundle runs its own event loop, so it can't be called from a running one; call it in a "
+                       "thread instead, e.g. await asyncio.to_thread(run_bundle, root)")
+
+
+def _progress(on_progress: Callable[[str], None] | None) -> Callable[[str], None]:
+    """``on_progress``, made safe to call from a step callback, where raising would fail the task. Once it
+    raises, as printing to a closed pipe does, it isn't called again."""
+    broken = on_progress is None
+
+    def say(line: str) -> None:
+        nonlocal broken
+        if broken:
+            return
+        try:
+            on_progress(line)
+        except Exception as e:
+            broken = True
+            logger.warning("progress stopped: on_progress raised %r", e)
+
+    return say
+
+
+def _task_run_command(ref: Reference) -> str:
+    version = "" if ref.version is None else f" --version {ref.version}"
+    return f"agent-env task run --id {shlex.quote(ref.id)}{version}"
+
+
+def _aliased(use: AliasUse) -> str:
+    """Which agent, env or artifact an alias the run names is: the one an installed bundle gives it, or the store's of
+    its id."""
+    if use.store_version is None:
+        return f"{use.alias} → {use.target_id} (the alias {use.declared_by} gives it)"
+    return (f"{use.alias} → the store's {use.kind.value} {use.alias!r} v{use.store_version}, which shadows the alias "
+            f"{use.declared_by} gives {use.target_id}")
+
+
+def _written(plan: Plan, done: Materialized) -> str:
+    what = f"{_label(plan, done.write)}: v{done.version}"
+    if done.reused:
+        return f"{what}, unchanged" + (f" ({'; '.join(done.reasons)})" if done.reasons else "") + _pinned(done)
+    return f"{what} ({'; '.join(done.reasons)})" + _pinned(done)
+
+
+# How much of a pinned digest a write line shows, as `docker images` shortens an image id.
+_SHOWN_DIGEST_HEX = 12
+
+
+def _pinned(done: Materialized) -> str:
+    """For an image a tag names in its registry, the digest it was pinned to, which re-runs keep while the ref does."""
+    if not isinstance(done.write.source, ReferencedImage) or "@" in done.write.source.ref:
+        return ""
+    try:
+        name = DockerImageArtifact.get(done.write.id, done.version).pinned_name
+    except NotFoundError:  # a dry run's image, not yet written
+        return ""
+    algorithm, _, digest = name.rpartition("@")[2].partition(":")
+    return f", pinned to {algorithm}:{digest[:_SHOWN_DIGEST_HEX]}"
+
+
+def _label(plan: Plan, write: Write) -> str:
+    """How a write is named: its entry's folder, and for an image built from it, which image."""
+    path = plan.path(write.source.entry)
+    if isinstance(write.source, BuiltImage):
+        return f"{path} ({write.source.dockerfile} image)"
+    return f"{path} ({write.source.ref} image)" if isinstance(write.source, ReferencedImage) else path

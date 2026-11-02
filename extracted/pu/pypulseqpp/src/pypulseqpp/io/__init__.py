@@ -1,0 +1,306 @@
+"""Reading a Pulseq file into a sequence that carries its system, writing one out, its tables, and diffusion tables."""
+
+from __future__ import annotations
+
+__all__ = [
+    "SequenceLibraries",
+    "Shape",
+    "get_diffusion_table",
+    "read",
+    "read_chain",
+    "read_diffusion_table",
+    "set_diffusion_table",
+    "write",
+]
+
+import os as _os
+import pathlib as _pathlib
+import typing as _typing
+import warnings as _warnings
+
+import pypulseqpp as _pp
+from pypulseqpp import safety as _safety
+from pypulseqpp._diffusion import (
+    get_diffusion_table,
+    read_diffusion_table,
+    set_diffusion_table,
+)
+from pypulseqpp._libraries import SequenceLibraries, Shape
+
+#: Definitions a file may state its design limits in, and the ``Opts``
+#: argument each one supplies. A file written by this package carries none of
+#: them, and the values are read in the base units of a ``.seq`` file: Hz/m
+#: for a gradient amplitude, Hz/m/s for a slew rate and tesla for the field.
+_LIMITS = {
+    "MaxGrad": "max_grad",
+    "MaxSlew": "max_slew",
+    "B0": "B0",
+}
+
+
+def _stated(seq, name: str) -> float | None:
+    """Return a single-valued definition, or None when the file has none."""
+    value = seq.get_definition(name)
+    if value == "" or value is None:
+        return None
+    return float(value[0] if isinstance(value, list) else value)
+
+
+def read(
+    file_path: str | _os.PathLike[str] | _typing.BinaryIO,
+    *,
+    max_grad: float | None = None,
+    max_slew: float | None = None,
+    detect_rf_use: bool = False,
+    remove_duplicates: bool = True,
+    verify: bool = False,
+):
+    """Read a Pulseq file into a sequence whose system describes what is in it.
+
+    Unlike :meth:`~pypulseqpp.Sequence.read`, which keeps the system the
+    sequence was constructed with, this builds the system from the file, so
+    that the checks of :mod:`pypulseqpp.safety` compare the sequence with its
+    own limits. Text and binary files are detected from their contents.
+
+    The rasters come from the file. The gradient limit, slew-rate limit and
+    ``B0`` come from the ``MaxGrad``, ``MaxSlew`` and ``B0`` definitions when
+    the file states them, and from ``max_grad`` and ``max_slew`` when given,
+    which take precedence. A limit that neither supplies is the larger of the
+    :class:`~pypulseqpp.Opts` default and the largest value the file reaches.
+    Dead times are not recorded in a ``.seq`` file and keep their defaults.
+
+    Parameters
+    ----------
+    file_path : str | os.PathLike[str] | typing.BinaryIO
+        The file to read, or a binary file object whose ``read()`` returns its
+        contents.
+    max_grad : float, default=None
+        Gradient amplitude limit (Hz/m) for the system built. ``None`` takes
+        the file's own, or the larger of the default and what the file reaches.
+    max_slew : float, default=None
+        Slew-rate limit (Hz/m/s), resolved the same way.
+    detect_rf_use : bool, default=False
+        Assign a use to each RF event without one, as
+        :meth:`~pypulseqpp.Sequence.detect_rf_use` does. Files before revision
+        1.5.0 record no use.
+    remove_duplicates : bool, default=True
+        Collapse identical library rows after reading.
+    verify : bool, default=False
+        Check the file against the signature it carries; a file without one
+        is refused.
+
+    Returns
+    -------
+    pypulseqpp.Sequence
+        The sequence, with ``system`` built from the file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``file_path`` does not exist.
+    RuntimeError
+        If the file cannot be parsed, or ``verify`` is set and the signature
+        does not match.
+    TypeError
+        If a file object returns text, as one opened in text mode does.
+
+    See Also
+    --------
+    write : The other direction.
+    pypulseqpp.Sequence.read : Read into an existing sequence, keeping its system.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> import pypulseqpp as pp
+    >>> path = pathlib.Path(tempfile.mkdtemp()) / "gre.seq"
+    >>> system = pp.Opts(max_grad=80.0, grad_unit="mT/m")
+    >>> seq = pp.Sequence(system)
+    >>> seq.add_block(pp.make_trapezoid("x", area=4000, duration=2e-3, system=system))
+    1
+    >>> _ = pp.io.write(seq, path)
+
+    The file states no limit, so the one built admits what the file reaches,
+    which is more than the default system allows:
+
+    >>> loaded = pp.io.read(path)
+    >>> loaded.num_blocks, loaded.system.max_grad > pp.Opts().max_grad
+    (1, True)
+    """
+    seq = _pp.Sequence()
+    seq.read(
+        file_path,
+        detect_rf_use=detect_rf_use,
+        remove_duplicates=remove_duplicates,
+        verify=verify,
+    )
+
+    stated = {
+        argument: value
+        for name, argument in _LIMITS.items()
+        if (value := _stated(seq, name)) is not None
+    }
+    if max_grad is not None:
+        stated["max_grad"] = float(max_grad)
+    if max_slew is not None:
+        stated["max_slew"] = float(max_slew)
+
+    default = _pp.Opts()
+    if "max_grad" not in stated:
+        reached = _safety.check_max_grad(seq, default)[1].per_axis.value
+        stated["max_grad"] = max(default.max_grad, float(reached))
+    if "max_slew" not in stated:
+        reached = _safety.check_max_slew(seq, default)[1].per_axis.value
+        stated["max_slew"] = max(default.max_slew, float(reached))
+
+    seq.system = _pp.Opts(
+        rf_raster_time=seq.rf_raster_time,
+        grad_raster_time=seq.grad_raster_time,
+        adc_raster_time=seq.adc_raster_time,
+        block_duration_raster=seq.block_duration_raster,
+        **stated,
+    )
+    return seq
+
+
+def read_chain(
+    file_path: str | _os.PathLike[str],
+    *,
+    detect_rf_use: bool = False,
+    remove_duplicates: bool = True,
+    verify: bool = False,
+) -> list[tuple[_pathlib.Path, _typing.Any]]:
+    """Read a sequence file and every file its ``NextSequence`` definitions name, in play order.
+
+    A ``NextSequence`` name is relative to the directory of the file naming
+    it, as :func:`pypulseqpp.sequences.write` writes a scan with prescans.
+    Each file is read by :func:`read`.
+
+    Parameters
+    ----------
+    file_path : str | os.PathLike[str]
+        The first file of the chain.
+    detect_rf_use : bool, default=False
+        Assign a use to each unlabelled RF event of every file, as :func:`read`
+        does.
+    remove_duplicates : bool, default=True
+        Collapse identical library rows of every file after reading.
+    verify : bool, default=False
+        Check every file against the signature it carries.
+
+    Returns
+    -------
+    list of (pathlib.Path, pypulseqpp.Sequence)
+        Each file's path, joined as the chain names it, and its sequence.
+
+    Raises
+    ------
+    FileNotFoundError
+        If a file of the chain does not exist.
+    ValueError
+        If the chain names a file it has already played.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> import pypulseqpp as pp
+    >>> directory = pathlib.Path(tempfile.mkdtemp())
+    >>> for name, following in (("scan.seq", "scan_main.seq"), ("scan_main.seq", "")):
+    ...     seq = pp.Sequence(pp.Opts())
+    ...     _ = seq.add_block(pp.make_delay(1e-3))
+    ...     if following:
+    ...         seq.set_definition("NextSequence", following)
+    ...     _ = pp.io.write(seq, directory / name)
+    >>> [path.name for path, _ in pp.io.read_chain(directory / "scan.seq")]
+    ['scan.seq', 'scan_main.seq']
+    """
+    chain = []
+    played: set[_pathlib.Path] = set()
+    current = _pathlib.Path(file_path)
+    while True:
+        if not current.is_file():
+            raise FileNotFoundError(f"sequence chain file not found: {current}")
+        resolved = current.resolve()
+        if resolved in played:
+            raise ValueError(f"the NextSequence chain returns to {current}")
+        played.add(resolved)
+        with _warnings.catch_warnings():
+            _warnings.filterwarnings(
+                "ignore", message=r"read\(\): detect_rf_use had nothing to do"
+            )
+            seq = read(
+                current,
+                detect_rf_use=detect_rf_use,
+                remove_duplicates=remove_duplicates,
+                verify=verify,
+            )
+        chain.append((current, seq))
+        following = seq.get_definition("NextSequence")
+        if following in ("", None):
+            return chain
+        current = current.parent / str(following)
+
+
+def write(
+    seq,
+    file_path: str | _os.PathLike[str],
+    *,
+    binary: bool = False,
+    create_signature: bool = True,
+    remove_duplicates: bool = True,
+    check_timing: bool = True,
+) -> str | None:
+    """Write a sequence as a Pulseq text or binary file.
+
+    Parameters
+    ----------
+    seq : pypulseqpp.Sequence
+        Sequence to write; not modified.
+    file_path : str | os.PathLike[str]
+        Destination path.
+    binary : bool, default=False
+        Write the binary form instead of text. The binary writer runs no
+        timing check.
+    create_signature : bool, default=True
+        Append an MD5 signature, in both forms.
+    remove_duplicates : bool, default=True
+        Write a deduplicated copy, leaving ``seq`` as it is.
+    check_timing : bool, default=True
+        Text only: run the timing check first, warning on findings and
+        recording ``TotalDuration``.
+
+    Returns
+    -------
+    str or None
+        The text signature, or None for binary, whose signature is in the
+        file rather than returned.
+
+    See Also
+    --------
+    read : The other direction.
+    pypulseqpp.Sequence.write : The text writer this calls.
+    pypulseqpp.Sequence.write_binary : The binary writer this calls.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> import pypulseqpp as pp
+    >>> directory = pathlib.Path(tempfile.mkdtemp())
+    >>> seq = pp.Sequence(pp.Opts())
+    >>> seq.add_block(pp.make_trapezoid("x", area=1000, duration=2e-3))
+    1
+    >>> isinstance(pp.io.write(seq, directory / "gre.seq"), str)
+    True
+    >>> pp.io.write(seq, directory / "gre.bin", binary=True) is None
+    True
+    """
+    written = seq.remove_duplicates() if remove_duplicates else seq
+    if binary:
+        written.write_binary(str(file_path), create_signature=create_signature)
+        return None
+    return written.write(
+        str(file_path),
+        create_signature=create_signature,
+        remove_duplicates=False,
+        check_timing=check_timing,
+    )

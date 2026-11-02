@@ -1,0 +1,1102 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2008-2017 Guillaume Ayoub
+# Copyright © 2008 Nicolas Kandel
+# Copyright © 2008 Pascal Halter
+# Copyright © 2017-2020 Unrud <unrud@outlook.com>
+# Copyright © 2024-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Configuration module
+
+Use ``load()`` to obtain an instance of ``Configuration`` for use with
+``radicale.app.Application``.
+
+"""
+
+import contextlib
+import ipaddress
+import json
+import math
+import os
+import re
+import string
+import sys
+from collections import OrderedDict
+from configparser import RawConfigParser
+from typing import (Any, Callable, ClassVar, Iterable, List, Optional,
+                    Sequence, Tuple, TypeVar, Union)
+
+from radicale import (auth, group, hook, log, rights, sharing, storage, types,
+                      utils, web)
+from radicale.hook import email
+from radicale.item import check_and_sanitize_props
+
+DEFAULT_CONFIG_PATH: str = os.pathsep.join([
+    "?/etc/radicale/config",
+    "?~/.config/radicale/config"])
+
+PROFILING: Sequence[str] = ("per_request", "per_request_method", "none")
+
+VALIDATE_TYPES: Sequence[str] = ("none", "minimal", "unicode-letter", "unicode-none", "strict")
+
+# The server implementations `[server] type` selects. `hypercorn` is the optional one: it is what
+# serves H2C, and it is only imported when it is asked for (`radicale/server.py`).
+SERVER_TYPES: Sequence[str] = ("builtin", "hypercorn")
+
+
+def positive_int(value: Any) -> int:
+    value = int(value)
+    if value < 0:
+        raise ValueError("value is negative: %d" % value)
+    return value
+
+
+def port_int(value: Any) -> int:
+    value = int(value)
+    if value < 1:
+        raise ValueError("value is below 1 (not a valid port number): %d" % value)
+    elif value > 65534:
+        raise ValueError("value is above 65534 (not a valid port number): %d" % value)
+    return value
+
+
+def positive_float(value: Any) -> float:
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError("value is infinite")
+    if math.isnan(value):
+        raise ValueError("value is not a number")
+    if value < 0:
+        raise ValueError("value is negative: %f" % value)
+    return value
+
+
+def rights_permission(value: Any) -> str:
+    for permission in value:
+        if permission not in rights.INTERNAL_PERMISSIONS:
+            raise ValueError("unsupported permission %r found in: %r" % (permission, value))
+    if "p" in value and "P" in value:
+        raise ValueError("invalid combination of permissions (P+p) found in %r", value)
+    if "e" in value and "E" in value:
+        raise ValueError("invalid combination of permissions (E+e) found in %r", value)
+    return value
+
+
+def logging_level(value: Any) -> str:
+    if value not in log.LOG_LEVEL_OPTIONS:
+        raise ValueError("unsupported level: %r" % value)
+    return value
+
+
+def validate_types(value: Any) -> str:
+    if value not in VALIDATE_TYPES:
+        raise ValueError("unsupported validation type: %r" % value)
+    return value
+
+
+def profiling(value: Any) -> str:
+    if value not in PROFILING:
+        raise ValueError("unsupported profiling: %r" % value)
+    return value
+
+
+def filepath(value: Any) -> str:
+    if not value:
+        return ""
+    value = os.path.expanduser(value)
+    if sys.platform == "win32":
+        value = os.path.expandvars(value)
+    return os.path.abspath(value)
+
+
+def list_of_ip_address(value: Any) -> List[Tuple[str, int]]:
+    def ip_address(value):
+        try:
+            address, port = value.rsplit(":", 1)
+            return address.strip(string.whitespace + "[]"), port_int(port)
+        except ValueError:
+            raise ValueError("malformed IP address (or port out-of-range): %r" % value)
+
+    return [ip_address(s) for s in value.split(",")]
+
+
+def str_or_callable(value: Any) -> Union[str, Callable]:
+    if callable(value):
+        return value
+    return str(value)
+
+
+def unspecified_type(value: Any) -> Any:
+    return value
+
+
+def server_types(value: Any) -> str:
+    value = str(value).strip().lower()
+    if value not in SERVER_TYPES:
+        raise ValueError("unsupported server type: %r (supported: %s)"
+                         % (value, "|".join(SERVER_TYPES)))
+    return value
+
+
+def _convert_to_bool(value: Any) -> bool:
+    if value.lower() not in RawConfigParser.BOOLEAN_STATES:
+        raise ValueError("not a boolean: %r" % value)
+    return RawConfigParser.BOOLEAN_STATES[value.lower()]
+
+
+def imap_address(value):
+    if "]" in value:
+        pre_address, pre_address_port = value.rsplit("]", 1)
+    else:
+        pre_address, pre_address_port = "", value
+    if ":" in pre_address_port:
+        pre_address2, port = pre_address_port.rsplit(":", 1)
+        address = pre_address + pre_address2
+    else:
+        address, port = pre_address + pre_address_port, None
+    try:
+        return (address.strip(string.whitespace + "[]"),
+                None if port is None else port_int(port))
+    except ValueError:
+        raise ValueError("malformed IMAP address: %r" % value)
+
+
+def imap_security(value):
+    if value not in ("tls", "starttls", "none"):
+        raise ValueError("unsupported IMAP security: %r" % value)
+    return value
+
+
+def json_str(value: Any) -> dict:
+    if not value:
+        return {}
+    ret = json.loads(value)
+    for (name_coll, props) in ret.items():
+        checked_props = check_and_sanitize_props(props)
+        ret[name_coll] = checked_props
+    return ret
+
+
+def json_str_condition(value: Any) -> dict:
+    if not value:
+        return {}
+    ret = json.loads(value)
+    for (token, props) in ret.items():
+        checked_props = check_and_sanitize_props(props)
+        # check token
+        if token not in log.LOG_CONDITION_TOKEN:
+            raise ValueError("unsupported log condition token: %r" % token)
+        # check condition entry
+        for cond_name in checked_props:
+            if cond_name not in log.LOG_CONDITION_CONDITION:
+                raise ValueError("unsupported log condition: %r" % cond_name)
+            if cond_name == "match":
+                if log.LOG_CONDITION_TOKEN[token] == "str":
+                    if checked_props[cond_name] not in log.LOG_CONDITION_MATCH_STR:
+                        raise ValueError("unsupported log match: %r" % checked_props[cond_name])
+                elif log.LOG_CONDITION_TOKEN[token] == "int":
+                    if checked_props[cond_name] not in log.LOG_CONDITION_MATCH_INT:
+                        raise ValueError("unsupported log match: %r" % checked_props[cond_name])
+                elif log.LOG_CONDITION_TOKEN[token] == "ipaddress":
+                    if checked_props[cond_name] not in log.LOG_CONDITION_MATCH_IPADDRESS + log.LOG_CONDITION_MATCH_IPNETWORK:
+                        raise ValueError("unsupported log match: %r" % checked_props[cond_name])
+                else:
+                    raise RuntimeError("unsupported log match (fix code): %r" % cond_name)
+            if cond_name == "value":
+                if log.LOG_CONDITION_TOKEN[token] == "str":
+                    if checked_props["match"] == "re":
+                        try:
+                            if re.match(checked_props[cond_name], "Test"):
+                                pass
+                            else:
+                                pass
+                        except Exception as e:
+                            raise ValueError("unsupported log match value(re) for condition %r: %r (%s)" % (checked_props["match"], checked_props[cond_name], e))
+                    pass
+                elif log.LOG_CONDITION_TOKEN[token] == "int":
+                    if str(int(checked_props[cond_name])) != checked_props[cond_name]:
+                        raise ValueError("unsupported log match value(int): %r" % checked_props[cond_name])
+                    if token == "status":
+                        # only 100-599 are valid
+                        if int(checked_props[cond_name]) < 100 or int(checked_props[cond_name]) > 599:
+                            raise ValueError("unsupported log match value(int) not in range 100-599: %r" % checked_props[cond_name])
+                elif log.LOG_CONDITION_TOKEN[token] == "ipaddress":
+                    try:
+                        if checked_props["match"] in log.LOG_CONDITION_MATCH_IPADDRESS:
+                            ip = ipaddress.ip_address(checked_props[cond_name])  # noqa: F841
+                        elif checked_props["match"] in log.LOG_CONDITION_MATCH_IPNETWORK:
+                            ip_net = ipaddress.ip_network(checked_props[cond_name], strict=True)  # noqa: F841
+                    except Exception as e:
+                        raise ValueError("unsupported log match value(ipaddress) for condition %r: %r (%s)" % (checked_props["match"], checked_props[cond_name], e))
+        # check condition entries are complete
+        for cond_name in log.LOG_CONDITION_CONDITION:
+            if cond_name not in checked_props:
+                raise ValueError("incomplete condition, misses: %r" % cond_name)
+        # all checks passed
+        ret[token] = checked_props
+    return ret
+
+
+INTERNAL_OPTIONS: Sequence[str] = ("_allow_extra",)
+# Default configuration
+DEFAULT_CONFIG_SCHEMA: types.CONFIG_SCHEMA = OrderedDict([
+    ("server", OrderedDict([
+        ("type", {
+            "value": "builtin",
+            "help": "server to use (" + "|".join(SERVER_TYPES) + "), hypercorn also serves H2C "
+                    "and needs the \"h2\" extra (pip install radicale[h2])",
+            "type": server_types,
+            "internal": SERVER_TYPES}),
+        ("hosts", {
+            "value": "localhost:5232",
+            "help": "set server hostnames including ports",
+            "aliases": ("-H", "--hosts",),
+            "type": list_of_ip_address}),
+        ("max_connections", {
+            "value": "8",
+            "help": "maximum number of parallel connections",
+            "type": positive_int}),
+        ("max_content_length", {
+            "value": "100000000",
+            "help": "maximum size of request body in bytes (default: 100 Mbyte)",
+            "type": positive_int}),
+        ("delay_on_error", {
+            "value": "1",
+            "help": "base delay in case of error 5xx response (seconds)",
+            "type": positive_float}),
+        ("max_resource_size", {
+            "value": "10000000",
+            "help": "maximum size of resource (default: 10 Mbyte)",
+            "type": positive_int}),
+        ("max_vevent_rrule_occurrence", {
+            "value": "10000",
+            "help": "maximum occurrence by an RRULE (default: 10000)",
+            "type": positive_int}),
+        ("timeout", {
+            "value": "30",
+            "help": "socket timeout",
+            "type": positive_float}),
+        ("ssl", {
+            "value": "False",
+            "help": "use SSL connection",
+            "aliases": ("-s", "--ssl",),
+            "opposite_aliases": ("-S", "--no-ssl",),
+            "type": bool}),
+        ("protocol", {
+            "value": "",
+            "help": "SSL/TLS protocol (Apache SSLProtocol format)",
+            "type": str}),
+        ("ciphersuite", {
+            "value": "",
+            "help": "SSL/TLS Cipher Suite (OpenSSL cipher list format)",
+            "type": str}),
+        ("certificate", {
+            "value": "/etc/ssl/radicale.cert.pem",
+            "help": "set certificate file",
+            "aliases": ("-c", "--certificate",),
+            "type": filepath}),
+        ("key", {
+            "value": "/etc/ssl/radicale.key.pem",
+            "help": "set private key file",
+            "aliases": ("-k", "--key",),
+            "type": filepath}),
+        ("certificate_authority", {
+            "value": "",
+            "help": "set CA certificate for validating clients",
+            "aliases": ("--certificate-authority",),
+            "type": filepath}),
+        ("script_name", {
+            "value": "",
+            "help": "script name to strip from URI if called by reverse proxy (default taken from HTTP_X_SCRIPT_NAME or SCRIPT_NAME)",
+            "type": str}),
+        ("validate_user_value", {
+            "value": "minimal",
+            "help": "validate user value (" + "|".join(VALIDATE_TYPES) + ")",
+            "type": validate_types}),
+        ("validate_path_value", {
+            "value": "minimal",
+            "help": "validate path value (" + "|".join(VALIDATE_TYPES) + ")",
+            "type": validate_types}),
+        ("_internal_server", {
+            "value": "False",
+            "help": "the internal server is used",
+            "type": bool})])),
+    ("encoding", OrderedDict([
+        ("request", {
+            "value": "utf-8",
+            "help": "encoding for responding requests",
+            "type": str}),
+        ("stock", {
+            "value": "utf-8",
+            "help": "encoding for storing local collections",
+            "type": str})])),
+    ("auth", OrderedDict([
+        ("type", {
+            "value": "denyall",
+            "help": "authentication method (" + "|".join(auth.INTERNAL_TYPES) + ")",
+            "type": str_or_callable,
+            "internal": auth.INTERNAL_TYPES}),
+        ("cache_logins", {
+            "value": "false",
+            "help": "cache successful/failed logins for until expiration time",
+            "type": bool}),
+        ("cache_successful_logins_expiry", {
+            "value": "15",
+            "help": "expiration time for caching successful logins in seconds",
+            "type": int}),
+        ("cache_failed_logins_expiry", {
+            "value": "90",
+            "help": "expiration time for caching failed logins in seconds",
+            "type": int}),
+        ("htpasswd_filename", {
+            "value": "/etc/radicale/users",
+            "help": "htpasswd filename",
+            "type": filepath}),
+        ("htpasswd_encryption", {
+            "value": "autodetect",
+            "help": "htpasswd encryption method",
+            "type": str}),
+        ("htpasswd_cache", {
+            "value": "False",
+            "help": "enable caching of htpasswd file",
+            "type": bool}),
+        ("dovecot_connection_type", {
+            "value": "AF_UNIX",
+            "help": "Connection type for dovecot authentication",
+            "type": str_or_callable,
+            "internal": auth.AUTH_SOCKET_FAMILY}),
+        ("dovecot_socket", {
+            "value": "/var/run/dovecot/auth-client",
+            "help": "dovecot auth AF_UNIX socket",
+            "type": str}),
+        ("dovecot_host", {
+            "value": "localhost",
+            "help": "dovecot auth AF_INET or AF_INET6 host",
+            "type": str}),
+        ("dovecot_port", {
+            "value": "12345",
+            "help": "dovecot auth port",
+            "type": port_int}),
+        ("remote_ip_source", {
+            "value": "REMOTE_ADDR",
+            "help": "remote address source for passing it to auth method",
+            "type": str,
+            "internal": auth.REMOTE_ADDR_SOURCE}),
+        ("realm", {
+            "value": "Radicale - Password Required",
+            "help": "message displayed when a password is needed",
+            "type": str}),
+        ("delay", {
+            "value": "1",
+            "help": "incorrect authentication delay",
+            "type": positive_float}),
+        ("ldap_uri", {
+            "value": "ldap://localhost",
+            "help": "URI to the LDAP server",
+            "type": str}),
+        ("ldap_base", {
+            "value": "",
+            "help": "Base DN of the LDAP server",
+            "type": str}),
+        ("ldap_reader_dn", {
+            "value": "",
+            "help": "DN of an LDAP user with read access to users anmd - if defined - groups",
+            "type": str}),
+        ("ldap_secret", {
+            "value": "",
+            "help": "Password of ldap_reader_dn (better: use ldap_secret_file)",
+            "type": str}),
+        ("ldap_secret_file", {
+            "value": "",
+            "help": "Path to the file containing the password of ldap_reader_dn",
+            "type": str}),
+        ("ldap_filter", {
+            "value": "(cn={0})",
+            "help": "Filter to search for the LDAP entry of the user to authenticate",
+            "type": str}),
+        ("ldap_user_attribute", {
+            "value": "",
+            "help": "Attribute to be used as username after authentication",
+            "type": str}),
+        ("ldap_security", {
+            "value": "none",
+            "help": "Encryption mode to be used: *none*|tls|starttls",
+            "type": str}),
+        ("ldap_ssl_verify_mode", {
+            "value": "REQUIRED",
+            "help": "Certificate verification mode for tls and starttls. NONE, OPTIONAL, default is REQUIRED",
+            "type": str}),
+        ("ldap_ssl_ca_file", {
+            "value": "",
+            "help": "Path to the CA file in PEM format which is used to certify the server certificate",
+            "type": str}),
+        ("ldap_groups_attribute", {
+            "value": "",
+            "help": "Attribute in the user's LDAP entry to read the group memberships from",
+            "type": str}),
+        ("ldap_group_members_attribute", {
+            "value": "",
+            "help": "Attribute in the group entries to read the group's members from",
+            "type": str}),
+        ("ldap_group_base", {
+            "value": "",
+            "help": "Base DN to search for groups. Only if it differs from ldap_base and if ldap_group_members_attribute is set",
+            "type": str}),
+        ("ldap_group_filter", {
+            "value": "",
+            "help": "Search filter to search for groups having the user as member. Only if ldap_group_members_attribute is set",
+            "type": str}),
+        ("ldap_ignore_attribute_create_modify_timestamp", {
+            "value": "false",
+            "help": "Quirk for Authentik LDAP server: ignore modifyTimestamp and createTimestamp attributes.",
+            "type": bool}),
+        ("imap_host", {
+            "value": "localhost",
+            "help": "IMAP server hostname: address|address:port|[address]:port|*localhost*",
+            "type": imap_address}),
+        ("imap_security", {
+            "value": "tls",
+            "help": "Secure the IMAP connection: *tls*|starttls|none",
+            "type": imap_security}),
+        ("imap_append_domain", {
+            "value": "",
+            "help": "Append '@' + domain to login before trying IMAP connection",
+            "type": str}),
+        ("oauth2_token_endpoint", {
+            "value": "",
+            "help": "OAuth2 token endpoint URL",
+            "type": str}),
+        ("oauth2_client_id", {
+            "value": "radicale",
+            "help": "OAuth2 client id",
+            "type": str}),
+        ("oauth2_client_secret", {
+            "value": "",
+            "help": "OAuth2 client secret",
+            "type": str}),
+        ("pam_group_membership", {
+            "value": "",
+            "help": "PAM group user should be member of",
+            "type": str}),
+        ("pam_service", {
+            "value": "radicale",
+            "help": "PAM service",
+            "type": str}),
+        ("strip_domain", {
+            "value": "False",
+            "help": "strip domain from username",
+            "type": bool}),
+        ("uc_username", {
+            "value": "False",
+            "help": "convert username to uppercase, must be true for case-insensitive auth providers",
+            "type": bool}),
+        ("lc_username", {
+            "value": "False",
+            "help": "convert username to lowercase, must be true for case-insensitive auth providers",
+            "type": bool}),
+        ("urldecode_username", {
+            "value": "False",
+            "help": "url-decode the username, set to True when clients send url-encoded email address as username",
+            "type": bool})])),
+    ("group", OrderedDict([
+        ("type", {
+            "value": "none",
+            "help": "group lookup method (" + "|".join(group.INTERNAL_TYPES) + ")",
+            "type": str_or_callable,
+            "internal": group.INTERNAL_TYPES}),
+        ("htgroup_filename", {
+            "value": "/etc/radicale/groups",
+            "help": "htpgroup filename",
+            "type": filepath}),
+        ("htgroup_cache", {
+            "value": "False",
+            "help": "enable caching of htgroup file",
+            "type": bool}),
+        ("group_collections_folder", {
+            "value": "GROUPS",
+            "help": "folder under collection_root_folder containing collections of base64 encoded group names",
+            "type": str}),
+    ])),
+    ("rights", OrderedDict([
+        ("type", {
+            "value": "owner_only",
+            "help": "rights backend",
+            "type": str_or_callable,
+            "internal": rights.INTERNAL_TYPES}),
+        ("permit_delete_collection", {
+            "value": "True",
+            "help": "permit delete of a collection",
+            "type": bool}),
+        ("permit_overwrite_collection", {
+            "value": "True",
+            "help": "permit overwrite of a collection",
+            "type": bool}),
+        ("file", {
+            "value": "/etc/radicale/rights",
+            "help": "file for rights management from_file",
+            "type": filepath})])),
+    ("storage", OrderedDict([
+        ("type", {
+            "value": "multifilesystem",
+            "help": "storage backend",
+            "type": str_or_callable,
+            "internal": storage.INTERNAL_TYPES}),
+        ("filesystem_folder", {
+            "value": "/var/lib/radicale/collections",
+            "help": "path where collections are stored",
+            "type": filepath}),
+        ("filesystem_cache_folder", {
+            "value": "",
+            "help": "path where cache of collections is stored in case of use_cache_subfolder_* options are active",
+            "type": filepath}),
+        ("use_cache_subfolder_for_item", {
+            "value": "False",
+            "help": "use subfolder 'collection-cache' for 'item' cache file structure instead of inside collection folder",
+            "type": bool}),
+        ("use_cache_subfolder_for_history", {
+            "value": "False",
+            "help": "use subfolder 'collection-cache' for 'history' cache file structure instead of inside collection folder",
+            "type": bool}),
+        ("use_cache_subfolder_for_synctoken", {
+            "value": "False",
+            "help": "use subfolder 'collection-cache' for 'sync-token' cache file structure instead of inside collection folder",
+            "type": bool}),
+        ("use_mtime_and_size_for_item_cache", {
+            "value": "False",
+            "help": "use mtime and file size instead of SHA256 for 'item' cache (improves speed)",
+            "type": bool}),
+        ("folder_umask", {
+            "value": "",
+            "help": "umask for folder creation (empty: system default)",
+            "type": str}),
+        ("max_sync_token_age", {
+            "value": "2592000",  # 30 days
+            "help": "delete sync token that are older",
+            "type": positive_int}),
+        ("skip_broken_item", {
+            "value": "True",
+            "help": "skip broken item instead of triggering exception",
+            "type": bool}),
+        ("hook", {
+            "value": "",
+            "help": "command that is run after changes to storage",
+            "type": str}),
+        ("strict_preconditions", {
+            "value": "False",
+            "help": "strict preconditions check on PUT",
+            "type": bool}),
+        ("_filesystem_fsync", {
+            "value": "True",
+            "help": "sync all changes to filesystem during requests",
+            "type": bool}),
+        ("predefined_collections", {
+            "value": "",
+            "help": "predefined user collections",
+            "type": json_str})])),
+    ("sharing", OrderedDict([
+        ("type", {
+            "value": "none",
+            "help": "sharing database type",
+            "type": str_or_callable,
+            "internal": sharing.INTERNAL_TYPES}),
+        ("database_path", {
+            "value": "",
+            "help": "database path",
+            "type": filepath}),
+        ("collection_by_token", {
+            "value": "false",
+            "help": "enable sharing of collection by token",
+            "type": bool}),
+        ("collection_by_map", {
+            "value": "false",
+            "help": "enable sharing of collection by map",
+            "type": bool}),
+        ("permit_create_token", {
+            "value": "false",
+            "help": "permit create of token-based sharing",
+            "type": bool}),
+        ("permit_create_map", {
+            "value": "false",
+            "help": "permit create of map-based sharing",
+            "type": bool}),
+        ("permit_properties_overlay", {
+            "value": "false",
+            "help": "permit properties overlay",
+            "type": bool}),
+        ("enforce_properties_overlay", {
+            "value": "true",
+            "help": "enforce properties overlay on write access",
+            "type": bool}),
+        ("default_permissions_create_token", {
+            "value": "rp",
+            "help": "default permissions for token-based sharing",
+            "type": rights_permission}),
+        ("default_permissions_create_map", {
+            "value": "r",
+            "help": "default permissions for map-based sharing",
+            "type": rights_permission}),
+        ("conversion_bday_summary_template", {
+            "value": sharing.SHARING_BDAY_SUMMARY_TEMPLATE_DEFAULT,
+            "help": "conversion bday summary template",
+            "type": sharing.check_template_not_empty}),
+        ("conversion_bday_description_template", {
+            "value": sharing.SHARING_BDAY_DESCRIPTION_TEMPLATE_DEFAULT,
+            "help": "conversion bday description template",
+            "type": sharing.check_template}),
+        ("conversion_bday_alarm_trigger_template", {
+            "value": "",
+            "help": "conversion bday alarm trigger template",
+            "type": sharing.check_template_alarm_trigger}),
+        ("conversion_bday_categories", {
+            "value": sharing.SHARING_BDAY_CATEGORIES_DEFAULT,
+            "help": "conversion bday categories",
+            "type": str}),
+        ("conversion_bday_age_max", {
+            "value": str(sharing.SHARING_BDAY_AGE_MAX_DEFAULT),
+            "help": "conversion bday age max",
+            "type": sharing.check_bday_max_age}),
+        ])),
+    ("hook", OrderedDict([
+        ("type", {
+            "value": "none",
+            "help": "hook backend",
+            "type": str,
+            "internal": hook.INTERNAL_TYPES}),
+        ("dryrun", {
+            "value": "False",
+            "help": "dry-run (do not really trigger hook action)",
+            "type": bool}),
+        ("rabbitmq_endpoint", {
+            "value": "",
+            "help": "endpoint where rabbitmq server is running",
+            "type": str}),
+        ("rabbitmq_topic", {
+            "value": "",
+            "help": "topic to declare queue",
+            "type": str}),
+        ("rabbitmq_queue_type", {
+            "value": "",
+            "help": "queue type for topic declaration",
+            "type": str}),
+        ("smtp_server", {
+            "value": "",
+            "help": "SMTP server to send emails",
+            "type": str}),
+        ("smtp_port", {
+            "value": "25",
+            "help": "SMTP server port",
+            "type": port_int}),
+        ("smtp_security", {
+            "value": "none",
+            "help": "SMTP security mode: *none*|tls|starttls",
+            "type": str,
+            "internal": email.SMTP_SECURITY_TYPES}),
+        ("smtp_ssl_verify_mode", {
+            "value": "REQUIRED",
+            "help": "The certificate verification mode. Works for tls and starttls: NONE, OPTIONAL, default is REQUIRED",
+            "type": str,
+            "internal": email.SMTP_SSL_VERIFY_MODES}),
+        ("smtp_username", {
+            "value": "",
+            "help": "SMTP server username",
+            "type": str}),
+        ("smtp_password", {
+            "value": "",
+            "help": "SMTP server password (prefer smtp_password_file for secrets)",
+            "type": str}),
+        ("smtp_password_file", {
+            "value": "",
+            "help": "Path of the file containing the SMTP server password",
+            "type": str}),
+        ("from_email", {
+            "value": "",
+            "help": "Email address to use as sender in email notifications",
+            "type": str}),
+        ("mass_email", {
+            "value": "False",
+            "help": "Send one email to all attendees, versus one email per attendee",
+            "type": bool}),
+        ("new_or_added_to_event_template", {
+            "value": """Hello $attendee_name,
+
+You have been added as an attendee to the following calendar event.
+
+    $event_title
+    $event_start_time - $event_end_time
+    $event_location
+
+This is an automated message. Please do not reply.""",
+            "help": "Template for the email sent when an event is created or attendee is added. Select placeholder words prefixed with $ will be replaced",
+            "type": str}),
+        ("deleted_or_removed_from_event_template", {
+            "value": """Hello $attendee_name,
+
+The following event has been deleted.
+
+    $event_title
+    $event_start_time - $event_end_time
+    $event_location
+
+This is an automated message. Please do not reply.""",
+            "help": "Template for the email sent when an event is deleted or attendee is removed. Select placeholder words prefixed with $ will be replaced",
+            "type": str}),
+        ("updated_event_template", {
+            "value": """Hello $attendee_name,
+The following event has been updated.
+    $event_title
+    $event_start_time - $event_end_time
+    $event_location
+
+This is an automated message. Please do not reply.""",
+            "help": "Template for the email sent when an event is updated. Select placeholder words prefixed with $ will be replaced",
+            "type": str
+        })
+    ])),
+    ("web", OrderedDict([
+        ("type", {
+            "value": "internal",
+            "help": "web interface backend",
+            "type": str_or_callable,
+            "internal": web.INTERNAL_TYPES}),
+        ("prefer_browser_login", {
+            "value": "False",
+            "help": "prefer browser login",
+            "type": bool})])),
+    ("logging", OrderedDict([
+        ("level", {
+            "value": "info",
+            "help": "threshold for the logger",
+            "type": logging_level}),
+        ("limit_content", {
+            "value": str(utils.DEFAULT_LIMIT_CONTENT),
+            "help": "limit content of wrapped text (chars)",
+            "type": positive_int}),
+        ("trace_filter", {
+            "value": "",
+            "help": "filter trace messages starting with '<TOKEN>'",
+            "type": str}),
+        ("bad_put_request_content", {
+            "value": "False",
+            "help": "log bad PUT request content",
+            "type": bool}),
+        ("backtrace_on_debug", {
+            "value": "False",
+            "help": "log backtrace on level=debug",
+            "type": bool}),
+        ("request_header_on_debug", {
+            "value": "False",
+            "help": "log request header on level=debug",
+            "type": bool}),
+        ("request_content_on_debug", {
+            "value": "False",
+            "help": "log request content on level=debug",
+            "type": bool}),
+        ("response_header_on_debug", {
+            "value": "False",
+            "help": "log response header on level=debug",
+            "type": bool}),
+        ("response_content_on_debug", {
+            "value": "False",
+            "help": "log response content on level=debug",
+            "type": bool}),
+        ("request_header_on_notice_condition", {
+            "value": "{}",
+            "help": "log request header on level=notice with condition",
+            "type": json_str_condition}),
+        ("request_content_on_notice_condition", {
+            "value": "{}",
+            "help": "log request content on level=notice with condition",
+            "type": json_str_condition}),
+        ("response_header_on_notice_condition", {
+            "value": "{}",
+            "help": "log response header on level=notice with condition",
+            "type": json_str_condition}),
+        ("response_content_on_notice_condition", {
+            "value": "{}",
+            "help": "log response content on level=notice with condition",
+            "type": json_str_condition}),
+        ("rights_rule_doesnt_match_on_debug", {
+            "value": "False",
+            "help": "log rights rules which doesn't match on level=debug",
+            "type": bool}),
+        ("storage_cache_actions_on_debug", {
+            "value": "False",
+            "help": "log storage cache action on level=debug",
+            "type": bool}),
+        ("profiling", {
+            "value": "none",
+            "help": "log profiling data level=info",
+            "type": profiling}),
+        ("profiling_per_request_min_duration", {
+            "value": "3",
+            "help": "log profiling data per request minimum duration (seconds)",
+            "type": positive_int}),
+        ("profiling_per_request_header", {
+            "value": "False",
+            "help": "Log profiling request body (if passing minimum duration)",
+            "type": bool}),
+        ("profiling_per_request_xml", {
+            "value": "False",
+            "help": "Log profiling request XML (if passing minimum duration)",
+            "type": bool}),
+        ("profiling_per_request_method_interval", {
+            "value": "600",
+            "help": "log profiling data per request method interval (seconds)",
+            "type": positive_int}),
+        ("profiling_top_x_functions", {
+            "value": "10",
+            "help": "log profiling top X functions (limit)",
+            "type": positive_int}),
+        ("mask_passwords", {
+            "value": "True",
+            "help": "mask passwords in logs",
+            "type": bool})])),
+    ("headers", OrderedDict([
+        ("_allow_extra", str)])),
+    ("reporting", OrderedDict([
+        ("max_expand_occurrence", {
+            "value": "10000",
+            "help": "number of expand occurrences per event when reporting",
+            "type": positive_int}),
+        ("max_freebusy_occurrence", {
+            "value": "10000",
+            "help": "number of free-busy occurrences per event when reporting",
+            "type": positive_int}),
+        ("freebusy_view_past_days", {
+            "value": "365",
+            "help": "days before today in the default free-busy view",
+            "type": positive_int}),
+        ("freebusy_view_future_days", {
+            "value": "365",
+            "help": "days after today in the default free-busy view",
+            "type": positive_int})]))
+    ])
+
+
+def parse_compound_paths(*compound_paths: Optional[str]
+                         ) -> List[Tuple[str, bool]]:
+    """Parse a compound path and return the individual paths.
+    Paths in a compound path are joined by ``os.pathsep``. If a path starts
+    with ``?`` the return value ``IGNORE_IF_MISSING`` is set.
+
+    When multiple ``compound_paths`` are passed, the last argument that is
+    not ``None`` is used.
+
+    Returns a dict of the format ``[(PATH, IGNORE_IF_MISSING), ...]``
+
+    """
+    compound_path = ""
+    for p in compound_paths:
+        if p is not None:
+            compound_path = p
+    paths = []
+    for path in compound_path.split(os.pathsep):
+        ignore_if_missing = path.startswith("?")
+        if ignore_if_missing:
+            path = path[1:]
+        path = filepath(path)
+        if path:
+            paths.append((path, ignore_if_missing))
+    return paths
+
+
+def load(paths: Optional[Iterable[Tuple[str, bool]]] = None
+         ) -> "Configuration":
+    """
+    Create instance of ``Configuration`` for use with
+    ``radicale.app.Application``.
+
+    ``paths`` a list of configuration files with the format
+    ``[(PATH, IGNORE_IF_MISSING), ...]``.
+    If a configuration file is missing and IGNORE_IF_MISSING is set, the
+    config is set to ``Configuration.SOURCE_MISSING``.
+
+    The configuration can later be changed with ``Configuration.update()``.
+
+    """
+    if paths is None:
+        paths = []
+    configuration = Configuration(DEFAULT_CONFIG_SCHEMA)
+    for path, ignore_if_missing in paths:
+        parser = RawConfigParser()
+        config_source = "config file %r" % path
+        config: types.CONFIG
+        try:
+            with open(path) as f:
+                parser.read_file(f)
+                config = {s: {o: parser[s][o] for o in parser.options(s)}
+                          for s in parser.sections()}
+        except Exception as e:
+            if not (ignore_if_missing and isinstance(e, (
+                    FileNotFoundError, NotADirectoryError, PermissionError))):
+                raise RuntimeError("Failed to load %s: %s" % (config_source, e)
+                                   ) from e
+            config = Configuration.SOURCE_MISSING
+        configuration.update(config, config_source)
+    return configuration
+
+
+_Self = TypeVar("_Self", bound="Configuration")
+
+
+class Configuration:
+    SOURCE_MISSING: ClassVar[types.CONFIG] = {}
+
+    _schema: types.CONFIG_SCHEMA
+    _values: types.MUTABLE_CONFIG
+    _configs: List[Tuple[types.CONFIG, str, bool]]
+
+    def __init__(self, schema: types.CONFIG_SCHEMA) -> None:
+        """Initialize configuration.
+
+        ``schema`` a dict that describes the configuration format.
+        See ``DEFAULT_CONFIG_SCHEMA``.
+        The content of ``schema`` must not change afterwards, it is kept
+        as an internal reference.
+
+        Use ``load()`` to create an instance for use with
+        ``radicale.app.Application``.
+
+        """
+        self._schema = schema
+        self._values = {}
+        self._configs = []
+        default = {section: {option: self._schema[section][option]["value"]
+                             for option in self._schema[section]
+                             if option not in INTERNAL_OPTIONS}
+                   for section in self._schema}
+        self.update(default, "default config", privileged=True)
+
+    def update(self, config: types.CONFIG, source: Optional[str] = None,
+               privileged: bool = False) -> None:
+        """Update the configuration.
+
+        ``config`` a dict of the format {SECTION: {OPTION: VALUE, ...}, ...}.
+        The configuration is checked for errors according to the config schema.
+        The content of ``config`` must not change afterwards, it is kept
+        as an internal reference.
+
+        ``source`` a description of the configuration source (used in error
+        messages).
+
+        ``privileged`` allows updating sections and options starting with "_".
+
+        """
+        if source is None:
+            source = "unspecified config"
+        new_values: types.MUTABLE_CONFIG = {}
+        for section in config:
+            if (section not in self._schema or
+                    section.startswith("_") and not privileged):
+                raise ValueError(
+                    "Invalid section %r in %s" % (section, source))
+            new_values[section] = {}
+            extra_type = None
+            extra_type = self._schema[section].get("_allow_extra")
+            if "type" in self._schema[section]:
+                if "type" in config[section]:
+                    plugin = config[section]["type"]
+                else:
+                    plugin = self.get(section, "type")
+                if plugin not in self._schema[section]["type"]["internal"]:
+                    extra_type = unspecified_type
+            for option in config[section]:
+                type_ = extra_type
+                if option in self._schema[section]:
+                    type_ = self._schema[section][option]["type"]
+                if (not type_ or option in INTERNAL_OPTIONS or
+                        option.startswith("_") and not privileged):
+                    raise RuntimeError("Invalid option %r in section %r in "
+                                       "%s" % (option, section, source))
+                raw_value = config[section][option]
+                try:
+                    if type_ == bool and not isinstance(raw_value, bool):
+                        raw_value = _convert_to_bool(raw_value)
+                    new_values[section][option] = type_(raw_value)
+                except Exception as e:
+                    raise RuntimeError(
+                        "Invalid %s value for option %r in section %r in %s: "
+                        "%r (%s)" % (type_.__name__, option, section, source, raw_value, e)) from e
+        self._configs.append((config, source, bool(privileged)))
+        for section in new_values:
+            self._values[section] = self._values.get(section, {})
+            self._values[section].update(new_values[section])
+
+    def get(self, section: str, option: str) -> Any:
+        """Get the value of ``option`` in ``section``."""
+        with contextlib.suppress(KeyError):
+            return self._values[section][option]
+        raise KeyError(section, option)
+
+    def get_raw(self, section: str, option: str) -> Any:
+        """Get the raw value of ``option`` in ``section``."""
+        for config, _, _ in reversed(self._configs):
+            if option in config.get(section, {}):
+                return config[section][option]
+        raise KeyError(section, option)
+
+    def get_source(self, section: str, option: str) -> str:
+        """Get the source that provides ``option`` in ``section``."""
+        for config, source, _ in reversed(self._configs):
+            if option in config.get(section, {}):
+                return source
+        raise KeyError(section, option)
+
+    def sections(self) -> List[str]:
+        """List all sections."""
+        return list(self._values.keys())
+
+    def options(self, section: str) -> List[str]:
+        """List all options in ``section``"""
+        return list(self._values[section].keys())
+
+    def sources(self) -> List[Tuple[str, bool]]:
+        """List all config sources."""
+        return [(source, config is self.SOURCE_MISSING) for
+                config, source, _ in self._configs]
+
+    def copy(self: _Self, plugin_schema: Optional[types.CONFIG_SCHEMA] = None
+             ) -> _Self:
+        """Create a copy of the configuration
+
+        ``plugin_schema`` is a optional dict that contains additional options
+        for usage with a plugin. See ``DEFAULT_CONFIG_SCHEMA``.
+
+        """
+        if plugin_schema is None:
+            schema = self._schema
+        else:
+            new_schema = dict(self._schema)
+            for section, options in plugin_schema.items():
+                if (section not in new_schema or
+                        "type" not in new_schema[section] or
+                        "internal" not in new_schema[section]["type"]):
+                    raise ValueError("not a plugin section: %r" % section)
+                new_section = dict(new_schema[section])
+                new_type = dict(new_section["type"])
+                new_type["internal"] = (self.get(section, "type"),)
+                new_section["type"] = new_type
+                for option, value in options.items():
+                    if option in new_section:
+                        raise ValueError("option already exists in %r: %r" %
+                                         (section, option))
+                    new_section[option] = value
+                new_schema[section] = new_section
+            schema = new_schema
+        copy = type(self)(schema)
+        for config, source, privileged in self._configs:
+            copy.update(config, source, privileged)
+        return copy

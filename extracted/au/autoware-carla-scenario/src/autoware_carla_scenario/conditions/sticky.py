@@ -1,0 +1,104 @@
+"""Sticky condition that latches after the first passing result."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any, Optional
+
+from .base import BaseCondition, ScenarioResult
+from ..failure import FailureCategory
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+logger = logging.getLogger(__name__)
+
+
+class StickyCondition(BaseCondition):
+    """Wrapper that latches a child condition after its first passing result.
+
+    Once the wrapped condition returns a :class:`ScenarioResult` with
+    ``passed=True``, the result is stored and returned on every subsequent
+    call — the inner condition is never re-evaluated.
+
+    This is useful for verifying that an entity *visited* a state at some point,
+    even if it has since moved on.  Combine multiple sticky conditions with
+    :class:`AndCondition` to assert that an entity visited every one of a set
+    of states, in any order (the AND checks every child on every tick, so each
+    sticky child latches as soon as its own state is reached)::
+
+        pass_cond = AndCondition([
+            StickyCondition(EntityLanePositionCondition.anywhere_on_road(
+                "npc", "10", label="npc_on_10")),
+            StickyCondition(EntityLanePositionCondition.anywhere_on_road(
+                "npc", "20", label="npc_on_20")),
+        ])
+
+    To require the order -- road 20 only after road 10 -- latch the later state
+    on the earlier one::
+
+        on_10 = StickyCondition(EntityLanePositionCondition.anywhere_on_road(
+            "npc", "10", label="npc_on_10"))
+        on_20 = EntityLanePositionCondition.anywhere_on_road(
+            "npc", "20", label="npc_on_20")
+        pass_cond = StickyCondition(AndCondition([on_10, on_20]))
+
+    Args:
+        condition: The child condition to wrap.
+    """
+
+    # Declared for the static check (docs/typecheck.md).
+    _condition: BaseCondition
+    _latched_result: Optional[ScenarioResult]
+
+    def __init__(self, condition: BaseCondition, *, label: str | None = None) -> None:
+        auto_label = f"{condition.label}_sticky"
+        super().__init__(label=label if label is not None else auto_label)
+        self._condition = condition
+        self._latched_result: Optional[ScenarioResult] = None
+
+    def close(self) -> None:
+        """Close the child (:meth:`BaseCondition.close`).  The latched
+        result stays for the run's report; :meth:`reset` lets it go."""
+        self._condition.close()
+
+    def reset(self) -> None:
+        """Unlatch, and reset the child (:meth:`BaseCondition.reset`): a
+        result latched in an earlier run does not decide this one."""
+        super().reset()
+        self._latched_result = None
+        self._condition.reset()
+
+    def failure_category(self) -> Optional[FailureCategory]:
+        """What the wrapped condition says."""
+        return self._condition.failure_category()
+
+    def get_details(self) -> dict[str, Any]:
+        return {
+            "wrapper": "sticky",
+            "latched": self._latched_result is not None,
+            "child": self._condition.to_summary_dict(),
+        }
+
+    def check(self, world: "carla.World", elapsed: float) -> Optional[ScenarioResult]:
+        """Return the latched result if available, otherwise delegate to the child.
+
+        Args:
+            world: The CARLA world instance.
+            elapsed: Elapsed time in seconds since the scenario started.
+
+        Returns:
+            The latched :class:`ScenarioResult` if the child previously passed,
+            otherwise the child's current result (which may be ``None``).
+        """
+        if self._latched_result is not None:
+            return self._latched_result
+
+        result = self._condition.check(world, elapsed)
+        if result is not None and result.passed:
+            self._latched_result = result
+            logger.info(
+                "StickyCondition: latched — %s",
+                result.message,
+            )
+        return result

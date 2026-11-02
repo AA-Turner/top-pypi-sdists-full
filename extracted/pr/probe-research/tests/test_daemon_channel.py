@@ -311,7 +311,8 @@ def test_client_run_announces_the_open_and_finish_announces_the_end(short_state,
     sock = _listen(daemon_channel.socket_path(SID))
     try:
         client = make_client(app, tmp_spool=tmp_path / "spool")
-        run = client.run(description="floating", tags=["a"], config={"lr": 1}, intent="see it")
+        client.create_project("p", kind="general")
+        run = client.run(project="p", description="d", tags=["a"], config={"lr": 1}, intent="see it")
         started = _recv(sock)
         run.finish("completed")
         ended = _recv(sock)
@@ -328,8 +329,9 @@ def test_a_run_opens_normally_with_no_daemon_listening(short_state, app, tmp_pat
     from tests.conftest import make_client
 
     client = make_client(app, tmp_spool=tmp_path / "spool")
+    client.create_project("p", kind="general")
     started = time.monotonic()
-    run = client.run(description="nobody home")
+    run = client.run(project="p", description="nobody home")
     run.finish("completed")
     assert time.monotonic() - started < 5
     assert app.runs[run.id]["status"] == "completed"
@@ -373,7 +375,8 @@ def test_execute_hands_the_child_the_session_with_the_run_id(app, tmp_path, monk
         monkeypatch.setenv(key, value)
     out = tmp_path / "seen.txt"
     client = make_client(app, tmp_spool=tmp_path / "spool")
-    run = client.run(description="wrapped")
+    client.create_project("p", kind="general")
+    run = client.run(project="p", description="wrapped")
     run.execute(
         [
             sys.executable,
@@ -395,7 +398,8 @@ def test_the_hand_off_notice_lists_the_session_to_forward(app, tmp_path, monkeyp
     monkeypatch.setattr(cli, "Client", lambda **_kw: make_client(app, tmp_spool=tmp_path / "spool"))
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
-    rc = cli.main(["exec", "--detached-launcher", "--", sys.executable, "-c", "pass"])
+    make_client(app, tmp_spool=tmp_path / "spool").create_project("p", kind="general")
+    rc = cli.main(["exec", "--project", "p", "--detached-launcher", "--", sys.executable, "-c", "pass"])
     assert rc == 0
     err = capsys.readouterr().err
     assert f"PROBE_AGENT_SESSION=claude_code:{SID}" in err

@@ -79,11 +79,22 @@ def test_openapi_wsgi_loader_plain_application(ctx):
     ("version", "expected"),
     [
         ("4.0.0", "The provided schema uses Open API 4.0.0, which is currently not supported."),
+        ("3.1", 'The `openapi` field must be a string, got 3.1. Quote the full version, e.g. `openapi: "3.1.0"`.'),
+        ("3", 'The `openapi` field must be a string, got 3. Quote the full version, e.g. `openapi: "3.1.0"`.'),
     ],
+    ids=["unsupported", "unquoted-float", "unquoted-int"],
 )
 def test_unsupported_openapi_version(version, expected):
     with pytest.raises(LoaderError, match=expected):
-        schemathesis.openapi.from_dict({"openapi": version})
+        schemathesis.openapi.from_file(f"openapi: {version}")
+
+
+def test_unquoted_swagger_version():
+    # Swagger has a single version, so a YAML number is unambiguous and stays accepted.
+    schema = schemathesis.openapi.from_file("swagger: 2.0\ninfo: {title: t, version: '1'}")
+    assert schema.specification.version == "2.0"
+    (result,) = schema.get_all_operations()
+    assert '"paths" is a required property' in str(result.err())
 
 
 def test_number_deserializing(ctx, testdir):

@@ -15,9 +15,12 @@ import sys
 
 import pytest
 
-from probe.service import client, paths, protocol
-from probe.service.protocol import ErrorCode, Method, Mode
-from probe.service.server import peer_uid
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
+from probe.foundation.service_api.wire import ErrorCode, Method
+from probe.foundation.service_api.vocabularies import Mode
+from probe.service.server.connections.connections import peer_uid
 from tests.service_harness import service_home  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -264,8 +267,9 @@ def test_a_peer_of_another_uid_is_refused(service_home, monkeypatch):
     import asyncio
     import threading
 
-    from probe.service.registry import Registry
-    from probe.service.server import Service, _bind
+    from probe.service.sessions.sessions import Registry
+    from probe.service.server.server import Service
+    from probe.service.server.legacy_door import _bind
 
     left, right = socket.socketpair()
     with left, right:
@@ -308,7 +312,7 @@ def test_workspace_limit_is_a_service_action_and_its_picker_a_read():
     """`action.run workspace_limit` (the app's Settings → Workspace) is a change,
     one at a time like every action; `desktop.request workspaces` (its list) is a read."""
     from probe.core.requests import ActionName
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     assert protocol.Action.WORKSPACE_LIMIT in protocol.ACTIONS
     assert protocol.ACTIONS <= {a.value for a in ActionName}

@@ -1,0 +1,3 @@
+wrap = "no"
+end_of_line = "lf"  # Keep this consistent with .editorconfig
+number = true       # Apply consecutive numbering to ordered lists

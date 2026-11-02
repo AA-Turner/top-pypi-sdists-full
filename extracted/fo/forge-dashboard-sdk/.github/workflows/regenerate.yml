@@ -1,0 +1,124 @@
+name: Regenerate from spec
+
+on:
+  workflow_dispatch: {}
+  # Fired by forge-dashboard's openapi-dispatch.yml whenever api/openapi.yaml
+  # changes on a merge to its main. No schedule fallback: regeneration is
+  # spec-change-only, matching the hush-hush and pipeline-analytics SDK
+  # families' own trigger-only-on-spec-change fix.
+  repository_dispatch:
+    types: [openapi-spec-updated]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: regenerate-spec
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+
+      - name: Fetch the currently-pinned spec, for the oasdiff baseline
+        run: |
+          ./hack/fetch-spec.sh
+          cp openapi/openapi.yaml /tmp/before.yaml
+
+      - name: Bump the pinned spec commit to forge-dashboard's current main
+        id: bump
+        run: |
+          before=$(cat openapi/SPEC_COMMIT)
+          after=$(gh api repos/alrayyes/forge-dashboard/commits/main --jq '.sha')
+          echo "$after" > openapi/SPEC_COMMIT
+          if [ "$before" = "$after" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Fetch the spec at the bumped commit
+        if: steps.bump.outputs.changed == 'true'
+        run: ./hack/fetch-spec.sh
+
+      - name: Install oasdiff
+        if: steps.bump.outputs.changed == 'true'
+        # go install alone doesn't put it on PATH for the next step -- a
+        # plain `run:` is a fresh non-login shell each time, and this
+        # runner's preinstalled Go was never set up via actions/setup-go,
+        # which is what would normally add $(go env GOPATH)/bin itself
+        # (confirmed live on hush-hush-python#12).
+        run: |
+          go install github.com/oasdiff/oasdiff@v1.11.6
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Classify the spec change
+        if: steps.bump.outputs.changed == 'true'
+        id: classify
+        run: |
+          if oasdiff breaking /tmp/before.yaml openapi/openapi.yaml --fail-on ERR > /tmp/breaking.txt 2>&1; then
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "breaking=true" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "report<<EOF"
+            cat /tmp/breaking.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate the client
+        if: steps.bump.outputs.changed == 'true'
+        run: >-
+          uv run openapi-python-client generate --path openapi/openapi.yaml
+          --meta none --output-path src/forge_dashboard/_generated --overwrite
+
+      - name: Build the commit/PR message from oasdiff's classification
+        if: steps.bump.outputs.changed == 'true'
+        id: message
+        run: |
+          if [ "${{ steps.classify.outputs.breaking }}" = "true" ]; then
+            {
+              echo "title=fix!: regenerate client from updated forge-dashboard spec"
+              echo "body<<EOF"
+              echo "BREAKING CHANGE: forge-dashboard's spec changed in a way oasdiff classifies as breaking."
+              echo
+              echo '```'
+              echo "${{ steps.classify.outputs.report }}"
+              echo '```'
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "title=fix: regenerate client from updated forge-dashboard spec"
+              echo "body=oasdiff classifies this spec change as additive/non-breaking."
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open a pull request
+        if: steps.bump.outputs.changed == 'true'
+        # A regenerated SDK can touch every file in the repo -- real review,
+        # not the Renovate/Dependabot self-merge exception
+        # (rules/sdk-generation.md's "Regeneration in CI"). token is
+        # RELEASE_TOKEN, not GITHUB_TOKEN: a GITHUB_TOKEN-authored PR needs a
+        # human approval GitHub itself injects, and its own checks can come
+        # back completely empty rather than just failing
+        # (rules/releases.md's hush-hush-* codegen precedent).
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          commit-message: ${{ steps.message.outputs.title }}
+          title: ${{ steps.message.outputs.title }}
+          body: ${{ steps.message.outputs.body }}
+          branch: chore/regenerate-spec
+          labels: dependencies

@@ -1,0 +1,134 @@
+#include "tcp_client_socket.hpp"
+
+#include <array>
+#include <cassert>
+
+namespace sogen::network
+{
+    tcp_client_socket::tcp_client_socket(const int af)
+        : socket(af, SOCK_STREAM, IPPROTO_TCP)
+    {
+#ifdef SO_NOSIGPIPE
+        const int enabled = 1;
+        setsockopt(this->get_socket(), SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<const char*>(&enabled), sizeof(enabled));
+#endif
+    }
+
+    tcp_client_socket::tcp_client_socket(SOCKET s, const address& target)
+        : socket(s)
+    {
+        (void)target;
+        assert(this->get_target() == target);
+#ifdef SO_NOSIGPIPE
+        const int enabled = 1;
+        setsockopt(this->get_socket(), SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<const char*>(&enabled), sizeof(enabled));
+#endif
+    }
+
+    tcp_client_socket::~tcp_client_socket()
+    {
+        tcp_client_socket::close();
+    }
+
+    bool tcp_client_socket::send(const void* data, const size_t size) const
+    {
+        return this->send(std::string_view(static_cast<const char*>(data), size));
+    }
+
+    bool tcp_client_socket::send(std::string_view data) const
+    {
+        return this->send(data, std::chrono::steady_clock::time_point::max(), nullptr);
+    }
+
+    bool tcp_client_socket::send(std::string_view data, const std::chrono::steady_clock::time_point deadline,
+                                 const std::atomic_bool* stopping) const
+    {
+        while (!data.empty())
+        {
+            if ((stopping && *stopping) || std::chrono::steady_clock::now() >= deadline)
+            {
+                return false;
+            }
+#ifdef MSG_NOSIGNAL
+            constexpr int send_flags = MSG_NOSIGNAL;
+#else
+            constexpr int send_flags = 0;
+#endif
+            const auto res = ::send(this->get_socket(), data.data(), static_cast<send_size>(data.size()), send_flags);
+            if (res < 0)
+            {
+                if (GET_SOCKET_ERROR() == SERR(EINTR))
+                {
+                    continue;
+                }
+                if (GET_SOCKET_ERROR() != SERR(EWOULDBLOCK))
+                {
+                    break;
+                }
+
+                this->sleep(std::chrono::milliseconds(10), false);
+                continue;
+            }
+
+            if (res == 0 || static_cast<size_t>(res) > data.size())
+            {
+                break;
+            }
+
+            data = data.substr(res);
+        }
+
+        return data.empty();
+    }
+
+    std::optional<std::string> tcp_client_socket::receive(const std::optional<size_t> max_size)
+    {
+        std::array<char, 0x2000> buffer{};
+        const auto size = std::min(buffer.size(), max_size.value_or(buffer.size()));
+
+        const auto result = recv(this->get_socket(), buffer.data(), static_cast<int>(size), 0);
+        if (result > 0)
+        {
+            return std::string(buffer.data(), static_cast<size_t>(result));
+        }
+
+        if (result == 0 || (result < 0 && GET_SOCKET_ERROR() == SERR(ECONNRESET)))
+        {
+            this->close();
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<address> tcp_client_socket::get_target() const
+    {
+        address a{};
+        auto len = a.get_max_size();
+        if (getpeername(this->get_socket(), &a.get_addr(), &len) == SOCKET_ERROR)
+        {
+            return std::nullopt;
+        }
+
+        return a;
+    }
+
+    bool tcp_client_socket::connect(const address& target)
+    {
+        if (::connect(this->get_socket(), &target.get_addr(), target.get_size()) != SOCKET_ERROR)
+        {
+            return true;
+        }
+
+        const auto error = GET_SOCKET_ERROR();
+        return error == SERR(EWOULDBLOCK);
+    }
+
+    void tcp_client_socket::close()
+    {
+        if (*this && this->get_target())
+        {
+            ::shutdown(this->get_socket(), SHUT_RDWR);
+            socket::close();
+        }
+    }
+}

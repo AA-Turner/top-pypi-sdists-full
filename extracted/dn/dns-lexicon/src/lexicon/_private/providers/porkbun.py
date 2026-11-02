@@ -1,13 +1,12 @@
 import json
 import logging
 from argparse import ArgumentParser
-from typing import List
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from lexicon.exceptions import AuthenticationError
+from lexicon.exceptions import AuthenticationError, LexiconError
 from lexicon.interfaces import Provider as BaseProvider
 
 LOGGER = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ class Provider(BaseProvider):
     """Provider class for Porkbun"""
 
     @staticmethod
-    def get_nameservers() -> List[str]:
+    def get_nameservers() -> list[str]:
         return ["porkbun.com"]
 
     @staticmethod
@@ -33,7 +32,7 @@ class Provider(BaseProvider):
         )
 
     def __init__(self, config):
-        super(Provider, self).__init__(config)
+        super().__init__(config)
         self.api_endpoint = "https://api.porkbun.com/api/json/v3"
         self._api_key = self._get_provider_option("auth_key")
         self._secret_api_key = self._get_provider_option("auth_secret")
@@ -69,8 +68,18 @@ class Provider(BaseProvider):
             "name": self._relative_name(name),
         }
 
-        if self._get_lexicon_option("priority"):
-            data["prio"] = self._get_lexicon_option("priority")
+        priority = self._get_lexicon_option("priority")
+        # Porkbun expects the record priority in a dedicated "prio" field. For MX and
+        # SRV the RDATA arrives with the priority prefixed inline (e.g. "10 mail." or
+        # "0 5 5223 xmpp.example.com."); split it out here, otherwise Porkbun rejects
+        # the create/edit with HTTP 400 Bad Request.
+        if priority is None and rtype in ("MX", "SRV"):
+            first, _, rest = content.partition(" ")
+            if rest and first.isdigit():
+                priority = first
+                data["content"] = rest
+        if priority:
+            data["prio"] = priority
 
         if self._get_lexicon_option("ttl"):
             data["ttl"] = self._get_lexicon_option("ttl")
@@ -115,11 +124,11 @@ class Provider(BaseProvider):
             if len(records) == 1:
                 identifier = records[0]["id"]
             elif len(records) == 0:
-                raise Exception(
+                raise LexiconError(
                     "No records found matching type and name - won't update"
                 )
             else:
-                raise Exception(
+                raise LexiconError(
                     "Multiple records found matching type and name - won't update"
                 )
 
@@ -131,8 +140,18 @@ class Provider(BaseProvider):
         if self._get_lexicon_option("ttl"):
             data["ttl"] = self._get_lexicon_option("ttl")
 
-        if self._get_lexicon_option("priority"):
-            data["prio"] = self._get_lexicon_option("priority")
+        priority = self._get_lexicon_option("priority")
+        # Porkbun expects the record priority in a dedicated "prio" field. For MX and
+        # SRV the RDATA arrives with the priority prefixed inline (e.g. "10 mail." or
+        # "0 5 5223 xmpp.example.com."); split it out here, otherwise Porkbun rejects
+        # the create/edit with HTTP 400 Bad Request.
+        if priority is None and rtype in ("MX", "SRV"):
+            first, _, rest = content.partition(" ")
+            if rest and first.isdigit():
+                priority = first
+                data["content"] = rest
+        if priority:
+            data["prio"] = priority
 
         result = self._post(endpoint, data)
 

@@ -1,0 +1,40 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Cloudflare Kimi K2.6
+
+id: "cloudflare:wrk/moonshotai/kimi-k2.6"
+version: 0.0.1
+# The id this model had before 0.0.9 named its route; kept so it still resolves.
+aliases:
+  - "cloudflare:moonshotai/kimi-k2.6"
+name: Cloudflare Kimi K2.6
+description: Moonshot Kimi K2.6 on Cloudflare Workers AI - 262k context, tool calling; a frontier model billed from AI Gateway credits
+provider: cloudflare
+provider_url: "https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/"
+default: false
+available: false
+tokens_limit: 32768
+billing: credits
+route: workers-ai
+context_window: 262144
+
+# Cloudflare's per-token price, from
+# https://developers.cloudflare.com/workers-ai/platform/pricing/ (read
+# 2026-10-08). Workers AI bills neurons ($0.011 per thousand), which
+# ai-inference meters when the answer reports them; this is the same price per
+# token, for a call that reports none. Cached input is $0.16 per million
+# there.
+pricing:
+  input_usd_per_million: 0.95
+  output_usd_per_million: 4.0
+
+# Hosted through datalayer-ai-inference, which holds the Cloudflare account
+# and token and routes the call through the account's AI Gateway. Nothing is
+# required in the agent runtime environment.
+required_env_vars: []
+
+capabilities:
+  - chat
+  - tools
+  - codemode

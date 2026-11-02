@@ -1858,6 +1858,31 @@ def test_a_run_edge_keeps_its_id_and_a_paper_end_is_never_an_entity_ref(client, 
 def test_two_lineage_refs_in_one_batch_page_as_whole_json(client, app, monkeypatch):
     """Red team: the exact fit measured a single-ref page, so a full page
     overflowed a batch's row wrapper and went out as a text fragment."""
+    _assert_two_lineage_refs_page_as_whole_json(client, app, monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _seeded_uuid4(request, monkeypatch):
+    """With `seed` parametrized, uuid4 draws from a fixed stream. Autouse so it
+    is active before `client`/`app` mint their ids."""
+    seed = request.node.callspec.params.get("seed") if hasattr(request.node, "callspec") else None
+    if seed is None:
+        return
+    import random
+
+    rng = random.Random(seed)
+    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID(int=rng.getrandbits(128), version=4))
+
+
+@pytest.mark.parametrize("seed", [368])
+def test_a_batch_page_filling_the_budget_exactly_keeps_its_wrapper(seed, client, app, monkeypatch):
+    """These uuid4 streams made a page fill the budget to the token; the reserve
+    left out the batch cursor, so the row overflowed and went out as a fragment
+    (~2 runs in 3000 with random ids)."""
+    _assert_two_lineage_refs_page_as_whole_json(client, app, monkeypatch)
+
+
+def _assert_two_lineage_refs_page_as_whole_json(client, app, monkeypatch):
     from test_mcp_delivery import _bounded, _wire
 
     service, experiment_id = _swarm_service(client, app, monkeypatch, users=34)

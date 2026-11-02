@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import errno
-import io
 import os
 import sys
 from collections.abc import Callable
@@ -25,30 +24,31 @@ from stat import (
     S_ISDIR,
 )
 from typing import (
-    Any,
-    cast,
-    AnyStr,
-    TYPE_CHECKING,
     IO,
+    TYPE_CHECKING,
+    Any,
+    AnyStr,
+    cast,
 )
 
-from pyfakefs.fake_file import (
-    FakeBinaryFileWrapper,
-    FakeTextFileWrapper,
-    FakePipeWrapper,
-    FakeFileWrapper,
-    FakeFile,
-    AnyFileWrapper,
-)
 from pyfakefs import helpers
+from pyfakefs.fake_file import (
+    AnyFileWrapper,
+    FakeBinaryFileWrapper,
+    FakeFile,
+    FakeFileWrapper,
+    FakePipeWrapper,
+    FakeTextFileWrapper,
+)
 from pyfakefs.helpers import (
-    AnyString,
-    is_called_from_skipped_module,
-    is_root,
     PERM_READ,
     PERM_WRITE,
+    AnyString,
     _OpenModes,
+    is_called_from_skipped_module,
+    is_root,
     is_unfaked_path,
+    matching_string,
 )
 
 if TYPE_CHECKING:
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
 
 
 # Work around pyupgrade auto-rewriting `io.open()` to `open()`.
-io_open = io.open
+io_open = open
 
 _OPEN_MODE_MAP = {
     # mode name:(file must exist, can read, can write,
@@ -340,9 +340,8 @@ class FakeFileOpen:
                 )
             ):
                 self.filesystem.raise_os_error(errno.EACCES, file_path)
-            if open_modes.can_write:
-                if open_modes.truncate:
-                    file_object.set_contents("")
+            if open_modes.can_write and open_modes.truncate:
+                file_object.set_contents("")
         else:
             if open_modes.must_exist:
                 self.filesystem.raise_os_error(errno.ENOENT, file_path)
@@ -398,7 +397,7 @@ class FakeFileOpen:
 
         # open a file by path
         file_path = cast(AnyStr, file_)  # pytype: disable=invalid-annotation
-        if file_path == self.filesystem.dev_null.name:
+        if file_path == matching_string(file_path, self.filesystem.dev_null.name):
             file_object = self.filesystem.dev_null
             real_path = file_path
         else:
@@ -425,7 +424,7 @@ class FakeFileOpen:
         mode = mode.replace("rU", "r").replace("U", "r")
         if not self.raw_io:
             if mode not in _OPEN_MODE_MAP:
-                raise ValueError("Invalid mode: %r" % orig_modes)
+                raise ValueError(f"Invalid mode: {orig_modes}")
             open_modes = _OpenModes(*_OPEN_MODE_MAP[mode])
         assert open_modes is not None
         return newline, open_modes

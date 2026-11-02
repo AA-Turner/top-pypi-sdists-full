@@ -1,0 +1,1263 @@
+"""Reasoning-ready context packs — the optional assembled return of `find(pack=true)`.
+
+`find` normally returns ranked hit *excerpts*; to reason over them a caller then fans out
+`get` calls, chases wikilinks by hand, and has no view of contradictions among the hits.
+This module assembles, in one pass over the top hits, a **context pack**: each note's key
+claims, bounded citable semantic units, the 1-hop wikilink neighbourhood of those notes,
+and the contradictions / supersessions among them.
+
+It is PURE ASSEMBLY (measurement), mirroring `attention.py`:
+- "Key claims" are extracted STRUCTURALLY from the note's own markdown (lede, recognized
+  headline-section lines, the `##` outline) — never generated or summarized by a model.
+- Compact and rich semantic units come from the same parent snapshot and canonical parser,
+  grouped under bounded provenance/lifecycle context. Selected unit hits are packed first.
+- The neighbourhood reuses `find`'s outbound-link resolution + `vault`'s inbound search.
+- Contradictions are recorded supersession edges (frontmatter) plus proximity "tension"
+  pairs whose cosine sits in the existing `[floor, dup)` band, computed from the packed
+  pages' stored sidecar vectors (`corpus_aware.pairwise_best_cosine_from_sidecar`), never
+  by re-encoding them — proximity, not polarity; the reader decides.
+
+Nothing is mutated, no generative/reasoning model runs, and `find` ordering is untouched.
+The tension part soft-fails to empty (`embeddings_available: false`) when the embedding
+sidecar is disabled or unimportable, so the rest of the pack still assembles. Every cap
+that drops content is reported in `truncation` — never a silent truncation.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, NamedTuple
+
+from . import (
+    contradiction_stance,
+    corpus_aware,
+    epistemic_graph,
+    find_corpus,
+    find_results,
+    provenance,
+    recall_policy,
+    recall_space,
+    semantic_index,
+    semantic_units,
+)
+from . import find as find_module
+from . import vault as vault_module
+from .find_types import Hit, ParsedPage, SemanticUnitHit
+
+#: The clock the deadline check reads, named so a test can substitute one.
+_monotonic = time.monotonic
+
+#: Appended to a pack's `truncation` when the request deadline ended assembly
+#: early. A named constant rather than a phrase the caller has to match: the
+#: recall path reads it back to decide whether to name `pack` as truncated.
+DEADLINE_TRUNCATION = "pack assembly stopped at the request deadline"
+GRAPH_ENRICH_BUDGET_SKIP = "graph enrichment skipped for the request budget"
+INBOUND_INCOMPLETE_TRUNCATION = (
+    "inbound neighbours incomplete: the link index is being refreshed in the background"
+)
+OUTBOUND_INCOMPLETE_TRUNCATION = (
+    "outbound neighbours incomplete: the link resolver is being refreshed in the background"
+)
+
+# --- bounds (env-overridable at call time so tests can monkeypatch) ---
+_DEFAULT_MAX_HITS = 5
+_DEFAULT_MAX_NEIGHBORS = 10
+_DEFAULT_MAX_TENSION = 10
+_DEFAULT_CLAIM_CHARS = 280
+_DEFAULT_MAX_UNITS_PER_PAGE = 8
+_DEFAULT_MAX_UNITS = 24
+_DEFAULT_UNIT_CHARS = 360
+_DEFAULT_MAX_UNIT_TOTAL_CHARS = 12_000
+
+_MAX_UNIT_TAGS = 16
+_MAX_UNIT_TAG_CHARS = 64
+_MAX_UNIT_CONTEXT_CHARS = 240
+_MAX_UNIT_RELATIONS = 8
+_MAX_UNIT_RELATION_TARGET_CHARS = 240
+_MAX_UNIT_RELATION_RAW_CHARS = 320
+_MAX_PARENT_PROVENANCE = 8
+_MAX_PARENT_PROVENANCE_CHARS = 240
+_MAX_LEGACY_METADATA = 8
+_MAX_LEGACY_METADATA_KEY_CHARS = 64
+_MAX_LEGACY_METADATA_VALUE_CHARS = 160
+
+# Per-note claim shaping — small, fixed (claims are inherently bounded by note structure).
+_SECTION_MAX_LINES = 3
+_SECTION_CHARS = 200
+_MAX_SECTIONS = 8
+_MAX_OUTLINE = 16
+_NEIGHBOR_LEDE_CHARS = 160
+
+# Headline sections whose lead line is a high-signal "claim". Matched case-insensitively
+# against the heading text (trailing colon stripped). Connections/See-also are links, not
+# claims, so they are deliberately absent.
+RECOGNIZED_SECTIONS: frozenset[str] = frozenset(
+    {
+        "summary",
+        "problem",
+        "conclusion",
+        "decision",
+        "pattern",
+        "hypothesis",
+        "result",
+        "results",
+        "insight",
+        "tl;dr",
+        "tldr",
+        "takeaway",
+        "why",
+        "finding",
+        "findings",
+        "claim",
+        "claims",
+    }
+)
+
+_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+_H1_RE = re.compile(r"^#\s+")  # level-1 (the title line in body)
+_H2_RE = re.compile(r"^##\s+(.*)$")  # level-2 only (the outline skeleton)
+_HEADING_RE = re.compile(r"^(#{2,6})\s+(.*)$")  # level 2-6 (recognized-section scan)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s")
+
+
+# ----------------------------- small text utils -----------------------------
+
+
+def _resolve_cap(value: int | None, env: str, default: int) -> int:
+    if value is not None:
+        return value
+    raw = os.environ.get(env)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _collapse(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _cap(text: str, n: int, *, whole: bool = False) -> str:
+    """`text` cut to `n` characters, with a marker.
+
+    `whole` withholds a value that would be cut (returns ""), for a page under a release strip: a
+    cut can end inside a link or path to a stripped source, and the strip then no longer recognises
+    the fragment.
+    """
+    text = text.strip()
+    if n <= 0:
+        return ""
+    if len(text) <= n:
+        return text
+    if whole:
+        return ""
+    return text[:n].rstrip() + "…"
+
+
+def _strip_fences(body: str) -> list[str]:
+    """Body lines with fenced code blocks removed (a `#`/`[[ ]]` inside a fence is not a
+    heading/link). Mirrors the fence-awareness of `vault.find_body_wikilinks`."""
+    out: list[str] = []
+    in_fence = False
+    for line in body.splitlines():
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            out.append(line)
+    return out
+
+
+def _first_sentence(text: str) -> str:
+    text = _collapse(text)
+    if not text:
+        return ""
+    return _SENTENCE_SPLIT.split(text, maxsplit=1)[0]
+
+
+# ----------------------------- claim extraction -----------------------------
+
+
+def _lede(lines: list[str]) -> str:
+    """The first content paragraph (collapsed), skipping leading blanks + the H1 title."""
+    i, n = 0, len(lines)
+    while i < n and not lines[i].strip():
+        i += 1
+    if i < n and _H1_RE.match(lines[i].lstrip()):
+        i += 1
+        while i < n and not lines[i].strip():
+            i += 1
+    buf: list[str] = []
+    while i < n:
+        stripped = lines[i].lstrip()
+        if not stripped.strip():
+            break
+        if _HEADING_RE.match(stripped) or _H1_RE.match(stripped):
+            break
+        buf.append(stripped.lstrip("-*+ ").strip())
+        i += 1
+    return _collapse(" ".join(buf))
+
+
+def _sections(lines: list[str], *, whole: bool = False) -> list[str]:
+    """`"Heading: lead text"` for each recognized headline section, in document order."""
+    out: list[str] = []
+    i, n = 0, len(lines)
+    while i < n:
+        m = _HEADING_RE.match(lines[i].lstrip())
+        if not m:
+            i += 1
+            continue
+        heading = m.group(2).strip()
+        key = heading.lower().strip().rstrip(":").strip()
+        i += 1
+        if key not in RECOGNIZED_SECTIONS:
+            continue
+        while i < n and not lines[i].strip():
+            i += 1
+        buf: list[str] = []
+        while i < n and len(buf) < _SECTION_MAX_LINES:
+            stripped = lines[i].lstrip()
+            if not stripped.strip() or _HEADING_RE.match(stripped):
+                break
+            buf.append(stripped.lstrip("-*+ ").strip())
+            i += 1
+        text = _cap(_collapse(" ".join(buf)), _SECTION_CHARS, whole=whole)
+        if text:
+            out.append(f"{heading}: {text}")
+        if len(out) >= _MAX_SECTIONS:
+            break
+    return out
+
+
+def _outline(lines: list[str]) -> list[str]:
+    out: list[str] = []
+    for line in lines:
+        m = _H2_RE.match(line.lstrip())
+        if m:
+            out.append(m.group(1).strip())
+            if len(out) >= _MAX_OUTLINE:
+                break
+    return out
+
+
+def _extract_claims(
+    page: ParsedPage, *, claim_chars: int = _DEFAULT_CLAIM_CHARS, whole: bool = False
+) -> dict:
+    # Packs serve every audience: a carrier pushed into code is withheld too.
+    lines = _strip_fences(provenance.withheld_prose(page.body, owner_path=page.rel_path))
+    return {
+        "title": page.title,
+        "type": page.page_type,
+        "lede": _cap(_lede(lines), claim_chars, whole=whole),
+        "sections": _sections(lines, whole=whole),
+        "outline": _outline(lines),
+    }
+
+
+def _hit_parent_path(hit: Hit | SemanticUnitHit) -> str:
+    return hit.parent_path if isinstance(hit, SemanticUnitHit) else hit.path
+
+
+def _selected_unit_refs(hit: Hit | SemanticUnitHit) -> list[str]:
+    if isinstance(hit, SemanticUnitHit):
+        return [hit.unit_ref]
+    return [
+        str(item["unit_ref"])
+        for item in (hit.matched_units or [])
+        if item.get("unit_ref")
+    ]
+
+
+def _load_parent_snapshot(
+    vault_root: Path,
+    rel_path: str,
+) -> tuple[ParsedPage, semantic_index.SemanticParentIndexState] | None:
+    """Read one parent once, then derive page and semantic state from those bytes."""
+    if not recall_policy.is_recall_candidate(vault_root, vault_root / rel_path):
+        return None
+    try:
+        root = vault_root.resolve()
+        path = (root / rel_path).resolve()
+        path.relative_to(root)
+        content = path.read_bytes()
+        mtime = path.stat().st_mtime
+        source = content.decode("utf-8")
+    except (FileNotFoundError, OSError, UnicodeError, ValueError):
+        return None
+    page = find_corpus.parse_page(path, mtime, root, content=content)
+    if page is None:
+        return None
+    try:
+        state = semantic_index.selected_parent_index_state(root, path, source=source)
+    except (OSError, UnicodeError, ValueError):
+        return None
+    return page, state
+
+
+def _bounded_values(
+    value: Any, *, limit: int, chars: int, whole: bool = False
+) -> tuple[list[str], int]:
+    if value is None:
+        values: list[Any] = []
+    elif isinstance(value, list):
+        values = value
+    else:
+        values = [value]
+    window = values[: max(0, limit)]
+    shown = [_cap(str(item), chars, whole=whole) for item in window]
+    if whole:
+        # A withheld value is not shown, so it is counted once, with the values past the limit.
+        shown = [text for text in shown if text]
+    clipped = 0 if whole else sum(len(str(item).strip()) > chars for item in window)
+    return shown, max(0, len(values) - len(shown)) + clipped
+
+
+def _lifecycle_links(values: list[str], *, whole: bool) -> list[str]:
+    shown = [
+        _cap(value, _MAX_PARENT_PROVENANCE_CHARS, whole=whole)
+        for value in values[:_MAX_PARENT_PROVENANCE]
+    ]
+    return [text for text in shown if text] if whole else shown
+
+
+def _parent_context(
+    page: ParsedPage, parent_ref: str | None, *, whole: bool = False
+) -> tuple[dict, int]:
+    sources, dropped_sources = _bounded_values(
+        page.frontmatter.get("sources"),
+        limit=_MAX_PARENT_PROVENANCE,
+        chars=_MAX_PARENT_PROVENANCE_CHARS,
+        whole=whole,
+    )
+    evidence_values: list[Any] = []
+    for key in ("evidence", "evidence_file"):
+        value = page.frontmatter.get(key)
+        if isinstance(value, list):
+            evidence_values.extend(value)
+        elif value is not None:
+            evidence_values.append(value)
+    evidence, dropped_evidence = _bounded_values(
+        evidence_values,
+        limit=_MAX_PARENT_PROVENANCE,
+        chars=_MAX_PARENT_PROVENANCE_CHARS,
+        whole=whole,
+    )
+    supersedes = _lifecycle_links(page.supersedes, whole=whole)
+    superseded_by = _lifecycle_links(page.superseded_by, whole=whole)
+    return (
+        {
+            "path": page.rel_path,
+            "ref": parent_ref,
+            "title": _cap(page.title, _MAX_PARENT_PROVENANCE_CHARS, whole=whole),
+            "type": _cap(page.page_type, 64) if page.page_type else None,
+            "status": _cap(page.status or "active", 64),
+            "updated": _cap(page.updated, 64),
+            "supersedes": supersedes,
+            "superseded_by": superseded_by,
+            "sources": sources,
+            "evidence": evidence,
+        },
+        dropped_sources
+        + dropped_evidence
+        + max(0, len(page.supersedes) - len(supersedes))
+        + max(0, len(page.superseded_by) - len(superseded_by)),
+    )
+
+
+def _shown_relations(
+    unit: semantic_units.SemanticUnit, *, whole: bool
+) -> list[semantic_units.SemanticRelation]:
+    """The authored relations a pack shows: within the count bound and, under a release strip, uncut."""
+    return [
+        relation
+        for relation in unit.relations[:_MAX_UNIT_RELATIONS]
+        if not (
+            whole
+            and (
+                len(relation.target.strip()) > _MAX_UNIT_RELATION_TARGET_CHARS
+                or len(relation.raw.strip()) > _MAX_UNIT_RELATION_RAW_CHARS
+            )
+        )
+    ]
+
+
+def _pack_unit(
+    unit: semantic_units.SemanticUnit,
+    *,
+    unit_chars: int,
+    whole: bool = False,
+) -> tuple[dict, int]:
+    shown_relations = _shown_relations(unit, whole=whole)
+    relations: list[dict] = []
+    for relation in shown_relations:
+        relations.append(
+            {
+                "kind": relation.kind,
+                "target": _cap(relation.target, _MAX_UNIT_RELATION_TARGET_CHARS),
+                "line": relation.line,
+                "origin": "authored_rich_unit",
+                "direction": "outbound",
+                "source_anchor": unit.anchor,
+            }
+        )
+    tags = [_cap(tag, _MAX_UNIT_TAG_CHARS) for tag in unit.tags[:_MAX_UNIT_TAGS]]
+    clipped_fields = int(len(unit.content.strip()) > max(0, unit_chars))
+    if unit.context:
+        clipped_fields += int(
+            len(unit.context.strip()) > _MAX_UNIT_CONTEXT_CHARS
+        )
+    clipped_fields += sum(
+        len(str(tag).strip()) > _MAX_UNIT_TAG_CHARS for tag in unit.tags[:_MAX_UNIT_TAGS]
+    )
+    clipped_fields += sum(
+        len(relation.target.strip()) > _MAX_UNIT_RELATION_TARGET_CHARS
+        for relation in shown_relations
+    )
+    return (
+        {
+            "unit_ref": unit.unit_ref,
+            "fingerprint": unit.fingerprint,
+            "verdict": unit.verdict,
+            "check_by": unit.check_by,
+            "form": unit.form,
+            "category_raw": unit.category_raw,
+            "category_key": unit.category_key,
+            "category": unit.category,
+            "kind": unit.kind,
+            "excerpt": _cap(unit.content, max(0, unit_chars), whole=whole),
+            "tags": tags,
+            "context": (_cap(unit.context, _MAX_UNIT_CONTEXT_CHARS, whole=whole) or None)
+            if unit.context
+            else None,
+            "source_anchor": unit.anchor,
+            "source_span": {
+                "start_line": unit.span.start_line,
+                "start_column": unit.span.start_column,
+                "end_line": unit.span.end_line,
+                "end_column": unit.span.end_column,
+                "start_offset": unit.span.start_offset,
+                "end_offset": unit.span.end_offset,
+            },
+            "source_hash": unit.source_hash,
+            "relations": relations,
+        },
+        max(0, len(unit.tags) - len(tags))
+        + max(0, len(unit.relations) - len(relations))
+        + clipped_fields,
+    )
+
+
+def _bounded_legacy_metadata(
+    unit: semantic_units.SemanticUnit, *, whole: bool = False
+) -> tuple[dict[str, str], int]:
+    items = list(unit.metadata.items())
+    window = items[:_MAX_LEGACY_METADATA]
+    cut = [
+        len(str(key).strip()) > _MAX_LEGACY_METADATA_KEY_CHARS
+        or len(str(value).strip()) > _MAX_LEGACY_METADATA_VALUE_CHARS
+        for key, value in window
+    ]
+    shown = {
+        _cap(str(key), _MAX_LEGACY_METADATA_KEY_CHARS): _cap(
+            str(value), _MAX_LEGACY_METADATA_VALUE_CHARS
+        )
+        for (key, value), was_cut in zip(window, cut, strict=True)
+        if not (whole and was_cut)
+    }
+    return shown, max(0, len(items) - len(shown)) + (0 if whole else sum(cut))
+
+
+def _legacy_block_from_packed_unit(
+    unit: semantic_units.SemanticUnit,
+    packed: dict,
+    *,
+    whole: bool = False,
+) -> tuple[dict | None, int]:
+    if unit.form != "rich":
+        return None, 0
+    metadata, dropped = _bounded_legacy_metadata(unit, whole=whole)
+    relations: list[dict[str, Any]] = []
+    for authored, relation in zip(
+        _shown_relations(unit, whole=whole),
+        packed["relations"],
+        strict=True,
+    ):
+        relations.append(
+            {
+                "kind": relation["kind"],
+                "target": relation["target"],
+                "raw": _cap(authored.raw, _MAX_UNIT_RELATION_RAW_CHARS),
+                "line": relation["line"],
+            }
+        )
+        dropped += int(len(authored.raw.strip()) > _MAX_UNIT_RELATION_RAW_CHARS)
+    out: dict[str, Any] = {
+        "type": unit.kind,
+        "title": (_cap(unit.title, 160, whole=whole) or None) if unit.title else None,
+        "level": unit.level,
+        "line": packed["source_span"]["start_line"],
+        "end_line": packed["source_span"]["end_line"],
+        "body": packed["excerpt"],
+        "metadata": metadata,
+        "relations": relations,
+    }
+    if unit.anchor:
+        out["id"] = unit.anchor
+    return out, dropped
+
+
+@dataclass
+class _UnitPackPlan:
+    page: ParsedPage
+    parent: dict[str, Any]
+    selected: list[tuple[int, int, semantic_units.SemanticUnit]]
+    fillers: list[semantic_units.SemanticUnit]
+    dropped_provenance: int = 0
+    #: The page is under a release strip: a value that would be cut is withheld instead.
+    whole: bool = False
+    packed_units: list[dict[str, Any]] = field(default_factory=list)
+    legacy_blocks: list[dict[str, Any]] = field(default_factory=list)
+    chosen_units: list[tuple[semantic_units.SemanticUnit, dict[str, Any]]] = field(
+        default_factory=list
+    )
+    omitted_reasons: set[str] = field(default_factory=set)
+    dropped_fields: int = 0
+
+
+# ----------------------------- neighbourhood -----------------------------
+
+
+def _neighborhood(
+    vault_root: Path,
+    packed_pages: list[ParsedPage],
+    max_neighbors: int,
+    *,
+    under_strip: Callable[[str], bool],
+) -> tuple[list[dict], int, list[str]]:
+    """1-hop inbound+outbound wikilink neighbours of the packed notes, packed notes
+    excluded, ranked by co-citation (distinct packed notes linked), capped.
+    The third value names each side whose neighbours are unknown (empty when none).
+
+    For a reader other than the owner, links resolve over the pages it may see
+    and a neighbour it may not see is decided before ranking and the cap.
+
+    A server request never builds the inbound index or the link resolver: it
+    borrows the published ones, and on a miss leaves that side's neighbours out
+    and records demand for the background owner. A stale edge costs nothing here,
+    because every neighbour is re-checked live below and no link context leaves
+    this function.
+    """
+    from .governance import egress
+
+    visible = egress.visible_page_filter(vault_root)
+    packed_canon = {corpus_aware._canon(p.rel_path) for p in packed_pages}
+    # canon -> {"path", "directions": set, "referenced_by": set}
+    neigh: dict[str, dict] = {}
+
+    def _touch(target_path: str, packed_rel: str, direction: str) -> None:
+        if not recall_policy.is_recall_candidate(vault_root, vault_root / target_path):
+            return
+        if visible is not None and not visible(target_path):
+            return
+        canon = corpus_aware._canon(target_path)
+        if canon in packed_canon:
+            return
+        entry = neigh.setdefault(
+            canon, {"path": target_path, "directions": set(), "referenced_by": set()}
+        )
+        entry["directions"].add(direction)
+        entry["referenced_by"].add(packed_rel)
+
+    # The owner's calls are made exactly as before.
+    view: dict = {} if visible is None else {"visible": visible}
+    # Without a watcher owner (an offline caller) nothing would recover the
+    # index or the resolver, so that caller keeps the synchronous lookups.
+    borrow = vault_module.inbound_recovery_available(vault_root)
+    resolver = find_module.borrow_query_resolver(vault_root, **view) if borrow else None
+    incomplete: list[str] = []
+    for page in packed_pages:
+        if borrow and resolver is None:
+            if OUTBOUND_INCOMPLETE_TRUNCATION not in incomplete:
+                incomplete.append(OUTBOUND_INCOMPLETE_TRUNCATION)
+        else:
+            for target in find_module._outbound_wikilink_paths(
+                page, vault_root, resolver, **view
+            ):
+                _touch(target, page.rel_path, "out")
+        inbound = (
+            vault_module.cached_inbound_wikilinks(vault_root, page.rel_path, **view)
+            if borrow
+            else vault_module.find_inbound_wikilinks(vault_root, page.rel_path, **view)
+        )
+        if inbound is None:
+            if INBOUND_INCOMPLETE_TRUNCATION not in incomplete:
+                incomplete.append(INBOUND_INCOMPLETE_TRUNCATION)
+            continue
+        for link in inbound:
+            _touch(link.path, page.rel_path, "in")
+    if INBOUND_INCOMPLETE_TRUNCATION in incomplete and vault_module.inbound_rebuild_needed(
+        vault_root
+    ):
+        find_module.schedule_inbound_rebuild(vault_root)
+
+    items = sorted(
+        neigh.values(),
+        key=lambda e: (-len(e["referenced_by"]), -len(e["directions"]), e["path"]),
+    )
+    shown = items[:max_neighbors] if max_neighbors > 0 else items
+    dropped = len(items) - len(shown)
+
+    out: list[dict] = []
+    for entry in shown:
+        if not recall_policy.is_recall_candidate(vault_root, vault_root / entry["path"]):
+            continue
+        page = find_module._CACHE.get(vault_root / entry["path"], vault_root)
+        directions = entry["directions"]
+        direction = "both" if len(directions) > 1 else next(iter(directions))
+        lede = ""
+        if page:
+            paragraph = _lede(
+                _strip_fences(provenance.withheld_prose(page.body, owner_path=page.rel_path))
+            )
+            # The sentence split ends a lede wherever a full stop falls, even inside a link, so a
+            # neighbour under a release strip shows its whole first paragraph or nothing.
+            lede = (
+                _cap(paragraph, _NEIGHBOR_LEDE_CHARS, whole=True)
+                if under_strip(entry["path"])
+                else _cap(_first_sentence(paragraph), _NEIGHBOR_LEDE_CHARS)
+            )
+        out.append(
+            {
+                "path": entry["path"],
+                "title": page.title
+                if page
+                else entry["path"].rsplit("/", 1)[-1].removesuffix(".md"),
+                "type": page.page_type if page else None,
+                "direction": direction,
+                "referenced_by": sorted(entry["referenced_by"]),
+                "lede": lede,
+            }
+        )
+    return out, dropped, incomplete
+
+
+# ----------------------------- contradictions -----------------------------
+
+
+def _wikilink_target(raw: str) -> str:
+    t = raw.strip()
+    if t.startswith("[[") and t.endswith("]]"):
+        t = t[2:-2]
+    return t.split("|", 1)[0].split("#", 1)[0].strip()
+
+
+def _supersession_edges(packed_pages: list[ParsedPage]) -> list[dict]:
+    """Recorded supersession edges among the set, read straight from frontmatter."""
+    by_canon = {corpus_aware._canon(p.rel_path): p.rel_path for p in packed_pages}
+    edges: list[dict] = []
+    for page in packed_pages:
+        for raw in page.superseded_by:
+            canon = corpus_aware._canon(_wikilink_target(raw))
+            if canon in by_canon and by_canon[canon] != page.rel_path:
+                edges.append({"from": page.rel_path, "to": by_canon[canon], "kind": "supersession"})
+    return edges
+
+
+def _asserted_tension(
+    vault_root: Path, by_canon: dict[str, str]
+) -> tuple[list[dict], set[frozenset[str]]]:
+    """Authored `contradicts` pairs among the packed notes, plus their canon keys.
+
+    An authored edge is the author's own stance, not a measurement, so it carries no
+    cosine and needs no sidecar — an embeddings-off pack still shows it. Labelling it
+    is the point: a reader must be able to tell "you said these conflict" from "these
+    sit close in vector space".
+    """
+    pairs: list[dict] = []
+    keys: set[frozenset[str]] = set()
+    if len(by_canon) < 2:
+        return pairs, keys  # no pair is possible — don't touch the graph at all
+    for a, b in contradiction_stance.asserted_pairs(vault_root):
+        canon_a, canon_b = corpus_aware._canon(a), corpus_aware._canon(b)
+        if canon_a not in by_canon or canon_b not in by_canon:
+            continue
+        keys.add(frozenset((canon_a, canon_b)))
+        left, right = sorted((by_canon[canon_a], by_canon[canon_b]))
+        pairs.append(
+            {
+                "a": left,
+                "b": right,
+                "cosine": None,
+                "provenance": "asserted",
+                "note": "authored `contradicts` edge — asserted, not measured",
+            }
+        )
+    pairs.sort(key=lambda d: (d["a"], d["b"]))
+    return pairs, keys
+
+
+def _published_chunks_if_current(vault_root: Path, page: ParsedPage) -> list[str]:
+    """The chunking the embedding pass published for `page`, if it is this file's.
+
+    For a timed media transcript the chunking IS the semantic segmenter's
+    output, and deriving it again encodes: measured 2026-09-18 on the personal
+    service, 837 to 981 texts and 80 to 110 s of `embeddings.encode` inside
+    `recall.pack` on every deep recall that packed one video page. The pass
+    that published the page's rows cut them from the same bytes and stamped
+    them with the file's mtime, so a row mtime equal to the page's mtime is the
+    same generation, and its stored texts are the page's chunking without an
+    encode. Rows older than the file belong to another generation: the page
+    contributes no proximity pair this time, and the caller reports it.
+    """
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return []
+    from . import embeddings as embeddings_module
+
+    chunks, stored_mtime = embeddings_module.get_embedding_index(vault_root).stored_chunks_for(
+        page.rel_path
+    )
+    if not chunks or stored_mtime is None:
+        return []
+    # rel_tol=0.0 is load-bearing: `math.isclose`'s default relative tolerance
+    # is 1e-9, and at epoch magnitudes (1.8e9 s) that is ~1.8 s, wide enough to
+    # take a double-save's previous generation as current. The writers stamp
+    # the row from the same `st_mtime` the page carries, bit for bit, so only
+    # float round-trip slack is allowed.
+    if not math.isclose(stored_mtime, float(page.mtime), rel_tol=0.0, abs_tol=1e-6):
+        return []
+    return chunks
+
+
+class _Tension(NamedTuple):
+    """What `_tension_pairs` measured, and what it could not."""
+
+    pairs: list[dict]
+    dropped: int
+    embeddings_available: bool
+    uncovered: int
+    matrix_loading: bool
+
+
+def _tension_pairs(
+    vault_root: Path, packed_pages: list[ParsedPage], max_tension: int
+) -> _Tension:
+    """Tension pairs AMONG the packed notes: authored `contradicts` edges first, then
+    proximity pairs whose pairwise cosine lands in the contradiction band. The proximity
+    half reads the packed pages' stored vectors from the embedding sidecar and encodes
+    nothing; soft-fails to empty when off.
+
+    `embeddings_available` is True iff at least one packed page had exact stored rows AND
+    the band is active; an inverted/disabled band (floor >= ceiling) reports it False — the
+    band is off, so no proximity tension can be measured regardless of the sidecar.
+    Asserted pairs are independent of it and are surfaced either way.
+
+    `uncovered` counts packed pages that had no exact rows while others did (their
+    embedding not yet landed, or the page moved since): they contributed no proximity
+    pair this time, and the caller reports that rather than leaving it silent.
+
+    `matrix_loading` is True when a managed service's corpus matrix was still loading,
+    so no proximity pair could be read; the caller reports that too.
+
+    A pair that is both authored and in band appears once, as asserted."""
+    floor = corpus_aware._contradiction_floor()
+    ceiling = corpus_aware._dup_threshold()
+    by_canon = {corpus_aware._canon(p.rel_path): p.rel_path for p in packed_pages}
+    asserted, asserted_keys = _asserted_tension(vault_root, by_canon)
+    pair_best: dict[frozenset[str], float] = {}
+    embeddings_available = False
+
+    uncovered = 0
+    matrix_loading = False
+    if floor < ceiling:
+        # Proximity among the packed pages comes from the vectors the embedding
+        # pass already published for them, never from re-encoding their bodies:
+        # on a large vault that encode was most of a recall's wall time. A page
+        # whose rows are not yet exact (embedding deferred, or moved since) just
+        # contributes no pairs this time, and the caller says so in `truncation`.
+        from . import embeddings as embeddings_module
+
+        chunked: list[tuple[str, list[str]]] = []
+        for page in packed_pages:
+            try:
+                chunks = embeddings_module._chunks_for_page(vault_root, page, allow_encode=False)
+                if chunks is None:
+                    chunks = _published_chunks_if_current(vault_root, page)
+            except Exception:  # noqa: BLE001 -- chunking is best-effort here
+                chunks = []
+            chunked.append((page.rel_path, chunks))
+        try:
+            scores, covered = corpus_aware.pairwise_best_cosine_from_sidecar(vault_root, chunked)
+        except recall_space.CorpusMatrixCold:
+            scores, covered, matrix_loading = {}, set(), True
+        embeddings_available = bool(covered)
+        if covered:
+            uncovered = sum(1 for rel, _chunks in chunked if rel not in covered)
+        for pair, score in scores.items():
+            first, second = tuple(pair)
+            canon_a = corpus_aware._canon(first)
+            canon_b = corpus_aware._canon(second)
+            if canon_a == canon_b or canon_a not in by_canon or canon_b not in by_canon:
+                continue
+            if not (floor <= score < ceiling):
+                continue
+            key = frozenset((canon_a, canon_b))
+            if key in asserted_keys:
+                continue  # the authored edge owns this pair
+            if key not in pair_best or score > pair_best[key]:
+                pair_best[key] = score
+
+    proximity: list[dict] = []
+    for key, score in pair_best.items():
+        a, b = sorted(key)
+        proximity.append(
+            {
+                "a": by_canon[a],
+                "b": by_canon[b],
+                "cosine": round(float(score), 4),
+                "provenance": "proximity",
+                "note": "proximity, not polarity — reader decides",
+            }
+        )
+    proximity.sort(key=lambda d: (-d["cosine"], d["a"], d["b"]))
+    pairs = asserted + proximity
+    shown = pairs[:max_tension] if max_tension > 0 else pairs
+    dropped = len(pairs) - len(shown)
+    return _Tension(shown, dropped, embeddings_available, uncovered, matrix_loading)
+
+
+# ----------------------------- assembly -----------------------------
+
+
+def assemble_pack(
+    vault_root: Path,
+    hits: list[Hit | SemanticUnitHit],
+    *,
+    max_hits: int | None = None,
+    max_neighbors: int | None = None,
+    max_tension: int | None = None,
+    max_units_per_page: int | None = None,
+    max_units: int | None = None,
+    unit_chars: int | None = None,
+    max_unit_total_chars: int | None = None,
+    graph_enrich: bool = False,
+    deadline: float | None = None,
+    graph_enrich_reserve_seconds: float = 0.0,
+    timings: find_module.FindTimings | None = None,
+    purpose: str | None = None,
+    strip_for: Callable[[str], tuple[Any, ...]] | None = None,
+) -> dict:
+    """Assemble a reasoning-ready context pack over the top `hits`. Pure measurement.
+
+    Returns ``{packed_paths, claims, semantic_units, semantic_blocks, neighborhood,
+    contradictions, embeddings_available, truncation}``. Reads note content,
+    frontmatter, wikilinks, and precomputed sidecar embeddings only — no mutation,
+    no generative model, `find` ordering untouched.
+
+    `deadline` is a `time.monotonic` instant past which no further parent is
+    packed; what was packed stays a prefix of the full pack, in `find` order,
+    and `truncation` names `DEADLINE_TRUNCATION`. Reporting stays the caller's
+    job so this function keeps no side effect of its own.
+
+    `strip_for` is the request's `egress.release_strip_resolver`, which `annotate_pack` must share so both
+    decide a page once; without one this builds its own.
+    """
+    max_hits = _resolve_cap(max_hits, "EXOMEM_PACK_MAX_HITS", _DEFAULT_MAX_HITS)
+    max_neighbors = _resolve_cap(max_neighbors, "EXOMEM_PACK_MAX_NEIGHBORS", _DEFAULT_MAX_NEIGHBORS)
+    max_tension = _resolve_cap(max_tension, "EXOMEM_PACK_MAX_TENSION", _DEFAULT_MAX_TENSION)
+    claim_chars = _resolve_cap(None, "EXOMEM_PACK_CLAIM_CHARS", _DEFAULT_CLAIM_CHARS)
+    max_units_per_page = max(
+        0,
+        _resolve_cap(
+            max_units_per_page,
+            "EXOMEM_PACK_MAX_UNITS_PER_PAGE",
+            _DEFAULT_MAX_UNITS_PER_PAGE,
+        ),
+    )
+    max_units = max(
+        0,
+        _resolve_cap(max_units, "EXOMEM_PACK_MAX_UNITS", _DEFAULT_MAX_UNITS),
+    )
+    unit_chars = max(
+        0,
+        _resolve_cap(unit_chars, "EXOMEM_PACK_UNIT_CHARS", _DEFAULT_UNIT_CHARS),
+    )
+    max_unit_total_chars = max(
+        0,
+        _resolve_cap(
+            max_unit_total_chars,
+            "EXOMEM_PACK_MAX_UNIT_TOTAL_CHARS",
+            _DEFAULT_MAX_UNIT_TOTAL_CHARS,
+        ),
+    )
+
+    truncation: list[str] = []
+    from . import unit_corrections, working_set
+    from .governance import egress
+
+    original_paths = {_hit_parent_path(hit) for hit in hits}
+    # A released bridge page strips its dependencies' identities from what the caller receives, and
+    # the strip sees only whole identities, so every value of such a page that would be cut is
+    # withheld whole. Each page's own release decision says so, for every page this pack builds text
+    # from (hit, correction counterpart and neighbour); `annotate_pack` asks the same by page path.
+    if strip_for is None:
+        strip_for = egress.release_strip_resolver(vault_root, purpose=purpose)
+
+    def under_strip(rel_path: str) -> bool:
+        return bool(strip_for(rel_path))
+
+    parent_reads = find_module.UnitParentReads()
+    references = tuple(reference for hit in hits for reference in _selected_unit_refs(hit))
+    visible = unit_corrections.reader_view(vault_root, purpose) if references else None
+    tentative: dict[str, SemanticUnitHit] = {}
+    projected_bundles: dict[str, dict[str, Any]] = {}
+    projected_drops: dict[str, int] = {}
+
+    def admit_counterpart(candidate: dict[str, Any]) -> bool:
+        hit = parent_reads.exact(
+            vault_root, candidate["path"], candidate["unit_ref"], candidate["fingerprint"],
+            visible=visible,
+        )
+        if hit is None:
+            return False
+        held = parent_reads.parents[hit.parent_path]
+        unit = held.state.document.resolve_unit(hit.unit_ref).unit
+        whole = under_strip(hit.parent_path)
+        packed, dropped = _pack_unit(unit, unit_chars=unit_chars, whole=whole)
+        packed.update({key: candidate[key] for key in ("corrects", "relation", "family")})
+        block, dropped_metadata = _legacy_block_from_packed_unit(unit, packed, whole=whole)
+        parent, _dropped_parent = _parent_context(held.page, held.state.parent_ref, whole=whole)
+        # Membership uses the prose actually emitted, not clipped-away source bytes.
+        prose_hit = replace(hit, content=packed["excerpt"], excerpt=packed["excerpt"])
+        if not working_set.hits_in_view([prose_hit], visible):
+            return False
+        bundle = {"unit": packed, "legacy_block": block, "parent": parent}
+        if isinstance(visible, egress.ReaderView):
+            bundle = visible.project_pack(bundle)
+        tentative[hit.unit_ref] = hit
+        projected_bundles[hit.unit_ref] = bundle
+        projected_drops[hit.unit_ref] = dropped + dropped_metadata
+        return True
+
+    discovered = unit_corrections.discover(
+        vault_root, references,
+        accept=admit_counterpart, keep=visible, deadline=deadline,
+    )
+    correction_refs = {row["unit_ref"]: row for row in discovered["units"]}
+    correction_paths = {row["path"] for row in discovered["units"]}
+    correction_parents = {row["path"]: projected_bundles[row["unit_ref"]]["parent"]
+                          for row in discovered["units"]}
+    hits = [*hits, *(tentative[reference] for reference in correction_refs)]
+    # Group page/unit/mixed results by parent before applying max_hits. Repeated unit
+    # hits from one parent therefore cannot starve lower-ranked parents.
+    groups: list[dict[str, Any]] = []
+    by_parent: dict[str, dict[str, Any]] = {}
+    for hit_rank, hit in enumerate(hits):
+        parent_path = _hit_parent_path(hit)
+        canon = corpus_aware._canon(parent_path)
+        group = by_parent.get(canon)
+        if group is None:
+            group = {"path": parent_path, "selected_refs": []}
+            by_parent[canon] = group
+            groups.append(group)
+        selected_refs = group["selected_refs"]
+        known_refs = {item[2] for item in selected_refs}
+        for unit_order, unit_ref in enumerate(_selected_unit_refs(hit)):
+            if unit_ref not in known_refs:
+                selected_refs.append((hit_rank, unit_order, unit_ref))
+                known_refs.add(unit_ref)
+
+    total = len(groups)
+    packed_groups = groups[:max_hits] if max_hits > 0 else groups
+    if total > len(packed_groups):
+        truncation.append(
+            f"packed {len(packed_groups)} of {total} parent hits "
+            f"({total - len(packed_groups)} more not packed; raise EXOMEM_PACK_MAX_HITS)"
+        )
+
+    packed_pages: list[ParsedPage] = []
+    semantic_states: dict[str, semantic_index.SemanticParentIndexState] = {}
+    selected_by_path: dict[str, list[tuple[int, int, str]]] = {}
+    missing = 0
+    # Each phase below is its own span under `pack`: the 2026-09-18 media
+    # re-segmentation sat inside `recall.pack` for days because the pack was
+    # one opaque number, and a slow pack has to say which of its phases paid.
+    with find_module._span(timings, "pack.parents"):
+        for group in packed_groups:
+            if deadline is not None and _monotonic() >= deadline:
+                truncation.append(DEADLINE_TRUNCATION)
+                break
+            held = parent_reads.parents.get(str(group["path"])) if group["path"] in correction_paths else None
+            snapshot = (
+                (held.page, held.state)
+                if held is not None and held.page is not None and held.state is not None
+                else _load_parent_snapshot(vault_root, str(group["path"]))
+            )
+            if snapshot is None:
+                missing += 1  # a packed hit whose file is gone/unreadable — surface it.
+                continue
+            page, state = snapshot
+            packed_pages.append(page)
+            semantic_states[page.rel_path] = state
+            selected_by_path[page.rel_path] = list(group["selected_refs"])
+    if missing:
+        truncation.append(f"{missing} packed hit(s) unreadable or missing, not packed")
+
+    units_span = find_module._span(timings, "pack.units")
+    with units_span:
+        claims = {
+            p.rel_path: _extract_claims(
+                p,
+                claim_chars=claim_chars,
+                whole=under_strip(p.rel_path),
+            )
+            for p in packed_pages
+            if p.rel_path in original_paths
+        }
+        semantic_unit_map: dict[str, dict[str, Any]] = {}
+        semantic_block_map: dict[str, list[dict]] = {}
+        plans: list[_UnitPackPlan] = []
+        for page in packed_pages:
+            document = semantic_states[page.rel_path].document
+            units = find_results.prose_units(vault_root, page, document.units)
+            by_ref = {
+                unit.unit_ref: unit for unit in units if unit.unit_ref is not None
+            }
+            selected: list[tuple[int, int, semantic_units.SemanticUnit]] = []
+            unresolved = 0
+            for hit_rank, unit_order, unit_ref in selected_by_path.get(page.rel_path, []):
+                unit = by_ref.get(unit_ref)
+                if unit is None:
+                    unresolved += 1
+                elif all(existing[2] is not unit for existing in selected):
+                    selected.append((hit_rank, unit_order, unit))
+            if unresolved:
+                truncation.append(
+                    f"{page.rel_path}: {unresolved} selected semantic unit(s) stale or missing"
+                )
+
+            selected_ids = {id(item[2]) for item in selected}
+            whole = under_strip(page.rel_path)
+            parent, dropped_provenance = _parent_context(
+                page, semantic_states[page.rel_path].parent_ref, whole=whole
+            )
+            # The bundle parent is the only one that went through the reader view, and `admit_counterpart`
+            # built it with the page's own whole-value rule, so it serves every page that hosts a counterpart.
+            parent = correction_parents.get(page.rel_path, parent)
+            plans.append(
+                _UnitPackPlan(
+                    page=page,
+                    parent=parent,
+                    selected=selected,
+                    fillers=[
+                        unit for unit in units if id(unit) not in selected_ids
+                    ] if page.rel_path in original_paths else [],
+                    dropped_provenance=dropped_provenance,
+                    whole=whole,
+                )
+            )
+
+        packed_unit_count = 0
+
+        def _try_pack(
+            plan: _UnitPackPlan,
+            unit: semantic_units.SemanticUnit,
+        ) -> None:
+            nonlocal packed_unit_count
+            if len(plan.packed_units) >= max_units_per_page:
+                plan.omitted_reasons.add("per-page cap")
+                return
+            if packed_unit_count >= max_units:
+                plan.omitted_reasons.add("pack-wide cap")
+                return
+
+            if unit.unit_ref in correction_refs:
+                bundle = projected_bundles[unit.unit_ref]
+                packed, block = bundle["unit"], bundle["legacy_block"]
+                dropped = projected_drops[unit.unit_ref]
+                dropped_metadata = 0
+            else:
+                packed, dropped = _pack_unit(unit, unit_chars=unit_chars, whole=plan.whole)
+                block, dropped_metadata = _legacy_block_from_packed_unit(
+                    unit, packed, whole=plan.whole
+                )
+            candidate_unit_map = {
+                **semantic_unit_map,
+                plan.page.rel_path: {
+                    "parent": plan.parent,
+                    "units": plan.packed_units + [packed],
+                },
+            }
+            candidate_block_map = dict(semantic_block_map)
+            if block is not None:
+                candidate_block_map[plan.page.rel_path] = plan.legacy_blocks + [block]
+            encoded = json.dumps(
+                {
+                    "semantic_units": candidate_unit_map,
+                    "semantic_blocks": candidate_block_map,
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            if len(encoded) > max_unit_total_chars:
+                plan.omitted_reasons.add("character cap")
+                return
+
+            plan.packed_units.append(packed)
+            plan.chosen_units.append((unit, packed))
+            if block is not None:
+                plan.legacy_blocks.append(block)
+            plan.dropped_fields += dropped + dropped_metadata
+            packed_unit_count += 1
+            semantic_unit_map[plan.page.rel_path] = {
+                "parent": plan.parent,
+                "units": plan.packed_units,
+            }
+            if plan.legacy_blocks:
+                semantic_block_map[plan.page.rel_path] = plan.legacy_blocks
+
+        selected_candidates = sorted(
+            (
+                (hit_rank, unit_order, plan_index, plan, unit)
+                for plan_index, plan in enumerate(plans)
+                for hit_rank, unit_order, unit in plan.selected
+            ),
+            key=lambda item: (item[0], item[1], item[2]),
+        )
+        for _hit_rank, _unit_order, _plan_index, plan, unit in selected_candidates:
+            _try_pack(plan, unit)
+        for plan in plans:
+            for unit in plan.fillers:
+                _try_pack(plan, unit)
+
+        for plan in plans:
+            total_units = len(plan.selected) + len(plan.fillers)
+            omitted = total_units - len(plan.packed_units)
+            if omitted:
+                reason = ", ".join(sorted(plan.omitted_reasons)) or "configured bounds"
+                truncation.append(
+                    f"{plan.page.rel_path}: {omitted} semantic units omitted by {reason}"
+                )
+            selected_included = {
+                packed["unit_ref"]
+                for _unit, packed in plan.chosen_units
+                if packed["unit_ref"]
+            }
+            selected_omitted = sum(
+                1
+                for _hit_rank, _unit_order, unit in plan.selected
+                if unit.unit_ref not in selected_included
+            )
+            if selected_omitted:
+                truncation.append(
+                    f"{plan.page.rel_path}: {selected_omitted} selected semantic unit(s) omitted by bounds"
+                )
+            if plan.dropped_provenance:
+                truncation.append(
+                    f"{plan.page.rel_path}: {plan.dropped_provenance} provenance/lifecycle value(s) omitted"
+                )
+            if plan.dropped_fields:
+                truncation.append(
+                    f"{plan.page.rel_path}: {plan.dropped_fields} semantic-unit field value(s) omitted by bounds"
+                )
+
+    with find_module._span(timings, "pack.neighborhood"):
+        neighborhood, n_dropped, incomplete = _neighborhood(
+            vault_root, packed_pages, max_neighbors, under_strip=under_strip
+        )
+    truncation.extend(incomplete)
+    if n_dropped > 0:
+        truncation.append(
+            f"neighborhood capped at {max_neighbors} "
+            f"({n_dropped} more not shown; raise EXOMEM_PACK_MAX_NEIGHBORS)"
+        )
+
+    with find_module._span(timings, "pack.tension"):
+        superseded = _supersession_edges(packed_pages)
+        measured = _tension_pairs(vault_root, packed_pages, max_tension)
+    tension, t_dropped = measured.pairs, measured.dropped
+    embeddings_available, uncovered = measured.embeddings_available, measured.uncovered
+    if measured.matrix_loading:
+        truncation.append(
+            "the embedding matrix is still loading; no proximity pair computed"
+        )
+    if uncovered > 0:
+        truncation.append(
+            f"{uncovered} packed page(s) had no current embedding rows; "
+            "no proximity pair computed for them"
+        )
+    if t_dropped > 0:
+        truncation.append(
+            f"tension pairs capped at {max_tension} "
+            f"({t_dropped} more not shown; raise EXOMEM_PACK_MAX_TENSION)"
+        )
+
+    result = {
+        "packed_paths": [p.rel_path for p in packed_pages],
+        "claims": claims,
+        "semantic_units": semantic_unit_map,
+        "semantic_blocks": semantic_block_map,
+        "neighborhood": neighborhood,
+        "contradictions": {"superseded": superseded, "tension": tension},
+        "embeddings_available": embeddings_available,
+        "truncation": truncation,
+        **({"correction_context": discovered["status"]} if references else {}),
+    }
+    if graph_enrich:
+        # Parent loading can consume the reserve checked before assembly.
+        # Decide again at the actual stage entry, keeping earlier packed pages.
+        if deadline is not None and deadline - _monotonic() <= graph_enrich_reserve_seconds:
+            truncation.append(GRAPH_ENRICH_BUDGET_SKIP)
+        else:
+            with find_module._span(timings, "graph_enrich"):
+                result["graph"] = _graph_enrichment(vault_root, packed_pages, purpose=purpose)
+    return result
+
+
+def _graph_enrichment(
+    vault_root: Path, packed_pages: list[ParsedPage], *, purpose: str | None = None
+) -> dict:
+    if not packed_pages:
+        return {"available": False, "reason": "no packed pages", "nodes": [], "edges": []}
+    from .governance import egress
+
+    # The neighbourhood's own release decision: a page the caller may not see
+    # is never a node, an edge endpoint or a hop (`graph_context`'s `keep`).
+    visible = egress.visible_page_filter(vault_root, purpose=purpose)
+    nodes: dict[str, dict] = {}
+    edges: dict[str, dict] = {}
+    unavailable: list[str] = []
+    for page in packed_pages:
+        ctx = epistemic_graph.graph_context(vault_root, path=page.rel_path, depth=1, keep=visible)
+        if not ctx.get("available"):
+            unavailable.append(str(ctx.get("reason") or "graph unavailable"))
+            continue
+        for node in ctx.get("nodes", []):
+            nodes.setdefault(node["node_key"], node)
+        for edge in ctx.get("edges", []):
+            edges.setdefault(edge["edge_key"], edge)
+    if not nodes and unavailable:
+        return {
+            "available": False,
+            "reason": unavailable[0],
+            "nodes": [],
+            "edges": [],
+            "truncation": [],
+        }
+    return {
+        "available": True,
+        "reason": None,
+        "nodes": list(nodes.values()),
+        "edges": list(edges.values()),
+        "truncation": [],
+        "warnings": sorted(set(unavailable)),
+    }

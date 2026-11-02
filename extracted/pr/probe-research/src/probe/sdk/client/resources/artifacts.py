@@ -1,5 +1,5 @@
 """ArtifactsResource (client.artifacts, typed reads) and ArtifactsMixin, Client's methods: uploads,
-references, downloads, the Shared folder (twins: app/artifacts, app/shared_folders)."""
+references, downloads, the Shared folder (twins: app/files/artifacts, app/files/shared_folders)."""
 
 from __future__ import annotations
 import builtins

@@ -1,0 +1,170 @@
+import numpy as np
+
+from .readers import component_from_alias, load_field_attrs
+from .tools import encode_attrs, fstr
+from .units import pg_units, write_unit_h5
+
+
+def pmd_init(h5, basePath="/data/%T/", particlesPath="./"):
+    """
+    Root attribute initialization.
+
+    h5 should be the root of the file.
+    """
+    d = {
+        "basePath": basePath,
+        "dataType": "openPMD",
+        "openPMD": "2.0.0",
+        "openPMDextension": "BeamPhysics;SpeciesType",
+        "particlesPath": particlesPath,
+    }
+    for k, v in d.items():
+        h5.attrs[k] = fstr(v)
+
+
+def pmd_field_init(h5, externalFieldPath="/ExternalFieldPath/%T/"):
+    """
+    Root attribute initialization for an openPMD-beamphysics External Field Mesh
+
+    h5 should be the root of the file.
+    """
+    d = {
+        "dataType": "openPMD",
+        "openPMD": "2.0.0",
+        "openPMDextension": "BeamPhysics",
+        "externalFieldPath": externalFieldPath,
+    }
+    for k, v in d.items():
+        h5.attrs[k] = fstr(v)
+
+
+def write_pmd_bunch(h5, data, name=None, t_offset=0.0):
+    """
+    Write bunch data in openPMD-beamphysics format.
+
+    Parameters
+    ----------
+    h5 : h5py.File or h5py.Group
+        Handle to write into.
+    data : dict or ParticleGroup
+        Requires keys 'x', 'px', 'y', 'py', 'z', 'pz', 't', 'status', 'weight'
+        (arrays), 'species' (str), 'n_particle' (int), 'charge' (float).
+        Optional key: 'id' (array).
+    name : str, optional
+        Subgroup to create for the bunch. If None, writes directly into `h5`.
+    t_offset : float or numpy.ndarray, optional
+        Time offset, scalar or per-particle, written as the 'timeOffset' record.
+        Omitted when zero. Readers add this to the 'time' record. Default is 0.0.
+
+    See Also
+    --------
+    beamphysics.particles.load_bunch_data : inverse routine
+    """
+    if name:
+        g = h5.create_group(name)
+    else:
+        g = h5
+
+    # Write into species group
+    species = data["species"]
+    g = g.create_group(species)
+
+    # Attributes
+    g.attrs["speciesType"] = fstr(species)
+    g.attrs["numParticles"] = data["n_particle"]
+    g.attrs["totalCharge"] = data["charge"]
+    g.attrs["chargeUnitSI"] = 1.0
+
+    # Required Datasets
+    for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight"]:
+        # Get full name, write data
+        g2_name = component_from_alias[key]
+
+        # Units
+        u = pg_units(key)
+
+        # Write
+        write_component_data(g, g2_name, data[key], unit=u)
+
+    # Optional id. This does not have any units.
+    if "id" in data:
+        g["id"] = data["id"]
+
+    # Optional time offset, with the same shape as the particle arrays.
+    t_offset = np.asarray(t_offset, dtype=float)
+    if np.any(t_offset):
+        n_particle = data["n_particle"]
+        if t_offset.ndim == 0:
+            t_offset = np.broadcast_to(t_offset, (n_particle,))
+        elif t_offset.shape != (n_particle,):
+            raise ValueError(
+                f"t_offset shape {t_offset.shape} does not match n_particle {n_particle}"
+            )
+        write_component_data(g, "timeOffset", t_offset, unit=pg_units("t"))
+
+
+def write_pmd_field(h5, data, name=None):
+    """
+    Data is a dict with:
+        attrs: flat dict of attributes.
+        components: flat dict of components
+
+    See inverse routine:
+        .readers.load_field_data
+
+    """
+    if name:
+        g = h5.create_group(name)
+    else:
+        g = h5
+
+    # Validate attrs
+    attrs, other = load_field_attrs(data["attrs"])
+
+    # Encode for writing
+    attrs = encode_attrs(attrs)
+
+    # Write attributes
+    for k, v in attrs.items():
+        g.attrs[k] = v
+
+    # All other attributes (don't change them)
+    for k, v in other.items():
+        g.attrs[k] = v
+
+    # write components (datasets)
+    for key, val in data["components"].items():
+        # Units
+        u = pg_units(key)
+
+        # Ensure complex
+        val = val.astype(complex)
+
+        # Write
+        write_component_data(g, key, val, unit=u)
+
+
+def write_component_data(h5, name, data, unit=None):
+    """
+    Writes data to a dataset h5[name]
+
+    If data is a constant array, a group is created with the constant value and shape
+
+    If unit is given, this will be used
+
+    """
+    # Check for constant component
+    dat0 = data.flat[0]
+
+    if np.all(data == dat0):
+        g = h5.create_group(name)
+        g.attrs["value"] = dat0
+        g.attrs["shape"] = data.shape
+    else:
+        h5[name] = data
+        g = h5[name]
+
+    if unit:
+        write_unit_h5(g, unit)
+
+    return g

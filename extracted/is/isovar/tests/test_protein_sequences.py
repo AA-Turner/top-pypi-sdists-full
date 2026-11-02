@@ -1,0 +1,521 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from varcode import VariantCollection
+
+from isovar.allele_read import AlleleRead
+from isovar.read_collector import ReadCollector
+from isovar.cli.protein_sequence_args import (
+    protein_sequences_dataframe_from_args,
+    make_protein_sequences_arg_parser,
+)
+from isovar.dataframe_helpers import protein_sequences_generator_to_dataframe
+from isovar.main import ProteinSequenceCreator
+from isovar.protein_sequence import ProteinSequence
+from isovar.protein_sequence_helpers import (
+    group_equivalent_translations,
+    sort_protein_sequences,
+)
+from isovar.translation import Translation
+from isovar.variant_orf import VariantORF
+from isovar.variant_sequence import VariantSequence
+
+from .common import eq_
+from .testing_helpers import load_bam, load_vcf, data_path
+from .mock_objects import make_dummy_protein_sequence
+
+
+def _translation_with_reads(amino_acids, reads, cdna_sequence):
+    variant_sequence = VariantSequence(
+        prefix="AAA",
+        alt="C",
+        suffix="TTT",
+        reads=reads)
+    variant_orf = VariantORF(
+        cdna_sequence=cdna_sequence,
+        offset_to_first_complete_codon=0,
+        variant_cdna_interval_start=3,
+        variant_cdna_interval_end=4,
+        reference_cdna_sequence_before_variant="AAA",
+        reference_cdna_sequence_after_variant="TTT",
+        num_mismatches_before_variant=0,
+        num_mismatches_after_variant=0)
+    return Translation(
+        amino_acids=amino_acids,
+        contains_mutation=True,
+        mutation_start_idx=1,
+        mutation_end_idx=2,
+        ends_with_stop_codon=False,
+        frameshift=False,
+        untrimmed_variant_sequence=variant_sequence,
+        reference_context=None,
+        variant_orf=variant_orf)
+
+
+def _reads(name_prefix, n_fragments, source_read_count=1):
+    return [
+        AlleleRead(
+            prefix="AAA",
+            allele="C",
+            suffix="TTT",
+            name="%s_%d" % (name_prefix, i),
+            source_read_count=source_read_count)
+        for i in range(n_fragments)
+    ]
+
+
+def test_protein_sequence_substitution():
+    # testing that we got the correct properties in the case
+    # where "SIINFEKL" was mutated into "SIINFEQL"
+    p = ProteinSequence(
+        amino_acids="SIINFEQL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFEQ"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    eq_(p.amino_acids, "SIINFEQL")
+    eq_(len(p), 8)
+    eq_(p.contains_mutation, True)
+    eq_(p.contains_deletion, False)
+    eq_(p.frameshift, False)
+    eq_(p.ends_with_stop_codon, True)
+    eq_(p.num_mutant_amino_acids, 1)
+    eq_(p.mutant_amino_acids, "Q")
+
+
+def test_protein_sequence_deletion():
+    # testing that we got the correct properties in the case
+    # where "SIINFEKL" was mutated into "SIINFEL" by deletion of one amino acid
+    p = ProteinSequence(
+        amino_acids="SIINFEL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFE"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    eq_(p.amino_acids, "SIINFEL")
+    eq_(len(p), 7)
+    eq_(p.num_mutant_amino_acids, 0)
+    eq_(p.mutant_amino_acids, "")
+    eq_(p.contains_mutation, True)
+    eq_(p.contains_deletion, True)
+    eq_(p.frameshift, False)
+    eq_(p.ends_with_stop_codon, True)
+
+
+def test_protein_subsequence_overlaps_substitution():
+    # testing that we got the correct properties for case where "SIINFEKL" was
+    # mutated into "SIINFEQL" and then sliced to keep just "FEQL"
+    p = ProteinSequence(
+        amino_acids="SIINFEQL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFEQ"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    p2 = p.subsequence(len("SIIN"), None)
+    eq_(p2.amino_acids, "FEQL")
+    eq_(p2.contains_mutation, True)
+    eq_(p2.contains_deletion, False)
+    eq_(p2.frameshift, False)
+    eq_(p2.ends_with_stop_codon, True)
+    eq_(p2.num_mutant_amino_acids, 1)
+    eq_(p2.mutant_amino_acids, "Q")
+    eq_(len(p2), 4)
+
+def test_protein_subsequence_does_not_overlap_substitution():
+    # testing that we got the correct properties for case where "SIINFEKL" was
+    # mutated into "SIINFEQL" and then sliced to keep just "FEQL"
+    p = ProteinSequence(
+        amino_acids="SIINFEQL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFEQ"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    p2 = p.subsequence(0, len("SIIN"))
+    eq_(p2.amino_acids, "SIIN")
+    eq_(p2.contains_mutation, False)
+    eq_(p2.contains_deletion, False)
+    eq_(p2.frameshift, False)
+    eq_(p2.ends_with_stop_codon, False)
+    eq_(p2.num_mutant_amino_acids, 0)
+    eq_(p2.mutant_amino_acids, "")
+    eq_(len(p2), 4)
+
+
+def test_protein_subsequence_overlaps_deletion():
+    # testing that we got correct properties for the case
+    # where "SIINFEKL" was mutated into "SIINFEL" (by a deletion of "K")
+    # and then we took the subsequence "FEL"
+    p = ProteinSequence(
+        amino_acids="SIINFEL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFE"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    p2 = p.subsequence(len("SIIN"), None)
+    eq_(len(p2), 3)
+    eq_(p2.amino_acids, "FEL")
+    eq_(p2.mutant_amino_acids, "")
+    eq_(p2.contains_deletion, True)
+    eq_(p2.contains_mutation, True)
+    eq_(p2.frameshift, False)
+    eq_(p2.ends_with_stop_codon, True)
+    eq_(p2.num_mutant_amino_acids, 0)
+
+
+def test_protein_subsequence_does_not_overlap_deletion():
+    # testing that we got correct properties for the case
+    # where "SIINFEKL" was mutated into "SIINFEL" (by a deletion of "K")
+    # and then we took the subsequence "SIINFE"
+    p = ProteinSequence(
+        amino_acids="SIINFEL",
+        contains_mutation=True,
+        mutation_start_idx=len("SIINFE"),
+        mutation_end_idx=len("SIINFE"),
+        ends_with_stop_codon=True,
+        frameshift=False,
+        translations=[])
+    p2 = p.subsequence(None, len("SIINFE"))
+    eq_(len(p2), 6)
+    eq_(p2.amino_acids, "SIINFE")
+    eq_(p2.contains_deletion, False)
+    eq_(p2.contains_mutation, False)
+    eq_(p2.frameshift, False)
+    eq_(p2.ends_with_stop_codon, False)
+    eq_(p2.mutant_amino_acids, "")
+    eq_(p2.num_mutant_amino_acids, 0)
+
+def test_sort_protein_sequences():
+    protseq_most_reads = make_dummy_protein_sequence(
+        n_supporting_variant_reads=50,
+        n_supporting_variant_sequences=1,
+        n_supporting_reference_transcripts=2,
+        n_total_variant_sequences=3,
+        n_total_variant_reads=100,
+        n_total_reference_transcripts=2)
+
+
+    protseq_fewest_reads = make_dummy_protein_sequence(
+        n_supporting_variant_reads=10,
+        n_supporting_variant_sequences=1,
+        n_supporting_reference_transcripts=1,
+        n_total_variant_sequences=3,
+        n_total_variant_reads=100,
+        n_total_reference_transcripts=1)
+    unsorted_protein_sequences = [
+        protseq_fewest_reads,
+        protseq_most_reads,
+    ]
+    expected_order = [
+        protseq_most_reads,
+        protseq_fewest_reads,
+    ]
+    eq_(sort_protein_sequences(unsorted_protein_sequences, "support"), expected_order)
+
+
+def test_sort_protein_sequences_uses_raw_reads_before_length():
+    short_translation = _translation_with_reads(
+        amino_acids="MKH",
+        reads=_reads("short", n_fragments=3, source_read_count=2),
+        cdna_sequence="ATGAAACAC")
+    long_translation = _translation_with_reads(
+        amino_acids="MKHW",
+        reads=_reads("long", n_fragments=3, source_read_count=1),
+        cdna_sequence="ATGAAACACTGG")
+    short_protein = ProteinSequence.from_translations([short_translation])
+    long_protein = ProteinSequence.from_translations([long_translation])
+
+    sorted_proteins = sort_protein_sequences([long_protein, short_protein], "support")
+
+    eq_(short_protein.num_supporting_fragments, 3)
+    eq_(long_protein.num_supporting_fragments, 3)
+    eq_(short_protein.num_supporting_reads, 6)
+    eq_(long_protein.num_supporting_reads, 3)
+    eq_(sorted_proteins, [short_protein, long_protein])
+
+
+def test_grouped_protein_support_can_beat_each_individual_cdna_sequence():
+    short_translation_1 = _translation_with_reads(
+        amino_acids="MKH",
+        reads=_reads("short_1", n_fragments=2),
+        cdna_sequence="ATGAAACAC")
+    # A synonymous final codon makes this a distinct cDNA translation of the
+    # same protein, supported by a disjoint set of fragments.
+    short_translation_2 = _translation_with_reads(
+        amino_acids="MKH",
+        reads=_reads("short_2", n_fragments=2),
+        cdna_sequence="ATGAAACAT")
+    long_translation = _translation_with_reads(
+        amino_acids="MKHW",
+        reads=_reads("long", n_fragments=3),
+        cdna_sequence="ATGAAACACTGG")
+
+    proteins = group_equivalent_translations([
+        short_translation_1,
+        short_translation_2,
+        long_translation,
+    ])
+    sorted_proteins = sort_protein_sequences(proteins, "support")
+
+    eq_(len(proteins), 2)
+    eq_(sorted_proteins[0].amino_acids, "MKH")
+    eq_(sorted_proteins[0].num_supporting_fragments, 4)
+    eq_(sorted_proteins[1].amino_acids, "MKHW")
+    eq_(sorted_proteins[1].num_supporting_fragments, 3)
+
+
+def variants_to_protein_sequences_dataframe(
+        expressed_vcf="data/b16.f10/b16.expressed.vcf",
+        not_expressed_vcf="data/b16.f10/b16.not-expressed.vcf",
+        tumor_rna_bam="data/b16.f10/b16.combined.sorted.bam",
+        min_mapping_quality=0,
+        max_protein_sequences_per_variant=1,
+        variant_sequence_assembly=False):
+    """
+    Helper function to load pair of VCFs and tumor RNA BAM
+    and use them to generate a DataFrame of expressed variant protein
+    sequences.
+    """
+    expressed_variants = load_vcf(expressed_vcf)
+    not_expressed_variants = load_vcf(not_expressed_vcf)
+
+    combined_variants = VariantCollection(
+        list(expressed_variants) + list(not_expressed_variants))
+    alignment_file = load_bam(tumor_rna_bam)
+    read_collector = ReadCollector(min_mapping_quality=min_mapping_quality)
+    read_evidence_gen = read_collector.read_evidence_generator(
+        variants=combined_variants,
+        alignment_file=alignment_file)
+
+    creator = ProteinSequenceCreator(
+        max_protein_sequences_per_variant=max_protein_sequences_per_variant,
+        variant_sequence_assembly=variant_sequence_assembly)
+    protein_sequences_generator = \
+        creator.protein_sequences_from_read_evidence_generator(read_evidence_gen)
+    df = protein_sequences_generator_to_dataframe(protein_sequences_generator)
+    return df, expressed_variants, combined_variants
+
+
+def test_variants_to_protein_sequences_dataframe_one_sequence_per_variant_with_assembly():
+    df, expressed_variants, combined_variants = \
+        variants_to_protein_sequences_dataframe(variant_sequence_assembly=True)
+    print(df)
+    eq_(len(df),
+        len(expressed_variants),
+        "Expected %d/%d entries to have RNA support, got %d" % (
+            len(expressed_variants),
+            len(combined_variants),
+            len(df)))
+
+
+def test_variants_to_protein_sequences_dataframe_one_sequence_per_variant_without_assembly():
+    df, expressed_variants, combined_variants = \
+        variants_to_protein_sequences_dataframe(variant_sequence_assembly=False)
+    print(df)
+    eq_(len(df),
+        len(expressed_variants),
+        "Expected %d/%d entries to have RNA support, got %d" % (
+            len(expressed_variants),
+            len(combined_variants),
+            len(df)))
+
+
+def test_variants_to_protein_sequences_dataframe_filtered_all_reads_by_mapping_quality():
+    # since the B16 BAM has all MAPQ=255 values then all the reads should get dropped
+    # if we set the minimum quality to 256
+    variants = load_vcf("data/b16.f10/b16.vcf")
+    alignment_file = load_bam("data/b16.f10/b16.combined.sorted.bam")
+    read_collector = ReadCollector(min_mapping_quality=256)
+    read_evidence_gen = read_collector.read_evidence_generator(
+        variants=variants,
+        alignment_file=alignment_file)
+
+    creator = ProteinSequenceCreator(
+        max_protein_sequences_per_variant=1,)
+    protein_sequences_generator = creator.protein_sequences_from_read_evidence_generator(
+        read_evidence_gen)
+    df = protein_sequences_generator_to_dataframe(
+        protein_sequences_generator)
+    print(df)
+    eq_(
+        len(df),
+        0,
+        "Expected 0 entries, got %d: %s" % (len(df), df))
+
+
+def test_protein_sequence_creator_protein_length():
+    variants = load_vcf("data/b16.f10/b16.vcf")
+    alignment_file = load_bam("data/b16.f10/b16.combined.sorted.bam")
+    read_collector = ReadCollector()
+
+    for desired_length in [21, 15, 10]:
+        creator = ProteinSequenceCreator(
+            max_protein_sequences_per_variant=1,
+            protein_sequence_length=desired_length)
+        read_evidence_gen = read_collector.read_evidence_generator(
+            variants=variants,
+            alignment_file=alignment_file)
+        protein_sequences_generator = creator.protein_sequences_from_read_evidence_generator(
+           read_evidence_gen)
+        df = protein_sequences_generator_to_dataframe(protein_sequences_generator)
+        print(df)
+        protein_sequences = df["amino_acids"]
+        print(protein_sequences)
+        protein_sequence_lengths = protein_sequences.str.len()
+        assert (protein_sequence_lengths == desired_length).all(), (
+            protein_sequence_lengths,)
+
+
+class _StubEvidence:
+    # Bare-bones stand-in for ReadEvidence used in the cap-regression tests
+    # below. `translate_variant_reads` is stubbed out, so the content of
+    # `alt_reads` only has to be non-empty to avoid the early-return path.
+    alt_reads = ["stub-read"]
+
+
+def _translations_with_distinct_amino_acids(amino_acid_strings):
+    # Each amino-acid string must differ so that group_equivalent_translations
+    # produces one ProteinSequence per input string.
+    from .mock_objects import make_dummy_translation
+    return [
+        make_dummy_translation(amino_acids=aa)
+        for aa in amino_acid_strings
+    ]
+
+
+def test_sorted_protein_sequences_respects_max_per_variant_cap():
+    # Regression test for issue #132: ProteinSequenceCreator's
+    # max_protein_sequences_per_variant was silently ignored by
+    # sorted_protein_sequences_for_variant (and therefore by run_isovar).
+    class CappedStubCreator(ProteinSequenceCreator):
+        def translate_variant_reads(
+                self, variant, variant_reads, transcript_id_whitelist=None):
+            return _translations_with_distinct_amino_acids(
+                ["MKHW", "MKHY", "MKHF", "MKHL", "MKHI"])
+
+    creator = CappedStubCreator(max_protein_sequences_per_variant=2)
+    result = creator.sorted_protein_sequences_for_variant(
+        variant=None, read_evidence=_StubEvidence())
+    eq_(len(result), 2,
+        "Expected cap of 2 to trim 5 distinct protein sequences to 2, got %d" % (
+            len(result),))
+
+
+def test_sorted_protein_sequences_no_cap_returns_all():
+    # When max_protein_sequences_per_variant is None (or 0), no cap is
+    # applied and all distinct protein sequences are returned.
+    class UncappedStubCreator(ProteinSequenceCreator):
+        def translate_variant_reads(
+                self, variant, variant_reads, transcript_id_whitelist=None):
+            return _translations_with_distinct_amino_acids(
+                ["MKHW", "MKHY", "MKHF"])
+
+    creator = UncappedStubCreator(max_protein_sequences_per_variant=None)
+    result = creator.sorted_protein_sequences_for_variant(
+        variant=None, read_evidence=_StubEvidence())
+    eq_(len(result), 3,
+        "Expected all 3 distinct protein sequences with no cap, got %d" % (
+            len(result),))
+
+
+def test_run_isovar_respects_max_protein_sequences_per_variant():
+    # Integration test: run_isovar feeds protein_sequence_creator into
+    # sorted_protein_sequences_for_variant, so setting a cap on the creator
+    # must cap the number of sequences per IsovarResult.
+    from isovar import run_isovar, ProteinSequenceCreator as _RealCreator
+
+    class CappedStubCreator(_RealCreator):
+        def translate_variant_reads(
+                self, variant, variant_reads, transcript_id_whitelist=None):
+            if not variant_reads:
+                return []
+            return _translations_with_distinct_amino_acids(
+                ["MKHW", "MKHY", "MKHF", "MKHL"])
+
+    # any variant with coverage in the B16 test BAM triggers translation
+    results = run_isovar(
+        variants=data_path("data/b16.f10/b16.vcf"),
+        alignment_file=data_path("data/b16.f10/b16.combined.sorted.bam"),
+        protein_sequence_creator=CappedStubCreator(
+            max_protein_sequences_per_variant=1))
+
+    # At least one variant should have some protein sequences after stubbing.
+    any_with_protein = [r for r in results if r.sorted_protein_sequences]
+    assert len(any_with_protein) > 0, \
+        "Expected at least one IsovarResult with a protein sequence"
+
+    for r in any_with_protein:
+        assert len(r.sorted_protein_sequences) <= 1, \
+            "Cap of 1 should limit sorted_protein_sequences to ≤1 entry, got %d for %s" % (
+                len(r.sorted_protein_sequences), r.variant)
+
+
+def test_variants_to_protein_sequences_dataframe_protein_sequence_length():
+    expressed_variants = load_vcf("data/b16.f10/b16.expressed.vcf")
+    parser = make_protein_sequences_arg_parser()
+    parser.print_help()
+    for desired_length in range(9, 20, 3):
+        args = parser.parse_args([
+            "--vcf", data_path("data/b16.f10/b16.vcf"),
+            "--bam", data_path("data/b16.f10/b16.combined.sorted.bam"),
+            "--max-protein-sequences-per-variant", "1",
+            "--protein-sequence-length", str(desired_length),
+        ])
+        df = protein_sequences_dataframe_from_args(args)
+        eq_(
+            len(df),
+            len(expressed_variants),
+            "Expected %d entries for protein_sequence_length=%d, got %d results: %s" % (
+                len(expressed_variants),
+                desired_length,
+                len(df),
+                df))
+        protein_sequences = df["amino_acids"]
+        print(protein_sequences)
+        protein_sequence_lengths = protein_sequences.str.len()
+        assert (protein_sequence_lengths == desired_length).all(), (
+            protein_sequence_lengths,)
+
+
+def test_transcripts_at_one_locus_are_ordered_by_id_whatever_the_input_order():
+    # PyEnsembl orders transcripts by locus only; ties used to follow set
+    # iteration order, so identical runs listed transcript IDs differently.
+    from types import SimpleNamespace
+    from isovar.isovar_result import IsovarResult
+    from isovar.protein_sequence import ProteinSequence
+
+    class Transcript:
+        def __init__(self, id):
+            self.id = id
+
+        def __lt__(self, other):
+            return False  # One locus, as PyEnsembl compares transcripts.
+
+    ids = ["ENST00000916425", "ENST00000372097", "ENST00000916424", "ENST00000372099",
+           "ENST00000902265", "ENST00000902266"]
+    tied = [Transcript(id) for id in ids]
+    for transcripts in (tied, tied[::-1]):
+        protein = SimpleNamespace(translations=[SimpleNamespace(
+            reference_context=SimpleNamespace(transcripts=transcripts))])
+        assert [t.id for t in ProteinSequence.transcripts.fget(protein)] == sorted(ids)
+        protein.transcripts = transcripts
+        result = SimpleNamespace(sorted_protein_sequences=[protein])
+        assert [t.id for t in IsovarResult.transcripts_from_protein_sequences(result)] == sorted(ids)

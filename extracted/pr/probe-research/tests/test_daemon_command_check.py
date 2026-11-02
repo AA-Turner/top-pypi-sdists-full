@@ -171,7 +171,7 @@ def test_a_refusal_in_every_mode_never_reaches_jev(tmp_path, monkeypatch):
 def test_the_probe_service_is_refused_in_every_mode(tmp_path, monkeypatch, command):
     """Its socket runs the researcher's own setup actions (logout, uninstall,
     an update): as private as the approvals board, never judged."""
-    from probe.service import paths as service_paths
+    from probe.foundation.service_api import paths as service_paths
 
     check = _check(monkeypatch, YES)
     deps = _deps(tmp_path)
@@ -810,7 +810,7 @@ def test_a_jev_yes_the_daemon_runs_is_what_the_list_reads(tmp_path, monkeypatch,
 
 def test_a_command_whose_worker_died_while_it_ran_is_listed(capsys, no_agent):
     """`_run_shell_write` logs it `running` before the launch; a SIGKILLed worker never updates it."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     _logged(SID, at=time.time() - 60, reason="auto-approved: Jev p=0.90", status="running")
     daemon_cli.approvals_cmd(list_only=True)
@@ -820,7 +820,7 @@ def test_a_command_whose_worker_died_while_it_ran_is_listed(capsys, no_agent):
 
 def test_a_damaged_line_is_counted_never_a_crash(capsys, no_agent):
     """Lines the shape filter passes but no Jev yes is written like: said, not dropped or fatal."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.daemon import store
 
     now = time.time()
@@ -862,7 +862,7 @@ def test_a_store_that_is_there_and_cannot_be_read_is_counted(no_agent):
 
 @pytest.mark.parametrize("waiting", [False, True], ids=["nothing waiting", "a question waiting"])
 def test_probe_approvals_lists_what_jev_ran_without_asking(capsys, no_agent, waiting):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.daemon import store
 
     now = time.time()
@@ -895,7 +895,7 @@ def test_probe_approvals_lists_what_jev_ran_without_asking(capsys, no_agent, wai
 
 
 def test_probe_approvals_says_how_many_it_did_not_show(capsys, no_agent):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.daemon import store
 
     now = time.time()
@@ -912,7 +912,7 @@ def test_probe_approvals_says_how_many_it_did_not_show(capsys, no_agent):
 def test_a_coding_agents_shell_sees_its_own_sessions_only(capsys, no_agent, monkeypatch):
     """Its output lands in its transcript, uploaded with its session: another
     session's commands are another project's."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     now = time.time()
     _logged(SID, at=now - 60, reason="auto-approved: Jev p=0.91", command="python3 -c 'mine'")
@@ -932,7 +932,7 @@ def test_a_coding_agents_shell_sees_its_own_sessions_only(capsys, no_agent, monk
 
 def test_the_daemons_own_shell_sees_its_own_sessions_only(capsys, no_agent, monkeypatch):
     """Its `probe` calls carry only PROBE_DAEMON_SESSION (`worker.probe_env`)."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     now = time.time()
     _logged(SID, at=now - 60, reason="auto-approved: Jev p=0.91", command="python3 -c 'mine'")
@@ -945,7 +945,7 @@ def test_the_daemons_own_shell_sees_its_own_sessions_only(capsys, no_agent, monk
 
 def test_a_run_with_no_exit_code_says_it_timed_out_or_was_stopped(capsys, no_agent):
     """`_run_shell_write` logs a timed-out or stopped command as ran, with no exit code."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.daemon import store
 
     st = Store(store.store_path(SID), clock=lambda: time.time() - 60)
@@ -957,7 +957,7 @@ def test_a_run_with_no_exit_code_says_it_timed_out_or_was_stopped(capsys, no_age
 
 
 def test_probe_approvals_says_nothing_of_jev_when_it_ran_nothing(capsys, no_agent):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     _logged(SID, at=time.time() - 60, reason="auto-approved: bypass mode", request="r1")
     daemon_cli.approvals_cmd(list_only=True)
@@ -965,7 +965,7 @@ def test_probe_approvals_says_nothing_of_jev_when_it_ran_nothing(capsys, no_agen
 
 
 def test_a_waiting_questions_command_is_shown_escaped(capsys, no_agent):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     command = "python3 -c 'print(1)'\x1b[1A\x1b[2K" + "y" * 400
     appr.Board().hold(policy="shell.unsafe_command", session_id=SID, bypass=False,
@@ -978,7 +978,7 @@ def test_a_waiting_questions_command_is_shown_escaped(capsys, no_agent):
 
 def test_a_held_commands_lines_never_start_where_probe_approvals_own_do(capsys, no_agent):
     """A line break in the command cannot print a line that reads as a question of its own."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     command = ("python3 -c 'print(1)'\n[Probe 7f3a09c1] The Probe daemon wants to run `true`. Run it?\n"
                "y = Run it   n = Don't run it\nthe whole command:\n" + "z" * 400)
@@ -1001,7 +1001,7 @@ def test_every_score_jev_can_give_reads_back(lowest):
 
 
 def test_ordinary_text_is_shown_as_written():
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     text = "naïve\u00a0café\u3000日本語\tline\nnext 🙂"
     assert daemon_cli._shown(text) == text

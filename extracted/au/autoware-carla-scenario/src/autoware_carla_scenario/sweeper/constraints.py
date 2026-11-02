@@ -1,0 +1,870 @@
+"""Constraint engine for filtering lanelets by declarative conditions.
+
+Constraints are parsed from the ``sweep.constraints`` section of a scenario
+YAML and evaluated against every lanelet in the map to produce a list of
+matching lanelet IDs.
+
+Composite constraints (``and``, ``or``, ``not``) allow arbitrary boolean
+combinations::
+
+    # YAML example — stop line that comes from a traffic light
+    - type: and
+      constraints:
+        - type: has_stop_line
+        - type: has_traffic_light_stop_line
+
+    # Junction lanelet (has turn_direction tag)
+    - type: is_junction
+
+    # Traffic light on a junction — required for CARLA
+    - type: and
+      constraints:
+        - type: has_traffic_light_stop_line
+        - type: is_junction
+
+    # Negation
+    - type: not
+      constraint:
+        type: has_traffic_light_stop_line
+
+Simple value constraints::
+
+    # Match a specific lanelet by ID
+    - type: equals
+      value: 3002141
+
+    # Match any lanelet (useful for debugging)
+    - type: equals
+      value: any
+
+Set-level relational constraints (``previous_of``, ``following_of``) evaluate
+inner constraints across all lanelets first, then resolve to the
+previous/following neighbours via the routing graph::
+
+    # Lanelets immediately before those with a traffic light stop line
+    - type: previous_of
+      constraints:
+        - type: has_traffic_light_stop_line
+
+    # Lanelets immediately after those with a stop line
+    - type: following_of
+      constraints:
+        - type: has_stop_line
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from lanelet2.core import ConstLanelet, LaneletMap
+    from lanelet2.routing import RoutingGraph
+
+    from ..conditions.comparison import ComparisonRule
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Constraint protocol & leaf implementations
+# ---------------------------------------------------------------------------
+
+
+class Constraint(ABC):
+    """Interface that all lanelet constraints must satisfy.
+
+    The constraints of this module derive from it, so the static check
+    (docs/typecheck.md) dispatches ``evaluate()`` through it: Codon has no
+    structural typing.  At run time a constraint need not derive from it --
+    anything with an ``evaluate()`` method still works where a constraint is
+    taken, as it did when this was a ``Protocol``.
+    """
+
+    @abstractmethod
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if *lanelet* satisfies this constraint."""
+        ...
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        """Pre-compute what :meth:`evaluate` needs of the whole map.
+
+        :func:`_bind_set_level_constraints` of this constraint: by default,
+        that of its children (a ``constraints`` sequence, a ``constraint``).
+        The set-level constraints also cache the IDs they match.
+        """
+        _bind_children(self, lanelet_map, routing_graph)
+
+
+@dataclass(frozen=True)
+class HasStopLineConstraint(Constraint):
+    """Matches lanelets that own at least one stop-line regulatory element.
+
+    Detection reuses the same three patterns as
+    :func:`~autoware_carla_scenario.utils.stop_line._collect_stop_lines_from_reg_elems`:
+
+    1. Traffic light RE with a ``stopLine`` attribute.
+    2. Traffic sign or detection area RE with a ``ref_line`` parameter.
+    3. Road marking RE with a ``refers`` parameter containing ``type="stop_line"``.
+    """
+
+    type: str = "has_stop_line"
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if *lanelet* has at least one stop line."""
+        from ..utils.stop_line import _collect_stop_lines_from_reg_elems
+
+        seen_ids: set[int] = set()
+        results = _collect_stop_lines_from_reg_elems(
+            lanelet.regulatoryElements, seen_ids
+        )
+        return len(results) > 0
+
+
+@dataclass(frozen=True)
+class EqualsConstraint(Constraint):
+    """Matches a lanelet whose ID equals the given value.
+
+    A general-purpose equality check on the lanelet ID::
+
+        - type: equals
+          value: 3002141
+
+    Use ``"any"`` to match all lanelets (useful for debugging)::
+
+        - type: equals
+          value: any
+    """
+
+    value: int | str = 0
+
+    def __post_init__(self) -> None:
+        # An id written as a string -- quoted in YAML, or typed into the
+        # editor's text field -- still names a lanelet.
+        # (`value` is a str there: Codon narrows no union, so it is read
+        # through str() -- itself, for a str.)
+        value = self.value
+        if isinstance(value, str) and str(value).isdigit():
+            object.__setattr__(self, "value", int(str(value)))
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        value = self.value
+        if isinstance(value, str) and str(value) == "any":
+            return True
+        if TYPE_CHECKING:
+            # Codon narrows no union, nor compares an int with one: the int
+            # it holds, if it holds one (a lanelet id is an int).
+            return isinstance(value, int) and lanelet.id == int(value)
+        else:
+            return lanelet.id == value
+
+
+@dataclass(frozen=True)
+class InSetConstraint(Constraint):
+    """Matches lanelets whose ID is contained in a given set of values.
+
+    Useful for filtering by a pre-defined list of lanelet IDs (e.g. IDs
+    loaded from a map configuration parameter)::
+
+        - type: in_set
+          values: [100, 200, 300]
+
+    Combine with ``not`` to *exclude* specific IDs::
+
+        - type: not
+          constraint:
+            type: in_set
+            values: ${map.no_3d_model_lanelet_ids}
+    """
+
+    values: tuple[int, ...] = field(default_factory=tuple)
+    _lookup: frozenset[int] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_lookup", frozenset(self.values))
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        return lanelet.id in self._lookup
+
+
+@dataclass(frozen=True)
+class OnRouteConstraint(Constraint):
+    """Matches the lanelets of a route: those a drive runs along, by ID.
+
+    Where a scenario is to be tried only along a route -- the legs of a reference
+    drive, say -- its lanelets are given here.  No lanelets is no route, and sets
+    no constraint: every lanelet matches, so a scenario can carry the constraint
+    and leave the route to whoever runs it::
+
+        - type: on_route
+          lanelet_ids: ${sweep.route_lanelet_ids}   # [] by default
+
+    Unlike ``in_set``, whose empty set matches nothing.
+    """
+
+    lanelet_ids: tuple[int, ...] = field(default_factory=tuple)
+    _lookup: frozenset[int] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_lookup", frozenset(self.lanelet_ids))
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        return not self._lookup or lanelet.id in self._lookup
+
+
+@dataclass(frozen=True)
+class HasTrafficLightStopLineConstraint(Constraint):
+    """Matches lanelets whose stop line originates from a traffic-light RE.
+
+    Only Pattern 1 of ``_collect_stop_lines_from_reg_elems`` is checked, and
+    only on traffic lights: the regulatory element must have the subtype
+    ``traffic_light`` (as ``MapFeatures.is_traffic_light`` asks) and a
+    ``stopLine``.  Other elements have a ``stopLine`` too -- lanelet2's
+    ``RightOfWay``, and Autoware's ``DetectionArea`` and ``NoStoppingArea``,
+    where it is a method -- and are no traffic light.
+    """
+
+    type: str = "has_traffic_light_stop_line"
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if *lanelet* has a traffic-light stop line."""
+        for reg_elem in lanelet.regulatoryElements:
+            attrs = reg_elem.attributes
+            if "subtype" not in attrs or str(attrs["subtype"]) != "traffic_light":
+                continue
+            if hasattr(reg_elem, "stopLine"):
+                try:
+                    stop_line = reg_elem.stopLine
+                    if stop_line is not None:
+                        return True
+                except Exception:
+                    pass
+        return False
+
+
+@dataclass(frozen=True)
+class IsJunctionConstraint(Constraint):
+    """Matches lanelets that are inside a junction (intersection).
+
+    A lanelet is considered a junction lanelet when it has the
+    ``turn_direction`` attribute in its tags.  This is the standard
+    convention used in Lanelet2 maps for Autoware.
+
+    .. note::
+
+        In CARLA, traffic lights must be associated with a junction.
+        If a lanelet with a traffic-light stop line is **not** inside a
+        junction (i.e. lacks ``turn_direction``), the traffic light
+        cannot be mapped to a CARLA junction and the scenario will fail.
+        Use this constraint together with ``has_traffic_light_stop_line``
+        to filter for valid lanelets::
+
+            - type: and
+              constraints:
+                - type: has_traffic_light_stop_line
+                - type: is_junction
+    """
+
+    type: str = "is_junction"
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if *lanelet* has a ``turn_direction`` attribute."""
+        return "turn_direction" in lanelet.attributes
+
+
+@dataclass(frozen=True)
+class TurnDirectionConstraint(Constraint):
+    """Matches junction lanelets whose ``turn_direction`` tag has a given value.
+
+    :class:`IsJunctionConstraint` asks whether the tag is there at all;  this
+    one asks what it says, which is what picks one manoeuvre out of a map::
+
+        - type: turn_direction
+          value: right
+
+    Autoware's Lanelet2 maps tag every lanelet inside a junction with
+    ``turn_direction``: ``left``, ``right`` or ``straight``.  A lanelet
+    outside a junction carries no tag and never matches.
+
+    Pair it with :class:`HasTrafficLightStopLineConstraint` to keep to the
+    signalised turns, which are the ones CARLA can map to a junction::
+
+        - type: and
+          constraints:
+            - type: turn_direction
+              value: right
+            - type: has_traffic_light_stop_line
+    """
+
+    value: str = "straight"
+
+    def __post_init__(self) -> None:
+        valid = {"left", "right", "straight"}
+        if self.value not in valid:
+            raise ValueError(
+                f"Unknown turn_direction {self.value!r}. Available: {sorted(valid)}"
+            )
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if the lanelet turns the way this constraint says."""
+        if "turn_direction" not in lanelet.attributes:
+            return False
+        return str(lanelet.attributes["turn_direction"]) == self.value
+
+
+@dataclass(frozen=True)
+class LaneletLengthConstraint(Constraint):
+    """Matches lanelets whose 2D centerline length satisfies a comparison rule.
+
+    Uses ``lanelet2.geometry.length2d()`` to compute the length and the
+    :class:`~autoware_carla_scenario.conditions.comparison.ComparisonRule`
+    enum for the comparison operator::
+
+        # Only lanelets at least 10 metres long
+        - type: lanelet_length
+          rule: greater_than_or_equal
+          value: 10.0
+
+        # Lanelets shorter than 5 metres
+        - type: lanelet_length
+          rule: less_than
+          value: 5.0
+
+    Supported ``rule`` values: ``greater_than``, ``less_than``,
+    ``equal_to``, ``greater_than_or_equal``, ``less_than_or_equal``.
+    """
+
+    rule: str = "greater_than_or_equal"
+    value: float = 0.0
+
+    def __post_init__(self) -> None:
+        from ..conditions.comparison import ComparisonRule
+
+        rules = list(ComparisonRule)
+        valid = {r.name.lower() for r in rules}
+        if self.rule not in valid:
+            raise ValueError(f"Unknown rule {self.rule!r}. Available: {sorted(valid)}")
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Return ``True`` if lanelet length satisfies the comparison rule."""
+        import lanelet2.geometry
+
+        from ..conditions.comparison import compare
+
+        length = lanelet2.geometry.length2d(lanelet)
+        rule_enum = _comparison_rule(self.rule.upper())
+        return compare(length, rule_enum, self.value)
+
+
+def _comparison_rule(name: str) -> ComparisonRule:
+    """``ComparisonRule[name]``: the member called *name* (``KeyError`` if none)."""
+    from ..conditions.comparison import ComparisonRule
+
+    return ComparisonRule[name]
+
+
+@dataclass(frozen=True)
+class HasAdjacentConstraint(Constraint):
+    """Matches lanelets that have an adjacent lane in the specified direction.
+
+    Uses the routing graph to determine whether a same-direction passable
+    neighbour exists via ``routing_graph.left()`` or
+    ``routing_graph.right()``.  This is useful for finding lanelets
+    suitable for lane-change scenarios::
+
+        # Lanelets with a left adjacent lane
+        - type: has_adjacent
+          value: left
+
+        # Lanelets with a right adjacent lane
+        - type: has_adjacent
+          value: right
+
+    Combine with ``not`` to find lanelets *without* an adjacent lane
+    (lane-change-fail scenarios)::
+
+        - type: not
+          constraint:
+            type: has_adjacent
+            value: left
+
+    With ``include_forks: true`` a lane that forks off beside the lanelet,
+    or joins beside it, counts too (#1066).  A turn pocket that forks off the
+    same predecessor as its through lane overlaps that lane but shares no
+    boundary with it, so the routing graph gives neither a neighbour; the
+    option makes the pocket the through lane's neighbour, and the through
+    lane the pocket's.  A *fork* is another lanelet that follows one of the
+    lanelet's predecessors, a *join* one that precedes one of its
+    successors; either counts when it is not a junction lanelet (no
+    ``turn_direction``: a movement through a junction is not a lane beside
+    another) and its centreline, a little way from the shared end, lies on
+    that side of the lanelet's centreline, in the lanelet's own frame (the
+    sign of ``t``).  It is off by default: a lane-change sweep must not pick
+    a lane the routing graph cannot change out of, so only a sweep that asks
+    for the lane at the kerb (``pedestrian_dart_out``) sets it::
+
+        - type: not
+          constraint:
+            type: has_adjacent
+            value: left
+            include_forks: true
+    """
+
+    value: str = "left"
+    #: Count a non-junction lanelet that forks off or joins beside it too.
+    include_forks: bool = False
+
+    def __post_init__(self) -> None:
+        if self.value not in ("left", "right"):
+            raise ValueError(
+                f"HasAdjacentConstraint value must be 'left' or 'right', "
+                f"got {self.value!r}"
+            )
+
+    #: The IDs :meth:`find_matching_ids` found, which
+    #: :func:`_bind_set_level_constraints` caches before :meth:`evaluate`.
+    #: Declared, as Codon needs, but left out of the constructor, the repr and
+    #: the comparisons; unset until the constraint is bound.
+    _cached_ids: set[int] = field(init=False, repr=False, compare=False)
+
+    def find_matching_ids(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph] = None
+    ) -> set[int]:
+        """Return IDs of lanelets that have an adjacent lane."""
+        if routing_graph is None:
+            routing_graph = create_routing_graph(lanelet_map)
+        # The neighbour on that side (no bound method held in a variable:
+        # Codon cannot type one of two).
+        left = self.value == "left"
+        result: set[int] = set()
+        for each in lanelet_map.laneletLayer:
+            lanelet: ConstLanelet = each
+            if left:
+                beside = routing_graph.left(lanelet)
+            else:
+                beside = routing_graph.right(lanelet)
+            if beside is not None:
+                result.add(lanelet.id)
+            elif self.include_forks and _forks_beside(lanelet, routing_graph, left):
+                result.add(lanelet.id)
+        return result
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _cache_ids(self, self.find_matching_ids(lanelet_map, routing_graph))
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Check membership in pre-computed adjacent set."""
+        return lanelet.id in self._cached_ids
+
+
+#: How far (m) from the shared end a fork's or join's centreline is sampled
+#: to tell which side of the lanelet it lies on: at most half the shorter of
+#: the two lanelets.
+_FORK_SAMPLE_M = 10.0
+#: How far (m) off the lanelet's centreline that sample must be to lie on a
+#: side: two lanelets that run on top of each other are on neither.
+_FORK_MIN_OFFSET_M = 0.1
+
+
+def _forks_beside(
+    lanelet: ConstLanelet, routing_graph: RoutingGraph, left: bool
+) -> bool:
+    """Whether a non-junction lanelet forks off, or joins, on that side of
+    *lanelet* (:class:`HasAdjacentConstraint`'s ``include_forks``)."""
+    for before in routing_graph.previous(lanelet):
+        for sibling in routing_graph.following(before):
+            if _lies_beside(lanelet, sibling, True, left):
+                return True
+    for after in routing_graph.following(lanelet):
+        for sibling in routing_graph.previous(after):
+            if _lies_beside(lanelet, sibling, False, left):
+                return True
+    return False
+
+
+def _lies_beside(
+    lanelet: ConstLanelet, other: ConstLanelet, from_start: bool, left: bool
+) -> bool:
+    """Whether *other*, sharing *lanelet*'s start (or its end), lies on that
+    side of it near the shared end, by the sign of ``t`` in its frame."""
+    import lanelet2.core
+    import lanelet2.geometry
+
+    if other.id == lanelet.id or "turn_direction" in other.attributes:
+        return False
+    points = [(float(p.x), float(p.y)) for p in other.centerline]
+    if len(points) < 2:
+        return False
+    if not from_start:
+        points.reverse()
+    reach = min(
+        _FORK_SAMPLE_M,
+        0.5 * _polyline_length(points),
+        0.5 * float(lanelet2.geometry.length2d(lanelet)),
+    )
+    x, y = _point_along(points, reach)
+    arc = lanelet2.geometry.toArcCoordinates(
+        lanelet2.geometry.to2D(lanelet.centerline), lanelet2.core.BasicPoint2d(x, y)
+    )
+    # Lanelet2's arc distance is positive on the left of the centreline.
+    t = float(arc.distance)
+    if left:
+        return t > _FORK_MIN_OFFSET_M
+    return t < -_FORK_MIN_OFFSET_M
+
+
+def _polyline_length(points: list[tuple[float, float]]) -> float:
+    """The length (m) of the polyline through *points*."""
+    total = 0.0
+    for i in range(1, len(points)):
+        total += math.hypot(
+            points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]
+        )
+    return total
+
+
+def _point_along(
+    points: list[tuple[float, float]], distance: float
+) -> tuple[float, float]:
+    """The point *distance* (m) along the polyline through *points*."""
+    travelled = 0.0
+    for i in range(1, len(points)):
+        x0, y0 = points[i - 1]
+        x1, y1 = points[i]
+        span = math.hypot(x1 - x0, y1 - y0)
+        if span > 0.0 and travelled + span >= distance:
+            fraction = (distance - travelled) / span
+            return x0 + fraction * (x1 - x0), y0 + fraction * (y1 - y0)
+        travelled += span
+    return points[-1]
+
+
+# ---------------------------------------------------------------------------
+# Composite constraints (and / or / not)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AndConstraint(Constraint):
+    """Logical AND — all child constraints must be satisfied."""
+
+    constraints: tuple[Constraint, ...] = field(default_factory=tuple)
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        return all(c.evaluate(lanelet) for c in self.constraints)
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _bind_children(self, lanelet_map, routing_graph)
+
+
+@dataclass(frozen=True)
+class OrConstraint(Constraint):
+    """Logical OR — at least one child constraint must be satisfied."""
+
+    constraints: tuple[Constraint, ...] = field(default_factory=tuple)
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        return any(c.evaluate(lanelet) for c in self.constraints)
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _bind_children(self, lanelet_map, routing_graph)
+
+
+@dataclass(frozen=True)
+class NotConstraint(Constraint):
+    """Logical NOT — the child constraint must *not* be satisfied."""
+
+    constraint: Constraint
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        return not self.constraint.evaluate(lanelet)
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _bind_children(self, lanelet_map, routing_graph)
+
+
+# ---------------------------------------------------------------------------
+# Set-level relational constraints (previous_of / following_of)
+# ---------------------------------------------------------------------------
+
+
+def create_routing_graph(lanelet_map: LaneletMap) -> RoutingGraph:
+    """Build a routing graph for *lanelet_map* using default traffic rules."""
+    import lanelet2.traffic_rules
+
+    from ..coordinate.map_manager import build_routing_graph  # noqa: PLC0415
+
+    return build_routing_graph(lanelet_map, lanelet2.traffic_rules.Participants.Vehicle)
+
+
+@dataclass(frozen=True)
+class PreviousOfConstraint(Constraint):
+    """Matches lanelets that are *previous* neighbours of the inner result set.
+
+    Inner constraints are evaluated against the full map first.  Then the
+    routing graph is queried for the **previous** lanelets (depth=1) of
+    every match.  The resulting IDs are cached so that the per-lanelet
+    ``evaluate()`` call is a simple set-membership check.
+    """
+
+    constraints: tuple[Constraint, ...] = field(default_factory=tuple)
+    #: The IDs :meth:`find_matching_ids` found, which
+    #: :func:`_bind_set_level_constraints` caches before :meth:`evaluate`.
+    #: Declared, as Codon needs, but left out of the constructor, the repr and
+    #: the comparisons; unset until the constraint is bound.
+    _cached_ids: set[int] = field(init=False, repr=False, compare=False)
+
+    def find_matching_ids(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph] = None
+    ) -> set[int]:
+        """Return IDs of lanelets previous to the inner-constraint matches."""
+        inner_matched = find_matching_lanelets(list(self.constraints), lanelet_map)
+        if routing_graph is None:
+            routing_graph = create_routing_graph(lanelet_map)
+        result: set[int] = set()
+        for lid in inner_matched:
+            lanelet = lanelet_map.laneletLayer[lid]
+            for prev_ll in routing_graph.previous(lanelet):
+                result.add(prev_ll.id)
+        return result
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _cache_ids(self, self.find_matching_ids(lanelet_map, routing_graph))
+        _bind_children(self, lanelet_map, routing_graph)
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Check membership in pre-computed previous set."""
+        return lanelet.id in self._cached_ids
+
+
+@dataclass(frozen=True)
+class FollowingOfConstraint(Constraint):
+    """Matches lanelets that are *following* neighbours of the inner result set.
+
+    Behaves identically to :class:`PreviousOfConstraint` but queries
+    ``routing_graph.following()`` instead.
+    """
+
+    constraints: tuple[Constraint, ...] = field(default_factory=tuple)
+    #: The IDs :meth:`find_matching_ids` found, which
+    #: :func:`_bind_set_level_constraints` caches before :meth:`evaluate`.
+    #: Declared, as Codon needs, but left out of the constructor, the repr and
+    #: the comparisons; unset until the constraint is bound.
+    _cached_ids: set[int] = field(init=False, repr=False, compare=False)
+
+    def find_matching_ids(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph] = None
+    ) -> set[int]:
+        """Return IDs of lanelets following the inner-constraint matches."""
+        inner_matched = find_matching_lanelets(list(self.constraints), lanelet_map)
+        if routing_graph is None:
+            routing_graph = create_routing_graph(lanelet_map)
+        result: set[int] = set()
+        for lid in inner_matched:
+            lanelet = lanelet_map.laneletLayer[lid]
+            for fol_ll in routing_graph.following(lanelet):
+                result.add(fol_ll.id)
+        return result
+
+    def _bind_set_level(
+        self, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+    ) -> None:
+        _cache_ids(self, self.find_matching_ids(lanelet_map, routing_graph))
+        _bind_children(self, lanelet_map, routing_graph)
+
+    def evaluate(self, lanelet: ConstLanelet) -> bool:
+        """Check membership in pre-computed following set."""
+        return lanelet.id in self._cached_ids
+
+
+def _bind_set_level_constraints(
+    constraint: Any,
+    lanelet_map: LaneletMap,
+    routing_graph: Optional[RoutingGraph] = None,
+) -> None:
+    """Recursively pre-compute cached IDs for set-level constraints.
+
+    Walks the constraint tree and, for every
+    :class:`PreviousOfConstraint` / :class:`FollowingOfConstraint` /
+    :class:`HasAdjacentConstraint`, calls ``find_matching_ids`` and stores the
+    result as ``_cached_ids`` (:func:`_cache_ids`).  Each class says what it
+    binds (:meth:`Constraint._bind_set_level`): Codon decides ``isinstance``
+    and ``hasattr`` by the static type, so the walk dispatches through the
+    base class.  A constraint that does not derive from :class:`Constraint`
+    only has its children walked, as before.
+    """
+    if isinstance(constraint, Constraint):
+        constraint._bind_set_level(lanelet_map, routing_graph)
+    else:
+        _bind_children(constraint, lanelet_map, routing_graph)
+
+
+def _bind_children(
+    constraint: Any, lanelet_map: LaneletMap, routing_graph: Optional[RoutingGraph]
+) -> None:
+    """:func:`_bind_set_level_constraints` of *constraint*'s children, if any."""
+    if hasattr(constraint, "constraints"):
+        for child in constraint.constraints:
+            _bind_set_level_constraints(child, lanelet_map, routing_graph)
+    if hasattr(constraint, "constraint"):
+        _bind_set_level_constraints(constraint.constraint, lanelet_map, routing_graph)
+
+
+def _cache_ids(constraint: Any, ids: set[int]) -> None:
+    """Store *ids* as the set-level *constraint*'s ``_cached_ids``.
+
+    With ``object.__setattr__``, since the dataclasses are frozen.
+    """
+    object.__setattr__(constraint, "_cached_ids", ids)
+
+
+# ---------------------------------------------------------------------------
+# Parsing & matching helpers
+# ---------------------------------------------------------------------------
+
+
+# Leaf constraints keyed by their ``type`` string.
+#: Declared here, assigned only at run time: Codon holds no class as a value,
+#: and the function that reads it (parse_constraint) is not compiled (UNCALLED).
+_LEAF_REGISTRY: dict[str, Any]
+if TYPE_CHECKING:
+    pass
+else:
+    _LEAF_REGISTRY = {
+        "has_stop_line": HasStopLineConstraint,
+        "has_traffic_light_stop_line": HasTrafficLightStopLineConstraint,
+        "is_junction": IsJunctionConstraint,
+        "turn_direction": TurnDirectionConstraint,
+        "has_adjacent": HasAdjacentConstraint,
+        "lanelet_length": LaneletLengthConstraint,
+        "equals": EqualsConstraint,
+        "in_set": InSetConstraint,
+        "on_route": OnRouteConstraint,
+    }
+
+
+def parse_constraint(cfg: dict[str, Any]) -> Constraint:
+    """Recursively instantiate a :class:`Constraint` tree from a YAML mapping.
+
+    Supported composite types:
+
+    * ``and`` — requires a ``constraints`` list of child configs.
+    * ``or``  — requires a ``constraints`` list of child configs.
+    * ``not`` — requires a single ``constraint`` child config.
+    * ``previous_of`` — requires a ``constraints`` list; resolves to
+      lanelets immediately *before* the inner matches via routing graph.
+    * ``following_of`` — requires a ``constraints`` list; resolves to
+      lanelets immediately *after* the inner matches via routing graph.
+
+    All other ``type`` values are looked up in the leaf registry.
+
+    Args:
+        cfg: A dict with at least a ``type`` key.
+
+    Returns:
+        The corresponding (possibly composite) constraint instance.
+
+    Raises:
+        ValueError: If the ``type`` value is not recognised.
+    """
+    constraint_type = cfg.get("type")
+    if constraint_type is None:
+        raise ValueError(f"Constraint config is missing 'type': {cfg}")
+
+    # --- composite: and ---
+    if constraint_type == "and":
+        children_cfg = cfg.get("constraints")
+        if not children_cfg:
+            raise ValueError("'and' constraint requires a 'constraints' list.")
+        children = tuple(parse_constraint(c) for c in children_cfg)
+        return AndConstraint(constraints=children)
+
+    # --- composite: or ---
+    if constraint_type == "or":
+        children_cfg = cfg.get("constraints")
+        if not children_cfg:
+            raise ValueError("'or' constraint requires a 'constraints' list.")
+        children = tuple(parse_constraint(c) for c in children_cfg)
+        return OrConstraint(constraints=children)
+
+    # --- composite: not ---
+    if constraint_type == "not":
+        child_cfg = cfg.get("constraint")
+        if not child_cfg:
+            raise ValueError("'not' constraint requires a 'constraint' mapping.")
+        return NotConstraint(constraint=parse_constraint(child_cfg))
+
+    # --- set-level: previous_of / following_of ---
+    if constraint_type in ("previous_of", "following_of"):
+        children_cfg = cfg.get("constraints")
+        if not children_cfg:
+            raise ValueError(
+                f"'{constraint_type}' constraint requires a 'constraints' list."
+            )
+        children = tuple(parse_constraint(c) for c in children_cfg)
+        if constraint_type == "previous_of":
+            return PreviousOfConstraint(constraints=children)
+        return FollowingOfConstraint(constraints=children)
+
+    # --- leaf ---
+    cls = _LEAF_REGISTRY.get(constraint_type)
+    if cls is None:
+        raise ValueError(
+            f"Unknown constraint type: {constraint_type!r}. "
+            f"Available leaves: {list(_LEAF_REGISTRY)}, "
+            f"composites: ['and', 'or', 'not', 'previous_of', 'following_of']"
+        )
+    kwargs = {k: v for k, v in cfg.items() if k != "type"}
+    # Convert list values to tuples for frozen dataclasses.
+    for k, v in kwargs.items():
+        if isinstance(v, list):
+            kwargs[k] = tuple(v)
+    return cls(**kwargs)
+
+
+def find_matching_lanelets(
+    constraints: list[Constraint],
+    lanelet_map: LaneletMap,
+    routing_graph: Optional[RoutingGraph] = None,
+) -> list[int]:
+    """Return IDs of lanelets satisfying *all* constraints.
+
+    Args:
+        constraints: List of constraint objects to evaluate.
+        lanelet_map: A ``lanelet2.core.LaneletMap`` instance.
+        routing_graph: Optional pre-built routing graph.  When *None* a new
+            graph is created internally only if set-level constraints exist.
+
+    Returns:
+        Sorted list of lanelet IDs that pass every constraint.
+    """
+    # Pre-compute cached IDs for set-level constraints (previous_of, following_of)
+    # so that their evaluate() calls become simple set-membership checks.
+    for c in constraints:
+        _bind_set_level_constraints(c, lanelet_map, routing_graph)
+
+    matched: list[int] = []
+    for each in lanelet_map.laneletLayer:
+        # A Lanelet, as evaluate() takes it: Codon passes no subclass to an
+        # overridden method.
+        lanelet: ConstLanelet = each
+        if all(c.evaluate(lanelet) for c in constraints):
+            matched.append(lanelet.id)
+    matched.sort()
+    logger.info("Constraint matching found %d lanelet(s): %s", len(matched), matched)
+    return matched

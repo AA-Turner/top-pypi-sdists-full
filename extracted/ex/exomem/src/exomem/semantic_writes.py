@@ -1,0 +1,5459 @@
+"""Private writer-neutral semantic creation preflight and commit routing."""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import contextlib
+import contextvars
+import datetime as dt
+import hashlib
+import json
+import logging
+import os
+import re
+import time
+import uuid
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, Literal
+
+from . import (
+    activation_manifest,
+    call_spans,
+    capabilities,
+    freshness,
+    lifecycle_statuses,
+    memory_schema,
+    metrics,
+    note_types,
+    origin_bindings,
+    promotions,
+    provenance,
+    relation_registry,
+    relation_review,
+    semantic_authoring,
+    semantic_contract,
+    semantic_index,
+    semantic_language_registry,
+    source_closure,
+    temporal,
+    vault,
+)
+from . import (
+    find as find_module,
+)
+from .kbdir import kb_prefix
+from .mutation_timings import MutationTimings, mutation_timing_span
+
+log = logging.getLogger(__name__)
+
+# v2 froze the authored *instant* alongside the authored day. v1 tokens are
+# rejected: a token minted before the bump carries no knowledge-time stamp,
+# and inferring one at commit is exactly the non-determinism the freeze exists
+# to prevent. Clients mid validate->commit re-validate once at the boundary.
+_TOKEN_VERSION = 3
+_MAX_TOKEN_BYTES = 12 * 1024
+_EXISTING_OPERATIONS = frozenset({"edit", "observe", "tier2_overwrite", "tier2_append"})
+_FEEDBACK_FINDING_LIMIT = 32
+_FEEDBACK_RELATION_FACT_LIMIT = 16
+_FEEDBACK_ITEM_LIMIT = 32
+_FEEDBACK_COUNT_LIMIT = 32
+_FEEDBACK_STRING_BYTE_LIMIT = 256
+_FEEDBACK_NESTED_ITEM_LIMIT = 8
+_FEEDBACK_BYTE_BUDGET = 120 * 1024
+_RECOVERY_REVIEW_LIMIT = 256
+_RECOVERY_FEEDBACK_ENTRY_LIMIT = 32
+_POSTHOC_FINDING_LIMIT = 256
+_POSTHOC_PATH_LIMIT = 64
+_POSTHOC_SUMMARY_LIMIT = 64
+_POSTHOC_BYTE_BUDGET = 120 * 1024
+_MOVE_WIKILINK_PATTERN = re.compile(r"\[\[([^\]\|\n]+?)(\|[^\]\n]*)?\]\]")
+_MAX_REVIEWED_STAMP_AGE = dt.timedelta(hours=24)
+_MAX_REVIEWED_STAMP_SKEW = dt.timedelta(minutes=5)
+
+
+def _structured_item_product_route(source: str) -> str | None:
+    """Return the owning mutation surface for an exact structured-item identity."""
+    try:
+        frontmatter, _body, marker = vault.parse_frontmatter(source, strict=True)
+    except vault.FrontmatterError:
+        return None
+    if marker is None or type(frontmatter.get("schema_version")) is not int:
+        return None
+    item_type = frontmatter.get("type")
+    identity_field, route = (
+        ("plan_id", "plan_memory")
+        if item_type == "plan"
+        else ("record_id", "record_memory")
+        if item_type == "record"
+        else (None, None)
+    )
+    if identity_field is None:
+        return None
+    try:
+        uuid.UUID(str(frontmatter.get("collection_id", "")))
+        uuid.UUID(str(frontmatter.get(identity_field, "")))
+    except (ValueError, AttributeError, TypeError):
+        return None
+    return route
+
+
+def _reject_generic_structured_item_write(path: str, source: str) -> None:
+    route = _structured_item_product_route(source)
+    if route is None:
+        return
+    # The route is a grouped command; the message names the tool the active surface lists for its writes.
+    owner = "/".join(capabilities.active_tools(route, "write"))
+    raise SemanticWriteError(
+        "STRUCTURED_ITEM_REQUIRES_PRODUCT_ROUTE",
+        f"{path} is owned by {owner}; use that product route so its schema and audit chain remain valid",
+    )
+
+
+def rewrite_wikilinks_for_move(text: str, old_rel: str, new_rel: str) -> tuple[str, int]:
+    """Pure canonical path-only rewrite shared by move staging and review carry.
+
+    An origin carrier is recorded data, so a link inside one keeps its bytes.
+    The count covers only links whose bytes change. A bare-name link to a file
+    that keeps its basename resolves as before and keeps its bytes, so a page
+    holding only such links is neither rewritten nor, when append-only, refused.
+    """
+    old_no_ext = old_rel.removesuffix(".md")
+    new_no_ext = new_rel.removesuffix(".md")
+    prefix = kb_prefix()
+    old_full = old_no_ext if old_no_ext.startswith(prefix) else prefix + old_no_ext
+    new_full = new_no_ext if new_no_ext.startswith(prefix) else prefix + new_no_ext
+    old_stripped = old_full.removeprefix(prefix)
+    new_stripped = new_full.removeprefix(prefix)
+    old_basename = old_no_ext.rsplit("/", 1)[-1]
+    new_basename = new_no_ext.rsplit("/", 1)[-1]
+    changed = 0
+    inside_carrier = provenance.in_carrier(text)
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal changed
+        original = match.group(0)
+        if inside_carrier(match.start(), match.end()):
+            return original
+        target = match.group(1).strip()
+        alias = match.group(2) or ""
+        target_path, marker, anchor = target.partition("#")
+        anchor_suffix = f"#{anchor}" if marker else ""
+        target_path = target_path.rstrip()
+        target_no_ext = target_path.removesuffix(".md")
+        if target_no_ext in {old_full, old_stripped}:
+            replacement = new_full if target_path.startswith(prefix) else new_stripped
+        elif (
+            "/" not in target_no_ext
+            and target_no_ext == old_basename
+            and new_basename != old_basename
+        ):
+            replacement = new_basename
+        else:
+            return original
+        rewritten = f"[[{replacement}{anchor_suffix}{alias}]]"
+        if rewritten != original:
+            changed += 1
+        return rewritten
+
+    return _MOVE_WIKILINK_PATTERN.sub(replace, text), changed
+
+
+def _bounded_feedback_text(value: str, truncation: dict[str, int]) -> str:
+    raw = value.encode("utf-8", errors="replace")
+    if len(raw) <= _FEEDBACK_STRING_BYTE_LIMIT:
+        return raw.decode("utf-8")
+    ellipsis = "…"
+    prefix = raw[: _FEEDBACK_STRING_BYTE_LIMIT - len(ellipsis.encode("utf-8"))]
+    text = prefix.decode("utf-8", errors="ignore")
+    retained = len(text.encode("utf-8"))
+    truncation["strings_truncated"] += 1
+    truncation["string_bytes_omitted"] += len(raw) - retained
+    return text + ellipsis
+
+
+def _bounded_feedback_value(value: Any, truncation: dict[str, int]) -> Any:
+    if isinstance(value, str):
+        return _bounded_feedback_text(value, truncation)
+    if isinstance(value, (list, tuple)):
+        retained = value[:_FEEDBACK_NESTED_ITEM_LIMIT]
+        truncation["nested_items_omitted"] += len(value) - len(retained)
+        return [_bounded_feedback_value(item, truncation) for item in retained]
+    if isinstance(value, dict):
+        bounded: dict[str, Any] = {}
+        for raw_key, item in value.items():
+            key = _bounded_feedback_text(str(raw_key), truncation)
+            if key in bounded:
+                suffix = f"#{len(bounded)}"
+                key = _bounded_feedback_text(
+                    key + suffix,
+                    truncation,
+                )
+            bounded[key] = _bounded_feedback_value(item, truncation)
+        return bounded
+    return value
+
+
+def _feedback_serialized_size(value: dict[str, Any]) -> int:
+    return len(json.dumps(value, ensure_ascii=True, sort_keys=True).encode("utf-8"))
+
+
+def _fit_feedback_byte_budget(value: dict[str, Any]) -> dict[str, Any]:
+    """Deterministically omit retained items until canonical JSON is bounded."""
+    relation = value.get("relation_disposition")
+    top_omitted = value["omitted_counts"]
+    candidates: list[tuple[dict[str, Any], str, dict[str, int]]] = [
+        (value, "warnings", top_omitted),
+        (value, "errors", top_omitted),
+        (value, "blocking_findings", top_omitted),
+        (value, "findings", top_omitted),
+        (value, "actions", top_omitted),
+    ]
+    if isinstance(relation, dict):
+        relation_omitted = relation["omitted_counts"]
+        candidates.extend(
+            (
+                (relation, "rejected_facts", relation_omitted),
+                (relation, "qualifying_facts", relation_omitted),
+                (relation, "qualifying_directions", relation_omitted),
+                (relation, "actions", relation_omitted),
+            )
+        )
+
+    while _feedback_serialized_size(value) >= _FEEDBACK_BYTE_BUDGET:
+        removed_total = 0
+        for container, key, omitted in candidates:
+            items = container[key]
+            if not items:
+                continue
+            keep = len(items) // 2
+            removed = len(items) - keep
+            del items[keep:]
+            omitted[key] = omitted.get(key, 0) + removed
+            removed_total += removed
+        if removed_total == 0:
+            break
+        value["truncation"]["budget_items_omitted"] += removed_total
+    value["omitted_counts"] = dict(sorted(top_omitted.items()))
+    if isinstance(relation, dict):
+        relation["omitted_counts"] = dict(sorted(relation["omitted_counts"].items()))
+    return value
+
+
+_ERROR_FINDING_LIMIT = semantic_contract.ERROR_FINDING_LIMIT
+
+# Single renderer, shared with relation_review via semantic_contract. Keeping a
+# second copy here would let the two blocking paths drift apart, which is the
+# whole failure this reporting was added to prevent.
+_blocking_finding_text = semantic_contract.blocking_finding_text
+_blocking_reason = semantic_contract.blocking_reason
+
+
+def _blocking_reason_for_evaluations(
+    evaluations: Sequence[Any],
+    prefix: str = "semantic contract has blocking findings",
+) -> str:
+    """Same as `_blocking_reason` for multi-page operations (move, recovery).
+
+    `should_block` on these preflights is an `any()` across evaluations, so the
+    blocking findings are spread over several pages. Naming the page each
+    finding came from is what makes a multi-page rejection actionable.
+    """
+    findings = tuple(
+        finding for item in evaluations for finding in item.contract_result.blocking_findings
+    )
+    if not findings:
+        return prefix
+    shown = findings[:_ERROR_FINDING_LIMIT]
+    rendered = "; ".join(_blocking_finding_text(item) for item in shown)
+    omitted = len(findings) - len(shown)
+    if omitted:
+        rendered += f"; +{omitted} more ({semantic_contract.VALIDATE_FORM} returns the full set)"
+    return f"{prefix}: {rendered}"
+
+
+def _bounded_semantic_feedback(
+    result: semantic_contract.SemanticContractResult,
+) -> dict[str, Any]:
+    """Project a full internal result into deterministic bounded writer feedback."""
+    omitted: dict[str, int] = {}
+    truncation = {
+        "strings_truncated": 0,
+        "string_bytes_omitted": 0,
+        "nested_items_omitted": 0,
+    }
+
+    def findings(
+        name: str, values: tuple[semantic_contract.ContractFinding, ...]
+    ) -> list[dict[str, Any]]:
+        if len(values) > _FEEDBACK_FINDING_LIMIT:
+            omitted[name] = len(values) - _FEEDBACK_FINDING_LIMIT
+        return [
+            _bounded_feedback_value(item.as_dict(), truncation)
+            for item in values[:_FEEDBACK_FINDING_LIMIT]
+        ]
+
+    def items(name: str, values: tuple[str, ...]) -> list[str]:
+        if len(values) > _FEEDBACK_ITEM_LIMIT:
+            omitted[name] = len(values) - _FEEDBACK_ITEM_LIMIT
+        return [_bounded_feedback_text(item, truncation) for item in values[:_FEEDBACK_ITEM_LIMIT]]
+
+    kind_counts = result.kind_counts[:_FEEDBACK_COUNT_LIMIT]
+    category_counts = result.category_counts[:_FEEDBACK_COUNT_LIMIT]
+    if len(result.kind_counts) > _FEEDBACK_COUNT_LIMIT:
+        omitted["kind_counts"] = len(result.kind_counts) - _FEEDBACK_COUNT_LIMIT
+    if len(result.category_counts) > _FEEDBACK_COUNT_LIMIT:
+        omitted["category_counts"] = len(result.category_counts) - _FEEDBACK_COUNT_LIMIT
+
+    relation_value: dict[str, Any] | None = None
+    disposition = result.relation_disposition
+    if disposition is not None:
+        relation_omitted: dict[str, int] = {}
+
+        def relation_items(name: str, values: tuple[str, ...]) -> list[str]:
+            if len(values) > _FEEDBACK_ITEM_LIMIT:
+                relation_omitted[name] = len(values) - _FEEDBACK_ITEM_LIMIT
+            return [
+                _bounded_feedback_text(item, truncation) for item in values[:_FEEDBACK_ITEM_LIMIT]
+            ]
+
+        if len(disposition.qualifying_facts) > _FEEDBACK_RELATION_FACT_LIMIT:
+            relation_omitted["qualifying_facts"] = (
+                len(disposition.qualifying_facts) - _FEEDBACK_RELATION_FACT_LIMIT
+            )
+        if len(disposition.rejected_facts) > _FEEDBACK_RELATION_FACT_LIMIT:
+            relation_omitted["rejected_facts"] = (
+                len(disposition.rejected_facts) - _FEEDBACK_RELATION_FACT_LIMIT
+            )
+        relation_value = {
+            "kind": disposition.kind,
+            "satisfied": disposition.satisfied,
+            "current": disposition.current,
+            "qualifying_directions": relation_items(
+                "qualifying_directions", disposition.qualifying_directions
+            ),
+            "qualifying_facts": [
+                _bounded_feedback_value(fact.as_dict(), truncation)
+                for fact in disposition.qualifying_facts[:_FEEDBACK_RELATION_FACT_LIMIT]
+            ],
+            "rejected_facts": [
+                _bounded_feedback_value(item.as_dict(), truncation)
+                for item in disposition.rejected_facts[:_FEEDBACK_RELATION_FACT_LIMIT]
+            ],
+            "actions": relation_items("actions", disposition.actions),
+            "omitted_counts": dict(sorted(relation_omitted.items())),
+        }
+
+    value = {
+        "mode": _bounded_feedback_text(result.mode, truncation),
+        "operation": _bounded_feedback_text(result.operation, truncation),
+        "findings": findings("findings", result.findings),
+        "errors": findings("errors", result.errors),
+        "warnings": findings("warnings", result.warnings),
+        "blocking_findings": findings("blocking_findings", result.blocking_findings),
+        "should_block": result.should_block,
+        "semantic_unit_count": result.semantic_unit_count,
+        "compact_unit_count": result.compact_unit_count,
+        "rich_unit_count": result.rich_unit_count,
+        "kind_counts": _bounded_feedback_value(dict(kind_counts), truncation),
+        "category_counts": _bounded_feedback_value(dict(category_counts), truncation),
+        # Already bounded to at most eight deterministic entries in the shared
+        # leaf; adapters carry it verbatim and never recompute it.
+        "category_feedback": [entry.as_dict() for entry in result.category_feedback],
+        "category_feedback_omitted": result.category_feedback_omitted,
+        "relation_disposition": relation_value,
+        "actions": items("actions", result.actions),
+        "omitted_counts": dict(sorted(omitted.items())),
+        "truncation": {
+            "byte_budget": _FEEDBACK_BYTE_BUDGET,
+            **truncation,
+            "budget_items_omitted": 0,
+        },
+    }
+    return _fit_feedback_byte_budget(value)
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("duplicate JSON key")
+        value[key] = item
+    return value
+
+
+@dataclass(slots=True)
+class SemanticWriteError(ValueError):
+    code: str
+    reason: str
+    validation_findings: tuple[semantic_contract.ContractFinding, ...] = ()
+    details: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        ValueError.__init__(self, f"{self.code}: {self.reason}")
+
+    def as_semantic_validation_error(self) -> dict[str, Any] | None:
+        """Project only canonical semantic-authoring refusals for public facades."""
+        if self.code == source_closure.UNRESOLVED_CODE:
+            return {
+                "code": self.code,
+                "message": self.reason,
+                "remediation": source_closure.UNRESOLVED_REMEDIATION,
+                **dict(self.details or {}),
+                "mutated": False,
+            }
+        canonical = semantic_authoring.AUTHORING_CONTRACT.findings
+        authored = tuple(
+            finding for finding in self.validation_findings if finding.code in canonical
+        )
+        if not authored:
+            return None
+        by_code = {finding.code: finding for finding in authored}
+        primary = by_code.get("missing_semantic_unit", authored[0])
+        definition = canonical[primary.code]
+        if primary.code == "missing_semantic_unit":
+            compact = definition["compact_remediation"]
+            rich = definition["rich_remediation"]
+            remediation = f"{compact} {rich}"
+        else:
+            compact = None
+            rich = None
+            remediation = definition["remediation"]
+        payload: dict[str, Any] = {
+            "code": primary.code,
+            "message": primary.detail or definition["when"],
+            "remediation": remediation,
+            "findings": [finding.as_dict() for finding in self.validation_findings],
+            "validation_state": "rejected",
+            "mutated": False,
+        }
+        if compact is not None:
+            payload["compact_remediation"] = compact
+        if rich is not None:
+            payload["rich_remediation"] = rich
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PosthocPageEvaluation:
+    """One governed Markdown page evaluated against a shared current corpus."""
+
+    path: str
+    contract_result: semantic_contract.SemanticContractResult
+    grandfathered: bool
+    activation: Literal["current", "prospective"]
+
+
+def _posthoc_finding_sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    code = str(item.get("code") or "")
+    resolved_rule = tuple(str(value) for value in item.get("resolved_rule") or ())
+    rule = resolved_rule[2] if len(resolved_rule) >= 3 else ""
+    namespace = resolved_rule[0] if resolved_rule else ""
+    legacy_backlog = bool(
+        code == "RELATION_DISPOSITION_MISSING" and item.get("grandfathered") is True
+    )
+    current = item.get("activation") == "current"
+    if (
+        not legacy_backlog
+        and current
+        and item.get("grandfathered") is not True
+        and item.get("severity") == "error"
+    ):
+        priority = 0
+    elif rule == "syntax" or (
+        namespace in {"categories", "kinds"} and (rule == "registry" or "REGISTRY" in code.upper())
+    ):
+        priority = 1
+    elif legacy_backlog:
+        priority = 3
+    else:
+        priority = 2
+    identity = json.dumps(
+        item.get("governed_element_identity") or (),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return priority, code, str(item.get("path") or ""), identity
+
+
+@dataclass(frozen=True, slots=True)
+class PosthocBatch:
+    """Bounded non-content projection shared by watcher, audit, and reconcile."""
+
+    operation: Literal["watcher", "audit", "reconcile"]
+    activation: Literal["current", "prospective"]
+    evaluations: tuple[PosthocPageEvaluation, ...]
+    corpus: semantic_contract.SemanticCorpusContext | None = None
+
+    def as_dict(self, detail: Literal["actionable", "full"] = "actionable") -> dict[str, Any]:
+        if detail not in {"actionable", "full"}:
+            raise SemanticWriteError(
+                "SEMANTIC_POSTHOC_INVALID_DETAIL",
+                "posthoc detail must be actionable or full",
+            )
+        full = detail == "full"
+        audit_projection = self.operation == "audit"
+        findings: list[dict[str, Any]] = []
+        summary: dict[str, int] = {}
+        bounded = {
+            "strings_truncated": 0,
+            "string_bytes_omitted": 0,
+            "nested_items_omitted": 0,
+        }
+        # Census over EVERY evaluation, not only the ones that produced a finding.
+        # Satisfied pages emit no finding, so counting findings alone would report a
+        # reviewed-none share of 100% on a healthy vault.
+        disposition_census: dict[str, int] = {}
+        for evaluation in self.evaluations:
+            disposition = evaluation.contract_result.relation_disposition
+            disposition_value = (
+                {
+                    "kind": disposition.kind,
+                    "satisfied": disposition.satisfied,
+                    "current": disposition.current,
+                }
+                if disposition is not None
+                else None
+            )
+            if disposition is None:
+                census_key = "not_applicable"
+            elif disposition.kind == "qualifying_relation":
+                signal = getattr(disposition, "qualifying_signal", "typed")
+                census_key = f"qualifying_relation_{signal}"
+            else:
+                census_key = disposition.kind
+            disposition_census[census_key] = disposition_census.get(census_key, 0) + 1
+            for finding in evaluation.contract_result.findings:
+                summary[finding.code] = summary.get(finding.code, 0) + 1
+                item = {
+                    "path": evaluation.path,
+                    "code": finding.code,
+                    "severity": finding.severity,
+                    "governed_element_identity": list(finding.governed_element_identity),
+                    "resolved_rule": list(finding.resolved_rule),
+                    "relation_disposition": disposition_value,
+                    "actions": list(evaluation.contract_result.actions),
+                    "activation": evaluation.activation,
+                    "grandfathered": evaluation.grandfathered,
+                }
+                findings.append(item if full else _bounded_feedback_value(item, bounded))
+        total = len(findings)
+        ordered_for_bounds = False
+        if not full and audit_projection and total > _POSTHOC_FINDING_LIMIT:
+            findings.sort(key=_posthoc_finding_sort_key)
+            ordered_for_bounds = True
+        if not full:
+            findings = findings[:_POSTHOC_FINDING_LIMIT]
+        omitted = total - len(findings)
+        if full:
+            evaluated_paths = [item.path for item in self.evaluations]
+        else:
+            evaluated_paths = [
+                _bounded_feedback_text(item.path, bounded)
+                for item in self.evaluations[:_POSTHOC_PATH_LIMIT]
+            ]
+        summary_items = sorted(summary.items())
+        retained_summary = dict(
+            summary_items if full or audit_projection else summary_items[:_POSTHOC_SUMMARY_LIMIT]
+        )
+        value: dict[str, Any] = {
+            "operation": self.operation,
+            "activation": self.activation,
+            "evaluated_paths": evaluated_paths,
+            "semantic_contract_findings": findings,
+            "semantic_contract_summary": retained_summary,
+            "relation_disposition_summary": dict(sorted(disposition_census.items())),
+            "omitted_counts": {
+                "evaluated_paths": len(self.evaluations) - len(evaluated_paths),
+                "semantic_contract_findings": omitted,
+                "semantic_contract_summary": len(summary_items) - len(retained_summary),
+            },
+            "truncation": {
+                "byte_budget": None if full else _POSTHOC_BYTE_BUDGET,
+                "finding_limit": None if full else _POSTHOC_FINDING_LIMIT,
+                "path_limit": None if full else _POSTHOC_PATH_LIMIT,
+                "summary_limit": (None if full or audit_projection else _POSTHOC_SUMMARY_LIMIT),
+                **bounded,
+                "budget_items_omitted": 0,
+            },
+        }
+        if audit_projection or full:
+            value["truncation"].update(
+                {
+                    "observation_complete": True,
+                    "findings_complete": omitted == 0,
+                }
+            )
+        if full:
+            return value
+        if (
+            audit_projection
+            and _feedback_serialized_size(value) >= _POSTHOC_BYTE_BUDGET
+            and not ordered_for_bounds
+        ):
+            findings.sort(key=_posthoc_finding_sort_key)
+        variable_collections = [
+            ("semantic_contract_findings", findings),
+            ("evaluated_paths", evaluated_paths),
+        ]
+        if not audit_projection:
+            variable_collections.append(("semantic_contract_summary", retained_summary))
+        while _feedback_serialized_size(value) >= _POSTHOC_BYTE_BUDGET:
+            removed_total = 0
+            for name, collection in variable_collections:
+                if not collection:
+                    continue
+                keep = len(collection) // 2
+                if isinstance(collection, dict):
+                    retained_keys = list(collection)[:keep]
+                    removed = len(collection) - len(retained_keys)
+                    retained_values = {key: collection[key] for key in retained_keys}
+                    collection.clear()
+                    collection.update(retained_values)
+                else:
+                    removed = len(collection) - keep
+                    del collection[keep:]
+                value["omitted_counts"][name] += removed
+                removed_total += removed
+            value["truncation"]["budget_items_omitted"] += removed_total
+            if removed_total == 0:
+                break
+        if audit_projection:
+            value["truncation"]["findings_complete"] = (
+                value["omitted_counts"]["semantic_contract_findings"] == 0
+            )
+        return value
+
+
+def _posthoc_relative_path(root: Path, path: Path | str) -> str | None:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            return candidate.resolve().relative_to(root.resolve()).as_posix()
+        except (OSError, ValueError):
+            return None
+    value = str(path).replace("\\", "/").lstrip("/")
+    if not value:
+        return None
+    # Same shape as `semantic_contract._patch_corpus_files_changed_locked`: the
+    # absolute branch already lands on real on-disk casing, so a caller-cased
+    # relative path must be canonicalized too or the page silently drops out of
+    # the batch (it keys a phantom sibling the corpus has never heard of).
+    return vault.canonical_vault_rel(root, value)
+
+
+def build_posthoc_corpus(
+    vault_root: Path, *, status_basis: lifecycle_statuses.Basis
+) -> tuple[semantic_contract.SemanticCorpusContext, semantic_language_registry.SemanticLanguageRegistry]:
+    """The corpus and language registry a posthoc pass reads.
+
+    A caller that needs the corpus before it evaluates builds it here, then passes both back to
+    `evaluate_posthoc_batch`, so one pass reads the vault once.
+    """
+    root = Path(vault_root)
+    registry = relation_registry.load_registry(root)
+    language = semantic_language_registry.load_registry(root)
+    corpus = semantic_contract.build_corpus_context(
+        root, registry=registry, language_registry=language, status_basis=status_basis
+    )
+    return corpus, language
+
+
+def evaluate_posthoc_batch(
+    vault_root: Path,
+    *,
+    paths: list[Path | str] | tuple[Path | str, ...] | None = None,
+    operation: Literal["watcher", "audit", "reconcile"],
+    corpus: semantic_contract.SemanticCorpusContext | None = None,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+    saved_contracts: tuple[memory_schema.LoadedMemoryContract, ...] | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> PosthocBatch:
+    """Evaluate current governed Markdown once without writing or repairing it."""
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    if operation not in {"watcher", "audit", "reconcile"}:
+        raise SemanticWriteError(
+            "SEMANTIC_POSTHOC_INVALID_OPERATION",
+            "posthoc semantic operation is unsupported",
+        )
+    root = Path(vault_root)
+    if corpus is None:
+        corpus, language = build_posthoc_corpus(root, status_basis=status_basis)
+        resolved_saved_contracts = memory_schema.load_saved_contracts(root)
+    else:
+        language = language_registry or semantic_language_registry.load_registry(root)
+        resolved_saved_contracts = (
+            saved_contracts
+            if saved_contracts is not None
+            else memory_schema.load_saved_contracts(root)
+        )
+    manifest = activation_manifest.load_manifest(root)
+    activation_status: Literal["current", "prospective"] = (
+        "current" if manifest is not None else "prospective"
+    )
+    if paths is None:
+        selected = sorted(corpus.pages)
+    else:
+        selected = sorted(
+            {rel for path in paths if (rel := _posthoc_relative_path(root, path)) is not None}
+        )
+
+    contracts_by_scope: dict[
+        tuple[tuple[str, ...], str | None], memory_schema.ResolvedMemoryContracts
+    ] = {}
+    evaluations: list[PosthocPageEvaluation] = []
+    for rel_path in selected:
+        state = corpus.pages.get(rel_path)
+        # Each selected page is this operation's own; its eligibility needs its class.
+        semantic_contract.require_page_status(state)
+        if state is None or not state.eligible_governed:
+            continue
+        # A posthoc pass reads the page; it never refuses for a withheld definition.
+        state = semantic_contract.read_side(state)
+        scope = (state.projects, state.page_type)
+        contracts = contracts_by_scope.get(scope)
+        if contracts is None:
+            contracts = memory_schema.resolve_contracts(
+                resolved_saved_contracts,
+                projects=state.projects,
+                page_type=state.page_type,
+                language_registry=language,
+            )
+            contracts_by_scope[scope] = contracts
+        review = (
+            relation_review.load_relation_review(root, state, corpus=corpus)
+            if semantic_contract.requires_semantic_unit(state)
+            else None
+        )
+        grandfathered = bool(
+            manifest is not None
+            and activation_manifest.is_grandfathered(
+                root,
+                state.path,
+                source_hash=state.source_hash,
+                exomem_id=(state.identity if state.identity_kind == "exomem_id" else None),
+                manifest=manifest,
+                census=corpus.activation_census,
+                identity_census=corpus.identity_census,
+                eligible_compiled=state.eligible_compiled,
+                status_basis=status_basis,
+            )
+        )
+        result = semantic_contract.evaluate(
+            before=None,
+            after=state,
+            operation=operation,
+            mode="posthoc",
+            before_contracts=contracts,
+            after_contracts=contracts,
+            before_corpus=corpus,
+            after_corpus=corpus,
+            before_review=None,
+            after_review=review,
+            grandfathered=False,
+            include_relation_disposition=semantic_contract.requires_semantic_unit(state),
+        )
+        evaluations.append(
+            PosthocPageEvaluation(
+                state.path,
+                result,
+                grandfathered,
+                activation_status,
+            )
+        )
+    return PosthocBatch(operation, activation_status, tuple(evaluations), corpus)
+
+
+@dataclass(frozen=True, slots=True)
+class DraftRegistration:
+    key: str
+    category: str
+    folder: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"key": self.key, "category": self.category, "folder": self.folder}
+
+
+@dataclass(frozen=True, slots=True)
+class DraftToken:
+    """A validated destination frozen across the validate->commit gap.
+
+    `render_date` is the authored calendar day; it names the file and must stay
+    day-granular. `render_stamp` is the authored knowledge-time instant written
+    into `created`/`updated`. Both are frozen at validation rather than read
+    again at commit, so committing the same token twice produces identical
+    bytes — the property the mutation-receipt replay path depends on.
+    """
+
+    writer: str
+    operation: str
+    destination: str
+    render_date: str
+    registrations: tuple[DraftRegistration, ...] = ()
+    # Declared last so existing positional construction keeps binding
+    # `registrations` where callers expect it; always pass this by keyword.
+    render_stamp: str = ""
+    vocabulary_binding: dict[str, str] | None = None
+    version: int = _TOKEN_VERSION
+
+    def stamp(self) -> str:
+        """The frozen instant, falling back to the frozen day."""
+        return self.render_stamp or self.render_date
+
+    def encode(self) -> str:
+        value = {
+            "version": self.version,
+            "writer": self.writer,
+            "operation": self.operation,
+            "destination": self.destination,
+            "render_date": self.render_date,
+            "render_stamp": self.render_stamp or self.render_date,
+            "registrations": [item.as_dict() for item in self.registrations],
+        }
+        if self.version == _TOKEN_VERSION:
+            value["vocabulary_binding"] = self.vocabulary_binding
+        raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        if len(raw) > _MAX_TOKEN_BYTES:
+            raise SemanticWriteError("DRAFT_TOKEN_TOO_LARGE", "draft token exceeds its bound")
+        encoded = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+        if len(encoded.encode("utf-8")) > relation_review.MAX_DRAFT_TOKEN_ENCODED_BYTES:
+            raise SemanticWriteError("DRAFT_TOKEN_TOO_LARGE", "draft token exceeds its bound")
+        return encoded
+
+    @classmethod
+    def decode(cls, token: object) -> DraftToken:
+        if (
+            type(token) is not str
+            or not token
+            or len(token.encode("utf-8")) > relation_review.MAX_DRAFT_TOKEN_ENCODED_BYTES
+        ):
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token is invalid")
+        try:
+            padded = token + "=" * (-len(token) % 4)
+            raw = base64.b64decode(padded, altchars=b"-_", validate=True)
+            if len(raw) > _MAX_TOKEN_BYTES:
+                raise ValueError
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        except (
+            binascii.Error,
+            ValueError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as error:
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token is invalid") from error
+        expected = {
+            "version", "writer", "operation", "destination", "render_date", "render_stamp", "registrations"
+        }
+        version = value.get("version") if type(value) is dict else None
+        if version == _TOKEN_VERSION:
+            expected.add("vocabulary_binding")
+        if type(value) is not dict or set(value) != expected:
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token has invalid fields")
+        if version not in {2, _TOKEN_VERSION} or any(
+            type(value[key]) is not str
+            for key in ("writer", "operation", "destination", "render_date", "render_stamp")
+        ):
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token has invalid fields")
+        try:
+            render_date = dt.date.fromisoformat(value["render_date"])
+        except ValueError as error:
+            raise SemanticWriteError(
+                "INVALID_DRAFT_TOKEN", "draft token has invalid render date"
+            ) from error
+        # The frozen stamp must be canonical, or committing the same token
+        # twice could still produce different bytes.
+        stamp_moment = temporal.parse(value["render_stamp"])
+        if (
+            stamp_moment is None
+            or temporal.stamp(stamp_moment.instant or stamp_moment.day) != value["render_stamp"]
+        ):
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token has invalid render stamp")
+        # `render_date` is the author's local day while `render_stamp` folds to
+        # UTC (see `temporal`), so on any host with a non-zero offset the two
+        # legitimately land on different days -- demanding equality rejected
+        # every write made between local midnight and the UTC day boundary.
+        # Bound the gap instead: real offsets span -12:00..+14:00, so one
+        # calendar day is the ceiling a correctly-minted pair can differ by.
+        if abs((stamp_moment.day - render_date).days) > 1:
+            raise SemanticWriteError(
+                "INVALID_DRAFT_TOKEN", "draft token render stamp disagrees with its render date"
+            )
+        if (
+            render_date.isoformat() != value["render_date"]
+            or not re.fullmatch(r"[a-z][a-z0-9_]{0,31}", value["writer"])
+            or not re.fullmatch(r"[a-z][a-z0-9_]{0,31}", value["operation"])
+            or len(value["destination"]) > 1024
+        ):
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token has invalid fields")
+        registrations_raw = value["registrations"]
+        if type(registrations_raw) is not list or len(registrations_raw) > 64:
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token has invalid registrations")
+        registrations: list[DraftRegistration] = []
+        for item in registrations_raw:
+            if (
+                type(item) is not dict
+                or set(item) != {"key", "category", "folder"}
+                or any(type(item[key]) is not str for key in ("key", "category", "folder"))
+            ):
+                raise SemanticWriteError(
+                    "INVALID_DRAFT_TOKEN", "draft token has invalid registrations"
+                )
+            registrations.append(DraftRegistration(item["key"], item["category"], item["folder"]))
+        decoded = cls(
+            value["writer"],
+            value["operation"],
+            value["destination"],
+            value["render_date"],
+            tuple(registrations),
+            render_stamp=value["render_stamp"],
+            vocabulary_binding=value.get("vocabulary_binding"),
+            version=version,
+        )
+        if decoded.encode() != token:
+            raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token is not canonical")
+        return decoded
+
+
+def _new_provenance_time(vault_root: Path) -> str | None:
+    from . import vocabulary_gate
+
+    if vocabulary_gate.requires_stable_provenance(vault_root):
+        # Approval digests have no durable timestamp preimage; omit optional metrics.
+        return None
+    return dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
+
+
+@dataclass(frozen=True, slots=True)
+class CreationPreflight:
+    applicability: Literal["full", "structural", "not_semantic"]
+    destination: str
+    source: str
+    draft_id: str | None
+    draft_token: str
+    mutated: Literal[False]
+    contract_result: semantic_contract.SemanticContractResult | None
+    creation_validation: relation_review.CreationDraftValidation | None
+    semantic_state: semantic_contract.SemanticPageState
+    census_token: tuple | None = None
+    #: The corpus this preflight already built. Retained, not rebuilt, so advisory
+    #: post-write analysis can see what else the vault holds without new I/O. It is
+    #: the *before* corpus and so excludes the page being created, which is correct:
+    #: a page is never its own destination.
+    corpus: semantic_contract.SemanticCorpusContext | None = None
+    source_closure_plan: source_closure.SourceClosurePlan | None = None
+    vocabulary_binding: Any | None = None
+    vocabulary_guards: tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...] = ()
+    origin_inputs: origin_bindings.PreparedOriginInputs | None = None
+    #: The relation-review verdict this preflight computed, offered to the
+    #: commit's own preliminary attempt; see `relation_review.prevalidated_attempt`.
+    relation_attempt: relation_review._PrevalidatedAttempt | None = field(
+        default=None, compare=False, repr=False
+    )
+    #: Where the typed writer filed the page and why; absent for writers that do not place pages.
+    placement: dict[str, Any] | None = None
+    provenance_server_at: str | None = None
+
+    @property
+    def draft_hash(self) -> str | None:
+        return self.creation_validation.draft_hash if self.creation_validation is not None else None
+
+    @property
+    def relation_candidates(self) -> tuple[relation_review.RelationCandidate, ...]:
+        return (
+            self.creation_validation.relation_candidates
+            if self.creation_validation is not None
+            else ()
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        value: dict[str, Any] = {
+            "applicability": self.applicability,
+            "destination": self.destination,
+            "draft_id": self.draft_id,
+            "draft_hash": self.draft_hash,
+            "draft_token": self.draft_token,
+            "mutated": self.mutated,
+            "contract_result": (
+                self.contract_result.as_dict() if self.contract_result is not None else None
+            ),
+        }
+        if self.creation_validation is not None:
+            value.update(self.creation_validation.as_dict())
+            value["draft_token"] = self.draft_token
+            value["applicability"] = self.applicability
+        if self.vocabulary_binding is not None:
+            value["vocabulary_resolution"] = self.vocabulary_binding.as_dict()
+        if self.placement is not None:
+            value["placement"] = self.placement
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class CreationCommit:
+    applicability: Literal["full", "structural", "not_semantic"]
+    mutated: Literal[True]
+    written_paths: tuple[str, ...]
+    contract_result: semantic_contract.SemanticContractResult | None
+    creation_commit: relation_review.CreationDraftCommit | None
+    # Advisory only. Absent unless the written page shows recurring durable
+    # material outside its own declared scope; never affects the commit.
+    structure_suggestion: dict[str, Any] | None = None
+    records_routing: dict[str, Any] | None = None
+    # Advisory only, and a DIFFERENT kind of advisory: `structure_suggestion` is
+    # evidence about the page just written, while this is a bounded count of what
+    # the whole vault currently owes. It rides the same post-commit seam because
+    # a second one would be a second thing to keep fail-open; it does not share
+    # the seam's licence to skip a disclosure decision, and does not get one.
+    due_state: dict[str, Any] | None = None
+    # Advisory only, and a THIRD kind again: the two above describe the page and
+    # the vault, while this one describes the EPISODE this write sits in -- it
+    # asks the agent for one bounded pass over the recent exchange after a quiet
+    # interval. Same seam, same fail-open guard, its own governance.
+    capture_sweep: dict[str, Any] | None = None
+    # Advisory only, and a FOURTH kind: this one names an unresolved identity
+    # THIS write's own link just brought to the two-page gate
+    # (`write-time-identity-candidates`), not a fact about the page's scope, the
+    # vault's backlog, or the episode.
+    entity_candidate: dict[str, Any] | None = None
+    # Server-internal point-lookup context. The mutation terminal consumes and
+    # strips it; no response detail exposes a local vault path.
+    relation_advisory_context: dict[str, str] | None = None
+    vocabulary_resolution: dict[str, str] | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        value = {
+            "applicability": self.applicability,
+            "mutated": self.mutated,
+            "written_paths": list(self.written_paths),
+            "contract_result": (
+                self.contract_result.as_dict() if self.contract_result is not None else None
+            ),
+            "creation": (
+                self.creation_commit.as_dict() if self.creation_commit is not None else None
+            ),
+        }
+        if self.structure_suggestion is not None:
+            value["structure_suggestion"] = self.structure_suggestion
+        if self.records_routing is not None:
+            value["records_routing"] = self.records_routing
+        if self.due_state is not None:
+            value["due_state"] = self.due_state
+        if self.capture_sweep is not None:
+            value["capture_sweep"] = self.capture_sweep
+        if self.entity_candidate is not None:
+            value["entity_candidate"] = self.entity_candidate
+        if self.relation_advisory_context is not None:
+            value["_relation_advisory_context"] = self.relation_advisory_context
+        if self.vocabulary_resolution is not None:
+            value["vocabulary_resolution"] = self.vocabulary_resolution
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class ExistingPreflight:
+    """Detached before/after semantic decision for one existing Markdown write."""
+
+    applicability: Literal["full", "structural", "not_semantic"]
+    operation: Literal["edit", "observe", "tier2_overwrite", "tier2_append"]
+    path: str
+    # The logical (LF) before image that semantic evaluation reads.
+    before_source: str
+    # The before image as read. The writer hashes the after image as written, so
+    # the token, lifecycle record and history hash this one to keep one basis.
+    exact_before_source: str
+    after_source: str
+    # `before.source_hash` stays logical for grandfathering: `build_census` reads
+    # with universal newlines, and the corpus census takes this LF state through
+    # the `with_candidate` repair in preflight. Bind transitions to `before_hash`.
+    before: semantic_contract.SemanticPageState
+    after: semantic_contract.SemanticPageState
+    grandfathered: bool
+    transition_token: str
+    transition_hash: str
+    mutated: Literal[False]
+    contract_result: semantic_contract.SemanticContractResult
+    before_corpus: semantic_contract.SemanticCorpusContext
+    after_corpus: semantic_contract.SemanticCorpusContext
+    before_contracts: memory_schema.ResolvedMemoryContracts
+    after_contracts: memory_schema.ResolvedMemoryContracts
+    before_review: semantic_contract.RelationReviewState | None
+    after_review: semantic_contract.RelationReviewState | None
+    requested_decision: relation_review.LifecycleDecision | None
+    activation_census: activation_manifest.ActivationCensus | None
+    prospective_manifest: activation_manifest.ActivationManifest
+    manifest_install_required: bool
+    resolver_freshness: tuple[int, int, str] | None
+    primary_guard: vault.PathGuard
+    committed_replay: bool
+    census_token: tuple | None = None
+    source_closure_plan: source_closure.SourceClosurePlan | None = None
+    origin_inputs: origin_bindings.PreparedOriginInputs | None = None
+    read_dependency_guards: tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...] = ()
+    provenance_server_at: str | None = None
+
+    @property
+    def before_hash(self) -> str:
+        return vault.content_hash(self.exact_before_source)
+
+    def as_dict(self) -> dict[str, Any]:
+        value = {
+            "applicability": self.applicability,
+            "operation": self.operation,
+            "path": self.path,
+            "grandfathered": self.grandfathered,
+            "transition_token": self.transition_token,
+            "transition_hash": self.transition_hash,
+            "relation_review_hash": self.transition_hash,
+            "before_hash": self.before_hash,
+            "after_hash": self.after.source_hash,
+            "mutated": self.mutated,
+            "contract_result": _bounded_semantic_feedback(self.contract_result),
+        }
+        if self.operation == "tier2_overwrite":
+            value["draft_token"] = self.transition_token
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class ExistingCommit:
+    applicability: Literal["full", "structural", "not_semantic"]
+    operation: Literal["edit", "observe", "tier2_overwrite", "tier2_append"]
+    path: str
+    mutated: bool
+    written_paths: tuple[str, ...]
+    contract_result: semantic_contract.SemanticContractResult
+    index_report: Any | None
+    lifecycle_state: str | None
+    transition_token: str
+    # Advisory only. Absent unless the written page shows recurring durable
+    # material outside its own declared scope; never affects the commit.
+    structure_suggestion: dict[str, Any] | None = None
+    records_routing: dict[str, Any] | None = None
+    # Advisory only, and a DIFFERENT kind of advisory: `structure_suggestion` is
+    # evidence about the page just written, while this is a bounded count of what
+    # the whole vault currently owes. It rides the same post-commit seam because
+    # a second one would be a second thing to keep fail-open; it does not share
+    # the seam's licence to skip a disclosure decision, and does not get one.
+    due_state: dict[str, Any] | None = None
+    # Advisory only, and a THIRD kind again: the two above describe the page and
+    # the vault, while this one describes the EPISODE this write sits in.
+    capture_sweep: dict[str, Any] | None = None
+    # Advisory only, and a FOURTH kind: this one names an unresolved identity
+    # THIS write's own link just brought to the two-page gate
+    # (`write-time-identity-candidates`).
+    entity_candidate: dict[str, Any] | None = None
+    relation_advisory_context: dict[str, str] | None = None
+    # Exact canonical write bytes, not the normalized semantic source hash.
+    # Absent on legacy/replay results without an exact byte proof.
+    after_hash: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        value = {
+            "applicability": self.applicability,
+            "operation": self.operation,
+            "path": self.path,
+            "mutated": self.mutated,
+            "written_paths": list(self.written_paths),
+            "contract_result": _bounded_semantic_feedback(self.contract_result),
+            "lifecycle_state": self.lifecycle_state,
+            "transition_token": self.transition_token,
+        }
+        if self.index_report is not None:
+            value["index"] = self.index_report.as_dict()
+        if self.structure_suggestion is not None:
+            value["structure_suggestion"] = self.structure_suggestion
+        if self.records_routing is not None:
+            value["records_routing"] = self.records_routing
+        if self.due_state is not None:
+            value["due_state"] = self.due_state
+        if self.capture_sweep is not None:
+            value["capture_sweep"] = self.capture_sweep
+        if self.entity_candidate is not None:
+            value["entity_candidate"] = self.entity_candidate
+        if self.relation_advisory_context is not None:
+            value["_relation_advisory_context"] = self.relation_advisory_context
+        if self.after_hash is not None:
+            value["after_hash"] = self.after_hash
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class MovePageEvaluation:
+    """One page evaluated against the shared before/final move corpus."""
+
+    before: semantic_contract.SemanticPageState
+    after: semantic_contract.SemanticPageState
+    before_contracts: memory_schema.ResolvedMemoryContracts
+    after_contracts: memory_schema.ResolvedMemoryContracts
+    before_review: semantic_contract.RelationReviewState | None
+    after_review: semantic_contract.RelationReviewState | None
+    grandfathered: bool
+    transition_token: str
+    contract_result: semantic_contract.SemanticContractResult
+    requested_decision: relation_review.LifecycleDecision | None = None
+    carried_from: relation_review.LifecycleDecision | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MovePreflight:
+    """Exact, mutation-free semantic preflight for one filesystem move batch."""
+
+    old_path: str
+    new_path: str
+    source: str
+    moved_source: str
+    rewrites: tuple[vault.PlannedWrite, ...]
+    evaluations: tuple[MovePageEvaluation, ...]
+    before_corpus: semantic_contract.SemanticCorpusContext
+    after_corpus: semantic_contract.SemanticCorpusContext
+    activation_census: activation_manifest.ActivationCensus | None
+    prospective_manifest: activation_manifest.ActivationManifest
+    manifest_install_required: bool
+    source_guard: vault.PathGuard
+    destination_guard: vault.PathGuard
+    mutated: Literal[False] = False
+    #: Pages judged for the closure and publication but not asserted against
+    #: this move (see `move_file`: a page withheld from a mover other than the
+    #: owner whose bytes the move does not rewrite).
+    waived_blockers: frozenset[str] = frozenset()
+
+    @property
+    def blocking_evaluations(self) -> tuple[MovePageEvaluation, ...]:
+        return tuple(
+            item for item in self.evaluations if item.after.path not in self.waived_blockers
+        )
+
+    @property
+    def should_block(self) -> bool:
+        return any(item.contract_result.should_block for item in self.blocking_evaluations)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "operation": "move",
+            "old_path": self.old_path,
+            "new_path": self.new_path,
+            "affected_paths": [item.after.path for item in self.evaluations],
+            "mutated": self.mutated,
+            "contract_results": {
+                item.after.identity: _bounded_semantic_feedback(item.contract_result)
+                for item in self.evaluations
+            },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MoveCommit:
+    """Committed move semantics; filesystem/index details stay with the adapter."""
+
+    preflight: MovePreflight
+    lifecycle_states: tuple[tuple[str, str], ...]
+    mutated: Literal[True] = True
+
+    def as_dict(self) -> dict[str, Any]:
+        value = self.preflight.as_dict()
+        value["mutated"] = self.mutated
+        value["lifecycle_states"] = dict(self.lifecycle_states)
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryEntry:
+    trash_path: str
+    original_path: str
+    restore_path: str
+    source: str
+    source_guard: vault.PathGuard
+    destination_guard: vault.PathGuard
+    sidecar_guard: vault.PathGuard | None
+    sidecar_source: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryPageEvaluation:
+    entry: RecoveryEntry
+    before: semantic_contract.SemanticPageState
+    after: semantic_contract.SemanticPageState
+    before_contracts: memory_schema.ResolvedMemoryContracts
+    after_contracts: memory_schema.ResolvedMemoryContracts
+    before_review: semantic_contract.RelationReviewState | None
+    after_review: semantic_contract.RelationReviewState | None
+    grandfathered: bool
+    transition_token: str
+    contract_result: semantic_contract.SemanticContractResult
+    requested_decision: relation_review.LifecycleDecision | None = None
+
+
+def _recovery_result_reviewable(
+    result: semantic_contract.SemanticContractResult,
+) -> bool:
+    return (
+        result.relation_disposition is not None
+        and result.relation_disposition.kind == "missing"
+        and {finding.code for finding in result.blocking_findings}
+        == {"RELATION_DISPOSITION_MISSING"}
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryPreflight:
+    entries: tuple[RecoveryEntry, ...]
+    evaluations: tuple[RecoveryPageEvaluation, ...]
+    before_corpus: semantic_contract.SemanticCorpusContext
+    prior_corpus: semantic_contract.SemanticCorpusContext
+    after_corpus: semantic_contract.SemanticCorpusContext
+    destination_root_guard: vault.PathGuard
+    trash_census_guards: tuple[vault.DirectoryCensusGuard, ...] = ()
+    recovery_sidecar_guard: vault.PathGuard | None = None
+    catalog_auxiliary_writes: tuple[vault.PlannedWrite, ...] = ()
+    catalog_content_paths: tuple[str, ...] = ()
+    catalog_publication_now: int | None = None
+    mutated: Literal[False] = False
+
+    @property
+    def should_block(self) -> bool:
+        return any(item.contract_result.should_block for item in self.evaluations)
+
+    def as_dict(self) -> dict[str, Any]:
+        return _recovery_feedback(self)
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryCommit:
+    preflight: RecoveryPreflight
+    lifecycle_states: tuple[tuple[str, str], ...]
+    catalog_published: bool = False
+    mutated: Literal[True] = True
+
+    def as_dict(self) -> dict[str, Any]:
+        return _recovery_feedback(
+            self.preflight,
+            mutated=self.mutated,
+            lifecycle_states=self.lifecycle_states,
+        )
+
+
+def _recovery_feedback(
+    preflight: RecoveryPreflight,
+    *,
+    mutated: bool = False,
+    lifecycle_states: tuple[tuple[str, str], ...] = (),
+) -> dict[str, Any]:
+    review_requests = [
+        {
+            "page_identity": item.after.identity,
+            "transition_token": item.transition_token,
+            "transition_hash": hashlib.sha256(item.transition_token.encode("utf-8")).hexdigest(),
+        }
+        for item in preflight.evaluations
+        if item.after.eligible_compiled
+        and item.after.identity_kind == "exomem_id"
+        and item.after_review is None
+        and item.requested_decision is None
+        and _recovery_result_reviewable(item.contract_result)
+        and preflight.after_corpus.identity_census.paths_by_identity.get(item.after.identity)
+        == (item.after.path,)
+    ]
+    retained_entries = preflight.entries[:_RECOVERY_FEEDBACK_ENTRY_LIMIT]
+    retained_evaluations = preflight.evaluations[:_RECOVERY_FEEDBACK_ENTRY_LIMIT]
+    retained_states = lifecycle_states[:_RECOVERY_FEEDBACK_ENTRY_LIMIT]
+    omitted = {
+        "restored_paths": len(preflight.entries) - len(retained_entries),
+        "contract_results": len(preflight.evaluations) - len(retained_evaluations),
+        "lifecycle_states": len(lifecycle_states) - len(retained_states),
+    }
+    value: dict[str, Any] = {
+        "operation": "recover",
+        "mutated": mutated,
+        "restored_paths": [item.restore_path for item in retained_entries],
+        "contract_results": {
+            item.after.identity: _bounded_semantic_feedback(item.contract_result)
+            for item in retained_evaluations
+        },
+        "relation_review_requests": review_requests,
+        "lifecycle_states": dict(retained_states),
+        "omitted_counts": omitted,
+        "truncation": {
+            "byte_budget": _FEEDBACK_BYTE_BUDGET,
+            "budget_items_omitted": 0,
+        },
+    }
+    while _feedback_serialized_size(value) >= _FEEDBACK_BYTE_BUDGET:
+        removed = 0
+        for key in ("contract_results", "lifecycle_states"):
+            container = value[key]
+            if not container:
+                continue
+            retained = list(container)[: len(container) // 2]
+            removed_now = len(container) - len(retained)
+            value[key] = {item: container[item] for item in retained}
+            value["omitted_counts"][key] += removed_now
+            removed += removed_now
+        paths = value["restored_paths"]
+        if paths:
+            keep = len(paths) // 2
+            removed_now = len(paths) - keep
+            del paths[keep:]
+            value["omitted_counts"]["restored_paths"] += removed_now
+            removed += removed_now
+        value["truncation"]["budget_items_omitted"] += removed
+        if removed == 0:
+            raise SemanticWriteError(
+                "SEMANTIC_FEEDBACK_LIMIT",
+                "recovery review requests exceed the bounded feedback budget",
+            )
+    return value
+
+
+MoveMutation = Callable[
+    [
+        tuple[vault.PlannedWrite, ...],
+        tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...],
+        vault.PathGuard,
+    ],
+    None,
+]
+
+RecoveryMutation = Callable[[], None]
+
+
+def _existing_transition_token(
+    *, operation: str, path: str, before_hash: str, after_hash: str, stamp: str | None = None
+) -> str:
+    payload: dict[str, Any] = {
+        "version": 1,
+        "history_at": dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z"),
+        "transition_id": str(uuid.uuid4()),
+        "operation": operation,
+        "path": path,
+        "before_hash": before_hash,
+        "after_hash": after_hash,
+    }
+    # The writer stamps `updated:` at second resolution, so the projected page a
+    # caller reviews is only reproducible if the commit reuses the reviewed
+    # instant. Carrying it here keeps the committed bytes identical to the
+    # validated ones instead of drifting whenever the clock ticks between calls.
+    if stamp is not None:
+        payload["stamp"] = stamp
+    # The release that planned the transition rides in the token, so an exact
+    # retry after an upgrade re-plans the same history bytes.
+    from . import __version__
+
+    payload["exomem_version"] = __version__
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _place_origin_source(path: str, source: str, *, before_source: str | None = None) -> str:
+    if source_closure._eligible_path(path):  # noqa: SLF001 -- raw capture stays uninterpreted
+        return source
+    try:
+        return origin_bindings.place_authored_origin(source, before_source=before_source)
+    except provenance.OriginError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _prepare_origin_inputs(
+    root: Path, path: str, source: str, *, before_source: str | None = None
+) -> origin_bindings.PreparedOriginInputs | None:
+    if source_closure._eligible_path(path):  # noqa: SLF001 -- raw capture stays uninterpreted
+        return None
+    try:
+        return origin_bindings.prepare_origin_inputs(root, source, before_source=before_source)
+    except provenance.OriginError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _validate_origin_inputs(root: Path, prepared: origin_bindings.PreparedOriginInputs) -> None:
+    try:
+        prepared.revalidate(root)
+    except provenance.OriginError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _origin_commit_guards(
+    root: Path,
+    prepared: origin_bindings.PreparedOriginInputs | None,
+    writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite],
+) -> tuple[vault.PathGuard, ...]:
+    if prepared is None:
+        return ()
+    try:
+        return prepared.required_guards(root, writes)
+    except provenance.OriginError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _recheck_origin_guards(root: Path, guards: tuple[vault.PathGuard, ...]) -> None:
+    try:
+        vault.recheck_path_guards(root, guards)
+    except vault.PathGuardError as error:
+        raise SemanticWriteError(
+            "ORIGIN_INPUT_STALE", "retained input changed during commit"
+        ) from error
+
+
+def _normalize_origin_source(
+    source: str,
+    *,
+    state: semantic_contract.SemanticPageState,
+    corpus: semantic_contract.SemanticCorpusContext,
+    before_source: str | None = None,
+) -> str:
+    if source_closure._eligible_path(state.path):  # noqa: SLF001
+        return source
+    try:
+        if origin_bindings._authored_origin(source, before_source) is None:  # noqa: SLF001
+            return source
+        corpus = corpus.with_candidate(state)
+        fields, _body, _ = vault.parse_frontmatter(source)
+        return origin_bindings.normalize_origin_scopes(
+            source,
+            document=state.document,
+            fields=fields,
+            owner_ref=_page_reference(state),
+            relations=(
+                (
+                    fact,
+                    _page_reference(corpus.pages.get(fact.logical_source_path)),
+                    _page_reference(corpus.pages.get(fact.logical_target_path)),
+                )
+                for fact in corpus.relation_facts
+            ),
+            before_source=before_source,
+        )
+    except provenance.OriginError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _recovery_token_path(trash_path: str, restore_path: str) -> str:
+    return json.dumps(
+        [trash_path, restore_path],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _decode_existing_transition_token(token: str) -> dict[str, Any]:
+    if (
+        type(token) is not str
+        or not token
+        or len(token.encode("utf-8")) > relation_review.MAX_DRAFT_TOKEN_ENCODED_BYTES
+    ):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    try:
+        padded = token + "=" * (-len(token) % 4)
+        raw = base64.b64decode(padded, altchars=b"-_", validate=True)
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except (TypeError, ValueError, UnicodeError, binascii.Error) as error:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        ) from error
+    required = {
+        "version",
+        "transition_id",
+        "operation",
+        "path",
+        "before_hash",
+        "after_hash",
+    }
+    # `stamp` is optional so a token minted before this field existed still
+    # decodes; a token that omits it simply cannot pin the writer's instant.
+    if type(value) is not dict or (not required <= set(value) or bool(set(value) - required - {"stamp", "history_at", "exomem_version"})):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    if value["version"] != 1 or any(
+        type(value[key]) is not str
+        for key in ("transition_id", "operation", "path", "before_hash", "after_hash")
+    ):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    if "exomem_version" in value and (
+        type(value["exomem_version"]) is not str or not value["exomem_version"]
+    ):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    if "stamp" in value and (type(value["stamp"]) is not str or not value["stamp"]):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    try:
+        transition_id = str(uuid.UUID(value["transition_id"]))
+    except (AttributeError, TypeError, ValueError) as error:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        ) from error
+    if transition_id != value["transition_id"]:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid"
+        )
+    if "history_at" not in value:
+        moment = temporal.parse(value.get("stamp"))
+        value["history_at"] = (moment.instant if moment is not None and moment.instant is not None
+                               else dt.datetime(1970, 1, 1, tzinfo=dt.UTC)).isoformat()
+    try:
+        dt.datetime.fromisoformat(value["history_at"].replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as error:
+        raise SemanticWriteError("LIFECYCLE_TRANSITION_INVALID_TOKEN", "transition token is invalid") from error
+    return value
+
+
+def transition_token_stamp(token: str | None) -> str | None:
+    """Return the writer instant a transition token pinned, when it carries one.
+
+    Callers project the page before preflight runs, so they need the reviewed
+    instant back to rebuild byte-identical content on commit.
+    """
+
+    if token is None:
+        return None
+    try:
+        value = _decode_existing_transition_token(token)
+    except SemanticWriteError:
+        return None
+    stamp = value.get("stamp")
+    return stamp if type(stamp) is str and stamp else None
+
+
+def _reviewed_transition_delta(
+    transition_token: str | None,
+    now: dt.date | dt.datetime,
+) -> tuple[str, dt.timedelta] | None:
+    """The reviewed stamp a token carries and its age relative to `now`.
+
+    `None` when the token carries no reviewable instant at all (no token,
+    a token minted before the `stamp` field existed, or a bare-day stamp
+    with no precise instant) — this is shared math for
+    `reviewed_transition_stamp` and `reviewed_transition_refusal_reason`;
+    neither the age/skew accept-or-refuse decision nor the reason label for
+    a refusal lives here.
+    """
+    stamp = transition_token_stamp(transition_token)
+    if stamp is None:
+        return None
+    moment = temporal.parse(stamp)
+    if moment is None or moment.instant is None:
+        return None
+    if isinstance(now, dt.datetime):
+        reference = now if now.tzinfo is not None else now.replace(tzinfo=dt.UTC)
+        reference = reference.astimezone(dt.UTC)
+    else:
+        reference = dt.datetime.combine(now, dt.time.max, tzinfo=dt.UTC)
+    return stamp, reference - moment.instant
+
+
+def reviewed_transition_stamp(
+    transition_token: str | None,
+    now: dt.date | dt.datetime,
+) -> str | None:
+    """Reuse the bounded instant already reviewed by an existing transition.
+
+    Existing-page writers render their proposed bytes before semantic preflight,
+    so this is the shared seam that keeps every leaf's server-owned `updated:`
+    value identical between validation and commit.
+    """
+
+    found = _reviewed_transition_delta(transition_token, now)
+    if found is None:
+        return None
+    stamp, delta = found
+    if delta > _MAX_REVIEWED_STAMP_AGE or -delta > _MAX_REVIEWED_STAMP_SKEW:
+        return None
+    return stamp
+
+
+def reviewed_transition_refusal_reason(
+    transition_token: str | None,
+    now: dt.date | dt.datetime,
+) -> Literal["expired", "skewed"] | None:
+    """Why a SUPPLIED token's reviewed stamp was refused, for a distinct error.
+
+    Callers reach for this only once `reviewed_transition_stamp` has already
+    returned `None` for a token that was actually supplied — it draws on the
+    exact same delta and never loosens or duplicates that accept/reject
+    decision, only labels it. Returns `None` when the token carries no
+    reviewable instant at all (no token, pre-`stamp`, or bare-day) — that
+    refusal is unrelated to age/skew, and callers should keep their
+    pre-existing fallback behaviour for it, unchanged.
+    """
+    found = _reviewed_transition_delta(transition_token, now)
+    if found is None:
+        return None
+    _, delta = found
+    if delta > _MAX_REVIEWED_STAMP_AGE:
+        return "expired"
+    if -delta > _MAX_REVIEWED_STAMP_SKEW:
+        return "skewed"
+    return None
+
+
+def _format_hours(value: dt.timedelta) -> str:
+    hours = value.total_seconds() / 3600
+    return f"{hours:g}h"
+
+
+def _format_minutes(value: dt.timedelta) -> str:
+    minutes = value.total_seconds() / 60
+    unit = "minute" if minutes == 1 else "minutes"
+    return f"{minutes:g} {unit}"
+
+
+# Derived from the bound constants (not hard-coded) so retuning either one
+# can't leave the refusal message quoting a stale figure.
+_REVIEWED_TOKEN_REFUSAL_MESSAGES: dict[Literal["expired", "skewed"], str] = {
+    "expired": (
+        f"reviewed transition token is more than {_format_hours(_MAX_REVIEWED_STAMP_AGE)} "
+        "old — its reviewed state is stale; re-run validate_only to mint a "
+        "fresh token before committing"
+    ),
+    "skewed": (
+        "reviewed transition token's reviewed instant is more than "
+        f"{_format_minutes(_MAX_REVIEWED_STAMP_SKEW)} in the future (clock "
+        "skew); re-run validate_only to mint a fresh token before committing"
+    ),
+}
+
+
+def resolve_reviewed_date_iso(
+    transition_token: str | None,
+    now: dt.date | dt.datetime,
+) -> str:
+    """The `updated:` stamp to write, honouring a reviewed token when given.
+
+    Shared by every existing-page writer (`edit`, `multi_edit`,
+    `set_frontmatter_field`, and `create_file`'s overwrite-by-token path) so
+    the accept/refuse/message decision lives in exactly one place.
+
+    - No token supplied: mint a fresh stamp — the legacy path, unchanged,
+      correct behaviour, not a fallback.
+    - Token supplied and still within the reviewed-stamp window: reuse its
+      exact reviewed instant, so committed bytes match what was validated.
+    - Token supplied but refused for age (>24h) or clock skew (>5min): raise
+      `SemanticWriteError("LIFECYCLE_TRANSITION_TOKEN_EXPIRED", ...)` naming
+      the actual cause, instead of silently minting a fresh stamp — which
+      changes `after_hash` and fails downstream with the unrelated-looking
+      `LIFECYCLE_TRANSITION_MISMATCH`.
+    - Token supplied but carries no reviewable instant at all (no `stamp`
+      field — pre-dates that field): unrelated to age/skew; keep minting a
+      fresh stamp, as before.
+    """
+    if transition_token is None:
+        return temporal.stamp(now)
+    reviewed = reviewed_transition_stamp(transition_token, now)
+    if reviewed is not None:
+        return reviewed
+    refusal = reviewed_transition_refusal_reason(transition_token, now)
+    if refusal is None:
+        return temporal.stamp(now)
+    raise SemanticWriteError(
+        "LIFECYCLE_TRANSITION_TOKEN_EXPIRED", _REVIEWED_TOKEN_REFUSAL_MESSAGES[refusal]
+    )
+
+
+def _existing_transition_id(token: str) -> str:
+    return str(_decode_existing_transition_token(token)["transition_id"])
+
+
+def _existing_applicability(
+    before: semantic_contract.SemanticPageState,
+    after: semantic_contract.SemanticPageState,
+) -> Literal["full", "structural", "not_semantic"]:
+    if semantic_contract.requires_semantic_unit(after):
+        return "full"
+    # This coordinator is entered only for governed Markdown. Untyped/arbitrary
+    # Markdown still receives the structural/safety contract; non-Markdown
+    # writers preserve their legacy path and never enter this seam.
+    return "structural"
+
+
+# Which attempt an `exomem_write_*` sample belongs to. A stale validity stamp
+# re-runs the WHOLE preflight through the public `preflight_existing` (kept
+# public deliberately: tests monkeypatch that name as a race seam), so without
+# a discriminator a revalidating write contributes two indistinguishable
+# preflight samples and the series reports a doubled cost that no single
+# attempt ever paid. `preview` is the validate-only path: real work, but not
+# commit-path work, and it must not inflate the write series either.
+_WRITE_PHASE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "exomem_write_phase", default="initial"
+)
+
+
+@contextmanager
+def _write_phase(name: str | None):
+    """Label the `exomem_write_*` samples inside this block; `None` inherits."""
+    if name is None:
+        yield
+        return
+    token = _WRITE_PHASE.set(name)
+    try:
+        yield
+    finally:
+        _WRITE_PHASE.reset(token)
+
+
+def _observe_write_ms(name: str, value_ms: float, labels: dict[str, str]) -> None:
+    """Emit one write-path duration sample; never let it mask the real error.
+
+    Both callers emit from a `finally` that may be unwinding a lease, boundary,
+    or contract failure. A raise from the instrument there would REPLACE the
+    error the caller actually needs to see — an observability defect turning
+    itself into a misdiagnosis. Same rule and same shape as
+    `mutation_lock._observe_boundary_ms`.
+    """
+    try:
+        metrics.observe_duration_ms(name, value_ms, labels)
+    except Exception:  # noqa: BLE001 - observability must never break a mutation
+        pass
+
+
+@contextmanager
+def _write_metric(name: str, operation: str):
+    """Emit one `exomem_write_*` duration histogram for the wrapped phase.
+
+    Unconditional by design — the metrics module does its own gating, and a
+    phase you can only see when a debug flag was set in advance is exactly the
+    instrument that is missing during the incident you needed it for.
+    """
+    started = time.perf_counter()
+    outcome = "ok"
+    try:
+        yield
+    except BaseException:
+        outcome = "error"
+        raise
+    finally:
+        _observe_write_ms(
+            name,
+            (time.perf_counter() - started) * 1000.0,
+            {"operation": operation, "outcome": outcome, "phase": _WRITE_PHASE.get()},
+        )
+
+
+@contextmanager
+def _timed_acquire(timings: MutationTimings | None, name: str, inner: Any):
+    """Enter `inner`, timing only the *acquisition* — not the body.
+
+    A lock's wait and the work done under it are different diagnoses; folding
+    them into one number is how a contended boundary looks identical to a slow
+    commit. The span closes on the first statement inside `inner`.
+    """
+    stack = contextlib.ExitStack()
+    with stack:
+        stack.enter_context(mutation_timing_span(timings, name))
+        with inner:
+            stack.close()
+            yield
+
+
+@contextmanager
+def _timed_boundary(timings: MutationTimings | None, guard: Any, *, operation: str):
+    """Enter the vault mutation boundary, timing only the wait to acquire it.
+
+    The wait is recorded on the way out, not on the way in. If `guard` never
+    admits us — lease contention or a boundary timeout, the starvation this
+    metric exists to explain — an emit placed inside the boundary would never
+    run, and the entire wait would resurface as a slow `..._commit_ms` with
+    nothing to say it was spent queueing.
+    """
+    started = time.perf_counter()
+    span_stack = contextlib.ExitStack()
+    acquired = False
+
+    def _record(outcome: str) -> None:
+        # Span close and boundary bookkeeping first: they are the collector's
+        # own state and must land even if the emit below is swallowed.
+        waited_ms = round((time.perf_counter() - started) * 1000.0, 3)
+        span_stack.close()
+        if timings is not None:
+            timings.boundary["waited_ms"] = waited_ms
+        _observe_write_ms(
+            "exomem_write_boundary_acquire_ms",
+            waited_ms,
+            {"operation": operation, "outcome": outcome, "phase": _WRITE_PHASE.get()},
+        )
+
+    try:
+        span_stack.enter_context(mutation_timing_span(timings, "commit.boundary_acquire"))
+        with guard:
+            acquired = True
+            _record("ok")
+            yield
+    finally:
+        if not acquired:
+            _record("error")
+
+
+def preflight_existing(
+    vault_root: Path,
+    *,
+    path: str,
+    after_source: str,
+    operation: Literal["edit", "observe", "tier2_overwrite", "tier2_append"],
+    expected_before_hash: str | None = None,
+    transition_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    stamp: str | None = None,
+    validate_only: bool = False,
+    timings: MutationTimings | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> ExistingPreflight:
+    """Evaluate an existing-page transition without mutating any shared state.
+
+    `timings` is a pure instrument: pass a `MutationTimings` to collect
+    per-stage spans, or omit it and nothing about the behaviour or the
+    returned payload changes.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    with (
+        _write_phase("preview" if validate_only else None),
+        _write_metric("exomem_write_preflight_ms", str(operation)),
+    ):
+        return _preflight_existing(
+            vault_root,
+            path=path,
+            after_source=after_source,
+            operation=operation,
+            expected_before_hash=expected_before_hash,
+            transition_token=transition_token,
+            relation_disposition=relation_disposition,
+            relation_review_hash=relation_review_hash,
+            relation_review_reason=relation_review_reason,
+            stamp=stamp,
+            validate_only=validate_only,
+            timings=timings,
+            status_basis=status_basis,
+        )
+
+
+def _preflight_existing(
+    vault_root: Path,
+    *,
+    path: str,
+    after_source: str,
+    operation: Literal["edit", "observe", "tier2_overwrite", "tier2_append"],
+    expected_before_hash: str | None = None,
+    transition_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    stamp: str | None = None,
+    validate_only: bool = False,
+    timings: MutationTimings | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> ExistingPreflight:
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    relation_disposition = relation_review.normalize_relation_disposition(relation_disposition)
+    if operation not in _EXISTING_OPERATIONS:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_INVALID_OPERATION",
+            "existing semantic write operation is unsupported",
+        )
+    if relation_disposition not in {None, "reviewed_none"}:
+        raise SemanticWriteError(
+            "INVALID_RELATION_REVIEW",
+            "relation disposition must be 'reviewed_none' or 'reviewed-none'",
+        )
+    root = Path(vault_root)
+    # Idempotent backstop, deliberately kept: every caller today already hands
+    # over a canonical rel (the Tier 2 writers via `resolve_under_vault`,
+    # `observe_memory` via `edit._resolve`), but this is the single choke point
+    # every governed edit funnels through, and on a case-insensitive filesystem
+    # a differently-cased spelling names the same physical page as the census
+    # entry. Re-spelling here means no future caller can key the corpus off a
+    # phantom casing. Everything below is built from `root / path`, so a
+    # re-spell stays self-consistent, and a canonical input is a no-op.
+    path = vault.canonical_vault_rel(root, path)
+    entry_generation = _entry_commit_generation(root)
+    with mutation_timing_span(timings, "preflight.read_guarded"):
+        exact_before_source, primary_guard = vault.read_guarded_text(root, root / path)
+    raw_before_hash = vault.content_hash(exact_before_source)
+    # Evaluate the logical text so CRLF alone never looks like semantic drift.
+    # The PathGuard and the transition token bind the exact bytes instead.
+    before_source = exact_before_source.replace("\r\n", "\n").replace("\r", "\n")
+    after_source = _place_origin_source(path, after_source, before_source=before_source)
+    origin_inputs = _prepare_origin_inputs(root, path, after_source, before_source=before_source)
+    if expected_before_hash is not None and expected_before_hash != raw_before_hash:
+        raise SemanticWriteError("STALE_SEMANTIC_WRITE", "page changed before semantic preflight")
+    # Tier-2 overwrite is the deliberate break-glass route for repairing a
+    # malformed structured item that its typed adapter can no longer load.
+    # It still creates an inspectable collection-audit gap; routine generic
+    # writers must never create that gap themselves.
+    if operation != "tier2_overwrite":
+        _reject_generic_structured_item_write(path, before_source)
+
+    closure_required = bool(
+        operation == "tier2_overwrite"
+        or source_closure.source_claims(before_source, note_types.Basis(root))
+        != source_closure.source_claims(after_source, note_types.Basis(root))
+    )
+    closure_plan = source_closure.prepare_source_closure(
+        root,
+        after_source,
+        destination=path,
+        prior_markdown=before_source,
+        required=closure_required,
+    )
+    if closure_required and not closure_plan.inspection.closed:
+        raise SemanticWriteError(
+            source_closure.UNRESOLVED_CODE,
+            source_closure.UNRESOLVED_MESSAGE,
+            details=closure_plan.inspection.public_details(),
+        )
+
+    with mutation_timing_span(timings, "preflight.registries"):
+        registry = relation_registry.load_registry(root)
+        language = semantic_language_registry.load_registry(root)
+        loaded_contracts = memory_schema.load_saved_contracts(root)
+        corpus_registry, corpus_language = semantic_contract.corpus_registry_overrides(
+            root, registry, language
+        )
+    resolver_freshness_before = freshness.triple(root, "vault")
+    with (
+        _write_metric("exomem_write_corpus_context_ms", str(operation)),
+        mutation_timing_span(timings, "preflight.corpus_context"),
+    ):
+        before_corpus, before_corpus_census = semantic_contract.build_corpus_context_with_census(
+            root,
+            registry=corpus_registry,
+            language_registry=corpus_language,
+            status_basis=status_basis,
+        )
+    resolver_freshness_after = freshness.triple(root, "vault")
+    resolver_freshness = (
+        resolver_freshness_before if resolver_freshness_before == resolver_freshness_after else None
+    )
+    with mutation_timing_span(timings, "preflight.page_states"):
+        before = semantic_contract.build_page_state(
+            root,
+            path,
+            exact_before_source,
+            relation_registry=registry,
+            language_registry=language,
+            status_basis=status_basis,
+        )
+        if before_corpus.pages.get(path) != before:
+            # The guarded read can observe a canonical or external replacement
+            # in the short window before its freshness event is published.
+            # Repair the exact evaluated page from those authoritative bytes so
+            # a lagging process cache never turns a valid write into a
+            # corpus-state refusal.
+            before_corpus = before_corpus.with_candidate(before)
+        after = semantic_contract.build_page_state(
+            root,
+            path,
+            after_source,
+            relation_registry=registry,
+            language_registry=language,
+            status_basis=status_basis,
+        )
+        after_corpus = before_corpus.with_candidate(after)
+        normalized_source = _normalize_origin_source(
+            after_source, state=after, corpus=after_corpus, before_source=before_source
+        )
+        if normalized_source != after_source:
+            after_source = normalized_source
+            after = semantic_contract.build_page_state(
+                root,
+                path,
+                after_source,
+                relation_registry=registry,
+                language_registry=language,
+                status_basis=status_basis,
+            )
+            after_corpus = before_corpus.with_candidate(after)
+            origin_inputs = _prepare_origin_inputs(
+                root, path, after_source, before_source=before_source
+            )
+    before_contracts = memory_schema.resolve_contracts(
+        loaded_contracts,
+        projects=before.projects,
+        page_type=before.page_type,
+        language_registry=language,
+    )
+    after_contracts = memory_schema.resolve_contracts(
+        loaded_contracts,
+        projects=after.projects,
+        page_type=after.page_type,
+        language_registry=language,
+    )
+    applicability = _existing_applicability(before, after)
+    before_review: semantic_contract.RelationReviewState | None = None
+    after_review: semantic_contract.RelationReviewState | None = None
+    if applicability == "full":
+        from . import vocabulary_auxiliaries
+
+        admission = None
+        if after.identity_kind == "exomem_id":
+            admission = vocabulary_auxiliaries.lifecycle_admission(
+                root,
+                primary_path=path,
+                current_source=before_source,
+                proposed_source=after_source,
+                primary_guard=primary_guard,
+            )
+        with mutation_timing_span(timings, "preflight.relation_review"):
+            before_review = relation_review.load_relation_review(
+                root, before, corpus=before_corpus, admission=admission,
+            )
+            after_review = relation_review.load_relation_review(
+                root, after, corpus=after_corpus, admission=admission,
+            )
+
+    token = transition_token or _existing_transition_token(
+        operation=operation,
+        path=path,
+        before_hash=raw_before_hash,
+        after_hash=after.source_hash,
+        stamp=stamp,
+    )
+    token_value = _decode_existing_transition_token(token)
+    committed_replay = bool(
+        transition_token is not None
+        and token_value["operation"] == operation
+        and token_value["path"] == path
+        and token_value["after_hash"] == raw_before_hash
+        and token_value["after_hash"] == after.source_hash
+    )
+    if (
+        token_value["operation"] != operation
+        or token_value["path"] != path
+        or token_value["after_hash"] != after.source_hash
+        or (token_value["before_hash"] != raw_before_hash and not committed_replay)
+    ):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "transition token does not match the exact before and after state",
+        )
+    transition_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    provenance_server_at = _new_provenance_time(root) if applicability == "full" else None
+    if transition_token is not None and applicability == "full" and after.identity_kind == "exomem_id":
+        prepared = relation_review.load_lifecycle_prepared(root, after.identity, admission=admission)
+        if (
+            prepared is not None
+            and prepared.transition_id == token_value["transition_id"]
+            and prepared.operation == operation
+            and prepared.page_identity == after.identity
+            and prepared.before_path == path
+            and prepared.before_source_hash == token_value["before_hash"]
+            and prepared.after_path == path
+            and prepared.after_source_hash == after.source_hash
+            and prepared.after_fingerprint == after.review_fingerprint
+            and prepared.transition_token_hash == transition_hash
+        ):
+            provenance_server_at = prepared.provenance_server_at
+    requested_decision: relation_review.LifecycleDecision | None = None
+    if relation_disposition == "reviewed_none":
+        if applicability != "full":
+            raise SemanticWriteError(
+                "INVALID_RELATION_REVIEW",
+                "reviewed-none applies only to an active compiled result",
+            )
+        if not validate_only and relation_review_hash != transition_hash:
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_REVIEW_MISMATCH",
+                "review hash does not match the validated transition",
+            )
+        if (
+            after.identity_kind != "exomem_id"
+            or after.review_fingerprint is None
+            or not semantic_contract.identity_owners_match(
+                after_corpus.identity_census.paths_by_identity.get(after.identity),
+                after.path,
+                folds=vault.vault_casefolds(root),
+            )
+        ):
+            raise SemanticWriteError(
+                "RELATION_REVIEW_STABLE_ID_REQUIRED",
+                "lifecycle reviewed-none requires one unique stable page identity",
+            )
+        try:
+            requested_decision = relation_review.build_lifecycle_decision(
+                page_identity=after.identity,
+                after_fingerprint=after.review_fingerprint,
+                reason=relation_review_reason or "",
+            )
+        except relation_review.RelationReviewError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+        after_review = semantic_contract.RelationReviewState(
+            "reviewed_none",
+            requested_decision.page_identity,
+            requested_decision.after_fingerprint,
+            reason=requested_decision.reason,
+            reference=requested_decision.reference,
+        )
+
+    manifest = activation_manifest.load_manifest(root)
+    boundary = activation_manifest.plan_activation_boundary(
+        before_corpus.activation_census, manifest=manifest, vault_root=root
+    )
+    grandfathered = activation_manifest.is_grandfathered(
+        root,
+        path,
+        source_hash=before.source_hash,
+        exomem_id=before.identity if before.identity_kind == "exomem_id" else None,
+        manifest=boundary.manifest,
+        census=before_corpus.activation_census,
+        identity_census=before_corpus.identity_census,
+        eligible_compiled=before.eligible_compiled,
+        status_basis=status_basis,
+    )
+    with mutation_timing_span(timings, "preflight.contract_eval"):
+        result = semantic_contract.evaluate(
+            before=before,
+            after=after,
+            operation=operation,
+            mode="precommit",
+            before_contracts=before_contracts,
+            after_contracts=after_contracts,
+            before_corpus=before_corpus,
+            after_corpus=after_corpus,
+            before_review=before_review,
+            after_review=after_review,
+            grandfathered=grandfathered and before.eligible_compiled,
+            include_relation_disposition=applicability == "full",
+            language_registry=language,
+        )
+    with mutation_timing_span(timings, "preflight.validity_token"):
+        census_token = _capture_validity_stamp(
+            root,
+            entry_generation,
+            corpus_census=before_corpus_census,
+            status_dependencies=after_corpus.status_dependencies,
+            definitions=semantic_contract.page_definitions_witnesses(before, after),
+        )
+    return ExistingPreflight(
+        applicability,
+        operation,
+        path,
+        before_source,
+        exact_before_source,
+        after_source,
+        before,
+        after,
+        grandfathered,
+        token,
+        transition_hash,
+        False,
+        result,
+        before_corpus,
+        after_corpus,
+        before_contracts,
+        after_contracts,
+        before_review,
+        after_review,
+        requested_decision,
+        before_corpus.activation_census,
+        boundary.manifest,
+        boundary.install_required,
+        resolver_freshness,
+        primary_guard,
+        committed_replay,
+        census_token,
+        closure_plan,
+        origin_inputs,
+        provenance_server_at=provenance_server_at,
+    )
+
+
+def _reevaluate_existing(
+    preflight: ExistingPreflight,
+    *,
+    manifest: activation_manifest.ActivationManifest,
+    status_basis: lifecycle_statuses.Basis,
+) -> tuple[semantic_contract.SemanticContractResult, bool]:
+    grandfathered = activation_manifest.is_grandfathered(
+        preflight.before_corpus.vault_root,
+        preflight.path,
+        source_hash=preflight.before.source_hash,
+        exomem_id=(
+            preflight.before.identity if preflight.before.identity_kind == "exomem_id" else None
+        ),
+        manifest=manifest,
+        census=preflight.activation_census,
+        identity_census=preflight.before_corpus.identity_census,
+        eligible_compiled=preflight.before.eligible_compiled,
+        status_basis=status_basis,
+    )
+    result = semantic_contract.evaluate(
+        before=preflight.before,
+        after=preflight.after,
+        operation=preflight.operation,
+        mode="precommit",
+        before_contracts=preflight.before_contracts,
+        after_contracts=preflight.after_contracts,
+        before_corpus=preflight.before_corpus,
+        after_corpus=preflight.after_corpus,
+        before_review=preflight.before_review,
+        after_review=preflight.after_review,
+        grandfathered=grandfathered and preflight.before.eligible_compiled,
+        include_relation_disposition=preflight.applicability == "full",
+        language_registry=semantic_language_registry.load_registry(
+            preflight.before_corpus.vault_root
+        ),
+    )
+    return result, grandfathered
+
+
+def _commit_existing_locked(
+    root: Path,
+    *,
+    preflight: ExistingPreflight,
+    history_reason: str | None = None,
+    auxiliaries: tuple[vault.PlannedWrite, ...],
+    derived_auxiliaries: tuple[tuple[str, vault.PlannedWrite], ...],
+    result: semantic_contract.SemanticContractResult,
+    index_reports: list[Any] | None = None,
+    source_guards: tuple[vault.PathGuard, ...] = (),
+) -> ExistingCommit:
+    """Plan lifecycle state and commit while the semantic namespace is held.
+
+    The batch's index fan-out runs as the namespace is released, so its report
+    lands in `index_reports` after this returns; the caller attaches it.
+    """
+    from . import vocabulary_auxiliaries
+
+    admission = None
+    if preflight.applicability == "full" and preflight.after.identity_kind == "exomem_id":
+        admission = vocabulary_auxiliaries.lifecycle_admission(
+            root, primary_path=preflight.path, current_source=preflight.before_source,
+            proposed_source=preflight.after_source, primary_guard=preflight.primary_guard,
+        )
+    from . import compiled_history
+
+    history_write = compiled_history.plan_entry(
+        root, preflight=preflight, token=_decode_existing_transition_token(preflight.transition_token),
+        reason=history_reason,
+    )
+    if history_write is not None:
+        auxiliaries = (*auxiliaries, history_write)
+        derived_auxiliaries = (*derived_auxiliaries, ("compiled-history", history_write))
+
+    if preflight.committed_replay:
+        if preflight.applicability != "full":
+            return ExistingCommit(
+                preflight.applicability,
+                preflight.operation,
+                preflight.path,
+                False,
+                (),
+                result,
+                None,
+                "committed_replay",
+                preflight.transition_token,
+            )
+        if (
+            preflight.after.identity_kind != "exomem_id"
+            or preflight.after.review_fingerprint is None
+        ):
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_MISMATCH",
+                "committed replay requires the exact stable resulting identity",
+            )
+        try:
+            prepared = relation_review.load_lifecycle_prepared(
+                root, preflight.after.identity, admission=admission,
+            )
+            if prepared is not None:
+                relation_review._load_prepared_decision_guard(root, prepared, admission=admission)
+        except relation_review.RelationReviewError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+        token_value = _decode_existing_transition_token(preflight.transition_token)
+        requested_reference = (
+            preflight.requested_decision.reference
+            if preflight.requested_decision is not None
+            else None
+        )
+        exact = bool(
+            prepared is not None
+            and prepared.transition_id == token_value["transition_id"]
+            and prepared.operation == preflight.operation
+            and prepared.page_identity == preflight.after.identity
+            and prepared.before_path == preflight.path
+            and prepared.before_source_hash == token_value["before_hash"]
+            and prepared.after_path == preflight.path
+            and prepared.after_source_hash == preflight.after.source_hash
+            and prepared.after_fingerprint == preflight.after.review_fingerprint
+            and prepared.decision_reference == requested_reference
+            and prepared.transition_token_hash
+            == hashlib.sha256(preflight.transition_token.encode("utf-8")).hexdigest()
+            and prepared.auxiliary_hash
+            == relation_review.lifecycle_auxiliary_hash(auxiliaries, root)
+        )
+        if not exact:
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_MISMATCH",
+                "committed replay does not match the prepared transition",
+            )
+        if admission is not None and not admission(prepared.reference):
+            raise ValueError("WRITE_REFUSED: target is unavailable")
+        return ExistingCommit(
+            preflight.applicability,
+            preflight.operation,
+            preflight.path,
+            False,
+            (),
+            result,
+            None,
+            "committed_replay",
+            preflight.transition_token,
+        )
+
+    lifecycle_writes: tuple[vault.PlannedWrite, ...] = ()
+    required_guards: tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...] = ()
+    lifecycle_state: str | None = None
+    stable_active = (
+        preflight.applicability == "full"
+        and preflight.after.identity_kind == "exomem_id"
+        and preflight.after.review_fingerprint is not None
+        and preflight.after_corpus.identity_census.paths_by_identity.get(preflight.after.identity)
+        == (preflight.path,)
+    )
+    if stable_active:
+        try:
+            prepared = relation_review.build_lifecycle_prepared_transition(
+                transition_id=_existing_transition_id(preflight.transition_token),
+                operation=preflight.operation,
+                page_identity=preflight.after.identity,
+                before_path=preflight.before.path,
+                before_source_hash=preflight.before_hash,
+                after_path=preflight.after.path,
+                after_source_hash=preflight.after.source_hash,
+                after_fingerprint=preflight.after.review_fingerprint,
+                decision=preflight.requested_decision,
+                transition_token=preflight.transition_token,
+                auxiliary_hash=relation_review.lifecycle_auxiliary_hash(auxiliaries, root),
+                provenance_server_at=preflight.provenance_server_at,
+            )
+            current = relation_review.LifecyclePrimaryBinding(
+                preflight.before.path,
+                preflight.before_hash,
+                preflight.before.review_fingerprint,
+            )
+            lifecycle = relation_review.plan_lifecycle_transition(
+                root,
+                decision=preflight.requested_decision,
+                prepared=prepared,
+                current=current,
+                admission=admission,
+            )
+        except relation_review.RelationReviewError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+        lifecycle_state = lifecycle.state
+        if lifecycle.state == "committed_replay":
+            return ExistingCommit(
+                preflight.applicability,
+                preflight.operation,
+                preflight.path,
+                False,
+                (),
+                result,
+                None,
+                lifecycle.state,
+                preflight.transition_token,
+            )
+        lifecycle_writes = lifecycle.writes
+        required_guards = lifecycle.required_guards
+
+    writes = [*lifecycle_writes, *auxiliaries]
+    primary_write = vault.PlannedWrite(
+            root / preflight.path,
+            preflight.after_source,
+            guard=preflight.primary_guard,
+        )
+    writes.append(primary_write)
+    origin_guards = _origin_commit_guards(root, preflight.origin_inputs, writes)
+    from .governance import catalog_publication, graph_producer
+
+    planned_writes = tuple(writes)
+
+    def graph_replacement_provider():
+        return graph_producer.replacements_for_planned_markdown(
+            root,
+            before_corpus=preflight.before_corpus,
+            writes=planned_writes,
+            semantic_states={preflight.path: preflight.after},
+        )
+
+    try:
+        catalog_target = _prepare_markdown_catalog_publication(
+            root,
+            planned_writes,
+            graph_replacement_provider=graph_replacement_provider,
+        )
+    except catalog_publication.CatalogPublicationError as error:
+        raise SemanticWriteError(
+            "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+            str(error),
+        ) from error
+    reports: list[Any] = [] if index_reports is None else index_reports
+    manifest = vocabulary_auxiliaries.seal(
+        root,
+        primary=primary_write,
+        derived=(*derived_auxiliaries, *(("lifecycle-review", item) for item in lifecycle_writes)),
+    )
+    publication_entered = False
+
+    def validate_bindings() -> None:
+        nonlocal publication_entered
+        if preflight.origin_inputs is not None:
+            _validate_origin_inputs(root, preflight.origin_inputs)
+        if admission is not None:
+            if not admission(relation_review.lifecycle_prepared_path(root, preflight.after.identity).relative_to(root).as_posix()):
+                raise ValueError("WRITE_REFUSED: target is unavailable")
+            if publication_entered:
+                # The completion seam binds the after image, never the replaced before guard.
+                source, _ = vault.read_guarded_text(root, root / preflight.path)
+                if vault.content_hash(source) != vault.content_hash(preflight.after_source):
+                    raise ValueError("WRITE_REFUSED: target is unavailable")
+        publication_entered = True
+
+    try:
+        from . import reserved_paths
+
+        with reserved_paths._subsystem_authority_scope("compiled_history"):
+            written = vault.batch_atomic_write(
+                writes,
+                vault_root=root,
+                required_guards=(*required_guards, *origin_guards, *preflight.read_dependency_guards, *source_guards),
+                index_reports=reports,
+                semantic_states={preflight.path: semantic_index.from_semantic_page_state(preflight.after)},
+                _vocabulary_auxiliaries=manifest,
+                _validate_prepared_bindings=validate_bindings,
+            )
+    except vault.PathGuardError as error:
+        _recheck_origin_guards(root, origin_guards)
+        if error.code != "PATH_VARIANT_EXISTS":
+            vault.refuse_busy_if_planned_write_moved(
+                root,
+                (
+                    preflight.primary_guard,
+                    *required_guards,
+                    *origin_guards,
+                    *preflight.read_dependency_guards,
+                    *source_guards,
+                ),
+                (write for write in writes if write is not primary_write),
+            )
+        raise
+    try:
+        catalog_publication.publish_markdown_batch(catalog_target)
+    except catalog_publication.CatalogPublicationError as error:
+        raise SemanticWriteError(
+            "GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+            str(error),
+        ) from error
+    report = reports[0] if reports else None
+    return ExistingCommit(
+        preflight.applicability,
+        preflight.operation,
+        preflight.path,
+        True,
+        tuple(path.relative_to(root).as_posix() for path in written),
+        result,
+        report,
+        lifecycle_state,
+        preflight.transition_token,
+        after_hash=vault.content_hash(preflight.after_source),
+    )
+
+
+def _revalidate_existing_preflight(
+    vault_root: Path,
+    preflight: ExistingPreflight,
+    *,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> ExistingPreflight:
+    """Re-run ``preflight_existing`` warm when a pre-boundary census token has
+    gone stale. Surfaces ``STALE_SEMANTIC_WRITE``/``SEMANTIC_CONTRACT_BLOCKED``
+    exactly as the existing cross-invocation replay path already does — this
+    is the same warm revalidation, just triggered by a census mismatch instead
+    of a second caller-supplied invocation.
+
+    Deliberately calls the PUBLIC ``preflight_existing`` — tests monkeypatch
+    that name to inject the race this path exists to survive, so routing around
+    it would silently disarm them. The nested preflight's own metrics are kept
+    apart from the first attempt's by the ``revalidate`` write phase rather
+    than by changing the call.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    relation_disposition: str | None = None
+    relation_review_hash: str | None = None
+    relation_review_reason: str | None = None
+    if preflight.requested_decision is not None:
+        relation_disposition = "reviewed_none"
+        relation_review_hash = preflight.transition_hash
+        relation_review_reason = preflight.requested_decision.reason
+    with _write_phase("revalidate"):
+        refreshed = preflight_existing(
+            vault_root,
+            path=preflight.path,
+            after_source=preflight.after_source,
+            operation=preflight.operation,
+            expected_before_hash=preflight.before.source_hash,
+            transition_token=preflight.transition_token,
+            relation_disposition=relation_disposition,
+            relation_review_hash=relation_review_hash,
+            relation_review_reason=relation_review_reason,
+            status_basis=status_basis,
+        )
+        return replace(
+            refreshed, read_dependency_guards=preflight.read_dependency_guards,
+            provenance_server_at=preflight.provenance_server_at,
+        )
+
+
+def _prepare_markdown_catalog_publication(
+    vault_root: Path,
+    writes: Sequence[vault.PlannedWrite],
+    *,
+    graph_replacement_provider: Callable[[], tuple[Any, ...]] | None = None,
+):  # noqa: ANN202 - private bridge returns the governance publication token
+    """Prepare one exact catalog successor for the canonical Markdown subset."""
+
+    from .governance import catalog_publication
+
+    return catalog_publication.prepare_planned_markdown_batch(
+        vault_root,
+        writes=tuple(writes),
+        graph_replacement_provider=graph_replacement_provider,
+    )
+
+
+@call_spans.timed("post_commit.structure_suggestion")
+def _structure_suggestion(
+    state: Any,
+    corpus: semantic_contract.SemanticCorpusContext | None = None,
+) -> dict[str, Any] | None:
+    """Measure structural divergence for a committed page. Advisory; never raises.
+
+    Runs only after the guarded write has returned, over the page state the
+    preflight already built, so it adds no I/O and holds no lock. A fault here
+    costs the caller a suggestion, never the write.
+
+    `corpus` is the context this mutation already built; it lets a cluster whose
+    material now has its own pages resolve instead of re-firing forever. Passing
+    None is safe and simply skips resolution — suppression is never the fallback.
+    """
+    try:
+        from . import structure_promotion
+
+        return structure_promotion.suggest_for_state(state, corpus=corpus)
+    except Exception:  # noqa: BLE001 — structural advice never breaks a commit
+        log.debug("structural promotion analysis failed (non-fatal)", exc_info=True)
+        return None
+
+
+def _records_routing_from_terms(
+    vault_root: Path,
+    terms: Sequence[str],
+    facets: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, Any] | None:
+    """Route authored terms through visible projected claims. Advisory; fail open."""
+    try:
+        from . import collection_claims, due_state
+
+        return collection_claims.route(
+            terms, due_state.routing_targets(vault_root), facets=facets
+        )
+    except Exception:  # noqa: BLE001 -- routing advice never breaks a commit
+        log.debug("collection claims routing failed (non-fatal)", exc_info=True)
+        return None
+
+
+@call_spans.timed("post_commit.records_routing")
+def _records_routing(vault_root: Path, state: Any) -> dict[str, Any] | None:
+    """Collect only the written compiled page's declared routing vocabulary."""
+    return _records_routing_from_terms(
+        vault_root, _records_routing_terms(state), _records_routing_facets(state)
+    )
+
+
+@call_spans.timed("post_commit.records_delivery")
+def _records_routing_for_delivery(
+    vault_root: Path,
+    routing: Mapping[str, Any] | None,
+    *,
+    state: Any = None,
+    created: bool = True,
+) -> dict[str, Any] | None:
+    """Suppress a routed advisory when its review family is quiet or off.
+
+    Given the written `state`, a strong route of a failure-shaped observation
+    also carries the prominence-driven `disposition` (see `records_disposition`).
+    An edit (`created=False`) carries one only while the page is still unfiled.
+    """
+    if routing is None:
+        return None
+    try:
+        from . import review_state
+
+        payload = review_state.ReviewStateStore(vault_root).load()
+        if (
+            review_state.disposition_for(
+                "unreflected_observations", payload=payload
+            )
+            != "normal"
+        ):
+            return None
+    except Exception:  # noqa: BLE001 -- disposition failure costs only advice
+        log.debug("collection routing disposition read failed (non-fatal)", exc_info=True)
+        return None
+    delivered = dict(routing)
+    if state is not None:
+        try:
+            from . import prominence, records_disposition
+
+            extra = records_disposition.disposition(
+                vault_root,
+                routing,
+                state,
+                level=prominence.effective_capture_level(),
+                created=created,
+            )
+        except Exception:  # noqa: BLE001 -- a disposition failure costs only the disposition
+            log.debug("records routing disposition failed (non-fatal)", exc_info=True)
+            extra = None
+        if extra:
+            delivered.update(extra)
+    return delivered
+
+
+def _frontmatter_strings(frontmatter: Any, *names: str) -> list[str]:
+    values: list[str] = []
+    if not isinstance(frontmatter, Mapping):
+        return values
+    for name in names:
+        raw = frontmatter.get(name)
+        items = [raw] if isinstance(raw, str) else raw if isinstance(raw, (list, tuple)) else ()
+        values.extend(str(item) for item in items if type(item) in {str, int, float, bool})
+    return [value for value in values if value.strip()]
+
+
+def _records_routing_facets(state: Any) -> dict[str, list[str]]:
+    """The page facets `claims.match` predicates test: type, category, project, tags.
+
+    `category` is the page's own `category` plus the categories of its units,
+    so a note that records a `[failure]` unit is failure-shaped even when its
+    `type` says otherwise. `project` reads both `project` and `projects`.
+    """
+    frontmatter = getattr(state, "frontmatter", None) or {}
+    document = getattr(state, "document", None)
+    unit_categories = [
+        str(category)
+        for unit in (getattr(document, "units", None) or ())
+        if (category := getattr(unit, "category", None))
+    ]
+    facets = {
+        "type": _frontmatter_strings(frontmatter, "type"),
+        "category": [*_frontmatter_strings(frontmatter, "category"), *unit_categories],
+        "project": _frontmatter_strings(frontmatter, "project", "projects"),
+        "tags": _frontmatter_strings(frontmatter, "tags"),
+    }
+    return {key: list(dict.fromkeys(values)) for key, values in facets.items() if values}
+
+
+def _records_routing_terms(state: Any) -> list[str]:
+    """Authored title, page tags and unit tags.
+
+    Type, category and project are predicates (`_records_routing_facets`), not
+    words: counted as coverage terms they let a note about one product reach a
+    collection for another through a shared `type`.
+    """
+    frontmatter = getattr(state, "frontmatter", None) or {}
+    page_tags = _frontmatter_strings(frontmatter, "tags")
+    document = getattr(state, "document", None)
+    unit_tags = [
+        str(tag)
+        for unit in (getattr(document, "units", None) or ())
+        for tag in (getattr(unit, "tags", None) or ())
+    ]
+    return [str(getattr(state, "title", "") or ""), *page_tags, *unit_tags]
+
+
+def _observation_delta(
+    vault_root: Path,
+    state: Any,
+    routing: Mapping[str, Any] | None,
+) -> None:
+    """Maintain claimed-observation state after a compiled write; fail open."""
+    with (
+        call_spans.meter(*call_spans.PROJECTION_WRITE_FIELDS) as measured,
+        call_spans.span("post_commit.observation_delta", measured),
+    ):
+        if not getattr(state, "eligible_compiled", True):
+            return
+        try:
+            from . import due_state, memory_refs
+
+            identity = str(getattr(state, "identity", "") or "")
+            due_state.apply_observation_write_delta(
+                vault_root,
+                path=str(getattr(state, "path", "") or ""),
+                observation_ref=memory_refs.memory_ref(identity) if identity else "",
+                terms=_records_routing_terms(state),
+                routing=routing,
+                observation_aliases=(str(getattr(state, "path", "") or ""),),
+                facets=_records_routing_facets(state),
+            )
+        except Exception:  # noqa: BLE001 -- observation advice never breaks a commit
+            log.debug("observation due-state delta failed (non-fatal)", exc_info=True)
+
+
+def _due_state_block(
+    vault_root: Path,
+    rel_path: str,
+    *,
+    prior_markdown: str | None = None,
+    related_pages: tuple[str, ...] = (),
+) -> dict[str, Any] | None:
+    """Update the due-state projection for one written page and return its block.
+
+    `prior_markdown` and `related_pages` name what the write changed besides the
+    page itself, so the Sources those pages cite are refreshed too.
+
+    Shares `_structure_suggestion`'s placement and its fail-open guard, for the
+    same reason: this runs after the guarded write has returned, and a fault here
+    must cost the caller an advisory and never the write.
+
+    It does NOT share that function's freedom from I/O. The projection is a
+    vault-wide aggregate, so the work here is one page read, four page-local
+    predicates and one small JSON replace — bounded, but real. It deliberately
+    never recomputes, and the reason is cost rather than locking: a full recompute
+    is roughly thirty times the delta and, unlike the delta, scales with the
+    corpus, so putting one on the write path would make write latency a function
+    of vault size. (Whether this seam is inside the mutation critical section
+    depends on the command: `writer_lease._NARROW_BOUNDARY_COMMANDS` release their
+    guards before `_commit_existing` returns, so for those it is post-lock. The
+    bound has to hold either way, which is why it is argued from cost.) When there
+    is no projection to delta against, the write stays silent and the next read
+    surface performs the recovery outside any lock.
+
+    Emission is NOT decided here. This function produces; `mutation_terminal`
+    delivers, and only the deliverer can know whether the block actually reached
+    the caller — a `legacy` detail strips it and terminal validation can drop it.
+    Deciding here burnt the session's one emission on responses that carried
+    nothing. The vault rides along under a server-internal `_vault` key that the
+    terminal reads for the emission key and never puts on the wire.
+    """
+    with (
+        call_spans.meter(*call_spans.PROJECTION_WRITE_FIELDS) as measured,
+        call_spans.span("post_commit.due_state", measured),
+    ):
+        try:
+            from . import due_state
+
+            block = due_state.block_for_write(
+                vault_root,
+                rel_path,
+                prior_markdown=prior_markdown,
+                related_pages=related_pages,
+            )
+            if not block:
+                return None
+            return {**block, "_vault": str(vault_root)}
+        except Exception:  # noqa: BLE001 — a due-state count never breaks a commit
+            log.debug("due-state projection failed (non-fatal)", exc_info=True)
+            return None
+
+
+@call_spans.timed("post_commit.capture_sweep")
+def _capture_sweep_block(
+    vault_root: Path,
+    state: Any,
+    corpus: semantic_contract.SemanticCorpusContext | None,
+) -> dict[str, Any] | None:
+    """The episode-completeness advisory this write may carry.
+
+    Shares `_structure_suggestion`'s placement and its fail-open guard. Unlike
+    `_due_state_block` it costs one digest-cached file read and nothing else: the
+    wikilinks come from the page state the preflight already built and their
+    resolution runs against the corpus context that same preflight already holds,
+    and the one file is the entity-type extension registry the hint's registry
+    filter needs. No writer lease is taken and no vault-wide read happens here.
+
+    It also records the write in the carrier's own ledger, which is why it is
+    called even when it returns None: the quiet interval is measured from the
+    latest WRITE, not from the latest advisory.
+
+    A fault here costs the caller an advisory, never the write.
+    """
+    try:
+        from . import capture_sweep
+
+        return capture_sweep.block(
+            vault_root,
+            page_state=state,
+            corpus=corpus,
+            ref=_page_reference(state),
+        )
+    except Exception:  # noqa: BLE001 — an episode advisory never breaks a commit
+        log.debug("capture-sweep advisory failed (non-fatal)", exc_info=True)
+        return None
+
+
+@call_spans.timed("post_commit.entity_candidate")
+def _entity_candidate_block(
+    vault_root: Path,
+    state: Any,
+    corpus: semantic_contract.SemanticCorpusContext | None,
+    *,
+    previous_state: Any = None,
+) -> dict[str, Any] | None:
+    """The write-time `entity_candidate` advisory this write may carry.
+
+    Shares `_capture_sweep_block`'s placement, cost profile and fail-open
+    guard: the wikilinks and their resolution come from the page state and
+    corpus the preflight already built, and the one extra read this adds is a
+    single keyed lookup against the already-maintained graph dependency index
+    (`write-time-identity-candidates` design D5), never a vault walk.
+
+    `previous_state` is the page's pre-write `SemanticPageState` for an edit
+    (`ExistingPreflight.before`) or `None` for a creation, where every link is
+    new by construction. It is what tells a genuinely new link from a no-op
+    re-edit of an already-linking page, because the graph's own dependency row
+    for this page can already reflect this exact commit by the time this runs.
+
+    A fault here costs the caller a candidate, never the write.
+    """
+    try:
+        from . import capture_sweep
+
+        return capture_sweep.entity_candidate(
+            vault_root,
+            page_state=state,
+            corpus=corpus,
+            previous_page_state=previous_state,
+        )
+    except Exception:  # noqa: BLE001 — a candidate advisory never breaks a commit
+        log.debug("entity-candidate advisory failed (non-fatal)", exc_info=True)
+        return None
+
+
+def _page_reference(state: Any) -> str | None:
+    """The canonical `exomem://memory/<id>` reference for a committed page state.
+
+    None when the page carries no stable identity: the dedupe list is a
+    convenience for the agent, and a path is not a reference.
+    """
+    try:
+        if getattr(state, "identity_kind", None) != "exomem_id":
+            return None
+        from . import memory_refs
+
+        return memory_refs.memory_ref(state.identity)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def commit_existing(
+    vault_root: Path,
+    *,
+    preflight: ExistingPreflight,
+    history_reason: str | None = None,
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite] = (),
+    derived_auxiliary_writes: tuple[tuple[str, vault.PlannedWrite], ...] = (),
+    timings: MutationTimings | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> ExistingCommit:
+    """Commit one preflighted existing-page transition, primary Markdown last.
+
+    `timings` is a pure instrument: pass a `MutationTimings` to collect
+    per-stage spans, or omit it and nothing about the behaviour or the
+    returned payload changes.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    with _write_metric("exomem_write_commit_ms", str(preflight.operation)):
+        committed = _commit_existing(
+            vault_root,
+            preflight=preflight,
+            auxiliary_writes=auxiliary_writes,
+            derived_auxiliary_writes=derived_auxiliary_writes,
+            history_reason=history_reason,
+            timings=timings,
+            status_basis=status_basis,
+        )
+    if not preflight.committed_replay:
+        promotions.record_page_write(
+            vault_root, preflight.path,
+            before_source=preflight.before_source, after_source=preflight.after_source,
+            corpus=preflight.after_corpus,
+            transition_id=_existing_transition_id(preflight.transition_token),
+        )
+    suggestion = _structure_suggestion(preflight.after, preflight.after_corpus)
+    routing = _records_routing(vault_root, preflight.after)
+    _observation_delta(vault_root, preflight.after, routing)
+    delivered_routing = _records_routing_for_delivery(
+        vault_root, routing, state=preflight.after, created=False
+    )
+    due = _due_state_block(vault_root, preflight.path, prior_markdown=preflight.before_source)
+    sweep = _capture_sweep_block(vault_root, preflight.after, preflight.after_corpus)
+    candidate = _entity_candidate_block(
+        vault_root,
+        preflight.after,
+        preflight.after_corpus,
+        previous_state=preflight.before,
+    )
+    context = {
+        "vault": str(Path(vault_root)),
+        "registry_hash": preflight.after.relation_registry_hash,
+    }
+    return replace(
+        committed,
+        structure_suggestion=suggestion,
+        records_routing=delivered_routing,
+        due_state=due,
+        capture_sweep=sweep,
+        entity_candidate=candidate,
+        relation_advisory_context=context,
+    )
+
+
+def _commit_existing(
+    vault_root: Path,
+    *,
+    preflight: ExistingPreflight,
+    history_reason: str | None = None,
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite] = (),
+    derived_auxiliary_writes: tuple[tuple[str, vault.PlannedWrite], ...] = (),
+    timings: MutationTimings | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> ExistingCommit:
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    root = Path(vault_root)
+    if preflight.contract_result.should_block:
+        raise SemanticWriteError(
+            "SEMANTIC_CONTRACT_BLOCKED",
+            _blocking_reason(preflight.contract_result),
+            preflight.contract_result.blocking_findings,
+        )
+
+    try:
+        closure_plan = preflight.source_closure_plan or source_closure.prepare_source_closure(
+            root,
+            preflight.after_source,
+            destination=preflight.path,
+            prior_markdown=preflight.before_source,
+            required=bool(
+                preflight.operation == "tier2_overwrite"
+                or source_closure.source_claims(preflight.before_source, note_types.Basis(root))
+                != source_closure.source_claims(preflight.after_source, note_types.Basis(root))
+            ),
+        )
+        auxiliaries = source_closure.merge_backref_writes(
+            auxiliary_writes,
+            closure_plan.backref_writes,
+        )
+        _validate_derived_auxiliaries(auxiliary_writes, derived_auxiliary_writes)
+        derived_auxiliaries = (
+            *derived_auxiliary_writes,
+            *(("source-backref", item) for item in closure_plan.backref_writes),
+        )
+    except source_closure.SourceClosureViolation as error:
+        raise SemanticWriteError(
+            error.code,
+            error.reason,
+            details=error.details,
+        ) from error
+    with mutation_timing_span(timings, "commit.embedding_prewarm"):
+        _prewarm_embeddings()
+    from .writer_lease import active_manager, active_mutation_request_id, log_active_mutation_phase
+
+    operation_label = str(preflight.operation)
+    with _timed_boundary(
+        timings,
+        active_manager().mutation_guard(
+            root,
+            request_id=active_mutation_request_id(),
+            operation=f"semantic_existing_{preflight.operation}_commit",
+            holder_kind="command",
+        ),
+        operation=operation_label,
+    ):
+        # A current validity stamp (commit-generation unchanged + sidecar
+        # census unchanged — no corpus walk) means no governed writer
+        # committed since preflight, so it is still current — commit as
+        # today. Otherwise re-run preflight_existing warm, surfacing
+        # STALE_SEMANTIC_WRITE/SEMANTIC_CONTRACT_BLOCKED exactly as the
+        # existing cross-invocation replay path already does.
+        from .writer_lease import read_commit_generation
+
+        if not preflight.manifest_install_required:
+            activation_manifest.ensure_manifest(root, commit_point=False)
+        with mutation_timing_span(timings, "commit.stamp_check"):
+            stamp_current = semantic_contract.validity_stamp_current(
+                root,
+                preflight.census_token,
+                commit_generation=read_commit_generation(root),
+            )
+        if not stamp_current:
+            log_active_mutation_phase("semantic_revalidate_start")
+            with (
+                _write_metric("exomem_write_revalidate_ms", operation_label),
+                mutation_timing_span(timings, "commit.revalidate"),
+            ):
+                preflight = _revalidate_existing_preflight(
+                    root, preflight, status_basis=status_basis
+                )
+            if preflight.contract_result.should_block:
+                raise SemanticWriteError(
+                    "SEMANTIC_CONTRACT_BLOCKED",
+                    _blocking_reason(preflight.contract_result),
+                    preflight.contract_result.blocking_findings,
+                )
+        elif timings is not None:
+            timings.skipped("commit.revalidate")
+
+        try:
+            source_closure.enforce_source_closure(
+                root,
+                preflight.after_source,
+                destination=preflight.path,
+                prior_markdown=preflight.before_source,
+                prepared=closure_plan,
+            )
+        except source_closure.SourceClosureViolation as error:
+            raise SemanticWriteError(
+                error.code,
+                error.reason,
+                details=error.details,
+            ) from error
+
+        result = preflight.contract_result
+        if preflight.manifest_install_required:
+            with mutation_timing_span(timings, "commit.manifest"):
+                winner = activation_manifest.ensure_manifest(
+                    root, census=preflight.activation_census, commit_point=False
+                )
+                result, _ = _reevaluate_existing(
+                    preflight, manifest=winner, status_basis=status_basis
+                )
+                if result.should_block:
+                    raise SemanticWriteError(
+                        "SEMANTIC_CONTRACT_BLOCKED",
+                        _blocking_reason(
+                            result,
+                            "semantic contract blocked against the activation boundary winner",
+                        ),
+                        result.blocking_findings,
+                    )
+
+        if preflight.resolver_freshness is not None:
+            with mutation_timing_span(timings, "commit.resolver_prime"):
+                try:
+                    find_module.prime_resolver_from_entries(
+                        root,
+                        preflight.before_corpus.resolver_entries,
+                        expected_freshness=preflight.resolver_freshness,
+                    )
+                except Exception:  # noqa: BLE001 — rebuildable graph cache never blocks commit
+                    pass
+
+        index_reports: list[Any] = []
+        try:
+            with _timed_acquire(
+                timings,
+                "commit.creation_lock",
+                vault.vault_creation_lock(root, "semantic-creation"),
+            ):
+                log_active_mutation_phase("semantic_locked_commit_start")
+                with mutation_timing_span(timings, "commit.locked_commit"):
+                    committed = _commit_existing_locked(
+                        root,
+                        preflight=preflight,
+                        history_reason=history_reason,
+                        auxiliaries=auxiliaries,
+                        derived_auxiliaries=derived_auxiliaries,
+                        result=result,
+                        index_reports=index_reports,
+                        source_guards=closure_plan.required_guards,
+                    )
+            # The fan-out ran as the creation lock was released.
+            if committed.index_report is None and index_reports:
+                committed = replace(committed, index_report=index_reports[0])
+            return committed
+        except vault.PathGuardError as error:
+            if error.code == "PATH_VARIANT_EXISTS":
+                raise SemanticWriteError(error.code, error.reason) from error
+            # A caller-captured auxiliary guard (log/index) lost a race the
+            # wide boundary used to prevent. The batch aborted atomically —
+            # nothing was written — so surface the documented retryable
+            # staleness instead of a raw internal error.
+            raise SemanticWriteError(
+                "STALE_SEMANTIC_WRITE",
+                "a concurrent write updated a shared auxiliary during commit; retry the operation",
+            ) from error
+        except vault.VaultLockTimeout as error:
+            raise SemanticWriteError(
+                "SEMANTIC_CREATION_LOCK_TIMEOUT",
+                "timed out acquiring semantic creation lock",
+            ) from error
+        except vault.VaultLockError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+
+
+def _move_state_map(
+    root: Path,
+    *,
+    before_corpus: semantic_contract.SemanticCorpusContext,
+    old_path: str,
+    new_path: str,
+    source: str,
+    moved_source: str,
+    rewrites: tuple[vault.PlannedWrite, ...],
+    registry: relation_registry.RelationRegistry,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> tuple[
+    semantic_contract.SemanticCorpusContext,
+    dict[str, semantic_contract.SemanticPageState],
+]:
+    status_basis = status_basis or lifecycle_statuses.Basis(root)
+    states = dict(before_corpus.pages)
+    states.pop(old_path, None)
+    changed: dict[str, semantic_contract.SemanticPageState] = {}
+    moved = semantic_contract.build_page_state(
+        root,
+        new_path,
+        moved_source,
+        relation_registry=registry,
+        language_registry=language,
+        status_basis=status_basis,
+    )
+    states[new_path] = moved
+    changed[new_path] = moved
+    for write in rewrites:
+        try:
+            rel = write.path.relative_to(root).as_posix()
+        except ValueError as error:
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_MISMATCH",
+                "move rewrite is outside the vault",
+            ) from error
+        rewritten = semantic_contract.build_page_state(
+            root,
+            rel,
+            write.content,
+            relation_registry=registry,
+            language_registry=language,
+            status_basis=status_basis,
+        )
+        states[rel] = rewritten
+        changed[rel] = rewritten
+
+    entries = tuple(
+        entry
+        for entry in before_corpus.identity_census.entries
+        if entry.path not in {old_path, *changed}
+    )
+    identity_census = semantic_contract.StableIdentityCensus(
+        entries, before_corpus.identity_census.reference_only_entries
+    )
+    casefold_paths = vault.vault_casefolds(root)
+    for state in changed.values():
+        identity_census = identity_census.with_page(state, casefold_paths=casefold_paths)
+    return (
+        semantic_contract.SemanticCorpusContext.from_states(
+            root,
+            states.values(),
+            registry=registry,
+            identity_census=identity_census,
+        ),
+        changed,
+    )
+
+
+def _move_dependency_signature(
+    corpus: semantic_contract.SemanticCorpusContext,
+    path: str,
+    *,
+    visible: Callable[[str], bool] | None = None,
+    resolver: vault.WikilinkResolver | None = None,
+) -> tuple[Any, ...]:
+    """What a page's standing in a move depends on.
+
+    For a mover other than the owner (`visible` is its view), the facts it may
+    judge (see `writer_view_relations`): a page whose standing changes only
+    through a relation a withheld page authors does not enter the move's
+    closure, so it is neither judged nor reported for that mover.
+    """
+    state = corpus.pages[path]
+    outbound, inbound, _visible = semantic_contract.writer_view_relations(
+        state, corpus, visible=visible, resolver=resolver
+    )
+
+    def fact_signature(fact: semantic_contract.RelationFact) -> tuple[Any, ...]:
+        try:
+            qualification = semantic_contract.qualify_relation(
+                fact, registry=corpus.registry, corpus=corpus
+            )
+            outcome: tuple[Any, ...] = (qualification.qualifies, qualification.reasons)
+        except lifecycle_statuses.ClassificationUnavailable:
+            # Unknown alike before and after; the fact's own fields still show a change.
+            outcome = ("status_unavailable",)
+        return (
+            fact.identity,
+            fact.logical_source_path,
+            fact.logical_target_path,
+            fact.resolved_target_path,
+            fact.target_status,
+            fact.canonical_relation,
+            fact.registry_status,
+            fact.target_page_type,
+            *outcome,
+        )
+
+    return (
+        state.identity_kind,
+        state.identity,
+        state.status,
+        state.page_type,
+        state.projects,
+        tuple(fact_signature(fact) for fact in outbound),
+        tuple(fact_signature(fact) for fact in inbound),
+    )
+
+
+def _review_carry_signature(
+    corpus: semantic_contract.SemanticCorpusContext,
+    path: str,
+) -> tuple[Any, ...]:
+    state = corpus.pages[path]
+    # For a writer other than the owner, the facts it may judge (see
+    # `writer_view_relations`): a relation a withheld page authors does not
+    # decide whether a review carries.
+    outbound, inbound, _visible = semantic_contract.writer_view_relations(state, corpus)
+
+    def target_identity(fact: semantic_contract.RelationFact) -> tuple[str, str] | None:
+        resolved = (fact.resolved_target_path or "").split("#", 1)[0]
+        target = corpus.pages.get(resolved)
+        if target is None:
+            return None
+        return target.identity_kind, target.identity
+
+    def facts(direction: str) -> tuple[tuple[Any, ...], ...]:
+        values = outbound if direction == "outbound" else inbound
+        result: list[tuple[Any, ...]] = []
+        for fact in values:
+            qualification = semantic_contract.qualify_relation(
+                fact, registry=corpus.registry, corpus=corpus
+            )
+            result.append(
+                (
+                    direction,
+                    fact.canonical_relation,
+                    fact.family,
+                    fact.registry_status,
+                    fact.origin,
+                    fact.authored_line,
+                    fact.authored_anchor,
+                    fact.source_kind,
+                    fact.target_page_type,
+                    fact.target_status,
+                    target_identity(fact),
+                    qualification.qualifies,
+                    qualification.reasons,
+                )
+            )
+        return tuple(sorted(result, key=repr))
+
+    return (
+        state.identity_kind,
+        state.identity,
+        state.page_type,
+        state.projects,
+        state.status,
+        state.title,
+        tuple((unit.kind, unit.category) for unit in state.document.units),
+        facts("outbound"),
+        facts("inbound"),
+    )
+
+
+def _move_evaluation_pairs(
+    *,
+    old_path: str,
+    new_path: str,
+    changed: dict[str, semantic_contract.SemanticPageState],
+    before_corpus: semantic_contract.SemanticCorpusContext,
+    after_corpus: semantic_contract.SemanticCorpusContext,
+) -> tuple[tuple[str, str], ...]:
+    """Return the deterministic fixed-point closure affected by a move."""
+    pairs: dict[str, str] = {new_path: old_path}
+    for path in changed:
+        if path != new_path:
+            pairs[path] = path
+
+    # Corpus signatures already include authored resolution, identity/status,
+    # inbound/outbound qualifying sets, and registry disposition inputs. Iterate
+    # to a fixed point so later dependency dimensions can extend this without a
+    # one-hop assumption; the hard bound is the finite final corpus.
+    # A mover other than the owner is judged over its view, decided once.
+    visible = vault.writer_link_visibility(after_corpus.vault_root)
+    resolvers: dict[str, vault.WikilinkResolver | None] = {"before": None, "after": None}
+    if visible is not None:
+        resolvers = {
+            "before": vault.WikilinkResolver.from_entries(
+                before_corpus.vault_root, before_corpus.resolver_entries
+            ),
+            "after": vault.WikilinkResolver.from_entries(
+                after_corpus.vault_root, after_corpus.resolver_entries
+            ),
+        }
+    candidates = after_corpus.eligible_compiled_paths | after_corpus.status_unavailable_paths
+    for _ in range(len(after_corpus.pages) + 1):
+        added = False
+        for path in sorted(candidates):
+            if path in pairs or path not in before_corpus.pages:
+                continue
+            if _move_dependency_signature(
+                before_corpus, path, visible=visible, resolver=resolvers["before"]
+            ) != _move_dependency_signature(
+                after_corpus, path, visible=visible, resolver=resolvers["after"]
+            ):
+                # A dependent whose standing changes needs its own class to be judged.
+                semantic_contract.require_page_status(after_corpus.pages[path])
+                pairs[path] = path
+                added = True
+        if not added:
+            break
+    return tuple((pairs[path], path) for path in sorted(pairs))
+
+
+def preflight_move(
+    vault_root: Path,
+    *,
+    old_path: str,
+    new_path: str,
+    source: str,
+    moved_source: str,
+    source_guard: vault.PathGuard,
+    destination_guard: vault.PathGuard,
+    rewrites: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite] = (),
+    content_transform: Callable[[str], str] | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> MovePreflight:
+    """Evaluate a move and all exact inbound rewrites against one final corpus.
+
+    `content_transform` lets a caller declare a content change the move carries —
+    today only source reclassification, which rewrites classification frontmatter.
+    The binding stays exact rather than becoming permissive: the moved bytes must
+    equal the declared derivation, so an arbitrary edit still cannot ride along,
+    and a declared transform cannot be silently skipped either.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    root = Path(vault_root)
+    rewrite_tuple = tuple(rewrites)
+    if (
+        source_guard.target != old_path
+        or source_guard.leaf_policy != "content"
+        or source_guard.expected_content_hash != vault.content_hash(source)
+        or destination_guard.target != new_path
+        or destination_guard.leaf_policy != "absent"
+    ):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "move guards do not bind the exact source and destination",
+        )
+    expected_moved_source, _ = rewrite_wikilinks_for_move(source, old_path, new_path)
+    permitted = {source, expected_moved_source}
+    if content_transform is not None:
+        permitted = {content_transform(candidate) for candidate in permitted}
+    if moved_source not in permitted:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "moved source is not an exact path-only rewrite"
+            if content_transform is None
+            else "moved source is not the exact declared derivation of the move",
+        )
+    for write in rewrite_tuple:
+        if write.guard is None or write.guard.leaf_policy != "content":
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_MISMATCH",
+                "move rewrite is not bound to exact source bytes",
+            )
+
+    registry = relation_registry.load_registry(root)
+    language = semantic_language_registry.load_registry(root)
+    loaded_contracts = memory_schema.load_saved_contracts(root)
+    before_corpus = semantic_contract.build_corpus_context(
+        root, registry=registry, language_registry=language, status_basis=status_basis
+    )
+    before_moved = before_corpus.pages.get(old_path)
+    if before_moved is None or before_moved.source_hash != vault.content_hash(source):
+        raise SemanticWriteError(
+            "STALE_SEMANTIC_WRITE", "move source changed during semantic preflight"
+        )
+    pure_path_rewrites: set[str] = set()
+    for write in rewrite_tuple:
+        rel = write.path.relative_to(root).as_posix()
+        before_rewrite = before_corpus.pages.get(rel)
+        try:
+            before_source = write.path.read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            raise SemanticWriteError(
+                "STALE_SEMANTIC_WRITE",
+                "inbound page changed during semantic move preflight",
+            ) from error
+        if (
+            before_rewrite is None
+            or before_rewrite.source_hash != vault.content_hash(before_source)
+            or write.guard.expected_content_hash != vault.content_hash(before_source)
+        ):
+            raise SemanticWriteError(
+                "STALE_SEMANTIC_WRITE",
+                "inbound page changed during semantic move preflight",
+            )
+        expected_source, changed_count = rewrite_wikilinks_for_move(
+            before_source, old_path, new_path
+        )
+        if changed_count and expected_source == write.content:
+            pure_path_rewrites.add(rel)
+
+    after_corpus, changed = _move_state_map(
+        root,
+        before_corpus=before_corpus,
+        old_path=old_path,
+        new_path=new_path,
+        source=source,
+        moved_source=moved_source,
+        rewrites=rewrite_tuple,
+        registry=registry,
+        language=language,
+        status_basis=status_basis,
+    )
+    manifest = activation_manifest.load_manifest(root)
+    boundary = activation_manifest.plan_activation_boundary(
+        before_corpus.activation_census, manifest=manifest, vault_root=root
+    )
+    evaluations: list[MovePageEvaluation] = []
+    pairs = _move_evaluation_pairs(
+        old_path=old_path,
+        new_path=new_path,
+        changed=changed,
+        before_corpus=before_corpus,
+        after_corpus=after_corpus,
+    )
+    for before_path, after_path in pairs:
+        before = before_corpus.pages[before_path]
+        after = after_corpus.pages[after_path]
+        if before_path != old_path:
+            # The move only rewrites links in this page, so it is judged as a read.
+            before = semantic_contract.read_side(before)
+            after = semantic_contract.read_side(after)
+        before_contracts = memory_schema.resolve_contracts(
+            loaded_contracts,
+            projects=before.projects,
+            page_type=before.page_type,
+            language_registry=language,
+        )
+        after_contracts = memory_schema.resolve_contracts(
+            loaded_contracts,
+            projects=after.projects,
+            page_type=after.page_type,
+            language_registry=language,
+        )
+        applicability = _existing_applicability(before, after)
+        before_review = None
+        after_review = None
+        requested_decision: relation_review.LifecycleDecision | None = None
+        carried_from: relation_review.LifecycleDecision | None = None
+        if applicability == "full":
+            try:
+                before_review = relation_review.load_relation_review(
+                    root, before, corpus=before_corpus
+                )
+                after_review = relation_review.load_relation_review(
+                    root, after, corpus=after_corpus
+                )
+            except relation_review.RelationReviewError as error:
+                raise SemanticWriteError(error.code, error.reason) from error
+            can_carry = bool(
+                before_path == after_path
+                and after_path in pure_path_rewrites
+                and before_review is not None
+                and before_review.kind == "reviewed_none"
+                and before.identity_kind == "exomem_id"
+                and before.review_fingerprint is not None
+                and after.identity_kind == "exomem_id"
+                and after.identity == before.identity
+                and after.review_fingerprint is not None
+                and _review_carry_signature(before_corpus, before_path)
+                == _review_carry_signature(after_corpus, after_path)
+            )
+            if can_carry and (
+                after_review is None
+                or not semantic_contract.is_relation_review_current(
+                    after_review, after, after_corpus
+                )
+            ):
+                try:
+                    carried_from = relation_review.load_lifecycle_decision(
+                        root, before.identity, before.review_fingerprint
+                    )
+                    if carried_from is None or carried_from.reference != before_review.reference:
+                        carried_from = None
+                    else:
+                        requested_decision = relation_review.build_lifecycle_decision(
+                            page_identity=after.identity,
+                            after_fingerprint=after.review_fingerprint,
+                            reason=carried_from.reason,
+                        )
+                        after_review = semantic_contract.RelationReviewState(
+                            "reviewed_none",
+                            requested_decision.page_identity,
+                            requested_decision.after_fingerprint,
+                            reason=requested_decision.reason,
+                            reference=requested_decision.reference,
+                        )
+                except relation_review.RelationReviewError as error:
+                    raise SemanticWriteError(error.code, error.reason) from error
+        grandfathered = bool(
+            before.identity_kind == "exomem_id"
+            and before.eligible_compiled
+            and activation_manifest.is_grandfathered(
+                root,
+                before.path,
+                source_hash=before.source_hash,
+                exomem_id=before.identity,
+                manifest=boundary.manifest,
+                census=before_corpus.activation_census,
+                identity_census=before_corpus.identity_census,
+                eligible_compiled=before.eligible_compiled,
+                status_basis=status_basis,
+            )
+        )
+        result = semantic_contract.evaluate(
+            before=before,
+            after=after,
+            operation="move",
+            mode="precommit",
+            before_contracts=before_contracts,
+            after_contracts=after_contracts,
+            before_corpus=before_corpus,
+            after_corpus=after_corpus,
+            before_review=before_review,
+            after_review=after_review,
+            grandfathered=grandfathered,
+            include_relation_disposition=applicability == "full",
+            language_registry=language,
+        )
+        token = _existing_transition_token(
+            operation="move",
+            path=before.path,
+            before_hash=before.source_hash,
+            after_hash=after.source_hash,
+        )
+        evaluations.append(
+            MovePageEvaluation(
+                before,
+                after,
+                before_contracts,
+                after_contracts,
+                before_review,
+                after_review,
+                grandfathered,
+                token,
+                result,
+                requested_decision,
+                carried_from,
+            )
+        )
+    return MovePreflight(
+        old_path,
+        new_path,
+        source,
+        moved_source,
+        rewrite_tuple,
+        tuple(evaluations),
+        before_corpus,
+        after_corpus,
+        before_corpus.activation_census,
+        boundary.manifest,
+        boundary.install_required,
+        source_guard,
+        destination_guard,
+    )
+
+
+def _plan_move_lifecycle(
+    root: Path,
+    preflight: MovePreflight,
+) -> tuple[
+    tuple[vault.PlannedWrite, ...],
+    tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...],
+    tuple[tuple[str, str], ...],
+]:
+    writes: list[vault.PlannedWrite] = []
+    guards: list[vault.PathGuard | vault.DirectoryCensusGuard] = []
+    states: list[tuple[str, str]] = []
+    auxiliaries = list(preflight.rewrites)
+    if preflight.moved_source != preflight.source:
+        auxiliaries.append(vault.PlannedWrite(root / preflight.new_path, preflight.moved_source))
+    auxiliary_hash = relation_review.lifecycle_auxiliary_hash(auxiliaries, root)
+    for item in preflight.evaluations:
+        if (
+            item.before.path == item.after.path
+            and item.before.source_hash == item.after.source_hash
+            and item.before.review_fingerprint == item.after.review_fingerprint
+        ):
+            continue
+        stable_active = bool(
+            item.after.eligible_compiled
+            and item.after.identity_kind == "exomem_id"
+            and item.after.review_fingerprint is not None
+            and preflight.after_corpus.identity_census.paths_by_identity.get(item.after.identity)
+            == (item.after.path,)
+        )
+        if not stable_active:
+            continue
+        try:
+            prepared = relation_review.build_lifecycle_prepared_transition(
+                transition_id=_existing_transition_id(item.transition_token),
+                operation="move",
+                page_identity=item.after.identity,
+                before_path=item.before.path,
+                before_source_hash=item.before.source_hash,
+                after_path=item.after.path,
+                after_source_hash=item.after.source_hash,
+                after_fingerprint=item.after.review_fingerprint,
+                decision=item.requested_decision,
+                transition_token=item.transition_token,
+                auxiliary_hash=auxiliary_hash,
+                carried_from=item.carried_from,
+            )
+            plan = relation_review.plan_lifecycle_transition(
+                root,
+                decision=item.requested_decision,
+                prepared=prepared,
+                current=relation_review.LifecyclePrimaryBinding(
+                    item.before.path,
+                    item.before.source_hash,
+                    item.before.review_fingerprint,
+                ),
+            )
+        except relation_review.RelationReviewError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+        writes.extend(plan.writes)
+        guards.extend(plan.required_guards)
+        states.append((item.after.identity, plan.state))
+    return tuple(writes), tuple(guards), tuple(states)
+
+
+def commit_move(
+    vault_root: Path,
+    *,
+    preflight: MovePreflight,
+    mutate: MoveMutation,
+) -> MoveCommit:
+    """Commit a preflighted move while holding the shared semantic namespace."""
+    root = Path(vault_root)
+    if preflight.should_block:
+        raise SemanticWriteError(
+            "SEMANTIC_CONTRACT_BLOCKED",
+            _blocking_reason_for_evaluations(preflight.blocking_evaluations),
+            tuple(
+                finding
+                for item in preflight.blocking_evaluations
+                for finding in item.contract_result.blocking_findings
+            ),
+        )
+    if not preflight.manifest_install_required:
+        activation_manifest.ensure_manifest(root, commit_point=False)
+    if preflight.manifest_install_required:
+        winner = activation_manifest.ensure_manifest(
+            root, census=preflight.activation_census, commit_point=False
+        )
+        if winner != preflight.prospective_manifest:
+            raise SemanticWriteError(
+                "SEMANTIC_CONTRACT_BLOCKED",
+                "semantic move must be retried against the activation boundary winner",
+            )
+    try:
+        with vault.vault_creation_lock(root, "semantic-creation"):
+            preflight.source_guard.recheck(root)
+            destination_guard = preflight.destination_guard.prepare_and_bind_parents(root)
+            preflight.source_guard.recheck(root)
+            lifecycle_writes, required_guards, lifecycle_states = _plan_move_lifecycle(
+                root, preflight
+            )
+            mutate(lifecycle_writes, required_guards, destination_guard)
+    except vault.VaultLockTimeout as error:
+        raise SemanticWriteError(
+            "SEMANTIC_CREATION_LOCK_TIMEOUT",
+            "timed out acquiring semantic creation lock",
+        ) from error
+    except vault.VaultLockError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+    return MoveCommit(preflight, lifecycle_states)
+
+
+def _corpus_with_recovery_states(
+    root: Path,
+    base: semantic_contract.SemanticCorpusContext,
+    states: list[semantic_contract.SemanticPageState],
+    *,
+    registry: relation_registry.RelationRegistry,
+    removed_paths: frozenset[str] = frozenset(),
+) -> semantic_contract.SemanticCorpusContext:
+    pages = dict(base.pages)
+    identity_census = semantic_contract.StableIdentityCensus(
+        tuple(entry for entry in base.identity_census.entries if entry.path not in removed_paths),
+        base.identity_census.reference_only_entries,
+    )
+    casefold_paths = vault.vault_casefolds(root)
+    for state in states:
+        pages[state.path] = state
+        identity_census = identity_census.with_page(state, casefold_paths=casefold_paths)
+    return semantic_contract.SemanticCorpusContext.from_states(
+        root,
+        pages.values(),
+        registry=registry,
+        identity_census=identity_census,
+    )
+
+
+def preflight_recovery(
+    vault_root: Path,
+    *,
+    entries: tuple[RecoveryEntry, ...] | list[RecoveryEntry],
+    destination_root_guard: vault.PathGuard | None = None,
+    trash_census_guards: tuple[vault.DirectoryCensusGuard, ...] = (),
+    recovery_sidecar_guard: vault.PathGuard | None = None,
+    catalog_auxiliary_writes: tuple[vault.PlannedWrite, ...] = (),
+    catalog_content_paths: tuple[str, ...] = (),
+    catalog_publication_now: int | None = None,
+    relation_reviews: Mapping[str, Mapping[str, str]] | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> RecoveryPreflight:
+    """Evaluate exact trashed Markdown bytes at all final restore paths."""
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    root = Path(vault_root)
+    review_mapping = relation_reviews or {}
+    if not isinstance(review_mapping, Mapping) or len(review_mapping) > _RECOVERY_REVIEW_LIMIT:
+        raise SemanticWriteError(
+            "INVALID_RELATION_REVIEW",
+            "recovery relation reviews must be a bounded identity mapping",
+        )
+    consumed_reviews: set[str] = set()
+    bound_entries = tuple(entries)
+    if not bound_entries:
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "recovery semantic preflight requires at least one Markdown entry",
+        )
+    if len({item.restore_path for item in bound_entries}) != len(bound_entries):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "recovery contains duplicate restore paths",
+        )
+    root_destination = destination_root_guard or bound_entries[0].destination_guard
+    if root_destination.leaf_policy != "absent":
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_MISMATCH",
+            "recovery root destination guard must bind absence",
+        )
+    root_prefix = f"{root_destination.target.rstrip('/')}/"
+    for item in bound_entries:
+        if (
+            item.source_guard.target != item.trash_path
+            or item.source_guard.leaf_policy != "content"
+            or item.source_guard.expected_content_hash != vault.content_hash(item.source)
+            or item.destination_guard.target != item.restore_path
+            or item.destination_guard.leaf_policy != "absent"
+            or (item.sidecar_guard is not None and item.sidecar_guard.leaf_policy != "content")
+            or (item.sidecar_guard is None) != (item.sidecar_source is None)
+            or (
+                item.restore_path != root_destination.target
+                and not item.restore_path.startswith(root_prefix)
+            )
+        ):
+            raise SemanticWriteError(
+                "LIFECYCLE_TRANSITION_MISMATCH",
+                "recovery guards do not bind exact trash and destination state",
+            )
+
+    registry = relation_registry.load_registry(root)
+    language = semantic_language_registry.load_registry(root)
+    loaded_contracts = memory_schema.load_saved_contracts(root)
+    before_corpus = semantic_contract.build_corpus_context(
+        root, registry=registry, language_registry=language, status_basis=status_basis
+    )
+    prior_states: list[semantic_contract.SemanticPageState] = []
+    after_states: list[semantic_contract.SemanticPageState] = []
+    for item in bound_entries:
+        prior_states.append(
+            semantic_contract.build_page_state(
+                root,
+                item.original_path,
+                item.source,
+                relation_registry=registry,
+                language_registry=language,
+                status_basis=status_basis,
+            )
+        )
+        after_states.append(
+            semantic_contract.build_page_state(
+                root,
+                item.restore_path,
+                item.source,
+                relation_registry=registry,
+                language_registry=language,
+                status_basis=status_basis,
+            )
+        )
+    prior_corpus = _corpus_with_recovery_states(
+        root,
+        before_corpus,
+        prior_states,
+        registry=registry,
+        removed_paths=frozenset(item.trash_path for item in bound_entries),
+    )
+    after_corpus = _corpus_with_recovery_states(
+        root,
+        before_corpus,
+        after_states,
+        registry=registry,
+        removed_paths=frozenset(item.trash_path for item in bound_entries),
+    )
+    manifest = activation_manifest.load_manifest(root)
+    evaluations: list[RecoveryPageEvaluation] = []
+    for entry, before, after in zip(bound_entries, prior_states, after_states, strict=True):
+        before_contracts = memory_schema.resolve_contracts(
+            loaded_contracts,
+            projects=before.projects,
+            page_type=before.page_type,
+            language_registry=language,
+        )
+        after_contracts = memory_schema.resolve_contracts(
+            loaded_contracts,
+            projects=after.projects,
+            page_type=after.page_type,
+            language_registry=language,
+        )
+        applicability = _existing_applicability(before, after)
+        before_review = None
+        after_review = None
+        if applicability == "full":
+            try:
+                before_review = relation_review.load_relation_review(
+                    root, before, corpus=prior_corpus
+                )
+                after_review = relation_review.load_relation_review(
+                    root, after, corpus=after_corpus
+                )
+            except relation_review.RelationReviewError as error:
+                raise SemanticWriteError(error.code, error.reason) from error
+        requested_decision: relation_review.LifecycleDecision | None = None
+        requested_review = review_mapping.get(after.identity)
+        supplied_token = (
+            requested_review.get("transition_token")
+            if isinstance(requested_review, Mapping)
+            else None
+        )
+        token = supplied_token or _existing_transition_token(
+            operation="recover",
+            path=_recovery_token_path(entry.trash_path, entry.restore_path),
+            before_hash=before.source_hash,
+            after_hash=after.source_hash,
+        )
+        grandfathered = bool(
+            after.identity_kind == "exomem_id"
+            and after.eligible_compiled
+            and activation_manifest.is_grandfathered(
+                root,
+                after.path,
+                source_hash=after.source_hash,
+                exomem_id=after.identity,
+                manifest=manifest,
+                census=after_corpus.activation_census,
+                identity_census=after_corpus.identity_census,
+                eligible_compiled=after.eligible_compiled,
+                status_basis=status_basis,
+            )
+        )
+        baseline_result = semantic_contract.evaluate(
+            before=before,
+            after=after,
+            operation="recover",
+            mode="precommit",
+            before_contracts=before_contracts,
+            after_contracts=after_contracts,
+            before_corpus=prior_corpus,
+            after_corpus=after_corpus,
+            before_review=before_review,
+            after_review=after_review,
+            grandfathered=grandfathered,
+            include_relation_disposition=applicability == "full",
+            language_registry=language,
+        )
+        if requested_review is not None:
+            expected_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+            token_value = _decode_existing_transition_token(token)
+            if (
+                applicability != "full"
+                or after_review is not None
+                or not _recovery_result_reviewable(baseline_result)
+                or after.identity_kind != "exomem_id"
+                or after.review_fingerprint is None
+                or after_corpus.identity_census.paths_by_identity.get(after.identity)
+                != (after.path,)
+                or not isinstance(requested_review, Mapping)
+                or set(requested_review) != {"transition_token", "transition_hash", "reason"}
+                or token_value["operation"] != "recover"
+                or token_value["path"] != _recovery_token_path(entry.trash_path, entry.restore_path)
+                or token_value["before_hash"] != before.source_hash
+                or token_value["after_hash"] != after.source_hash
+                or requested_review.get("transition_hash") != expected_hash
+            ):
+                raise SemanticWriteError(
+                    "LIFECYCLE_TRANSITION_REVIEW_MISMATCH",
+                    "recovery review mapping does not match the validated transition",
+                )
+            try:
+                requested_decision = relation_review.build_lifecycle_decision(
+                    page_identity=after.identity,
+                    after_fingerprint=after.review_fingerprint,
+                    reason=requested_review.get("reason", ""),
+                )
+            except relation_review.RelationReviewError as error:
+                raise SemanticWriteError(error.code, error.reason) from error
+            after_review = semantic_contract.RelationReviewState(
+                "reviewed_none",
+                requested_decision.page_identity,
+                requested_decision.after_fingerprint,
+                reason=requested_decision.reason,
+                reference=requested_decision.reference,
+            )
+            consumed_reviews.add(after.identity)
+        result = baseline_result
+        if requested_decision is not None:
+            result = semantic_contract.evaluate(
+                before=before,
+                after=after,
+                operation="recover",
+                mode="precommit",
+                before_contracts=before_contracts,
+                after_contracts=after_contracts,
+                before_corpus=prior_corpus,
+                after_corpus=after_corpus,
+                before_review=before_review,
+                after_review=after_review,
+                grandfathered=grandfathered,
+                include_relation_disposition=True,
+                language_registry=language,
+            )
+        evaluations.append(
+            RecoveryPageEvaluation(
+                entry,
+                before,
+                after,
+                before_contracts,
+                after_contracts,
+                before_review,
+                after_review,
+                grandfathered,
+                token,
+                result,
+                requested_decision,
+            )
+        )
+    if consumed_reviews != set(review_mapping):
+        raise SemanticWriteError(
+            "LIFECYCLE_TRANSITION_REVIEW_MISMATCH",
+            "recovery review mapping contains an unvalidated page identity",
+        )
+    reviewable_count = sum(
+        item.requested_decision is None and _recovery_result_reviewable(item.contract_result)
+        for item in evaluations
+    )
+    if reviewable_count > _RECOVERY_REVIEW_LIMIT:
+        raise SemanticWriteError(
+            "RELATION_REVIEW_HISTORY_LIMIT",
+            "recovery requires too many reviewed-none decisions for one batch",
+        )
+    preflight = RecoveryPreflight(
+        bound_entries,
+        tuple(evaluations),
+        before_corpus,
+        prior_corpus,
+        after_corpus,
+        root_destination,
+        tuple(trash_census_guards),
+        recovery_sidecar_guard,
+        tuple(catalog_auxiliary_writes),
+        tuple(catalog_content_paths),
+        catalog_publication_now,
+    )
+    preflight.as_dict()
+    return preflight
+
+
+def _plan_recovery_lifecycle(
+    root: Path, preflight: RecoveryPreflight
+) -> tuple[
+    tuple[vault.PlannedWrite, ...],
+    tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...],
+    tuple[tuple[str, str], ...],
+]:
+    writes: list[vault.PlannedWrite] = []
+    guards: list[vault.PathGuard | vault.DirectoryCensusGuard] = []
+    states: list[tuple[str, str]] = []
+    auxiliary_hash = relation_review.lifecycle_auxiliary_hash((), root)
+    for item in preflight.evaluations:
+        stable_active = bool(
+            item.after.eligible_compiled
+            and item.after.identity_kind == "exomem_id"
+            and item.after.review_fingerprint is not None
+            and preflight.after_corpus.identity_census.paths_by_identity.get(item.after.identity)
+            == (item.after.path,)
+        )
+        if not stable_active:
+            continue
+        try:
+            prepared = relation_review.build_lifecycle_prepared_transition(
+                transition_id=_existing_transition_id(item.transition_token),
+                operation="recover",
+                page_identity=item.after.identity,
+                before_path=item.entry.trash_path,
+                before_source_hash=item.before.source_hash,
+                after_path=item.after.path,
+                after_source_hash=item.after.source_hash,
+                after_fingerprint=item.after.review_fingerprint,
+                decision=item.requested_decision,
+                transition_token=item.transition_token,
+                auxiliary_hash=auxiliary_hash,
+            )
+            trash_proof = None
+            if item.entry.sidecar_guard is not None:
+                assert item.entry.sidecar_source is not None
+                live_owner_paths = tuple(
+                    path
+                    for path in preflight.before_corpus.identity_census.paths_by_identity.get(
+                        item.after.identity, ()
+                    )
+                    if not path.startswith(f"{kb_prefix()}_trash/")
+                )
+                trash_proof = relation_review.LifecycleTrashProof(
+                    page_identity=item.after.identity,
+                    original_path=item.entry.original_path,
+                    trash_path=item.entry.trash_path,
+                    source_hash=item.before.source_hash,
+                    review_fingerprint=item.before.review_fingerprint,
+                    source_guard=item.entry.source_guard,
+                    sidecar_source=item.entry.sidecar_source,
+                    sidecar_guard=item.entry.sidecar_guard,
+                    live_owner_paths=live_owner_paths,
+                )
+            plan = relation_review.plan_lifecycle_transition(
+                root,
+                decision=item.requested_decision,
+                prepared=prepared,
+                current=relation_review.LifecyclePrimaryBinding(
+                    item.entry.trash_path,
+                    item.before.source_hash,
+                    item.before.review_fingerprint,
+                ),
+                trashed_committed=trash_proof,
+            )
+        except relation_review.RelationReviewError as error:
+            raise SemanticWriteError(error.code, error.reason) from error
+        writes.extend(plan.writes)
+        guards.extend(plan.required_guards)
+        states.append((item.after.identity, plan.state))
+    return tuple(writes), tuple(guards), tuple(states)
+
+
+def commit_recovery(
+    vault_root: Path,
+    *,
+    preflight: RecoveryPreflight,
+    mutate: RecoveryMutation,
+) -> RecoveryCommit:
+    """Prepare lifecycle auxiliaries, then perform one exact restore mutation."""
+    root = Path(vault_root)
+    try:
+        with vault.vault_creation_lock(root, "semantic-creation"):
+            for census_guard in preflight.trash_census_guards:
+                census_guard.recheck(root)
+            if preflight.recovery_sidecar_guard is not None:
+                preflight.recovery_sidecar_guard.recheck(root)
+            for item in preflight.entries:
+                item.source_guard.recheck(root)
+                if item.sidecar_guard is not None:
+                    item.sidecar_guard.recheck(root)
+                item.destination_guard.recheck(root)
+            lifecycle_writes, required_guards, lifecycle_states = _plan_recovery_lifecycle(
+                root, preflight
+            )
+            if preflight.should_block:
+                raise SemanticWriteError(
+                    "SEMANTIC_CONTRACT_BLOCKED",
+                    _blocking_reason_for_evaluations(preflight.evaluations),
+                    tuple(
+                        finding
+                        for item in preflight.evaluations
+                        for finding in item.contract_result.blocking_findings
+                    ),
+                )
+            destination_root_guard = preflight.destination_root_guard.prepare_and_bind_parents(root)
+            destination_root_guard.recheck(root)
+            destination_guards = tuple(
+                vault.PathGuard.capture(root, item.restore_path, leaf_policy="absent")
+                for item in preflight.entries
+            )
+            destination_root_guard.recheck(root)
+            for item, destination_guard in zip(preflight.entries, destination_guards, strict=True):
+                item.source_guard.recheck(root)
+                destination_guard.recheck(root)
+                if item.sidecar_guard is not None:
+                    item.sidecar_guard.recheck(root)
+            for census_guard in preflight.trash_census_guards:
+                census_guard.recheck(root)
+            if preflight.recovery_sidecar_guard is not None:
+                preflight.recovery_sidecar_guard.recheck(root)
+            from .governance import catalog_publication, graph_producer
+
+            catalog_writes = [*lifecycle_writes, *preflight.catalog_auxiliary_writes]
+            catalog_writes.extend(
+                vault.PlannedWrite(
+                    root / item.restore_path,
+                    item.source,
+                    create_only=True,
+                    guard=destination_guard,
+                )
+                for item, destination_guard in zip(
+                    preflight.entries, destination_guards, strict=True
+                )
+            )
+            semantic_states = {item.after.path: item.after for item in preflight.evaluations}
+            # The batch seam wants index states, not contract states, and it is
+            # the only place a governed page in this batch can be named for
+            # derived custody. Declare them on every batch this function owns.
+            batch_semantic_states = {
+                path: semantic_index.from_semantic_page_state(state)
+                for path, state in semantic_states.items()
+            }
+
+            def graph_replacement_provider():
+                return graph_producer.replacements_for_semantic_transition(
+                    root,
+                    before_corpus=preflight.before_corpus,
+                    after_corpus=preflight.after_corpus,
+                    writes=tuple(catalog_writes),
+                    semantic_states=semantic_states,
+                )
+
+            try:
+                catalog_target = catalog_publication.prepare_catalog_membership_batch(
+                    root,
+                    writes=tuple(catalog_writes),
+                    content_paths=preflight.catalog_content_paths,
+                    graph_replacement_provider=graph_replacement_provider,
+                    now=preflight.catalog_publication_now,
+                )
+            except catalog_publication.CatalogPublicationError as error:
+                raise SemanticWriteError(
+                    "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+                    str(error),
+                ) from error
+            if lifecycle_writes:
+                vault.batch_atomic_write(
+                    lifecycle_writes,
+                    vault_root=root,
+                    required_guards=(*required_guards, destination_root_guard),
+                    semantic_states=batch_semantic_states,
+                )
+            destination_root_guard.recheck(root)
+            for destination_guard in destination_guards:
+                destination_guard.recheck(root)
+            mutate()
+            if catalog_target is not None:
+                if preflight.catalog_auxiliary_writes:
+                    vault.batch_atomic_write(
+                        preflight.catalog_auxiliary_writes,
+                        vault_root=root,
+                        semantic_states=batch_semantic_states,
+                    )
+            from .writer_lease import mark_active_mutation_committed
+
+            mark_active_mutation_committed()
+            if catalog_target is not None:
+                try:
+                    catalog_publication.publish_markdown_batch(catalog_target)
+                except catalog_publication.CatalogPublicationError as error:
+                    raise SemanticWriteError(
+                        "GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+                        str(error),
+                    ) from error
+    except vault.VaultLockTimeout as error:
+        raise SemanticWriteError(
+            "SEMANTIC_CREATION_LOCK_TIMEOUT",
+            "timed out acquiring semantic creation lock",
+        ) from error
+    except vault.VaultLockError as error:
+        raise SemanticWriteError(error.code, error.reason) from error
+    return RecoveryCommit(
+        preflight,
+        lifecycle_states,
+        catalog_published=catalog_target is not None,
+    )
+
+
+def _structural_result(
+    contracts: tuple[memory_schema.LoadedMemoryContract, ...],
+    candidate: semantic_contract.SemanticPageState,
+    *,
+    operation: str,
+    before_corpus: semantic_contract.SemanticCorpusContext,
+    after_corpus: semantic_contract.SemanticCorpusContext,
+) -> semantic_contract.SemanticContractResult:
+    """Judge one new page against the corpus that will hold it."""
+    language = (candidate.definitions.snapshots["categories"].typed if candidate.definitions is not None
+                else semantic_language_registry.core_registry())
+    resolved = memory_schema.resolve_contracts(
+        contracts,
+        projects=candidate.projects,
+        page_type=candidate.page_type,
+        language_registry=language,
+    )
+    return semantic_contract.evaluate(
+        before=None,
+        after=candidate,
+        operation=operation,
+        mode="precommit",
+        before_contracts=resolved,
+        after_contracts=resolved,
+        before_corpus=before_corpus,
+        after_corpus=after_corpus,
+        include_relation_disposition=semantic_contract.requires_semantic_unit(candidate),
+        language_registry=language,
+    )
+
+
+def _structural_candidate(
+    root: Path,
+    destination: str,
+    source: str,
+    *,
+    before: semantic_contract.SemanticCorpusContext,
+    status_basis: lifecycle_statuses.Basis,
+) -> tuple[semantic_contract.SemanticPageState, str]:
+    """Build one new page's state from its placed source, with its origin normalized against `before`."""
+    candidate = semantic_contract.build_page_state(
+        root,
+        destination,
+        source,
+        status_basis=status_basis,
+    )
+    normalized_source = _normalize_origin_source(
+        source, state=candidate, corpus=before
+    )
+    if normalized_source != source:
+        source = normalized_source
+        candidate = semantic_contract.build_page_state(
+            root,
+            destination,
+            source,
+            status_basis=status_basis,
+        )
+    return candidate, source
+
+
+def _evaluate_structural(
+    root: Path,
+    *,
+    destination: str,
+    source: str,
+    operation: str,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> tuple[
+    semantic_contract.SemanticContractResult,
+    semantic_contract.SemanticPageState,
+    tuple | None,
+    semantic_contract.SemanticCorpusContext,
+    str,
+]:
+    """Returns ``(result, state, corpus_census, before_corpus, normalized_source)``.
+
+    ``corpus_census`` is the exact census that validated the ``before`` corpus
+    context this evaluation just built, for a preflight caller to thread
+    straight into ``_capture_validity_stamp`` without paying for a second
+    walk; see ``semantic_contract.build_corpus_context_with_census``.
+
+    ``before_corpus`` is that same context, returned rather than dropped so a
+    caller can retain it for advisory post-write analysis. It is the corpus as
+    it stood before this write, which is what a destination lookup wants.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(root)
+    source = _place_origin_source(destination, source)
+    contracts = memory_schema.load_saved_contracts(root)
+    before, before_census = semantic_contract.build_corpus_context_with_census(
+        root, status_basis=status_basis
+    )
+    candidate, source = _structural_candidate(
+        root, destination, source, before=before, status_basis=status_basis
+    )
+    return (
+        _structural_result(
+            contracts,
+            candidate,
+            operation=operation,
+            before_corpus=before,
+            after_corpus=before.with_candidate(candidate),
+        ),
+        candidate,
+        before_census,
+        before,
+        source,
+    )
+
+
+def preflight_creation(
+    vault_root: Path,
+    *,
+    path: str,
+    source: str,
+    operation: str,
+    writer: str,
+    draft_id: str | None,
+    draft_token: str,
+    registrations: tuple[DraftRegistration, ...] = (),
+    relation_disposition: str | None = None,
+    predecessor_path: str | None = None,
+    predecessor_content_hash: str | None = None,
+    vocabulary_binding: Any | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    resolver: vault.WikilinkResolver | None = None,
+) -> CreationPreflight:
+    # A fixed phase label. Its fields split out the two corpus-sized parts as
+    # whole milliseconds: `structural_ms` and `relation_review_ms`.
+    with call_spans.span("preflight.creation", {}) as measured:
+        return _preflight_creation(
+            vault_root,
+            measured,
+            path=path,
+            source=source,
+            operation=operation,
+            writer=writer,
+            draft_id=draft_id,
+            draft_token=draft_token,
+            registrations=registrations,
+            relation_disposition=relation_disposition,
+            predecessor_path=predecessor_path,
+            predecessor_content_hash=predecessor_content_hash,
+            vocabulary_binding=vocabulary_binding,
+            status_basis=status_basis,
+            resolver=resolver,
+        )
+
+
+def _preflight_creation(
+    vault_root: Path,
+    measured: dict[str, int],
+    *,
+    path: str,
+    source: str,
+    operation: str,
+    writer: str,
+    draft_id: str | None,
+    draft_token: str,
+    registrations: tuple[DraftRegistration, ...],
+    relation_disposition: str | None,
+    predecessor_path: str | None,
+    predecessor_content_hash: str | None,
+    vocabulary_binding: Any | None,
+    status_basis: lifecycle_statuses.Basis | None,
+    resolver: vault.WikilinkResolver | None,
+) -> CreationPreflight:
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    root = Path(vault_root)
+    origin_inputs = _prepare_origin_inputs(root, path, source)
+    relation_disposition = relation_review.normalize_relation_disposition(relation_disposition)
+    if relation_disposition not in {None, "reviewed_none"}:
+        raise SemanticWriteError(
+            "INVALID_RELATION_REVIEW",
+            "relation disposition must be 'reviewed_none' or 'reviewed-none'",
+        )
+    token = DraftToken.decode(draft_token)
+    if (
+        token.writer != writer
+        or token.operation != operation
+        or token.destination != path
+        or token.registrations != registrations
+    ):
+        raise SemanticWriteError("INVALID_DRAFT_TOKEN", "draft token does not match this creation")
+    try:
+        vault.parse_frontmatter(source, strict=True)
+    except vault.FrontmatterError as error:
+        raise SemanticWriteError(error.code, "draft frontmatter is invalid") from error
+    closure_plan = source_closure.prepare_source_closure(
+        root,
+        source,
+        destination=path,
+        resolver=resolver,
+    )
+    if not closure_plan.inspection.closed:
+        raise SemanticWriteError(
+            source_closure.UNRESOLVED_CODE,
+            source_closure.UNRESOLVED_MESSAGE,
+            details=closure_plan.inspection.public_details(),
+        )
+    entry_generation = _entry_commit_generation(root)
+    started = time.perf_counter()
+    try:
+        result, state, corpus_census, before_corpus, source = _evaluate_structural(
+            root, destination=path, source=source, operation=operation, status_basis=status_basis
+        )
+    finally:
+        measured["structural_ms"] = round((time.perf_counter() - started) * 1000.0)
+    origin_inputs = _prepare_origin_inputs(root, path, source)
+    if semantic_contract.requires_semantic_unit(state):
+        if draft_id is None:
+            raise SemanticWriteError("DRAFT_IDENTITY_MISMATCH", "active draft requires identity")
+        started = time.perf_counter()
+        try:
+            attempt = relation_review.revalidate_prepared_creation_attempt(
+                root,
+                path=path,
+                source=source,
+                draft_id=draft_id,
+                operation=operation,
+                draft_token=draft_token,
+                requested_disposition=relation_disposition,
+                predecessor_path=predecessor_path,
+                predecessor_content_hash=predecessor_content_hash,
+            )
+        finally:
+            measured["relation_review_ms"] = round((time.perf_counter() - started) * 1000.0)
+        validation = attempt.validation
+        artifact = attempt.artifact
+        provenance_server_at = _new_provenance_time(root)
+        if (
+            artifact is not None
+            and artifact.schema_version == 2
+            and artifact.page_identity == draft_id
+            and artifact.page_path_at_review == path
+            and artifact.content_fingerprint == validation.content_fingerprint
+            and artifact.draft_hash == validation.draft_hash
+            and artifact.operation == operation
+            and artifact.draft_token_hash == relation_review.draft_token_hash(draft_token)
+            and artifact.predecessor_path == predecessor_path
+            and artifact.predecessor_content_hash == predecessor_content_hash
+        ):
+            provenance_server_at = artifact.provenance_server_at
+        # This stamp also guards the relation-review verdict: both evaluations
+        # read this page's definitions and the status basis after the entry
+        # generation, so a change between or after them leaves it stale.
+        census_token = _capture_validity_stamp(
+            root,
+            entry_generation,
+            corpus_census=corpus_census,
+            status_dependencies=tuple(
+                sorted(set(before_corpus.status_dependencies) | {state.status_dependency})
+            ),
+            definitions=semantic_contract.page_definitions_witnesses(state),
+        )
+        return CreationPreflight(
+            "full",
+            path,
+            source,
+            draft_id,
+            draft_token,
+            False,
+            validation.contract_result,
+            validation,
+            state,
+            census_token,
+            before_corpus,
+            closure_plan,
+            vocabulary_binding,
+            (
+                vocabulary_binding.registry_guard,
+                vocabulary_binding.parent_guard,
+            ) if vocabulary_binding is not None else (),
+            origin_inputs,
+            relation_review.prevalidated_attempt(attempt, census_token),
+            provenance_server_at=provenance_server_at,
+        )
+    applicability: Literal["structural", "not_semantic"] = (
+        "structural"
+        if state.page_type is not None or semantic_contract.compiled_intent(state)
+        else "not_semantic"
+    )
+    census_token = _capture_validity_stamp(
+        root,
+        entry_generation,
+        corpus_census=corpus_census,
+        status_dependencies=tuple(
+            sorted(set(before_corpus.status_dependencies) | {state.status_dependency})
+        ),
+        definitions=semantic_contract.page_definitions_witnesses(state),
+    )
+    return CreationPreflight(
+        applicability,
+        path,
+        source,
+        draft_id,
+        draft_token,
+        False,
+        result,
+        None,
+        state,
+        census_token,
+        before_corpus,
+        closure_plan,
+        vocabulary_binding,
+        (
+            vocabulary_binding.registry_guard,
+            vocabulary_binding.parent_guard,
+        ) if vocabulary_binding is not None else (),
+        origin_inputs,
+    )
+
+
+def _entry_commit_generation(root: Path):  # noqa: ANN201 - int | None
+    """Read the boundary commit-generation at preflight ENTRY, before any
+    validation work, so a governed commit landing during the preflight moves
+    the generation past the captured value and disables reuse."""
+    from .writer_lease import read_commit_generation
+
+    return read_commit_generation(root)
+
+
+def _capture_validity_stamp(
+    root: Path,
+    entry_generation,  # noqa: ANN001
+    *,
+    corpus_census: tuple | None = None,
+    status_dependencies: tuple[tuple[str, str], ...] | None = None,
+    definitions: tuple[Any, ...] = (),
+) -> tuple | None:
+    """Assemble the preflight validity stamp WITHOUT a second corpus walk.
+
+    Pass ``corpus_census`` when the caller's own ``build_corpus_context_with_census``
+    call already walked/validated one — this is the direct plumbing from the
+    corpus context the preflight just built, and it never depends on the
+    global process cache still holding that entry (a cold build that could not
+    cache, a candidate build, or a concurrent eviction between the build and
+    this capture would otherwise all fall through to a second walk). Omitting
+    it falls back to ``cached_corpus_census`` for a caller that has no corpus
+    context in hand. Either way, only the cheap review-artifact census is
+    computed here. The stamp pairs the result with the entry commit-generation;
+    the in-boundary admission check is then
+    ``semantic_contract.validity_stamp_current`` — O(sidecars), no walk.
+    """
+    if entry_generation is None:
+        return None
+    sc_token = semantic_contract.corpus_validity_token(
+        root,
+        status_dependencies=status_dependencies,
+        definitions=definitions,
+        corpus_census=(
+            corpus_census
+            if corpus_census is not None
+            else semantic_contract.cached_corpus_census(root)
+        ),
+    )
+    if sc_token is None:
+        return None
+    return (sc_token, entry_generation)
+
+
+def _prewarm_embeddings() -> None:
+    """Best-effort embedding-model warm-up before the mutation boundary.
+
+    Removes the chance of a cold model load happening while the boundary is
+    held — the root cause of the multi-minute hold observed on 2026-07-25 —
+    by attempting the load here instead. Never blocks or fails a commit:
+    every failure, including the model being unavailable or still warming
+    up, is swallowed.
+    """
+    if (
+        os.environ.get("EXOMEM_FAST_DURABLE_ACK") == "1"
+        or os.environ.get("EXOMEM_DISABLE_EMBEDDINGS")
+    ):
+        return
+    try:
+        from . import readiness
+
+        if readiness.should_defer("embeddings"):
+            return
+        from . import embeddings
+
+        embeddings.get_model()
+    except Exception:  # noqa: BLE001 - a warm-up attempt must never break a commit
+        pass
+
+
+def commit_creation(
+    vault_root: Path,
+    *,
+    preflight: CreationPreflight,
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite] = (),
+    derived_auxiliary_writes: tuple[tuple[str, vault.PlannedWrite], ...] = (),
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    operation: str,
+    predecessor_path: str | None = None,
+    predecessor_content_hash: str | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    promotion_origin: Mapping[str, Any] | None = None,
+) -> CreationCommit:
+    """Commit a page creation, then attach advisory structural feedback.
+
+    `promotion_origin` names the readable page whose content led to this
+    creation; the recent-promotions entry keeps it (see `promotions.py`).
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    committed = _commit_creation(
+        vault_root,
+        preflight=preflight,
+        auxiliary_writes=auxiliary_writes,
+        derived_auxiliary_writes=derived_auxiliary_writes,
+        relation_disposition=relation_disposition,
+        relation_review_hash=relation_review_hash,
+        relation_review_reason=relation_review_reason,
+        operation=operation,
+        predecessor_path=predecessor_path,
+        predecessor_content_hash=predecessor_content_hash,
+        status_basis=status_basis,
+    )
+    return _creation_post_commit(
+        vault_root,
+        preflight,
+        committed,
+        predecessor_path=predecessor_path,
+        promotion_origin=promotion_origin,
+    )
+
+
+def _creation_post_commit(
+    vault_root: Path,
+    preflight: CreationPreflight,
+    committed: CreationCommit,
+    *,
+    predecessor_path: str | None = None,
+    promotion_origin: Mapping[str, Any] | None = None,
+) -> CreationCommit:
+    """Record one committed creation's promotion and attach its advisory feedback."""
+    if predecessor_path is None:
+        # A successor page is a new version of an entity, not a new entity.
+        promotions.record_page_write(
+            vault_root, preflight.destination, before_source=None, after_source=preflight.source,
+            origin=promotion_origin, corpus=preflight.corpus, source_state=preflight.semantic_state,
+        )
+    suggestion = _structure_suggestion(preflight.semantic_state, preflight.corpus)
+    routing = _records_routing(vault_root, preflight.semantic_state)
+    _observation_delta(vault_root, preflight.semantic_state, routing)
+    delivered_routing = _records_routing_for_delivery(
+        vault_root, routing, state=preflight.semantic_state
+    )
+    due = _due_state_block(
+        vault_root,
+        preflight.destination,
+        related_pages=(predecessor_path,) if predecessor_path else (),
+    )
+    sweep = _capture_sweep_block(vault_root, preflight.semantic_state, preflight.corpus)
+    candidate = _entity_candidate_block(vault_root, preflight.semantic_state, preflight.corpus)
+    context = {
+        "vault": str(Path(vault_root)),
+        "registry_hash": preflight.semantic_state.relation_registry_hash,
+    }
+    return replace(
+        committed,
+        structure_suggestion=suggestion,
+        records_routing=delivered_routing,
+        due_state=due,
+        capture_sweep=sweep,
+        entity_candidate=candidate,
+        relation_advisory_context=context,
+        vocabulary_resolution=(
+            preflight.vocabulary_binding.as_dict()
+            if preflight.vocabulary_binding is not None
+            else None
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class BatchCreation:
+    """One creation of `commit_creations`, with the auxiliaries that only it plans."""
+
+    preflight: CreationPreflight
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _PlannedCreation:
+    preflight: CreationPreflight
+    closure_plan: source_closure.SourceClosurePlan
+    auxiliaries: tuple[vault.PlannedWrite, ...]
+    derived: tuple[tuple[str, vault.PlannedWrite], ...]
+
+
+def commit_creations(
+    vault_root: Path,
+    *,
+    creations: Sequence[BatchCreation],
+    shared_writes: Sequence[vault.PlannedWrite] = (),
+    operation: str,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> tuple[CreationCommit | Exception, ...]:
+    """Commit structural creations as one canonical batch, one outcome per creation.
+
+    Each creation keeps its own draft token, source closure, back-references and contract
+    verdict. The verdicts are judged against the corpus that holds every creation, so two
+    creations that conflict refuse the batch. `shared_writes` are the auxiliaries that all
+    creations share, such as the index and the log, planned once for the whole batch.
+
+    Only structural creations commit together. A creation that needs a relation review or
+    binds a vocabulary decision or retained origin inputs commits alone, and so does one that
+    replaces a predecessor, which this batch takes no input for.
+
+    A raise means that nothing of the batch is on disk: a `SemanticWriteError` refusal, or the
+    write's own error after it rolled back. The caller may then commit each creation alone.
+    Once the batch is on disk nothing raises, because committing a creation again would find
+    its page taken. Each creation then gets its `CreationCommit`, or the exception that a step
+    after the write raised for it. A failure that belongs to the whole batch, such as its
+    catalog publication, a write that kept workspace state or a write that failed after its
+    commit point, is every creation's outcome, as it would be for each creation committed
+    alone.
+    """
+    root = Path(vault_root)
+    if not creations:
+        raise SemanticWriteError("INVALID_AUXILIARY_WRITE", "a creation batch needs a creation")
+    status_basis = status_basis or lifecycle_statuses.Basis(root)
+    planned: list[_PlannedCreation] = []
+    for creation in creations:
+        preflight = creation.preflight
+        # The two non-structural shapes need their own review or binding; a retained origin
+        # input has a per-creation revalidation that this batch does not combine.
+        if (
+            preflight.applicability == "full"
+            or preflight.vocabulary_binding is not None
+            or preflight.origin_inputs is not None
+        ):
+            raise SemanticWriteError(
+                "INVALID_AUXILIARY_WRITE", "this creation cannot commit in a batch"
+            )
+        _refuse_blocked_creation(preflight)
+        planned.append(_plan_creation(root, preflight, creation.auxiliary_writes, ()))
+    claimed: set[Path] = set()
+    for write in (
+        *shared_writes,
+        *(write for item in planned for write in item.auxiliaries),
+        *(root / item.preflight.destination for item in planned),
+    ):
+        path = Path(os.path.abspath(getattr(write, "path", write)))
+        if path in claimed:
+            raise SemanticWriteError(
+                "STALE_SEMANTIC_WRITE", "creations of one batch plan the same file"
+            )
+        claimed.add(path)
+    # Judged outside the guard, which then only checks that the preflights' stamps hold.
+    judged = (
+        _judge_preflights(root, planned, operation=operation)
+        if len(planned) > 1 and _stamps_current(root, planned)
+        else None
+    )
+    with call_spans.span("commit.embedding_prewarm"):
+        _prewarm_embeddings()
+    from .writer_lease import active_manager, active_mutation_request_id
+
+    committed: tuple[CreationCommit, ...] | None = None
+    failure: Exception | None = None
+    try:
+        with active_manager().mutation_guard(
+            root,
+            request_id=active_mutation_request_id(),
+            operation=f"semantic_creation_{operation}_commit",
+            holder_kind="command",
+        ):
+            _enforce_closures(root, planned)
+            committed, failure = _commit_structural(
+                root,
+                planned,
+                shared_writes=tuple(shared_writes),
+                operation=operation,
+                status_basis=status_basis,
+                judged=judged,
+            )
+    except Exception as error:
+        if committed is None:
+            raise
+        failure = error  # the guard failed to close after the batch was written
+    if failure is not None:
+        return tuple(failure for _ in planned)
+    assert committed is not None
+    outcomes: list[CreationCommit | Exception] = []
+    for item, commit in zip(planned, committed, strict=True):
+        try:
+            outcomes.append(_creation_post_commit(root, item.preflight, commit))
+        except Exception as error:  # noqa: BLE001 - a step after the write fails its own creation only
+            outcomes.append(error)
+    return tuple(outcomes)
+
+
+def _refuse_blocked_creation(preflight: CreationPreflight) -> None:
+    non_review_blockers = tuple(
+        finding
+        for finding in preflight.contract_result.blocking_findings
+        if finding.resolved_rule != semantic_contract.RELATION_DISPOSITION_RULE
+    )
+    if non_review_blockers or (
+        preflight.applicability != "full" and preflight.contract_result.should_block
+    ):
+        raise SemanticWriteError(
+            "SEMANTIC_CONTRACT_BLOCKED",
+            _blocking_reason(preflight.contract_result),
+            preflight.contract_result.blocking_findings,
+        )
+
+
+def _plan_creation(
+    root: Path,
+    preflight: CreationPreflight,
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite],
+    derived_auxiliary_writes: tuple[tuple[str, vault.PlannedWrite], ...],
+) -> _PlannedCreation:
+    """Join one creation's auxiliaries to its cited Sources' back-references."""
+    try:
+        # Fixed phase labels, timing only, for each step before the guard.
+        with call_spans.span("commit.source_closure"):
+            closure_plan = (
+                preflight.source_closure_plan
+                or source_closure.prepare_source_closure(
+                    root,
+                    preflight.source,
+                    destination=preflight.destination,
+                )
+            )
+        auxiliaries = source_closure.merge_backref_writes(
+            auxiliary_writes,
+            closure_plan.backref_writes,
+        )
+        _validate_derived_auxiliaries(auxiliary_writes, derived_auxiliary_writes)
+        derived = (
+            *derived_auxiliary_writes,
+            *(("source-backref", write) for write in closure_plan.backref_writes),
+        )
+    except source_closure.SourceClosureViolation as error:
+        raise SemanticWriteError(
+            error.code,
+            error.reason,
+            details=error.details,
+        ) from error
+    return _PlannedCreation(preflight, closure_plan, auxiliaries, derived)
+
+
+def _enforce_closures(root: Path, planned: Sequence[_PlannedCreation]) -> None:
+    """Re-resolve every creation's cited Sources under the mutation guard."""
+    for item in planned:
+        try:
+            source_closure.enforce_source_closure(
+                root,
+                item.preflight.source,
+                destination=item.preflight.destination,
+                prepared=item.closure_plan,
+            )
+        except source_closure.SourceClosureViolation as error:
+            raise SemanticWriteError(
+                error.code,
+                error.reason,
+                details=error.details,
+            ) from error
+
+
+#: Each creation's verdict, the corpus before the batch, and each creation's page state.
+_Verdicts = tuple[
+    list[semantic_contract.SemanticContractResult],
+    semantic_contract.SemanticCorpusContext | None,
+    dict[str, semantic_contract.SemanticPageState],
+]
+
+
+def _stamps_current(root: Path, planned: Sequence[_PlannedCreation]) -> bool:
+    """Whether every preflight's validity stamp still holds: O(sidecars), no corpus walk."""
+    from .writer_lease import read_commit_generation
+
+    generation = read_commit_generation(root)
+    return all(
+        semantic_contract.validity_stamp_current(
+            root, item.preflight.census_token, commit_generation=generation
+        )
+        for item in planned
+    )
+
+
+def _judge_batch(
+    root: Path,
+    before: semantic_contract.SemanticCorpusContext,
+    states: Mapping[str, semantic_contract.SemanticPageState],
+    *,
+    operation: str,
+) -> list[semantic_contract.SemanticContractResult]:
+    """Judge each new page against `before` together with every page of the batch.
+
+    A verdict that blocks refuses the batch, so two creations that conflict commit alone.
+    """
+    combined = _corpus_with_recovery_states(root, before, list(states.values()), registry=before.registry)
+    contracts = memory_schema.load_saved_contracts(root)
+    results = [
+        _structural_result(
+            contracts, state, operation=operation, before_corpus=before, after_corpus=combined
+        )
+        for state in states.values()
+    ]
+    for result in results:
+        if result.should_block:
+            raise SemanticWriteError(
+                "SEMANTIC_CONTRACT_BLOCKED",
+                _blocking_reason(result),
+                result.blocking_findings,
+            )
+    return results
+
+
+def _judge_preflights(
+    root: Path, planned: Sequence[_PlannedCreation], *, operation: str
+) -> _Verdicts | None:
+    """Judge a batch from the corpus and the page states that its preflights read.
+
+    The stamps that the guard checks cover that corpus. `None` when the first preflight
+    kept no corpus; the guard then judges the batch against a fresh one.
+    """
+    before = planned[0].preflight.corpus
+    if before is None:
+        return None
+    states = {item.preflight.destination: item.preflight.semantic_state for item in planned}
+    return _judge_batch(root, before, states, operation=operation), before, states
+
+
+def _structural_verdicts(
+    root: Path,
+    planned: Sequence[_PlannedCreation],
+    *,
+    operation: str,
+    status_basis: lifecycle_statuses.Basis,
+    judged: _Verdicts | None,
+) -> _Verdicts:
+    """Admit the verdicts judged before the guard, or judge the creations again.
+
+    One creation's judged verdict is its preflight's. A judged verdict is admitted only
+    while every validity stamp is current. Otherwise, or for an uncensusable tree, the
+    creations are judged again against one fresh corpus, so a concurrently-changed config,
+    registry or page cannot admit a stale pre-boundary verdict.
+    """
+    if judged is None and len(planned) == 1:
+        preflight = planned[0].preflight
+        judged = (
+            [preflight.contract_result],
+            preflight.corpus,
+            {preflight.destination: preflight.semantic_state},
+        )
+    if judged is not None and _stamps_current(root, planned):
+        for _ in planned:
+            relation_review._record_prevalidated_commit_outcome("reused")
+        return judged
+    for _ in planned:
+        relation_review._record_prevalidated_commit_outcome("revalidated")
+    if len(planned) == 1:
+        preflight = planned[0].preflight
+        result, state, _fresh_census, corpus, _source = _evaluate_structural(
+            root,
+            destination=preflight.destination,
+            source=preflight.source,
+            operation=operation,
+            status_basis=status_basis,
+        )
+        if result.should_block:
+            raise SemanticWriteError(
+                "SEMANTIC_CONTRACT_BLOCKED",
+                _blocking_reason(result),
+                result.blocking_findings,
+            )
+        return [result], corpus, {preflight.destination: state}
+    before, _fresh_census = semantic_contract.build_corpus_context_with_census(
+        root, status_basis=status_basis
+    )
+    states = {
+        item.preflight.destination: _structural_candidate(
+            root,
+            item.preflight.destination,
+            _place_origin_source(item.preflight.destination, item.preflight.source),
+            before=before,
+            status_basis=status_basis,
+        )[0]
+        for item in planned
+    }
+    return _judge_batch(root, before, states, operation=operation), before, states
+
+
+def _holds_planned_bytes(write: vault.PlannedWrite) -> bool:
+    """Whether `write`'s file holds exactly the text this batch planned for it."""
+    try:
+        return isinstance(write.content, str) and (
+            Path(write.path).read_bytes() == write.content.encode("utf-8")
+        )
+    except OSError:
+        return False
+
+
+def _publish_creation_catalog(catalog_target: Any) -> None:
+    """Advance the governance catalog after a creation's canonical bytes committed."""
+    from .governance import catalog_publication
+
+    try:
+        catalog_publication.publish_markdown_batch(catalog_target)
+    except catalog_publication.CatalogPublicationError as error:
+        raise SemanticWriteError(
+            "GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+            str(error),
+        ) from error
+
+
+def _commit_structural(
+    root: Path,
+    planned: Sequence[_PlannedCreation],
+    *,
+    shared_writes: tuple[vault.PlannedWrite, ...] = (),
+    operation: str,
+    status_basis: lifecycle_statuses.Basis,
+    vocabulary_guards: tuple[vault.PathGuard | vault.DirectoryCensusGuard, ...] = (),
+    judged: _Verdicts | None = None,
+) -> tuple[tuple[CreationCommit, ...], Exception | None]:
+    """Write structural creations in one canonical batch, under the caller's mutation guard.
+
+    Structural and non-semantic creations honour the validity stamp inside the boundary
+    (see `_structural_verdicts`). One creation and many share this implementation.
+
+    Every raise comes before the batch is on disk. A failure after the write is returned
+    beside the commits for the caller to report: a write that kept workspace state or that
+    failed after its commit point, which leave no commits, or the catalog publication.
+    """
+    from .governance import catalog_publication
+
+    results, catalog_corpus, catalog_states = _structural_verdicts(
+        root, planned, operation=operation, status_basis=status_basis, judged=judged
+    )
+    writes = [*shared_writes, *(write for item in planned for write in item.auxiliaries)]
+    auxiliary_writes = tuple(writes)
+    primary_writes = [
+        vault.PlannedWrite(
+            root / item.preflight.destination,
+            item.preflight.source,
+            create_only=True,
+            guard=vault.PathGuard.capture(
+                root,
+                item.preflight.destination,
+                leaf_policy="absent",
+            ),
+        )
+        for item in planned
+    ]
+    writes.extend(primary_writes)
+    try:
+        catalog_target = _prepare_creation_catalog_publication(
+            root,
+            before_corpus=catalog_corpus,
+            semantic_states=catalog_states,
+            writes=writes,
+        )
+    except catalog_publication.CatalogPublicationError as error:
+        raise SemanticWriteError(
+            "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+            str(error),
+        ) from error
+    origin_guards = tuple(
+        guard
+        for item in planned
+        for guard in _origin_commit_guards(root, item.preflight.origin_inputs, writes)
+    )
+    bound_origins = [
+        item.preflight.origin_inputs for item in planned if item.preflight.origin_inputs is not None
+    ]
+
+    def validate_bound_origins() -> None:
+        for bound in bound_origins:
+            _validate_origin_inputs(root, bound)
+
+    closure_guards = tuple(guard for item in planned for guard in item.closure_plan.required_guards)
+    token = semantic_index.set_parent_states(
+        {
+            destination: semantic_index.from_semantic_page_state(state)
+            for destination, state in catalog_states.items()
+        }
+    )
+    try:
+        from . import vocabulary_auxiliaries
+
+        manifests = tuple(
+            vocabulary_auxiliaries.seal(root, primary=primary, derived=item.derived)
+            for item, primary in zip(planned, primary_writes, strict=True)
+        )
+        written = vault.batch_atomic_write(
+            writes,
+            vault_root=root,
+            required_guards=(
+                *vocabulary_guards,
+                *origin_guards,
+                *closure_guards,
+            ),
+            _vocabulary_auxiliaries=manifests[0] if len(manifests) == 1 else manifests,
+            _validate_prepared_bindings=validate_bound_origins if bound_origins else None,
+        )
+    except vault.PathGuardError as error:
+        if error.code == "PATH_VARIANT_EXISTS":
+            raise SemanticWriteError(error.code, error.reason) from error
+        _recheck_origin_guards(root, origin_guards)
+        vault.refuse_busy_if_planned_write_moved(
+            root,
+            (
+                *vocabulary_guards,
+                *origin_guards,
+                *closure_guards,
+                *(write.guard for write in primary_writes if write.guard is not None),
+            ),
+            auxiliary_writes,
+        )
+        if vault.any_guard_changed(root, vocabulary_guards):
+            raise SemanticWriteError(
+                "STALE_VOCABULARY_BINDING",
+                "domain vocabulary changed during commit; validate a fresh draft",
+            ) from error
+        raise SemanticWriteError(
+            "STALE_SEMANTIC_WRITE",
+            "a concurrent write updated a shared auxiliary during commit; retry the operation",
+        ) from error
+    except vault.BatchWriteError as error:
+        # The write kept workspace state and may have kept pages, so it is no refusal.
+        return (), error
+    except Exception as error:
+        if any(_holds_planned_bytes(write) for write in primary_writes):
+            # The write failed after its commit point, so the pages are on disk.
+            return (), error
+        raise
+    finally:
+        semantic_index.reset_parent_states(token)
+    # A creation reports every written file but the other creations' own: its own files, the
+    # batch's shared writes and any file the write adds. One creation reports them all.
+    owned = [
+        {Path(os.path.abspath(write.path)) for write in (*item.auxiliaries, primary)}
+        for item, primary in zip(planned, primary_writes, strict=True)
+    ]
+    commits = []
+    for item, own, result in zip(planned, owned, results, strict=True):
+        others = set().union(*owned) - own
+        paths = tuple(
+            path.relative_to(root).as_posix()
+            for path in written
+            if Path(os.path.abspath(path)) not in others
+        )
+        commits.append(CreationCommit(item.preflight.applicability, True, paths, result, None))
+    try:
+        _publish_creation_catalog(catalog_target)
+    except Exception as error:  # noqa: BLE001 - after the write a failure is reported, not refused
+        return tuple(commits), error
+    return tuple(commits), None
+
+
+def _prepare_creation_catalog_publication(
+    vault_root: Path,
+    *,
+    before_corpus: semantic_contract.SemanticCorpusContext | None,
+    semantic_states: Mapping[str, semantic_contract.SemanticPageState],
+    writes: Sequence[vault.PlannedWrite],
+):  # noqa: ANN202 - private bridge returns the governance publication token
+    """Prepare a creation successor from the retained semantic snapshot."""
+
+    from .governance import graph_producer
+
+    planned_writes = tuple(writes)
+
+    def graph_replacement_provider():
+        if before_corpus is None:
+            raise graph_producer.GraphProducerError(
+                "creation preflight did not retain its semantic corpus"
+            )
+        return graph_producer.replacements_for_planned_markdown(
+            vault_root,
+            before_corpus=before_corpus,
+            writes=planned_writes,
+            semantic_states=semantic_states,
+        )
+
+    return _prepare_markdown_catalog_publication(
+        vault_root,
+        writes=planned_writes,
+        graph_replacement_provider=graph_replacement_provider,
+    )
+
+
+def _validate_derived_auxiliaries(
+    auxiliaries: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite],
+    derived: tuple[tuple[str, vault.PlannedWrite], ...],
+) -> None:
+    """Require every declared derived output to be an exact planned auxiliary."""
+    available = {
+        (Path(write.path).absolute(), write.content)
+        for write in auxiliaries
+        if isinstance(write.content, str)
+    }
+    if any((Path(write.path).absolute(), write.content) not in available for _role, write in derived):
+        raise SemanticWriteError("INVALID_AUXILIARY_WRITE", "derived auxiliary is not a planned writer output")
+
+
+def _commit_creation(
+    vault_root: Path,
+    *,
+    preflight: CreationPreflight,
+    auxiliary_writes: tuple[vault.PlannedWrite, ...] | list[vault.PlannedWrite] = (),
+    derived_auxiliary_writes: tuple[tuple[str, vault.PlannedWrite], ...] = (),
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    operation: str,
+    predecessor_path: str | None = None,
+    predecessor_content_hash: str | None = None,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> CreationCommit:
+    status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    root = Path(vault_root)
+    _refuse_blocked_creation(preflight)
+    planned = _plan_creation(root, preflight, auxiliary_writes, derived_auxiliary_writes)
+    closure_plan = planned.closure_plan
+    auxiliaries = planned.auxiliaries
+    derived_auxiliaries = planned.derived
+    prepared: relation_review._PreparedCreationDraft | None = None
+    if preflight.applicability == "full":
+        assert preflight.draft_id is not None
+        # Pre-boundary: parse/canonicalize + the preliminary structural and
+        # relation-review validation. Any failure here raises before the
+        # mutation boundary below is ever acquired. The span's one field
+        # names whether the preflight's relation review was reused, a count.
+        with call_spans.span("commit.relation_review_prepare", {}) as measured:
+            prepared = relation_review.prepare_commit_creation_draft(
+                root,
+                path=preflight.destination,
+                source=preflight.source,
+                draft_id=preflight.draft_id,
+                operation=operation,
+                relation_disposition=relation_disposition,
+                relation_review_hash=relation_review_hash,
+                relation_review_reason=relation_review_reason,
+                auxiliary_writes=auxiliaries,
+                derived_auxiliary_writes=derived_auxiliaries,
+                draft_token=preflight.draft_token,
+                predecessor_path=predecessor_path,
+                predecessor_content_hash=predecessor_content_hash,
+                prevalidated=preflight.relation_attempt,
+                provenance_server_at=preflight.provenance_server_at,
+            )
+            measured[prepared.preliminary_outcome] = 1
+    with call_spans.span("commit.embedding_prewarm"):
+        _prewarm_embeddings()
+    from .writer_lease import active_manager, active_mutation_request_id
+
+    with active_manager().mutation_guard(
+        root,
+        request_id=active_mutation_request_id(),
+        operation=f"semantic_creation_{operation}_commit",
+        holder_kind="command",
+    ):
+        if preflight.vocabulary_binding is not None:
+            from . import vocabulary_resolution
+
+            try:
+                current_binding = vocabulary_resolution.binding_from_dict(
+                    root, preflight.vocabulary_binding.as_dict()
+                )
+            except vocabulary_resolution.VocabularyResolutionError as error:
+                raise SemanticWriteError(error.code, error.reason, details=error.details) from error
+            if current_binding.as_dict() != preflight.vocabulary_binding.as_dict():
+                raise SemanticWriteError(
+                    "STALE_VOCABULARY_BINDING", "domain vocabulary changed; validate a fresh draft"
+                )
+            vocabulary_guards = (
+                current_binding.registry_guard,
+                current_binding.parent_guard,
+            )
+        else:
+            vocabulary_guards = ()
+        _enforce_closures(root, (planned,))
+        if prepared is not None:
+            from .governance import catalog_publication
+
+            try:
+                catalog_writes = [*prepared.auxiliaries]
+                catalog_writes.append(
+                    vault.PlannedWrite(
+                        root / preflight.destination,
+                        preflight.source,
+                        create_only=True,
+                    )
+                )
+                with call_spans.span("commit.catalog_prepare"):
+                    catalog_target = _prepare_creation_catalog_publication(
+                        root,
+                        before_corpus=prepared.preliminary.before_corpus,
+                        semantic_states={preflight.destination: prepared.preliminary.candidate},
+                        writes=catalog_writes,
+                    )
+            except catalog_publication.CatalogPublicationError as error:
+                raise SemanticWriteError(
+                    "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+                    str(error),
+                ) from error
+            # Its in-lock revalidation reports its outcome on the nested
+            # `commit.relation_review_attempt` span.
+            with call_spans.span("commit.relation_review"):
+                committed = relation_review.commit_prepared_creation_draft(
+                    root,
+                    prepared,
+                    path=preflight.destination,
+                    source=preflight.source,
+                    operation=operation,
+                    relation_disposition=relation_disposition,
+                    relation_review_hash=relation_review_hash,
+                    predecessor_path=predecessor_path,
+                    predecessor_content_hash=predecessor_content_hash,
+                    semantic_state=semantic_index.from_semantic_page_state(
+                        preflight.semantic_state
+                    ),
+                    vocabulary_guards=vocabulary_guards,
+                    closure_guards=closure_plan.required_guards,
+                    origin_required_guards=_origin_commit_guards(
+                        root, preflight.origin_inputs, catalog_writes
+                    ),
+                    _validate_prepared_bindings=(
+                        lambda: _validate_origin_inputs(root, preflight.origin_inputs)
+                    ) if preflight.origin_inputs is not None else None,
+                )
+            _publish_creation_catalog(catalog_target)
+            return CreationCommit(
+                "full", True, committed.written_paths, committed.contract_result, committed
+            )
+        commits, failure = _commit_structural(
+            root,
+            (planned,),
+            operation=operation,
+            status_basis=status_basis,
+            vocabulary_guards=vocabulary_guards,
+        )
+        if failure is not None:
+            raise failure
+        return commits[0]

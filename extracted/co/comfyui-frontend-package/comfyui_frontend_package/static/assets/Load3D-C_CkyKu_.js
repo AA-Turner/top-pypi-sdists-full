@@ -1,0 +1,1 @@
+import{t as e}from"./Load3D-J75cknEs.js";export{e as default};

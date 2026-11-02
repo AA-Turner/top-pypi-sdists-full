@@ -2,9 +2,10 @@
 the same thing, and says what the CLI gate actually does.
 
 THE ONE FACT: you launch and instrument runs, and the daemon records. The
-agent's: starting runs (no project needed), the run's own data and `run end`.
-The daemon's: everything else, the project, experiment and sweep group a run is
-filed in included. A write the researcher asks for takes `--directed`.
+agent's: starting runs in a project (creating one when none fits), the run's own
+data and `run end`. The daemon's: everything else, the experiment and sweep group
+a run is filed in and renaming or moving projects and runs included. A write the
+researcher asks for takes `--directed`.
 
 In a live trial an agent spent 2.5 of 8.5 minutes reading the gate's source,
 because six texts described the split six ways and none matched the gate's
@@ -74,16 +75,18 @@ def test_no_em_dashes(surface):
 
 @pytest.mark.parametrize("surface", ["S2 flip notice", "S2 pi flip notice", "S3 session start",
                                      "S3 pi session start", "S7 after the fact"])
-def test_no_surface_hands_the_agent_the_containers(surface):
-    """Daemon v2 (D2, S11): the agent launches and instruments runs; creating the
-    project, experiment and sweep group is the daemon's, and the gate refuses the
-    agent those creates (see the next test). A text that still says "yours: create
-    the project" sends the agent into a refusal every time."""
+def test_no_surface_hands_the_agent_the_experiment_or_group(surface):
+    """Every run has a project, so the agent may create the one its run needs
+    (`probe project create`, retire-unfiled T1 = A); the experiment and sweep group
+    stay the daemon's, and the gate refuses the agent those creates (see the next
+    test). A text that says "yours: create the experiment" sends the agent into a
+    refusal every time."""
     text = " ".join(_surfaces()[surface].split())
     yours = text.split("Yours:", 1)[1].split("The daemon's:", 1)[0] if "Yours:" in text else ""
-    for word in ("creat", "experiment", "group"):
+    for word in ("experiment", "group"):
         assert word not in yours, f"{surface} gives the agent {word!r}: {yours!r}"
-    assert "the daemon" in text.lower() and "creat" in text, surface
+    assert "probe project create" in text, surface
+    assert "the daemon" in text.lower(), surface
 
 
 def test_the_flip_carries_the_whole_session_start_text():
@@ -98,12 +101,13 @@ def test_the_words_match_the_gate():
     call the daemon's it refuses. A text and a list that disagree is the bug."""
     agent = session_marker.DAEMON_AGENT_WRITES
     for key in ("exec", "run start", "run child", "run fork", "run end", "log", "snapshot",
-                "span add", "trial add"):
+                "span add", "trial add", "project create"):
         assert key in agent, key
-    # Daemon v2 (D2, S11): runs start floating; the containers are the daemon's.
+    # The experiment, the group and every rename or move are the daemon's.
     for matched in ("probe notes push", "probe artifact add", "probe paper add", "probe run tag",
-                    "probe run set", "probe edge add", "probe group set", "probe project create",
-                    "probe experiment create", "probe group create"):
+                    "probe run set", "probe edge add", "probe group set", "probe project set",
+                    "probe project move", "probe run move", "probe experiment create",
+                    "probe group create"):
         assert not session_marker.daemon_allows_agent(matched), matched
     # A file the run attaches itself is the run's own data (see DAEMON_RUN_WRITES).
     assert session_marker.DAEMON_RUN_WRITES == frozenset({"artifact add"})

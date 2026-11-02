@@ -1,0 +1,37 @@
+[package]
+name = "valgebra-core"
+description = "The schema algebra and decision procedures of valgebra, free of Python."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# Subtyping indexes record fields by name for O(1) cross-list lookup. The keys
+# are trusted, build-checked identifiers (the frontend rejects duplicates and
+# surrogate names), never attacker input, so the map needs no SipHash DoS
+# resistance; FxHash drops the per-call random-seed setup, matching the binding
+# crate and the hasher ty uses in its own semantic crates. Pure Rust, so the
+# core stays interpreter-free.
+rustc-hash = { workspace = true }
+# See the workspace entry: the descriptor's string component is a regular
+# language, and this builds the automaton a pattern denotes.
+regex-automata = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.8.2"
+insta = "1.49.0"
+proptest = "1.12"
+# The matcher the walk runs a pattern with, so a law holds the automaton a
+# pattern lowers to against the words that matcher admits. The binding depends
+# on it already, so the lockfile gains no crate.
+regex = "1.13"
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "core"
+harness = false

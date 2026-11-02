@@ -109,7 +109,7 @@ def test_a_run_opened_with_capture_off_unbinds_the_other_runs_workers(app, tmp_p
 
 _OWNER = """
 import os, subprocess, sys, time
-from probe.sdk import inputs
+from probe.sdk.capture import lineage as inputs
 assert inputs.start("run-crashed") and inputs.bind_workers("run-crashed")
 {spawn}
 open({ready!r}, "w").write(str(pid))
@@ -233,7 +233,7 @@ def test_a_process_pool_maps_a_wrapped_reader(tmp_path) -> None:
         f"""
         import multiprocessing as mp, os
         import pyarrow as pa, pyarrow.parquet as pq
-        from probe.sdk import inputs
+        from probe.sdk.capture import lineage as inputs
         paths = []
         for i in range(3):
             p = os.path.join({str(tmp_path)!r}, f"t{{i}}.parquet")
@@ -360,7 +360,7 @@ def test_torch_save_is_a_write_through_a_stub_torch(tmp_path) -> None:
         f"""
         import hashlib, json, multiprocessing as mp, pickle
         from concurrent.futures import ProcessPoolExecutor
-        from probe.sdk import inputs
+        from probe.sdk.capture import lineage as inputs
         assert inputs.start("run-stub")
         import torch, torch.serialization
         assert torch.save is torch.serialization.save
@@ -471,7 +471,7 @@ def test_a_bound_worker_that_joins_the_run_keeps_its_spool(tmp_path) -> None:
         f"""
         import os, time
         open({str(before)!r}, "rb").read()
-        from probe.sdk import inputs
+        from probe.sdk.capture import lineage as inputs
         assert inputs.start("run-rank")
         open({str(after)!r}, "rb").read()
         open({str(ready)!r}, "w").write("x")

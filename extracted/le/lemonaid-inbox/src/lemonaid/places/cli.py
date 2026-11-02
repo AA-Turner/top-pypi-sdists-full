@@ -1,0 +1,356 @@
+"""CLI commands for places - directories you work in, and their sessions."""
+
+import argparse
+import dataclasses
+import json
+import sys
+from pathlib import Path
+
+from .. import brief, launch
+from ..config import Config, PlaceRoot, load_config
+from ..launch import options
+from ..watch import children_waiter
+from . import audit, lifecycle, log_cli, ownership, toss_cli
+
+
+def root_or_exit(config: Config, directory: str | Path) -> PlaceRoot:
+    root = config.places.root_for(directory)
+    if root is None:
+        print(
+            f"No places root configured for {directory}.\n"
+            "Add one to ~/.config/lemonaid/config.toml under [[places.roots]].",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return root
+
+
+def _harness_window(config: Config, harness: str, session: str) -> tuple[str, str]:
+    """(index, window ID) of the harness window in *session*."""
+    index = lifecycle.harness_window(config, harness)
+    return index, brief.session.window(session, index)[1]
+
+
+def cmd_open(args: argparse.Namespace) -> None:
+    """Get a session for a key, acquiring its directory if it doesn't exist yet."""
+    config = load_config()
+    try:
+        if options.preview(args, config.tmux_session):
+            return
+        resolved = options.selected(config.tmux_session, args)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        sys.exit(1)
+
+    config = dataclasses.replace(
+        config, tmux_session=resolved.session_config(config.tmux_session, args.harness)
+    )
+    given, error = launch.handoff.prepare(args.brief, args.parent, args.name, tuple(args.group))
+    line = resolved.line
+    if not error and given.brief:
+        error = launch.command.unclaimable(line)
+
+    if error:
+        print(error, file=sys.stderr)
+        sys.exit(1)
+
+    prompt = launch.handoff.first_prompt(given, args.prompt)
+    title = launch.handoff.session_title(given)
+
+    # Naming a root asks for its vocabulary explicitly, so an unusable one is an
+    # error rather than something to read another way.
+    root = (
+        root_or_exit(config, args.root)
+        if args.root
+        else config.places.namespaced_root_for(Path.cwd())
+    )
+
+    if root is None:
+        roots = ", ".join(str(root.path) for root in config.places.roots) or "(none)"
+        print(
+            f"No places root with a key vocabulary covers {Path.cwd()}. "
+            f"Configured roots: {roots}. Pass --root to choose one explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    directory, opened = lifecycle.open_key(
+        args.key,
+        config,
+        root,
+        attach=not args.detach,
+        harness=args.harness,
+        prompt=prompt,
+        title=title,
+    )
+
+    session, error = opened.session, opened.error
+    audit.record(
+        "open",
+        "failed" if error else "created" if opened.created else "reused",
+        key=args.key,
+        directory=str(directory) if directory else "",
+        session=session or "",
+        flags=[f"--{f}" for f, on in (("detach", args.detach), ("json", args.json)) if on],
+        reason=error or "",
+    )
+    if session and not error and (given.brief or prompt):
+        index, window_id = _harness_window(config, args.harness, session)
+        if warning := launch.handoff.complete(given, session, index, window_id):
+            print(f"Warning: {warning}", file=sys.stderr)
+        if given.link:
+            print(children_waiter.reminder(), file=sys.stderr)
+        if (
+            opened.created
+            and prompt
+            and window_id
+            and not args.no_check
+            and (dialog := launch.window.startup_dialog(window_id))
+        ):
+            error = f"Opened, but the lemon in {session}:{index} is waiting at {dialog}"
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "key": args.key,
+                    "session": session or None,
+                    "dir": str(directory) if directory else None,
+                    "root": str(root.path) if root else None,
+                    "brief": str(given.brief) if given.brief else None,
+                    "lemon_id": given.link[0] if given.link else None,
+                    "parent": given.link[1] if given.link else None,
+                    "groups": list(given.groups),
+                    "error": error,
+                }
+            )
+        )
+    elif error:
+        print(error, file=sys.stderr)
+
+    if error:
+        sys.exit(1)
+
+
+def cmd_acquire(args: argparse.Namespace) -> None:
+    """Get the directory for a key, creating it if needed, without a session."""
+    config = load_config()
+    root = (
+        root_or_exit(config, args.root)
+        if args.root
+        else config.places.namespaced_root_for(Path.cwd())
+    )
+
+    if root is None:
+        print(
+            f"No root with a key vocabulary covers {Path.cwd()}, so there is no "
+            "directory to acquire. Run `place hooks --json` to see the configured roots.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    directory, error = lifecycle.acquire_key(args.key, root)
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "key": args.key,
+                    "dir": str(directory) if directory else None,
+                    "root": str(root.path),
+                    "error": error,
+                }
+            )
+        )
+    elif error:
+        print(error, file=sys.stderr)
+    elif directory:
+        print(directory)
+
+    if error:
+        sys.exit(1)
+
+
+def cmd_list(args: argparse.Namespace) -> None:
+    """List the directories every configured root reports."""
+    config = load_config()
+    if not config.places.roots:
+        print("No [[places.roots]] configured", file=sys.stderr)
+        sys.exit(1)
+
+    known = ownership.managed_places(config)
+    occupied = {
+        place.directory: session
+        for session in ownership.pane_paths()
+        for place in ownership.places_of(session, config, known)
+    }
+
+    # The key is included so a caller can act on a listed directory without
+    # having to re-derive one; these came from the roots' own listings, so they
+    # are known to be managed.
+    listing = [
+        {
+            "root": str(place.root.path),
+            "dir": str(place.directory),
+            "key": place.key,
+            "session": occupied.get(place.directory, ""),
+        }
+        for place in known
+    ]
+
+    if args.json:
+        print(json.dumps(listing))
+        return
+
+    for entry in listing:
+        print(entry["dir"])
+
+
+def cmd_hooks(args: argparse.Namespace) -> None:
+    """Show the commands configured for managing directories.
+
+    This is how a person or a lemon finds out how directories are acquired and
+    released here, without that convention having to be written down somewhere
+    that can drift from the config.
+    """
+    config = load_config()
+    roots = [root_or_exit(config, args.root)] if args.root else config.places.roots
+
+    resolved = [{**dataclasses.asdict(root), "path": str(root.path)} for root in roots]
+
+    if args.json:
+        print(json.dumps(resolved))
+        return
+
+    if not resolved:
+        print("No [[places.roots]] configured", file=sys.stderr)
+        sys.exit(1)
+
+    for root in resolved:
+        print(root.pop("path"))
+        for name, command in root.items():
+            print(f"  {name:8} {command or '-'}")
+
+
+def setup_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Set up the place subcommand."""
+    place_parser = subparsers.add_parser(
+        "place",
+        help="Directories you work in, and their tmux sessions",
+        description="A place is a directory you work in. lemonaid knows about "
+        "directories and terminals - what acquires and releases a directory is a "
+        "shell command declared per repo root, so run `place hooks --json` rather "
+        "than assuming a tool. `toss` releases a place and closes the tmux windows "
+        "sitting in it, and the session too when it is dedicated to the place. Full "
+        "guide for automated callers: `lemonaid for-lemons`.",
+    )
+    place_subparsers = place_parser.add_subparsers(dest="place_command")
+
+    # "new" is kept as a hidden alias: this verb creates only when it has to, so
+    # naming it after creation misdescribes the common case of reopening.
+    open_parser = place_subparsers.add_parser(
+        "open",
+        aliases=["new"],
+        help="Get a session for a key, acquiring its directory if needed",
+        description="Acquires the directory only if it doesn't exist, and switches "
+        "to its session only if there isn't one. Neither case is an error, so this "
+        "is always safe to run without checking first.\n\n"
+        "If you only need the directory, use `place acquire` instead. Nothing is "
+        "recorded here that later cleanup depends on - a directory acquired either "
+        "way is reported by `list` and released by `toss` - so a session is the only "
+        "thing this adds.\n\n"
+        "Run from a directory no configured root manages the names of and this "
+        "refuses to guess where to open the session. Pass --root to choose a "
+        "root explicitly.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    open_parser.add_argument("key", help="What the root's tool names directories by")
+    open_parser.add_argument(
+        "--root", help="Root to acquire under (default: the one containing cwd)"
+    )
+    options.add_arguments(open_parser)
+    open_parser.add_argument(
+        "--prompt",
+        default="",
+        help="Pass an initial prompt to the configured harness window (with --brief, "
+        "the default is to read the brief and do the work)",
+    )
+    open_parser.add_argument(
+        "--brief",
+        default="",
+        metavar="FILE",
+        help="Attach this brief (a path, or a name in ~/.lemons/brief/) to the first "
+        "lemon that starts in the session's harness window",
+    )
+    open_parser.add_argument(
+        "--parent",
+        default="",
+        metavar="LEMON",
+        help="Record LEMON (`self`, `parent` for your own parent, a Lemon-ID, channel, or brief) as the parent of "
+        "the --brief's lemon",
+    )
+    open_parser.add_argument(
+        "--group",
+        action="append",
+        default=[],
+        metavar="GROUP",
+        help="Put the --brief lemon in this existing group (repeatable); default: its parent's",
+    )
+    open_parser.add_argument(
+        "--name", default="", help="Name the --brief's lemon's session once it starts"
+    )
+    open_parser.add_argument(
+        "--no-check",
+        action="store_true",
+        help="With a first prompt, don't wait to check the harness window for a startup dialog",
+    )
+    open_parser.add_argument(
+        "-d",
+        "--detach",
+        action="store_true",
+        help="Create the session without switching to it (still creates one)",
+    )
+    open_parser.add_argument("--json", action="store_true", help="Print the result as JSON")
+    open_parser.set_defaults(func=cmd_open)
+
+    acquire_parser = place_subparsers.add_parser(
+        "acquire",
+        help="Get a key's directory, creating it if needed, with no tmux session",
+        description="Prints the directory for a key, running the root's `create` "
+        "hook first if it doesn't exist yet. No tmux session is created.\n\n"
+        "This is what an automated caller wants: it has its own session, will never "
+        "attach to a tmux one, and `place open` would leave an unused session "
+        "behind. Nothing is recorded either way - ownership is derived from tmux "
+        "when asked - so a directory acquired here is reported by `list` and "
+        "released by `toss` exactly like one that had a session.\n\n"
+        "Idempotent: an existing directory is printed rather than re-created, and "
+        "that is not an error, so there is no need to check first.",
+        epilog="Examples:\n"
+        '  place acquire feat/thing --json   # {"key", "dir", "root", "error"}\n'
+        "  cd $(place acquire feat/thing)    # the directory, one line",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    acquire_parser.add_argument("key", help="What the root's tool names directories by")
+    acquire_parser.add_argument(
+        "--root", help="Root to acquire under (default: the one containing cwd)"
+    )
+    acquire_parser.add_argument("--json", action="store_true", help="Print the result as JSON")
+    acquire_parser.set_defaults(func=cmd_acquire)
+
+    list_parser = place_subparsers.add_parser("list", help="List directories under every root")
+    list_parser.add_argument("--json", action="store_true", help="Print the listing as JSON")
+    list_parser.set_defaults(func=cmd_list)
+
+    toss_cli.add_parser(place_subparsers)
+    log_cli.add_parser(place_subparsers)
+
+    hooks_parser = place_subparsers.add_parser(
+        "hooks",
+        help="Show how directories are acquired and released here",
+    )
+    hooks_parser.add_argument("--root", help="Only show this root")
+    hooks_parser.add_argument("--json", action="store_true", help="Print the hooks as JSON")
+    hooks_parser.set_defaults(func=cmd_hooks)
+
+    place_parser.set_defaults(func=lambda a: place_parser.print_help())

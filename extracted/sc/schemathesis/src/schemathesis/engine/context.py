@@ -30,6 +30,8 @@ from schemathesis.python._constants.pool import ConstantsPool
 from schemathesis.schemas import APIOperation
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     import requests
 
     from schemathesis.core.error_feedback.store import Observation
@@ -68,7 +70,7 @@ class EngineContext:
 
     schema: ApiSchema
     control: ExecutionControl
-    outcome_cache: dict[int, BaseException | None]
+    outcome_cache: dict[int, tuple[BaseException, TracebackType | None] | None]
     start_time: float
     observations: Observations | None
     link_calibration: LinkCalibrationState | None
@@ -258,11 +260,16 @@ class EngineContext:
         self.control.is_server_unavailable = True
         return True
 
-    def cache_outcome(self, case: Case, outcome: BaseException | None) -> None:
-        self.outcome_cache[hash(case)] = outcome
+    def cache_outcome(self, key: int, outcome: BaseException | None) -> None:
+        # Keep the first traceback so every replay reports it once instead of stacking frames on it.
+        self.outcome_cache[key] = None if outcome is None else (outcome, outcome.__traceback__)
 
-    def get_cached_outcome(self, case: Case) -> BaseException | None | NotSet:
-        return self.outcome_cache.get(hash(case), NOT_SET)
+    def get_cached_outcome(self, key: int) -> BaseException | None | NotSet:
+        cached = self.outcome_cache.get(key, NOT_SET)
+        if isinstance(cached, tuple):
+            outcome, traceback = cached
+            return outcome.with_traceback(traceback)
+        return cached
 
     def get_session(self, *, operation: APIOperation | None = None) -> requests.Session:
         session = getattr(self._thread_local, "session", None)
@@ -320,19 +327,19 @@ class EngineContext:
         cached = self._transport_kwargs_cache.get(key)
         if cached is None:
             config = self.config
+            settings = config.request_settings_for(operation=operation)
             cached = {
                 "headers": config.headers_for(operation=operation),
                 "max_redirects": config.max_redirects_for(operation=operation),
-                "verify": config.tls_verify_for(operation=operation),
-                "cert": config.request_cert_for(operation=operation),
+                "verify": settings.verify,
+                "cert": settings.cert,
             }
             # An explicit `None` would override the transport's default timeout and let a request hang forever.
-            timeout = config.request_timeout_for(operation=operation)
-            if timeout is not None:
-                cached["timeout"] = timeout
-            proxy = config.proxy_for(operation=operation)
-            if proxy is not None:
-                cached["proxies"] = {"all": proxy}
+            if settings.timeout is not None:
+                cached["timeout"] = settings.timeout
+            proxies = settings.proxies
+            if proxies is not None:
+                cached["proxies"] = proxies
             self._transport_kwargs_cache[key] = cached
         kwargs = cached.copy()
         # Apply the health timeout override only when it strictly tightens the configured timeout.
@@ -373,17 +380,16 @@ def make_session(config: ProjectConfig, *, operation: APIOperation | None = None
 
     session = ManagedCookiesSession()
     session.headers = {}
-    session.verify = config.tls_verify_for(operation=operation)
+    settings = config.request_settings_for(operation=operation)
+    session.verify = settings.verify
     auth = config.auth_for(operation=operation)
     if auth is not None:
         session.auth = auth
     headers = config.headers_for(operation=operation)
     if headers:
         session.headers.update(headers)
-    request_cert = config.request_cert_for(operation=operation)
-    if request_cert is not None:
-        session.cert = request_cert
-    proxy = config.proxy_for(operation=operation)
-    if proxy is not None:
-        session.proxies["all"] = proxy
+    if settings.cert is not None:
+        session.cert = settings.cert
+    if settings.proxy is not None:
+        session.proxies["all"] = settings.proxy
     return session

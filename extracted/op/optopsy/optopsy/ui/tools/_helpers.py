@@ -1,0 +1,1099 @@
+"""Shared helper functions, data classes, and caches for tool handlers.
+
+Provides:
+
+- ``ToolResult`` — value object carrying LLM summary, user display, and
+  updated session state (dataset, signals, results) between tool calls.
+- DataFrame formatting utilities (``_df_to_markdown``, ``_df_summary``)
+- Signal resolution and stock data fetching for TA signals
+- Strategy result summary construction (``_make_result_summary``)
+- Simulation trade log persistence via ``ParquetCache``
+"""
+
+import logging
+from collections.abc import Callable
+from datetime import date, timedelta
+from typing import Any
+
+import pandas as pd
+
+import optopsy.signals as _signals
+
+# Re-export yfinance helpers from optopsy.data so existing callers
+# (e.g. cli.py, tool handlers) continue to work via this module.
+from optopsy.data._yf_helpers import (  # noqa: F401
+    _YF_CACHE_CATEGORY,
+    _YF_DEDUP_COLS,
+    _normalise_yf_df,
+    _yf_cache,
+    _yf_fetch_and_cache,
+)
+from optopsy.metrics import profit_factor as _profit_factor
+from optopsy.metrics import win_rate as _win_rate
+from optopsy.signals import signal_dates
+from optopsy.timestamps import normalize_dates
+
+from .._dataframe_utils import stringify_interval_cols
+from ..providers.result_store import ResultStore
+from ._models import StrategyResultSummary
+from ._schemas import (
+    _DATE_ONLY_SIGNALS,
+    _IV_SIGNALS,
+    SIGNAL_NAMES,
+    SIGNAL_REGISTRY,
+    STRATEGIES,
+    STRATEGY_NAMES,
+)
+
+_log = logging.getLogger(__name__)
+
+
+MAX_ROWS = 50
+
+
+_STOCK_COLS = [
+    "underlying_symbol",
+    "quote_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+]
+
+
+def _fetch_single_symbol_stock(
+    symbol: str,
+    padded_start: "date",
+    date_max: "date",
+) -> pd.DataFrame | None:
+    """Fetch and slice OHLCV data for one symbol.
+
+    Reads from (or populates) the yfinance parquet cache, then slices to
+    ``[padded_start, date_max]``.  Returns a DataFrame with available
+    columns from ``_STOCK_COLS`` (at minimum ``underlying_symbol``,
+    ``quote_date``, ``close``), or ``None`` on failure.
+    """
+    try:
+        cached = _yf_cache.read(_YF_CACHE_CATEGORY, symbol)
+        cached = _yf_fetch_and_cache(symbol, cached, date_max)
+
+        if cached is None or cached.empty:
+            return None
+
+        result = cached[
+            (pd.to_datetime(cached["date"]).dt.date >= padded_start)
+            & (pd.to_datetime(cached["date"]).dt.date <= date_max)
+        ].rename(columns={"date": "quote_date"})
+        if result.empty:
+            return None
+        # Select only columns that are actually present — yfinance may
+        # omit optional columns (open, high, low, volume) for some
+        # instruments.  Callers validate specific column requirements.
+        available = [c for c in _STOCK_COLS if c in result.columns]
+        if "close" not in result.columns:
+            return None
+        return result[available]
+    except (OSError, ValueError, KeyError, pd.errors.ParserError) as exc:
+        _log.warning("yfinance fetch failed for %s: %s", symbol, exc)
+        return None
+
+
+def _fetch_stock_data_for_signals(dataset: pd.DataFrame) -> pd.DataFrame | None:
+    """Fetch OHLCV stock data via yfinance for signal computation.
+
+    Pads the date range by ~250 trading days (~1 year) so that indicators
+    with long warmup periods (EMA-200, MACD) have enough history.
+
+    Results are cached in ``~/.optopsy/cache/yf_stocks/{SYMBOL}.parquet``.
+    On cold cache, fetches all history via ``period="max"``.  On warm cache,
+    only the tail (cache_max → date_max) is fetched.  Interior gaps are
+    ignored — yfinance returns all available data on first fetch, so gaps
+    are just non-trading days (weekends/holidays).
+
+    Returns a DataFrame with columns:
+        underlying_symbol, quote_date, open, high, low, close, volume
+    Or None if yfinance is not available or all fetches fail.
+    """
+    if dataset.empty:
+        return None
+
+    try:
+        import yfinance as yf  # noqa: F401 — validates availability
+    except ImportError:
+        _log.warning("yfinance not installed — cannot fetch stock data for TA signals")
+        return None
+
+    symbols = dataset["underlying_symbol"].unique().tolist()
+    date_min = pd.to_datetime(dataset["quote_date"].min()).date()
+    date_max = pd.to_datetime(dataset["quote_date"].max()).date()
+    padded_start = date_min - timedelta(days=365)
+
+    frames = []
+    for symbol in symbols:
+        result = _fetch_single_symbol_stock(symbol, padded_start, date_max)
+        if result is not None:
+            frames.append(result)
+
+    if not frames:
+        return None
+    return pd.concat(frames, ignore_index=True)
+
+
+def _fetch_stock_data_for_symbol(
+    symbol: str, dataset: pd.DataFrame
+) -> pd.DataFrame | None:
+    """Fetch OHLCV stock data for a specific symbol (cross-symbol signals).
+
+    Like ``_fetch_stock_data_for_signals`` but fetches data for a single
+    specified symbol instead of the symbols in the options dataset.
+    The date range is still derived from the options dataset.
+    """
+    if dataset.empty:
+        return None
+
+    try:
+        import yfinance as yf  # noqa: F401 — validates availability
+    except ImportError:
+        _log.warning("yfinance not installed — cannot fetch stock data for TA signals")
+        return None
+
+    symbol = symbol.upper()
+    date_min = pd.to_datetime(dataset["quote_date"].min()).date()
+    date_max = pd.to_datetime(dataset["quote_date"].max()).date()
+    padded_start = date_min - timedelta(days=365)
+
+    return _fetch_single_symbol_stock(symbol, padded_start, date_max)
+
+
+def _intersect_with_options_dates(
+    signal_dates: pd.DataFrame, options: pd.DataFrame
+) -> pd.DataFrame:
+    """Filter signal dates to only those present in the options dataset.
+
+    yfinance data extends ~1 year before the options date range (for indicator
+    warmup), so signals may fire on dates that have no options data. This
+    intersection ensures entry/exit dates always correspond to actual trading
+    days in the options dataset.
+    """
+    if signal_dates.empty or options.empty:
+        return signal_dates
+    opt_dates = (
+        options[["underlying_symbol", "quote_date"]]
+        .drop_duplicates()
+        .assign(quote_date=lambda df: pd.to_datetime(df["quote_date"]).dt.normalize())
+    )
+    sd = signal_dates.assign(
+        quote_date=lambda df: pd.to_datetime(df["quote_date"]).dt.normalize()
+    )
+    merged = sd.merge(opt_dates, on=["underlying_symbol", "quote_date"], how="inner")
+    return merged.reset_index(drop=True)
+
+
+def _empty_signal_suggestion(
+    raw_signal_dates: pd.DataFrame,
+    opt_min: "date",
+    opt_max: "date",
+) -> str:
+    """Build a human-readable suggestion when a signal produces no overlapping dates.
+
+    raw_signal_dates: result of signal_dates() before intersection — the full set
+    of dates where the signal fired in the available price history.
+    opt_min / opt_max: the date range of the loaded options dataset.
+
+    Three cases:
+    1. Signal fired before the options window → suggest fetching around that date.
+    2. Signal fired after the options window → same.
+    3. Signal fired only within the options window but no dates matched → data gap.
+    4. Signal never fired at all → suggest relaxing parameters.
+    """
+    if raw_signal_dates.empty:
+        return (
+            "The signal never fired in the available price history. "
+            "Try relaxing the signal parameters (e.g. raise the RSI threshold)."
+        )
+
+    fired_dates = pd.to_datetime(raw_signal_dates["quote_date"]).dt.date
+    before = fired_dates[fired_dates < opt_min]
+    after = fired_dates[fired_dates > opt_max]
+    within = fired_dates[(fired_dates >= opt_min) & (fired_dates <= opt_max)]
+
+    # If all fired dates are inside the options window but still no overlap,
+    # it's a data-gap issue (e.g. signal fired on a date the options dataset skips).
+    if before.empty and after.empty and not within.empty:
+        return (
+            "The signal fired within your options window but on dates not present "
+            "in the dataset (possible market holiday or data gap). "
+            "Try a slightly wider date range."
+        )
+
+    parts = []
+    if not before.empty:
+        last_before = before.max()
+        suggest_start = last_before - timedelta(days=30)
+        suggest_end = last_before + timedelta(days=30)
+        parts.append(
+            f"It last fired on {last_before} (before your options window). "
+            f"Try fetching options from {suggest_start} to {suggest_end}."
+        )
+    if not after.empty:
+        first_after = after.min()
+        suggest_start = first_after - timedelta(days=30)
+        suggest_end = first_after + timedelta(days=30)
+        parts.append(
+            f"It next fires on {first_after} (after your options window). "
+            f"Try fetching options from {suggest_start} to {suggest_end}."
+        )
+    return " ".join(parts)
+
+
+def _df_to_markdown(df: pd.DataFrame, max_rows: int = MAX_ROWS) -> str:
+    """Convert a DataFrame to a markdown table, truncating if too large."""
+    total = len(df)
+    truncated = total > max_rows
+    if truncated:
+        df = df.head(max_rows)
+    df = stringify_interval_cols(df)
+    table = df.to_markdown(index=False, floatfmt=".4f")
+    if truncated:
+        table += f"\n\n*... showing {max_rows} of {total} rows*"
+    return table
+
+
+class ToolResult:
+    """Holds separate outputs for the LLM context and the user-facing UI.
+
+    ``llm_summary`` is a short string sent to the LLM so it can reason about
+    what happened without blowing up the token budget.
+    ``user_display`` is the richer version (with full tables) shown in the UI.
+    ``signals`` carries named signal date DataFrames across tool calls.
+    ``datasets`` carries the full named-dataset registry so multiple datasets
+    can be active simultaneously (keyed by label, e.g. ticker or filename).
+    ``active_dataset_name`` is the label of the dataset that was just loaded
+    or selected; None means no change to the active selection.
+    ``results`` is the session-scoped registry of strategy runs keyed by the
+    SHA-256 hash of all parameters + dataset fingerprint (ensuring unique,
+    collision-free entries).  Each entry contains a ``display_key`` field
+    with a human-readable label (e.g. ``"short_puts:dte=45,exit=0,slip=mid"``)
+    for display and fallback lookup.  Entries carry lightweight scalar
+    summaries so the agent can recall what it has already run without
+    re-executing.
+    """
+
+    __slots__ = (
+        "llm_summary",
+        "user_display",
+        "dataset",
+        "signals",
+        "datasets",
+        "active_dataset_name",
+        "results",
+        "chart_figure",
+        "_result_df",
+    )
+
+    def __init__(
+        self,
+        llm_summary: str,
+        dataset: pd.DataFrame | None,
+        user_display: str | None = None,
+        signals: dict[str, pd.DataFrame] | None = None,
+        datasets: dict[str, pd.DataFrame] | None = None,
+        active_dataset_name: str | None = None,
+        results: dict[str, dict] | None = None,
+        chart_figure: Any = None,
+        result_df: pd.DataFrame | None = None,
+    ):
+        self.llm_summary = llm_summary
+        self.user_display = user_display or llm_summary
+        self.dataset = dataset
+        self.signals = signals
+        self.datasets = datasets
+        self.active_dataset_name = active_dataset_name
+        self.results = results
+        self.chart_figure = chart_figure
+        self._result_df = result_df
+
+
+def _df_summary(df: pd.DataFrame, label: str = "Dataset") -> str:
+    """Return a compact text summary of a DataFrame for the LLM."""
+    lines = [
+        f"{label}: {len(df)} rows, {len(df.columns)} columns",
+        f"Columns: {list(df.columns)}",
+    ]
+    if "quote_date" in df.columns:
+        unique_dates = df["quote_date"].nunique()
+        lines.append(
+            f"Date range: {df['quote_date'].min().date()} to {df['quote_date'].max().date()} "
+            f"({unique_dates} unique quote dates)"
+        )
+        if unique_dates < 2:
+            lines.append(
+                "WARNING: Only 1 unique quote_date — backtesting requires multiple "
+                "quote dates to build entry/exit pairs. Strategies will return no results."
+            )
+    if "expiration" in df.columns:
+        lines.append(f"Unique expirations: {df['expiration'].nunique()}")
+    if "underlying_symbol" in df.columns:
+        lines.append(f"Symbols: {df['underlying_symbol'].unique().tolist()}")
+    return "\n".join(lines)
+
+
+def _strategy_llm_summary(df: pd.DataFrame, strategy_name: str, mode: str) -> str:
+    """Build a compact LLM summary for strategy results.
+
+    Instead of sending a 20-row markdown table, send key stats so the LLM
+    can interpret results without burning tokens.  The user already sees
+    the full table via user_display.
+    """
+    lines = [f"{strategy_name} — {len(df)} {mode}"]
+
+    if "pct_change" in df.columns:
+        pct = df["pct_change"]
+        lines.append(
+            f"pct_change: mean={pct.mean():.4f}, std={pct.std():.4f}, "
+            f"min={pct.min():.4f}, max={pct.max():.4f}"
+        )
+    if "dte_entry" in df.columns:
+        lines.append(f"DTE range: {df['dte_entry'].min()} to {df['dte_entry'].max()}")
+    if "strike" in df.columns:
+        lines.append(
+            f"Strike range: {df['strike'].min():.0f} to {df['strike'].max():.0f}"
+        )
+    if mode == "aggregated stats" and "count" in df.columns:
+        lines.append(f"Buckets with positive mean: {(df['mean'] > 0).sum()}/{len(df)}")
+
+    lines.append(
+        "STOP — results are ready. DO NOT call run_strategy again. "
+        "The UI already shows an interactive table with the full results. "
+        "Do NOT reproduce the data as a table in your response — just "
+        "explain the key takeaways and insights in plain text."
+    )
+    return "\n".join(lines)
+
+
+def _run_one_strategy(
+    strategy_name: str,
+    dataset: pd.DataFrame,
+    strat_kwargs: dict,
+) -> tuple[pd.DataFrame | None, str]:
+    """Execute one strategy call.
+
+    Returns ``(result_df, "")`` on success or ``(None, error_msg)`` on failure.
+    Used by both ``run_strategy`` and ``scan_strategies`` to avoid duplicating
+    the core call site.
+    """
+    if strategy_name not in STRATEGIES:
+        return None, f"Unknown strategy '{strategy_name}'"
+    func, _, _ = STRATEGIES[strategy_name]
+    try:
+        return func(dataset, **strat_kwargs), ""
+    except Exception as e:
+        return None, str(e)
+
+
+# ---------------------------------------------------------------------------
+# Result caching helpers — cache check / execute / write wrappers
+# ---------------------------------------------------------------------------
+
+
+def _cached_run(
+    store: ResultStore,
+    name: str,
+    params: dict,
+    dataset_fingerprint: str | None,
+    execute_fn: Callable[[], tuple[pd.DataFrame | None, str]],
+    metadata: dict,
+) -> tuple[pd.DataFrame | None, str | None, str]:
+    """Check ResultStore cache, execute on miss, write on miss.
+
+    Returns ``(result_df, cache_key, error_str)``.
+    """
+    if not dataset_fingerprint:
+        _log.debug("_cached_run(%s): no dataset fingerprint, skipping cache", name)
+        cache_key = None
+    else:
+        cache_key = store.make_key(name, params, dataset_fingerprint)
+
+    if cache_key and store.has(cache_key):
+        _log.debug("_cached_run(%s): cache hit (%s)", name, cache_key[:12])
+        return store.read(cache_key), cache_key, ""
+
+    df, err = execute_fn()
+    if err:
+        return None, cache_key, err
+
+    if cache_key and df is not None and not df.empty:
+        try:
+            store.write(cache_key, df, metadata)
+        except Exception:
+            _log.debug("_cached_run(%s): cache write failed", name, exc_info=True)
+
+    return df, cache_key, ""
+
+
+def _validate_strategy_and_dataset(
+    arguments: dict,
+    dataset: pd.DataFrame | None,
+    datasets: dict,
+    _result: Callable,
+) -> tuple[str, Callable | None, pd.DataFrame | None, "ToolResult | None"]:
+    """Validate strategy name and require active dataset.
+
+    Returns ``(strategy_name, strategy_func, active_dataset, error_or_None)``.
+    """
+    from ._executor import _require_dataset
+
+    strategy_name = arguments.get("strategy_name")
+    if not strategy_name or strategy_name not in STRATEGIES:
+        return (
+            "",
+            None,
+            None,
+            _result(
+                f"Unknown strategy '{strategy_name}'. "
+                f"Available: {', '.join(STRATEGY_NAMES)}",
+            ),
+        )
+    active_ds, _, err = _require_dataset(arguments, dataset, datasets, _result)
+    if err:
+        return "", None, None, err
+    func, _, _ = STRATEGIES[strategy_name]
+    return strategy_name, func, active_ds, None
+
+
+def _build_strat_kwargs(
+    arguments: dict,
+    strategy_name: str,
+    extra_exclude: frozenset[str] = frozenset(),
+) -> dict:
+    """Build clean strategy kwargs, stripping non-strategy keys."""
+    from ._schemas import CALENDAR_EXTRA_PARAMS, CALENDAR_STRATEGIES
+
+    exclude = (
+        _SIGNAL_PARAM_KEYS | extra_exclude | {"dataset_name", "_dataset_fingerprint"}
+    )
+    return {
+        k: v
+        for k, v in arguments.items()
+        if k not in exclude
+        and (strategy_name in CALENDAR_STRATEGIES or k not in CALENDAR_EXTRA_PARAMS)
+    }
+
+
+def _pop_internal_keys(arguments: dict) -> str | None:
+    """Pop and return ``_dataset_fingerprint`` from arguments dict."""
+    return arguments.pop("_dataset_fingerprint", None)
+
+
+def _with_cache_key(summary: dict, cache_key: str | None) -> dict:
+    """Add ``_cache_key`` to a result summary for later ResultStore lookups.
+
+    Must be called before inserting the summary into ``agent.results`` so that
+    ``query_results`` and ``get_simulation_trades`` can recover the parquet
+    file via ``results[key]["_cache_key"]``.
+    """
+    if cache_key:
+        summary["_cache_key"] = cache_key
+    return summary
+
+
+def _resolve_result_key(
+    results: dict[str, dict],
+    key: str,
+) -> str | None:
+    """Resolve a result key, trying direct lookup then display_key fallback.
+
+    When multiple entries share the same ``display_key`` (e.g. runs that
+    differ only in delta or signals), this returns the *first* match.
+    Callers that need an exact match should use the SHA-256 hash key
+    directly.
+
+    Returns the canonical dict key if found, or ``None``.
+    """
+    if key in results:
+        return key
+    # Fallback: search by display_key field
+    for k, entry in results.items():
+        if entry.get("display_key") == key:
+            return k
+    return None
+
+
+def _select_results(
+    results: dict[str, dict],
+    result_keys: list[str] | None,
+) -> tuple[dict[str, dict] | None, str | None]:
+    """Select and validate results by key (supports display_key fallback).
+
+    Returns ``(selected, error_msg)``.  When ``error_msg`` is not None,
+    the caller should surface it to the user.
+    """
+    if result_keys:
+        resolved = {}
+        missing = []
+        for k in result_keys:
+            canonical = _resolve_result_key(results, k)
+            if canonical is None:
+                missing.append(k)
+            else:
+                resolved[canonical] = results[canonical]
+        if missing:
+            available = [entry.get("display_key", k) for k, entry in results.items()]
+            return None, (f"Result key(s) not found: {missing}. Available: {available}")
+        return resolved, None
+    return dict(results), None
+
+
+def _make_display_key(strategy_name: str, arguments: dict) -> str:
+    """Human-readable label for a strategy run.
+
+    Encodes the core parameters that meaningfully distinguish runs. Used
+    for display and as a fallback lookup key — not as the canonical
+    session results dict key (which is the SHA-256 hash).
+    """
+    dte = arguments.get("max_entry_dte", 90)
+    exit_dte = arguments.get("exit_dte", 0)
+    slippage = arguments.get("slippage", "mid")
+    base = f"{strategy_name}:dte={dte},exit={exit_dte},slip={slippage}"
+    if slippage == "per_leg":
+        per_leg = arguments.get("per_leg_slippage")
+        effective_pls = 0.073 if per_leg is None else float(per_leg)
+        base += f",pls={effective_pls:.3f}"
+    return base
+
+
+def _session_result_key(cache_key: str | None, display_key: str) -> str:
+    """Return the canonical key for the session results dict.
+
+    Uses the SHA-256 cache key when available (encodes ALL parameters +
+    dataset fingerprint), falling back to the human-readable display key
+    when no dataset fingerprint was available to compute a hash.
+    """
+    return cache_key if cache_key else display_key
+
+
+def _make_result_summary(
+    strategy_name: str,
+    result_df: pd.DataFrame,
+    arguments: dict,
+    *,
+    display_key: str = "",
+    dataset_fingerprint: str | None = None,
+) -> dict:
+    """Build a lightweight scalar summary stored in the results registry.
+
+    Stores only scalar stats — never full DataFrames — so memory usage stays
+    proportional to the number of runs rather than data volume.  Handles both
+    raw-mode (``pct_change`` column) and aggregated-mode (``mean`` column).
+
+    Uses :class:`StrategyResultSummary` to validate and type the output.
+    """
+    base: dict[str, Any] = {
+        "strategy": strategy_name,
+        "max_entry_dte": arguments.get("max_entry_dte", 90),
+        "exit_dte": arguments.get("exit_dte", 0),
+        "slippage": arguments.get("slippage", "mid"),
+        "dataset": arguments.get("dataset_name", "default"),
+        "display_key": display_key,
+        "dataset_fingerprint": dataset_fingerprint,
+    }
+    if "pct_change" in result_df.columns:
+        pct = result_df["pct_change"].dropna()
+        base.update(
+            {
+                "count": len(pct),
+                "mean_return": round(float(pct.mean()), 4),
+                "std": round(float(pct.std()), 4),
+                "win_rate": round(_win_rate(pct), 4),
+                "profit_factor": round(_profit_factor(pct), 4),
+            }
+        )
+    elif "mean" in result_df.columns:
+        if "count" in result_df.columns:
+            total = int(result_df["count"].sum())
+            wt_mean = float((result_df["mean"] * result_df["count"]).sum() / total)
+        else:
+            total = len(result_df)
+            wt_mean = float(result_df["mean"].mean())
+        # Compute aggregated profit_factor by combining gross wins and
+        # losses across all groups, then dividing.  This avoids the
+        # pitfall of weighted-averaging per-group profit factors where
+        # inf values (groups with no losses) would dominate or need
+        # filtering — which would make the aggregate not equal the true
+        # all-trades combined ratio.
+        agg_pf = None
+        if "mean" in result_df.columns and "count" in result_df.columns:
+            group_pnl = result_df["mean"] * result_df["count"]
+            total_wins = float(group_pnl[group_pnl > 0].sum())
+            total_losses = float(group_pnl[group_pnl < 0].sum())
+            if total_losses != 0:
+                agg_pf = round(abs(total_wins) / abs(total_losses), 4)
+            elif total_wins > 0:
+                agg_pf = float("inf")
+            else:
+                agg_pf = 0.0
+        base.update(
+            {
+                "count": total,
+                "mean_return": round(wt_mean, 4),
+                "std": (
+                    round(float(result_df["std"].mean()), 4)
+                    if "std" in result_df.columns
+                    else None
+                ),
+                "win_rate": (
+                    round(
+                        float(
+                            (result_df["win_rate"] * result_df["count"]).sum() / total
+                        ),
+                        4,
+                    )
+                    if "win_rate" in result_df.columns and "count" in result_df.columns
+                    else round(float((result_df["mean"] > 0).mean()), 4)
+                ),
+                "profit_factor": agg_pf,
+            }
+        )
+    else:
+        base.update(
+            {
+                "count": len(result_df),
+                "mean_return": None,
+                "std": None,
+                "win_rate": None,
+                "profit_factor": None,
+            }
+        )
+    return StrategyResultSummary(**base).model_dump()
+
+
+def _signal_slot_summary(
+    valid_dates: pd.DataFrame,
+) -> tuple[int, list[str], "date | None", "date | None"]:
+    """Extract common stats from a signal slot DataFrame.
+
+    Returns ``(n_dates, symbols, date_min, date_max)``.  When the slot is
+    empty ``symbols`` is ``[]`` and date values are ``None``.
+    """
+    n_dates = len(valid_dates)
+    if n_dates == 0:
+        return 0, [], None, None
+    symbols = valid_dates["underlying_symbol"].unique().tolist()
+    date_min = valid_dates["quote_date"].min().date()
+    date_max = valid_dates["quote_date"].max().date()
+    return n_dates, symbols, date_min, date_max
+
+
+def _date_only_fallback(dataset: pd.DataFrame) -> pd.DataFrame:
+    """Build a minimal date-indexed DataFrame for date-only signals.
+
+    Used when no OHLCV stock data is needed — extracts unique
+    ``(underlying_symbol, quote_date)`` pairs from the options dataset.
+    """
+    return (
+        dataset[["underlying_symbol", "quote_date"]]
+        .drop_duplicates()
+        .sort_values(["underlying_symbol", "quote_date"])
+        .reset_index(drop=True)
+    )
+
+
+def resolve_price_column(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, str | None]:
+    """Ensure *df* has a usable ``close`` price column.
+
+    Checks in order:
+
+    1. ``close`` already present → return unchanged.
+    2. Fall back to the yfinance stock-price cache keyed by symbol.
+       Merges ``close`` from the cache on ``(underlying_symbol, quote_date)``
+       with date normalization.
+
+    Returns
+    -------
+    (enriched_df, error_msg)
+        On success ``error_msg`` is ``None`` and ``enriched_df`` has a ``close``
+        column.  On failure ``enriched_df`` is ``None`` and ``error_msg`` is a
+        non-empty human-readable string.
+    """
+    if "close" in df.columns:
+        return df, None
+
+    # Fall back to the yfinance stock price cache.
+    symbols = df["underlying_symbol"].unique().tolist()
+    normalized_dates = normalize_dates(pd.to_datetime(df["quote_date"]))
+    date_max = normalized_dates.dt.date.max()
+    stock_frames = []
+    for sym in symbols:
+        try:
+            cached = _yf_cache.read(_YF_CACHE_CATEGORY, sym)
+            cached = _yf_fetch_and_cache(sym, cached, date_max)
+            if cached is not None and not cached.empty:
+                stock_frames.append(
+                    cached.rename(columns={"date": "quote_date"})[
+                        ["underlying_symbol", "quote_date", "close"]
+                    ]
+                )
+        except ImportError:
+            return (
+                None,
+                "Fetching stock data requires the optional 'yfinance' dependency, "
+                "which is not installed.",
+            )
+        except (OSError, ValueError, KeyError, pd.errors.ParserError) as exc:
+            _log.warning("yf cache lookup failed for %s: %s", sym, exc)
+    if stock_frames:
+        stock_df = pd.concat(stock_frames, ignore_index=True)
+        stock_df["quote_date"] = normalize_dates(pd.to_datetime(stock_df["quote_date"]))
+        enriched = df.assign(quote_date=normalized_dates).merge(
+            stock_df, on=["underlying_symbol", "quote_date"], how="left"
+        )
+        return enriched, None
+    return (
+        None,
+        "No 'close' price column found and no stock data available for ATM computation.",
+    )
+
+
+def _iv_signal_data(dataset: pd.DataFrame) -> pd.DataFrame | None:
+    """Extract columns needed for IV rank signals from the options dataset.
+
+    Returns the dataset subset with required columns for IV rank computation,
+    or None if the dataset lacks ``implied_volatility``, other required columns,
+    or a ``close`` price column for ATM computation.
+
+    When ``close`` is not present, attempts to merge prices from the yfinance
+    stock price cache (``~/.optopsy/cache/yf_stocks/``), keyed by
+    ``(underlying_symbol, quote_date)``.
+    """
+    if "implied_volatility" not in dataset.columns:
+        return None
+    keep = [
+        "underlying_symbol",
+        "quote_date",
+        "strike",
+        "option_type",
+        "implied_volatility",
+        "expiration",
+    ]
+    cols = [c for c in keep if c in dataset.columns]
+    if len(cols) < len(keep):
+        return None
+    enriched, err = resolve_price_column(dataset)
+    if err is not None:
+        return None
+    return enriched[cols + ["close"]].copy()
+
+
+# ---------------------------------------------------------------------------
+# Shared parameter key sets (8.4.1)
+# ---------------------------------------------------------------------------
+
+_SIGNAL_PARAM_KEYS = frozenset(
+    {
+        "strategy_name",
+        "entry_signal",
+        "entry_signal_params",
+        "entry_signal_days",
+        "exit_signal",
+        "exit_signal_params",
+        "exit_signal_days",
+        "entry_signal_slot",
+        "exit_signal_slot",
+    }
+)
+
+_SIM_PARAM_KEYS = frozenset(
+    {"capital", "quantity", "max_positions", "multiplier", "selector"}
+)
+
+# ---------------------------------------------------------------------------
+# Shared IV error message (8.2.3)
+# ---------------------------------------------------------------------------
+
+_IV_MISSING_MSG = (
+    "IV rank signals require options data with an "
+    "'implied_volatility' column and a 'close' price column "
+    "for ATM computation. "
+    "Fetch data from a provider that includes IV (e.g. EODHD), "
+    "or load a CSV with these columns."
+)
+
+_IV_COLUMN_MISSING_MSG = (
+    "Dataset does not contain 'implied_volatility'. "
+    "Fetch data from a provider that includes IV (e.g. EODHD) "
+    "or load a CSV with an implied_volatility column."
+)
+
+
+# ---------------------------------------------------------------------------
+# Quote date filtering for vol surface tools (8.2.4)
+# ---------------------------------------------------------------------------
+
+
+def _filter_by_quote_date(
+    ds: pd.DataFrame,
+    quote_date_str: str | None,
+) -> tuple[pd.DataFrame | None, str | None, str | None]:
+    """Filter a dataset to a single quote date.
+
+    Returns ``(filtered_df, resolved_date_str, error_msg)``.  When
+    ``error_msg`` is not None the caller should return it immediately.
+    """
+    try:
+        quote_dates = pd.to_datetime(ds["quote_date"])
+    except (ValueError, TypeError) as e:
+        return None, None, f"Cannot parse quote_date column as datetime: {e}"
+
+    if quote_date_str:
+        target_date = pd.to_datetime(quote_date_str)
+        df = ds[quote_dates.dt.normalize() == target_date.normalize()].copy()
+        if df.empty:
+            available = sorted(quote_dates.dt.date.unique())
+            closest = min(
+                available, key=lambda d: abs((pd.Timestamp(d) - target_date).days)
+            )
+            return (
+                None,
+                None,
+                (
+                    f"No data for {quote_date_str}. "
+                    f"Closest available date: {closest}. "
+                    f"Try quote_date='{closest}'."
+                ),
+            )
+        return df, quote_date_str, None
+    else:
+        latest_day = quote_dates.dt.normalize().max()
+        df = ds[quote_dates.dt.normalize() == latest_day].copy()
+        return df, str(latest_day.date()), None
+
+
+# ---------------------------------------------------------------------------
+# Date-range filtering for create_chart (8.2.5)
+# ---------------------------------------------------------------------------
+
+
+def _filter_by_date_range(
+    df: pd.DataFrame,
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[pd.DataFrame, str | None]:
+    """Filter *df* to rows whose date column falls within [start_date, end_date].
+
+    The date column is auto-detected: ``quote_date`` is preferred, then
+    ``entry_date``, then ``date``, and finally the first column whose dtype is
+    datetime-like.  Both *start_date* and *end_date* are optional (YYYY-MM-DD).
+    When both are ``None`` the original DataFrame is returned unchanged.
+
+    Returns ``(filtered_df, error_msg)``.  When *error_msg* is not None the
+    caller should surface it as a tool error.
+    """
+    if not start_date and not end_date:
+        return df, None
+
+    # Auto-detect the date column.
+    date_col: str | None = None
+    for candidate in ("quote_date", "entry_date", "date"):
+        if candidate in df.columns:
+            date_col = candidate
+            break
+    if date_col is None:
+        # Fall back to the first datetime-like column.
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                date_col = col
+                break
+    if date_col is None:
+        return df, "Cannot apply date filter: no date column found in the data."
+
+    try:
+        col_dates = normalize_dates(pd.to_datetime(df[date_col]))
+    except (ValueError, TypeError):
+        return (
+            df,
+            f"Cannot parse date column '{date_col}' as datetime. "
+            "Please ensure the column contains valid date values.",
+        )
+
+    mask = pd.Series(True, index=df.index)
+    start_ts: pd.Timestamp | None = None
+    end_ts: pd.Timestamp | None = None
+    if start_date:
+        try:
+            start_ts = pd.Timestamp(start_date).normalize()
+        except (ValueError, TypeError):
+            return df, f"Invalid start_date '{start_date}'. Use YYYY-MM-DD format."
+        mask &= col_dates >= start_ts
+    if end_date:
+        try:
+            end_ts = pd.Timestamp(end_date).normalize()
+        except (ValueError, TypeError):
+            return df, f"Invalid end_date '{end_date}'. Use YYYY-MM-DD format."
+        mask &= col_dates <= end_ts
+
+    if start_ts is not None and end_ts is not None and start_ts > end_ts:
+        return df, "start_date must be on or before end_date."
+
+    return df[mask].copy(), None
+
+
+# ---------------------------------------------------------------------------
+# Signal resolution for strategy handlers (8.2.2)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_signals_for_strategy(
+    arguments: dict[str, Any],
+    signals: dict[str, pd.DataFrame],
+    dataset: pd.DataFrame,
+) -> tuple[dict[str, Any], str | None]:
+    """Resolve entry/exit signal slots and inline signals into dates.
+
+    Shared by both ``run_strategy`` and ``simulate`` to avoid duplicating
+    ~80 lines of signal resolution logic.
+
+    Returns ``(strat_kwargs_update, error_msg)``.  On success ``error_msg``
+    is None and ``strat_kwargs_update`` is a dict with ``entry_dates``
+    and/or ``exit_dates`` to merge into the strategy kwargs.
+    """
+    update: dict[str, Any] = {}
+
+    # --- Resolve entry dates ---
+    entry_slot = arguments.get("entry_signal_slot")
+    entry_signal_name = arguments.get("entry_signal")
+
+    if entry_slot and entry_signal_name:
+        return {}, "Cannot use both entry_signal and entry_signal_slot. Pick one."
+
+    if entry_slot:
+        if entry_slot not in signals:
+            return {}, (
+                f"No signal slot '{entry_slot}'. "
+                f"Build it first with build_signal. "
+                f"Available: {list(signals.keys()) or 'none'}"
+            )
+        update["entry_dates"] = signals[entry_slot]
+
+    # --- Resolve exit dates ---
+    exit_slot = arguments.get("exit_signal_slot")
+    exit_signal_name = arguments.get("exit_signal")
+
+    if exit_slot and exit_signal_name:
+        return {}, "Cannot use both exit_signal and exit_signal_slot. Pick one."
+
+    if exit_slot:
+        if exit_slot not in signals:
+            return {}, (
+                f"No signal slot '{exit_slot}'. "
+                f"Build it first with build_signal. "
+                f"Available: {list(signals.keys()) or 'none'}"
+            )
+        update["exit_dates"] = signals[exit_slot]
+
+    # --- Inline signal resolution ---
+    if entry_signal_name and entry_signal_name not in SIGNAL_REGISTRY:
+        return {}, (
+            f"Unknown entry_signal '{entry_signal_name}'. "
+            f"Available: {', '.join(SIGNAL_NAMES)}"
+        )
+    if exit_signal_name and exit_signal_name not in SIGNAL_REGISTRY:
+        return {}, (
+            f"Unknown exit_signal '{exit_signal_name}'. "
+            f"Available: {', '.join(SIGNAL_NAMES)}"
+        )
+
+    # Determine what data each signal needs
+    needs_stock = (
+        entry_signal_name
+        and entry_signal_name not in _DATE_ONLY_SIGNALS
+        and entry_signal_name not in _IV_SIGNALS
+    ) or (
+        exit_signal_name
+        and exit_signal_name not in _DATE_ONLY_SIGNALS
+        and exit_signal_name not in _IV_SIGNALS
+    )
+    needs_iv = (entry_signal_name and entry_signal_name in _IV_SIGNALS) or (
+        exit_signal_name and exit_signal_name in _IV_SIGNALS
+    )
+
+    signal_data = None
+    if needs_stock:
+        signal_data = _fetch_stock_data_for_signals(dataset)
+        if signal_data is None:
+            return {}, (
+                "TA signals require stock price data but yfinance is not "
+                "installed or the fetch failed. Install yfinance "
+                "(`pip install yfinance`) and try again."
+            )
+
+    iv_signal_data = None
+    if needs_iv:
+        iv_signal_data = _iv_signal_data(dataset)
+        if iv_signal_data is None:
+            return {}, _IV_MISSING_MSG
+
+    # Build date-only fallback for non-IV, non-stock signals even when
+    # needs_iv is true, so a date-only signal paired with an IV signal
+    # does not receive signal_data=None.
+    has_non_iv_signal = (
+        entry_signal_name and entry_signal_name not in _IV_SIGNALS
+    ) or (exit_signal_name and exit_signal_name not in _IV_SIGNALS)
+    if signal_data is None and has_non_iv_signal:
+        signal_data = _date_only_fallback(dataset)
+
+    for sig_name, prefix, dates_key in [
+        (entry_signal_name, "entry", "entry_dates"),
+        (exit_signal_name, "exit", "exit_dates"),
+    ]:
+        if sig_name:
+            sd = iv_signal_data if sig_name in _IV_SIGNALS else signal_data
+            assert sd is not None
+            dates, err_msg = _resolve_inline_signal(
+                sig_name, arguments, sd, dataset, prefix
+            )
+            if err_msg:
+                return {}, err_msg
+            update[dates_key] = dates
+
+    return update, None
+
+
+def _resolve_inline_signal(
+    signal_name: str,
+    arguments: dict[str, Any],
+    signal_data: pd.DataFrame,
+    dataset: pd.DataFrame,
+    prefix: str,
+) -> tuple[pd.DataFrame | None, str | None]:
+    """Resolve an inline signal name to a filtered dates DataFrame.
+
+    ``prefix`` is ``"entry"`` or ``"exit"`` — used to look up
+    ``{prefix}_signal_params`` and ``{prefix}_signal_days`` in *arguments*.
+
+    Returns ``(dates_df, error_msg)``.  On success ``error_msg`` is None.
+    On failure ``dates_df`` is None and ``error_msg`` explains the issue.
+    """
+    params = arguments.get(f"{prefix}_signal_params") or {}
+    sig = SIGNAL_REGISTRY[signal_name](**params)
+    try:
+        days = int(arguments.get(f"{prefix}_signal_days", 0))
+    except (TypeError, ValueError):
+        days = 0
+    if days > 1:
+        sig = _signals.sustained(sig, days)
+
+    raw_dates = signal_dates(signal_data, sig)
+    filtered = _intersect_with_options_dates(raw_dates, dataset)
+    if filtered.empty:
+        opt_min = dataset["quote_date"].min().date()
+        opt_max = dataset["quote_date"].max().date()
+        suggestion = _empty_signal_suggestion(raw_dates, opt_min, opt_max)
+        kind = prefix.capitalize()
+        return None, (
+            f"{kind} signal '{signal_name}' produced no dates overlapping "
+            f"the options data ({opt_min} to {opt_max}). {suggestion}"
+        )
+    return filtered, None

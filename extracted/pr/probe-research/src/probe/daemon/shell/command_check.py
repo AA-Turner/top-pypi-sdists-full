@@ -92,18 +92,18 @@ async def ask_probe(*, command: str, cwd: str, reason: str, working_folders: Seq
     body = {"command": command, "cwd": cwd, "reason": reason[:MAX_REASON_CHARS], "working_folders": folders}
     try:
         ep = model_mod.endpoint()
-        resp = await asyncio.wait_for(
+        response = await asyncio.wait_for(
             model_mod._http_client().post(ep.base_url.rstrip("/") + ROUTE, json=body,
                                           headers={"Authorization": f"Bearer {ep.key}"}, timeout=TIMEOUT_S),
             TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001 - asyncio's TimeoutError included
         log.info("command check: Probe did not answer: %s: %s", type(exc).__name__, exc)
         return None
-    if resp.status_code != 200:
-        log.info("command check: Probe answered %s", resp.status_code)
+    if response.status_code != 200:
+        log.info("command check: Probe answered %s", response.status_code)
         return None
     try:
-        data = resp.json()
+        data = response.json()
         raw = data.get("scores")
         scores = {str(q): _probability(p) for q, p in raw.items()} if isinstance(raw, dict) else {}
         whole = bool(scores) and all(p is not None for p in scores.values())

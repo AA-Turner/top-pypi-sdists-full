@@ -1,0 +1,797 @@
+"""Vault-independent semantic authoring contract and deterministic projections.
+
+The contract in this module is package policy, not vault state.  Keep its
+construction pure: bootstrap, tool surfaces, and packaged skills all project
+the same versioned object without reading Markdown or invoking a model.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import inspect
+import json
+from collections.abc import Mapping
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any
+
+from . import note_types, semantic_language_registry
+
+AUTHORING_CONTRACT_VERSION = 10
+AUTHORING_CONTRACT_ID = "exomem.semantic-authoring"
+
+STATUS_CLASSIFICATION_RULE = (
+    "Validation now uses page status classes, not historical inactive-label lists. "
+    "Live compiled results require a semantic unit; pending results may stay unit-free until activation. "
+    "Statusless pages are publicly live. Canonical meanings need no private definitions. "
+    "Admitted unknown labels are live with review debt; unavailable classification refuses only dependent operations."
+)
+
+OBSERVATION_UPDATE_GUIDANCE = (
+    "Updates rebuild the unit: omitted verdict/check_by/id persist; "
+    "tags/context/relations clear unless resent."
+)
+
+# This explains the existing preview boundary; it grants no authority to save a review or content.
+EXISTING_VALIDATION_GUIDANCE = (
+    "Validation evaluates the proposed result without saving content or review state; the request includes relation assessment. "
+    "Inspect the current page and candidate evidence. "
+    'If no truthful relation applies, revalidate with relation_disposition="reviewed_none" and a bounded evidence-based relation_review_reason. '
+    "Missing edges prove nothing; preserve typed relations and metadata. "
+    "Report insufficient evidence or unresolved material choices. "
+    "Commit needs separate write authority and returned guards."
+)
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, list | tuple):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    return value
+
+
+def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticAuthoringContract:
+    """Deeply immutable normative contract with a content-addressed identity."""
+
+    contract_id: str
+    version: int
+    content_digest: str
+    compact: Mapping[str, Any]
+    rich: Mapping[str, Any]
+    semantic_roles: Mapping[str, Any]
+    minimum_semantic_unit: Mapping[str, Any]
+    routes: Mapping[str, Any]
+    findings: Mapping[str, Any]
+    portable_categories: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        for name in (
+            "compact",
+            "rich",
+            "semantic_roles",
+            "minimum_semantic_unit",
+            "routes",
+            "findings",
+            "portable_categories",
+        ):
+            object.__setattr__(self, name, _freeze(getattr(self, name)))
+
+    def normative_dict(self) -> dict[str, Any]:
+        """Return the deterministic digest payload, excluding transport metadata."""
+        return {
+            "contract_id": self.contract_id,
+            "version": self.version,
+            "compact": _thaw(self.compact),
+            "rich": _thaw(self.rich),
+            "semantic_roles": _thaw(self.semantic_roles),
+            "minimum_semantic_unit": _thaw(self.minimum_semantic_unit),
+            "routes": _thaw(self.routes),
+            "findings": _thaw(self.findings),
+            "portable_categories": _thaw(self.portable_categories),
+        }
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a detached JSON-compatible projection of the canonical object."""
+        out = self.normative_dict()
+        out["content_digest"] = self.content_digest
+        return out
+
+
+def contract_from_normative(
+    normative: Mapping[str, Any],
+) -> SemanticAuthoringContract:
+    """Build a content-addressed contract from detached normative fields."""
+    required = {
+        "contract_id",
+        "version",
+        "compact",
+        "rich",
+        "semantic_roles",
+        "minimum_semantic_unit",
+        "routes",
+        "findings",
+        "portable_categories",
+    }
+    unknown = set(normative) - required
+    missing = required - set(normative)
+    if missing or unknown:
+        raise ValueError(
+            "semantic authoring normative fields mismatch: "
+            f"missing={sorted(missing)} unknown={sorted(unknown)}"
+        )
+    detached = {key: _thaw(normative[key]) for key in sorted(required)}
+    digest = f"sha256:{hashlib.sha256(_canonical_bytes(detached)).hexdigest()}"
+    return SemanticAuthoringContract(content_digest=digest, **detached)
+
+
+def _build_portable_categories() -> dict[str, Any]:
+    """Derive portable category teaching from the core registry so keys never drift."""
+    registry = semantic_language_registry.core_registry()
+    core_keys = sorted(registry.core_categories)
+    aliases = dict(sorted(registry.core_category_aliases.items()))
+    return {
+        "core_keys": core_keys,
+        "aliases": aliases,
+        "open": (
+            "The category vocabulary is open: these core keys are a shared starting "
+            "point, not a closed list. When no core key is a good primary fit, author a "
+            "new meaningful category rather than forcing an ill-fitting one."
+        ),
+        "short_selection_rule": (
+            "Choose exactly one primary category: prefer a meaningful epistemic or "
+            "operational role and put the domain in tags, but if the role would only be "
+            "a generic fact, finding, or observation and the domain is the durable lens, "
+            "use a domain category instead."
+        ),
+        "rules": [
+            # The role-first / domain-escape selection guidance is carried once by
+            # `short_selection_rule`; it is deliberately NOT restated here so the
+            # rendered contract never emits the same rule twice.
+            "Use exactly one primary category; kind is the governed form, tags are "
+            "secondary facets, and relations are typed edges.",
+            "The rich form's category defaults to its kind, so `category: decision` is "
+            "redundant when the kind is Decision.",
+            "Create multiple distinct semantic observations and typed relations when the "
+            "source genuinely supports them, but never multiply units or relations to "
+            "satisfy a quota and never duplicate the same fact.",
+        ],
+        "examples": {
+            "role": "- [decision] Relocate to a coastal city next spring #life ^relocation",
+            "domain": (
+                "- [nutrition] Evening protein improves adherence #experiment "
+                "^evening-protein"
+            ),
+            "breadth": [
+                "- [constraint] Keep retry windows bounded #code ^retry-windows",
+                "- [risk] Variable-rate mortgage payments could spike #finance "
+                "^mortgage-rate-risk",
+                "- [question] Does the destination require a visa before travel "
+                "#legal #travel ^visa-requirement",
+                "- [career] Weigh a sabbatical before the next promotion cycle "
+                "#growth ^sabbatical-timing",
+            ],
+            "rich": (
+                "## Decision\n"
+                "- id: commit-to-morning-training\n"
+                "- tags: health\n"
+                "- relations: supports: "
+                "[[Knowledge Base/Notes/Health/Morning training]]\n"
+                "\n"
+                "Commit to a fixed 6am training block on weekdays so consistency "
+                "compounds and health stays the durable lens for this decision.\n"
+            ),
+        },
+    }
+
+
+def build_semantic_authoring_contract() -> SemanticAuthoringContract:
+    """Construct the canonical contract without consulting a vault or model."""
+    compact = {
+        "canonical_section": "## Observations",
+        "syntax": "- [category] content #tags (context) ^anchor",
+        "parser_compatibility": (
+            "Parse valid compact observations anywhere outside fenced code blocks."
+        ),
+        "canonical_authoring": (
+            "Exomem writers use `-` under the canonical `## Observations` section."
+        ),
+        "parser_bullet_markers": ["-", "*", "+"],
+        "canonical_bullet_marker": "-",
+        "required_fields": ["category", "content"],
+        "optional_suffix_order": ["tags", "context", "anchor"],
+        "suffix_parse_rule": (
+            "Parse from the end by taking anchor, then context, then trailing tags; "
+            "the authored display order remains tags, context, anchor."
+        ),
+        "kind": "observation",
+        "category": {
+            "role": "the unit's one primary open-vocabulary subject or domain label",
+            "vocabulary": "open",
+            "lexical_rule": (
+                "After trimming, use 1-64 Unicode code points; begin with a Unicode "
+                "letter; then use only Unicode letters or digits, spaces, `_`, or `-`."
+            ),
+            "canonicalization": (
+                "Apply Unicode NFKC and casefold, then collapse runs of spaces, `_`, "
+                "and `-` to one `_`."
+            ),
+            "registry_rule": (
+                "Registry alias resolution is separate from authored canonicalization; "
+                "an unseen valid category needs no registry write."
+            ),
+        },
+        "content": {
+            "role": "the unit's substantive observation",
+            "rule": "Use non-empty content that remains on one Markdown line.",
+            "escaping_rule": (
+                "Escaped parentheses, embedded hashes, and non-trailing tag-like text "
+                "remain content."
+            ),
+        },
+        "tags": {
+            "role": (
+                "zero or more optional secondary retrieval labels; tags do not replace "
+                "the primary category or governed kind"
+            ),
+            "syntax": "#slug",
+            "lexical_rule": (
+                "Use 1-64 Unicode letters or digits, `_`, `-`, or `/`; begin with a "
+                "letter or digit; do not use empty path segments or a trailing `/`."
+            ),
+            "position_rule": (
+                "Use one contiguous trailing run after content and before optional "
+                "context and anchor."
+            ),
+        },
+        "context": {
+            "role": "one optional authored qualifier for the observation",
+            "syntax": "(<context>)",
+            "rule": (
+                "Use one balanced, unescaped parenthesized suffix preceded by whitespace."
+            ),
+        },
+        "anchor": {
+            "role": "one optional stable authored unit identifier",
+            "syntax": "^anchor",
+            "lexical_rule": (
+                "Use 1-64 ASCII letters, digits, or hyphens and begin and end "
+                "alphanumeric."
+            ),
+            "position_rule": "Place it at the end of the line.",
+        },
+        "exclusions": [
+            "observation-shaped rows inside fenced code blocks",
+            "task labels `[ ]`, `[x]`, `[X]`, and `[-]`",
+            "reserved or punctuation-bearing bracket labels outside category grammar",
+        ],
+        "relation_rule": (
+            "Compact units do not carry typed unit relations; use a canonical note-level "
+            "relation or the rich form."
+        ),
+    }
+    rich = {
+        "heading_syntax": "## <Governed Kind>",
+        "kind_vocabulary": "governed",
+        "metadata_syntax": [
+            "- category: <open category>",
+            "- id: <stable-id>",
+            "- tags: <comma-separated tags>",
+            "- context: <context>",
+            "- relations: <relation-type>: [[Target]]",
+            "- verdict: <epistemic outcome>",
+            "- check_by: <ISO revisit date>",
+        ],
+        "accepted_metadata_order": "flexible while rows remain leading",
+        "canonical_metadata_order": [
+            "category",
+            "id",
+            "tags",
+            "context",
+            "relations",
+            "verdict",
+            "check_by",
+        ],
+        "metadata_rule": (
+            "Metadata rows are optional and leading; the canonical writer emits category, "
+            "id, tags, context, relations, verdict and check_by; category defaults to the governed kind "
+            "when omitted."
+        ),
+        "correction_rule": (
+            "Inspect affected claims and evidence. Distinguish attributed accounts from "
+            "established facts. Correct suitable existing units with guarded writers, justified "
+            "verdicts and exact links; verify current state. Refutation alone changes neither "
+            "lifecycle nor rank. Writers retain prior interpretations; request bootstrap with "
+            "profile=full for history guidance."
+        ),
+        "correction_detail": (
+            "Keep an anchored unit's identity when its wording changes. Preserve a false "
+            "historical proposition and author its verdict; add a distinct corrective unit "
+            "when useful. Refutation and contradiction do not imply supersession or reduce "
+            "rank. The semantic writer retains prior interpretations atomically. "
+            "Read revision_history with read_memory(include_history=true), optionally for "
+            "unit_ref, using history_limit and history_continuation. When it carries "
+            "lookup=stale, repeat the same call shortly instead of reading absence or paging "
+            "on. Existing history remains "
+            "the page's operation log. Entities and legacy pages use their existing edit owner; "
+            "Records use guarded row corrections and history. Corrections need no dated child, "
+            "special user nudge, or confirmation beyond the active engagement policy."
+        ),
+        "body_rule": (
+            "After optional leading metadata, add a blank line and a substantive Markdown body."
+        ),
+        "heading_boundary_rule": (
+            "A heading at level N owns content until the next non-fenced heading at level "
+            "N or shallower; deeper headings remain in its body."
+        ),
+        "relation_rule": (
+            "Typed unit relations require the rich form. A `#anchor` target addresses a unit."
+        ),
+    }
+    semantic_roles = {
+        "category": (
+            "One primary open-vocabulary label describes what a unit is about; rich "
+            "category defaults to its governed kind unless explicitly overridden."
+        ),
+        "tag": (
+            "Zero or more optional secondary retrieval labels refine lookup and never "
+            "replace category or determine kind."
+        ),
+        "kind": (
+            "The governed semantic form: compact units always use `observation`; rich "
+            "units use their recognized heading kind."
+        ),
+    }
+    minimum_semantic_unit = {
+        "rule": (
+            "Live compiled creates, replacements and transitions to live need a valid "
+            "nonempty semantic unit; pending pages may remain unit-free."
+        ),
+        "form_rule": (
+            "Either compact or rich form satisfies the minimum; compact is preferred, "
+            "and a valid rich unit does not need a duplicate compact restatement."
+        ),
+        "final_unit_rule": (
+            "A post-activation compliant page cannot lose its final valid semantic unit."
+        ),
+        "minimum_count": 1,
+        "accepted_forms": ["compact", "rich"],
+        "compact_preferred": True,
+        "duplicate_compact_for_rich_required": False,
+        "compiled_intent": (
+            "canonical_compiled_destination(path) OR the normalized type's note-type role "
+            "is compiled"
+        ),
+        # Rendered from the shipped pack, so the list has one source. The contract
+        # is vault-independent: a vault-defined type never enters it.
+        "compiled_destinations": {
+            note_type.key: note_type.folder
+            for note_type in note_types.shipped(note_types.compiled)
+        },
+        "applies_when": [
+            "the path and normalized compiled type structurally match",
+            "the result is writable managed Markdown in the governed subtree",
+            "the result is outside Sources, Evidence, and trash",
+            "no activation exclusion applies",
+            "the admitted effective status class is live",
+        ],
+        "required_status_class": "live",
+        "status_registry": {
+            "tool": "schema_memory",
+            "args": {"subject": "statuses", "operation": "inspect"},
+        },
+        "exemptions": [
+            "arbitrary non-compiled Markdown",
+            "dataset cards",
+            "Evidence artifacts",
+            "hubs",
+            "indexes",
+            "logs",
+            "non-Markdown files",
+            "schema and admin artifacts",
+            "snapshots",
+            "Sources",
+            "templates",
+            "trash",
+        ],
+        "structural_rule": (
+            "Reject missing, invalid, or mismatched compiled frontmatter before evaluating "
+            "the minimum-unit predicate. A page in a type folder needs a compiled type; a "
+            "compiled type may sit in any Notes folder, and a compiled page outside Notes "
+            "is refused."
+        ),
+        "placement_rule": (
+            "Folders are defaults. `create_note` files research notes in their `project` home. "
+            "Other compiled notes use the first `topics` entry with a home. "
+            '`schema_memory(subject="homes", operation="inspect")` lists homes. The '
+            "draft's `placement` gives the folder, basis and call to make a topic a home."
+        ),
+        "lifecycle_rule": (
+            "Check live creates, replacements and transitions to live; "
+            "pending compiled notes may remain unit-free until activation."
+        ),
+        "independence_rule": (
+            "Semantic-unit coverage and relation-review disposition are independent obligations."
+        ),
+    }
+    routes = {
+        "destination_fitness": (
+            "Choose homes by future use and accumulated content, not mentions or broad scope. "
+            "Keep coherent long notes; reuse or create a home for independent material."
+        ),
+        "new_compiled_note": "create_note",
+        "replacement": "supersede_note",
+        "single_semantic_unit": "observe_memory",
+        "small_edit_or_activation": "edit_note",
+        "tier_2": (
+            "manage_memory_file create, overwrite, and append receive the same semantic "
+            "precommit contract on the complete resulting compiled Markdown; prefer create_note "
+            "or supersede_note when their typed route fits."
+        ),
+    }
+    findings = {
+        "empty_rich_unit": {
+            "severity": "error",
+            "when": "a recognized rich heading has no substantive body",
+            "remediation": (
+                "Add substantive body content or remove the empty recognized heading."
+            ),
+        },
+        "missing_semantic_unit": {
+            "severity": "error",
+            "when": "an applicable live-class compiled result has no valid non-empty unit",
+            "compact_remediation": (
+                "Add `## Observations` and `- [operating constraint] Keep retries bounded "
+                "#reliability`."
+            ),
+            "rich_remediation": (
+                "Alternatively add `## Decision`, a blank line, and a substantive body."
+            ),
+        },
+    }
+    normative = {
+        "contract_id": AUTHORING_CONTRACT_ID,
+        "version": AUTHORING_CONTRACT_VERSION,
+        "compact": compact,
+        "rich": rich,
+        "semantic_roles": semantic_roles,
+        "minimum_semantic_unit": minimum_semantic_unit,
+        "routes": routes,
+        "findings": findings,
+        "portable_categories": _build_portable_categories(),
+    }
+    return contract_from_normative(normative)
+
+
+AUTHORING_CONTRACT = build_semantic_authoring_contract()
+
+
+def get_semantic_authoring_contract() -> SemanticAuthoringContract:
+    """Return the immutable process-wide canonical authoring contract."""
+    return AUTHORING_CONTRACT
+
+
+def _placement_rule(rule: str, tool_shape: str) -> str:
+    from .operation_entries import call_text
+
+    # This exact code-owned compatibility call uses the serving adapter's spelling.
+    return rule.replace(
+        'schema_memory(subject="homes", operation="inspect")',
+        call_text("schema_memory", {"subject": "homes", "operation": "inspect"}, tool_shape),
+    )
+
+
+def bootstrap_projection(
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+    *,
+    profile: str = "full",
+) -> dict[str, Any]:
+    """Return the vault-independent contract projection for a bootstrap profile.
+
+    ``contract`` stays the first positional parameter so existing callers that
+    pass a contract positionally keep working; ``profile`` is keyword-only so it
+    can never be mistaken for a positionally-passed contract. Full returns every
+    example and explanatory correction detail. Compact and diagnostics omit those
+    details while retaining the actionable correction rule, its full-authoring route, and
+    the complete core keys, aliases, open rule, selection guidance, and compact
+    (role and domain) examples.
+    """
+    projection = contract.as_dict()
+    projection["validation_review"] = EXISTING_VALIDATION_GUIDANCE
+    from . import capabilities
+
+    projection["minimum_semantic_unit"]["placement_rule"] = _placement_rule(
+        projection["minimum_semantic_unit"]["placement_rule"], capabilities.current_tool_shape()
+    )
+    projection["minimum_semantic_unit"]["status_registry"] = capabilities.active_call_route(
+        "schema_memory", {"subject": "statuses", "operation": "inspect"}
+    )
+    projection["routes"]["single_semantic_unit"] = capabilities.active_tools_text("observe_memory", "write")
+    projection["routes"]["tier_2"] = (
+        f"{capabilities.active_tools_text('manage_memory_file', 'write')} create, overwrite, and append "
+        "receive the same semantic precommit contract on the complete resulting compiled Markdown; "
+        "prefer create_note or supersede_note when their typed route fits."
+    )
+    if profile != "full":
+        rich = dict(projection["rich"])
+        rich.pop("correction_detail")
+        projection["rich"] = rich
+        portable = dict(projection["portable_categories"])
+        examples = {
+            key: value
+            for key, value in portable["examples"].items()
+            if key != "rich"
+        }
+        portable["examples"] = examples
+        projection["portable_categories"] = portable
+    return projection
+
+
+def contract_identity(
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Return the stable identity marker used by deterministic projections."""
+    return f"{contract.contract_id}:v{contract.version} {contract.content_digest}"
+
+
+def render_tool_guidance(
+    tool: str,
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Render the bounded tool-specific rule from the canonical contract fields.
+
+    Normative facts come from the contract; validation guidance clarifies its
+    existing review boundary. Prose that only elaborates a rule
+    (form preference, boundary and vocabulary notes, the empty-body finding)
+    lives in the full bootstrap projection, not in every authoring tool.
+    """
+    compact = contract.compact
+    rich = contract.rich
+    minimum = contract.minimum_semantic_unit
+    routes = contract.routes
+    findings = contract.findings
+    portable = contract.portable_categories
+    identity = contract_identity(contract)
+    missing = findings["missing_semantic_unit"]
+    # observe_memory takes the unit's fields separately and edit_memory takes
+    # operations, so neither needs the selection rule or the worked example
+    # that a whole-page writer does. The minimum rule also states the lifecycle,
+    # so carry it once beside the final-unit rule and refusal remediation.
+    whole_page = tool in {"remember", "replace_memory"}
+    guidance = " ".join(
+        part
+        for part in (
+            routes["destination_fitness"],
+            minimum["rule"],
+            minimum["final_unit_rule"],
+            rich["correction_rule"],
+            # The source command and its public rendering share this operation-specific rule.
+            OBSERVATION_UPDATE_GUIDANCE if tool == "observe_memory" else "",
+            EXISTING_VALIDATION_GUIDANCE if not whole_page else "",
+            f"Compact: `{compact['canonical_section']}` then `{compact['syntax']}`; "
+            f"one {compact['category']['vocabulary']} category. "
+            f"Rich: `{rich['heading_syntax']}`.",
+            portable["short_selection_rule"] if whole_page else "",
+            f"Role example: {portable['examples']['role']}" if whole_page else "",
+            f"`missing_semantic_unit`: {missing['compact_remediation']}",
+            f"`empty_rich_unit`: {findings['empty_rich_unit']['remediation']}",
+            'Keys/examples: call bootstrap with operation.kind="instructions", profile="full".',
+        )
+        if part
+    )
+    if tool in {"remember", "replace_memory", "observe_memory", "edit_memory"}:
+        pass
+    elif tool == "manage_memory_file":
+        guidance = f"{routes['tier_2']} {guidance}"
+    else:
+        raise ValueError(f"no semantic-authoring projection for tool {tool!r}")
+    return f"Semantic authoring [{identity}]: {guidance}"
+
+
+#: The tools that carry the authoring contract, and the one-line pointer the CLI
+#: help and REST description show instead of repeating it. Neither surface is
+#: agent context, so the MCP wire never carries this line.
+AUTHORING_TOOLS = frozenset(
+    {"remember", "replace_memory", "edit_memory", "observe_memory", "manage_memory_file"}
+)
+CLI_REST_POINTER = (
+    'Semantic authoring rules: see bootstrap(profile="full") / '
+    "`exomem bootstrap --profile full`."
+)
+
+
+#: The write surface's own carrier for `write-time-identity-candidates`
+#: (design D2): the only text every connected client -- one with no hook, no
+#: skill, nothing but the tool schema -- is certain to read. One sentence,
+#: on `remember` and `replace_memory`'s `content` parameter only: those are
+#: the two whole-page writers a note's full set of named identities passes
+#: through, where `observe_memory`'s single-unit `content` and `edit_memory`'s
+#: `operation` are not the note's own prose.
+LINK_NAMED_IDENTITIES_GUIDANCE = (
+    "Wikilink the people, organisations, places, equipment and products this "
+    "note names, whether or not a page exists yet."
+)
+
+
+def render_parameter_guidance(
+    tool: str,
+    parameter: str,
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Return canonical guidance for a tool parameter, or an empty string."""
+    if (tool, parameter) == ("observe_memory", "content"):
+        content = contract.compact["content"]
+        return (
+            f"Provide only {content['role']}; {content['rule']} Pass the category and "
+            "optional suffix values through the sibling `category`, `tags`, and `context` "
+            "fields. Do not include the Markdown row wrapper in `content`."
+        )
+    if (tool, parameter) in {("remember", "content"), ("replace_memory", "content")}:
+        # The contract itself is carried once, on the tool description.
+        return LINK_NAMED_IDENTITIES_GUIDANCE
+    return ""
+
+
+def project_tool_description(
+    tool: str,
+    description: str,
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Return parser-independent public prose plus canonical authoring guidance."""
+    guidance = render_tool_guidance(tool, contract)
+    normalized = inspect.cleandoc(description)
+    args_marker = "\nArgs:"
+    preamble = normalized.split(args_marker, 1)[0]
+    return f"{preamble.rstrip()}\n\n{guidance}\n"
+
+
+def render_concise(
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Render canonical guidance with a live lookup for applicability values."""
+    compact = contract.compact
+    rich = contract.rich
+    roles = contract.semantic_roles
+    minimum = contract.minimum_semantic_unit
+    from .operation_entries import DEFAULT_TOOL_SHAPE, call_text, tools_text
+
+    placement_rule = _placement_rule(minimum["placement_rule"], DEFAULT_TOOL_SHAPE)
+    routes = {**contract.routes, "single_semantic_unit": tools_text("observe_memory", DEFAULT_TOOL_SHAPE, "write"),
+              "tier_2": "change_files create, overwrite, and append receive the same semantic precommit contract on the complete resulting compiled Markdown; prefer create_note or supersede_note when their typed route fits."}
+    findings = contract.findings
+    portable = contract.portable_categories
+    portable_keys = ", ".join(f"`{key}`" for key in portable["core_keys"])
+    portable_aliases = ", ".join(
+        f"`{alias}` → `{canonical}`" for alias, canonical in portable["aliases"].items()
+    )
+    portable_rules = " ".join(portable["rules"])
+    applies = "; ".join(minimum["applies_when"])
+    exemptions = ", ".join(minimum["exemptions"])
+    destinations = ", ".join(
+        f"`{page_type}` in `{folder}`"
+        for page_type, folder in minimum["compiled_destinations"].items()
+    )
+    compact_exclusions = "; ".join(compact["exclusions"])
+    metadata = ", ".join(f"`{row}`" for row in rich["metadata_syntax"])
+    breadth_block = "\n".join(portable["examples"]["breadth"])
+    return (
+        f"<!-- exomem-semantic-authoring:v{contract.version} "
+        f"{contract.content_digest} -->\n"
+        "## Semantic authoring contract\n\n"
+        f"{routes['destination_fitness']}\n\n"
+        f"{minimum['rule']} {minimum['form_rule']}\n\n"
+        "Semantic roles:\n\n"
+        f"- Category: {roles['category']}\n"
+        f"- Tag: {roles['tag']}\n"
+        f"- Kind: {roles['kind']}\n\n"
+        f"Compact grammar: `{compact['syntax']}`. {compact['parser_compatibility']} "
+        f"{compact['canonical_authoring']} Parser bullet markers are "
+        f"{', '.join(f'`{marker}`' for marker in compact['parser_bullet_markers'])}; "
+        f"the canonical marker is `{compact['canonical_bullet_marker']}`. "
+        f"{compact['suffix_parse_rule']} Category uses open vocabulary.\n\n"
+        f"- Compact category: {compact['category']['role']}. "
+        f"{compact['category']['lexical_rule']} "
+        f"{compact['category']['canonicalization']} "
+        f"{compact['category']['registry_rule']}\n"
+        f"- Compact content: {compact['content']['role']}. "
+        f"{compact['content']['rule']} {compact['content']['escaping_rule']}\n"
+        f"- Compact tags: {compact['tags']['role']}. Write "
+        f"`{compact['tags']['syntax']}`. {compact['tags']['lexical_rule']} "
+        f"{compact['tags']['position_rule']}\n"
+        f"- Compact context: {compact['context']['role']}. Write "
+        f"`{compact['context']['syntax']}`. {compact['context']['rule']}\n"
+        f"- Compact anchor: {compact['anchor']['role']}. Write "
+        f"`{compact['anchor']['syntax']}`. {compact['anchor']['lexical_rule']} "
+        f"{compact['anchor']['position_rule']}\n"
+        f"- Compact exclusions: {compact_exclusions}. {compact['relation_rule']}\n"
+        f"- Rich: write `{rich['heading_syntax']}` with optional leading metadata "
+        f"{metadata}. {rich['metadata_rule']} Accepted metadata order is "
+        f"{rich['accepted_metadata_order']}. {rich['body_rule']} "
+        f"{rich['relation_rule']}\n"
+        f"- Epistemic corrections: {rich['correction_rule']} {rich['correction_detail']}\n"
+        f"- Rich boundary: {rich['heading_boundary_rule']} `empty_rich_unit` means "
+        f"{findings['empty_rich_unit']['when']}; "
+        f"{findings['empty_rich_unit']['remediation']}\n"
+        f"- Exact applicability: obtain `{call_text('bootstrap', {'profile': 'compact', 'section': 'authoring'}, DEFAULT_TOOL_SHAPE)}` and read `semantic_authoring.minimum_semantic_unit` "
+        "for current structural applicability and the status-class rule. "
+        "If the exposed bootstrap schema lacks `section`, use "
+        f"`{call_text('bootstrap', {'profile': 'full'}, DEFAULT_TOOL_SHAPE)}` instead; released profiles reject section arguments. "
+        f"Apply `compiled_intent(after_state) = {minimum['compiled_intent']}`. "
+        f"Shipped compiled types and their default folders: {destinations}. More may be registered; "
+        f"`{call_text('schema_memory', {'subject': 'note-types', 'operation': 'inspect'}, DEFAULT_TOOL_SHAPE)}` lists the live set. "
+        f"{minimum['structural_rule']} {placement_rule} The minimum predicate applies when "
+        f"{applies}. "
+        f"{minimum['lifecycle_rule']}\n"
+        f"- Existing active pages: {minimum['final_unit_rule']}\n"
+        f"- Exempt content: {exemptions}.\n"
+        f"- Routes: use `{routes['new_compiled_note']}` for a new compiled note, "
+        f"`{routes['replacement']}` for a replacement, `{routes['single_semantic_unit']}` "
+        f"for one unit, and `{routes['small_edit_or_activation']}` for a small edit or "
+        f"activation. Tier 2 {routes['tier_2']}\n"
+        f"- Findings: `missing_semantic_unit` means "
+        f"{findings['missing_semantic_unit']['when']}; `empty_rich_unit` means "
+        f"{findings['empty_rich_unit']['when']}. "
+        f"{findings['empty_rich_unit']['remediation']}\n"
+        f"- Compact remediation: "
+        f"{findings['missing_semantic_unit']['compact_remediation']}\n"
+        f"- Rich remediation: {findings['missing_semantic_unit']['rich_remediation']}\n"
+        f"- {minimum['independence_rule']}\n"
+        f"- Validation review: {EXISTING_VALIDATION_GUIDANCE}\n"
+        f"- Portable categories: {portable['short_selection_rule']} "
+        f"{portable['open']} {portable_rules} Core keys are {portable_keys}. "
+        f"Core aliases are {portable_aliases}. Role example: "
+        f"`{portable['examples']['role']}`. Domain example: "
+        f"`{portable['examples']['domain']}`. Breadth example (life, finance, "
+        f"legal/travel, and career alongside one retained code line):\n\n"
+        f"```markdown\n{breadth_block}\n```\n\n"
+        f"Rich example:\n\n"
+        f"```markdown\n{portable['examples']['rich']}```\n"
+    )
+
+
+def render_expanded(
+    contract: SemanticAuthoringContract = AUTHORING_CONTRACT,
+) -> str:
+    """Render the concise contract plus deterministic reference detail and examples."""
+    minimum = contract.minimum_semantic_unit
+    findings = contract.findings
+    applies = "\n".join(f"- {item}" for item in minimum["applies_when"])
+    exemptions = "\n".join(f"- {item}" for item in minimum["exemptions"])
+    return (
+        render_concise(contract)
+        + "\n### Exact applicability\n\n"
+        + f"`compiled_intent(after_state) = {minimum['compiled_intent']}`. "
+        + "The minimum-unit predicate is true only when:\n\n"
+        + applies
+        + "\n\n"
+        + minimum["lifecycle_rule"]
+        + "\n\n### Exempt content\n\n"
+        + exemptions
+        + "\n\n### Remediation examples\n\n"
+        + "Compact (preferred):\n\n"
+        + "```markdown\n## Observations\n\n"
+        + "- [operating constraint] Keep retries bounded #reliability\n```\n\n"
+        + findings["missing_semantic_unit"]["compact_remediation"]
+        + "\n\nRich alternative:\n\n"
+        + "```markdown\n## Decision\n\nKeep retry windows bounded.\n```\n\n"
+        + findings["missing_semantic_unit"]["rich_remediation"]
+        + "\n"
+    )

@@ -1,0 +1,812 @@
+"""User-facing utility functions, plus the SSOT list for CLI dispatch.
+
+Each function here is meant to be callable from Python *and* from the shell
+via `an <funcname>`. Keep their signatures dispatch-friendly: positional args
+become required arguments, defaults become optional flags, and the docstring
+becomes the command's help. `an/__main__.py` projects this list onto typer
+without touching these functions, so they stay plain Python.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from an.check_requirements import check_requirements as _check_requirements
+from an.cli_status import failed
+from an.check_requirements import format_report
+from an.ir.sync import (
+    DEFAULT_SCENE_FILE,
+    resolve_scene_file,
+    sync as _sync,
+)
+from an.orchestrate import render_project as _render_project
+from an.orchestrate import validate_project
+from an.project import init as _init
+from an.iterate import iterate as _iterate
+from an.audio.cli import _dispatch_funcs as _voices_dispatch_funcs
+from an.library.cli import _dispatch_funcs as _library_dispatch_funcs
+from an.build.cli import _dispatch_funcs as _cache_dispatch_funcs
+from an.sounds_cli import _dispatch_funcs as _sounds_dispatch_funcs
+from an.music_cli import _dispatch_funcs as _music_dispatch_funcs
+from an.props_cli import _dispatch_funcs as _props_dispatch_funcs
+from an.world_cli import _dispatch_funcs as _world_dispatch_funcs
+from an.library.root import CORE_PACKAGE
+from an.library.root import project_dir as _project_dir
+
+
+def init(
+    project_dir: str,
+    name: str | None = None,
+    force: bool = False,
+    id: bool = False,
+    genre: str = "",
+    package: str = "",
+    root: str = "",
+) -> str:
+    """Create a fresh an project at ``project_dir`` — or, with --id, at the default location.
+
+    project_dir: where to create the project (created if missing); with --id, the project's id instead (an init <id> --id; --id is a switch and takes no value)
+    name: project display name (defaults to the directory name)
+    force: overwrite an existing scene.md
+    id: a switch: read the positional as a project id, and create the project under its genre's projects folder (an init alice-and-bob --id --genre cutout_animation -> ~/.local/share/cutan/projects/alice-and-bob)
+    genre: with --id, the genre the video is made in (e.g. cutout_animation); the genre names the package whose root holds the project
+    package: with --id, that package directly, overriding --genre (default: the genre's, else an)
+    root: with --id, that package's root (default: its data folder, or <PKG>_HOME)
+    """
+    if id:
+        from an.genres import (
+            PROJECT_DIR_SERVICE_PREFIX,
+            genre_library,
+            installed,
+            load,
+            service,
+        )
+
+        load()
+        if genre and genre not in installed():
+            raise SystemExit(
+                f"an init: no genre named {genre!r}; installed: {', '.join(installed())}"
+            )
+        owner = package or genre_library(genre or None, default=CORE_PACKAGE)
+        try:
+            target = _project_dir(project_dir, root or None, package=owner)
+        except ValueError as e:
+            raise SystemExit(f"an init: {e}") from e
+        # The library package may place its own new projects (a store-backed
+        # library answers with its cache folder; reeleehq/cutan#91). An explicit
+        # --root is the user's word and is never overridden.
+        place = None if root else service(PROJECT_DIR_SERVICE_PREFIX + owner)
+        if place is not None:
+            target = Path(place(project_dir, default=target))
+    elif genre or package or root:
+        raise SystemExit(
+            "an init: --genre, --package and --root place a project by --id only"
+        )
+    else:
+        target = project_dir
+    path = _init(target, name=name, force=force)
+    return f"initialized an project at {path}"
+
+
+def validate(
+    project_dir: str,
+    fps: float = 0.0,
+    strict_assets: bool = False,
+    scene: str = DEFAULT_SCENE_FILE,
+) -> str:
+    """Validate the scene at ``project_dir``. Prints findings; exits 1 when it reports FAILED, 0 otherwise.
+
+    project_dir: the an project
+    fps: the frame rate `an render --fps` will use, when not the scene's (0: the scene's)
+    strict_assets: judge the scene as `an render --strict-assets` will: a stand-in for a missing asset is an error (a voice written in words that nobody chose is an info line here: casting comes after the check, and the render is what refuses it)
+    scene: the scene file to read, inside the project (default scene.md; for example scene.studio.md, whose JSON twin is ir/scene.studio.json)
+    """
+    report = validate_project(
+        project_dir,
+        fps=fps or None,
+        strict_assets=strict_assets,
+        scene_file=scene,
+    )
+    if report.passed and not report.findings:
+        return "validation: passed, no findings"
+    lines = ["validation: " + ("passed" if report.passed else "FAILED")]
+    for f in report.findings:
+        where = f" ({f.location})" if getattr(f, "location", None) else ""
+        lines.append(f"  [{f.severity}] {f.ir_path}{where}: {f.description}")
+    text = "\n".join(lines)
+    return text if report.passed else failed(text)  # exit 1 on a FAILED report (an#480)
+
+
+def sync(
+    project_dir: str, accept_measured: bool = False, scene: str = DEFAULT_SCENE_FILE
+) -> str:
+    """Reconcile scene.md and ir/scene.json inside ``project_dir``.
+
+    ``--accept-measured`` also writes the durations a clock-owning renderer
+    (Manim) MEASURED into the scene — each such shot's ``duration:`` line,
+    patched in place, so the prose around it is kept. Without it, a measured
+    duration lives only in the derived ``measurements`` store and the scene
+    says what its author wrote.
+
+    scene: the scene file to reconcile (default scene.md; for example scene.studio.md with ir/scene.studio.json)
+    """
+    # Resolved first, so a scene file that is not there is a refusal
+    # (`SceneFileError`, printed by the CLI), never "no changes".
+    scene_file = resolve_scene_file(project_dir, scene)
+    parts = []
+    if accept_measured:
+        from an.measurements import accept_measured as _accept
+
+        accepted = _accept(project_dir, scene_file=scene_file)
+        parts.append(
+            "accepted measured duration(s): "
+            + ", ".join(f"{k}={v:g}s" for k, v in accepted.items())
+            if accepted
+            else "no measured duration differs from the scene's"
+        )
+    result = _sync(project_dir, scene_file)
+    md_name, json_name = scene_file.name, f"ir/{scene_file.json_path.name}"
+    if result.wrote_json:
+        parts.append(f"regenerated {json_name} from {md_name}")
+    if result.wrote_md:
+        parts.append(f"regenerated {md_name} from {json_name}")
+    if result.drift_warning:
+        parts.append(f"warning: {result.drift_warning}")
+    return "; ".join(parts) if parts else "no changes"
+
+
+def check() -> str:
+    """Print a status report of all backend system + Python deps. Always exits 0.
+
+    Every backend it lists is optional to some project (a Manim-only scene needs
+    no browser, an offline voice no ElevenLabs), so a missing one is not this
+    command's failure: the render that needs it refuses, with a typed error that
+    says what to install (an#559).
+    """
+    return format_report(_check_requirements())
+
+
+def render(
+    project_dir: str,
+    output_name: str = "",
+    scene: str = DEFAULT_SCENE_FILE,
+    tts: str = "",
+    lipsync: str = "offline",
+    parallel: str = "",
+    strict_assets: bool = False,
+    supersample: int = 1,
+    pix_fmt: str = "",
+    step_hz: float = 0.0,
+    language: str = "en",
+    capture: str = "",
+    force_render: bool = False,
+    no_cache: bool = False,
+    cache_frames: bool = False,
+) -> str:
+    """Render the project at ``project_dir`` to a single mp4. Exits 1 when the render reports an error finding.
+
+    Incremental: a shot whose inputs (its compiled document, its art's bytes,
+    its audio, the runtime, the render settings, this machine's browser and
+    ffmpeg) are unchanged since a previous render is reused from the shot cache
+    rather than rendered again, and the summary line says which were which.
+
+    Then what the render learned, grouped, each with its fix: a synthesized line
+    that runs past its shot or into a dissolve, a stand-in or a substitution,
+    a library pin out of date (artifacts/render_reports/<output_name>.json
+    holds them all). An ``error`` among them exits 1 although the mp4 exists:
+    something the checks call wrong is in the film, so ``an render && publish``
+    must not go on (an#559).
+
+    project_dir: path to an an project (must contain scene.md / ir/scene.json)
+    output_name: filename stem under output/ (default: "main", or the scene file's stem when --scene names one)
+    scene: the scene file to read, inside the project (default scene.md; for example scene.studio.md, whose JSON twin is ir/scene.studio.json)
+    tts: TTS provider for EVERY line — "offline" (silent), "elevenlabs" (needs
+        ELEVEN_API_KEY) or "mac_say". Omitted (the default): each voice's own
+        `provider` speaks its lines, a voice naming none is offline, and what a
+        paid provider will bill is printed before the first request. A line
+        spoken by another provider than its voice declares is a finding (an
+        error under --strict-assets)
+    lipsync: lip-sync provider — "offline" (deterministic), "rhubarb"
+        (needs the rhubarb binary), or "whisper" (needs faster-whisper)
+    parallel: per-shot concurrency. "" or "1" = serial (default); "auto" =
+        min(shots, cpu, 4); a number ≥ 2 caps the thread pool.
+    strict_assets: fail instead of drawing a stand-in (the placeholder rig, the
+        default backdrop) for an asset the project's stores don't supply, or
+        speaking a voice written in words that nobody chose (`an voices choose`)
+    supersample: render at N times the resolution and resolve back with an exact
+        N x N block mean. Opt-in; 1 (the default) costs nothing at all. Measured
+        on the shipped path at 1920x1080: 125.5 ms/frame at 1, 508.6 at 2 —
+        4.05x, which is NOT the 2.54x the research reports for the render alone
+    pix_fmt: the delivered encode's pixel format — "yuv420p" (default) or
+        "yuv444p". The ONE first-order quality lever in the encoder: 4:4:4 cuts
+        the edge-band error 11.35 -> 3.79, where a mathematically lossless 4:2:0
+        only reaches 10.15. It is opt-in for a PRODUCT reason and not an encoder
+        one: High 4:4:4 Predictive is refused by many hardware decoders,
+        browsers and platforms, so a 4:4:4 file is one some viewers cannot play
+    step_hz: stepped timing for authored tweens — pose updates per second, on a
+        shot-wide grid (15 at 30 fps is "on twos", 10 "on threes"). 0 (the
+        default) uses the scene's own `meta.step_hz`, which is unset (smooth)
+        unless the author declared one. The camera, blinks, `play` clips and
+        swap channels are never stepped by this
+    language: the dialogue's language (BCP-47) for providers that select
+        behaviour by it — Rhubarb's recognizer today: English (the default)
+        uses `pocketSphinx` with the transcript, anything else `phonetic`
+        without one (an#96)
+    capture: how frames leave the browser — "canvas" (the default), an in-page
+        read of the canvas in batches, ~7.8x faster frame stage on the corpus,
+        ~2.3x at 1080p; or "screenshot", a Playwright element screenshot per
+        instant. Both write frames with the same decoded pixels
+    force_render: render every shot even when the shot cache holds it (and
+        refresh its entry)
+    no_cache: neither read nor write the shot cache — every shot is rendered
+        cold, as before the cache existed
+    cache_frames: no longer needed, and no effect on `an render` (an#260): a
+        film with transitions or a sound layer now reuses its shots by default,
+        caching only the frames at each transition. Kept so scripts that pass
+        it still run
+    """
+    from an.build import ShotCache
+
+    parallel_arg: int | str | None
+    if not parallel:
+        parallel_arg = None
+    elif parallel == "auto":
+        parallel_arg = "auto"
+    else:
+        try:
+            parallel_arg = int(parallel)
+        except ValueError:
+            return failed(
+                f"invalid --parallel value: {parallel!r}; use a number or 'auto'"
+            )
+    from an.render import format_render_findings, render_findings
+
+    cache = ShotCache(cache_frames=cache_frames)
+    output_path = _render_project(
+        project_dir,
+        # None: the leaf names the output after the scene file (an#539).
+        output_name=output_name or None,
+        scene_file=scene,
+        tts=tts or None,
+        lipsync=lipsync,
+        parallel=parallel_arg,
+        strict_assets=strict_assets,
+        supersample=supersample,
+        pix_fmt=pix_fmt or None,
+        step_hz=step_hz or None,
+        language=language,
+        capture=capture or None,
+        incremental=False if no_cache else cache,
+        force_render=force_render,
+        # Listed below, grouped, instead of as they happen (an#254).
+        echo_warnings=False,
+    )
+    lines = [f"rendered: {output_path}"]
+    if not no_cache:
+        lines.append(f"shots: {cache.report.summary()}")
+    if cache_frames:
+        lines.append(
+            "note: --cache-frames is deprecated (an#260): it has no effect and "
+            "will be removed in the next release"
+        )
+    if not no_cache and cache.report.store_line():
+        lines.append(
+            f"shot cache: {cache.report.store_line()} "
+            f"(`an cache gc {project_dir}` removes what the scene no longer uses)"
+        )
+    # The output the leaf chose: `output/<name>.mp4`.
+    stem = Path(output_path).stem
+    lines += format_render_findings(project_dir, stem)
+    text = "\n".join(lines)
+    errors = [f for f in render_findings(project_dir, stem) if f.severity == "error"]
+    return failed(text) if errors else text  # the mp4 exists, and is wrong (an#559)
+
+
+def iterate(
+    project_dir: str,
+    instruction: str,
+    apply_changes: bool = True,
+    model: str = "claude-opus-4-7",
+    scene: str = DEFAULT_SCENE_FILE,
+) -> str:
+    """Apply a free-text instruction to the scene. Needs ANTHROPIC_API_KEY.
+
+    project_dir: path to an an project
+    instruction: what to change in plain English (e.g. "make Maya's laugh longer and warmer")
+    apply_changes: persist the new scene to disk (default True); the next render
+        re-renders exactly the shots whose content changed
+    model: Anthropic model id (default claude-opus-4-7)
+    scene: the scene file to edit, inside the project (default scene.md; for example scene.studio.md, whose JSON twin is ir/scene.studio.json)
+    """
+    result = _iterate(
+        project_dir,
+        instruction,
+        apply=apply_changes,
+        model=model,
+        scene_file=scene,
+    )
+    lines: list[str] = []
+    lines.append(f"summary: {result.summary}")
+    lines.append(f"affected shots: {', '.join(result.affected_shots) or '(none)'}")
+    lines.append(f"patches ({len(result.patches)}):")
+    for p in result.patches:
+        v = "" if p.op == "delete" else f" = {p.value!r}"
+        lines.append(f"  [{p.op}] {p.path}{v}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+        if result.validation:
+            for f in result.validation.findings:
+                lines.append(f"  [{f.severity}] {f.ir_path}: {f.description}")
+        return failed("\n".join(lines))  # the instruction was not applied (an#480)
+    elif apply_changes:
+        lines.append("status: applied + persisted; re-run `an render` to see changes")
+    else:
+        lines.append("status: dry-run (apply_changes=False); nothing persisted")
+    return "\n".join(lines)
+
+
+def preview(
+    project_dir: str,
+    shot: str = "",
+    no_browser: bool = False,
+    scene: str = DEFAULT_SCENE_FILE,
+) -> str:
+    """Live-preview the project's scene in a browser; reloads on edit.
+
+    Spins up a local HTTP server pointed at the runtime canvas. The
+    browser polls ``scene.json`` for changes and re-loads when you save
+    ``scene.md``. Lossy: visuals only, no audio. Blocks until Ctrl-C.
+
+    project_dir: path to an an project (must contain scene.md / ir/scene.json)
+    shot: shot id to preview (default: first shot in the timeline)
+    no_browser: don't auto-open the default browser
+    scene: the scene file to preview, inside the project (default scene.md; for example scene.studio.md)
+    """
+    from an.stage.preview import (
+        preview_project as _preview_project,
+    )  # the stage, lazily
+
+    base_url = _preview_project(
+        project_dir,
+        shot_id=shot or None,
+        open_browser=not no_browser,
+        scene_file=scene,
+    )
+    return f"preview: stopped (was at {base_url})"
+
+
+def probe(
+    project_dir: str,
+    shot: str = "",
+    at: list[float] | None = None,
+    out: str = "",
+    columns: int = 0,
+    supersample: int = 1,
+    allow_private_here: bool = False,
+    scene: str = DEFAULT_SCENE_FILE,
+) -> str:
+    """Write a shot's frame at chosen instants to a PNG, drawn the way `an render` draws it.
+
+    The shot is prepared as a render prepares it (captions, style pack, the
+    settled length) and its own renderer draws only the frames asked for; a
+    Manim shot is read from the picture the last render stored. Several --at
+    make one grid. Frames showing private or unknown material are refused at
+    a path git would pick up.
+
+    project_dir: path to an an project
+    shot: the shot id
+    at: seconds into the shot, repeatable (--at 1.5 --at 3.8)
+    out: the PNG to write (default: <project>/artifacts/probes/<shot>@<t>.png, gitignored)
+    columns: cells per row of a grid (default: a square grid)
+    supersample: as `an render --supersample`, so the frame matches the film's
+    allow_private_here: write not-publishable frames where git would pick them up
+    scene: the scene file to read, inside the project (default scene.md; for example scene.studio.md, whose JSON twin is ir/scene.studio.json)
+    """
+    from an.probe import probe as _probe
+
+    if not shot or not at:
+        raise SystemExit("an probe: give --shot <id> and at least one --at <seconds>")
+    path = _probe(
+        project_dir,
+        shot,
+        at,
+        out=out or None,
+        columns=columns or None,
+        supersample=supersample,
+        allow_private_here=allow_private_here,
+        scene_file=scene,
+    )
+    return f"probe: {path}"
+
+
+# SSOT for the CLI dispatcher (per the python-dispatching skill convention).
+
+
+def credits(
+    project_dir: str, json_out: str | None = None, scene: str = DEFAULT_SCENE_FILE
+) -> str:
+    """Show what third-party work is in ``project_dir`` and what it obliges.
+
+    project_dir: the an project
+    json_out: also write the machine-readable record to this path
+    scene: the scene file whose speech is credited, inside the project (default scene.md; for example scene.studio.md)
+
+    A licence recorded and never displayed is not compliance, so this is the
+    consumer that makes the provenance field worth having.
+
+    Exits 0 whatever it lists: it is the inventory, not the gate. UNVERIFIED is
+    a state the report exists to show, and a rights conflict is already resolved
+    (the stricter statement binds); the gate is ``an validate --strict-assets``,
+    which reports a rights conflict as an error and exits 1 (an#559).
+    """
+    from an.credits import credits_for_project
+
+    report = credits_for_project(project_dir, scene_file=scene)
+    if json_out:
+        import json as _json
+
+        _p = Path(json_out)
+        _p.parent.mkdir(parents=True, exist_ok=True)
+        _p.write_text(_json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+    return report.format()
+
+
+def bench(
+    scenes: str = "",
+    out: str = "",
+    keep_render: str = "",
+    quiet: bool = False,
+    bless: str = "",
+    compare: str = "",
+    mutation: str = "",
+) -> str:
+    """Render the fixed bench corpus and write a metrics ledger. Exits 1 when it refuses the arguments.
+
+    The instrument, not the verdict: it records numbers whose predicted
+    direction under each deliberate degradation is declared in advance, so a
+    future regression is caught by something other than someone noticing.
+
+    scenes: comma-separated corpus scene names (default: all of them)
+    out: ledger path (default: misc/bench/ledger/<date>-<sha>[-dirty].json)
+    keep_render: keep the throwaway render tree here instead of deleting it
+    quiet: print only the ledger path
+    bless: (re)write the golden frames, recording THIS STRING as the reason
+    compare: after the run, compare it against this baseline ledger row
+    mutation: pull one declared lever for this run, and ask --compare the
+        per-mutation question instead of "is the second row worse"
+
+    Rendering knobs are deliberately NOT flags: a bench whose render knobs vary
+    per invocation produces incomparable rows, so they are a module constant
+    recorded verbatim into the ledger. ``--mutation`` is not one of them, and is
+    the exception that states the rule: a lever is the **independent variable**,
+    it is named in the report, it is exempted by declaration in
+    ``MUTATION_TOUCHES`` rather than by widening anything, and the row it
+    produces is never filed under a commit's name. Without it the ``--compare``
+    artifact is always the ``mutation=None`` path, which asks "is this worse" of
+    a run that was broken on purpose — the wrong question, answered
+    confidently.
+
+    ``--bless`` takes the reason as its value rather than pairing with a
+    separate ``--reason``, so a bless with no recorded reason cannot be typed.
+    A re-bless with no recorded reason is the same failure as a silently
+    widened threshold, and it is the failure this wave exists to prevent — so
+    look at the PNG diff (GitHub renders 2-up, swipe and onion-skin) before
+    writing one.
+    """
+    from an.bench.corpus import DFLT_FIXTURES
+    from an.bench.run import format_panel, run_bench
+
+    chosen = None
+    if scenes:
+        wanted = [s.strip() for s in scenes.split(",") if s.strip()]
+        unknown = [w for w in wanted if w not in DFLT_FIXTURES]
+        if unknown:
+            return failed(
+                f"unknown corpus scene(s) {unknown}; available: {sorted(DFLT_FIXTURES)}"
+            )
+        chosen = {w: DFLT_FIXTURES[w] for w in wanted}
+
+    if mutation:
+        # Validated BEFORE anything renders. The corpus takes minutes, and an
+        # undeclared name would otherwise surface as a bare `KeyError` from
+        # inside `mutated_row` after all of it.
+        from an.bench.mutations import LEVERS, mutated_row
+        from an.bench.registry import REFUSED_LEVERS
+
+        if mutation in REFUSED_LEVERS:
+            return failed(
+                f"{mutation!r} is not a lever: it was tried and refused. "
+                f"{REFUSED_LEVERS[mutation]}"
+            )
+        if mutation not in LEVERS:
+            return failed(
+                f"unknown mutation {mutation!r}; declared: {sorted(LEVERS)}. A"
+                " lever is registered in `an.bench.mutations.LEVERS` and"
+                " predicted for in `an.bench.registry.MUTATIONS`; the two are"
+                " checked equal at import."
+            )
+        if bless:
+            return failed(
+                "refusing --bless with --mutation: a lever renders a"
+                " DELIBERATELY DEGRADED picture, and blessing it would commit"
+                " that picture as the reference every future run is measured"
+                " against. Bless from an unmutated run."
+            )
+        ledger = mutated_row(
+            mutation,
+            scenes=chosen,
+            keep_render=Path(keep_render) if keep_render else None,
+        )
+        # `mutated_row` writes nothing (`run_bench(write=False)`), and that is
+        # right: a mutated row is evidence about a pipeline broken on purpose,
+        # so filing it as `<date>-<sha>.json` would claim it is the commit's
+        # evidence — the `-dirty` failure one level up. `--out` is the only way
+        # to keep one, and it may not point into the ledger directory, where
+        # `latest_rows` would hand it to a bare `an bench-compare` as a
+        # baseline.
+        if out:
+            from an.bench.ledger import write_ledger
+            from an.bench.paths import LEDGER_DIRNAME, repo_root
+
+            path = Path(out).resolve()
+            if path.parent == (repo_root() / LEDGER_DIRNAME).resolve():
+                return failed(
+                    f"refusing to write a mutated row into {LEDGER_DIRNAME}: "
+                    "`latest_rows` would hand it to a bare `an bench-compare` "
+                    "as a baseline, and it measures a pipeline that was broken "
+                    "on purpose. Write it anywhere else."
+                )
+            write_ledger(ledger, path)
+            ledger["_written_to"] = str(path)
+    else:
+        ledger = run_bench(
+            scenes=chosen,
+            out=Path(out) if out else None,
+            keep_render=Path(keep_render) if keep_render else None,
+            bless=bless,
+        )
+
+    unfiled = (
+        "\nthis row was NOT written: a mutated row is evidence about a"
+        " pipeline broken on purpose, never a commit's. Pass --out <path> to"
+        " keep it, then gate it with"
+        f" `an bench-compare --mutation {mutation} --strict`."
+    )
+    if quiet:
+        panel = str(ledger.get("_written_to", "")) or (
+            unfiled.strip() if mutation else ""
+        )
+    else:
+        panel = format_panel(ledger)
+        if mutation:
+            panel = f"MUTATED RUN: lever {mutation!r} pulled\n" + panel
+            if not out:
+                panel += unfiled
+    if not compare:
+        return panel
+    from an.bench.compare import compare as compare_rows
+    from an.bench.compare import format_comparison, load_row
+
+    return (
+        panel
+        + "\n\n"
+        + format_comparison(
+            compare_rows(load_row(compare), ledger, mutation=mutation or None)
+        )
+    )
+
+
+def bench_compare(
+    before: str = "",
+    after: str = "",
+    mutation: str = "",
+    strict: bool = False,
+    raw: bool = False,
+) -> str:
+    """Compare two ledger rows — and refuse when they are not comparable.
+
+    before: baseline ledger row (default: the second-newest committed row)
+    after: the row to judge (default: the newest committed row)
+    mutation: evaluate the per-mutation predictions instead of asking whether
+        the second row is worse. One of the mutations the rows declare.
+    strict: exit nonzero when the answer is bad — a regression without a
+        mutation, or a direction that reverses on its own metric's threshold
+        grid (an#140: some cell of it got worse), an unmet criterion with one,
+        a comparison that answered nothing, or a row that could not be read at
+        all (exit 1). For CI.
+    raw: print the report as JSON instead of the human digest
+
+    Refusing is the feature. Two rows measured on different scenes, at
+    different resolutions, or on different x264 builds are not "one better and
+    one worse" — every number in them is uninterpretable relative to the other,
+    and a number reported across incomparable rows is worse than none.
+
+    ``-dirty`` rows are excluded from the defaults: a row measured against
+    uncommitted edits describes no commit. Name one explicitly to compare it.
+    """
+    import json as _json
+
+    from an.bench.compare import (
+        ComparisonError,
+        compare as compare_rows,
+        format_comparison,
+        latest_rows,
+        load_row,
+    )
+
+    if not before or not after:
+        rows = latest_rows()
+        if len(rows) < 2:
+            text = (
+                f"need two committed ledger rows to compare; found {len(rows)}. "
+                "Run `an bench` on two different commits, or name the rows "
+                "explicitly with --before and --after."
+            )
+            return failed(text) if strict else text  # it answered nothing
+        before = before or str(rows[0])
+        after = after or str(rows[1])
+
+    try:
+        report = compare_rows(
+            load_row(before), load_row(after), mutation=mutation or None
+        )
+    except ComparisonError as e:
+        # `--strict` documents itself as "exit nonzero when the answer is bad",
+        # and a row the comparer cannot read at all is the worst answer there
+        # is. This handler used to `return` here, ahead of the `if strict:`
+        # block below, so an unreadable `schema_version` — or an undeclared
+        # `--mutation`, which is the state a `--strict --mutation supersample`
+        # run is in before the lever is registered — exited 0. Same failure
+        # class an#51 closed for the refusal path and left open on the raise
+        # path.
+        #
+        # `failed(...)`, not `print` + `sys.exit(1)` (an#559): the CLI exits 1
+        # all the same, and a Python caller gets the report back instead of
+        # having its process ended.
+        refusal = f"refused: {e}"
+        return failed(refusal) if strict else refusal
+
+    text = (
+        _json.dumps(report, indent=2, sort_keys=True)
+        if raw
+        else format_comparison(report)
+    )
+    if strict:
+        # Four ways for the answer to be bad, and only one of them is a
+        # regression. A comparison that REFUSED every scene, or that lost
+        # coverage, has not "passed" — it has produced no answer, and a CI gate
+        # that reads that as success is worse than no gate.
+        bad = (
+            not report.get("answered")
+            or bool(report.get("coverage_lost"))
+            or (
+                not report.get("criterion_met")
+                if mutation
+                # an#140: `unstable` is not a regression and not a pass. With
+                # no mutation it means some cell of the metric's own grid got
+                # worse, and a gate that exits 0 on it is reading "cannot tell"
+                # as "fine".
+                else bool(report.get("has_regressions") or report.get("unstable"))
+            )
+        )
+        if bad:
+            return failed(text)
+    return text
+
+
+def bench_mutants(names: str = "", quiet: bool = False) -> str:
+    """Break each guard on purpose and check the test that names it goes red.
+
+    names: comma-separated mutant names (default: every declared one)
+    quiet: print only the tally
+
+    "N mutants, all caught" is unfalsifiable after the fact when the mutations
+    lived in a scratch script. These are declared data, so the proof is
+    re-runnable — which matters because Wave 1 shipped three guards that stayed
+    green while the bug they guarded was present.
+
+    The WHOLE guard file runs for each mutant, never a `-k` filter: a filter that
+    happens to exclude the catching test reports "not caught" and sends you to
+    write a test that already exists. Takes about forty seconds.
+
+    Exits 1 when a mutant survives, a name is unknown or a declaration has rotted,
+    and 130 when the sweep is interrupted (the tree is restored first).
+    """
+    from an.bench.mutants import (
+        INTERRUPTED_EXIT_CODE,
+        MUTANTS,
+        MutantError,
+        format_results,
+        run_mutants,
+    )
+
+    wanted = [n.strip() for n in names.split(",") if n.strip()] or None
+    if wanted:
+        unknown = sorted(set(wanted) - {m.name for m in MUTANTS})
+        if unknown:
+            return failed(
+                f"unknown mutant(s) {unknown}; declared: "
+                f"{sorted(m.name for m in MUTANTS)}"
+            )
+    try:
+        results = run_mutants(wanted)
+    except MutantError as e:
+        # Nonzero. Declaration rot is the failure this command exists to
+        # surface — a mutant whose source text has moved has silently stopped
+        # proving anything — and returning a string exits 0, so a CI job would
+        # print the warning and pass (an#41 review). `failed` carries the code.
+        return failed(str(e))
+    except KeyboardInterrupt as e:
+        # A sweep is slow enough that interrupting it is normal (an#67). Say
+        # that the tree survived, because the alternative — a traceback — leaves
+        # a reader wondering whether a mutated file is still on disk.
+        #
+        # `KeyboardInterrupt`, not `MutantRunInterrupted`: the latter IS one
+        # (that is how it survives an `except Exception`), but a plain Ctrl-C
+        # raises the base class and so escaped this clause entirely. The
+        # restoring `finally` had already run, so the tree was fine — the user
+        # simply got a raw traceback and no way to know that, and Ctrl-C is the
+        # interruption an#67 calls the normal one. The reassurance is worth
+        # exactly as much on the path people actually take.
+        message = str(e) or "interrupted mid-mutant"
+        return failed(
+            f"{message}\nthe tree was restored; nothing was left mutated",
+            exit_code=INTERRUPTED_EXIT_CODE,
+        )
+    survivors = [r for r in results if not r["caught"]]
+    text = (
+        f"{len(results) - len(survivors)}/{len(results)} caught"
+        if quiet
+        else format_results(results)
+    )
+    return failed(text) if survivors else text
+
+
+_dispatch_funcs = [
+    init,
+    validate,
+    sync,
+    check,
+    render,
+    iterate,
+    preview,
+    probe,
+    credits,
+    bench,
+    bench_compare,
+    bench_mutants,
+]
+
+
+# Sub-namespaces. ``__main__`` mounts each as a sub-app so the CLI looks like
+# ``an voices list``. A genre adds its own (``an character new <name> ...``, from
+# the cut-out genre) through the ``cli.<namespace>`` service
+# (:func:`registered_namespaces`).
+def registered_namespaces() -> dict[str, list]:
+    """The sub-namespaces installed genres added (``cli.<namespace>`` services).
+
+    >>> registered_namespaces() == {} or all(isinstance(v, list) for v in registered_namespaces().values())
+    True
+    """
+    from an.genres import services
+
+    return {name: list(funcs) for name, funcs in services("cli.").items()}
+
+
+_dispatch_namespaces: dict[str, list] = {
+    "voices": _voices_dispatch_funcs,
+    # The asset library (ADR 0005): `an library find --affords limbs.legs`.
+    "library": _library_dispatch_funcs,
+    # The shot cache (an#274): `an cache info`, `an cache gc --dry-run`.
+    "cache": _cache_dispatch_funcs,
+    # The sounds store (an#318): `an sounds add <dir> <key> <url> --license …`.
+    "sounds": _sounds_dispatch_funcs,
+    # A licensed music library (an#470): `an music add-library incompetech
+    # --titles-from usage.json --out audio/macleod`.
+    "music": _music_dispatch_funcs,
+    # A prop's asset folder (an#340): `an props validate <key>`, `an props contract`.
+    "props": _props_dispatch_funcs,
+    # The scene's world (ADR 0009): `an world show` prints every framed shot
+    # as the compiler sees it.
+    "world": _world_dispatch_funcs,
+}

@@ -88,10 +88,10 @@ class BiteRunMixin:
 
     def pending_lines(self) -> list[str]:
         lines = []
-        for req in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
-            if req.policy == appr.FEEDBACK:
+        for request in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
+            if request.policy == appr.FEEDBACK:
                 continue  # not the daemon's question, and its text is the agent's: never in the writer's prompt
-            lines.append(f"question {req.id} ({req.policy}) is waiting for the researcher: {req.question.question[:200]}")
+            lines.append(f"question {request.id} ({request.policy}) is waiting for the researcher: {request.question.question[:200]}")
         for row in self.store.open_failures(bites=FAILURES_SHOWN_BITES, limit=5):
             argv = " ".join(json.loads(row["argv"]))[:200]
             if row["status"] == "queued":  # exit 0, but not on the record yet (L14)

@@ -23,6 +23,23 @@
 namespace mw {
 namespace sinusoidal {
 
+// The readouts over one front (`SinusoidalSolver`'s, by SOLVED wire; the
+// Engine's own answers, and the NEC-5 seam's Sinusoidal-Galerkin engine's,
+// momwire#1718 S8):
+// `currents_at_knots(alpha)`: per solved wire, the current at each knot.
+std::vector<std::vector<std::complex<double>>> knot_currents(const Front &fr,
+                                                             const std::vector<std::complex<double>> &alpha);
+// `currents_at_knots(alpha, s)` on one solved wire `w`, at arclengths `arcs`.
+std::vector<std::complex<double>> arc_currents(const Front &fr, const std::vector<std::complex<double>> &alpha,
+                                               std::size_t w, const std::vector<double> &arcs);
+// `current_slopes(alpha, s)`: per solved wire, dI/ds at each arclength.
+std::vector<std::vector<std::complex<double>>> slopes(const Front &fr, const std::vector<std::complex<double>> &alpha,
+                                                      const std::vector<std::vector<double>> &s);
+// `wire_loss_power(coeffs)[0]` over `fr.args`' loading (0 when unloaded).
+double loss_power(const Front &fr, const std::vector<std::complex<double>> &coeffs);
+// The same at the caller's `omega` (`wire_loss_power(coeffs, omega)`).
+double loss_power_at(const Front &fr, const std::vector<std::complex<double>> &coeffs, double omega);
+
 class Engine : public nec4::RunEngine {
   public:
     Engine(const nec4::StructureBuild &structure, const FillLinalg &la);
@@ -38,9 +55,13 @@ class Engine : public nec4::RunEngine {
                                                        std::size_t wire, const std::vector<double> &arcs) override;
     double solver_omega(std::size_t index) override;
     double solver_eps0(std::size_t index) override;
+    const nec4::WireDedup *dedup(std::size_t index) override;
 
-  private:
+  protected:
+    // momwire#1718 S3: the Sinusoidal-Galerkin engine answers `solve` itself
+    // and reads its readouts through these, unchanged.
     const Front &front_at(std::size_t index);
+    bool galerkin_ = false;  // the front as SinusoidalGalerkinSolver builds it
     const nec4::StructureBuild &structure_;
     const FillLinalg &la_;
     std::vector<std::unique_ptr<Front>> fronts_;

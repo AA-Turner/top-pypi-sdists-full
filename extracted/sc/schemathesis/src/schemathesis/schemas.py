@@ -17,11 +17,11 @@ from typing import (
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis import transport
-from schemathesis.config import GenerationConfig, ProjectConfig
-from schemathesis.core import NOT_SET, Body, NotSet, media_types
+from schemathesis.config import GenerationConfig, ProjectConfig, SanitizationConfig
+from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, media_types
 from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
-from schemathesis.core.failures import FailureGroup
+from schemathesis.core.failures import FailureGroup, ServerError
 from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation, SkippedParameter
 from schemathesis.core.result import Ok, Result
@@ -35,7 +35,7 @@ from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
 from schemathesis.generation.meta import CaseMetadata, TestPhase
 from schemathesis.hooks import HookDispatcherMark
-from schemathesis.transport.prepare import prepare_path
+from schemathesis.transport.prepare import prepare_path, prepare_request
 
 from .auths import AuthStorage, ReauthState, compute_retry_on_statuses
 from .filters import (
@@ -62,7 +62,7 @@ if TYPE_CHECKING:
     from werkzeug.test import TestResponse
 
     from schemathesis.auths import AuthContext, AuthProvider
-    from schemathesis.checks import RunChecks
+    from schemathesis.checks import CheckContext, RunChecks
     from schemathesis.core import Specification
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
@@ -76,6 +76,8 @@ if TYPE_CHECKING:
     from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput
     from schemathesis.python._constants.pool import ConstantsPool
     from schemathesis.resources import ExtraDataSource, ResourcePool
+
+_NO_SANITIZATION = SanitizationConfig(enabled=False)
 
 
 @lru_cache
@@ -142,6 +144,12 @@ class BaseSchema(Mapping):
     @property
     def transport(self) -> transport.BaseTransport:
         return self.get_transport(self.app)
+
+    def as_reproduction_command(
+        self, case: Case, *, headers: Mapping[str, Any] | None, verify: bool, base_url: str | None = None
+    ) -> str:
+        """Command that reproduces `case` outside Schemathesis."""
+        return case.as_curl_command(headers, verify, base_url=base_url)
 
     def is_security_param_negated(self, case: Case) -> bool:
         return False
@@ -313,6 +321,10 @@ class BaseSchema(Mapping):
     def get_full_path(self, path: str) -> str:
         return get_full_path(self.base_path, path)
 
+    def _should_skip(self, operation: APIOperation) -> bool:
+        """Whether the schema's filters leave `operation` out."""
+        return not self.filter_set.applies_to(operation)
+
     @property
     def base_path(self) -> str:
         """Base path for the schema."""
@@ -351,9 +363,8 @@ class BaseSchema(Mapping):
         """Absolute base URL the schema itself advertises, if any."""
         return None
 
-    @abstractmethod
     def validate(self) -> None:
-        raise NotImplementedError
+        return None
 
     @cached_property
     def statistic(self) -> ApiStatistic:
@@ -367,7 +378,6 @@ class BaseSchema(Mapping):
     def get_all_operations(self) -> Generator[Result[APIOperation, InvalidSchema], None, None]:
         raise NotImplementedError
 
-    @abstractmethod
     def get_strategies_from_examples(
         self, operation: APIOperation, feedback: FeedbackSources = NO_FEEDBACK, **kwargs: Any
     ) -> list[SearchStrategy[Case]]:
@@ -463,9 +473,6 @@ class BaseSchema(Mapping):
     ) -> tuple[list | None, dict[str, Any] | None]:
         raise NotImplementedError
 
-    def get_request_payload_content_types(self, operation: APIOperation) -> list[str]:
-        raise NotImplementedError
-
     def make_case(
         self,
         *,
@@ -525,6 +532,13 @@ class BaseSchema(Mapping):
         """Labels of operations that another operation links to; empty when the spec has no links."""
         return set()
 
+    def resource_producers(self) -> dict[str, set[str]]:
+        """For every operation that consumes a resource, the operations that appear to supply it.
+
+        Absent means the operation consumes nothing, or the spec infers no resources; empty means nothing supplies it.
+        """
+        return {}
+
     @abstractmethod
     def as_state_machine(self) -> type[APIStateMachine]:
         """Create a state machine class for stateful testing of linked API operations.
@@ -535,7 +549,6 @@ class BaseSchema(Mapping):
         """
         raise NotImplementedError
 
-    @abstractmethod
     def build_state_machine(
         self,
         *,
@@ -543,15 +556,15 @@ class BaseSchema(Mapping):
         link_calibration: LinkCalibrationState | None,
     ) -> type[APIStateMachine]:
         """Engine-internal variant of `as_state_machine` that wires per-run state."""
-        raise NotImplementedError
+        # Specs whose transitions use neither runtime feedback nor link calibration build the plain machine.
+        return self.as_state_machine()
 
     @abstractmethod
     def get_tags(self, operation: APIOperation) -> list[str] | None:
         raise NotImplementedError
 
-    @abstractmethod
     def get_operation_id(self, operation: APIOperation) -> str | None:
-        raise NotImplementedError
+        return None
 
     @abstractmethod
     def is_deprecated(self, operation: APIOperation) -> bool:
@@ -575,6 +588,10 @@ class BaseSchema(Mapping):
         case: Case | None = None,
     ) -> bool | None:
         raise NotImplementedError
+
+    def parse_rejection(self, operation: APIOperation, case: Case, response: Response) -> tuple[Observation, ...]:
+        """Field-level observations a rejection carries outside its body, e.g. gRPC status details. Default: none."""
+        return ()
 
     def record_runtime_observations(
         self,
@@ -679,17 +696,48 @@ class BaseSchema(Mapping):
         Default no-op; specs whose errors aren't fully captured by HTTP status (e.g. GraphQL 200 + errors body) override.
         """
 
-    def evaluate_negative_data(self, case: Case, response: Response) -> None:
+    def evaluate_auth(self, ctx: CheckContext, response: Response, case: Case) -> bool | None:
+        """Raise a Failure if the operation answers without the credentials the request carried.
+
+        Default skips the check; specs that can tell whether credentials are enforced override.
+        """
+        return True
+
+    def server_error(self, case: Case, response: Response) -> ServerError:
+        """The failure an error status reports.
+
+        Specs whose error responses carry a status name or a machine-readable origin (e.g. gRPC library errors) override.
+        """
+        return ServerError(operation=case.operation.label, status_code=response.status_code)
+
+    def evaluate_negative_data(self, ctx: CheckContext, response: Response, case: Case) -> bool | None:
         """Raise a Failure if the schema's own conventions show that invalid data was accepted.
 
-        Default no-op; OpenAPI judges by status code in `negative_data_rejection` itself.
+        Default no-op; specs that can tell accepted data from rejected data override.
         """
+        return None
 
-    def evaluate_positive_data(self, case: Case, response: Response) -> None:
+    def evaluate_positive_data(self, ctx: CheckContext, response: Response, case: Case) -> bool | None:
         """Raise a Failure if the schema's own conventions show that valid data was rejected.
 
-        Default no-op; OpenAPI judges by status code in `positive_data_acceptance` itself.
+        Default no-op; specs that can tell accepted data from rejected data override.
         """
+        return None
+
+    def status_name_for_code(self, status_code: int) -> str | None:
+        """Name the protocol gives the status an HTTP status code stands for, or `None` when the code alone says it."""
+        return None
+
+    def operation_label_for_display(self, operation_label: str | None) -> str | None:
+        """Return the API operation label when transport method and path are only protocol framing."""
+        return None
+
+    def hash_case(self, case: Case) -> int:
+        """Hash of the request a case sends, ignoring its test case id."""
+        # Unmasked values, as masked ones would make distinct cases collide.
+        request = prepare_request(case, {SCHEMATHESIS_TEST_CASE_HEADER: "0"}, config=_NO_SANITIZATION)
+        headers = tuple(sorted((name.lower(), value) for name, value in request.headers.items()))
+        return hash((request.method, request.url, headers, request.body))
 
     def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome:
         """Decide what the API did with a request carrying positive test data.
@@ -903,6 +951,20 @@ class PayloadAlternatives(ParameterSet[P]):
 R = TypeVar("R", bound=ResponsesContainer)
 S = TypeVar("S")
 SchemaT = TypeVar("SchemaT", bound="BaseSchema")
+
+
+class UndeclaredResponses:
+    """Responses of a specification that declares none per operation."""
+
+    def find_by_status_code(self, status_code: int) -> None:
+        return None
+
+    def add(self, status_code: str, definition: dict[str, Any]) -> None:
+        raise NotImplementedError
+
+    @property
+    def status_codes(self) -> tuple[str, ...]:
+        return ()
 
 
 @dataclass(repr=False)
@@ -1126,22 +1188,6 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         self, form_data: dict[str, Any], media_type: str, selected_content_types: dict[str, str] | None = None
     ) -> tuple[list | None, dict[str, Any] | None]:
         return self.schema.prepare_multipart(form_data, self, media_type, selected_content_types=selected_content_types)
-
-    def get_request_payload_content_types(self) -> list[str]:
-        return self.schema.get_request_payload_content_types(self)
-
-    def _get_default_media_type(self) -> str:
-        # If the user wants to send payload, then there should be a media type, otherwise the payload is ignored
-        media_types = self.get_request_payload_content_types()
-        if len(media_types) == 1:
-            # The only available option
-            return media_types[0]
-        media_types_repr = ", ".join(media_types)
-        raise IncorrectUsage(
-            "Can not detect appropriate media type. "
-            "You can either specify one of the defined media types "
-            f"or pass any other media type available for serialization. Defined media types: {media_types_repr}"
-        )
 
     def validate_response(
         self,

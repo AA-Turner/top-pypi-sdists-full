@@ -1,0 +1,738 @@
+from __future__ import annotations
+
+import base64
+import os
+import socket
+import threading
+import time
+import typing as t
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING
+
+import pytest
+
+import ry
+
+from .conftest import big_body
+
+if TYPE_CHECKING:
+    from ry.ryo3 import RequestKwargs
+
+    from .conftest import ReqtestServer
+
+
+def test_get(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    response = client.get(str(url) + "howdy")
+    assert not response.body_used
+    assert response.status_code == 200
+    assert response.version == "HTTP/1.1"
+    res_text = response.text()
+    assert response.body_used
+    assert res_text == '{"howdy": "partner"}'
+    assert response.ok
+    assert bool(response)
+    assert (
+        f"{response!r}"
+        == f"<BlockingResponse [{response.status_code}; {response.url}]>"
+    )
+    assert response.content_encoding is None
+    if response.remote_addr is not None:
+        assert isinstance(response.remote_addr, ry.SocketAddr)
+    assert response.content_length == len(res_text)
+
+
+def test_bytes(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    response = client.get(str(url) + "howdy")
+    assert response.status_code == 200
+    assert response.version == "HTTP/1.1"
+    res_bin = response.bytes()
+    assert res_bin == b'{"howdy": "partner"}'
+    assert response.ok
+    assert bool(response)
+
+
+def test_get_query(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    query_params = {
+        "dog": "dingo",
+        "is-dingo": True,
+        "bluey-fam-size": 4,
+        "fraction-red-heelers": 2 / 4,
+    }
+    response = client.fetch(str(url) + "howdy", query=query_params)
+    assert response.status_code == 200
+    assert response.version == "HTTP/1.1"
+    assert not response.redirected
+    assert response.status == 200
+    assert response.status_text == "OK"
+    assert response.status_code == ry.HttpStatus(200)
+    res_text = response.text()
+    assert res_text == '{"howdy": "partner"}'
+
+    expected_query = "dog=dingo&is-dingo=true&bluey-fam-size=4&fraction-red-heelers=0.5"
+    assert response.url.query == expected_query
+
+    assert isinstance(response.url.query_pairs, tuple)
+    assert response.url.query_pairs == (
+        ("dog", "dingo"),
+        ("is-dingo", "true"),
+        ("bluey-fam-size", "4"),
+        ("fraction-red-heelers", "0.5"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "options"),
+    [
+        ("get", {}),
+        ("post", {}),
+        ("put", {}),
+        ("delete", {}),
+        ("patch", {}),
+        ("head", {}),
+        ("options", {}),
+        ("query", {}),
+    ],
+)
+@pytest.mark.parametrize(
+    "use_cls_callable",
+    [True, False],
+)
+def test_blocking_client_methods(
+    server: ReqtestServer,
+    method: t.Literal[
+        "get", "post", "put", "delete", "patch", "head", "options", "query"
+    ],
+    options: RequestKwargs,
+    *,
+    use_cls_callable: bool,
+) -> None:
+    """Test that headers are sent with the request and work good"""
+    url = server.url
+    client = ry.BlockingClient()
+    if use_cls_callable:
+        response = client(str(url) + "echo", method=method, **options)
+    else:
+        response = getattr(client, method)(str(url) + "echo", **options)
+    assert response.status_code == 200
+    assert response.headers["x-request-method"] == method.upper()
+    if method.lower() != "head":
+        response_data = response.json()
+        assert response_data["method"].lower() == method
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete", "query"])
+@pytest.mark.parametrize(
+    "form_data",
+    [
+        {
+            "dog": "dingo",
+            "is-dingo": True,
+            "bluey-fam-size": 4,
+            "fraction-red-heelers": 2 / 4,
+        },
+        [
+            ("dog", "dingo"),
+            ("is-dingo", True),
+            ("bluey-fam-size", 4),
+            ("fraction-red-heelers", 2 / 4),
+        ],
+    ],
+)
+def test_form_data(
+    server: ReqtestServer,
+    method: t.Literal["post", "put", "patch", "delete", "query"],
+    form_data: t.Any,
+) -> None:
+    url = server.url / "echo"
+    client = ry.BlockingClient()
+    form_data = {
+        "dog": "dingo",
+        "is-dingo": True,
+        "bluey-fam-size": 4,
+        "fraction-red-heelers": 2 / 4,
+    }
+    response = client.fetch(
+        url,
+        method=method,
+        form=form_data,
+    )
+
+    assert response.status_code == 200
+    assert response.version == "HTTP/1.1"
+    assert response.http_version == "HTTP/1.1"
+    assert not response.redirected
+    assert response.status == 200
+    assert response.status_text == "OK"
+    assert response.status_code == ry.HttpStatus(200)
+    res_json = response.json()
+
+    expected_body = "dog=dingo&is-dingo=true&bluey-fam-size=4&fraction-red-heelers=0.5"
+    assert res_json["body"] == expected_body
+
+
+def test_get_query_url_already_has_param(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    query_params = {
+        "dog": "dingo",
+        "is-dingo": True,
+        "bluey-fam-size": 4,
+        "fraction-red-heelers": 2 / 4,
+    }
+    response = client.fetch(str(url) + "howdy?doggy=bruf", query=query_params)
+    assert response.status_code == 200
+    assert response.version == "HTTP/1.1"
+    assert not response.redirected
+    assert response.status == 200
+    assert response.status_text == "OK"
+    assert response.status_code == ry.HttpStatus(200)
+    res_text = response.text()
+    assert res_text == '{"howdy": "partner"}'
+
+    expected_query = (
+        "doggy=bruf&dog=dingo&is-dingo=true&bluey-fam-size=4&fraction-red-heelers=0.5"
+    )
+    assert response.url.query == expected_query
+
+    assert response.url.query_pairs == (
+        ("doggy", "bruf"),
+        ("dog", "dingo"),
+        ("is-dingo", "true"),
+        ("bluey-fam-size", "4"),
+        ("fraction-red-heelers", "0.5"),
+    )
+
+
+def test_get_url(server: ReqtestServer) -> None:
+    url_str = str(server.url) + "howdy"
+    url_obj = ry.URL(url_str)
+    client = ry.BlockingClient()
+
+    response = client.get(url_obj)
+    assert response.status_code == 200
+    res_text = response.text()
+    assert res_text == '{"howdy": "partner"}'
+
+
+def test_get_json(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    response = client.get(str(url) + "howdy")
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json == {"howdy": "partner"}
+    headers = response.headers
+    assert isinstance(headers, ry.Headers)
+    assert headers["content-type"] == "application/json"
+    headers_dict = dict(headers)
+    assert headers_dict["content-type"] == "application/json"
+
+
+class TestResponseJson:
+    def test_get_json_broken_is_broken(self, server: ReqtestServer) -> None:
+        url = server.url / "broken-json"
+        client = ry.BlockingClient()
+        response = client.get(url)
+        with pytest.raises(
+            ry.JSONDecodeError, match="EOF while parsing a string: line 1 column 153"
+        ) as exc_info:
+            _data = response.json()
+        assert exc_info.value.doc == ry.Bytes(
+            b'{"dog":"dingo","is-dingo":true,"bluey-fam-size":4,"fraction-red-heelers":0.5,"activities":["screwing up the garden","barking at strangers for existing","'
+        )
+
+    def test_get_json_broken_is_broken_allow_partial(
+        self, server: ReqtestServer
+    ) -> None:
+        url = server.url / "broken-json"
+        client = ry.BlockingClient()
+        response = client.get(url)
+        data = response.json(partial_mode=True)
+        expected = {
+            "dog": "dingo",
+            "is-dingo": True,
+            "bluey-fam-size": 4,
+            "fraction-red-heelers": 0.5,
+            "activities": [
+                "screwing up the garden",
+                "barking at strangers for existing",
+            ],
+        }
+        assert data == expected
+
+
+class TestAuthHeaders:
+    def _basic_auth_header(self, username: str, password: str | None) -> str:
+
+        _password = password if password is not None else ""
+        user_pass = f"{username}:{_password}"
+        user_pass_bytes = user_pass.encode("utf-8")
+        base64_bytes = base64.b64encode(user_pass_bytes)
+        base64_str = base64_bytes.decode("utf-8")
+        return f"Basic {base64_str}"
+
+    @pytest.mark.parametrize(
+        "basic_auth",
+        [
+            ("supersecretuser", "solarwinds123"),
+            ("supersecretuser", None),
+        ],
+    )
+    def test_basic_auth_headers(
+        self, server: ReqtestServer, basic_auth: tuple[str, str | None]
+    ) -> None:
+        url = server.url / "echo"
+        client = ry.BlockingClient()
+        response = client.get(url, basic_auth=basic_auth)
+        assert response.status_code == 200
+        res_json = response.json()
+        expected_auth_header = self._basic_auth_header(*basic_auth)
+        assert res_json["headers"]["authorization"] == expected_auth_header
+
+    def test_bearer_auth_headers(self, server: ReqtestServer) -> None:
+        url = server.url / "echo"
+        token = "supersecrettoken"  # noqa: S105
+        client = ry.BlockingClient()
+        response = client.get(url, bearer_auth=token)
+        assert response.status_code == 200
+        res_json = response.json()
+        expected_auth_header = f"Bearer {token}"
+        assert res_json["headers"]["authorization"] == expected_auth_header
+
+
+class TestStream:
+    @staticmethod
+    def test_get_bytes_stream(server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient()
+        response = client.get(str(url) + "long")
+
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        parts = b""
+        for thing in response.bytes_stream():
+            parts += thing
+        assert parts == expected
+
+    @staticmethod
+    def test_get_stream(server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient()
+        response = client.get(str(url) + "long")
+
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        parts = b""
+        for thing in response.stream():
+            parts += thing
+        assert parts == expected
+
+    @staticmethod
+    def test_get_stream_take_huge_n(server: ReqtestServer) -> None:
+        response = ry.BlockingClient().get(str(server.url) + "long")
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        taken = response.bytes_stream().take(2**62)
+        assert b"".join(taken) == expected
+
+    @staticmethod
+    def test_get_stream_take_collect(server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient()
+        response = client.get(str(url) + "long")
+
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        response_stream = response.bytes_stream()
+
+        take1 = response_stream.take(1)
+        take2 = response_stream.take(2)
+        assert len(take1) == 1
+        assert len(take2) == 2
+        rest = response_stream.collect()
+        joined = b"".join(take1 + take2 + rest)
+        assert joined == expected
+        expected_len = len(expected) - (
+            sum(len(t) for t in take1) + sum(len(t) for t in take2)
+        )
+        rest_total_inner_len = sum(len(t) for t in rest)
+        assert rest_total_inner_len == expected_len
+
+    @staticmethod
+    def test_get_bytes_stream_with(server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        response = client.get(str(server.url) + "long")
+        response_stream = response.bytes_stream()
+        parts = b""
+        with response_stream as s:
+            assert s is response_stream
+            for chunk in s:
+                parts += chunk
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        assert parts == expected
+        with pytest.raises(StopIteration):
+            next(response_stream)
+
+    @staticmethod
+    def test_get_bytes_stream_close_before_read(server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        response = client.get(str(server.url) + "long")
+        response_stream = response.bytes_stream()
+        response_stream.close()
+        with pytest.raises(StopIteration):
+            next(response_stream)
+
+    @staticmethod
+    def test_get_bytes_stream_close_starts_tbd_next() -> None:
+        srv = socket.create_server(("127.0.0.1", 0))
+        port = srv.getsockname()[1]
+        stall = threading.Event()
+
+        def _headers_and_chill() -> None:
+            conn, _ = srv.accept()
+            with conn:
+                conn.recv(65536)
+                conn.sendall(b"HTTP/1.1 200 OK\r\ncontent-length: 10\r\n\r\n")
+                stall.wait(10)
+
+        server_thread = threading.Thread(target=_headers_and_chill, daemon=True)
+        server_thread.start()
+        try:
+            client = ry.BlockingClient()
+            response = client.get(f"http://127.0.0.1:{port}/")
+            response_stream = response.bytes_stream()
+            with ThreadPoolExecutor(2) as pool:
+                pending = pool.submit(next, response_stream)
+                time.sleep(0.05)
+                # close from another thread gotta wake the paused next()
+                pool.submit(response_stream.close).result(timeout=5)
+                with pytest.raises(StopIteration):
+                    pending.result(timeout=5)
+        finally:
+            stall.set()
+            server_thread.join(5)
+            srv.close()
+
+    @staticmethod
+    def test_get_stream_readall(server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient()
+        response = client.get(str(url) + "long")
+
+        expected = "".join([f"howdy partner {i}\n" for i in range(100)]).encode()
+        response_stream = response.bytes_stream()
+        collected = response_stream.readall()
+        assert isinstance(collected, ry.Bytes)
+        assert collected == expected
+
+
+def test_client_headers_req(server: ReqtestServer) -> None:
+    """Test that headers are sent with the request and work good"""
+    url = server.url
+    client = ry.BlockingClient()
+    headers = {"User-Agent": "ry-test", "babydog": "dingo"}
+    response = client.get(str(url) + "echo", headers=headers)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["headers"]["user-agent"] == "ry-test"
+    assert res_json["headers"]["babydog"] == "dingo"
+
+
+def test_client_headers_obj_req(server: ReqtestServer) -> None:
+    """Test that headers are sent with the request and work good"""
+    url = server.url
+    client = ry.BlockingClient()
+    headers = {"User-Agent": "ry-test", "babydog": "dingo"}
+    response = client.get(str(url) + "echo", headers=ry.Headers(headers))
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["headers"]["user-agent"] == "ry-test"
+    assert res_json["headers"]["babydog"] == "dingo"
+
+
+def test_client_default_headers_get(server: ReqtestServer) -> None:
+    """Test that default headers are sent with the request and work good"""
+    url = server.url
+    client = ry.BlockingClient(headers={"User-Agent": "ry-test", "babydog": "dingo"})
+    response = client.get(str(url) + "echo")
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["headers"]["user-agent"] == "ry-test"
+    assert res_json["headers"]["babydog"] == "dingo"
+
+
+@pytest.mark.parametrize(
+    "body", [b"BABOOM", ry.Bytes(b"BABOOM"), lambda: [bytes([e]) for e in b"BABOOM"]]
+)
+def test_client_post(
+    server: ReqtestServer, body: bytes | ry.Bytes | t.Callable[[], t.Any]
+) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    _body = body() if callable(body) else body
+    response = client.post(str(url) + "echo", body=_body)  # ty:ignore[invalid-argument-type]
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["body"] == "BABOOM"
+
+
+def test_client_post_stream_body_does_not_block_runtime(server: ReqtestServer) -> None:
+    """Test that stalled body iterators dont nuke the tokio workers"""
+    url = str(server.url)
+    client = ry.BlockingClient()
+    n_uploads = (os.cpu_count() or 1) * 2
+    release = threading.Event()
+    stalled = threading.Semaphore(0)
+
+    def _stalled_body() -> t.Iterator[bytes]:
+        yield b"BABY"
+        stalled.release()
+        release.wait(30)
+        yield b"DOG"
+
+    with ThreadPoolExecutor(n_uploads + 1) as pool:
+        uploads = [
+            pool.submit(client.post, url + "echo", body=_stalled_body())
+            for _ in range(n_uploads)
+        ]
+        try:
+            for _ in range(n_uploads):
+                assert stalled.acquire(timeout=10)
+            response = pool.submit(client.get, url + "howdy").result(timeout=10)
+            assert response.status_code == 200
+        finally:
+            release.set()
+        for upload in uploads:
+            assert upload.result(timeout=10).json()["body"] == "BABYDOG"
+
+
+def test_client_post_json(server: ReqtestServer) -> None:
+    url = server.url
+    client = ry.BlockingClient()
+    response = client.post(str(url) + "echo", json={"body": "BABOOM"})
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["headers"]["content-type"] == "application/json"
+    assert res_json["body"] == '{"body":"BABOOM"}'
+
+
+def test_client_post_json_and_form_errors(server: ReqtestServer) -> None:
+    url = server.url / "echo"
+    client = ry.BlockingClient()
+    with pytest.raises(
+        ValueError, match="body, json, form, multipart are mutually exclusive"
+    ):
+        _response = client.post(url, json={"body": "BABOOM"}, form={"a": 1})
+
+
+class TestBlockingSyncBodyPull:
+    """small sync bodies get pulled on the calling thread (blocking client)"""
+
+    @pytest.mark.parametrize("n_chunks", [0, 1, 4, 64])
+    def test_generator_body(self, server: ReqtestServer, n_chunks: int) -> None:
+        chunk = b"x" * 1024
+
+        def _body() -> t.Iterator[bytes]:
+            for _ in range(n_chunks):
+                yield chunk
+
+        client = ry.BlockingClient()
+        response = client.post(str(server.url) + "echo", body=_body())
+        assert response.status_code == 200
+        assert len(response.json()["body"]) == n_chunks * len(chunk)
+
+    def test_big_generator_body(self, server: ReqtestServer) -> None:
+        # way over the pull limit ~ pulled head + pumped rest
+        chunk = b"x" * (64 * 1024)
+
+        def _body() -> t.Iterator[bytes]:
+            for _ in range(32):
+                yield chunk
+
+        client = ry.BlockingClient()
+        response = client.post(str(server.url) + "echo", body=_body())
+        assert len(response.json()["body"]) == 32 * len(chunk)
+
+    @pytest.mark.parametrize("n_chunks", [0, 1, 32])
+    def test_generator_body_raises(self, server: ReqtestServer, n_chunks: int) -> None:
+        chunk = b"x" * (64 * 1024)
+
+        def _body() -> t.Iterator[bytes]:
+            for _ in range(n_chunks):
+                yield chunk
+            msg = "BABOOM"
+            raise RuntimeError(msg)
+
+        client = ry.BlockingClient()
+        with pytest.raises(Exception, match="BABOOM"):
+            client.post(str(server.url) + "echo", body=_body())
+
+    def test_bad_chunk_type(self, server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        with pytest.raises(Exception):  # noqa: B017, PT011
+            client.post(str(server.url) + "echo", body=iter([b"ok", 12345]))  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+
+
+class TestBlockingListBody:
+    """list/tuple bodies"""
+
+    @pytest.mark.parametrize("n_chunks", [0, 1, 4, 64, 1024, 1025, 5000])
+    @pytest.mark.parametrize("container", [list, tuple])
+    def test_list_body(
+        self, server: ReqtestServer, n_chunks: int, container: type
+    ) -> None:
+        chunks = container(f"chunk{i}-".encode() for i in range(n_chunks))
+        client = ry.BlockingClient()
+        res = client.post(str(server.url) + "echo", body=chunks).json()
+        assert res["body"] == b"".join(chunks).decode()
+        if n_chunks:
+            assert res["headers"]["transfer-encoding"] == "chunked"
+
+    def test_ry_bytes_items(self, server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        body = [ry.Bytes(b"abc"), b"def", ry.Bytes(b"ghi")]
+        res = client.post(str(server.url) + "echo", body=body).json()  # type: ignore[arg-type]
+        assert res["body"] == "abcdefghi"
+
+    def test_mixed_buffers(self, server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        body = [b"abc", bytearray(b"def"), memoryview(b"ghi")]
+        res = client.post(str(server.url) + "echo", body=body).json()  # type: ignore[arg-type]
+        assert res["body"] == "abcdefghi"
+
+    def test_bad_item(self, server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        with pytest.raises(TypeError, match="index 1"):
+            client.post(str(server.url) + "echo", body=[b"ok", 12345])  # type: ignore[list-item]  # ty:ignore[invalid-argument-type]
+
+
+class TestKnownLengthStream:
+    """known-length bodies bigger than the prefetch"""
+
+    @pytest.mark.parametrize("n", [100_000, 1_000_000])
+    @pytest.mark.parametrize("encoding", ["identity", "gzip"])
+    def test_stream(self, server: ReqtestServer, n: int, encoding: str) -> None:
+        url = str(server.url) + f"big/{n}" + ("/gzip" if encoding == "gzip" else "")
+        client = ry.BlockingClient()
+        response = client.get(url)
+        chunks = [bytes(c) for c in response.stream()]
+        assert b"".join(chunks) == big_body(n)
+        assert bytes(client.get(url).bytes()) == big_body(n)
+
+
+class TestPrefetch:
+    """small known-length bodies come back w/ the head"""
+
+    def test_blocking_small_body(self, server: ReqtestServer) -> None:
+        client = ry.BlockingClient()
+        url = str(server.url) + "howdy"
+        expected = bytes(client.get(url).bytes())
+        assert b"".join(bytes(c) for c in client.get(url).stream()) == expected
+        assert client.get(url).text() == expected.decode()
+
+
+class TestTimeout:
+    def test_client_timeout_get_both_same_time(self, server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient()
+        res = client.get(str(url) + "slow")
+        text_future = res.text()
+        with pytest.raises(ValueError, match="Response already consumed"):
+            _bytes_future = res.bytes()
+        text = text_future
+        assert text == "".join([f"howdy partner {i}\n" for i in range(10)])
+
+    def _get_slow(self, url: str, client: ry.BlockingClient) -> str:
+        response = client.get(url)
+        return response.text()
+
+    def test_client_timeout(self, server: ReqtestServer) -> None:
+        url = server.url
+        client = ry.BlockingClient(timeout=ry.Duration.from_secs_f64(0.1))
+        slow_url = str(url) + "slow"
+        with pytest.raises(ry.ReqwestError):
+            _text = self._get_slow(slow_url, client)
+
+
+class TestCookies:
+    def test_client_cookie_jar_cookies_disabled(self, server: ReqtestServer) -> None:
+        """Test for cookies being set and sent back
+
+        Should not be set in the echo response, as cookies are not enabled
+        """
+        url = server.url
+        client = ry.BlockingClient()
+        response = client.get(str(url) + "cookies")
+        assert response.status_code == 200, f"response: {response}"
+        res_json = response.json()
+
+        header_set_cookie = response.headers["set-cookie"]
+        assert header_set_cookie == "ryo3=ryo3; Path=/"
+
+        # send to echo endpoint
+        response = client.get(str(url) + "echo")
+        assert response.status_code == 200, f"response: {response}"
+        res_json = response.json()
+        assert "cookie" not in res_json["headers"] or res_json["headers"]["cookie"] in (
+            None,
+            "",
+        ), "cookie should not be set in the echo response"
+
+    def test_client_cookie_jar_cookies_enabled(self, server: ReqtestServer) -> None:
+        """Test for cookies being set and sent back
+
+        Should be set in the echo response, as cookies are enabled
+        """
+        url = server.url
+        client = ry.BlockingClient(cookies=True)
+        response = client.get(str(url) + "cookies")
+        assert response.status_code == 200, f"response: {response}"
+        _res_json = response.json()
+
+        c = response.cookies
+        assert isinstance(c, list)
+        assert len(c) == 1
+
+        assert isinstance(c[0], ry.Cookie)
+        assert c[0].name == "ryo3"
+        assert c[0].value == "ryo3"
+        assert c[0].path == "/"
+
+        header_set_cookie = response.headers["set-cookie"]
+        assert header_set_cookie == "ryo3=ryo3; Path=/", (
+            f"header_set_cookie: {header_set_cookie}"
+        )
+
+        # send to echo endpoint
+        response = client.get(str(url) + "echo")
+        assert response.status_code == 200, f"response: {response}"
+        res_json = response.json()
+        assert res_json["headers"]["cookie"] == "ryo3=ryo3", f"res_json: {res_json}"
+
+
+class TestTodo:
+    def test_response_new_errs(self) -> None:
+        with pytest.raises(NotImplementedError):
+            _res = ry.Response()  # type: ignore[var-annotated]
+
+    def test_post_multipart_not_impl(
+        self,
+    ) -> None:
+        c = ry.BlockingClient()
+        with pytest.raises(NotImplementedError):
+            _r = c.post("http://example.com", multipart={"a": 1})
+
+    def test_client_fetch_multipart_not_impl(
+        self,
+    ) -> None:
+        c = ry.BlockingClient()
+        with pytest.raises(NotImplementedError):
+            _r = c.fetch("http://example.com", method="POST", multipart={"a": 1})
+
+    def test_fetch_multipart_not_impl(
+        self,
+    ) -> None:
+        with pytest.raises(NotImplementedError):
+            _r = ry.fetch_sync("http://example.com", method="POST", multipart={"a": 1})

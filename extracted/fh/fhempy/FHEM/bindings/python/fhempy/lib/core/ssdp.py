@@ -1,0 +1,185 @@
+import asyncio
+import sys
+
+from aiohttp import ClientSession
+from async_upnp_client.advertisement import SsdpAdvertisementListener
+from async_upnp_client.aiohttp import AiohttpSessionRequester
+from async_upnp_client.client_factory import UpnpFactory
+from async_upnp_client.search import async_search as async_ssdp_search
+
+
+# ssdp search class can be used by other modules as well
+class ssdp:
+
+    __instance = None
+
+    @staticmethod
+    def getInstance(logger):
+        if ssdp.__instance is None:
+            ssdp.__instance = ssdp(logger)
+        return ssdp.__instance
+
+    def __init__(self, logger):
+        if ssdp.__instance is not None:
+            raise Exception("ssdp already defined, use getInstance")
+        self.logger = logger
+        self.listeners = []
+        self.listener = None
+        self.search_tasks = []
+        self.advertisement_task = None
+        self.nr_started_searches = 0
+
+        # build upnp/aiohttp requester
+        self.session = ClientSession()
+        self.requester = AiohttpSessionRequester(self.session, True)
+        # create upnp device
+        self.factory = UpnpFactory(self.requester)
+
+    async def start_search(self):
+        self.nr_started_searches += 1
+        self.search_tasks.append(asyncio.create_task(self.search()))
+
+        if self.advertisement_task is None:
+            self.advertisement_task = asyncio.create_task(self.advertisements())
+
+    async def stop_search(self, listener):
+        # only listeners which started a search stop it, e.g. not after a
+        # failed Define
+        found = [entry for entry in self.listeners if entry["listener"] is listener]
+        if not found:
+            return
+        self.listeners = [
+            entry for entry in self.listeners if entry["listener"] is not listener
+        ]
+        if self.nr_started_searches > 0:
+            self.nr_started_searches -= 1
+        # stop search only when last client stops it
+        if self.nr_started_searches == 0:
+            for task in self.search_tasks:
+                task.cancel()
+            self.search_tasks = []
+            if self.advertisement_task is not None:
+                self.advertisement_task.cancel()
+                self.advertisement_task = None
+            if self.listener is not None:
+                await self.listener.async_stop()
+                self.listener = None
+            # the session is kept, the factory uses it for the next search
+
+    def register_listener(self, listener, ssdp_filter={"service_type": "ssdp:all"}):
+        listenerFilter = {
+            "listener": listener,
+            "ssdp_filter": ssdp_filter,
+            "found_devices": {},
+        }
+        self.listeners.append(listenerFilter)
+
+    async def updated_device(self, udn):
+        return
+
+    async def create_device(self, msg, data):
+        upnp_device = None
+        try:
+            if msg != "byebye":
+                upnp_device = await self.factory.async_create_device(data["location"])
+        except Exception:
+            # upnp_device remains None
+            pass
+        return upnp_device
+
+    async def handle_msg(self, msg, data):
+        try:
+            data = {key.lower(): str(value) for key, value in data.items()}
+            usn = data["usn"]
+            arr = usn.split("::")
+            udn = arr[0]
+            if len(arr) > 1:
+                st = arr[1]
+            else:
+                st = ""
+            self.logger.debug("found: " + usn)
+            # filter for listeners
+            for listenerFilter in self.listeners:
+                listener = listenerFilter["listener"]
+                ssdp_filter = listenerFilter["ssdp_filter"]
+                filter_udn = None
+                filter_st = None
+                if "udn" in ssdp_filter:
+                    filter_udn = ssdp_filter["udn"]
+                if "service_type" in ssdp_filter:
+                    filter_st = ssdp_filter["service_type"]
+                if (udn == filter_udn or filter_udn is None) and (
+                    st == filter_st or filter_st == "ssdp:all"
+                ):
+                    if usn not in listenerFilter["found_devices"] and msg == "alive":
+                        self.logger.debug("create device: " + usn)
+                        listenerFilter["found_devices"][usn] = await self.create_device(
+                            msg, data
+                        )
+                        if listenerFilter["found_devices"][usn]:
+                            self.logger.debug("found device: " + usn)
+                            await listener.found_device(
+                                listenerFilter["found_devices"][usn]
+                            )
+                    elif usn in listenerFilter["found_devices"] and msg == "byebye":
+                        self.logger.debug("removed device: " + usn)
+                        await listener.removed_device(
+                            listenerFilter["found_devices"][usn]
+                        )
+                        del listenerFilter["found_devices"][usn]
+        except Exception:
+            self.logger.exception("Error in handle_msg")
+
+    async def search(self):
+        await self.search_once()
+
+    @staticmethod
+    def _source():
+        if sys.platform == "win32":
+            # force to IPv4 to prevent asyncio crash/WinError 10022
+            return ("0.0.0.0", 0)
+        return None
+
+    async def search_once(self):
+        async def on_response(data):
+            await self.handle_msg("alive", data)
+
+        try:
+            await async_ssdp_search(
+                async_callback=on_response,
+                timeout=30,
+                search_target="ssdp:all",
+                source=self._source(),
+            )
+        except asyncio.CancelledError:
+            self.logger.debug("search cancelled")
+            raise
+        except Exception as exc:
+            self.logger.error(f"SSDP search failed: {exc}")
+
+    async def advertisements(self):
+        """Listen for advertisements."""
+
+        async def on_alive(data):
+            await self.handle_msg("alive", data)
+
+        async def on_byebye(data):
+            await self.handle_msg("byebye", data)
+
+        retry = 60
+        while True:
+            try:
+                self.listener = SsdpAdvertisementListener(
+                    async_on_alive=on_alive,
+                    async_on_byebye=on_byebye,
+                    source=self._source(),
+                )
+                await self.listener.async_start()
+                return
+            except Exception as exc:
+                self.listener = None
+                self.logger.error(
+                    f"Error in advertisements listener: {exc}, retry in {retry}s"
+                )
+            await asyncio.sleep(retry)
+            retry = min(retry * 2, 3600)

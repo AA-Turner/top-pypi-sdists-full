@@ -1,0 +1,127 @@
+Metadata-Version: 2.5
+Name: vention-sim-grpc-py-sdk
+Version: 0.1.29
+Summary: Generated Python gRPC clients for the Vention simulation protos
+Project-URL: Homepage, https://github.com/VentionCo/simulation
+Project-URL: Repository, https://github.com/VentionCo/simulation
+Author: VentionCo
+License: Proprietary
+Keywords: client,grpc,protobuf,simulation,vention
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Requires-Dist: grpcio<2,>=1.74.0
+Requires-Dist: protobuf<7,>=6.31.1
+Requires-Dist: vention-grpc-py-sdk>=0.0.85
+Description-Content-Type: text/markdown
+
+# vention-sim-grpc-py-sdk
+
+Generated Python gRPC clients for the Vention simulation protos (`physics/**` and
+`vention/simulation/**` under [`libs/proto/`](../proto)), published from this repo.
+
+## Install
+
+```bash
+pip install vention-sim-grpc-py-sdk
+```
+
+This also installs [`vention-grpc-py-sdk`](https://pypi.org/project/vention-grpc-py-sdk/),
+which ships the `vention.robots`, `vention.io_modules`, `vention.machine_motion`,
+`vention.motors`, `vention.vision`, and `google.type` messages the simulation protos embed.
+
+## Use
+
+```python
+import grpc
+
+from vention.robots.v1.joint_trajectory_point_pb2 import JointTrajectoryPoint
+from vention_sim import SIMULATION_SHA, VENTION_PROTOS_SHA, __version__
+from vention_sim.simulation.v1.sim_robot_driver_commands_pb2 import StartTrajectoryRequest
+from vention_sim.simulation.v4.scene.scene_management_service_pb2_grpc import SceneManagementServiceStub
+
+channel = grpc.insecure_channel("localhost:50055")
+scene = SceneManagementServiceStub(channel)
+request = StartTrajectoryRequest(points=[JointTrajectoryPoint()])
+print(f"built from simulation@{SIMULATION_SHA} and vention-protos@{VENTION_PROTOS_SHA}")
+```
+
+## Import root
+
+The modules live under `vention_sim`: a proto at `vention/simulation/v1/x.proto` is
+`vention_sim.simulation.v1.x_pb2`, and one at `physics/v3/x.proto` is
+`vention_sim.physics.v3.x_pb2`. Only the Python import path differs from protoc's default.
+The proto packages (`vention.simulation.*`, `physics.*`), file names, gRPC method paths and
+`Any` type URLs are unchanged, so a `vention-grpc-py-sdk` message drops straight into a
+simulation request and reflection sees the same types as every other language.
+
+protoc would otherwise place the stubs at `vention.simulation.*`, inside the `vention`
+package that `vention-grpc-py-sdk` owns. Two distributions sharing a regular package only
+work while both unpack into the same `site-packages`; editable installs and any layout with
+more than one root on `sys.path` lose one of them. Giving this package its own import root
+removes the shared directory, so it works in every layout and never depends on how
+`vention-grpc-py-sdk` is laid out.
+
+## One package per proto source
+
+The simulation protos import `vention-protos` files, and both packages have to coexist in
+one environment. Python leaves no good way to ship two copies of the same generated module:
+two distributions writing the same path overwrite each other in `site-packages`, and protobuf
+registers every message in a process-global pool that rejects duplicates. So this package
+ships only the simulation-owned stubs and takes the shared ones from `vention-grpc-py-sdk`,
+the same way `grpcio-status` takes `google.rpc` from `googleapis-common-protos`.
+
+The dependency is `vention-grpc-py-sdk>=<release>`, the release generated from the
+`vention-protos` commit pinned in [`libs/proto/package.json`](../proto/package.json)
+(`config.protos.tag`). The stubs need every proto that commit ships, and later releases keep
+them, so a lower bound is enough. It also lets a project pin a newer release, or the
+`<next release>.devN` build an open `vention-protos-clients` PR publishes, next to this
+package. Older releases and dev builds still conflict, since they may predate protos the
+stubs import.
+
+## Versions
+
+Releases publish on every push to `main` that touches `libs/proto/**` or `libs/python-sdk/**`, as the
+next patch after the latest release on PyPI. Pull requests touching those paths, and manual runs
+of the workflow on any other branch, publish a `X.Y.Z.dev<build id>` build (PRs get the install
+command as a comment). Once a release exists, `pip` only installs a dev build when its version
+is spelled out.
+
+`vention_sim._source` records what a wheel was built from: `SIMULATION_SHA` (the PR head for
+dev builds), `VENTION_PROTOS_SHA`, `VENTION_GRPC_PY_SDK_VERSION`, and `__version__`.
+
+## Contributing
+
+Nothing in `libs/python-sdk/src` is committed; CI regenerates it from `libs/proto/` before publishing.
+The NX targets need `python3` and create `libs/python-sdk/.venv` themselves:
+
+```bash
+pnpm install                          # buf comes from the proto workspace
+pnpm nx run python-sdk:generate       # stubs only; cached
+pnpm nx run python-sdk:check          # the stubs compile; cached
+pnpm nx run python-sdk:build          # stamp, build and validate the wheel, as CI does
+```
+
+`generate` depends on `proto:export`, which exports the vendored `vention-protos` at the pinned
+commit into `libs/proto/.vendor/` (SSH access to `VentionCo/vention-protos` required). It then
+generates the stubs with [`buf.gen.yaml`](buf.gen.yaml) and `mypy-protobuf`, pinned exactly in
+[`project.json`](project.json) because its output ships in the wheel, moves them under
+`vention_sim` and rewrites their imports and module names to match. Its output depends only on
+the protos and the generator versions, so NX caches it.
+
+`build` runs [`ci_python_package.py`](scripts/ci_python_package.py) and is never cached: it
+resolves the matching `vention-grpc-py-sdk` release from PyPI and the version to publish, stamps
+them with the source SHAs into `vention_sim/_source.py`, builds the wheel, installs it together
+with that release, and runs [`check_installed_wheel.py`](scripts/check_installed_wheel.py): the
+wheel requires at least the SDK release whose `PROTOS_SHA` equals the pin, every generated module
+imports, every generated message class belongs to its `vention_sim` module and pickles, a sim
+message keeps its proto package, file name, method path and `Any` type URL, and a
+`vention-grpc-py-sdk` message embeds into a sim request. Both import orders are then tried in
+fresh interpreters.
+
+`hatch_build.py` turns the resolved SDK release into the dependency's lower bound at build time.
+
+[`publish-python-sdk.yml`](../../.github/workflows/publish-python-sdk.yml) runs `build`, then
+`pnpm nx run python-sdk:publish`, which uploads the built `dist/` with the org's PyPI token.

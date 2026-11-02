@@ -1,0 +1,30 @@
+[package]
+name = "crunch64"
+version.workspace = true
+edition.workspace = true
+description = "A library for handling common compression formats for N64 games"
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+categories = ["no-std"]
+
+[lib]
+name = "crunch64"
+path = "src/lib.rs"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+crc32fast = "1.4.2"
+pyo3 = { version="0.26", features = ["extension-module", "abi3"], optional = true }
+thiserror = { version="2", default-features = false }
+
+[dev-dependencies]
+rstest = "0.18.2"
+
+[features]
+default = []
+
+std = ["thiserror/std"]
+
+c_bindings = []
+python_bindings = ["dep:pyo3", "std"]

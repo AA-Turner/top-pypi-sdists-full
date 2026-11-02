@@ -615,6 +615,25 @@ def test_cookie_values_use_cookie_octets(ctx, schema):
         assert set(case.cookies["c"]) <= COOKIE_OCTETS, repr(case.cookies["c"])
 
 
+@pytest.mark.hypothesis_nested
+def test_negative_cookie_values_use_cookie_octets(ctx):
+    operation = ctx.openapi.load_operation(
+        "GET /c",
+        {
+            "parameters": [
+                {"name": "c", "in": "cookie", "required": True, "schema": {"type": "string", "maxLength": 2}}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    # A `;` inside a value splits it on the wire, so the server may read a valid prefix.
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=30)
+    def test(case):
+        for value in _strings_in(case.cookies or {}):
+            assert set(value) <= COOKIE_OCTETS, repr(value)
+
+
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [({"type": "string", "enum": ["a b"]}, "a b"), ({"type": "string", "const": 'a;"b"'}, 'a;"b"')],
@@ -1111,19 +1130,19 @@ def test_referenced_parameter_example_mixed_into_strategy(ctx, version):
 
 
 @pytest.mark.hypothesis_nested
-def test_path_example_without_slash_does_not_allow_encoded_slash(ctx):
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        {"schema": {"type": "string", "pattern": "^[0-9]+/[0-9]+$"}, "example": "foo"},
+        {"schema": {"type": "string", "pattern": "^[{}]$"}},
+    ],
+    ids=["example-without-slash", "encoded-braces"],
+)
+def test_path_parameter_values_needing_encoded_characters_are_filtered(ctx, parameter):
     operation = ctx.openapi.load_operation(
         "GET /blocks/{block}",
         {
-            "parameters": [
-                {
-                    "name": "block",
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string", "pattern": "^[0-9]+/[0-9]+$"},
-                    "example": "foo",
-                }
-            ],
+            "parameters": [{"name": "block", "in": "path", "required": True, **parameter}],
             "responses": {"200": {"description": "OK"}},
         },
     )
@@ -1145,21 +1164,23 @@ def test_path_example_without_slash_does_not_allow_encoded_slash(ctx):
 
 
 @pytest.mark.hypothesis_nested
-def test_path_example_with_slash_allows_encoded_slash(ctx):
+@pytest.mark.parametrize(
+    ("version", "schema", "example"),
+    [
+        ("3.0.2", {"type": "string", "pattern": r"^[0-9.]+/[0-9]+$"}, {"example": "192.168.1.0/24"}),
+        ("3.0.2", {"type": "string", "enum": ["192.168.1.0/24"]}, {}),
+        ("3.1.0", {"type": "string", "const": "192.168.1.0/24"}, {}),
+    ],
+    ids=["example", "enum", "const"],
+)
+def test_path_example_with_slash_allows_encoded_slash(ctx, version, schema, example):
     operation = ctx.openapi.load_operation(
         "GET /blocks/{block}",
         {
-            "parameters": [
-                {
-                    "name": "block",
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string", "pattern": r"^[0-9.]+/[0-9]+$"},
-                    "example": "192.168.1.0/24",
-                }
-            ],
+            "parameters": [{"name": "block", "in": "path", "required": True, "schema": schema, **example}],
             "responses": {"200": {"description": "OK"}},
         },
+        version=version,
     )
     strategy = _hypothesis.get_parameters_strategy(
         operation,
@@ -1172,39 +1193,6 @@ def test_path_example_with_slash_allows_encoded_slash(ctx):
     @run_given(value=strategy, max_examples=10)
     def inner(value):
         assert "%2F" in value["block"]
-
-
-@pytest.mark.hypothesis_nested
-def test_path_parameters_encoded_braces_are_filtered(ctx):
-    operation = ctx.openapi.load_operation(
-        "GET /blocks/{block}",
-        {
-            "parameters": [
-                {
-                    "name": "block",
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string", "pattern": "^[{}]$"},
-                }
-            ],
-            "responses": {"200": {"description": "OK"}},
-        },
-    )
-    strategy = _hypothesis.get_parameters_strategy(
-        operation,
-        GenerationMode.POSITIVE,
-        ParameterLocation.PATH,
-        GenerationConfig(),
-        mix_examples=False,
-    )
-
-    @given(value=strategy)
-    @settings(max_examples=1, deadline=None)
-    def inner(value):
-        pass
-
-    with pytest.raises((FailedHealthCheck, Unsatisfiable)):
-        inner()
 
 
 @pytest.mark.hypothesis_nested
@@ -1258,6 +1246,53 @@ def test_positive_bias_keeps_path_integer_schema_valid(ctx, item_schema):
         for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), 20)
     ]
     assert [value for value in values if not validator.is_valid(value)] == []
+
+
+def test_positive_bias_turns_non_positive_path_integers_positive(ctx):
+    operation = ctx.openapi.load_operation(
+        "GET /items/{item_id}",
+        {
+            "parameters": [
+                {"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer", "enum": [-1, 0, 1]}}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    values = [
+        case.path_parameters["item_id"]
+        for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), 20)
+    ]
+    assert values.count(1) > values.count(-1) + values.count(0)
+
+
+def test_positive_bias_keeps_non_integer_and_out_of_schema_path_values(ctx):
+    schemas = {
+        "id": {"type": "integer", "enum": [-3, 3]},
+        "zero": {"type": "integer", "enum": [0, 1]},
+        "flag": {"type": "boolean"},
+        "bounded": {"type": "integer", "enum": [-4, 5]},
+        "amount": {"type": "number", "maximum": -1},
+    }
+    operation = ctx.openapi.load_operation(
+        "GET /items/{id}/{zero}/{flag}/{bounded}/{amount}",
+        {
+            "parameters": [
+                {"name": name, "in": "path", "required": True, "schema": schema} for name, schema in schemas.items()
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    cases = generate_many(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), 20)
+    assert {(name, value) for case in cases for name, value in case.path_parameters.items() if name != "amount"} <= {
+        ("id", -3),
+        ("id", 3),
+        ("zero", 0),
+        ("zero", 1),
+        ("flag", "false"),
+        ("flag", "true"),
+        ("bounded", -4),
+        ("bounded", 5),
+    }
 
 
 def test_custom_format_with_bytes(testdir):
@@ -1417,6 +1452,40 @@ def test_float_format_snapping_number_integer_union():
     assert schema["minimum"] > 0
 
 
+FLOAT32_MAX = 3.4028234663852886e38
+
+
+@pytest.mark.parametrize(
+    ("bounds", "expected"),
+    [
+        ({"exclusiveMinimum": 0}, {"minimum": 1.401298464324817e-45}),
+        ({"exclusiveMaximum": 0}, {"maximum": -1.401298464324817e-45}),
+        ({"exclusiveMinimum": -0.5}, {"minimum": -0.4999999701976776}),
+        ({"exclusiveMaximum": 0.5}, {"maximum": 0.4999999701976776}),
+        ({"exclusiveMaximum": 0.7}, {"maximum": 0.699999988079071}),
+        ({"exclusiveMaximum": FLOAT32_MAX}, {"maximum": 3.4028232635611926e38}),
+        ({"exclusiveMinimum": -FLOAT32_MAX}, {"minimum": -3.4028232635611926e38}),
+        ({"exclusiveMinimum": -1e39}, {"minimum": -FLOAT32_MAX}),
+        ({"exclusiveMaximum": 1e39}, {"maximum": FLOAT32_MAX}),
+    ],
+    ids=[
+        "above-zero",
+        "below-zero",
+        "above-negative",
+        "below-positive",
+        "below-rounds-down",
+        "below-largest",
+        "above-lowest",
+        "above-out-of-range",
+        "below-out-of-range",
+    ],
+)
+def test_float_format_snapping_steps_to_the_adjacent_single(bounds, expected):
+    schema = {"type": "number", "format": "float", **bounds}
+    _hypothesis.snap_float32_bounds(schema)
+    assert schema == {"type": "number", "format": "float", **expected}
+
+
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(
     ("schema", "sign"),
@@ -1533,30 +1602,29 @@ def test_float_format_snapping_skips_conditional_but_not_branches():
 
 
 @pytest.mark.parametrize(
-    "schema",
-    [
-        {"type": "number", "format": "float", "exclusiveMinimum": 10**1000},
-        {"type": "number", "format": "float", "exclusiveMaximum": -(10**1000)},
-    ],
-    ids=["minimum", "maximum"],
+    "bound",
+    [{"exclusiveMinimum": 10**1000}, {"exclusiveMaximum": -(10**1000)}, {"exclusiveMaximum": -1e39}],
+    ids=["minimum", "maximum", "maximum-float"],
 )
-def test_float_format_snapping_unsatisfiable_bound(schema):
+def test_float_format_snapping_unsatisfiable_bound(bound):
     # No finite float32 lies past the bound, so the node must become unsatisfiable, not gain an infinite bound.
+    schema = {"type": "number", "format": "float", **bound}
     _hypothesis.snap_float32_bounds(schema)
     assert schema == {"not": {}}
 
 
 @pytest.mark.parametrize(
-    ("schema", "valid", "invalid"),
+    ("siblings", "valid", "invalid"),
     [
-        ({"type": ["number", "null"], "format": "float", "exclusiveMinimum": 10**1000}, [None], [5.0]),
-        ({"format": "float", "exclusiveMinimum": 10**1000}, ["text"], [5.0]),
-        ({"format": "float", "exclusiveMinimum": 10**1000, "enum": ["ok"]}, ["ok"], [None, 5.0]),
+        ({"type": ["number", "null"]}, [None], [5.0]),
+        ({}, ["text"], [5.0]),
+        ({"enum": ["ok"]}, ["ok"], [None, 5.0]),
     ],
     ids=["union", "typeless", "typeless-enum"],
 )
-def test_float_format_unsatisfiable_bound_keeps_non_numeric(schema, valid, invalid):
+def test_float_format_unsatisfiable_bound_keeps_non_numeric(siblings, valid, invalid):
     # Forbidding the empty numeric branch keeps non-numeric values and sibling constraints (e.g. `enum`) valid.
+    schema = {"format": "float", "exclusiveMinimum": 10**1000, **siblings}
     _hypothesis.snap_float32_bounds(schema)
     for value in valid:
         assert jsonschema_rs.is_valid(schema, value), value
@@ -1620,7 +1688,12 @@ def test_unsatisfiable_parameter_is_the_one_the_engine_cannot_draw(ctx):
     assert found.name == "impossible"
 
 
-def test_slow_parameter_probe_survives_a_parameter_that_cannot_build(ctx):
+@pytest.mark.parametrize(
+    "probe",
+    [lambda operation: find_slow_parameter(operation, HealthCheck.too_slow), find_unsatisfiable_parameter],
+    ids=["slow-parameter", "unsatisfiable"],
+)
+def test_probe_survives_a_parameter_that_cannot_build(ctx, probe):
     # A strategy failing at build time must not escape the error-reporting probe
     operation = ctx.openapi.load_operation(
         "POST /data",
@@ -1643,36 +1716,7 @@ def test_slow_parameter_probe_survives_a_parameter_that_cannot_build(ctx):
         version="3.1.0",
     )
 
-    found = find_slow_parameter(operation, HealthCheck.too_slow)
-
-    assert found is not None
-    assert found.name == "application/json"
-
-
-def test_unsatisfiable_probe_survives_a_parameter_that_cannot_build(ctx):
-    # A strategy failing at build time must not escape the error-reporting probe
-    operation = ctx.openapi.load_operation(
-        "POST /data",
-        {
-            "requestBody": {
-                "required": True,
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "array",
-                            "items": {"type": "integer"},
-                            "contains": {"const": 7},
-                            "minContains": 5000000,
-                        }
-                    }
-                },
-            },
-            "responses": {"200": {"description": "OK"}},
-        },
-        version="3.1.0",
-    )
-
-    found = find_unsatisfiable_parameter(operation)
+    found = probe(operation)
 
     assert found is not None
     assert found.name == "application/json"

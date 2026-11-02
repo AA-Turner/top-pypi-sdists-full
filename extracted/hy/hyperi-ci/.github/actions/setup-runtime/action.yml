@@ -1,0 +1,111 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-runtime/action.yml
+# Purpose:   Install the hyperi-ci runtime -- uv + Python + native deps
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# The hyperi-ci CLI is Python, so every job of every language needs uv + Python +
+# the project's native build deps before it can run `hyperi-ci ...`. Language
+# toolchains (rustup, setup-go, setup-node) and project dependency installs
+# (uv sync, install-deps) stay in the language workflow.
+#
+# Referenced from reusable workflows as
+#   hyperi-io/hyperi-ci/.github/actions/setup-runtime@main
+# (a local ./ ref would resolve to the CONSUMER repo, which lacks it).
+
+name: Setup hyperi-ci runtime
+description: Install uv + Python + the project's native build dependencies
+
+inputs:
+  language:
+    description: Project language for native deps (rust | python | typescript | golang)
+    required: true
+  python-version:
+    description: Python version to install
+    required: false
+    # Rust/Go/TS repos have no Python of their own, so the fleet default runs
+    # the CLI; python-ci.yml passes the project's resolved version (issue #150).
+    # hyperi-ci:pin runtimes.python
+    default: "3.14"
+  force-python-install:
+    description: "'true' installs python-version even when the runner already has a python3"
+    required: false
+    # Every runner ships SOME python3, so a project interpreter needs the force.
+    default: "false"
+  enable-uv-cache:
+    description: setup-uv cache -- true for Python (deps dominate), false for Rust (cargo cache dominates)
+    required: false
+    default: "false"
+  save-uv-cache:
+    description: Save the setup-uv cache at job end. Only one job per workflow run may set this true, because parallel savers on one key warn "Unable to reserve cache". Ignored unless enable-uv-cache is true.
+    required: false
+    default: "false"
+  hyperci-install:
+    description: How to invoke the hyperi-ci CLI
+    required: false
+    default: "uvx --no-cache --refresh hyperi-ci"
+
+runs:
+  using: composite
+  steps:
+    # ARC images bake uv in. Other self-hosted runners (Namespace) do not.
+    - name: Check for uv
+      id: uv_probe
+      shell: bash
+      run: |
+        if command -v uv >/dev/null; then echo "found=true" >> "$GITHUB_OUTPUT"; else echo "found=false" >> "$GITHUB_OUTPUT"; fi
+    - name: Install uv
+      id: uv_try1
+      if: ${{ runner.environment != 'self-hosted' || steps.uv_probe.outputs.found != 'true' }}
+      continue-on-error: true
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: ${{ inputs.enable-uv-cache }}
+        save-cache: ${{ inputs.save-uv-cache }}
+    - name: Install uv (retry 1)
+      id: uv_try2
+      if: ${{ steps.uv_try1.outcome == 'failure' }}
+      continue-on-error: true
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: ${{ inputs.enable-uv-cache }}
+        save-cache: ${{ inputs.save-uv-cache }}
+    - name: Install uv (retry 2)
+      if: ${{ steps.uv_try2.outcome == 'failure' }}
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: ${{ inputs.enable-uv-cache }}
+        save-cache: ${{ inputs.save-uv-cache }}
+
+    - name: Set up Python
+      shell: bash
+      # Inputs travel as env, so a workflow input is never read as shell.
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+        FORCE_PYTHON_INSTALL: ${{ inputs.force-python-install }}
+      # setup-uv runs wherever uv is missing, so this only fires when every
+      # attempt failed. An unpinned install script is never piped to a shell.
+      # --no-bin: the bin links land in ~/.local/bin, which is not on PATH, and
+      # uv finds its own interpreters without them.
+      run: |
+        if ! command -v uv >/dev/null; then
+          echo "::error::uv is not on PATH: every setup-uv attempt failed"
+          exit 1
+        fi
+        if [ "$FORCE_PYTHON_INSTALL" = "true" ]; then
+          uv python install --no-bin "$PYTHON_VERSION"
+        else
+          command -v python3 || uv python install --no-bin "$PYTHON_VERSION"
+        fi
+
+    - name: Install native dependencies
+      shell: bash
+      env:
+        INSTALL_CMD: ${{ inputs.hyperci-install }}
+        LANGUAGE: ${{ inputs.language }}
+      # The install command is split into words without the shell's parser, and
+      # its variable avoids the HYPERCI_ prefix that load_config reads as config.
+      run: |
+        read -r -a install <<< "$INSTALL_CMD"
+        "${install[@]}" install-native-deps "$LANGUAGE"

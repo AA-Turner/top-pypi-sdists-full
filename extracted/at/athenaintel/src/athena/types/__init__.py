@@ -157,6 +157,8 @@ if typing.TYPE_CHECKING:
     from .public_asset_out import PublicAssetOut
     from .public_collab_agent_config_in import PublicCollabAgentConfigIn
     from .public_figure_config_in import PublicFigureConfigIn
+    from .public_import_loss_out import PublicImportLossOut
+    from .public_import_report_out import PublicImportReportOut
     from .public_session_computer_in import PublicSessionComputerIn
     from .public_session_computer_in_scope import PublicSessionComputerInScope
     from .public_session_setup_step_in import PublicSessionSetupStepIn
@@ -387,6 +389,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicAssetOut": ".public_asset_out",
     "PublicCollabAgentConfigIn": ".public_collab_agent_config_in",
     "PublicFigureConfigIn": ".public_figure_config_in",
+    "PublicImportLossOut": ".public_import_loss_out",
+    "PublicImportReportOut": ".public_import_report_out",
     "PublicSessionComputerIn": ".public_session_computer_in",
     "PublicSessionComputerInScope": ".public_session_computer_in_scope",
     "PublicSessionSetupStepIn": ".public_session_setup_step_in",
@@ -641,6 +645,8 @@ __all__ = [
     "PublicAssetOut",
     "PublicCollabAgentConfigIn",
     "PublicFigureConfigIn",
+    "PublicImportLossOut",
+    "PublicImportReportOut",
     "PublicSessionComputerIn",
     "PublicSessionComputerInScope",
     "PublicSessionSetupStepIn",

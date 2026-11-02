@@ -1,0 +1,104 @@
+"""Pydantic models for Tracker queue macros (Macro + refs + write bodies).
+
+Mirrors ``GET /queues/{id}/macros`` (list) and ``.../macros/{macro_id}`` (single). A macro runs
+a canned comment plus field updates on an issue. Note the asymmetry the API exposes: the
+``issueUpdate`` block is a *list* of field/update objects on the way out, but a plain *object*
+of field→value on the way in (see :class:`MacroCreate`).
+"""
+
+from typing import Annotated, Any
+
+from pydantic import Field
+
+from ycli.yandex.models import APIModel, RequestBody
+from ycli.yandex.sync.marks import Identity
+from ycli.yandex.tracker.models import KeyedReference, Reference
+
+
+class MacroFieldUpdate(APIModel):
+    """One field-update row in a macro's ``issueUpdate`` list.
+
+    Examples:
+        >>> MacroFieldUpdate.model_validate(
+        ...     {"field": {"id": "tags"}, "update": {"add": ["tag 1"]}}
+        ... ).field.id
+        'tags'
+    """
+
+    field: Reference | None = Field(
+        default=None, description="The task field this row updates when the macro runs."
+    )
+    update: Any = Field(
+        default=None, description="The change applied to the field (e.g. {'add': [...]})."
+    )
+
+
+class Macro(APIModel):
+    """A queue macro (``GET /queues/{id}/macros`` item and ``.../macros/{macro_id}``).
+
+    Examples:
+        >>> Macro.model_validate({"id": 3, "name": "My macro"}).name
+        'My macro'
+    """
+
+    self_url: str | None = Field(
+        default=None,
+        alias="self",
+        description="API resource URL that returns the macro's parameters.",
+    )
+    id: Annotated[int | None, Identity()] = Field(
+        default=None, description="Unique identifier of the macro."
+    )
+    queue: KeyedReference | None = Field(
+        default=None, description="Queue whose issues the macro applies to."
+    )
+    name: str | None = Field(default=None, description="Human-readable name of the macro.")
+    body: str | None = Field(
+        default=None, description="Comment text created when the macro is executed."
+    )
+    issue_update: list[MacroFieldUpdate] = Field(
+        default_factory=list,
+        alias="issueUpdate",
+        description="Field updates the macro applies to the issue.",
+    )
+
+
+class MacroCreate(RequestBody):
+    """Typed request body for ``macros.create`` (``POST /queues/{id}/macros``).
+
+    ``issue_update`` here is a field→value *object* (not the list the read side returns),
+    e.g. ``{"tags": {"add": "Новый тег"}, "resolution": None}``.
+
+    Examples:
+        >>> MacroCreate(name="Test macro", body="Hi {{issue.author}}").name
+        'Test macro'
+    """
+
+    name: str = Field(description="Name of the new macro.")
+    body: str | None = Field(default=None, description="Comment text created when the macro runs.")
+    issue_update: dict[str, Any] | None = Field(
+        default=None,
+        serialization_alias="issueUpdate",
+        description="Field→value object of issue changes the macro applies.",
+    )
+
+
+class MacroUpdate(RequestBody):
+    """Typed request body for ``macros.edit`` (``PATCH /queues/{id}/macros/{macro_id}``).
+
+    Every field is optional; only the fields you set are sent.
+
+    Examples:
+        >>> MacroUpdate(name="Renamed").name
+        'Renamed'
+    """
+
+    name: str | None = Field(default=None, description="New name of the macro.")
+    body: str | None = Field(
+        default=None, description="New comment text created when the macro runs."
+    )
+    issue_update: dict[str, Any] | None = Field(
+        default=None,
+        serialization_alias="issueUpdate",
+        description="Replacement field→value object of issue changes the macro applies.",
+    )

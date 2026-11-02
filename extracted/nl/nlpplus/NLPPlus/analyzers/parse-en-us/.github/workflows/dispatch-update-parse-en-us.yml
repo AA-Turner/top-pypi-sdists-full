@@ -1,0 +1,37 @@
+# Install at: VisualText/parse-en-us -> .github/workflows/dispatch-update-parse-en-us.yml
+#
+# Release-driven percolation, matching the existing org convention
+# (cf. analyzer-templates/dispatch-update-analyzer-templates.yml): when a
+# release tag is pushed here, ping the repos that embed parse-en-us so they
+# refresh their submodule pointer.
+#
+# Requires the shared `CLASSIC_PAT` secret in this repo (the default
+# GITHUB_TOKEN cannot trigger workflows in other repos).
+
+name: Dispatch update-parse-en-us
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - analyzers           # embeds parse-en-us at path parse-en-us
+          - analyzer-templates  # embeds parse-en-us at path parse-en-us
+          - package-analyzers   # embeds parse-en-us at path parse-en-us
+    steps:
+      - name: Trigger ${{ matrix.repo }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.CLASSIC_PAT }}
+          repository: VisualText/${{ matrix.repo }}
+          event-type: parse-en-us-release
+          client-payload: '{"tag_name": "${{ github.ref_name }}"}'
+        continue-on-error: true

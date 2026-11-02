@@ -1,0 +1,370 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools>=77.0.0",
+"numpy"]  # PEP 508 specifications.
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SMACT"
+version = "4.0.2"
+description = "Semiconducting Materials by Analogy and Chemical Theory"
+readme = "README.md"
+authors = [
+    {name = "The SMACT Developers", email = "a.walsh@imperial.ac.uk"},
+]
+maintainers = [
+    {name = "Kinga O. Mastej", email = "k.mastej24@imperial.ac.uk"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+requires-python = ">=3.11,<3.14"
+keywords = [
+    "python",
+    "machine-learning",
+    "computational-chemistry",
+    "materials-science",
+    "materials-informatics",
+    "materials-screening",
+    "materials-design",
+    "materials"
+]
+dependencies = [
+    "ase",
+    "numpy<3",
+    "pandarallel>=1.6.5",
+    "pandas",
+    "pathos",
+    "pymatgen>=2024.2.20",
+    "scipy",
+    "spglib>=2.6.0",
+    "tabulate",
+    "tqdm",
+    "typing-extensions",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/WMD-group/SMACT"
+Documentation = "https://smact.readthedocs.io/en/latest/"
+Repository = "https://github.com/WMD-group/SMACT"
+Issues = "https://github.com/WMD-group/SMACT/issues"
+Pypi = "https://pypi.org/project/SMACT/"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "pyright",
+    "codespell",
+    "pytest-cov",
+    "blacken-docs",
+    "nbstripout"
+]
+docs = [
+    "sphinx==8.1.3",
+    "sphinx_rtd_theme==3.0.2",
+    "readthedocs-sphinx-search==0.3.2",
+    "sphinx-book-theme==1.1.3",
+    "tornado>=6.5.3",
+    "myst-nb==1.3.0"
+]
+mp = ["mp-api>=0.45.3"]
+crystal_space = ["smact[mp]",
+"ElementEmbeddings>=0.4",
+"umap-learn==0.5.7",
+"kaleido>=0.2.1",]
+featurisers = [
+    "matminer",
+    "ElementEmbeddings",
+]
+visualisation = [
+    "seaborn>=0.13.2",
+    "pymatviz>=0.15",
+    "dash>=2.18.2",
+]
+ml = ["xgboost","shap","smact[featurisers]"]
+property_prediction = [
+    "aviary-models>=1.2.1",
+    "requests",
+    # >=2.11 pulls nvidia-nccl-cu13, which collides with xgboost's nvidia-nccl-cu12
+    # (smact[ml]) on Linux: both packages install to nvidia/nccl/lib/libnccl.so.2, and
+    # whichever installs last wins, leaving torch loaded against a mismatched NCCL ABI.
+    # xgboost can't move to cu13 without dropping Python 3.11 support (dropped at 3.3.0,
+    # before its own cu13 switch at 3.4.0), so cap torch here instead. See #651.
+    "torch>=2.0.0,<2.11",
+]
+optional = [
+    "pydantic>=2.9.2",
+    "smact[mp]",
+    "smact[visualisation]",
+    "pymatgen>=2024.2.20",
+    "matminer>=0.9.2",
+    "kaleido>=0.2.1",
+    "ase>=3.22.0",
+    "llvmlite>=0.40",
+    "ElementEmbeddings>=0.4",
+    "dash>=2.18.2",
+    "smact[ml]",
+    "pandarallel>=1.6.5",
+    "matplotlib-venn[shapely]>=1.1.2",
+]
+strict = [
+    "pydantic==2.9.2",
+    "mp-api==0.45.5",
+    "pymatviz==0.16.0",
+    "seaborn==0.13.2",
+    "pymatgen==2025.4.24",
+    "matminer==0.9.3",
+    "umap-learn==0.5.7",
+    "kaleido==0.2.1",
+    "ase==3.24.0",
+    "numpy",
+    "ElementEmbeddings==0.6.1",
+    "dash==3.3.0",
+    "tabulate==0.9.0",
+    "tqdm==4.67.1",
+]
+
+[tool.uv]
+# emmet-core >=0.85 is incompatible with the pinned pymatgen/pydantic versions
+# (BandStructure.__init_subclass__ TypeError). Pin until upstream resolves it.
+constraint-dependencies = ["emmet-core<0.85"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["smact","smact.*"]
+
+[tool.setuptools.package-data]
+"smact" = ["py.typed", "data/*.txt", "data/*.csv", "data/*.data", "data/*.xlsx", "data/*.json", "data/species_rep/*.json"]
+
+[tool.pytest.ini_options]
+minversion = 6.0
+testpaths = ["smact/tests", "smact/property_prediction/tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests that require external services (e.g. Materials Project API)",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "FBT001",  # Boolean-typed positional argument in function definition
+    "FBT002",  # Boolean default positional argument in function
+    "ISC001",  # Implicit string concatenation — conflicts with ruff-format
+    "COM812",  # Missing trailing comma — conflicts with ruff-format
+    "CPY",     # Missing copyright notice — requires preview mode
+    "FURB",    # refurb — requires preview mode
+    "D212",    # Multi-line docstring summary on first line — conflicts with Google convention (D213)
+]
+exclude = ["docs/conf.py", "docs/*", "dev_scripts/*"]
+pydocstyle.convention = "google"
+isort.required-imports = ["from __future__ import annotations"]
+pylint.max-args = 8
+pylint.max-branches = 15
+pylint.max-statements = 80
+pylint.max-returns = 8
+
+[tool.ruff.format]
+docstring-code-format = true
+
+
+[tool.ruff.lint.per-file-ignores]
+"smact/tests/*" = ["ANN", "D", "N", "S", "PLR2004", "PT009", "PT011", "SLF001", "ARG", "PTH", "FIX002", "TD"]
+"smact/benchmarking/*" = ["ANN", "T20"]
+"smact/property_prediction/tests/*" = ["ANN", "D", "E402", "N", "S", "PLR2004", "SLF001", "ARG", "PTH"]
+# TC rules want runtime imports moved to TYPE_CHECKING blocks, but they are used at runtime
+# PLC0415 wants imports at top-level, but we use lazy imports for heavy dependencies (aviary, torch)
+# SIM108 suggests ternary operators but if-else is clearer for complex expressions
+"smact/property_prediction/*" = ["TC001", "TC002", "TC003", "PLC0415", "SIM108"]
+"smact/property_prediction/base_predictor.py" = ["ANN401", "ARG002"]
+"smact/property_prediction/roost/predictor.py" = ["ANN401"]
+"smact/property_prediction/roost/train.py" = ["C901", "PLR0912", "PLR0913", "PLR0915"]
+# S608: internal SQLite ORM uses string-built queries on controlled input
+# SLF001: structure_prediction modules access each other's private members (friend-class pattern)
+"smact/__init__.py" = ["E402"]
+"smact/data_loader.py" = ["N802"]
+"smact/properties.py" = ["N802"]
+"smact/utils/band_gap_simple.py" = ["T201"]
+"smact/structure_prediction/database.py" = ["S608"]
+"smact/structure_prediction/mutation.py" = ["SLF001"]
+"smact/structure_prediction/prediction.py" = ["SLF001"]
+
+
+[tool.pyright]
+typeCheckingMode = "standard"
+reportPossiblyUnboundVariable = true
+reportUnboundVariable = true
+# ElementEmbeddings is an untyped third-party package (no py.typed marker).
+# Accept untyped imports rather than requiring inline suppressions.
+reportMissingTypeStubs = false
+
+[tool.codespell]
+skip = "*.csv,*/site/*,*/docs/_build/*,docs/tutorials/data/*,paper.md,*dev_docs/*,paper.bib,*.txt,*examples/Structure_Prediction/Li-Garnets_SP-Pym-new.ipynb"
+check-filenames = true
+ignore-regex = "[A-Za-z0-9+/]{100,}"
+
+ignore-words-list = [
+            "H",
+            "He",
+            "Li",
+            "Be",
+            "B",
+            "C",
+            "N",
+            "O",
+            "F",
+            "Ne",
+            "Na",
+            "Mg",
+            "Al",
+            "Si",
+            "P",
+            "S",
+            "Cl",
+            "Ar",
+            "K",
+            "Ca",
+            "Sc",
+            "Ti",
+            "V",
+            "Cr",
+            "Mn",
+            "Fe",
+            "Co",
+            "Ni",
+            "Cu",
+            "Zn",
+            "Ga",
+            "Ge",
+            "As",
+            "Se",
+            "Br",
+            "Kr",
+            "Rb",
+            "Sr",
+            "Y",
+            "Zr",
+            "Nb",
+            "Mo",
+            "Tc",
+            "Ru",
+            "Rh",
+            "Pd",
+            "Ag",
+            "Cd",
+            "In",
+            "Sn",
+            "Sb",
+            "Te",
+            "I",
+            "Xe",
+            "Cs",
+            "Ba",
+            "La",
+            "Ce",
+            "Pr",
+            "Nd",
+            "Pm",
+            "Sm",
+            "Eu",
+            "Gd",
+            "Tb",
+            "Dy",
+            "Ho",
+            "Er",
+            "Tm",
+            "Yb",
+            "Lu",
+            "Hf",
+            "Ta",
+            "W",
+            "Re",
+            "Os",
+            "Ir",
+            "Pt",
+            "Au",
+            "Hg",
+            "Tl",
+            "Pb",
+            "Bi",
+            "Po",
+            "At",
+            "Rn",
+            "Fr",
+            "Ra",
+            "Ac",
+            "Th",
+            "Pa",
+            "U",
+            "Np",
+            "Pu",
+            "Am",
+            "Cm",
+            "Bk",
+            "eles",
+            "assertIn",
+            "Mater",
+            "Skelton",
+        ]
+[tool.coverage.run]
+omit = [
+    "smact/benchmarking/*",
+    "smact/utils/band_gap_simple.py",
+    "smact/utils/crystal_space/plot_embedding.py",
+]
+
+[tool.coverage.report]
+fail_under = 85
+exclude_also = [
+    'def __repr__',
+    'if self.debug:',
+    'if settings.DEBUG',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if 0:',
+    'if __name__ == .__main__.:',
+    'if TYPE_CHECKING:',
+    'class .*\bProtocol\):',
+    '@(abc\.)?abstractmethod',
+    ]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.10.6",
+    "jupyter>=1.1.1",
+    "jupyter-client>=8.6.3",
+    "notebook>=7.3.3",
+    "blacken-docs>=1.19.1",
+    "codespell>=2.4.1",
+    "ipykernel>=6.29.5",
+    "myst-nb==1.3.0",
+    "nbstripout>=0.8.1",
+    "pre-commit>=4.2.0",
+    "pyright>=1.1.398",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.0",
+    "readthedocs-sphinx-search==0.3.2",
+    "ruff>=0.11.2",
+    "sphinx==8.1.3",
+    "sphinx-book-theme==1.1.3",
+    "sphinx-rtd-theme==3.0.2",
+    "tornado>=6.5.3",
+]

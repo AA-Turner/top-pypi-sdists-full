@@ -1,0 +1,71 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mmdr"
+# Single source of truth: the version is read from Cargo.toml by maturin.
+dynamic = ["version"]
+description = "Fast native Mermaid diagram rendering (Rust-based) - no browser required"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+  # >=0.11 provides Bitmap.tobytes(rgba=True), so no NumPy is needed for raw pixels.
+  "novasvg>=0.11",
+]
+authors = [
+  { name = "Mohammad Raziei", email = "mohammadraziei1375@gmail.com" }
+]
+keywords = ["mermaid", "diagram", "svg", "png", "render", "rust", "cli"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Multimedia :: Graphics",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/mohammadraziei/mmdr"
+Repository = "https://github.com/mohammadraziei/mmdr"
+Documentation = "https://mohammadraziei.github.io/mmdr"
+Issues = "https://github.com/mohammadraziei/mmdr/issues"
+Changelog = "https://github.com/mohammadraziei/mmdr/blob/master/CHANGELOG.md"
+
+# This makes `mmdr` available as a terminal command after `pip install mmdr`,
+# same idea as mermaid-cli's `mmdc` command. It just calls main() in
+# src/mmdr/__main__.py.
+[project.scripts]
+mmdr = "mmdr.__main__:main"
+
+[project.optional-dependencies]
+numpy = [
+    "numpy>=1.20",
+]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+]
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+python-source = "src"
+module-name = "mmdr._mmdr"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+# Add your source code directories to the Python search path
+pythonpath = ["src"]
+# Limit where pytest looks for test files to save time and prevent false positives
+testpaths = ["tests"]

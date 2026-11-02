@@ -30,34 +30,34 @@ class HeldAnswersMixin:
         by a worker that stopped before it could say how it went (one worker per
         session: that one is gone). It may or may not have run: reported, never
         run again."""
-        for req in self.board.all(session_id=self.session.session_id, state=appr.APPROVED):
-            if req.outcome != HELD_RUNNING:
+        for request in self.board.all(session_id=self.session.session_id, state=appr.APPROVED):
+            if request.outcome != HELD_RUNNING:
                 continue
-            self.board.resolve(req, state=appr.APPROVED, outcome=HELD_INTERRUPTED)
-            self._notice(f"the researcher said yes to question {req.id}, but the daemon stopped while running it - "
+            self.board.resolve(request, state=appr.APPROVED, outcome=HELD_INTERRUPTED)
+            self._notice(f"the researcher said yes to question {request.id}, but the daemon stopped while running it - "
                          "it may not have run, or run in part. The daemon won't run it again by itself.")
 
     async def settle_answers(self) -> None:
-        for req in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
-            if req.policy == appr.FEEDBACK:
+        for request in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
+            if request.policy == appr.FEEDBACK:
                 continue  # no held action: `probe feedback flush` sends a yes (`probe.shared.feedback.feedback`)
-            retry = self.settle_retry.get(req.id)
+            retry = self.settle_retry.get(request.id)
             if retry is not None and self.clock() < retry[1]:
                 continue
             try:
-                await self._settle(req)
+                await self._settle(request)
             except Exception as exc:  # noqa: BLE001 -- e.g. Probe unreachable: the answer waits for a later pass
                 # Only failures BEFORE the held action started reach here: from the moment
                 # it is marked HELD_RUNNING, `_settle` reports its own outcome.
                 n = (retry[0] if retry else 0) + 1
-                self.settle_retry[req.id] = (n, self.clock() + min(BACKOFF_CAP_S, SETTLE_RETRY_S * 2 ** (n - 1)))
-                log.warning("question %s: acting on it failed (%s in a row): %s: %s", req.id, n,
+                self.settle_retry[request.id] = (n, self.clock() + min(BACKOFF_CAP_S, SETTLE_RETRY_S * 2 ** (n - 1)))
+                log.warning("question %s: acting on it failed (%s in a row): %s: %s", request.id, n,
                             type(exc).__name__, exc)
                 if n == 1:
-                    self._notice(f"question {req.id}: acting on it failed ({type(exc).__name__}) - it stays open "
+                    self._notice(f"question {request.id}: acting on it failed ({type(exc).__name__}) - it stays open "
                                  "and the daemon tries again. Nothing ran.")
             else:
-                self.settle_retry.pop(req.id, None)
+                self.settle_retry.pop(request.id, None)
 
     async def _settle(self, req: appr.Request) -> None:
         if req.expires_at and self.clock() > req.expires_at:

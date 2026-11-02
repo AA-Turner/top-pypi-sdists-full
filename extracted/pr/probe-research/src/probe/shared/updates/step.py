@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Protocol
 
 #: Told to the update child when the service's DEFER_LIMIT_S ran out: the deferrals it updates past,
-#: comma separated (`probe.cli.upgrading.forced_past`). Past a live run the run-lock check is
+#: comma separated (`probe.cli.install.upgrade.turn.forced_past`). Past a live run the run-lock check is
 #: skipped (D33); past a setup holding wizard.lock for a day, the update runs without that lock (C1).
 FORCED_ENV = "PROBE_UPDATE_FORCED"
 #: Told to the update child when the CLI is current and daemon workers run from its env: plugins only (D7).
@@ -25,7 +25,7 @@ WIZARD_BUSY_EXIT = 75
 class UpdateStep(Protocol):
     """One part of an update: the CLI env, one coding agent's plugins, pi's package or the desktop app.
     `probe update` and the service's cycle each walk their steps in order and record what each did.
-    Not the wire vocabulary `probe.service.protocol.UpdateStep` (the cycle's step names); `name` is
+    Not the wire vocabulary `probe.foundation.service_api.vocabularies.UpdateStep` (the cycle's step names); `name` is
     one of those, an `UpdatePart` or an agent's source. Implementations land with the cli and service
     splits (agent steps 14 and 16)."""
 

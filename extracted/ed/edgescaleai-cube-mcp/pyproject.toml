@@ -1,0 +1,68 @@
+[project]
+name = "edgescaleai-cube-mcp"
+# The version is the release tag (vX.Y.Z) on the commit being built, read by
+# hatch-vcs. Nothing in the repo holds it, so a release never commits to main.
+# See .github/workflows/publish.yml and scripts/release_version.py.
+dynamic = ["version"]
+description = "MCP server for EdgescaleAI Cube operations"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0,<2",
+    "httpx>=0.27.0",
+    "truststore>=0.9.0",
+    "pydantic>=2.0.0",
+    "websockets>=12.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pyyaml>=6.0",
+    # Test-only (the compaction Lambda gets duckdb from its zip build, not here).
+    # Without it the real-Parquet tests in test_compaction.py silently SKIP in CI
+    # — including the cross-day type-pinning regression guard and the narrow
+    # dataset's payload-leak guard, both of which protect invariants that have
+    # already broken once. A skipped guard is not a guard.
+    "duckdb>=1.0",
+    # Test-only: scripts/provision-access.py declares these in its own inline `uv run
+    # --script` header; the suite needs them to import the CLI for its planner tests
+    # (test_provision_access_app_companies.py). Keep the ranges equal to that header.
+    "typer>=0.12,<1",
+    "rich>=13",
+]
+
+[project.scripts]
+cube-mcp = "cube_mcp:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+# Used only when there is no git history at all (a copied source tree, e.g.
+# agent/Dockerfile). An sdist carries its version in PKG-INFO instead.
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cube_mcp", "src/cube_agent", "src/cube_common"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/", "pyproject.toml", "README.md"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"src/cube_agent" = "src/cube_agent"
+"src/cube_common" = "src/cube_common"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = [
+    "packages/cube-cloud/tests",
+    "packages/cube-agent/tests",
+]
+filterwarnings = [
+    "ignore::RuntimeWarning:unittest.mock",
+]

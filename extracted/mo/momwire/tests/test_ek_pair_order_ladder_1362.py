@@ -29,8 +29,12 @@ junction decks and a smaller free array; the x16/x32 decks are too slow for
 the suite, and the table above is their record.
 
 Negative controls, so a pass is evidence:
-* the EK tiered entry is counted, and its Z is NOT bit-equal to the flat
-  fill's -- a ladder that was silently ignored would be;
+* the EK tiered entry is counted, and its moments are NOT bit-equal to the
+  flat fill's plain-entry moments, call for call -- a ladder that was
+  silently ignored would be. The control reads the FILL, not Z_in: the
+  ladder moves Z_in by a few ULPs (8 on Haswell's sse2 build, 2026-10-27),
+  which a solve can round away -- on Skylake's sse2 build (GCC 13) the two
+  Z_in were bit-equal while the fill had moved (momwire#1481);
 * per pair, the EK tiered moments differ from the REDUCED tiered moments on
   exactly the eligible pairs, including pairs served by the lower tiers -- a
   kernel that dropped the factor on tiered pairs fails it, and so does the
@@ -60,7 +64,7 @@ from momwire._bspline_kernels import (
     _pair_ratio,
     _seg_seg_full_moments_offedge,
 )
-from _lane_gate import assert_lanes_match, moved_pairs
+from _lane_gate import LANE_RTOL_WIN32, WIN32, assert_lanes_match, moved_pairs
 
 acc = _bk._acc
 
@@ -109,8 +113,12 @@ def _numpy(monkeypatch, *args, **kwargs):
 
 
 class _Count:
+    """Counts the two EK entries' calls; `out` keeps each call's moments, in
+    call order, for the fill-level negative control."""
+
     def __init__(self, monkeypatch, reference=None):
         self.n = dict.fromkeys((EK_PLAIN, EK_TIERED), 0)
+        self.out = []
         for name in self.n:
             f = getattr(acc, name)
             if reference is not None:
@@ -118,7 +126,9 @@ class _Count:
 
             def counted(*a, _f=f, _name=name, **k):
                 self.n[_name] += 1
-                return _f(*a, **k)
+                r = _f(*a, **k)
+                self.out.append(np.array(r, copy=True))
+                return r
 
             monkeypatch.setattr(acc, name, counted)
 
@@ -126,8 +136,15 @@ class _Count:
 # --- kernel level ----------------------------------------------------------
 
 
+# Default-lane budget is 5 s; CI median 5.4 s / 5.1 s macOS for the b32 rung
+# with scalar-a / mixed-a (momwire 0.85.0 release prep). The f8 rung stays as
+# the PR guard.
 @pytest.mark.parametrize(
-    "n_qp, ladder", [(32, LADDER_BURIED_SHAPE), (8, LADDER_FREE)], ids=["b32", "f8"]
+    "n_qp, ladder",
+    [
+        pytest.param(32, LADDER_BURIED_SHAPE, id="b32", marks=pytest.mark.slow),
+        pytest.param(8, LADDER_FREE, id="f8"),
+    ],
 )
 @pytest.mark.parametrize("mixed", [False, True], ids=["scalar-a", "mixed-a"])
 def test_the_ek_tiered_accelerator_matches_its_numpy_twin(
@@ -194,7 +211,14 @@ def test_every_served_ek_pair_is_within_1e_9_of_the_base_order():
     assert err.max() < 1e-9, f"worst pair {err.max():.3e}"
     served_8 = (ratio >= 2.0) & (ratio < 16.0)
     assert err[served_8].max() < 1e-11, f"order-8 tier worst {err[served_8].max():.3e}"
-    assert np.array_equal(err[ratio < 2.0], np.zeros(int((ratio < 2.0).sum())))
+    # the order-32 pairs: one rule's to the bit, but on Windows (/fp:fast)
+    # within the derived lane tolerance -- since momwire#1772 the base call
+    # runs them in lanes of consecutive columns and the ladder call partly
+    # in gathered ones, which MSVC spells differently (momwire#1371)
+    if WIN32:
+        assert err[ratio < 2.0].max() < LANE_RTOL_WIN32
+    else:
+        assert np.array_equal(err[ratio < 2.0], np.zeros(int((ratio < 2.0).sum())))
 
 
 def test_the_factor_is_applied_on_the_tiered_pairs_and_only_the_eligible_ones():
@@ -276,7 +300,7 @@ def _z(monkeypatch, deck, **kw):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             z, _ = B.BSplineSolver(**deck, **kw).compute_impedance()
-    return complex(np.atleast_1d(z)[0]), c.n
+    return complex(np.atleast_1d(z)[0]), c
 
 
 @pytest.mark.parametrize("name", list(DECKS))
@@ -284,14 +308,18 @@ def test_an_ek_solve_on_the_ladder_is_the_flat_fill_within_the_derived_tolerance
     monkeypatch, name
 ):
     deck = DECKS[name]()
-    z_lad, n_lad = _z(monkeypatch, deck, extended_kernel=True)
-    z_flat, n_flat = _z(monkeypatch, deck, extended_kernel=True, pair_order_ladder=())
+    z_lad, lad = _z(monkeypatch, deck, extended_kernel=True)
+    z_flat, flat = _z(monkeypatch, deck, extended_kernel=True, pair_order_ladder=())
     rel = abs(z_lad - z_flat) / abs(z_flat)
     assert rel < Z_TOL, f"{name}: EK ladder vs flat {rel:.3e}"
-    # Negative controls: the ladder route ran and moved the bits (an ignored
-    # ladder would be the flat fill exactly) ...
+    # Negative controls: the ladder route ran and moved the bits of the fill
+    # (an ignored ladder would be the flat fill exactly). Not `z_lad !=
+    # z_flat`: Z_in moves by a few ULPs and can round back (momwire#1481).
+    n_lad, n_flat = lad.n, flat.n
     assert n_lad[EK_TIERED] >= 1 and n_flat[EK_TIERED] == 0, (n_lad, n_flat)
-    assert z_lad != z_flat
+    assert n_lad[EK_PLAIN] == 0 and n_flat[EK_PLAIN] == n_lad[EK_TIERED]
+    assert [a.shape for a in lad.out] == [b.shape for b in flat.out]
+    assert any(np.any(a != b) for a, b in zip(lad.out, flat.out, strict=True))
     # ... and EK itself is still on: the ladder fill with EK off sits far away.
     z_off, _ = _z(monkeypatch, deck, extended_kernel=False)
     assert abs(z_lad - z_off) / abs(z_off) > 1e3 * Z_TOL

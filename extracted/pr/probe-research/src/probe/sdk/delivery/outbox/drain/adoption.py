@@ -130,6 +130,11 @@ class NotAdoptable(StrEnum):
     SCOPE = "scope"
 
 
+#: The refusals that only put a credential off: tried again on the next pass (a sign-in, the
+#: server answering). The rest refuse it as things stand.
+DEFERRING = frozenset({NotAdoptable.UNCONFIRMED, NotAdoptable.NO_LOGIN})
+
+
 def adoption_account(
     fingerprint: str, ops: list[dict]
 ) -> tuple[tuple[str, str] | None, NotAdoptable | None, str | None]:
@@ -195,18 +200,9 @@ class RescueReport:
 
 
 def rescue_stranded(root: "Journal", *, here: "set[str] | frozenset[str]") -> RescueReport:
-    """Hand to the stored login the writes of every env or in-code credential that is dead and
-    was the logged-in account's own (`adopt_credential`, `AdoptedBy.RESCUE`), so they go out
-    without anyone running a command.
-
-    Dead: Probe refused the credential itself on one of its writes (`op_shows_dead_credential`,
-    on the op file no sign-in clears; a scope refusal never counts) and no process recorded
-    holding it may still run (`credential_holders`): a job alive with it is restarted, not
-    overridden. Its own: `adoption_account` over EVERY write it queued (one refused for scope
-    keeps them all), same team and user per `GET /v1/me`, same server, scopes that allow its
-    writes. ``here`` (credentials this process holds, the stored login) are never adopted.
-    `/ingest` writes, DELETEs and writes refused for scope are never sent this way and not
-    counted. Never sends anything itself; never raises for one credential."""
+    """Hand to the stored login the writes of every dead env or in-code credential that was the logged-in
+    account's own (`adopt_credential`), so they go out with no command run. Dead and own are checked
+    strictly (DESIGN.md); never sends anything itself, never raises for one credential."""
     report = RescueReport()
     by_fp: dict[str, list[dict]] = {}
     where: dict[str, set] = {}
@@ -237,7 +233,9 @@ def rescue_stranded(root: "Journal", *, here: "set[str] | frozenset[str]") -> Re
             continue
         if not sendable:
             continue
-        if not any(op_shows_dead_credential(op) for op in ops):
+        # A write put back by the one-time restore is proof too: it was set aside because
+        # its key died, and only the lane heads ever recorded the refusal.
+        if not any(op_shows_dead_credential(op) or (fp == RESTORE_FINGERPRINT and was_restored(op)) for op in ops):
             continue
         if any(_holder_may_live(h) for h in credential_holders(fp)):
             report.deferred += 1
@@ -245,7 +243,7 @@ def rescue_stranded(root: "Journal", *, here: "set[str] | frozenset[str]") -> Re
         try:
             account, why, _context = adoption_account(fp, ops)
             if account is None:
-                if why in (NotAdoptable.UNCONFIRMED, NotAdoptable.NO_LOGIN):
+                if why in DEFERRING:
                     report.deferred += 1
                 report.refused[fp] = why
                 continue
@@ -330,3 +328,4 @@ from probe.sdk.delivery.outbox.drain.accounts import (  # noqa: E402 -- pieces n
 )
 from probe.sdk.delivery.outbox.drain.credentials import CredentialSource, _identity_of, op_credential, stamp_identity  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.holders import _holder_may_live, credential_holders  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.failures.restores import RESTORE_FINGERPRINT, was_restored  # noqa: E402 -- pieces need each other; the front door loads this one first

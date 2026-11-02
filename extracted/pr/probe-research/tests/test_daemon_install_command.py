@@ -21,7 +21,8 @@ import pytest
 import typer
 
 from probe import __version__
-from probe.cli import daemon_cli, updater
+from probe.cli.commands.daemon import daemon as daemon_cli
+from probe.cli.install import updater
 
 #: The real `probe daemon install`, taken before conftest swaps in its tripwire.
 _REAL_DAEMON_INSTALL = daemon_cli.daemon_install
@@ -51,14 +52,23 @@ def ran(monkeypatch):
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(
-        updater, "kept_from_uv_receipt",
+        updater.uv_receipt, "kept_from_uv_receipt",
+        lambda prefix=None: updater.KeptInstall(extras=("mcp-http",), with_packages=("wandb",)),
+    )
+    monkeypatch.setattr(
+        updater.cli_install, "kept_from_uv_receipt",
+        lambda prefix=None: updater.KeptInstall(extras=("mcp-http",), with_packages=("wandb",)),
+    )
+    monkeypatch.setattr(
+        updater.cli_installs.uv_tool, "kept_from_uv_receipt",
         lambda prefix=None: updater.KeptInstall(extras=("mcp-http",), with_packages=("wandb",)),
     )
     return commands, state
 
 
 def _method(monkeypatch, method):
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(method))
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(method))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(method))
 
 
 def test_a_uv_tool_install_adds_the_libraries_without_rebuilding_the_environment(monkeypatch, ran):
@@ -76,7 +86,9 @@ def test_the_first_switch_to_the_daemon_asks_for_the_extra_itself(monkeypatch, r
     commands, _ = ran
     monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     _method(monkeypatch, updater.Method.UV_TOOL)
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     assert updater._dist() == "probe-research[all]"
     daemon_cli.daemon_install()
     assert commands == [["uv", "tool", "install", f"probe-research[all,daemon]=={__version__}"]]
@@ -125,7 +137,9 @@ def test_a_receipt_it_cannot_restate_is_not_reinstalled_over(monkeypatch, ran, c
     update` refuses that receipt too."""
     commands, _ = ran
     _method(monkeypatch, updater.Method.UV_TOOL)
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: None)
     with pytest.raises(typer.Exit) as stopped:
         daemon_cli.daemon_install()
     assert stopped.value.exit_code == 2 and commands == []
@@ -150,7 +164,7 @@ def test_a_side_by_side_machine_installs_the_extra_beside_the_running_env(monkey
     (tests/test_reinstall_any_prior_state.py runs it with real uv)."""
     from pathlib import Path
 
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     asked = []
 

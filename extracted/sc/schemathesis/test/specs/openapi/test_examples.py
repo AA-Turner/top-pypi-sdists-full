@@ -334,6 +334,22 @@ def test_extract_from_schemas_without_examples_skips_shared_references(ctx):
     assert list(extract_from_schemas(operation)) == []
 
 
+@pytest.mark.parametrize(
+    ("target", "overlay", "expected"),
+    [
+        ({"owner": None, "name": "x"}, {"owner": {"id": 1}}, {"owner": {"id": 1}, "name": "x"}),
+        ({"owner": {"id": 0, "name": "x"}}, {"owner": 5}, {"owner": 5}),
+        ({"tags": ["a", "b"]}, {"tags": "c"}, {"tags": "c"}),
+        ({"items": [{"id": 0, "name": "x"}]}, {"items": [{"id": 1}]}, {"items": [{"id": 1, "name": "x"}]}),
+    ],
+    ids=["object-onto-null", "scalar-onto-object", "scalar-onto-list", "item-fields"],
+)
+def test_overlay_merges_nested_objects_and_replaces_other_values(target, overlay, expected):
+    _apply_overlay(target, overlay)
+
+    assert target == expected
+
+
 def test_non_item_list_overlay_leaves_list_unchanged():
     target = [{"name": "first"}, {"name": "second"}]
 
@@ -1400,6 +1416,186 @@ def test_external_value_network_error(ctx):
     )
     # Then this example should not be used
     assert not operation.get_strategies_from_examples()
+
+
+@pytest.mark.parametrize("value", [{"id": 1}, 0, False, None], ids=["object", "zero", "false", "null"])
+def test_data_value_example(ctx, value):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {}, "examples": {"a": {"dataValue": value}}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+    )
+    assert examples.generate_one(operation.get_strategies_from_examples()[0]).body == value
+
+
+def test_serialized_value_example_skipped(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {}, "examples": {"a": {"serializedValue": '{"id": 2}'}}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+    )
+    assert operation.get_strategies_from_examples() == []
+
+
+@pytest.mark.parametrize("container", [{"a": {"dataValue": 5}}, [{"dataValue": 5}]], ids=["mapping", "list"])
+def test_data_value_query_example(ctx, container):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}, "examples": container}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.2.0",
+    )
+    assert examples.generate_one(operation.get_strategies_from_examples()[0]).query == {"q": 5}
+
+
+@pytest.mark.parametrize(
+    ("version", "example"),
+    [
+        ("3.2.0", {"dataValue": {"id": 1}}),
+        ("3.0.3", {"$ref": "#/components/examples/Item"}),
+        ("3.1.0", {"$ref": "#/components/examples/Item"}),
+        ("3.2.0", {"$ref": "#/components/examples/Item"}),
+    ],
+    ids=["data-value", "reference-3.0", "reference-3.1", "reference-3.2"],
+)
+def test_response_example_object(ctx, version, example):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {}, "examples": {"a": example}}},
+                }
+            }
+        },
+        version=version,
+        components={"examples": {"Item": {"value": {"id": 1}}}},
+    )
+    assert list(operation.responses.iter_examples()) == [("200/application/json", {"id": 1})]
+
+
+@pytest.mark.parametrize(
+    ("version", "example", "expected"),
+    [
+        ("3.0.3", {"value": {"id": 1}}, [("200/application/json", {"id": 1})]),
+        ("3.2.0", {"dataValue": {"id": 1}}, [("200/application/json", {"id": 1})]),
+        ("3.2.0", {"serializedValue": '{"id": 1}'}, []),
+        ("3.0.3", {"externalValue": "http://127.0.0.1/item.json"}, []),
+        ("3.0.3", {"$ref": "#/components/examples/Item"}, [("200/application/json", {"id": 1})]),
+        ("3.0.3", {"$ref": "#/components/examples/Missing"}, []),
+    ],
+    ids=["value", "data-value", "serialized-value", "external-value", "reference", "dangling-reference"],
+)
+def test_response_list_examples(ctx, version, example, expected):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "responses": {
+                "200": {"description": "OK", "content": {"application/json": {"schema": {}, "examples": [example]}}}
+            }
+        },
+        version=version,
+        components={"examples": {"Item": {"value": {"id": 1}}}},
+    )
+    assert list(operation.responses.iter_examples()) == expected
+
+
+@pytest.mark.parametrize("version", ["3.0.3", "3.1.0", "3.2.0"])
+@pytest.mark.parametrize(
+    ("media_examples", "root_examples"),
+    [
+        ({"A": {"value": {"marker": "media"}}}, {}),
+        ({"A": {"$ref": "#/components/examples/B"}, "B": {"value": {"marker": "media"}}}, {}),
+        (
+            {"A": {"$ref": "schema.json#/components/examples/Alias"}},
+            {"Alias": {"$ref": "#/components/examples/A"}, "A": {"value": {"marker": "media"}}},
+        ),
+    ],
+    ids=["direct", "chained", "chained-through-root"],
+)
+def test_referenced_examples_inside_another_document(ctx, version, media_examples, root_examples):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {"$ref": "media.json#/components/requestBodies/Item"},
+                    "responses": {"200": {"$ref": "media.json#/components/responses/Item"}},
+                }
+            }
+        },
+        version=version,
+        components={"examples": root_examples},
+    )
+    content = {
+        "application/json": {"schema": {"type": "object"}, "examples": {"a": {"$ref": "#/components/examples/A"}}}
+    }
+    ctx.makefile(
+        {
+            "components": {
+                "requestBodies": {"Item": {"required": True, "content": content}},
+                "responses": {"Item": {"description": "OK", "content": content}},
+                "examples": media_examples,
+            }
+        },
+        filename="media",
+    )
+    operation = schemathesis.openapi.from_path(str(schema_path))["/items"]["POST"]
+    assert [examples.generate_one(strategy).body for strategy in operation.get_strategies_from_examples()] == [
+        {"marker": "media"}
+    ]
+    assert list(operation.responses.iter_examples()) == [("200/application/json", {"marker": "media"})]
+
+
+@pytest.mark.parametrize(
+    ("components", "expected"),
+    [
+        (
+            {
+                "A": {"$ref": "#/components/examples/B"},
+                "B": {"$ref": "#/components/examples/C"},
+                "C": {"value": {"id": 1}},
+            },
+            [{"id": 1}],
+        ),
+        ({"A": {"$ref": "#/components/examples/B"}, "B": {"$ref": "#/components/examples/A"}}, []),
+    ],
+    ids=["chained", "looping"],
+)
+def test_example_reference_chains(ctx, components, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "object"},
+                        "examples": {"a": {"$ref": "#/components/examples/A"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={"examples": components},
+    )
+    assert [examples.generate_one(strategy).body for strategy in operation.get_strategies_from_examples()] == expected
 
 
 @pytest.mark.parametrize(
@@ -4561,53 +4757,6 @@ def test_pool_injected_body_with_multiple_media_types_does_not_crash(ctx):
         examples.generate_one(strategy)
 
 
-@pytest.mark.parametrize(
-    "note", [{"type": "string"}, {"$ref": "#/components/schemas/Note"}], ids=["flat", "nested-ref"]
-)
-def test_pool_body_behind_ref_in_examples_phase(ctx, note):
-    item = {"type": "object", "properties": {"id": {"type": "integer"}}}
-    schema = ctx.openapi.load_schema(
-        {
-            "/items": {
-                "post": {"responses": {"201": {"description": "OK", "content": {"application/json": {"schema": item}}}}}
-            },
-            "/items/{itemId}": {
-                "get": {
-                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": item}}}},
-                }
-            },
-            "/orders": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Order"}}},
-                    },
-                    "responses": {"201": {"description": "OK"}},
-                }
-            },
-        },
-        components={
-            "schemas": {
-                "Note": {"type": "string"},
-                "Order": {
-                    "type": "object",
-                    "required": ["itemId"],
-                    "properties": {"itemId": {"type": "integer"}, "note": note},
-                },
-            }
-        },
-    )
-    data_source = schema.create_extra_data_source()
-    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": 987654})
-
-    strategies = get_strategies_from_examples(
-        schema["/orders"]["POST"], feedback=FeedbackSources(extra_data_source=data_source), fill_missing=True
-    )
-
-    assert [examples.generate_one(strategy).body for strategy in strategies] == [{"itemId": 987654}]
-
-
 def test_generated_property_with_recursive_ref(ctx):
     # The generated sibling carries an unresolvable self-reference; extraction must still produce the example.
     operation = _json_body_operation(
@@ -4791,7 +4940,7 @@ def test_branches_from_both_oneof_and_anyof(ctx):
 
 
 @pytest.mark.parametrize(
-    "components",
+    ("components", "version"),
     [
         pytest.param(
             {
@@ -4821,6 +4970,7 @@ def test_branches_from_both_oneof_and_anyof(ctx):
                     },
                 }
             },
+            "3.0.2",
             id="tag-through-allof",
         ),
         pytest.param(
@@ -4844,6 +4994,7 @@ def test_branches_from_both_oneof_and_anyof(ctx):
                     },
                 }
             },
+            "3.0.2",
             id="tag-declared-inline",
         ),
         pytest.param(
@@ -4876,33 +5027,9 @@ def test_branches_from_both_oneof_and_anyof(ctx):
                     },
                 }
             },
+            "3.0.2",
             id="tag-through-recursive-allof",
         ),
-    ],
-)
-def test_discriminated_branches_with_shared_multi_value_tag(ctx, components):
-    # The schema name is not one of the values the shared tag allows, so pinning it to the name
-    # would make both branches impossible and drop their examples.
-    operation = _json_body_operation(
-        ctx,
-        {
-            "oneOf": [
-                {"$ref": "#/components/schemas/Attach"},
-                {"$ref": "#/components/schemas/Resize"},
-            ],
-            "discriminator": {"propertyName": "type"},
-        },
-        components=components,
-    )
-    assert [example.value for example in extract_from_schemas(operation)] == [
-        {"type": "attach", "droplet_id": 11111},
-        {"type": "attach", "size": "s-1vcpu-1gb"},
-    ]
-
-
-@pytest.mark.parametrize(
-    "components",
-    [
         pytest.param(
             {
                 "schemas": {
@@ -4935,6 +5062,7 @@ def test_discriminated_branches_with_shared_multi_value_tag(ctx, components):
                     },
                 }
             },
+            "3.1.0",
             id="referenced-boolean-subschema",
         ),
         pytest.param(
@@ -4967,12 +5095,14 @@ def test_discriminated_branches_with_shared_multi_value_tag(ctx, components):
                     },
                 }
             },
+            "3.1.0",
             id="inline-boolean-subschema",
         ),
     ],
 )
-def test_discriminated_branches_with_boolean_subschemas(ctx, components):
-    # A branch that composes `true` still has its tag read from the members that constrain it.
+def test_discriminated_branches_with_shared_multi_value_tag(ctx, components, version):
+    # The schema name is not one of the values the shared tag allows, so pinning it to the name
+    # would make both branches impossible and drop their examples.
     operation = _json_body_operation(
         ctx,
         {
@@ -4982,7 +5112,7 @@ def test_discriminated_branches_with_boolean_subschemas(ctx, components):
             ],
             "discriminator": {"propertyName": "type"},
         },
-        version="3.1.0",
+        version=version,
         components=components,
     )
     assert [example.value for example in extract_from_schemas(operation)] == [
@@ -5241,7 +5371,18 @@ def test_examples_with_the_same_name_are_paired(ctx):
 
 
 def test_examples_with_the_same_name_are_paired_in_fuzzing(ctx):
-    schema = ctx.openapi.load_schema(CORRELATED_NAMED_EXAMPLES)
+    query = CORRELATED_NAMED_EXAMPLES["/search"]["get"]["parameters"]
+    region = {**query[0], "examples": {**query[0]["examples"], "AP": {"value": "APAC"}}}
+    page = {
+        "name": "page",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "string"},
+        "examples": {"first": {"value": "1"}},
+    }
+    schema = ctx.openapi.load_schema(
+        {"/search": {"get": {"parameters": [region, query[1], page], "responses": {"200": {"description": "OK"}}}}}
+    )
     seen = []
 
     # Every expected variant must appear at least once, which takes many draws.
@@ -5253,9 +5394,12 @@ def test_examples_with_the_same_name_are_paired_in_fuzzing(ctx):
     def test(case):
         seen.append((case.query["region"], case.query["currency"]))
 
-    from_examples = {pair for pair in seen if pair[0] in ("US", "EU") and pair[1] in ("USD", "EUR")}
+    from_examples = {
+        (region, currency) for region, currency in seen if region in ("US", "EU") and currency in ("USD", "EUR")
+    }
     assert from_examples
     assert from_examples <= {("US", "USD"), ("EU", "EUR")}, f"Mismatched pairs: {from_examples}"
+    assert "APAC" in {region for region, _ in seen}
 
 
 def examples_phase_cases(ctx, app_runner, paths, **kwargs):

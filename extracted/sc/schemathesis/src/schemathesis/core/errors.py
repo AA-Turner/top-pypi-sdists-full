@@ -5,8 +5,9 @@ from __future__ import annotations
 import enum
 import re
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from difflib import get_close_matches
 from textwrap import indent
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, NoReturn, TypeGuard
@@ -17,7 +18,7 @@ from jsonschema_rs import ValidationError
 from schemathesis.core.output import truncate_json
 
 if TYPE_CHECKING:
-    from requests import RequestException
+    from requests import PreparedRequest, ReadTimeout, RequestException
 
     from schemathesis.config import OutputConfig
     from schemathesis.core.jsonschema import BundleError
@@ -107,7 +108,7 @@ class InvalidSchema(SchemathesisError):
     def label(self) -> str:
         if self.method and self.path:
             return f"{self.method.upper()} {self.path}"
-        return self.path or "-"
+        return self.path or "schema"
 
     @classmethod
     def from_bundle_error(cls, error: BundleError, location: str, name: str | None = None) -> InvalidSchema:
@@ -573,6 +574,15 @@ class SerializationNotPossible(SerializationError):
         return cls(SERIALIZATION_FOR_TYPE_IS_NOT_POSSIBLE_MESSAGE.format(media_type), media_types=[media_type])
 
 
+def not_found_message(item: str, noun: str, candidates: Iterable[str]) -> str:
+    """Report a missing `item`, suggesting the closest of `candidates` if one is close enough."""
+    message = f"`{item}` {noun} not found" if noun else f"`{item}` not found"
+    matches = get_close_matches(item, list(candidates))
+    if matches:
+        message += f". Did you mean `{matches[0]}`?"
+    return message
+
+
 class OperationNotFound(LookupError, SchemathesisError):
     """Raised when an API operation cannot be found in the schema.
 
@@ -615,6 +625,10 @@ class LoaderErrorKind(enum.StrEnum):
 
     # GraphQL validation
     GRAPHQL_INVALID_SCHEMA = "graphql_invalid_schema"
+
+    # gRPC validation
+    GRPC_INVALID_DESCRIPTOR_SET = "grpc_invalid_descriptor_set"
+    GRPC_REFLECTION_UNAVAILABLE = "grpc_reflection_unavailable"
 
     # Unclassified
     UNCLASSIFIED = "unclassified"
@@ -676,6 +690,22 @@ def _clean_inner_request_message(message: object) -> str:
     if isinstance(message, str) and message.startswith("HTTPConnectionPool"):
         return re.sub(r"HTTPConnectionPool\(.+?\): ", "", message).rstrip(".")
     return str(message)
+
+
+def read_timeout_error(url: str, timeout: float | int, request: PreparedRequest | None = None) -> ReadTimeout:
+    """A response that did not arrive within the timeout, in the form `requests` reports a late one."""
+    from requests.exceptions import ReadTimeout
+
+    return ReadTimeout(TimeoutError(f"{url}: Read timed out. (read timeout={timeout})"), request=request)
+
+
+def is_read_timeout(exc: RequestException) -> bool:
+    """Whether the response did not arrive within the timeout, before or after its headers."""
+    from requests.exceptions import ReadTimeout
+    from urllib3.exceptions import ReadTimeoutError
+
+    # A timeout while reading the body arrives as a connection error that wraps the read timeout.
+    return isinstance(exc, ReadTimeout) or isinstance(exc.args[0] if exc.args else None, ReadTimeoutError)
 
 
 def get_request_error_message(exc: RequestException) -> str:

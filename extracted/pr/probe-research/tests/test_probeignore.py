@@ -357,7 +357,7 @@ def test_a_fifo_named_probeignore_cannot_hang_init(tmp_path, monkeypatch):
     code = (
         "import warnings, sys\n"
         "warnings.simplefilter('always')\n"
-        "from probe.sdk import ignore\n"
+        "from probe.sdk.recording_rules import ignore\n"
         f"print(ignore.load({str(tmp_path)!r}, environ={{}}))\n"
     )
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)

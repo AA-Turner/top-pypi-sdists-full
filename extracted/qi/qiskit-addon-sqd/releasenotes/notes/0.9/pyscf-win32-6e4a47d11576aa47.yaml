@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    pyscf is no longer considered a dependency on Windows, where it fails to
-    install.  However, Windows remains an unsupported platform.

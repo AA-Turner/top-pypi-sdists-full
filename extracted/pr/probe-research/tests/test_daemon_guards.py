@@ -948,13 +948,13 @@ def test_the_agents_own_mailbox_calls_are_refused(places, command, method, profi
 MAILBOX_READS = [
     "rg -n 'mailbox.answer' agent/src",
     "git log --oneline --grep mailbox.answer",
-    "grep -rn hooks.run agent/src/probe/service/server.py",
+    "grep -rn hooks.run agent/src/probe/service/server/server.py",
     "pytest tests/test_service_answer_key.py -k mailbox",
     "python -I -m probe.service.client call service.status",
     'grep -n "mailbox.answer" agent/plugins/probe-research/hooks/_service_rpc.py',
-    'git grep -n "mailbox.post" -- agent/src/probe/service/client.py',
+    'git grep -n "mailbox.post" -- agent/src/probe/foundation/service_api/service_api.py',
     "grep -rn 'rpc.call(\"mailbox.answer\"' agent/",
-    "grep -nc mailbox.post agent/src/probe/service/mailhost.py",
+    "grep -nc mailbox.post agent/src/probe/service/mail/mail.py",
     "git commit -m 'refuse a mailbox.answer call without the key: client call, .call( and nc shapes'",
     "gh pr create --title t --body 'The service refuses mailbox.answer from python -m probe.service.client call'",
     "python -m pytest tests/ -q  # checks client.call( on mailbox.post",
@@ -992,6 +992,14 @@ SESSION_CALLS = [
     ("printf '{\"method\":\"session.end\",\"params\":{}}\\n' | nc -U ~/.probe/service.sock", "session.end"),
     ("python3 - <<'EOF'\nfrom probe.service import client\nclient.call(\"session.end\", {\"sid\": s})\nEOF",
      "session.end"),
+    # The client's own path since agent:16, which no older guard knows.
+    ("python3 -c 'from probe.foundation import service_api; service_api.call(\"session.end\", {})'", "session.end"),
+    ("python3 -c 'from probe.foundation.service_api import call; call(\"session.register\", {})'",
+     "session.register"),
+    ("python3 -c 'from probe.foundation import paths, service_api; service_api.call(\"session.end\", {})'",
+     "session.end"),
+    ("python3 -c 'from probe.foundation import(service_api); service_api.call(\"session.end\", {})'", "session.end"),
+    ("python3 -c 'import probe.foundation as f; f.service_api.call(\"session.end\", {})'", "session.end"),
 ]
 
 

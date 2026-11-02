@@ -1,0 +1,171 @@
+# Copyright (c) 2023-2025, RTE (https://www.rte-france.com)
+# See AUTHORS.txt
+# This Source Code Form is subject to the terms of the Mozilla Public License, version 2.0.
+# If a copy of the Mozilla Public License, version 2.0 was not distributed with this file,
+# you can obtain one at http://mozilla.org/MPL/2.0/.
+# SPDX-License-Identifier: MPL-2.0
+# This file is part of LightSim2grid, LightSim2grid implements a c++ backend targeting the Grid2Op platform.
+
+import copy
+
+import numpy as np
+import pandas as pd
+
+from ._aux_common import _aux_get_bus, _aux_reactive_limits_at_target_p, _aux_regulated_bus_view_ids
+
+
+def _aux_can_be_pv_flags(can_be_pv, gen_index, other_ids=None):
+    """The ``can_be_pv`` argument of `init` as a boolean array aligned on ``gen_index``
+    (the generators in lightsim2grid order), or ``None`` when nothing is flagged. Accepts
+    an iterable of generator ids (what `bake_outer_loops` returns), a boolean Series
+    indexed by generator id, or a boolean array already in that order. ``other_ids`` are
+    the ids of the other elements `init` accepts in it (the static var compensators, see
+    `_aux_svc_can_be_pv_flags`): skipped here, where any other unknown id raises."""
+    if can_be_pv is None:
+        return None
+    if isinstance(can_be_pv, pd.Series):
+        flags = can_be_pv.reindex(gen_index).fillna(False).astype(bool).to_numpy()
+    elif isinstance(can_be_pv, np.ndarray) and can_be_pv.dtype == bool:
+        if can_be_pv.shape != (len(gen_index),):
+            raise ValueError(f"`can_be_pv`: a boolean array must have one entry per generator "
+                             f"({len(gen_index)}), got shape {can_be_pv.shape}.")
+        flags = can_be_pv.copy()
+    else:
+        ids = pd.Index([str(el) for el in can_be_pv])
+        unknown = ids.difference(gen_index)
+        if other_ids is not None:
+            unknown = unknown.difference(other_ids)
+        if len(unknown):
+            raise ValueError(f"`can_be_pv`: unknown generator / static var compensator id(s) "
+                             f"{list(unknown)[:10]}.")
+        flags = gen_index.isin(ids)
+    return np.asarray(flags, dtype=bool)
+
+
+def _aux_add_generators(model, net, sort_index, voltage_levels, bus_df, first_bus_per_vl,
+                        can_be_pv=None, can_be_pv_other_ids=None):
+    """Add every generator of ``net`` to ``model``. Returns ``(df_gen, gen_sub)``:
+    ``df_gen`` is reused by the slack-assignment phase (`_aux_add_slack.py`),
+    ``gen_sub`` by the final substation-id bookkeeping in `initLSGrid.py`.
+    ``can_be_pv`` flags the generators an outer loop pinned at a reactive limit (see
+    `_aux_can_be_pv_flags` for what it accepts, ``can_be_pv_other_ids`` being its
+    ``other_ids``)."""
+    gen_attrs = [
+        "connected", "min_p", "max_p", "target_p", "target_v", "target_q", "p",
+        "voltage_regulator_on", "regulated_element_id", "voltage_level_id", "bus_id",
+        "min_q", "max_q", "min_q_at_target_p", "max_q_at_target_p",
+    ]
+    if sort_index:
+        df_gen = net.get_generators(attributes=gen_attrs).sort_index()
+    else:
+        df_gen = net.get_generators(attributes=gen_attrs)
+
+    # to handle encoding in 32 bits and overflow when "splitting" the Q values among
+    min_float_value = np.finfo(np.float32).min * 1e-4 + 1.
+    max_float_value = np.finfo(np.float32).max * 1e-4 + 1.
+    # the curve at the target P for a CURVE-kind generator, inverted pairs sorted
+    min_q_aux, max_q_aux = _aux_reactive_limits_at_target_p(df_gen)
+    too_small = min_q_aux < min_float_value
+    min_q_aux[too_small] = min_float_value
+    min_q = min_q_aux.astype(np.float32)
+
+    too_big = np.abs(max_q_aux) > max_float_value
+    max_q_aux[too_big] = np.sign(max_q_aux[too_big]) * max_float_value
+    max_q = max_q_aux.astype(np.float32)
+    min_q[~np.isfinite(min_q)] = min_float_value
+    max_q[~np.isfinite(max_q)] = max_float_value
+    gen_bus, gen_disco, gen_sub = _aux_get_bus(voltage_levels, bus_df, first_bus_per_vl, "gen", df_gen)
+
+    # remote voltage control: a generator may regulate the voltage of a *different*
+    # bus, identified by `regulated_element_id` (its own id when controlling locally).
+    # Resolve that element to the bus-view id of its terminal, then to the regulated
+    # voltage level (used for the target_v -> pu conversion) and, further down, to the
+    # lightsim2grid global bus id threaded into the C++ container.
+    bus_reg = copy.deepcopy(df_gen["regulated_element_id"].values)
+    # for oldest pypowsybl version, we could have "" there
+    bus_reg = np.where(bus_reg == "", df_gen.index, bus_reg)
+    vl_reg = copy.deepcopy(df_gen["voltage_level_id"].values)
+    # a disconnected generator is deactivated below regardless of its (possibly
+    # itself disconnected / unresolvable) regulated element, so exclude it here:
+    # otherwise a disconnected generator remotely "regulating" a disconnected
+    # busbar section (empty bus-view id) crashes the (moot, since deactivated)
+    # bus resolution below.
+    mask_remote_gen = (bus_reg != df_gen.index.values) & ~gen_disco
+    gen_reg_bus_view = None
+    if mask_remote_gen.any():
+        remote_idx = np.nonzero(mask_remote_gen)[0]
+        gen_reg_bus_view = _aux_regulated_bus_view_ids(net, bus_reg[mask_remote_gen])
+        # a *connected* generator can still remotely regulate a busbar section that is
+        # itself disconnected (found on a real grid snapshot: a de-energized
+        # voltage level). pypowsybl's bus-view id for a disconnected element is '',
+        # not NaN, and can't be resolved to any bus_df row. OLF converges fine on such
+        # grids, so it must fall back to local voltage control in this situation;
+        # mirror that instead of crashing.
+        unresolved = gen_reg_bus_view == ""
+        if unresolved.any():
+            mask_remote_gen[remote_idx[unresolved]] = False
+            gen_reg_bus_view = gen_reg_bus_view[~unresolved]
+        vl_reg[mask_remote_gen] = bus_df.loc[gen_reg_bus_view, "voltage_level_id"].values
+    model.init_generators_full(df_gen["target_p"].values,
+                            #    df_gen["target_v"].values / voltage_levels.loc[df_gen["voltage_level_id"].values]["nominal_v"].values,
+                               df_gen["target_v"].values / voltage_levels.loc[vl_reg]["nominal_v"].values,
+                               df_gen["target_q"].values,
+                               df_gen["voltage_regulator_on"].values,
+                               min_q,
+                               max_q,
+                               gen_bus
+                               )
+    for gen_id, is_disco in enumerate(gen_disco):
+        if is_disco:
+            model.deactivate_gen(gen_id)
+    model.set_gen_names(df_gen.index)
+
+    # active power limits: iidm always carries them, and nothing in the powerflow reads
+    # them -- they are what says whether the active power a distributed slack ended up
+    # asking of a machine is one it could actually deliver (see the batch algorithms'
+    # `compute_physical_violations`). A generator whose limit is not a finite number gets
+    # NaN, which the checks read as "no limit for that one".
+    min_p_mw = np.asarray(df_gen["min_p"].values, dtype=np.float64).copy()
+    max_p_mw = np.asarray(df_gen["max_p"].values, dtype=np.float64).copy()
+    min_p_mw[~np.isfinite(min_p_mw)] = np.nan
+    max_p_mw[~np.isfinite(max_p_mw)] = np.nan
+    if np.any(np.isfinite(min_p_mw)) or np.any(np.isfinite(max_p_mw)):
+        model.set_gen_p_limits(min_p_mw, max_p_mw)
+
+    # the PQ generators an outer loop pinned at a reactive limit (what `bake_outer_loops`
+    # returns): nothing in the powerflow reads the flag, it only opens them to the physical
+    # check of their PQ -> PV release
+    flags = _aux_can_be_pv_flags(can_be_pv, df_gen.index, can_be_pv_other_ids)
+    if flags is not None and flags.any():
+        model.set_gen_can_be_pv(flags)
+
+    # thread the regulated bus to the C++ generator container. Local generators keep
+    # their own bus (already the C++ default), so a grid without any remote control
+    # stays byte-identical to before this feature.
+    # TODO: the regulated bus is resolved once, here, from the pypowsybl grid. If the
+    # regulated element later changes bus inside lightsim2grid, this stays frozen and
+    # the two grids desynchronise (see `_aux_regulated_bus_view_ids` warning).
+    if mask_remote_gen.any():
+        gen_reg_bus_global = bus_df.loc[gen_reg_bus_view, "bus_global_id"].values
+        for gen_id, reg_bus in zip(np.nonzero(mask_remote_gen)[0], gen_reg_bus_global):
+            model.set_gen_regulated_bus(int(gen_id), int(reg_bus))
+
+    # how the generators holding one bus share their reactive power: the same key OLF
+    # reads (a missing or zero q_percent is no key, the reactive range then decides)
+    q_percent = _aux_reactive_keys(net, df_gen.index)
+    for gen_id in np.flatnonzero(q_percent > 0.):
+        model.set_gen_reactive_key(int(gen_id), float(q_percent[gen_id]))
+
+    return df_gen, gen_sub
+
+
+def _aux_reactive_keys(net, gen_ids):
+    """``coordinatedReactiveControl.q_percent`` of each generator in ``gen_ids``, 0
+    where the extension is absent (or unknown to this pypowsybl version)."""
+    try:
+        ext = net.get_extensions("coordinatedReactiveControl")
+    except Exception:  # noqa: BLE001 - extension not supported by this pypowsybl
+        return np.zeros(len(gen_ids))
+    if ext is None or not len(ext) or "q_percent" not in ext.columns:
+        return np.zeros(len(gen_ids))
+    return ext["q_percent"].reindex(gen_ids).fillna(0.).to_numpy(float)

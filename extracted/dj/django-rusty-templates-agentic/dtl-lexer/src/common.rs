@@ -1,0 +1,323 @@
+use miette::{Diagnostic, SourceSpan};
+use thiserror::Error;
+use unicode_xid::UnicodeXID;
+
+use crate::types::At;
+use crate::{END_TRANSLATE_LEN, QUOTE_LEN, START_TRANSLATE_LEN};
+
+pub trait NextChar {
+    fn next_whitespace(&self) -> usize;
+    fn next_non_whitespace(&self) -> usize;
+}
+
+impl NextChar for str {
+    fn next_whitespace(&self) -> usize {
+        self.find(char::is_whitespace).unwrap_or(self.len())
+    }
+
+    fn next_non_whitespace(&self) -> usize {
+        self.find(|c: char| !c.is_whitespace())
+            .unwrap_or(self.len())
+    }
+}
+
+#[derive(Clone, Error, Debug, Diagnostic, PartialEq, Eq)]
+pub enum LexerError {
+    #[error("Expected a complete string literal")]
+    IncompleteString {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Expected a complete translation string")]
+    IncompleteTranslatedString {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Expected a valid variable name")]
+    InvalidVariableName {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Could not parse the remainder")]
+    InvalidRemainder {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Expected a string literal within translation")]
+    MissingTranslatedString {
+        #[label("here")]
+        at: SourceSpan,
+    },
+}
+
+pub fn lex_variable(byte: usize, rest: &str) -> (At, usize, &str) {
+    let mut in_text = None;
+    let mut end = 0;
+    for c in rest.chars() {
+        match c {
+            '"' => match in_text {
+                None => in_text = Some('"'),
+                Some('"') => in_text = None,
+                _ => {}
+            },
+            '\'' => match in_text {
+                None => in_text = Some('\''),
+                Some('\'') => in_text = None,
+                _ => {}
+            },
+            _ if in_text.is_some() => {}
+            c if !c.is_xid_continue()
+                && c != '.'
+                && c != '|'
+                && c != ':'
+                && c != '-'
+                && c != '+' =>
+            {
+                break;
+            }
+            _ => {}
+        }
+        end += c.len_utf8();
+    }
+    let at = (byte, end);
+    let rest = &rest[end..];
+    let byte = byte + end;
+    (at, byte, rest)
+}
+
+/// Extend a literal's span over an adjacent filter chain in a tag expression.
+pub(crate) fn lex_literal_filters(at: At, byte: usize, rest: &str) -> Option<(At, usize, &str)> {
+    if !rest.starts_with('|') {
+        return None;
+    }
+    let mut quote = None;
+    let mut escaped = false;
+    let mut end = 0;
+    for character in rest.chars() {
+        if escaped {
+            escaped = false;
+        } else if let Some(delimiter) = quote {
+            if character == '\\' {
+                escaped = true;
+            } else if character == delimiter {
+                quote = None;
+            }
+        } else if matches!(character, '\'' | '"') {
+            quote = Some(character);
+        } else if character.is_whitespace() {
+            break;
+        }
+        end += character.len_utf8();
+    }
+    Some(((at.0, at.1 + end), byte + end, &rest[end..]))
+}
+
+pub fn lex_text<'t>(
+    byte: usize,
+    rest: &'t str,
+    chars: &mut std::str::Chars,
+    end: char,
+) -> Result<(At, usize, &'t str), LexerError> {
+    let mut count = 1;
+    loop {
+        let Some(next) = chars.next() else {
+            let at = (byte, count);
+            return Err(LexerError::IncompleteString { at: at.into() });
+        };
+        count += next.len_utf8();
+        if next == '\\' {
+            let Some(next) = chars.next() else {
+                let at = (byte, count);
+                return Err(LexerError::IncompleteString { at: at.into() });
+            };
+            count += next.len_utf8();
+        } else if next == end {
+            let at = (byte, count);
+            let rest = &rest[count..];
+            let byte = byte + count;
+            return Ok((at, byte, rest));
+        }
+    }
+}
+
+pub fn lex_translated<'t>(
+    byte: usize,
+    rest: &'t str,
+    chars: &mut std::str::Chars,
+) -> Result<(At, usize, &'t str), LexerError> {
+    let start = byte;
+    let byte = byte + START_TRANSLATE_LEN;
+    let rest = &rest[START_TRANSLATE_LEN..];
+    let (_at, byte, rest) = match chars.next() {
+        None => {
+            let at = (start, START_TRANSLATE_LEN);
+            return Err(LexerError::MissingTranslatedString { at: at.into() });
+        }
+        Some('\'') => lex_text(byte, rest, chars, '\'')?,
+        Some('"') => lex_text(byte, rest, chars, '"')?,
+        _ => {
+            let at = (start, rest.len() + START_TRANSLATE_LEN);
+            return Err(LexerError::MissingTranslatedString { at: at.into() });
+        }
+    };
+    if let Some(')') = chars.next() {
+        let byte = byte + END_TRANSLATE_LEN;
+        let rest = &rest[END_TRANSLATE_LEN..];
+        let at = (start, byte - start);
+        Ok((at, byte, rest))
+    } else {
+        let at = (start, byte - start);
+        Err(LexerError::IncompleteTranslatedString { at: at.into() })
+    }
+}
+
+/// Django 6 accepts signed exponents and plus signs in numeric expressions.
+pub fn lex_numeric_modern(byte: usize, rest: &str) -> (At, usize, &str) {
+    let end = rest
+        .find(|c: char| !(c.is_ascii_digit() || matches!(c, '-' | '+' | '.' | 'e' | 'E')))
+        .unwrap_or(rest.len());
+    ((byte, end), byte + end, &rest[end..])
+}
+
+pub fn trim_variable_modern(variable: &str) -> &str {
+    match variable.find(|c: char| !c.is_xid_continue() && !matches!(c, '.' | '-' | '+')) {
+        Some(end) => &variable[..end],
+        None => variable,
+    }
+}
+
+pub fn check_variable_attrs_modern(variable: &str, start: usize) -> Result<(), LexerError> {
+    let mut offset = 0;
+    for part in variable.split('.') {
+        if part.starts_with('_') || part.contains('-') || part.contains('+') {
+            return Err(LexerError::InvalidVariableName {
+                at: (start + offset, part.len()).into(),
+            });
+        }
+        offset += part.len() + 1;
+    }
+    Ok(())
+}
+
+pub fn lex_numeric(byte: usize, rest: &str) -> (At, usize, &str) {
+    let end = rest
+        .find(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.' || c == 'e'))
+        .unwrap_or(rest.len());
+    let content = &rest[..end];
+    // Match django bug
+    let end = match content[1..].find('-') {
+        Some(n) => n + 1,
+        None => end,
+    };
+    // End match django bug
+    let at = (byte, end);
+    (at, byte + end, &rest[end..])
+}
+
+pub fn trim_variable(variable: &str) -> &str {
+    match variable.find(|c: char| !c.is_xid_continue() && c != '.' && c != '-') {
+        Some(end) => &variable[..end],
+        None => variable,
+    }
+}
+
+pub fn check_variable_attrs(variable: &str, start: usize) -> Result<(), LexerError> {
+    let mut offset = 0;
+    for (i, var) in variable.split('.').enumerate() {
+        if i == 0 {
+            let mut chars = var.chars();
+            chars.next();
+            if chars.any(|c| c == '-') {
+                let at = (start + offset, var.len());
+                return Err(LexerError::InvalidVariableName { at: at.into() });
+            }
+        } else if var.find('-').is_some() {
+            let at = (start + offset, var.len());
+            return Err(LexerError::InvalidVariableName { at: at.into() });
+        }
+
+        match var.chars().next() {
+            Some(c) if c != '_' => {
+                offset += var.len() + 1;
+                continue;
+            }
+            _ => {
+                let at = (start + offset, var.len());
+                return Err(LexerError::InvalidVariableName { at: at.into() });
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn lex_variable_argument(byte: usize, rest: &str) -> Result<(At, usize, &str), LexerError> {
+    let content = trim_variable(rest);
+    check_variable_attrs(content, byte)?;
+    let end = content.len();
+    let at = (byte, end);
+    Ok((at, byte + end, &rest[end..]))
+}
+
+pub fn text_content_at(at: At) -> At {
+    let (start, len) = at;
+    let start = start + QUOTE_LEN;
+    let len = len - 2 * QUOTE_LEN;
+    (start, len)
+}
+
+pub fn translated_text_content_at(at: At) -> At {
+    let (start, len) = at;
+    let start = start + START_TRANSLATE_LEN + QUOTE_LEN;
+    let len = len - START_TRANSLATE_LEN - END_TRANSLATE_LEN - 2 * QUOTE_LEN;
+    (start, len)
+}
+
+/// Returns a new `At` representing the span from the beginning of `start`
+/// to the end of `end`.
+pub fn get_all_at(start: At, end: At) -> At {
+    assert!(
+        end.0 >= start.0,
+        "End position must be greater than or equal to start position"
+    );
+    (start.0, end.0 - start.0 + end.1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lex_text_non_ascii() {
+        let template = "'N\u{ec655}'";
+        let mut chars = template.chars();
+        chars.next();
+        let (at, byte, rest) = lex_text(1, template, &mut chars, '\'').unwrap();
+        assert_eq!(at, (1, 7));
+        assert_eq!(byte, 8);
+        assert_eq!(rest, "");
+    }
+
+    #[test]
+    fn test_lex_argument_non_ascii() {
+        let template = "ZJ5G4YXZJUH6|default:\"#`´କ¯\"";
+        let (at, byte, rest) = lex_variable(0, template);
+        assert_eq!(at, (0, 32));
+        assert_eq!(byte, 32);
+        assert_eq!(rest, "");
+    }
+
+    #[test]
+    fn test_get_all_at_valid() {
+        let start = (10, 5);
+        let end = (20, 3);
+        assert_eq!(get_all_at(start, end), (10, 13));
+    }
+
+    #[test]
+    #[should_panic(expected = "End position must be greater than or equal to start position")]
+    fn test_get_all_at_invalid_range() {
+        let start = (20, 5);
+        let end = (10, 3);
+        get_all_at(start, end);
+    }
+}

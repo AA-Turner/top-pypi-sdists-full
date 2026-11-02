@@ -1,0 +1,27 @@
+[project]
+name = "niche-elf"
+version = "0.3.7"
+description = "A small library that optimizes some niche operations commonly used by debugger extensions."
+readme = "README.md"
+requires-python = ">=3.10,<4"
+license = { text = "GPLv3" }
+
+authors = [
+    { name = "k4lizen", email = "k4lizen@proton.me" }
+]
+
+classifiers = [
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Embedded Systems",
+    "Topic :: System :: Operating System Kernels",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D101", "D102", "D107", "D103", "D203", "D212", "D203", "D212", "D100", "D104", "EM101", "TRY003", "EM102", "TD001", "TD002", "TD003", "FIX001", "PLR0913", "ERA001"]
+
+[tool.setuptools.package-data]
+niche_elf = ["py.typed"]

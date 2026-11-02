@@ -18,9 +18,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 CALLER_PATH = WORKFLOWS_DIR / "call-repo-evidence-gate.yml"
 
-# First release whose wheel ships node_dod_verify occ-difference, omnimarket#3277.
-_DIFFERENCE_CLASSIFIER_FLOOR = (0, 4, 294)
-
 
 def test_caller_workflow_shape() -> None:
     text = CALLER_PATH.read_text(encoding="utf-8")
@@ -54,8 +51,11 @@ def test_caller_workflow_shape() -> None:
     assert job["with"]["evidence-source"] == "caller", (
         "caller evidence mode is required"
     )
-    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", job["with"]["verifier-version"]), (
-        "verifier-version must be a numeric semantic version"
+    assert re.fullmatch(r"dev-[0-9]{14}-[0-9a-f]{12}", job["with"]["verifier-tag"]), (
+        "verifier-tag must be an omnimarket dev-merge tag (OMN-21859)"
+    )
+    assert "verifier-version" not in job["with"], (
+        "verifier-version is the reusable's warned fallback, not a caller input"
     )
     for key in ("steps", "secrets", "if", "name", "permissions"):
         assert key not in job, f"caller job must not declare {key}"
@@ -68,16 +68,6 @@ def test_caller_stops_comparing_with_occ_at_the_s6_cutover() -> None:
     ]
     assert job["with"].get("compare-with-occ") == "false", (
         'the S6 cut-over requires compare-with-occ: "false" (a quoted string input)'
-    )
-    version = tuple(int(part) for part in job["with"]["verifier-version"].split("."))
-    assert version >= _DIFFERENCE_CLASSIFIER_FLOOR, (
-        "verifier-version must ship node_dod_verify occ-difference "
-        f"(>= {'.'.join(map(str, _DIFFERENCE_CLASSIFIER_FLOOR))})"
-    )
-    assert version >= (0, 4, 305), (
-        "verifier-version must ship omnimarket#3563 "
-        "(node_dod_verify names contract_in_another_repo, omnimarket v0.4.305), "
-        "the verifier half of the receipt-gate pin"
     )
 
 
@@ -92,6 +82,48 @@ def test_caller_pins_the_writer_release_cut_reusable() -> None:
     tag = re.search(r"@dev-(?P<stamp>[0-9]{14})-[0-9a-f]{12}$", job["uses"])
     assert tag is not None, job["uses"]
     assert tag["stamp"] >= "20261008214913", job["uses"]
+
+
+_PYTEST_VALUE_OPTIONS = frozenset({"-k", "-m", "-o", "-n", "-c", "-p"})
+
+
+def _pytest_selector(check_value: str) -> str:
+    """The path a pytest evidence command runs: a file, a ``file::node`` id or a tests directory."""
+    previous = ""
+    for token in shlex.split(check_value):
+        value_of_option = previous in _PYTEST_VALUE_OPTIONS
+        previous = token
+        if value_of_option:
+            continue
+        path = token.partition("::")[0]
+        if path.endswith((".py", "/tests")) or (
+            path.startswith("tests/") and (REPO_ROOT / path).is_dir()
+        ):
+            return path
+    return ""
+
+
+def test_pytest_selector_reads_files_node_ids_and_directories() -> None:
+    assert (
+        _pytest_selector(
+            "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q"
+        )
+        == "tests/ci/test_repo_evidence_caller_omn20074.py"
+    )
+    assert (
+        _pytest_selector(
+            "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py::test_caller_workflow_shape"
+            " -q -o addopts=''"
+        )
+        == "tests/ci/test_repo_evidence_caller_omn20074.py"
+    )
+    assert _pytest_selector("uv run pytest tests/ci -q") == "tests/ci"
+    assert _pytest_selector("uv run pytest tests/ci/ -q") == "tests/ci/"
+
+
+def test_pytest_selector_reads_no_path_from_options_or_a_missing_directory() -> None:
+    assert _pytest_selector("uv run pytest -q -o addopts='' -k 'tests/ci'") == ""
+    assert _pytest_selector("uv run pytest tests/no_such_directory -q") == ""
 
 
 def test_every_repo_contract_binds_every_criterion() -> None:
@@ -118,14 +150,7 @@ def test_every_repo_contract_binds_every_criterion() -> None:
                     "check_value", ""
                 ).startswith("uv run pytest "):
                     continue
-                selector = next(
-                    (
-                        token
-                        for token in shlex.split(check["check_value"])
-                        if token.endswith((".py", "/tests"))
-                    ),
-                    "",
-                )
+                selector = _pytest_selector(check["check_value"])
                 assert (
                     selector
                     and not Path(selector).is_absolute()

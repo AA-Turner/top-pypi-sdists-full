@@ -1,0 +1,1317 @@
+"""File-based backend implementation with thread-safe operations and oldest-written-first eviction.
+
+This module implements BaseBackend protocol for filesystem-based caching with:
+- Thread-safe operations using RLock and file-level locking (fcntl/msvcrt)
+- Atomic writes via write-then-rename pattern
+- Oldest-written-first (mtime) eviction triggered at 90% capacity, evicting to 70%
+- O(1) capacity bookkeeping: entry count and bytes kept in counters, not rescanned per set()
+- TTL-based expiration with secure 14-byte header format
+- TTL inspection & refresh (TTLInspectableBackend): get_ttl / refresh_ttl off the header
+- Security features: O_NOFOLLOW, realpath resolution, permission enforcement
+- Blake2b key hashing (16 bytes hex = 32 chars) for filename safety
+"""
+
+from __future__ import annotations
+
+import asyncio
+import errno
+import hashlib
+import logging
+import mmap
+import os
+import platform
+import stat
+import struct
+import sys
+import threading
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, BinaryIO
+
+from cachekit.backends.errors import BackendError, BackendErrorType
+from cachekit.hash_utils import _WarnThrottle
+
+logger = logging.getLogger(__name__)
+
+# A failing directory scan, entry stat or eviction delete repeats on every set() until the fault
+# clears, so each logs one WARNING a minute and the rest at DEBUG.
+_scan_failed_warn = _WarnThrottle()
+_stat_failed_warn = _WarnThrottle()
+_unlink_failed_warn = _WarnThrottle()
+
+# Conditional imports for platform-specific locking
+if platform.system() == "Windows":
+    pass
+else:
+    pass  # type: ignore[import-not-found]
+
+# Header format constants (14 bytes total)
+MAGIC: bytes = b"CK"  # [0:2] File identification
+FORMAT_VERSION: int = 1  # [2:3] Version byte
+RESERVED: int = 0  # [3:4] Reserved for future use
+FLAGS_SIZE: int = 2  # [4:6] Compression/encryption flags (uint16 BE)
+TIMESTAMP_SIZE: int = 8  # [6:14] Expiry timestamp (uint64 BE, 0 = never expire)
+HEADER_SIZE: int = 14
+
+# Eviction thresholds
+EVICTION_TRIGGER_THRESHOLD: float = 0.9  # Trigger at 90% capacity
+EVICTION_TARGET_THRESHOLD: float = 0.7  # Evict to 70% capacity
+
+# Cleanup settings
+TEMP_FILE_MAX_AGE_SECONDS: int = 60  # Delete orphaned temp files older than 60s
+
+# The entry counters see only this process's writes. Another process writing the same directory
+# (unsupported, but it happens) drifts them, so set() rescans once this long after the last scan.
+RECONCILE_INTERVAL_SECONDS: float = 30.0
+
+# TTL bounds (security: prevent integer overflow)
+MAX_TTL_SECONDS: int = 10 * 365 * 24 * 60 * 60  # 10 years max
+
+# Read-side mmap ceiling (#171, fork 4): a fixed internal cap independent of max_value_mb so a
+# misconfigured huge max_value_mb (or an out-of-band file dropped in cache_dir) can't map an
+# unbounded region. Above this, get_buffer() returns None and the caller falls back to os.read.
+MMAP_MAX_BYTES: int = 512 * 1024 * 1024  # 512 MB
+
+# Python 3.13+ maps without keeping a duplicate of the file descriptor (trackfd=False). Before 3.13
+# every mmap object holds one descriptor until it is freed, so a result that keeps its mapping alive
+# also keeps a descriptor open, and a few hundred held results exhaust RLIMIT_NOFILE.
+MMAP_RELEASES_FD: bool = sys.version_info >= (3, 13)
+_MMAP_KWARGS: dict[str, Any] = {"trackfd": False} if MMAP_RELEASES_FD else {}
+
+
+def _warn_throttled(throttle: _WarnThrottle, msg: str, *args: object) -> None:
+    """Log ``msg`` at WARNING once per throttle window, with the failures since the last one; DEBUG otherwise."""
+    failures = throttle.claim()
+    if failures:
+        logger.warning(msg + " (failures since the last warning: %d)", *args, failures)
+    else:
+        logger.debug(msg, *args)
+
+
+def _read_fully(fd: int, n: int) -> bytes:
+    """Read ``n`` bytes from ``fd``, looping over short reads; stops early only at EOF.
+
+    A single read(2) may return fewer bytes than asked (POSIX permits it; Linux caps one call at
+    ~2 GiB), so a lone ``os.read`` can silently truncate a large payload into a spurious integrity
+    failure. A file shorter than ``n`` still yields a short result, so callers' header/integrity
+    validation sees truncation exactly as before. CPython's single-chunk ``join`` returns the chunk
+    itself, so the one-read case (every payload the kernel serves whole) adds no copy and the
+    read-peak bound holds; only a genuinely short-read payload pays a join copy.
+    """
+    chunks: list[bytes] = []
+    while n > 0:
+        chunk = os.read(fd, n)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        n -= len(chunk)
+    return b"".join(chunks)
+
+
+def _write_fully(fd: int, data: bytes) -> None:
+    """Write all of ``data`` to ``fd``, looping over short writes; the write twin of ``_read_fully``.
+
+    A single write(2) may store fewer bytes than asked (POSIX permits it; Linux caps one call at
+    ~2 GiB) and ``os.write`` only reports the count, so a lone call can silently truncate a large
+    value that is then fsync'd and renamed into place as a "successful" set (see the
+    truncated-payload branch in ``get`` for what that costs). Raises EIO on zero progress.
+    """
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written == 0:
+            raise OSError(errno.EIO, f"write made no progress with {view.nbytes} bytes remaining")
+        view = view[written:]
+
+
+def _has_unknown_transform(header: bytes) -> bool:
+    """True when the header's reserved byte or flags are nonzero.
+
+    The file-backend spec reserves these for future payload transforms. This reader implements
+    none, so such an entry MUST read as a miss and MUST NOT be deleted, rewritten or returned:
+    exposing transformed bytes as plaintext is the failure this guards. Check it after magic and
+    version (a wrong one is plain corruption) and before expiry (the spec's MUST NOT delete has no
+    expiry exception).
+    """
+    return header[3:6] != b"\x00\x00\x00"
+
+
+class _MmapHandle:
+    """Owns a read-only mmap of a cache file plus a memoryview of its payload (past the 14-byte
+    header). Zero-copy: the view aliases mapped pages, never a heap copy.
+
+    The CALLER must ``close()`` once deserialize returns. Lifetime contract (CPython):
+
+    - ``close()`` releases the handle's own view, so touching ``handle.view`` afterwards raises
+      ``ValueError`` (unless a consumer exported ``handle.view`` itself: then the release refuses
+      and the view stays readable until that export dies). Either way the handle must never
+      escape the read call frame nor reach L1 (#171).
+    - Anything deserialize built over the mapping (an Arrow table, a polars frame, or pandas
+      columns that are views) holds buffer exports of it. ``mmap.close()`` refuses with
+      ``BufferError`` while any export lives; ``close()`` swallows that, and the mapping is
+      unmapped when the last export is released. A result therefore never dangles.
+    - A mapping that outlives the read costs no file descriptor on Python 3.13+ (``trackfd=False``).
+      Before 3.13 the mmap object holds a duplicate descriptor until it is freed, which is why the
+      cache handler maps only pandas results there: they are meant to copy out, and only a pandas
+      column that stays a view of the mapped buffers keeps the mapping and its descriptor.
+    - The file's pages stay valid while mapped because cachekit never rewrites a cache file in
+      place: writes go to a temp file and ``rename``, eviction and delete ``unlink``, and both
+      leave an existing mapping intact. A process that truncates a cache file in place while a
+      result is held makes the next touch of those pages raise ``SIGBUS``.
+    """
+
+    __slots__ = ("_mm", "view")
+
+    def __init__(self, mm: mmap.mmap) -> None:
+        self._mm = mm
+        # Slice past the 14-byte header; the slice exports its buffer directly from `mm`, so it is
+        # the only export to release before mm.close().
+        self.view: memoryview = memoryview(mm)[HEADER_SIZE:]
+
+    def close(self) -> None:
+        """Release the view then the mapping. Idempotent (safe to call more than once)."""
+        try:
+            self.view.release()  # must release exports before mmap.close(), else BufferError
+        except BufferError:  # a consumer exported this view itself; it keeps the mapping alive
+            pass
+        try:
+            self._mm.close()
+        except BufferError:  # a result still holds exports of the mapping: refcounting unmaps it later
+            pass
+
+
+class FileBackend:
+    """File-based backend for local disk caching.
+
+    Implements BaseBackend protocol with thread-safe operations, atomic writes,
+    oldest-written-first eviction, and TTL-based expiration.
+
+    Thread Safety:
+        - Uses threading.RLock() for reentrant locking of internal state
+        - Uses fcntl.flock() (Linux/macOS) or msvcrt.locking() (Windows) for file-level locks
+        - Safe for concurrent access from multiple threads in same process
+
+    Security:
+        - Uses O_NOFOLLOW to prevent symlink attacks
+        - Resolves cache_dir with os.path.realpath() once, at construction; every op uses that path
+        - Respects permissions and dir_permissions from config
+        - Blake2b hashing prevents directory traversal attacks
+
+    Eviction (oldest-written first):
+        - Triggered when cache size exceeds 90% of max_size_mb (or entries exceed 90% of max_entry_count)
+        - Evicts the files with the oldest mtime until cache is at 70% capacity
+        - Reads never touch mtime; set() and refresh_ttl() do
+
+    Example:
+        >>> from cachekit.backends.file import FileBackend  # doctest: +SKIP
+        >>> from cachekit.backends.file.config import FileBackendConfig  # doctest: +SKIP
+        >>> config = FileBackendConfig(cache_dir="/tmp/cachekit", max_size_mb=100)  # doctest: +SKIP
+        >>> backend = FileBackend(config)  # doctest: +SKIP
+        >>> backend.set("user:123", b"data", ttl=60)  # doctest: +SKIP
+        >>> data = backend.get("user:123")  # doctest: +SKIP
+    """
+
+    def __init__(self, config: Any) -> None:  # Type will be FileBackendConfig once Task 1 completes
+        """Initialize FileBackend with configuration.
+
+        Args:
+            config: FileBackendConfig instance with cache directory, size limits, etc.
+
+        Raises:
+            BackendError: If cache directory creation fails
+        """
+        self.config = config
+        self._lock = threading.RLock()  # Reentrant lock for internal state
+
+        # Ensure cache directory exists
+        try:
+            cache_path = Path(config.cache_dir)
+            cache_path.mkdir(parents=True, exist_ok=True, mode=config.dir_permissions)
+        except OSError as exc:
+            raise BackendError(
+                f"Failed to create cache directory: {exc}",
+                error_type=self._classify_os_error(exc, is_directory=True),
+                original_exception=exc,
+                operation="init",
+            ) from exc
+
+        # Resolved once: a relative cache_dir stays pinned to the init-time cwd, and no op pays a
+        # realpath (one lstat per path component).
+        self._cache_dir = os.path.realpath(config.cache_dir)
+
+        # Cleanup orphaned temp files on startup
+        self._cleanup_temp_files()
+
+        # Entry count and bytes, seeded by one scan here and kept current by every write, unlink
+        # and eviction in this process, so set() checks capacity without scanning the directory.
+        self._entry_count = 0
+        self._entry_bytes = 0
+        self._reconciled_at = 0.0
+        self._reconcile()
+
+    def get(self, key: str) -> bytes | None:
+        """Retrieve value from file storage.
+
+        Args:
+            key: Cache key to retrieve
+
+        Returns:
+            Bytes value if found and not expired, None if key doesn't exist or expired
+
+        Raises:
+            BackendError: If file read fails (permissions, disk error, etc.)
+        """
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                # Open with O_NOFOLLOW for security (prevents symlink attacks)
+                fd = os.open(file_path, os.O_RDONLY | os.O_NOFOLLOW)
+                fd_closed = False
+                try:
+                    # Acquire shared read lock
+                    self._acquire_file_lock(fd, exclusive=False)
+
+                    try:
+                        # Header-first read: reading the 14-byte header separately,
+                        # then the payload via _read_fully, avoids the full-payload
+                        # file_data[HEADER_SIZE:] slice copy (~1x payload off the read peak).
+                        st_size = os.fstat(fd).st_size
+                        header = _read_fully(fd, HEADER_SIZE)
+
+                        # Validate header
+                        if len(header) < HEADER_SIZE:
+                            # Corrupted file, delete it
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+
+                        # Parse header
+                        magic = header[0:2]
+                        version = header[2]
+                        expiry_timestamp = struct.unpack(">Q", header[6:14])[0]  # uint64 BE
+
+                        # Validate magic and version
+                        if magic != MAGIC or version != FORMAT_VERSION:
+                            # Corrupted or wrong version, delete it
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+
+                        if _has_unknown_transform(header):
+                            return None  # miss, file left untouched
+
+                        # Check expiration (0 means never expire)
+                        if expiry_timestamp > 0 and time.time() >= expiry_timestamp:
+                            # Expired, delete it
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+
+                        # Read payload directly — exactly the bytes after the header.
+                        payload_size = st_size - HEADER_SIZE
+                        payload = _read_fully(fd, payload_size)
+                        if len(payload) < payload_size:
+                            # The file shrank between fstat and read: truncated underneath us.
+                            # Treat it as corruption like the header branches above (unlink,
+                            # miss) instead of handing a short payload to the envelope, whose
+                            # AES-GCM check would classify it as tampering and, under
+                            # encryption_fail_closed, retain the entry as evidence forever.
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+                        return payload
+
+                    finally:
+                        if not fd_closed:  # close already dropped the flock; a reused fd number is a stranger's
+                            self._release_file_lock(fd)
+                finally:
+                    if not fd_closed:
+                        os.close(fd)
+
+            except FileNotFoundError:
+                return None
+            except OSError as exc:
+                if exc.errno == errno.ENOENT:
+                    return None
+                if exc.errno == errno.ELOOP:
+                    # Symlink detected (O_NOFOLLOW), treat as not found
+                    return None
+                raise BackendError(
+                    f"Failed to read cache file: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="get",
+                    key=key,
+                ) from exc
+
+    def get_buffer(self, key: str) -> _MmapHandle | None:
+        """Memory-map a cache value for a zero-copy read of its payload (POSIX only; #171).
+
+        Returns an `_MmapHandle` owning the mmap + a memoryview of the payload (past the 14-byte
+        header), or `None` when mmap does not apply — the caller then falls back to `get()`:
+          - non-POSIX platform (Windows pins mapped files against rename/unlink);
+          - missing / expired / corrupt entry (corrupt + expired are unlinked, mirroring `get`);
+          - empty payload (nothing to map);
+          - file larger than ``MMAP_MAX_BYTES``.
+
+        Security: the fd is opened with ``O_NOFOLLOW`` and the header is validated from the fd
+        BEFORE mapping. We never use ``pa.memory_map(path)`` / a path-based mmap — that re-opens
+        by path and would follow an attacker-swapped symlink, reintroducing the TOCTOU that
+        ``O_NOFOLLOW`` closes. The mapping survives the fd close on POSIX.
+        """
+        if os.name != "posix":  # pragma: no cover - Windows-only branch; CI is Linux
+            return None  # mapped files can't be renamed/unlinked on Windows; caller uses get()
+
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                fd = os.open(file_path, os.O_RDONLY | os.O_NOFOLLOW)
+            except FileNotFoundError:
+                return None
+            except OSError as exc:  # pragma: no cover - rare open errors (ELOOP/EACCES); defensive
+                if exc.errno in (errno.ENOENT, errno.ELOOP):
+                    return None  # missing, or symlink rejected by O_NOFOLLOW
+                raise BackendError(
+                    f"Failed to open cache file for mmap: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="get_buffer",
+                    key=key,
+                ) from exc
+
+            mm: mmap.mmap | None = None
+            try:
+                self._acquire_file_lock(fd, exclusive=False)
+                try:
+                    st_size = os.fstat(fd).st_size
+
+                    # Validate-then-map: never map a file we're about to delete. fd stays open
+                    # for this whole function (closed in the outer finally below), so the
+                    # inode-guard precondition holds trivially at all three sites in this method.
+                    if st_size < HEADER_SIZE:
+                        self._safe_unlink_if_same_inode(fd, file_path)
+                        return None
+                    header = _read_fully(fd, HEADER_SIZE)
+                    # Re-check the length: st_size above was sampled before the read, so a
+                    # file truncated in between yields a short header here and header[2]
+                    # would raise IndexError straight past this backend's OSError handling.
+                    if len(header) < HEADER_SIZE or header[0:2] != MAGIC or header[2] != FORMAT_VERSION:
+                        self._safe_unlink_if_same_inode(fd, file_path)
+                        return None
+                    if _has_unknown_transform(header):
+                        return None  # miss, file left untouched
+                    expiry_timestamp = struct.unpack(">Q", header[6:14])[0]
+                    if expiry_timestamp > 0 and time.time() >= expiry_timestamp:
+                        self._safe_unlink_if_same_inode(fd, file_path)
+                        return None
+
+                    # Empty payload (header only): nothing to map (mmap rejects length 0 anyway).
+                    # Too large: fall back to os.read so we never map an unbounded region.
+                    if st_size <= HEADER_SIZE or st_size > MMAP_MAX_BYTES:
+                        return None
+
+                    mm = mmap.mmap(fd, st_size, access=mmap.ACCESS_READ, **_MMAP_KWARGS)
+                    handle = _MmapHandle(mm)
+                    mm = None  # ownership transferred to the handle; don't close it in finally
+                    return handle
+                finally:
+                    self._release_file_lock(fd)
+            except OSError as exc:
+                raise BackendError(
+                    f"Failed to mmap cache file: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="get_buffer",
+                    key=key,
+                ) from exc
+            finally:
+                if mm is not None:  # pragma: no cover - only on a mid-map exception; ownership normally moved to the handle
+                    mm.close()
+                os.close(fd)
+
+    def set(self, key: str, value: bytes, ttl: int | None = None) -> None:
+        """Store value in file storage with atomic write.
+
+        Uses write-then-rename pattern for atomicity:
+        1. Write to temp file: {hash}.tmp.{pid}.{ns}
+        2. fsync the file
+        3. rename to final path (atomic on POSIX)
+
+        Args:
+            key: Cache key to store
+            value: Bytes value to store
+            ttl: Time-to-live in seconds (None or 0 = never expire)
+
+        Raises:
+            BackendError: If write fails (disk full, permissions, etc.)
+        """
+        # Enforce max_value_mb
+        max_bytes = self.config.max_value_mb * 1024 * 1024
+        if len(value) > max_bytes:
+            raise BackendError(
+                f"Value size {len(value)} exceeds max_value_mb ({self.config.max_value_mb}MB)",
+                BackendErrorType.PERMANENT,
+            )
+
+        file_path = self._key_to_path(key)
+
+        # Combine header (14 bytes) + payload
+        file_data = self._build_header(self._expiry_from_ttl(ttl)) + value
+
+        # Generate temp file name
+        temp_path = self._generate_temp_path(file_path)
+
+        committed = False
+        try:
+            # Check entry count BEFORE write (security: prevent file persisting on error)
+            with self._lock:
+                self._check_entry_capacity(self._regular_file_size(file_path))
+
+            # Write and fsync OUTSIDE self._lock, as set_streaming does: holding it through the
+            # fsync made every get/exists/delete in this process wait out the whole set(). The temp
+            # path is unique per pid+ns and the commit below re-checks under the lock.
+            # Write to temp file with O_NOFOLLOW for security.
+            fd = os.open(
+                temp_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                self.config.permissions,
+            )
+            try:
+                # Acquire exclusive write lock
+                self._acquire_file_lock(fd, exclusive=True)
+
+                try:
+                    # Write all data
+                    _write_fully(fd, file_data)
+
+                    # fsync to ensure data is on disk
+                    os.fsync(fd)
+
+                finally:
+                    self._release_file_lock(fd)
+            finally:
+                os.close(fd)
+
+            self._commit(temp_path, file_path, len(file_data))
+            committed = True
+
+        except OSError as exc:
+            raise BackendError(
+                f"Failed to write cache file: {exc}",
+                error_type=self._classify_os_error(exc, is_directory=False),
+                original_exception=exc,
+                operation="set",
+                key=key,
+            ) from exc
+        finally:
+            # Any failure, including a commit rejected at max_entry_count, discards the temp file.
+            if not committed:
+                self._safe_unlink(temp_path)
+
+    def set_streaming(self, key: str, write_payload: Callable[[BinaryIO], None], ttl: int | None = None) -> None:
+        """Store a streamed value with the same atomicity, locking, and limits as ``set``.
+
+        ``write_payload`` receives a writable, seekable buffered binary file positioned at the
+        start of the payload region (just past this backend's 14-byte header) and must write the
+        complete payload — record batch by record batch, so the full value never exists in
+        memory. The temp-file + atomic-rename pattern from ``set`` is preserved: a failed stream
+        never leaves a partial value visible under ``key``, and any previous value for the key
+        survives. Producer exceptions propagate unwrapped (after the temp file is discarded) so
+        serialization errors keep their type for the caller.
+
+        ``max_value_mb`` is enforced AFTER the stream completes (``fstat`` on the temp file,
+        before the rename): a streaming write cannot know its size upfront. The caller-side byte
+        budget (CACHEKIT_MAX_VALUE_SIZE, enforced incrementally by the serializer) bounds the
+        transient disk usage of an over-limit attempt.
+
+        Args:
+            key: Cache key to store
+            write_payload: Callable that writes the complete payload to the provided file
+            ttl: Time-to-live in seconds (None or 0 = never expire), same semantics as ``set``
+
+        Raises:
+            BackendError: If the write fails (disk full, permissions, size/TTL limits, etc.)
+        """
+        header = self._build_header(self._expiry_from_ttl(ttl))
+        file_path = self._key_to_path(key)
+        temp_path = self._generate_temp_path(file_path)
+
+        committed = False
+        try:
+            # Check entry count BEFORE write (security: prevent file persisting on error)
+            with self._lock:
+                self._check_entry_capacity(self._regular_file_size(file_path))
+
+            # Stream OUTSIDE self._lock, as set() writes: the producer runs the whole
+            # serialization here (minutes for multi-GB frames), and holding the
+            # process-wide lock would block every other FileBackend op for that window. The
+            # in-process lock isn't what makes this safe anyway — the temp path is unique
+            # per pid+ns, the flock gives cross-process exclusion, and the rename commit
+            # below is atomic. Write to temp file with O_NOFOLLOW for security.
+            fd = os.open(
+                temp_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                self.config.permissions,
+            )
+            f: BinaryIO | None = None
+            try:
+                # Acquire exclusive write lock
+                self._acquire_file_lock(fd, exclusive=True)
+                try:
+                    f = os.fdopen(fd, "wb")  # buffered writer; takes ownership of fd
+                    f.write(header)
+                    write_payload(f)
+                    f.flush()
+
+                    # Enforce max_value_mb on the real on-disk size (fstat, not tell():
+                    # the producer may have seeked back to patch bytes it already wrote).
+                    file_size = os.fstat(fd).st_size
+                    payload_size = file_size - HEADER_SIZE
+                    max_bytes = self.config.max_value_mb * 1024 * 1024
+                    if payload_size > max_bytes:
+                        raise BackendError(
+                            f"Value size {payload_size} exceeds max_value_mb ({self.config.max_value_mb}MB)",
+                            BackendErrorType.PERMANENT,
+                        )
+
+                    # fsync to ensure data is on disk
+                    os.fsync(fd)
+                finally:
+                    self._release_file_lock(fd)
+            finally:
+                if f is not None:
+                    f.close()
+                else:
+                    os.close(fd)
+
+            self._commit(temp_path, file_path, file_size)
+            committed = True
+
+        except OSError as exc:
+            raise BackendError(
+                f"Failed to write cache file: {exc}",
+                error_type=self._classify_os_error(exc, is_directory=False),
+                original_exception=exc,
+                operation="set_streaming",
+                key=key,
+            ) from exc
+        finally:
+            # Any failure — backend I/O, size limit, or a producer exception (which
+            # propagates unwrapped per the BufferWritableBackend contract, so callers keep
+            # its type and log it once) — discards the partial write. finally (not a
+            # BaseException catch) so even KeyboardInterrupt can't leak a temp file.
+            if not committed:
+                self._safe_unlink(temp_path)
+
+    def delete(self, key: str) -> bool:
+        """Delete key from file storage.
+
+        Args:
+            key: Cache key to delete
+
+        Returns:
+            True if key was deleted, False if key didn't exist
+
+        Raises:
+            BackendError: If delete fails (permissions, etc.)
+        """
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                size = self._regular_file_size(file_path)
+                os.unlink(file_path)
+                if size is not None:
+                    self._note_removed(size)
+                return True
+            except FileNotFoundError:
+                return False
+            except OSError as exc:
+                if exc.errno == errno.ENOENT:
+                    return False
+                raise BackendError(
+                    f"Failed to delete cache file: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="delete",
+                    key=key,
+                ) from exc
+
+    def exists(self, key: str) -> bool:
+        """Check if key exists in file storage (not expired).
+
+        Args:
+            key: Cache key to check
+
+        Returns:
+            True if key exists and not expired, False otherwise
+
+        Raises:
+            BackendError: If check fails
+        """
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                # Open with O_NOFOLLOW for security (prevents symlink attacks)
+                fd = os.open(file_path, os.O_RDONLY | os.O_NOFOLLOW)
+                fd_closed = False
+                try:
+                    # Acquire shared read lock
+                    self._acquire_file_lock(fd, exclusive=False)
+
+                    try:
+                        # Read header only
+                        header_data = _read_fully(fd, HEADER_SIZE)
+
+                        if len(header_data) < HEADER_SIZE:
+                            # Corrupted, clean up
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return False
+
+                        # Parse expiry timestamp
+                        magic = header_data[0:2]
+                        version = header_data[2]
+                        expiry_timestamp = struct.unpack(">Q", header_data[6:14])[0]
+
+                        # Validate magic and version
+                        if magic != MAGIC or version != FORMAT_VERSION:
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return False
+
+                        if _has_unknown_transform(header_data):
+                            return False  # miss, file left untouched
+
+                        # Check expiration
+                        if expiry_timestamp > 0 and time.time() >= expiry_timestamp:
+                            # Expired, clean up
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return False
+
+                        return True
+
+                    finally:
+                        if not fd_closed:  # close already dropped the flock; a reused fd number is a stranger's
+                            self._release_file_lock(fd)
+                finally:
+                    if not fd_closed:
+                        os.close(fd)
+
+            except FileNotFoundError:
+                return False
+            except OSError as exc:
+                if exc.errno == errno.ENOENT:
+                    return False
+                if exc.errno == errno.ELOOP:
+                    # Symlink detected (O_NOFOLLOW), treat as not found
+                    return False
+                raise BackendError(
+                    f"Failed to check cache file existence: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="exists",
+                    key=key,
+                ) from exc
+
+    def health_check(self) -> tuple[bool, dict[str, Any]]:
+        """Check backend health status.
+
+        Returns:
+            Tuple of (is_healthy, details_dict)
+            Details include: latency_ms, backend_type, cache_size_mb, file_count
+
+        Example:
+            >>> backend = FileBackend(config)  # doctest: +SKIP
+            >>> is_healthy, details = backend.health_check()  # doctest: +SKIP
+            >>> print(details["backend_type"])  # doctest: +SKIP
+            file
+        """
+        start_time = time.time()
+
+        try:
+            # Test write/read/delete cycle
+            test_key = "__health_check__"
+            test_value = b"health_check_data"
+
+            self.set(test_key, test_value, ttl=60)
+            retrieved = self.get(test_key)
+            self.delete(test_key)
+
+            # Verify round-trip
+            if retrieved != test_value:
+                return False, {
+                    "backend_type": "file",
+                    "latency_ms": (time.time() - start_time) * 1000,
+                    "error": "Round-trip verification failed",
+                }
+
+            # Calculate cache statistics
+            cache_size_mb, file_count = self._calculate_cache_size()
+
+            latency_ms = (time.time() - start_time) * 1000
+
+            return True, {
+                "backend_type": "file",
+                "latency_ms": latency_ms,
+                "cache_size_mb": cache_size_mb,
+                "file_count": file_count,
+                "max_size_mb": self.config.max_size_mb,
+                "max_entry_count": self.config.max_entry_count,
+            }
+
+        except Exception as exc:
+            return False, {
+                "backend_type": "file",
+                "latency_ms": (time.time() - start_time) * 1000,
+                "error": str(exc),
+            }
+
+    # ==================== TTLInspectableBackend Protocol ====================
+
+    async def get_ttl(self, key: str) -> int | None:
+        """Remaining TTL in seconds, read from the on-disk expiry header (bytes [6:14]).
+
+        Returns None when the key is missing, permanent (expiry field == 0), or already
+        expired. Expired/corrupt entries are unlinked on read, mirroring ``get``/``exists``.
+
+        Runs in a worker thread, as the async get/set paths do: on the event-loop thread it
+        would stall every coroutine while it waits for the process lock.
+        """
+        return await asyncio.to_thread(self._get_ttl, key)
+
+    def _get_ttl(self, key: str) -> int | None:
+        """Blocking body of ``get_ttl``."""
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                fd = os.open(file_path, os.O_RDONLY | os.O_NOFOLLOW)
+                fd_closed = False
+                try:
+                    self._acquire_file_lock(fd, exclusive=False)
+                    try:
+                        header = _read_fully(fd, HEADER_SIZE)
+                        if len(header) < HEADER_SIZE or header[0:2] != MAGIC or header[2] != FORMAT_VERSION:
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+                        if _has_unknown_transform(header):
+                            return None  # miss, file left untouched
+
+                        expiry_timestamp = struct.unpack(">Q", header[6:14])[0]  # uint64 BE
+                        if expiry_timestamp == 0:
+                            return None  # permanent, no TTL to report
+
+                        remaining = expiry_timestamp - time.time()
+                        if remaining <= 0:
+                            # Expired: unlink and report absent (same as get/exists).
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return None
+                        return int(remaining)  # whole-second granularity, matching Redis TTL
+                    finally:
+                        if not fd_closed:  # close already dropped the flock; a reused fd number is a stranger's
+                            self._release_file_lock(fd)
+                finally:
+                    if not fd_closed:
+                        os.close(fd)
+
+            except FileNotFoundError:
+                return None
+            except OSError as exc:
+                if exc.errno in (errno.ENOENT, errno.ELOOP):
+                    return None  # missing, or symlink rejected by O_NOFOLLOW
+                raise BackendError(
+                    f"Failed to read cache file TTL: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="get_ttl",
+                    key=key,
+                ) from exc
+
+    async def refresh_ttl(self, key: str, ttl: int) -> bool:
+        """Slide a key's expiry by rewriting the 8-byte timestamp field in place.
+
+        Returns True if the key existed and was refreshed, False if it is missing or already
+        expired (an expired entry is treated as absent and unlinked, mirroring ``get``). A
+        ``ttl`` of 0 makes the entry permanent, matching ``set``. No on-disk format change:
+        only bytes [6:14] are rewritten, so the payload and all other header fields are
+        untouched (and cross-SDK File readers stay compatible).
+
+        Runs in a worker thread, like ``get_ttl``: its fsync would otherwise block the event loop.
+        """
+        return await asyncio.to_thread(self._refresh_ttl, key, ttl)
+
+    def _refresh_ttl(self, key: str, ttl: int) -> bool:
+        """Blocking body of ``refresh_ttl``."""
+        # Same TTL bounds as set()/set_streaming (security: prevent integer overflow/underflow).
+        new_expiry = self._expiry_from_ttl(ttl)
+
+        file_path = self._key_to_path(key)
+
+        with self._lock:
+            try:
+                fd = os.open(file_path, os.O_RDWR | os.O_NOFOLLOW)
+                fd_closed = False
+                try:
+                    self._acquire_file_lock(fd, exclusive=True)
+                    try:
+                        header = _read_fully(fd, HEADER_SIZE)
+                        if len(header) < HEADER_SIZE or header[0:2] != MAGIC or header[2] != FORMAT_VERSION:
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return False
+                        if _has_unknown_transform(header):
+                            return False  # miss, header and payload left untouched
+
+                        current_expiry = struct.unpack(">Q", header[6:14])[0]
+                        if current_expiry > 0 and time.time() >= current_expiry:
+                            # Already expired: treat as absent (mirror get/exists) and unlink.
+                            self._safe_unlink_if_same_inode(fd, file_path)
+                            os.close(fd)
+                            fd_closed = True
+                            return False
+
+                        # Overwrite ONLY the expiry field. An 8-byte in-place write to
+                        # a fixed offset is atomic enough for a cache timestamp — a torn write on
+                        # power loss yields a wrong expiry, never a corrupt payload (magic/version
+                        # are untouched), so the entry just expires early/late. No rewrite-rename.
+                        os.lseek(fd, 6, os.SEEK_SET)
+                        _write_fully(fd, struct.pack(">Q", new_expiry))
+                        os.fsync(fd)
+                        return True
+                    finally:
+                        if not fd_closed:  # close already dropped the flock; a reused fd number is a stranger's
+                            self._release_file_lock(fd)
+                finally:
+                    if not fd_closed:
+                        os.close(fd)
+
+            except FileNotFoundError:
+                return False
+            except OSError as exc:
+                if exc.errno in (errno.ENOENT, errno.ELOOP):
+                    return False  # missing, or symlink rejected by O_NOFOLLOW
+                raise BackendError(
+                    f"Failed to refresh cache file TTL: {exc}",
+                    error_type=self._classify_os_error(exc, is_directory=False),
+                    original_exception=exc,
+                    operation="refresh_ttl",
+                    key=key,
+                ) from exc
+
+    # Private helper methods
+
+    @staticmethod
+    def _expiry_from_ttl(ttl: int | None) -> int:
+        """Expiry timestamp for a TTL (0 = never expire), with TTL bounds validation.
+
+        Raises:
+            BackendError: If TTL is negative or exceeds MAX_TTL_SECONDS (security:
+                prevent integer overflow/underflow in the packed uint64 timestamp)
+        """
+        if ttl is None or ttl == 0:
+            return 0
+        if ttl < 0 or ttl > MAX_TTL_SECONDS:
+            raise BackendError(
+                f"TTL {ttl} out of range [0, {MAX_TTL_SECONDS}] (max 10 years)",
+                BackendErrorType.PERMANENT,
+            )
+        return int(time.time() + ttl)
+
+    @staticmethod
+    def _build_header(expiry_timestamp: int) -> bytes:
+        """Build the 14-byte on-disk entry header."""
+        return (
+            MAGIC  # [0:2] Magic bytes
+            + bytes([FORMAT_VERSION])  # [2:3] Version
+            + bytes([RESERVED])  # [3:4] Reserved
+            + struct.pack(">H", 0)  # [4:6] Flags (no compression/encryption yet)
+            + struct.pack(">Q", expiry_timestamp)  # [6:14] Expiry timestamp
+        )
+
+    def _check_entry_capacity(self, old_size: int | None) -> None:
+        """Reject a NEW entry when max_entry_count is reached (overwrites always pass).
+
+        Args:
+            old_size: Size of the entry being overwritten, or None for a new entry
+
+        A count at the cap is confirmed by a rescan before rejecting, so a count drifted high by
+        foreign deletes does not reject. If that rescan fails, the check fails closed: it rejects on
+        the count it has, keeping the cap while the directory cannot be read.
+
+        Raises:
+            BackendError: If storing a new entry would exceed max_entry_count
+        """
+        if self.config.max_entry_count <= 0 or old_size is not None:
+            return
+        if self._entry_count >= self.config.max_entry_count:
+            self._reconcile()
+            if self._entry_count >= self.config.max_entry_count:
+                raise BackendError(
+                    f"Entry count {self._entry_count} would exceed max_entry_count ({self.config.max_entry_count})",
+                    BackendErrorType.PERMANENT,
+                )
+
+    @staticmethod
+    def _regular_file_size(path: str) -> int | None:
+        """Size of the regular file at ``path`` (not followed if a symlink), or None if there is none.
+
+        One lstat both tells the capacity check whether this is an overwrite and gives the counters
+        the overwritten entry's size.
+        """
+        try:
+            st = os.lstat(path)
+        except OSError:
+            return None
+        return st.st_size if stat.S_ISREG(st.st_mode) else None
+
+    def _commit(self, temp_path: str, file_path: str, new_size: int) -> None:
+        """Rename a written, fsynced temp file onto ``file_path`` under the process lock.
+
+        The entry is sized and the entry cap checked again here: the write ran outside the lock, so
+        concurrent new-key writers may all have passed the check before it. Only the rename, the
+        counters and the eviction check run under the lock.
+
+        Raises:
+            BackendError: If the entry is new and max_entry_count is reached; the caller discards
+                the temp file
+        """
+        with self._lock:
+            old_size = self._regular_file_size(file_path)
+            self._check_entry_capacity(old_size)
+            os.rename(temp_path, file_path)
+            self._note_write(old_size, new_size)
+
+            # Trigger eviction if over threshold; never evict the entry this commit just wrote
+            self._maybe_evict(keep=file_path)
+
+    def _note_write(self, old_size: int | None, new_size: int) -> None:
+        """Count an entry this process just renamed into place (caller holds self._lock)."""
+        if old_size is None:
+            self._entry_count += 1
+        self._entry_bytes += new_size - (old_size or 0)
+
+    def _note_removed(self, size: int) -> None:
+        """Count an entry this process just unlinked (caller holds self._lock)."""
+        self._entry_count -= 1
+        self._entry_bytes -= size
+
+    def _key_to_path(self, key: str) -> str:
+        """Convert cache key to file path using blake2b hash.
+
+        Args:
+            key: Cache key
+
+        Returns:
+            Absolute file path (32-char hex hash)
+        """
+        # Use blake2b with 16 bytes digest = 32 hex chars
+        key_hash = hashlib.blake2b(key.encode("utf-8"), digest_size=16).hexdigest()
+        return os.path.join(self._cache_dir, key_hash)
+
+    def _generate_temp_path(self, target_path: str) -> str:
+        """Generate unique temp file path for atomic write.
+
+        Args:
+            target_path: Final target file path
+
+        Returns:
+            Temp file path: {hash}.tmp.{pid}.{ns}
+        """
+        base = os.path.basename(target_path)
+        dirname = os.path.dirname(target_path)
+        pid = os.getpid()
+        ns = time.time_ns()
+        return os.path.join(dirname, f"{base}.tmp.{pid}.{ns}")
+
+    def _safe_unlink(self, path: str) -> bool:
+        """Best-effort delete: swallows any OSError, ENOENT included.
+
+        Args:
+            path: File path to delete
+
+        Returns:
+            True if this call removed the file
+        """
+        try:
+            os.unlink(path)
+        except OSError:
+            return False  # Best-effort cleanup; ENOENT included
+        return True
+
+    def _safe_unlink_if_same_inode(self, fd: int, path: str) -> None:
+        """Unlink ``path`` only if it still resolves to the same inode as the open ``fd``.
+
+        Every corruption/expiry/truncation branch above decides on a held fd (header read,
+        magic/version check, expiry check, short-payload check) but a path-only unlink races: if
+        another process's ``set()`` renames a fresh entry onto ``path`` between that decision and
+        the unlink, the fresh entry gets deleted instead of the stale one the fd actually read.
+        Comparing ``(st_dev, st_ino)`` from the fd against a fresh ``lstat`` of the path narrows
+        that window to the two syscalls in this function (mirrors cachekit-rs's
+        ``unlink_if_same_inode``, backend/file.rs) — POSIX has no atomic "unlink iff inode
+        matches", so a rename landing between this ``lstat`` and the ``unlink`` below is still
+        possible in principle; it just shrinks a function-body-wide race to a two-syscall one.
+
+        Must be called before ``fd`` is closed: calling it after does not raise (EBADF is
+        swallowed like any other race below), it silently skips the unlink, so eviction is
+        skipped with no signal.
+        """
+        try:
+            fd_stat = os.fstat(fd)
+            path_stat = os.lstat(path)
+        except OSError:
+            return
+        if (fd_stat.st_dev, fd_stat.st_ino) == (path_stat.st_dev, path_stat.st_ino):
+            if self._safe_unlink(path) and stat.S_ISREG(path_stat.st_mode):
+                self._note_removed(path_stat.st_size)
+
+    def _cleanup_temp_files(self) -> None:
+        """Delete orphaned temp files older than 60 seconds on startup."""
+        try:
+            cache_dir = Path(self._cache_dir)
+            current_time = time.time()
+
+            for temp_file in cache_dir.glob("*.tmp.*"):
+                try:
+                    # Use lstat() to avoid following symlinks (security: prevent symlink attacks)
+                    stat_info = temp_file.lstat()
+
+                    # Skip symlinks entirely (security: never operate on symlinks)
+                    if stat.S_ISLNK(stat_info.st_mode):
+                        continue
+
+                    if current_time - stat_info.st_mtime > TEMP_FILE_MAX_AGE_SECONDS:
+                        temp_file.unlink()
+                except OSError:
+                    pass  # Best-effort cleanup
+        except Exception:  # noqa: S110
+            pass  # Don't fail init on cleanup errors
+
+    def _scan_entries(self) -> list[tuple[str, float, int | None]] | None:
+        """One pass over the cache directory: (path, mtime, size) of every cache entry.
+
+        Skips hidden files, temp files, symlinks and anything else that is not a regular file, and
+        entries deleted mid-scan. An entry whose stat fails any other way (EIO, ESTALE) is kept with
+        size None and mtime 0, so the count never runs low on a partial scan and eviction tries it
+        first. Returns None if the directory cannot be read.
+        """
+        entries = []
+        try:
+            with os.scandir(self._cache_dir) as it:
+                for entry in it:
+                    if entry.name.startswith(".") or ".tmp." in entry.name:
+                        continue
+                    try:
+                        # lstat, never follow a symlink (security)
+                        stat_info = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue  # Deleted mid-scan
+                    except OSError as stat_exc:
+                        _warn_throttled(
+                            _stat_failed_warn,
+                            "FileBackend could not stat %s (%s); its size is left out of the total and every set() rescans",
+                            entry.path,
+                            errno.errorcode.get(stat_exc.errno or 0, type(stat_exc).__name__),
+                        )
+                        entries.append((entry.path, 0.0, None))
+                        continue
+                    if stat.S_ISREG(stat_info.st_mode):
+                        entries.append((entry.path, stat_info.st_mtime, stat_info.st_size))
+        except OSError as exc:
+            _warn_throttled(
+                _scan_failed_warn,
+                "FileBackend could not scan %s (%s); the entry counters keep their last values until a scan succeeds",
+                self._cache_dir,
+                errno.errorcode.get(exc.errno or 0, type(exc).__name__),
+            )
+            return None
+        return entries
+
+    def _reconcile(self) -> list[tuple[str, float, int | None]] | None:
+        """Reset the entry counters from a fresh scan and return the scanned entries.
+
+        A failed scan returns None and leaves the counters and the reconcile clock untouched:
+        zeroing them would switch off the entry cap and eviction until the next rescan. A scan with
+        an entry of unknown size undercounts bytes, so it marks the counters stale: every set()
+        rescans, as it did before the counters, until a scan sees every size.
+        """
+        entries = self._scan_entries()
+        if entries is None:
+            return None
+        self._entry_count = len(entries)
+        self._entry_bytes = sum(size or 0 for _, _, size in entries)
+        complete = all(size is not None for _, _, size in entries)
+        self._reconciled_at = time.monotonic() if complete else float("-inf")
+        return entries
+
+    def _calculate_cache_size(self) -> tuple[float, int]:
+        """Calculate total cache size in MB and file count from a fresh scan.
+
+        Returns:
+            Tuple of (size_mb, file_count)
+        """
+        entries = self._scan_entries() or []
+        return sum(size or 0 for _, _, size in entries) / (1024 * 1024), len(entries)
+
+    def _over_eviction_trigger(self) -> bool:
+        """True when the counters exceed 90% of max_size_mb or max_entry_count."""
+        return (
+            self._entry_bytes > self.config.max_size_mb * 1024 * 1024 * EVICTION_TRIGGER_THRESHOLD
+            or self._entry_count > self.config.max_entry_count * EVICTION_TRIGGER_THRESHOLD
+        )
+
+    def _maybe_evict(self, keep: str | None = None) -> None:
+        """Trigger eviction if cache exceeds 90% capacity (caller holds self._lock).
+
+        Evicts the oldest-written files (by mtime; reads do not refresh it) until cache is at 70% capacity.
+        Respects both max_size_mb and max_entry_count limits. Decides on the counters, and rescans
+        before evicting anything, so a count drifted by another process never evicts on its own.
+
+        ``keep`` is never evicted: it is the entry the triggering write just committed. Writes in quick
+        succession can share one coarse mtime tick, and the sort would otherwise break that tie in scan
+        order, discarding the value the caller has just stored.
+        """
+        stale = time.monotonic() - self._reconciled_at >= RECONCILE_INTERVAL_SECONDS
+        if not (stale or self._over_eviction_trigger()):
+            return
+        entries = self._reconcile()
+        if entries is None or not self._over_eviction_trigger():
+            return
+
+        target_bytes = self.config.max_size_mb * 1024 * 1024 * EVICTION_TARGET_THRESHOLD
+        target_count = int(self.config.max_entry_count * EVICTION_TARGET_THRESHOLD)
+
+        entries.sort(key=lambda e: e[1])  # oldest mtime first
+        for path, _, size in entries:
+            if self._entry_bytes <= target_bytes and self._entry_count <= target_count:
+                break
+            if path == keep:
+                continue
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                continue  # Deleted by another thread or process since the scan
+            except OSError as exc:
+                _warn_throttled(
+                    _unlink_failed_warn,
+                    "FileBackend eviction could not remove %s (%s)",
+                    path,
+                    errno.errorcode.get(exc.errno or 0, type(exc).__name__),
+                )
+                continue
+            self._note_removed(size or 0)
+
+    def _acquire_file_lock(self, fd: int, exclusive: bool) -> None:
+        """Acquire file-level lock (fcntl on POSIX, msvcrt on Windows).
+
+        Args:
+            fd: File descriptor
+            exclusive: True for exclusive lock, False for shared lock
+
+        Raises:
+            BackendError: TIMEOUT at once if the lock is held (non-blocking, no wait)
+        """
+        if platform.system() == "Windows":
+            # Windows: msvcrt.locking (always exclusive)
+            import msvcrt  # type: ignore[import-not-found]
+
+            try:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
+            except OSError as exc:
+                if exc.errno == errno.EACCES or exc.errno == errno.EAGAIN:
+                    raise BackendError(
+                        "Lock acquisition timeout",
+                        error_type=BackendErrorType.TIMEOUT,
+                        original_exception=exc,
+                        operation="lock",
+                    ) from exc
+                raise
+        else:
+            # POSIX: fcntl.flock
+            import fcntl  # type: ignore[import-not-found]
+
+            lock_type = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+            try:
+                fcntl.flock(fd, lock_type | fcntl.LOCK_NB)
+            except OSError as exc:
+                if exc.errno == errno.EWOULDBLOCK or exc.errno == errno.EAGAIN:
+                    raise BackendError(
+                        "Lock acquisition timeout",
+                        error_type=BackendErrorType.TIMEOUT,
+                        original_exception=exc,
+                        operation="lock",
+                    ) from exc
+                raise
+
+    def _release_file_lock(self, fd: int) -> None:
+        """Release file-level lock.
+
+        Args:
+            fd: File descriptor
+        """
+        if platform.system() == "Windows":
+            import msvcrt  # type: ignore[import-not-found]
+
+            try:
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
+            except OSError:
+                pass  # Best-effort unlock
+        else:
+            import fcntl  # type: ignore[import-not-found]
+
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except OSError:
+                pass  # Best-effort unlock
+
+    def _classify_os_error(self, exc: OSError, is_directory: bool) -> BackendErrorType:
+        """Classify OSError into BackendErrorType for the circuit breaker.
+
+        Args:
+            exc: OSError to classify
+            is_directory: True if error is on directory, False if on file
+
+        Returns:
+            BackendErrorType for circuit breaker decisions
+        """
+        # ENOSPC (disk full) → TRANSIENT (might clear up)
+        if exc.errno == errno.ENOSPC:
+            return BackendErrorType.TRANSIENT
+
+        # EACCES (permission denied)
+        if exc.errno == errno.EACCES:
+            # On directory: PERMANENT (won't fix itself)
+            # On file: TRANSIENT (might be locked temporarily)
+            return BackendErrorType.PERMANENT if is_directory else BackendErrorType.TRANSIENT
+
+        # EROFS (read-only filesystem) → PERMANENT
+        if exc.errno == errno.EROFS:
+            return BackendErrorType.PERMANENT
+
+        # ELOOP (symlink loop) → PERMANENT
+        if exc.errno == errno.ELOOP:
+            return BackendErrorType.PERMANENT
+
+        # ETIMEDOUT → TIMEOUT
+        if exc.errno == errno.ETIMEDOUT:
+            return BackendErrorType.TIMEOUT
+
+        # Default: UNKNOWN (assume transient)
+        return BackendErrorType.UNKNOWN

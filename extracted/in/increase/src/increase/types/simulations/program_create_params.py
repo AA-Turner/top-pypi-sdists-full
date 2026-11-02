@@ -1,0 +1,33 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Literal, Required, TypedDict
+
+__all__ = ["ProgramCreateParams"]
+
+
+class ProgramCreateParams(TypedDict, total=False):
+    name: Required[str]
+    """The name of the program being added."""
+
+    bank: Literal["core_bank", "first_internet_bank", "grasshopper_bank", "increase_bank"]
+    """The bank for the program's accounts, defaults to Increase Bank.
+
+    - `core_bank` - Core Bank
+    - `first_internet_bank` - First Internet Bank of Indiana
+    - `grasshopper_bank` - Grasshopper Bank
+    - `increase_bank` - Increase Bank
+    """
+
+    lending_maximum_extendable_credit: int
+    """The maximum extendable credit of the program being added."""
+
+    loan_accounts_require_loan_offers: bool
+    """
+    Whether opening a loan Account under this Program requires an accepted Loan
+    Offer. Requires `lending_maximum_extendable_credit`. Defaults to `false`.
+    """
+
+    reserve_account_id: str
+    """The identifier of the Account the Program should be added to."""

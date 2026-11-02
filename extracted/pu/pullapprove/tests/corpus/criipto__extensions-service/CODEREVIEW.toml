@@ -1,0 +1,50 @@
+[aliases]
+extensions-team = ["jlndk", "Nyrox", "jdpnielsen"]
+extra-tech-reviewers = ["fkj", "mickhansen", "sgryt"]
+compliance-team = ["sgryt", "melindaczirjak-hub"]
+
+[[scopes]]
+name = "compliance"
+description = "Files that impact compliance."
+paths = ["**/CODEREVIEW.toml", "pull_request_template.md"]
+request = 2
+require = 1
+reviewers = ["$compliance-team"]
+ownership = "append"
+labels = ["review/compliance"]
+checklist.items = [
+  { label = "This PR does not require a change in compliance procedures", required = false, notes = "required_if_unchecked", help = "If not checked, add a ticket to the compliance tracker and link it here." },
+]
+
+[[scopes]]
+name = "Not Extensions Team"
+paths = ["**"]
+authors = ["!jlndk", "!Nyrox", "!jdpnielsen"]
+description = "All PRs opened by someone outside of the Extensions team."
+reviewers = ["$extensions-team"]
+ownership = "append"
+request = 3
+require = 1
+checklist.items = [
+  { label = "This PR does not add new GraphQL resolvers", required = false, notes = "required_if_unchecked", help = "Describe how you verified that the resolver has an appropriate authorizer." },
+  { label = "This PR does not add or change encryption implementations", required = "false", notes = "required_if_unchecked", help = "Describe how you have verified that authenticated encryption is used." },
+  { label = "This PR does not add or change fetch calls that may return personal data", required = false, notes = "required_if_unchecked", help = "Describe how you have verified that a cache-disabling fetch implementation (such as owaspFetch or OwaspRequest) is used." },
+  { label = "I have performed manual exploratory testing", required = false, notes = "optional", help = "Describe how you have tested the change." },
+]
+
+[[scopes]]
+name = "Regular PR"
+paths = ["**"]
+authors = ["$extensions-team"]
+description = "Regular PR opened by someone in the Extensions team."
+reviewers = ["$extensions-team"]
+alternates = ["$extra-tech-reviewers"]
+ownership = "append"
+request = 3
+require = 1
+checklist.items = [
+  { label = "This PR does not add new GraphQL resolvers", required = false, notes = "required_if_unchecked", help = "Describe how you verified that the resolver has an appropriate authorizer." },
+  { label = "This PR does not add or change encryption implementations", required = "false", notes = "required_if_unchecked", help = "Describe how you have verified that authenticated encryption is used." },
+  { label = "This PR does not add or change fetch calls that may return personal data", required = false, notes = "required_if_unchecked", help = "Describe how you have verified that a cache-disabling fetch implementation (such as owaspFetch or OwaspRequest) is used." },
+  { label = "I have performed manual exploratory testing", required = false, notes = "optional", help = "Describe how you have tested the change." },
+]

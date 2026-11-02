@@ -5344,6 +5344,15 @@ class StandaloneCredentialOut(BaseModel):
     token_prefix: str = Field(..., title='Token Prefix')
 
 
+class StepBatchResult(BaseModel):
+    """
+    Counted per distinct step_index: `written` inserted or changed, `unchanged` already stored.
+    """
+
+    unchanged: int = Field(..., title='Unchanged')
+    written: int = Field(..., title='Written')
+
+
 class StepCreate(BaseModel):
     attributes: dict[str, Any] | None = Field(None, title='Attributes')
     name: str | None = Field(None, title='Name')
@@ -6738,7 +6747,6 @@ class ArtifactPinImpact(BaseModel):
     artifact_id: UUID = Field(..., title='Artifact Id')
     pinned: bool = Field(..., title='Pinned')
     projects: list[PinnedProject] | None = Field(None, title='Projects')
-    unfiled_runs: int | None = Field(0, title='Unfiled Runs')
 
 
 class ArtifactReaderOut(BaseModel):
@@ -8735,8 +8743,7 @@ class RunDetailOut(BaseModel):
     is the human-facing slug the dashboard displays; created_by (fold #1), env_ref
     (fold #7), foreign_keys (fold #8), and activity-aware updated_at (0071)
     surface here for reads. project_id (0054) is likewise detail-only: the
-    run's owning project -- set on every FILED run, null on an unfiled one
-    (0260, `POST /v1/runs`).
+    run's owning project.
     """
 
     attached_at: AwareDatetime | None = Field(None, title='Attached At')
@@ -8774,7 +8781,7 @@ class RunDetailOut(BaseModel):
     )
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID | None = Field(..., title='Project Id')
+    project_id: UUID = Field(..., title='Project Id')
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8861,7 +8868,7 @@ class RunLineageNodeOut(BaseModel):
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     parent_run_ids: list[UUID] | None = Field(None, title='Parent Run Ids')
-    project_id: UUID | None = Field(..., title='Project Id')
+    project_id: UUID = Field(..., title='Project Id')
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8950,7 +8957,7 @@ class RunPageDetailOut(BaseModel):
     )
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID | None = Field(..., title='Project Id')
+    project_id: UUID = Field(..., title='Project Id')
     repo: str | None = Field(None, title='Repo')
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
@@ -9234,6 +9241,21 @@ class StandingOut(BaseModel):
     name: str = Field(..., title='Name')
 
 
+class StepBatch(BaseModel):
+    """
+    Many `/steps` records in one write (`POST /v1/runs/{run_ref}/steps/batch`).
+
+    Fenced once, by the batch's own `session_id` / `write_epoch` (0185). A
+    step's own `session_id` and `write_epoch` are omitted or equal to the
+    batch's, else 422 naming the field: a step fenced apart must never slip
+    in under the batch's fence. A step_index sent twice keeps the last.
+    """
+
+    session_id: UUID | None = Field(None, title='Session Id')
+    steps: list[StepCreate] = Field(..., max_length=1000, min_length=1, title='Steps')
+    write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
+
+
 class SummaryStatusOut(BaseModel):
     anchor_id: UUID = Field(..., title='Anchor Id')
     anchor_type: AppSummariesSchemasAnchorType
@@ -9471,9 +9493,9 @@ class AppExperimentsReadSchemasScopeOut(BaseModel):
     )
     id: UUID = Field(..., description='The id that was resolved.', title='Id')
     kind: AppProjectsTwinScopeKind = Field(..., description='What the id names.')
-    project_id: UUID | None = Field(
+    project_id: UUID = Field(
         ...,
-        description="The project the id is filed under: the id itself for a project, the experiment's project for an experiment, the run's project for a run (through its experiment, when it has one). Null only for an UNFILED run, which belongs to no project.",
+        description="The project the id is filed under: the id itself for a project, the experiment's project for an experiment, the run's project for a run (through its experiment, when it has one).",
         title='Project Id',
     )
     run_id: UUID | None = Field(

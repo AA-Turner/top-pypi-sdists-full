@@ -110,12 +110,10 @@ def test_json_payload(curl):
 
 
 @pytest.mark.parametrize("loader", ["from_file", "from_path"])
-def test_graphql_schema_loaded_from_file(ctx, curl, tmp_path, loader):
+def test_graphql_schema_loaded_from_file(ctx, curl, loader):
     sdl = "type Query { hello: String }"
     if loader == "from_path":
-        path = tmp_path / "schema.graphql"
-        path.write_text(sdl)
-        schema = schemathesis.graphql.from_path(path)
+        schema = schemathesis.graphql.from_path(ctx.graphql.write_sdl(sdl))
     else:
         schema = ctx.graphql.load_sdl(sdl)
     case = schema["Query"]["hello"].Case(body="{ hello }")
@@ -157,7 +155,7 @@ def test_as_curl_command_sanitizes_raw_query_with_empty_segments(ctx):
             "responses": {"200": {"description": "OK"}},
         },
     )
-    case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&&flag")})
+    case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=se=cret&&flag")})
     assert case.as_curl_command() == "curl -X GET 'http://localhost/q?token=%5BFiltered%5D&flag'"
 
 

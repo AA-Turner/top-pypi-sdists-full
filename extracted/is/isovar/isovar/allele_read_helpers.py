@@ -1,0 +1,165 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Functions for filtering, grouping, and summarizing collections of
+AlleleRead objects.
+"""
+
+from collections import Counter, defaultdict
+
+from .common import groupby
+from .logging import get_logger
+from .allele_read import AlleleRead
+from .read_identity import source_read_ids
+
+logger = get_logger(__name__)
+
+
+def group_reads_by_allele(allele_reads):
+    """
+    Returns dictionary mapping each allele's nucleotide sequence to a list of
+    supporting AlleleRead objects.
+    """
+    return groupby(allele_reads, lambda read: read.allele)
+
+
+def get_single_allele_from_reads(allele_reads):
+    """
+    Given a sequence of AlleleRead objects which are expected to all have
+    the same allele, return that allele and the reads supporting it.
+
+    If reads carry different alleles (e.g. from indel representation
+    ambiguity or subclonal mixtures), the most common allele is returned
+    along with only the reads that match it. A warning is logged about
+    the discarded minority alleles.
+
+    Returns (allele_string, list_of_matching_reads)
+    """
+    allele_reads = list(allele_reads)
+
+    if len(allele_reads) == 0:
+        raise ValueError("Expected non-empty list of AlleleRead objects")
+
+    allele_counts = Counter(read.allele for read in allele_reads)
+    most_common_allele = allele_counts.most_common(1)[0][0]
+
+    if len(allele_counts) > 1:
+        logger.warning(
+            "Expected all reads to have same allele but found %d distinct "
+            "alleles: %s. Using most common allele '%s' (%d/%d reads).",
+            len(allele_counts),
+            dict(allele_counts),
+            most_common_allele,
+            allele_counts[most_common_allele],
+            len(allele_reads))
+        allele_reads = [
+            r for r in allele_reads if r.allele == most_common_allele
+        ]
+
+    return most_common_allele, allele_reads
+
+
+def group_unique_sequences(
+        allele_reads,
+        max_prefix_size=None,
+        max_suffix_size=None):
+    """
+    Given a list of AlleleRead objects, extracts all unique
+    (prefix, allele, suffix) sequences and associate each with a list
+    of reads that contained that sequence.
+
+    Flank limits are non-negative lengths: None leaves a flank unbounded,
+    while zero removes it. Trimming always retains the bases nearest the
+    variant and never modifies the allele itself.
+    """
+    for name, limit in (("max_prefix_size", max_prefix_size),
+                        ("max_suffix_size", max_suffix_size)):
+        if limit is not None and limit < 0:
+            raise ValueError("%s must be non-negative or None" % name)
+    groups = defaultdict(set)
+    for r in allele_reads:
+        prefix = r.prefix
+        allele = r.allele
+        suffix = r.suffix
+        if max_prefix_size is not None and len(prefix) > max_prefix_size:
+            prefix = prefix[len(prefix) - max_prefix_size:]
+        if max_suffix_size is not None and len(suffix) > max_suffix_size:
+            suffix = suffix[:max_suffix_size]
+        key = (prefix, allele, suffix)
+        groups[key].add(r)
+    return groups
+
+
+def allele_reads_from_locus_reads(locus_reads):
+    """
+    Attempt to convert each LocusRead object to an AlleleRead and return
+    the successfully converted objects.
+
+    Parameters
+    ----------
+    locus_reads : list of LocusRead
+
+    Returns
+    -------
+    list of AlleleRead
+    """
+    allele_reads = []
+    for locus_read in locus_reads:
+        allele_read = AlleleRead.from_locus_read(locus_read)
+        if allele_read is None:
+            continue
+        else:
+            allele_reads.append(allele_read)
+    return allele_reads
+
+
+def split_reads_into_ref_alt_other(ref, alt, overlapping_reads):
+    """
+    Returns three lists of AlleleRead objects
+        - reads which support the reference allele
+        - reads which support the variant's alt allele
+        - reads which support other alleles or have conflicting placements
+    """
+    # convert to list in case it's a generator since
+    # we want to traverse the sequence repeatedly
+    overlapping_reads = list(overlapping_reads)
+
+    alleles_by_segment = defaultdict(set)
+    for read in overlapping_reads:
+        for key in source_read_ids(read):
+            alleles_by_segment[key].add(read.allele)
+    ambiguous = {key for key, alleles in alleles_by_segment.items() if len(alleles) > 1}
+    # A collapsed consensus cannot attribute its allele to just one mate.
+    # Keep every view of its component segments in the same uncertainty group.
+    changed = True
+    while ambiguous and changed:
+        previous_size = len(ambiguous)
+        for read in overlapping_reads:
+            keys = source_read_ids(read)
+            if keys & ambiguous:
+                ambiguous.update(keys)
+        changed = len(ambiguous) > previous_size
+    # A segment with competing allele calls is not definitive ref/alt support.
+    # Retain all original observations in other_reads rather than picking one.
+    uncertain_reads = [r for r in overlapping_reads if source_read_ids(r) & ambiguous]
+    overlapping_reads = [r for r in overlapping_reads if not source_read_ids(r) & ambiguous]
+
+    reads_grouped_by_allele = group_reads_by_allele(overlapping_reads)
+    ref_reads = reads_grouped_by_allele.get(ref, [])
+    alt_reads = reads_grouped_by_allele.get(alt, [])
+    other_reads = uncertain_reads
+    for allele, allele_reads in reads_grouped_by_allele.items():
+        if allele in {ref, alt}:
+            continue
+        other_reads.extend(allele_reads)
+    return ref_reads, alt_reads, other_reads

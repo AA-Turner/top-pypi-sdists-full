@@ -1,0 +1,223 @@
+//! Behavior Plane for Net (Phase 4)
+//!
+//! This module provides the semantic layer on top of theNet's transport:
+//! - Capability announcements and indexing (CAP-ANN)
+//! - Capability change diffs (CAP-DIFF)
+//! - Node metadata surface (NODE-META)
+//! - Node APIs and schemas (API-SCHEMA)
+//! - Device autonomy rules (DEVICE-RULES)
+//! - Context fabric (CTXT-FABRIC)
+//! - Distributed load balancing (LOAD-BALANCE)
+//! - Proximity graph integration (PINGWAVE++)
+//! - Safety envelope enforcement
+
+// The aggregator daemon's query/registry RPC surface rides
+// the cortex-gated `mesh_rpc` + `cortex::rpc` modules (postcard
+// codec, typed_call, RpcHandler). Without cortex the imports
+// can't resolve, so the whole submodule is cortex-feature-only.
+// Out-of-tree consumers (Node / Python / Go bindings) declare
+// their `aggregator` feature on top of `cortex` already.
+#[cfg(feature = "cortex")]
+pub mod aggregator;
+pub mod api;
+pub mod bloom;
+pub mod bounded_ring;
+pub mod broadcast;
+pub mod capability;
+pub mod context;
+pub mod dataforts_capabilities;
+#[cfg(feature = "meshos")]
+pub mod deck;
+pub mod diff;
+pub mod fold;
+pub mod gang;
+pub mod group;
+pub(crate) mod hash;
+pub mod lifecycle;
+pub mod loadbalance;
+#[cfg(feature = "meshdb")]
+pub mod meshdb;
+#[cfg(feature = "meshos")]
+pub mod meshos;
+// The MeshOS ↔ Scheduler integration bridge — the ONLY module that
+// imports both `meshos` (DesiredState / DaemonIntent) and
+// `cortex::workflow` (WorkflowState) + `gang` (ActiveClaim /
+// IslandTopology). It exists so `workflow`/`gang` and `meshos` never
+// import each other (integration-plan Locked Decision 5); every
+// cross-layer projection lives here. Spans both feature surfaces, so
+// it needs both gates.
+pub mod admission_clock;
+pub mod caller_identity;
+/// Workspace-internal enrollment persistence boundary; not a credential verifier.
+#[doc(hidden)]
+pub mod enrollment_storage;
+pub mod metadata;
+pub mod org;
+pub mod org_admission;
+pub mod org_admission_replay;
+pub mod org_authority;
+pub mod org_call;
+/// Unstable workspace-internal OLB implementation bridge — see the module docs.
+/// Hidden from generated documentation; not application API, not semver-covered.
+#[doc(hidden)]
+pub mod org_cold_plan;
+pub mod org_grant;
+pub mod org_grant_registry;
+pub mod org_grant_revocation;
+pub mod org_revocation;
+pub mod org_revocation_relay;
+pub mod org_routing;
+pub mod org_routing_registry;
+pub(crate) mod org_routing_state;
+pub mod org_scoped_ann;
+pub mod org_scoped_ingest;
+pub mod org_scoped_relay;
+pub mod org_scoped_store;
+/// Retained organization exact-provider sensing demand and its refresh
+/// lifecycle — an internal ownership substrate, not application API and not
+/// semver-covered.
+#[doc(hidden)]
+pub mod org_sensing_demand;
+// Stage 0 slices 0.3 / 0.4 of ORG_SCOPED_STREAMING_PLAN: the executable
+// lifecycle model and the admission/retirement transaction model. They
+// STAY `#[cfg(test)]` — the stay-gated-plus-mirror decision recorded at
+// `cortex/rpc.rs`'s §2.1/§2.2/§2.6 block: production is the mirror
+// implementation there (`run_stream_call_supervisor` and kin), and these
+// remain the adversarially-scheduled witness of the same semantics.
+#[cfg(test)]
+pub mod org_stream_lifecycle;
+#[cfg(test)]
+pub mod org_stream_registry;
+pub mod placement;
+pub mod placement_registry;
+pub mod predicate;
+pub mod proximity;
+pub mod query;
+pub mod required_capability;
+pub mod rules;
+pub mod safety;
+// The bridge SHELL is ungated: Projection 6 (sensed readiness →
+// candidate delta) depends only on fold + sensing; the daemon/
+// workflow projections inside stay gated on cortex + meshos.
+pub mod scheduler_bridge;
+pub mod schema;
+pub mod sensing;
+pub mod subnet;
+pub mod tag;
+pub mod tag_codec;
+
+pub use bloom::BloomFilter;
+
+pub use query::{
+    Aggregator, CapabilityQuery, Count, Distance, EdgeKind, MaxNumericMetadata, UniqueAxisValues,
+};
+
+pub use broadcast::SUBPROTOCOL_CAPABILITY_ANN;
+
+pub use capability::{
+    AcceleratorInfo, AcceleratorType, CapabilityAnnouncement, CapabilityFilter,
+    CapabilityRequirement, CapabilitySet, CapabilitySetDiff, CapabilityViews, CardinalityProvider,
+    GpuInfo, GpuVendor, HardwareCapabilities, MetadataChange, Modality, ModelCapability,
+    ResourceLimits, Signature64, SoftwareCapabilities, ToolCapability,
+};
+
+pub use dataforts_capabilities::{
+    is_blob_storage_unhealthy, BlobCapability, GravityCapability, GreedyCapability, TopologyScope,
+    BLOB_STORAGE_UNHEALTHY_TAG,
+};
+
+// Capability System Plan Phase A foundations — the new typed-tag
+// taxonomy. Re-exported from the behavior plane root so downstream
+// callers reach `Tag` / `TagKey` / `TaxonomyAxis` via the same path
+// they already use for `CapabilitySet`.
+pub use org::{
+    OrgError, OrgId, OrgKeypair, OrgMembershipCert, OrgRevocationBundle, MAX_ORG_CERT_TTL_SECS,
+    MAX_REVOCATION_FLOORS_PER_BUNDLE, ORG_CERT_SIG_DOMAIN, ORG_CERT_TTL_SECS_RECOMMENDED,
+    ORG_FLOORS_SIG_DOMAIN,
+};
+
+pub use org_authority::{
+    authority_dir, NodeAuthority, NodeAuthorityConfig, OrgAuthorityError, OwnerAudienceCredential,
+    NODE_AUTHORITY_CONFIG_VERSION, OWNER_AUDIENCE_FILE, OWNER_MEMBERSHIP_FILE,
+    REVOCATION_STATE_FILE,
+};
+
+pub use org_revocation::{
+    OrgRevocationError, OrgRevocationState, OrgRevocationStore, ORG_REVOCATION_STATE_VERSION,
+};
+
+pub use tag::{AxisSeparator, CapabilityTagError, Tag, TagKey, TaxonomyAxis, RESERVED_PREFIXES};
+
+pub use predicate::{
+    filter_by_predicate, predicate_from_rpc_headers, predicate_to_rpc_header, AsRpcHeader,
+    ClauseStats, ClauseTrace, EvalContext, Predicate, PredicateDebugReport, PredicateNodeWire,
+    PredicateRpcDecodeError, PredicateRpcEncodeError, PredicateWire, PredicateWireError,
+    RpcPredicateContext, MAX_PREDICATE_RPC_HEADER_VALUE_LEN, RPC_WHERE_HEADER,
+};
+
+pub use placement::{
+    compose_axis_scores, tie_break_compare, AntiAffinityConfig, Artifact, ColocationPolicy,
+    IntentMatchPolicy, IntentRegistry, LeadershipStatsLookup, LegacyPlacement,
+    NodeId as PlacementNodeId, PlacementFilter, PlacementMetadataKeys, ResourceAxis, RttLookup,
+    ScopeLabel, StandardPlacement, TieBreakContext,
+};
+
+pub use placement_registry::{global_placement_filter_registry, PlacementFilterRegistry};
+
+pub use required_capability::{RequireParseError, RequiredCapability};
+
+pub use tag_codec::{
+    capability_set_from_tag_set, capability_set_to_tag_set, hardware_from_tags, hardware_to_tags,
+    is_hardware_owned_tag, is_models_owned_tag, is_resource_limits_owned_tag,
+    is_software_owned_tag, is_tools_owned_tag, models_from_tags, models_to_tags,
+    resource_limits_from_tags, resource_limits_to_tags, software_from_tags, software_to_tags,
+    tools_from_tags, tools_to_tags,
+};
+
+pub use diff::{CapabilityDiff, DiffEngine, DiffError, DiffOp};
+
+pub use schema::{
+    validate_capabilities, validate_capabilities_against, AxisEntry, AxisSchema, KeyEntry,
+    KeyShape, KeyShapeKind, SchemaError, ValidationReport, ValidationWarning, ValueType,
+    AXIS_SCHEMA, METADATA_SOFT_CAP_BYTES,
+};
+
+pub use metadata::{
+    LocationInfo, MetadataError, MetadataQuery, MetadataStore, MetadataStoreStats, NatType,
+    NetworkTier, NodeId, NodeMetadata, NodeStatus, Region, TopologyHints,
+};
+
+pub use api::{
+    ApiAnnouncement, ApiEndpoint, ApiMethod, ApiParameter, ApiQuery, ApiRegistry, ApiRegistryStats,
+    ApiSchema, ApiValidationError, ApiVersion, IndexedApiNode, RegistryError, SchemaType,
+    StringFormat, ValidationError,
+};
+
+pub use rules::{
+    Action, AlertSeverity, CompareOp, Condition, ConditionExpr, LogLevel, LogicOp, Priority,
+    RateLimit, Rule, RuleContext, RuleEngine, RuleEngineStats, RuleError, RuleResult, RuleSet,
+    ScaleDirection,
+};
+
+pub use context::{
+    AttributeValue, Baggage, BaggageItem, Context, ContextError, ContextScope, ContextStore,
+    ContextStoreStats, PropagationContext, Sampler, SamplingStrategy, Span, SpanEvent, SpanId,
+    SpanKind, SpanLink, SpanStatus, TraceFlags, TraceId,
+};
+
+pub use loadbalance::{
+    Endpoint, HealthStatus, LoadBalancer, LoadBalancerConfig, LoadBalancerError, LoadBalancerStats,
+    LoadMetrics, RequestContext as LbRequestContext, Selection, SelectionReason, Strategy,
+};
+
+pub use proximity::{
+    CleanupStats, EnhancedPingwave, PrimaryCapabilities, ProximityConfig, ProximityEdge,
+    ProximityGraph, ProximityNode, ProximityStats, ProximityStatsSnapshot,
+};
+
+pub use safety::{
+    AuditConfig, AuditEntry, AuditEventType, AuditOutcome, AuditSink, ContentCheck, ContentPolicy,
+    EnforcementMode, KillSwitchConfig, PolicyAction, RateEnvelope, RateLimitType, ResourceClaim,
+    ResourceEnvelope, ResourceGuard, ResourceType, SafetyEnforcer, SafetyEnvelope, SafetyRequest,
+    SafetyViolation, UsageStats,
+};

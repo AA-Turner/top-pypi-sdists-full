@@ -1,4 +1,4 @@
-"""HTTP to the Probe server, and the old `probe.sdk.transport` as one front door over its pieces.
+"""HTTP to the Probe server, as one front door over its pieces.
 Names are served live, so a patch on the defining piece reaches callers here; code imports pieces."""
 
 from __future__ import annotations
@@ -90,11 +90,11 @@ _HOMES = {
     "_idempotency_key": "probe.sdk.delivery.transport.transport",
     # imported by the old module: the same objects, read through a piece that imports them
     "InspectionResult": "probe.sdk.delivery.transport.blobs",
-    "freeze_stream": "probe.sdk.delivery.transport.transport",
-    "freeze_upload": "probe.sdk.delivery.transport.transport",
+    "freeze_stream": "probe.sdk.delivery.transport.blobs",
+    "freeze_upload": "probe.sdk.delivery.transport.blobs",
     "warn_if_incomplete": "probe.sdk.delivery.transport.blobs",
-    "hashlib": "probe.sdk.delivery.transport.transport",
-    "hmac": "probe.sdk.delivery.transport.transport",
+    "hashlib": "probe.sdk.delivery.transport.headers",
+    "hmac": "probe.sdk.delivery.transport.headers",
     "json": "probe.sdk.delivery.transport.failures",
     "os": "probe.sdk.delivery.transport.deadlines",
     "random": "probe.sdk.delivery.transport.deadlines",
@@ -117,13 +117,13 @@ _HOMES = {
     "urlsplit": "probe.sdk.delivery.transport.blobs",
     "device_mark": "probe.sdk.delivery.transport.transport",
     "client_status": "probe.sdk.delivery.transport.transport",
-    "durable": "probe.sdk.delivery.transport.transport",
+    "durable": "probe.sdk.delivery.transport.deadlines",
     "errors": "probe.sdk.delivery.transport.transport",
     "safe_warn": "probe.sdk.delivery.transport.transport",
-    "session_marker": "probe.sdk.delivery.transport.transport",
+    "session_marker": "probe.sdk.delivery.transport.headers",
     "unstorable": "probe.sdk.delivery.transport.transport",
-    "_workspace_limit": "probe.sdk.delivery.transport.transport",
-    "DAEMON_SHELL_CONFIG": "probe.sdk.delivery.transport.transport",
+    "_workspace_limit": "probe.sdk.delivery.transport.headers",
+    "DAEMON_SHELL_CONFIG": "probe.sdk.delivery.transport.headers",
     "Settings": "probe.sdk.delivery.transport.transport",
     "AGENT_HEADER": "probe.sdk.delivery.transport.headers",
     "AGENT_SESSION_HEADER": "probe.sdk.delivery.transport.headers",
@@ -141,7 +141,7 @@ _HOMES = {
     "current_tool": "probe.sdk.delivery.transport.transport",
     "ssl_context": "probe.sdk.delivery.transport.transport",
 }
-#: `from <old path> import *` takes what the old module's did: every public name.
+#: `from <door> import *` takes what the old module's did: every public name.
 __all__ = [name for name in _HOMES if not name.startswith("_")]
 
 

@@ -126,9 +126,10 @@ class CliSnapshotConfig:
             (self.replace_duration, _mask_durations),
             (self.remove_last_line, _drop_last_line),
             (self.replace_test_case_id, _mask_test_case_ids),
+            # A seed can be 32 decimal digits, which also reads as a hex UUID.
+            (self.replace_seed, _mask_seed),
             (self.replace_uuid, _mask_uuids),
             (self.replace_response_time, _mask_slow_response_time),
-            (self.replace_seed, _mask_seed),
             (True, _mask_random_values),
             (self.replace_invalid_component, _mask_invalid_component),
             (self.replace_reproduce_with, _mask_reproduce_commands),
@@ -180,7 +181,8 @@ def _mask_generated(data: str) -> str:
 
 
 def _mask_local_ports(data: str) -> str:
-    return re.sub(r"(https?)://([^/@\s]+@)?127\.0\.0\.1:[0-9]{3,}", r"\1://\g<2>127.0.0.1", data)
+    # gRPC errors also name the bare address, without a scheme.
+    return re.sub(r"127\.0\.0\.1:[0-9]{3,}", "127.0.0.1", data)
 
 
 def _mask_config_path(data: str) -> str:
@@ -535,6 +537,8 @@ def normalize_connection_errors(data: str) -> str:
         .replace("WinError 10061", "Error NUM")
         .replace("WinError 10054", "Error NUM")
         .replace("Cannot connect to proxy.", "Unable to connect to proxy")
+        # gRPC on Windows names a connection closed by the server differently.
+        .replace("End of TCP stream", "Socket closed")
     )
     return data.replace(
         "No connection could be made because the target machine actively refused it", "Connection refused"

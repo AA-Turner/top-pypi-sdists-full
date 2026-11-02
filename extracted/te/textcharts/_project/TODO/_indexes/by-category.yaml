@@ -1,0 +1,11 @@
+generated_at: '2026-03-27T17:16:11.429935'
+total_categories: 1
+categories:
+  User Experience:
+    count: 1
+    items:
+    - id: rich-output-formats-png-html-greyscale
+      file: TODO/main/planning/rich-output-formats-png-html-greyscale.yaml
+      title: Rich Output Formats — PNG, HTML/SVG, and Greyscale Chart Rendering
+      priority: Low
+      status: Not Started

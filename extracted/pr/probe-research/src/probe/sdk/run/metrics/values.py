@@ -140,39 +140,9 @@ def _key_name(key: Any) -> str:
 def _flatten(
     metrics: Mapping[Any, Any], *, sep: str = "/", known: set[str] | None = None
 ) -> tuple[dict[Any, Any], list[tuple[Any, str]], list[tuple[str, str, str]]]:
-    """``{"a": {"b": 1}}`` -> ``{"a/b": 1}``: the key shape the dashboard
-    sections panels by (``dashboard/src/shared/domain/charts/chart-series.ts`` ``keyPrefix``).
-
-    Returns ``(flat, collided, kept_whole)``. Only ``collections.abc.Mapping``
-    values expand -- a dict, an OmegaConf ``DictConfig`` -- and a nested key
-    becomes ``str(k)``; a TOP-LEVEL key passes through exactly as given, as it
-    does when nothing is nested. Lists and every other value are leaves, left
-    for the caller's numeric / step-attribute split. An empty mapping
-    contributes nothing.
-
-    Redaction is by a field's OWN key name, and flattening must not change that
-    (#2009 review): ``db/pwd`` would normalise to ``db_pwd``, which no rule
-    matches. So a nested leaf whose own key is sensitive goes through
-    ``default_scrub(value, key=<its own key>)`` here, and a mapping under a
-    sensitive key -- at the top level too, ``bytes`` keys included -- is never
-    expanded: it is scrubbed whole, as the scrubber drops a credential bundle.
-    An OmegaConf node is read through :mod:`probe.sdk.values.omegaconf_read`, so an
-    interpolation that would reveal a secret (``${oc.env:...}``,
-    ``${wandb.api_key}``, a chain to either) stays its unresolved text.
-
-    ``collided``: ``(key, top-level key)`` for keys two spellings produced
-    (``"a/b"`` beside ``{"a": {"b": ...}}``). The SHALLOWER spelling wins
-    whatever the dict order, so an explicit key always beats a nested one.
-
-    ``kept_whole``: ``(key, reason, top-level key)`` for each mapping that
-    stays one value -- nested past ``_FLATTEN_MAX_DEPTH`` segments, a mapping
-    that contains itself, one that raised when read, or one whose keys would
-    pass ``_NESTED_KEY_MAX_CHARS``. The budget is per TOP-LEVEL key: when a
-    top-level key's nested dicts would take the run's distinct nested keys
-    (``known``, updated here) past ``_NESTED_KEY_BUDGET``, that whole
-    top-level value stays one step attribute, so a dict of dicts keyed by data
-    costs one attribute and one warning, not one per id. Never raises for such
-    input: this runs inside the training loop."""
+    """``{"a": {"b": 1}}`` -> ``{"a/b": 1}``. Returns ``(flat, collided, kept_whole)``; only Mapping
+    values expand, and it never raises (it runs inside the training loop). Sensitive-key scrubbing is
+    off while scanning is disabled. Collisions, depth and the key budget: DESIGN.md."""
     from ...values import omegaconf_read
 
     known = set() if known is None else known
@@ -221,9 +191,8 @@ def _flatten(
             # scanning disabled: sensitive = _sensitive_key_name(name)
             sensitive = False
             if not isinstance(value, Mapping) or sensitive:
-                # A sensitive leaf is redacted by its own name, numbers
-                # included where the scrubber redacts them; a mapping under a
-                # sensitive name is a credential bundle, scrubbed whole.
+                # With scanning on, a sensitive leaf is redacted by its own name and a mapping under a
+                # sensitive name is scrubbed whole; scanning is disabled, so `sensitive` is False.
                 # scanning disabled: staged.append((key, default_scrub(value, key=name) if sensitive else value, depth, None))
                 staged.append((key, value, depth, None))
                 continue

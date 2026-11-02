@@ -1,0 +1,62 @@
+from django.contrib.contenttypes.models import ContentType
+
+from nautobot.core.testing.integration import SeleniumTestCase
+from nautobot.dcim.models import Location
+from nautobot.extras.choices import CustomFieldTypeChoices
+from nautobot.extras.models import CustomField, CustomFieldChoice
+
+
+class ImportObjectsUITestCase(SeleniumTestCase):
+    """Integration tests for the 'Import Objects' system Job's UI."""
+
+    def setUp(self):
+        super().setUp()
+        self.login_as_superuser()
+
+    def test_import_objects_ui_population(self):
+        self.browser.visit(self.live_server_url)
+        self.click_navbar_entry("Organization", "Locations")
+        self.browser.find_by_id("actions-dropdown").click()
+        self.browser.find_by_id("import-button").click()
+
+        # Make sure the table of fields for a Location import is populated via a few spot checks
+        self.assertTrue(self.browser.is_text_present("shipping_address", wait_time=10))
+        self.assertTrue(self.browser.is_text_present("Local facility ID or description"))
+
+        # Clear the content-type selection
+        clear_button = self.browser.find_by_xpath(
+            "//span[@id='select2-id_content_type-container']//span[@class='select2-selection__clear']"
+        )
+        clear_button.click()
+
+        # Table of fields should be cleared
+        self.assertFalse(self.browser.is_text_present("shipping_address", wait_time=1))
+        self.assertFalse(self.browser.is_text_present("Local facility ID or description", wait_time=1))
+
+        # Select a different valid content-type
+        self.browser.find_by_xpath("//li[contains(text(), 'Circuits | circuit termination')]", wait_time=10).click()
+
+        self.assertTrue(self.browser.is_text_present("upstream_speed", wait_time=10))
+        self.assertTrue(self.browser.is_text_present("Upstream speed, if different from port speed"))
+
+    def test_import_objects_ui_custom_field_label_and_choices_rendered_as_text(self):
+        label = '<b class="import-objects-marker">Marker Label</b>'
+        choice_value = '<b class="import-objects-marker">Marker Choice</b>'
+        custom_field = CustomField(
+            type=CustomFieldTypeChoices.TYPE_SELECT,
+            label=label,
+            key="import_objects_marker",
+        )
+        custom_field.validated_save()
+        custom_field.content_types.set([ContentType.objects.get_for_model(Location)])
+        CustomFieldChoice(custom_field=custom_field, value=choice_value).validated_save()
+
+        self.browser.visit(self.live_server_url)
+        self.click_navbar_entry("Organization", "Locations")
+        self.browser.find_by_id("actions-dropdown").click()
+        self.browser.find_by_id("import-button").click()
+
+        self.assertTrue(self.browser.is_text_present(label, wait_time=10))
+        self.browser.find_by_css('button[data-bs-target="#cf_import_objects_marker_choices"]').click()
+        self.assertTrue(self.browser.is_text_present(choice_value, wait_time=10))
+        self.assertTrue(self.browser.is_element_not_present_by_css(".import-objects-marker"))

@@ -1,0 +1,484 @@
+Metadata-Version: 2.5
+Name: sqlalchemy-declarative-extensions
+Version: 0.18.0
+Summary: Library to declare additional kinds of objects not natively supported by SQLAlchemy/Alembic.
+Project-URL: documentation, https://sqlalchemy-declarative-extensions.readthedocs.io/en/latest/
+Project-URL: homepage, https://sqlalchemy-declarative-extensions.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/dancardin/sqlalchemy-declarative-extensions
+Project-URL: changelog, https://github.com/DanCardin/sqlalchemy-declarative-extensions/blob/main/CHANGELOG.md
+Author-email: Dan Cardin <ddcardin@gmail.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Keywords: alembic,declarative,function,grant,mysql,postgresql,role,schema,snowflake,sqlalchemy,sqlite,trigger,view
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <4,>=3.10
+Requires-Dist: sqlalchemy>=1.3
+Provides-Extra: alembic
+Requires-Dist: alembic>=1.0; extra == 'alembic'
+Provides-Extra: parse
+Requires-Dist: sqlglot; extra == 'parse'
+Description-Content-Type: text/markdown
+
+# SQLAlchemy Declarative Extensions
+
+[![Actions Status](https://github.com/DanCardin/sqlalchemy-declarative-extensions/actions/workflows/test.yml/badge.svg)](https://github.com/dancardin/sqlalchemy-declarative-extensions/actions)
+[![codecov](https://codecov.io/gh/DanCardin/sqlalchemy-declarative-extensions/graph/badge.svg?token=DyS4xtntRo)](https://codecov.io/gh/DanCardin/sqlalchemy-declarative-extensions)
+[![Documentation Status](https://readthedocs.org/projects/sqlalchemy-declarative-extensions/badge/?version=latest)](https://sqlalchemy-declarative-extensions.readthedocs.io/en/latest/?badge=latest)
+
+See the full documentation
+[here](https://sqlalchemy-declarative-extensions.readthedocs.io/en/latest/).
+
+Adds extensions to SQLAlchemy (and/or Alembic) which allows declaratively
+stating the existence of additional kinds of objects about your database not
+natively supported by SQLAlchemy/Alembic.
+
+The primary function(s) of this library include:
+
+- Registering onto the SQLAlchemy event system such that `metadata.create_all`
+  creates these objects.
+- (Optionally) Registers into Alembic such that
+  `alembic revision --autogenerate` automatically creates/updates/deletes
+  declared objects.
+
+Object support includes:
+
+|                | Postgres | MySQL | SQLite | Snowflake |
+| -------------- | -------- | ----- | ------ | --------- |
+| Schemas        | ✓        | N/A   | ✓      | ✓         |
+| Views          | ✓        | ✓     | ✓      | ✓         |
+| Roles          | ✓        |       | N/A    | ✓         |
+| Grants         | ✓        |       | N/A    |           |
+| Default Grants | ✓        |       | N/A    |           |
+| Functions      | ✓        | ✓     |        |           |
+| Procedures     | ✓        | ✓     |        |           |
+| Triggers       | ✓        | ✓     |        |           |
+| Databases      | ✓        |       | N/A    | ✓         |
+| Rows (data)    | ✓        | ✓     | ✓      | ✓         |
+| "Audit Tables" | ✓        |       |        |           |
+
+Notes:
+
+- "Row" is implemented with pure SQLAlchemy concepts, so should work for any
+  dialect that you can use SQLAlchemy to connect to.
+- "Audit Tables" are a higher-level set of functions/triggers which record data
+  changes against some source table.
+
+In principle, this library **can** absolutely support any database supported by
+SQLAlchemy, and capable of being introspected enough to support detection of
+different kinds of objects. In reality, the existence of implementations are going to
+be purely driven by actual usage/contributions/requests.
+
+See [docs on dialect support](https://sqlalchemy-declarative-extensions.readthedocs.io/en/latest/contributing/dialect-support.html)
+for information on how to improve support for a given dialect. Also feel free to submit an issue!
+
+## Kitchen Sink Example (using all available features)
+
+```python
+from sqlalchemy import Column, types, select
+from sqlalchemy.orm import as_declarative
+from sqlalchemy_declarative_extensions import (
+    declarative_database, Schemas, Roles, Row, View, view,
+)
+from sqlalchemy_declarative_extensions.dialects.postgresql import (
+    DefaultGrant, Function, Trigger, Role
+)
+from sqlalchemy_declarative_extensions.audit import audit
+
+
+@declarative_database
+@as_declarative
+class Base:
+    # Note: each object type also has a plural version (i.e. Schemas/Roles/etc) where you can specify
+    # collection-level options like `ignore_unspecified`).
+    #
+    # If you dont set any collection-level options, you can instead use raw list/iterable as the collection.
+    schemas = Schemas().are("example")
+    roles = Roles(ignore_unspecified=True).are(
+        Role("read", login=False),
+        Role(
+            "app",
+            in_roles=['read']
+        ),
+    )
+    grants = [
+        DefaultGrant.on_tables_in_schema("public", 'example').grant("select", to="read"),
+        DefaultGrant.on_sequences_in_schema("public").grant("usage", to="read"),
+        Grant.new("usage", to="read").on_schemas("example")
+    ]
+    rows = [
+        Row('foo', id=1),
+    ]
+    views = [
+        View("low_foo", "select * from foo where i < 10"),
+    ]
+    functions = [
+        Function(
+            "fancy_function",
+            """
+            BEGIN
+            INSERT INTO foo (id) select NEW.id + 1;
+            RETURN NULL;
+            END
+            """,
+            language="plpgsql",
+            returns="trigger",
+        ),
+    ]
+    triggers = [
+        Trigger.after("insert", on="foo", execute="fancy_function")
+        .named("on_insert_foo")
+        .when("pg_trigger_depth() < 1")
+        .for_each_row(),
+    ]
+
+
+@audit()
+class Foo(Base):
+    __tablename__ = 'foo'
+
+    id = Column(types.Integer(), primary_key=True)
+
+
+audit_table = Foo.__audit_table__
+
+
+@view(Base)
+class HighFoo:
+    __tablename__ = "high_foo"
+    __view__ = select(Foo.__table__).where(Foo.__table__.c.id >= 10)
+```
+
+Note, there is also support for declaring objects directly through the
+`MetaData` for users not using sqlalchemy's declarative API.
+
+## Event Registration
+
+By default, the above example does not automatically do anything. Depending on
+the context, you can use one of two registration hooks:
+`register_sqlalchemy_events` or `register_alembic_events`.
+
+### `register_sqlalchemy_events`
+
+This registers events in SQLAlchemy's event system such that a
+`metadata.create_all(...)` call will create the declared database objects.
+
+```python
+from sqlalchemy_declarative_extensions import register_sqlalchemy_events
+
+metadata = Base.metadata  # Given the example above.
+register_sqlalchemy_events(metadata)
+# Which is equivalent to...
+register_sqlalchemy_events(metadata, schemas=False, roles=False, grants=False, rows=False)
+```
+
+All object types are opt in, and should be explicitly included in order to get
+registered.
+
+Practically, this is to avoid issues with testing. In **most** cases the
+`metadata.create_all` call will be run in tests, a context where it's more
+likely that you dont **need** grants or grants, and where parallel test
+execution could lead to issues with role or schema creation, depending on your
+setup.
+
+### `register_alembic_events`
+
+This registers comparators in Alembic's registration system such that an
+`alembic revision --autogenerate` command will diff the existing database state
+against the declared database objects, and issue statements to
+create/update/delete objects in order to match the declared state.
+
+```python
+# alembic's `env.py`
+from sqlalchemy_declarative_extensions import register_alembic_events
+
+register_alembic_events()
+# Which is equivalent to...
+register_sqlalchemy_events(schemas=True, roles=True, grants=True, rows=True)
+```
+
+All object types are opt out but can be excluded.
+
+In contrast to `register_sqlalchemy_events`, it's much more likely that you're
+declaring most of these object types in order to have alembic track them
+
+## Alembic-utils
+
+[Alembic Utils](https://github.com/olirice/alembic_utils) is the primary library
+against which this library can be compared. At time of writing, **most** (but
+not all) object types supported by alembic-utils are supported by this library.
+One might begin to question when to use which library.
+
+Below is a list of points on which the two libraries diverge. But note that you
+**can** certainly use both in tandem! It doesn't need to be one or the other,
+and certainly for any object types which do not overlap, you might **need** to
+use both.
+
+- Database Support
+
+  - Alembic Utils seems to explicitly only support PostgreSQL.
+
+  - This library is designed to support any dialect (in theory). Certainly
+    PostgreSQL is **best** supported, but there does exist support for specific
+    kinds of objects to varying levels of support for Snowflake, SQLite, and MySQL,
+    so far.
+
+- Architecture
+
+  - Alembic Utils is directly tied to Alembic and does not support SQLAlchemy's
+    `MetaData.create_all`. It's also the responsibility of the user to
+    discover/register objects in alembic.
+
+  - This library **depends** only on SQLAlchemy, although it also supports
+    alembic. Support for `MetaData.create_all` can be important for creating all
+    object types in tests. It also is designed such that objects are registered
+    on the `MetaData` itself, so there is no need for any specific discovery
+    phase.
+
+- Scope
+
+  - Alembic Utils declares specific, individual objects. I.e. you instantiate
+    one specific `PGGrantTable` or `PGView` instance and Alembic know knows you
+    want that object to be created. It cannot drop objects it is not already
+    aware of.
+
+  - This library declares the objects the system as a whole expects to exist.
+    Similar to Alembic's behavior on tables, it will (by default) detect any
+    **undeclared** objects that should not exist and drop them. That means, you
+    can rely on this object to ensure the state of your migrations matches the
+    state of your database exactly.
+
+- Migration history
+
+  - Alembic Utils imports and references its own objects in your migrations
+    history. This can be unfortunate, in that it deeply ties your migrations
+    history to alembic-utils.
+
+    (In fact, this can be a sticking point, trying to convert **away** from
+    `alembic_utils`, because it will attempt to drop all the (e.g `PGView`)
+    instances previously created when we replaced it with this library.)
+
+  - This library, by contrast, prefers to emit the raw SQL of the operation into
+    your migration. That means you know the exact commands that will execute in
+    your migration, which can be helpful in debugging failure. It also means, if
+    at any point you decide to stop use of the library (or pause a given type of
+    object, due to a bug), you can! This library's behaviors are primarily very
+    much `--autogenerate`-time only.
+
+- Abstraction Level
+
+  - Alembic Utils appears to define a very "literal" interface (for example,
+    `PGView` accepts the whole view definition as a raw literal string).
+
+  - This library tries to, as much as possible, provide a more abstracted
+    interface that enables more compatibility with SQLAlchemy (For example
+    `View` accepts SQLAlchemy objects which can be coerced into a `SELECT`). It
+    also tends towards "builder" interfaces which progressively produce a object
+    (Take a look at the `DefaultGrant` above, for an example of where that's
+    helpful).
+
+A separate note on conversion/compatibility. Where possible, this library tries
+to support alembic-utils native objects as stand-ins for the objects defined in
+this library. For example, `alembic_utils.pg_view.PGView` can be declared
+instead of a `sqlalchemy_declarative_extensions.View`, and we will internally
+coerce it into the appropriate type. Hopefully this eases any transitional
+costs, or issues using one or the other library.

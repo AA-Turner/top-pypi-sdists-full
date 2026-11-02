@@ -6,12 +6,30 @@ from pipenv.utils.dependencies import (
     requirements_from_lockfile,
     requirements_from_pipfile,
 )
+from pipenv.utils.indexes import get_insecure_source_host
 from pipenv.utils.internet import create_mirror_source, replace_pypi_sources
 
 
 def _brace_env_vars(url):
     """Normalise bare ``$VAR`` to ``${VAR}``: pip only expands the braced form (#5272)."""
     return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", r"${\1}", url)
+
+
+def _print_trusted_host(source):
+    """Print ``--trusted-host`` for a source with ``verify_ssl = false``.
+
+    ``pipenv install`` passes it to pip for such sources, so the requirements
+    file needs it as well for ``pip install -r`` to accept the index.
+    """
+    try:
+        host_and_port = get_insecure_source_host(
+            _brace_env_vars(source.get("url", "")),
+            source.get("verify_ssl", True),
+        )
+    except Exception:
+        return
+    if host_and_port:
+        print(f"--trusted-host {host_and_port}")
 
 
 def generate_requirements(
@@ -57,6 +75,7 @@ def generate_requirements(
         for i, package_index in enumerate(sources):
             prefix = "-i" if i == 0 else "--extra-index-url"
             print(f"{prefix} {_brace_env_vars(package_index['url'])}")
+            _print_trusted_host(package_index)
 
     deps = {}
     categories_list = re.split(r", *| ", categories) if categories else []
@@ -133,6 +152,7 @@ def _generate_requirements_from_pipfile(
             if url:
                 prefix = "-i" if i == 0 else "--extra-index-url"
                 print(f"{prefix} {_brace_env_vars(url)}")
+                _print_trusted_host(source)
 
     deps = {}
     categories_list = re.split(r", *| ", categories) if categories else []

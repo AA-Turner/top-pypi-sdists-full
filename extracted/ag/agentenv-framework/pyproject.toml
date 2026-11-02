@@ -1,0 +1,220 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentenv-framework"
+version = "0.9.1410"
+description = "SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "Scale AI" }]
+requires-python = ">=3.11.4"
+keywords = ["reinforcement-learning", "rl-environments", "ai-agents", "llm-agents", "agent-evaluation", "mcp", "model-context-protocol", "a2a", "sandbox"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+dependencies = [
+    "agentenv-framework-protocol[computer]==0.1.425",  # a computer_driver env's put reads the driver class with it
+    "certifi>=2024.2.2",  # the public roots the local transfer CA's trust bundle carries
+    "click>=8.0.0",
+    "cryptography>=42",  # the local transfer CA
+    "httpx>=0.27.0",
+    "jsonschema>=4.20",  # checks an app's settings against its Settings' schema before a deploy
+    "litellm>=1.96.0,<1.97",
+    "mcp>=1.25,<2",  # same floor as env/gateway/requirements.txt and agentenv-protocol; 2.0.0 removed mcp.server.fastmcp, imported at module scope by env/gateway
+    "packaging>=22",  # parses a bundle.toml's requires; evaluates a plugin's requirement markers with no extra
+    "a2a-sdk==0.3.26",
+    "pydantic>=2.12",  # model_validate(extra=...) reads agent responses tolerantly
+    "pymongo>=4.7",
+    "python-multipart>=0.0.13",  # the local grant server's upload forms
+    "pyyaml>=6.0",
+    "starlette>=0.40",  # the local grant server
+    "uvicorn>=0.47",  # 0.47 adds ssl_context_factory, how the local grant server gets its TLS context
+    "modal>=1.5.2.dev22",  # dev22 adds _experimental_create(tags=); dev2 added VM-mode V2 (vm_runtime)
+    "e2b~=2.46.4",  # AsyncSandbox/AsyncTemplate APIs validated against the 2.46 line
+    "fastapi>=0.110",  # the explorer, agent-env up
+]
+
+[project.optional-dependencies]
+# agent_env.openenv: bundle tasks served as OpenEnv envs. No cap: OpenEnv ships a minor release a week.
+openenv = [
+    "openenv>=0.9",
+]
+# agent_env.training.harness: TRL's harness rollouts on a bundle's own agents, through OpenEnv's capture proxy (0.10
+# and later). TRL and vLLM are the trainer's to pin.
+harness = [
+    "agentenv-framework[openenv]",
+    "openenv>=0.10",
+]
+# agent_env.training.trl: TRL's trainers on a bundle served as an OpenEnv env. TRL itself is the trainer's to pin.
+trl = [
+    "agentenv-framework[openenv]",
+    "datasets>=3",
+    "transformers>=5.2",  # renders the tools as TRL shows them to a model; 5.2 is what TRL's environment_factory needs
+]
+# agent_env.training.nemo_gym: a bundle served to NeMo Gym as a resources server. rc0 is the version NeMo RL's Gym
+# checkout reports; Gym needs Python 3.13.14 or later. omegaconf builds the config Gym's server client takes when the
+# server runs on its own.
+nemo-gym = [
+    "agentenv-framework[openenv]",
+    "nemo-gym>=0.7.0rc0; python_full_version >= '3.13.14'",
+    "omegaconf>=2.3; python_full_version >= '3.13.14'",
+]
+# agent_env.training.verl: verl's trainers on a bundle served as an OpenEnv env; installed into verl's own environment,
+# whose verl, vLLM and torch are the trainer's to pin. pyarrow writes the parquet rows verl reads; transformers counts a
+# row's prompt with its tools as the model's chat template renders them.
+verl = [
+    "agentenv-framework[openenv]",
+    "pyarrow>=19",
+    "transformers>=5",
+]
+# agent_env.training.skyrl: SkyRL's trainers on a bundle served as an OpenEnv env; installed into SkyRL's own
+# environment, whose SkyRL, skyrl-gym, vLLM and torch are the trainer's to pin. pyarrow writes the parquet rows SkyRL
+# reads; transformers renders a row's tools into its system prompt with the model's chat template.
+skyrl = [
+    "agentenv-framework[openenv]",
+    "pyarrow>=19",
+    "transformers>=5",
+]
+# The AWS store backends (S3, Secrets Manager, DynamoDB, ECR), selected by impl pointer in config.toml.
+aws = [
+    "boto3>=1.35.0",
+    "botocore>=1.35.0",
+]
+# The Google Cloud store backends, selected by impl pointer in config.toml.
+gcp = [
+    "google-api-core>=2.24",
+    "google-auth>=2.40",
+    "google-cloud-secret-manager>=2.20",
+    "google-cloud-storage>=3.0",
+    "requests>=2.31",
+]
+# The sail_vm sandbox provider (Sail Research Sailboxes), selected with --sandbox sail_vm.
+sail = [
+    "sail~=0.12.8",  # Sailbox exec/fs/listener/egress APIs validated against the 0.12 line
+]
+vercel = [
+    "anyio>=4,<5",
+    "httpx2>=2.13.1,<3",
+    "vercel-sandbox>=0.7.0,<0.8",  # provides the vercel.sandbox namespace without the full vercel bundle
+]
+# The Tensorlake sandbox provider, selected as the built-in `tensorlake` backend.
+tensorlake = [
+    "tensorlake~=0.5.140",  # AsyncSandbox APIs validated against 0.5.140 to 0.5.149
+]
+# The Tenki Sandbox VM provider, selected as the built-in `tenki` backend.
+tenki = [
+    "tenki[async]~=1.4.1",  # AsyncClient/AsyncSandbox exec, stdin, ports and egress APIs validated against the 1.4 line
+]
+# The boxd machine provider, selected as the built-in `boxd` backend.
+boxd = [
+    "boxd~=0.2.17",  # AsyncBoxd machines, exec, proxies, egress allowlist and delete-after validated against 0.2.17
+]
+# The Daytona sandbox provider, selected as the built-in `daytona` backend.
+daytona = [
+    "daytona~=0.224.0",  # AsyncDaytona sandboxes, sessions, file API, preview links and egress lists validated against 0.224
+]
+# The boat.dev sandbox provider, selected as the built-in `boat` backend.
+boat = [
+    "boat-sdk~=1.13.0",  # sandboxes, labels, hosted ports, detached commands and their output stream validated against 1.13
+    "urllib3>=2.1.0,<3",  # the SDK's transport, whose errors are what a dropped connection raises
+]
+# The CoreWeave Sandbox provider, selected as the built-in `coreweave` backend.
+coreweave = [
+    "cwsandbox>=1.19.6,<2",  # Reject exec streams that close without an exit status.
+]
+dev = [
+    "agentenv-framework[aws,boat,boxd,coreweave,daytona,gcp,harness,openenv,sail,skyrl,tensorlake,tenki,trl,vercel,verl]",  # exercise portable optional providers and stores in CI
+    "fastmcp>=3.4,<4",  # the standalone-fastmcp mount path of the protocol; <4 keeps mcp 1.x
+    "Pillow>=10.4",  # the protocol's computer extra, whose tests the unit tier runs
+    "av>=17",  # the protocol's computer extra, whose tests the unit tier runs and which the recording tests decode with
+    "griffelib==2.3.0",  # the plugin API check; exact, since what it reports as a break changes between releases
+    "tomli-w==1.2.0",  # the Codex agent's config writer, which only its image installs; its tests import it
+    "moto>=5.0.0",
+    "psycopg2-binary>=2.9.0",  # the gateway server module's driver; outside its container only the tests import it
+    "pytest>=9.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-dependency>=0.6.0",
+    "pytest-socket>=0.7.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-xdist>=3.0.0",
+    "ruff==0.16.10",  # the lint gate; exact, since what it reports changes between releases
+]
+smol = [
+    "smolmachines>=1.27.0",
+]
+
+[project.scripts]
+agent-env = "agent_env.cli:cli"
+
+[project.entry-points."agent_env.bundles"]
+agents = "agent_env"
+browsers = "agent_env"
+computers = "agent_env"
+drivers = "agent_env"
+desktop = "agent_env.examples"
+hello = "agent_env.examples"
+echo-mcp = "agent_env.examples"
+mail-mcp = "agent_env.examples"
+next-env-event = "agent_env.examples"
+advance-to-next-event = "agent_env.examples"
+
+[project.urls]
+Homepage = "https://www.agentenvframework.com"
+Documentation = "https://www.agentenvframework.com/docs"
+Repository = "https://github.com/scaleapi/agentenv-framework"
+Issues = "https://github.com/scaleapi/agentenv-framework/issues"
+Changelog = "https://github.com/scaleapi/agentenv-framework/releases"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_env"]
+# The explorer UI *source* lives at src/agent_env/explorer/ui/ (a Next.js project).
+# Keep it out of the wheel — only its built output ships, copied to explorer/static/
+# by the release workflow. node_modules/out/.next are already .gitignore-excluded.
+exclude = ["src/agent_env/explorer/ui"]
+# The release workflow writes these and git ignores them; a build ships them when they're there.
+artifacts = ["src/agent_env/env/published_images.json", "src/agent_env/explorer/static"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src", "tst", "packages/agentenv-protocol", ".github/scripts"]
+artifacts = ["src/agent_env/env/published_images.json", "src/agent_env/explorer/static"]
+
+[tool.uv.workspace]
+members = ["packages/agentenv-protocol"]
+
+[tool.uv.sources]
+agentenv-framework-protocol = { workspace = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
+filterwarnings = [
+    "ignore:Pydantic serializer warnings:UserWarning",
+]
+markers = [
+    "integration: marks tests as integration tests (may require external services)",
+    "installer: runs the real pip, uv and pipx offline against locally built wheels (tst/installer; `make installer-test`)",
+    "int_test_slow: marks integration tests that take minutes per test (real Docker build / sandbox VM / Modal / gateway / agent). Excluded from the fast tier; opt in via `make int-test-slow`.",
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+[tool.ruff.lint]
+select = ["F"]

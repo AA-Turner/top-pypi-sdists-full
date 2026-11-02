@@ -1,0 +1,532 @@
+Metadata-Version: 2.5
+Name: cappa
+Version: 0.33.0
+Summary: Declarative CLI argument parser.
+Project-URL: repository, https://github.com/dancardin/cappa
+Author-email: Dan Cardin <ddcardin@gmail.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Keywords: CLI,argparse,click,parser,typer
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <4,>=3.8
+Requires-Dist: rich>=12.1.0
+Requires-Dist: type-lens>=0.2.5
+Requires-Dist: typing-extensions>=4.12.0; python_version >= '3.13'
+Requires-Dist: typing-extensions>=4.8.0
+Provides-Extra: docstring
+Requires-Dist: docstring-parser>=0.15; extra == 'docstring'
+Requires-Dist: docstring-parser>=0.17; (python_version >= '3.14') and extra == 'docstring'
+Description-Content-Type: text/markdown
+
+# Cappa
+
+[![Actions Status](https://github.com/DanCardin/cappa/actions/workflows/test.yml/badge.svg)](https://github.com/dancardin/cappa/actions)
+[![codecov](https://codecov.io/gh/DanCardin/cappa/graph/badge.svg?token=jCpAbqWQgU)](https://codecov.io/gh/DanCardin/cappa)
+[![Documentation Status](https://readthedocs.org/projects/cappa/badge/?version=latest)](https://cappa.readthedocs.io/en/latest/?badge=latest)
+
+- [Full Documentation](https://cappa.readthedocs.io/en/latest/)
+- [Comparison vs click/typer/argparse/etc](https://cappa.readthedocs.io/en/latest/comparison.html)
+- [Annotations Inference Docs](https://cappa.readthedocs.io/en/latest/annotation.html)
+- ["invoke" API Docs](https://cappa.readthedocs.io/en/latest/invoke.html)
+- [Class Compatibility (dataclasses/pydantic/etc)](https://cappa.readthedocs.io/en/latest/class_compatibility.html)
+
+Cappa is a declarative command line parsing library, which uses runtime type inspection
+to infer (default) CLI argument behavior, and provide automatic [help text](https://cappa.readthedocs.io/en/latest/help.html)
+generation and dynamic completion generation.
+
+It supports two different modes of execution:
+
+* `parse`: Argparse-like parsing of the arguments into an output structure
+* [invoke](https://cappa.readthedocs.io/en/latest/invoke.html): Click-like calling
+  of functions based on the selected subcommand
+
+  It also provides a [dependency injection system](https://cappa.readthedocs.io/en/latest/invoke.html#Invoke-Dependencies)
+  for providing non-argument resources to the invoked commands.
+
+And, a number of different styles of CLI declaration (which can be mixed and matched within
+a given CLI):
+
+* Classes: The fields of the class correspond to CLI arguments/subcommands
+* Functions: The arguments of the function correspond to CLI arguments
+* Methods: The class fields correspond to CLI arguments, and the methods correspond to subcommands
+* Imperative Construction: The CLI structure can be manually/imperitavely constructed,
+  rather than being inferred from the input structure
+
+<details open>
+  <summary><h2>Class Based, parse</h2></summary>
+
+  ```python
+  from __future__ import annotations
+  from dataclasses import dataclass, field
+  from typing import Literal
+  from typing_extensions import Annotated
+  import cappa
+  
+  @dataclass
+  class Example:
+      # Normal types are by default inferred as positional arguments
+      positional: str = "optional"
+  
+      # Except boolean types, which are inferred as flags
+      flag: bool = False
+  
+      # Option that only accepts the long name
+      option: Annotated[int | None, cappa.Arg(long=True, help="A number")] = None
+  
+      # Option accepted many times
+      many_options: Annotated[
+          list[Literal["one", "two", "three"]], cappa.Arg(short=True)
+      ] = field(default_factory=list)
+  
+      # Single option, accepting many values
+      three_values: Annotated[tuple[str, str, int] | None, cappa.Arg(long=True)] = None
+  
+  args = cappa.parse(Example, backend=cappa.backend)
+  print(args)
+  ```
+
+  Produces the following CLI:
+
+  ![help text](./docs/source/_static/example.svg)
+
+  With examples of its usage like:
+
+  ```bash
+  $ python example.py
+  Example(positional='optional', flag=False, option=None, many_options=[], three_values=None)
+  
+  $ python example.py foo
+  Example(positional='foo', flag=False, option=None, many_options=[], three_values=None)
+  
+  $ python example.py --flag
+  Example(positional='optional', flag=True, option=None, many_options=[], three_values=None)
+  
+  $ python example.py --option 4
+  Example(positional="optional", flag=False, option=4, many_options=[], three_values=None)
+  
+  $ python example.py -m one -m three
+  Example(positional='optional', flag=False, option=None, many_options=['one', 'three'], three_values=None)
+  
+  $ python example.py --three-values a b 4
+  Example(positional='optional', flag=False, option=None, many_options=[], three_values=('a', 'b', 4))
+  ```
+
+  In this way, you can turn any dataclass-like object (with some additional
+  annotations, depending on what you're looking for) into a CLI.
+  
+  You'll note that `cappa.parse` returns an instance of the class. This API should
+  feel very familiar to `argparse`, except that you get the fully typed dataclass
+  instance back instead of a raw `Namespace`.
+</details>
+
+<details>
+  <summary><h2>Class Based, invoke</h2></summary>
+
+  ["invoke" documentation](https://cappa.readthedocs.io/en/latest/invoke.html)
+
+  The "invoke" API is meant to feel more like the experience you get when using
+  `click` or `typer`. You can take the same dataclass, but register a function to
+  be called on successful parsing of the command.
+  
+  ```python
+  from dataclasses import dataclass
+  import cappa
+  from typing_extensions import Annotated
+  
+  def function(example: Example):
+      print(example)
+  
+  @cappa.command(invoke=function)
+  class Example:  # identical to original class
+      positional_arg: str
+      boolean_flag: bool
+      single_option: Annotated[int | None, cappa.Arg(long=True)]
+      multiple_option: Annotated[list[str], cappa.Arg(short=True)]
+  
+  
+  cappa.invoke(Example)
+  ```
+  
+  (Note the lack of the dataclass decorator. You can optionally omit or include
+  it, and it will be automatically inferred).
+  
+  Alternatively you can make your dataclass callable, as a shorthand for an
+  explicit invoke function:
+  
+  ```python
+  @dataclass
+  class Example:
+      ...   # identical to original class
+  
+      def __call__(self):
+         print(self)
+  ```
+  
+  Note `invoke=function` can either be a reference to some callable, or a string
+  module-reference to a function (which will get lazily imported and invoked).
+
+  ## Subcommands
+  
+  With a single top-level command, the click-like API isn't particularly valuable
+  by comparison. Click's command-centric API is primarily useful when composing a
+  number of nested subcommands, and dispatching to functions based on the selected
+  subcommand.
+  
+  ```python
+  from __future__ import annotations
+  from dataclasses import dataclass
+  import cappa
+  
+  @dataclass
+  class Example:
+      cmd: cappa.Subcommands[Print | Fail]
+
+  
+  @dataclass
+  class Print:
+      loudly: bool
+
+      def __call__(self):  # again, __call__ is shorthand for the above explicit `invoke=` form.
+          if self.loudly:
+              print("PRINTING!")
+          else:
+              print("printing!")
+  
+  def fail():
+      raise cappa.Exit(code=self.code)
+
+  @cappa.command(invoke=fail)
+  class Fail:
+      code: int
+  
+  cappa.invoke(Example)
+  ```
+</details>
+
+<details>
+  <summary><h2>Functions, invoke</h2></summary>
+
+  Purely function-based CLIs **can** reduce the ceremony required to define a given CLI
+  command. Such a CLI is exactly equivalent to a CLI defined as a dataclass with the
+  function's arguments as the dataclass's fields.
+  
+  ```python
+  import cappa
+  from typing_extensions import Annotated
+  
+  def function(foo: int, bar: bool, option: Annotated[str, cappa.Arg(long=True)] = "opt"):
+      ...
+  
+  
+  cappa.invoke(function)
+  ```
+  
+  There are, however, some downsides to using functions. Namely, that `function`
+  has no nameable type! As such, a free function can not be easily named as a
+  subcommand option (`Subcommand[Foo | Bar]`).
+
+  You **can** define a root level function with class-based subcommands, but
+  the reverse is not possible because there is no valid type you can supply in
+  the subcommand union.
+</details>
+
+<details>
+  <summary><h2>Methods, invoke</h2></summary>
+
+  See also [Methods](https://cappa.readthedocs.io/en/latest/functions_and_methods.html#methods).
+
+  ```python
+  from __future__ import annotations
+  from dataclasses import dataclass
+  import cappa
+  
+  @cappa.command
+  @dataclass
+  class Example:
+      arg: int
+
+      @cappa.command
+      def add(self, other: int) -> int:
+          """Add two numbers."""
+          return self.arg + some_dep
+  
+      @cappa.command(help="Subtract two numbers")
+      def subtract(self, other: int) -> int:
+          return self.arg - other
+  
+  cappa.invoke(Example)
+  ```
+
+  With methods, the enclosing class corresponds to the parent object CLI arguments,
+  exactly like normal class based definition. Unlike with free functions, (explicitly
+  annotated) methods are able to act as subcommands, who's arguments (similarly to free functions)
+  act as the arguments for the subcommand.
+
+  The above example produces a CLI like:
+
+  ```
+  Usage: example ARG {add,subtract} [-h] [--completion COMPLETION]
+
+  Arguments
+    ARG
+
+  Subcommands
+    add                        Add two numbers.
+    subtract                   Subtract two numbers.
+  ```
+</details>
+
+
+<details>
+  <summary><h2>Imperative Construction, parse/invoke</h2></summary>
+
+  See also [Manual Construction](https://cappa.readthedocs.io/en/latest/manual_construction.html).
+
+  ```python
+  from dataclasses import dataclass
+  
+  import cappa
+
+  @dataclass
+  class Foo:
+      bar: str
+      baz: list[int]
+
+  command = cappa.Command(
+      Foo,
+      arguments=[
+          cappa.Arg(field_name="bar"),
+          cappa.Arg(field_name="baz", num_args=2),
+      ],
+      help="Short help.",
+      description="Long description.",
+  )
+
+  result = cappa.parse(command, argv=["one", "2", "3"])
+  ```
+
+  All other APIs of cappa amount to scanning the provided input structure, and producing
+  a `cappa.Command` structure. As such, it's equally possible for users to manually
+  construct the commands themselves.
+
+  This could also be used to extend cappa, or design even more alternative interfaces
+  ([Cleo](https://github.com/python-poetry/cleo) is another, fairly different, option
+  that comes to mind).
+</details>
+
+## Inspirations
+
+Credit where credit is due
+
+* The "Derive" API of the Rust library [Clap](https://docs.rs/clap/latest/clap/_derive/index.html)
+  directly inspired the concept of mapping a type's fields to the shape of the CLI, by inferring
+  the default behavior from introspecting types.
+
+* Click's easy way of defining large graphs of subcommands and mapping them to functions,
+  inspired the the "invoke" API of Cappa. The actual APIs dont particularly resemble one
+  another, but subcommands directly triggering functions (in contrast to argparse/Clap) is
+  a very nice, and natural seeming feature!
+
+* FastAPI's `Depends` system inspired Cappa's dependency injection system. This API is
+  quite natural, and makes it very easy to define a complex system of ad-hoc dependencies
+  **without** the upfront wiring cost of most DI frameworks.

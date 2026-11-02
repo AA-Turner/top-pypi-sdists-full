@@ -28,7 +28,7 @@ from schemathesis.core.errors import (
     UnsupportedRegexPattern,
 )
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
-from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.parameters import EncodedPath, ParameterLocation
 from schemathesis.core.transforms import jsonify_python_specific_types
 from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode, create_test
@@ -1089,11 +1089,12 @@ def test_optional_form_data(ctx):
         # Spaces in path segments must percent-encode, not form-encode (GH-4252)
         ("2 m above gnd", "2%20m%20above%20gnd"),
         ("a+b", "a%2Bb"),
+        ("a/b", "a%2Fb"),
     ],
 )
 def test_path_parameters_quotation(value, expected):
     # See GH-1036
-    assert quote_all({"foo": value})["foo"] == expected
+    assert quote_all({"encoded": EncodedPath("a%2C"), "foo": value}) == {"encoded": "a%2C", "foo": expected}
 
 
 def test_path_parameter_space_encoded_in_url(ctx):
@@ -1367,6 +1368,27 @@ def test_apply_exclusions_reachable_via_auth_supplied_required_header():
     out = pset.get_schema_with_exclusions(exclude=["Authorization"])
     assert "required" not in out
     assert out["properties"] == {}
+
+
+# HTTP header names are case-insensitive; other locations match names exactly.
+def test_exclusions_ignore_case_only_for_headers(ctx):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [
+                {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "Token", "in": "query", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    assert [
+        (schema.get("required"), list(schema["properties"]))
+        for schema in (
+            operation.headers.get_schema_with_exclusions(["x-token"]),
+            operation.query.get_schema_with_exclusions(["token"]),
+        )
+    ] == [(None, []), (["Token"], ["Token"])]
 
 
 @pytest.mark.parametrize(

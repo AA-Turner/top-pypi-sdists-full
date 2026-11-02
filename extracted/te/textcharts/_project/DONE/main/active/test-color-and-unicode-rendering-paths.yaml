@@ -1,0 +1,75 @@
+id: test-color-and-unicode-rendering-paths
+title: "Add tests for color output and Unicode/ASCII fallback rendering paths"
+worktree: main
+priority: Medium
+status: Completed
+completed_date: "2026-03-07"
+category: "Testing and Quality Assurance"
+description: |
+  Most tests run with use_color=False, leaving ANSI color output paths uncovered
+  across multiple modules. Only 2 tests currently exercise color output (heatmap
+  color schemes and sparkline legend). Additionally, Unicode vs ASCII character
+  fallback paths are not systematically tested — most tests use the default
+  (Unicode) path only.
+
+  These paths account for a significant portion of the missed lines across
+  bar_chart.py (lines 86-93, 123-125), base.py (lines 288-294), diverging_bar.py
+  (lines 177, 181), and others.
+
+work:
+  - id: w1
+    summary: "Add color output tests — verify ANSI escape sequences appear in output when use_color=True for representative chart types"
+    status: done
+    notes: |
+      Test 3-4 chart types (BarChart, Heatmap, Histogram, ScatterPlot) with
+      use_color=True. Assert that output contains ANSI escape sequences
+      (\x1b[ or \033[). Don't assert exact color values — just presence.
+      Also test ColorMode.NONE produces no escapes.
+
+  - id: w2
+    summary: "Add ASCII fallback tests — verify box-drawing and block characters fall back correctly when use_unicode=False"
+    status: done
+    notes: |
+      Test 3-4 chart types with use_unicode=False. Assert output uses ASCII
+      fallback characters (e.g., +, -, |, #) instead of Unicode box-drawing
+      and block characters. Compare against known ASCII character set from base.py.
+
+  - id: w3
+    summary: "Add theme tests — verify dark vs light theme affects color selection for representative charts"
+    needs: [w1]
+    status: done
+    notes: |
+      Test that theme='dark' and theme='light' produce different output when
+      use_color=True. Cover BarChart palette selection directly.
+
+must_preserve:
+  - "All existing tests pass"
+  - "No changes to source code"
+
+approach: |
+  Create test_rendering_modes.py. Use ChartOptions with explicit use_color=True,
+  use_unicode=False, and theme settings. For color tests, use regex to detect
+  ANSI sequences rather than asserting exact values. For ASCII tests, assert
+  absence of common Unicode characters (e.g., block elements U+2580-U+259F).
+
+verification:
+  - description: "All tests pass"
+    command: "uv run python -m pytest --override-ini=addopts='' tests/test_rendering_modes.py -v"
+    expected_output: "all tests pass"
+  - description: "Overall coverage improves"
+    command: "COVERAGE_FILE=/tmp/textcharts-rendering.coverage uv run python -m pytest --override-ini=addopts='' --cov=textcharts.bar_chart --cov=textcharts.base --cov=textcharts.heatmap --cov=textcharts.histogram --cov=textcharts.scatter_plot --cov-report=term-missing tests/test_rendering_modes.py -q"
+    expected_output: "rendering-path modules show direct coverage from test_rendering_modes.py"
+
+scope_limit:
+  only_modify:
+    - "tests/"
+  do_not_modify:
+    - "src/"
+
+metadata:
+  tags:
+    - testing
+    - coverage
+    - rendering
+  estimated_effort: "1 day"
+  created_date: "2026-03-07"

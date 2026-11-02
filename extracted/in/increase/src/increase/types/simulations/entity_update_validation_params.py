@@ -1,0 +1,51 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Iterable
+from typing_extensions import Literal, Required, TypedDict
+
+__all__ = ["EntityUpdateValidationParams", "Issue"]
+
+
+class EntityUpdateValidationParams(TypedDict, total=False):
+    issues: Required[Iterable[Issue]]
+    """The validation issues to attach.
+
+    If no issues are provided, the validation status will be set to `valid`.
+    """
+
+
+class Issue(TypedDict, total=False):
+    category: Required[
+        Literal[
+            "entity_tax_identifier",
+            "entity_address",
+            "entity_identity",
+            "beneficial_owner_identity",
+            "beneficial_owner_address",
+            "beneficial_owner_tax_identifier",
+        ]
+    ]
+    """The type of issue.
+
+    - `entity_tax_identifier` - The entity's tax identifier could not be verified.
+      Update the tax ID with the
+      [update an entity API](/documentation/api/entities#update-an-entity).
+    - `entity_address` - The entity's address could not be validated. Update the
+      address with the
+      [update an entity API](/documentation/api/entities#update-an-entity).
+    - `entity_identity` - The entity's identity could not be verified. Update the
+      identification with the
+      [update an entity API](/documentation/api/entities#update-an-entity).
+    - `beneficial_owner_identity` - A beneficial owner's identity could not be
+      verified. Update the identification with the
+      [update a beneficial owner API](/documentation/api/beneficial-owners#update-a-beneficial-owner).
+    - `beneficial_owner_address` - A beneficial owner's address could not be
+      validated. Update the address with the
+      [update a beneficial owner API](/documentation/api/beneficial-owners#update-a-beneficial-owner).
+    - `beneficial_owner_tax_identifier` - A beneficial owner's full tax identifier
+      is required. A non-US person can submit a passport or driver's license. Make
+      changes via the
+      [update a beneficial owner API](/documentation/api/beneficial-owners#update-a-beneficial-owner).
+    """

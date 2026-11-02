@@ -1,4 +1,4 @@
-"""DetachedWorker (Drainer): fork `python -m probe.sdk.delivery.outbox` when work is queued and nobody holds the lease, with the credential env it needs."""
+"""DetachedDrainer (Drainer): fork `python -m probe.sdk.outbox_worker` when work is queued and nobody holds the lease, with the credential env it needs."""
 
 from __future__ import annotations
 
@@ -9,19 +9,12 @@ import time
 
 from ....._shared import oscompat
 from .....foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.delivery.outbox.drainer import Drainer, DrainerKind
 from probe.sdk.delivery.outbox.lease import _lease_is_free
 from probe.sdk.delivery.outbox.linger import _has_queued_op
 
-#: How long an auth block suppresses new workers before ONE re-probe is allowed.
-#:
-#: The zombie-uploader hard stop is right but was permanent: `auth_blocked_since` suppressed
-#: every future spawn forever, so a token that expired or rotated mid-run left a training
-#: loop queueing for hours with no delivery, retry or signal, recoverable only by someone
-#: running `probe outbox retry`. Credentials come back (re-login, rotated service token,
-#: remounted secret) and delivery must resume on its own.
-#:
-#: One attempt per cooldown is not a zombie uploader: two orders of magnitude slower than
-#: the backoff loop, and a still-rejected credential just re-stamps the block.
+#: How long an auth block suppresses new workers before ONE re-probe: credentials come back
+#: (re-login, rotation), and delivery must resume on its own; one try per cooldown is no zombie.
 _AUTH_RETRY_COOLDOWN_SECONDS = 300.0
 _LOG_NAME = "drainer.log"
 
@@ -135,6 +128,50 @@ def _held_is_fresh(status: dict) -> bool:
     return (datetime.now(timezone.utc) - at).total_seconds() < _HELD_RESPAWN_SECONDS
 
 
+def kick_side_queues(journal) -> bool:
+    """`maybe_spawn` for the queues beside a root that its own worker may not deliver: the
+    receipt namespace, this process's env credential's queue and the adopted ones. True when a
+    worker was spawned for one."""
+    from ...ops.ops import CREDENTIAL_NAMESPACE
+    from ...journal.journal import Journal
+
+    child_spawned = False
+    if journal.receipt_enabled:
+        return False
+    child = Journal.for_receipts(journal.dir)
+    if child.dir.exists():
+        # An older root worker may hold its own lease; it cannot enumerate this namespace
+        # and its lease must not suppress the capable worker.
+        child_spawned = maybe_spawn(str(child.dir))
+    # Of the credential queues (#2035): THIS process's own (a worker spawned here carries
+    # this environment, which holds that credential and no other) and the adopted ones
+    # (stored login, any worker can build). The rest are kicked by their own writers.
+    own = _own_credential_queue(journal)
+    if own is not None:
+        child_spawned = maybe_spawn(str(own)) or child_spawned
+    global _ADOPTED_KICKED_AT
+    if (
+        journal.dir.parent.name != CREDENTIAL_NAMESPACE
+        and time.monotonic() - _ADOPTED_KICKED_AT >= _ADOPTED_KICK_SECONDS
+    ):
+        # At most every 30 s per process, counted on the ROOT's kicks only (a credential
+        # queue's kick has no adopted queues and must not spend the interval): while a
+        # worker lives the caller's own throttle never arms, and this ran on every write.
+        _ADOPTED_KICKED_AT = time.monotonic()
+        for adopted in _adopted_credential_queues(journal):
+            if adopted != own:
+                child_spawned = maybe_spawn(str(adopted)) or child_spawned
+    return child_spawned
+
+
+#: While a worker holds the root's lease, how often a write still starts the side queues'
+#: workers (`kick_side_queues`, review of #3785, I15): each costs a status read.
+SIDE_KICK_SECONDS = 1.0
+#: After a side kick spawned a worker, how much longer the next one waits: a cold interpreter's
+#: start before it holds the lease (slow imports on a busy box).
+SIDE_SPAWN_GRACE_SECONDS = 5.0
+
+
 def maybe_spawn(directory: str | None = None) -> bool:
     """Fork a detached worker when there is work and nobody owns the lease.
 
@@ -145,35 +182,10 @@ def maybe_spawn(directory: str | None = None) -> bool:
     status.json reads zero it also lists ``ops/`` to the first op (`_has_queued_op`).
     Returns True when a worker was spawned.
     """
-    from ...ops.ops import CREDENTIAL_NAMESPACE
     from ...journal.journal import Journal
 
     journal = Journal(directory)
-    child_spawned = False
-    if not journal.receipt_enabled:
-        child = Journal.for_receipts(journal.dir)
-        if child.dir.exists():
-            # An older root worker may hold its own lease; it cannot enumerate this namespace
-            # and its lease must not suppress the capable worker.
-            child_spawned = maybe_spawn(str(child.dir))
-        # Of the credential queues (#2035): THIS process's own (a worker spawned here carries
-        # this environment, which holds that credential and no other) and the adopted ones
-        # (stored login, any worker can build). The rest are kicked by their own writers.
-        own = _own_credential_queue(journal)
-        if own is not None:
-            child_spawned = maybe_spawn(str(own)) or child_spawned
-        global _ADOPTED_KICKED_AT
-        if (
-            journal.dir.parent.name != CREDENTIAL_NAMESPACE
-            and time.monotonic() - _ADOPTED_KICKED_AT >= _ADOPTED_KICK_SECONDS
-        ):
-            # At most every 30 s per process, counted on the ROOT's kicks only (a credential
-            # queue's kick has no adopted queues and must not spend the interval): while a
-            # worker lives the caller's own throttle never arms, and this ran on every write.
-            _ADOPTED_KICKED_AT = time.monotonic()
-            for adopted in _adopted_credential_queues(journal):
-                if adopted != own:
-                    child_spawned = maybe_spawn(str(adopted)) or child_spawned
+    child_spawned = kick_side_queues(journal)
     status = Journal.read_status(directory, include_receipts=False) or {}
     # `waiting` comes from LISTING the waiting room, not status.json: an older worker rewrites
     # status.json from `ops/` alone and would read zero.
@@ -223,7 +235,7 @@ def maybe_spawn(directory: str | None = None) -> bool:
         # older one or a refusal, fork as before.
         handed = _hand_to_service(journal)
         if handed is not None:
-            from probe.service.protocol import BackgroundState
+            from probe.foundation.service_api.vocabularies import BackgroundState
 
             if handed == BackgroundState.STARTED:
                 return True
@@ -237,6 +249,62 @@ def maybe_spawn(directory: str | None = None) -> bool:
     if child is False:
         return child_spawned
     return _spawn_took(child, journal) or child_spawned
+
+
+class DetachedDrainer(Drainer):
+    """The detached worker kind (parity F1): each write probes the worker lease with ONE
+    non-blocking flock and runs `maybe_spawn`'s checks (status.json, listings, pause, the
+    service hand-off) only when nobody holds it. Never throttled while a worker lives: a
+    worker exiting between two writes would strand the writer's last op (prod smoke
+    2026-08-06). A spawn arms `kick_interval`, so the writes while the child starts and
+    takes the lease do not fork it twice. While the lease is held, the side queues that
+    worker may not serve are kicked at most every `SIDE_KICK_SECONDS`."""
+
+    kind = DrainerKind.WORKER
+
+    def __init__(self, directory) -> None:
+        super().__init__(directory, can_fork=True)
+        self.kick_interval = 1.0
+        self.kicked_at = float("-inf")
+        self.side_kicked_at = float("-inf")
+        self._lease = os.path.join(self.directory, ".worker.lock")
+        self._waiting = os.path.join(self.directory, "waiting")
+
+    def wake(self) -> None:
+        now = time.monotonic()
+        if now - self.kicked_at < self.kick_interval:
+            return
+        try:
+            if self._worker_delivers():
+                if now - self.side_kicked_at >= SIDE_KICK_SECONDS:
+                    from ...journal.journal import Journal
+
+                    self.side_kicked_at = now
+                    if kick_side_queues(Journal(self.directory)):
+                        # A side worker takes a moment to start and take its lease: no second
+                        # fork for it meanwhile (final review of #3794).
+                        self.side_kicked_at = now + SIDE_SPAWN_GRACE_SECONDS
+                return
+            if maybe_spawn(self.directory):
+                self.kicked_at = time.monotonic()
+        except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
+            pass
+
+    def kick(self, *, force: bool = False) -> None:
+        if force:
+            super().kick(force=True)
+        else:
+            self.wake()
+
+    def _worker_delivers(self) -> bool:
+        """A worker holds the lease and no upload waits for a promoter (an older worker may not
+        promote, `maybe_spawn`): one flock, plus one listing only while the lease is held."""
+        if _lease_is_free(None, self._lease):
+            return False
+        try:
+            return not any(name.endswith(".json") for name in os.listdir(self._waiting))
+        except OSError:
+            return True
 
 
 def _spawn_detached(journal, args: list, env: dict):
@@ -384,17 +452,9 @@ _KILLED_LEASE_POLL_SECONDS = 0.005
 
 
 def spawn_past_a_kill(directory: str, *, wait: float) -> bool:
-    """`maybe_spawn` for a process whose own workers were just SIGKILLed: a Ray trial's actor
-    at exit, after Ray's core worker killed its direct children
-    (`fluent._arm_ray_trial_exit`).
-
-    A SIGKILLed worker holds its lease until the kernel has torn it down (a CPU slot and
-    unmapping its memory), and `maybe_spawn` reads a held lease as a worker delivering. The
-    exit kick ran a fraction of a millisecond after the kill, inside that window, started
-    nothing, and the run's close stayed queued (cli 0.201.3 release gate). So wait up to
-    ``wait`` seconds for the lease to be let go, then kick. A lease still held at the end is
-    a live worker's (a sibling trial delivering this queue): `maybe_spawn` leaves delivery
-    to it, as always."""
+    """`maybe_spawn` for a process whose workers were just SIGKILLed (a Ray trial's actor at exit): wait
+    up to ``wait`` seconds for their lease to be let go, then kick. A lease still held is a live
+    sibling's, which delivers this queue."""
     from ...journal.journal import Journal
 
     journal = Journal(directory)
@@ -406,18 +466,8 @@ def spawn_past_a_kill(directory: str, *, wait: float) -> bool:
 
 
 def _spawn_took(child, journal) -> bool:
-    """Whether the child is actually alive, not merely forked.
-
-    `Popen` succeeding says the fork worked, not that a worker runs: a frozen or embedded
-    interpreter, a `sys.executable` that cannot `import probe`, or an ImportError under
-    PyInstaller all exit at once yet returned True. The caller armed its kick throttle on
-    that, so the journal grew while nothing drained and the only evidence was a traceback in
-    drainer.log: the failure the queue exists to prevent.
-
-    Cheap and optimistic: one non-blocking poll, and a short grace only if the child already
-    died. A live worker takes the lease within milliseconds but waiting on that would put a
-    sleep on the enqueue path, so "not dead yet" counts as spawned.
-    """
+    """Whether the forked worker is alive, not merely forked: one non-blocking poll, and a short grace
+    only if it already died (an interpreter that cannot import probe exits at once)."""
     try:
         if child.poll() is None:
             return True

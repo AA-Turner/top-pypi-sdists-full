@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: cua-train
+Version: 0.1.2
+Summary: Cua Cloud Python client — control and data plane for Cua Cloud desktop VM pools
+Project-URL: Homepage, https://run.cua.ai
+Project-URL: Repository, https://github.com/trycua/cua
+Author-email: TryCua <hello@trycua.com>
+License-Expression: MIT
+Keywords: automation,cloud,computer-use,cua,vm
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27.0
+Description-Content-Type: text/markdown
+
+# cua-train
+
+Python client for the [Cua Cloud](https://run.cua.ai) API.
+
+```bash
+pip install cua-train
+```
+
+```python
+from cua_train import TrainClient
+
+client = TrainClient.from_key(
+    client_id="ukey-...",      # from your Cua Cloud account
+    client_secret="...",
+)
+
+# Control plane — claim a VM
+http = client.get_async_httpx_client()
+await http.post("/api/k8s/apis/osgym.cua.ai/v1alpha1/namespaces/my-pool/osgymsandboxclaims", json={...})
+
+# Data plane — exec in the VM
+await http.post("/api/svc/my-pool/my-sandbox-server/execute", json={"command": "echo hi"})
+```

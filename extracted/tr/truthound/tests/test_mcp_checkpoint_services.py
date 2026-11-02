@@ -1,0 +1,1181 @@
+"""Installed operator factories exercise native scheduled and escalation effects."""
+
+import asyncio
+import json
+import sys
+import time
+from dataclasses import replace
+from types import SimpleNamespace
+
+import pytest
+
+from tests import test_mcp_plugin_bindings as plugins
+from truthound.mcp.approval import ApprovalStore
+
+pytestmark = pytest.mark.contract
+runtime = plugins.runtime
+invoke = plugins.invoke
+
+
+@pytest.mark.parametrize(
+    "error, category",
+    [
+        (OSError("private-path"), "os_error"),
+        (TypeError("private-value"), "type_error"),
+        (ValueError("private-value"), "value_error"),
+        (RuntimeError("private-token"), "runtime_error"),
+        (Exception("private-token"), "failed"),
+    ],
+)
+def test_service_failure_diagnostics_exclude_exception_payload(error, category):
+    from truthound.mcp.checkpoint_service_worker import failure_code
+    from truthound.mcp.policy import MCPError
+
+    assert failure_code(error) == "checkpoint_service_" + category
+    assert failure_code(MCPError("access_denied")) == "checkpoint_service_access_denied"
+    assert failure_code(MCPError("private-token")) == "checkpoint_service_failed"
+
+
+def approve(adapter, control, operation, **request):
+    pending = invoke(adapter, operation, **request)
+    assert pending["issues"] == [{"code": "approval_required"}], pending
+    store = ApprovalStore(control)
+    try:
+        store.approve(pending["data"]["plan_id"])
+    finally:
+        store.close()
+    owner = None
+    if request.get("service_id") is not None:
+        owner = adapter._session._checkpoint_services.workers.get(request["service_id"])
+    result = invoke(adapter, operation, **request)
+    if owner is None:
+        owner = getattr(adapter, "_test_checkpoint_open_worker", None)
+    diagnostic = {
+        "category": getattr(owner, "failure_category", None),
+        "exit_status_after_cleanup": getattr(owner, "failure_exit_status_after_cleanup", None),
+        "phase": getattr(owner, "exchange_phase", None),
+        "reply_seconds": getattr(owner, "exchange_reply_seconds", None),
+        "reply_bytes": getattr(owner, "exchange_reply_bytes", None),
+    }
+    assert result["execution_status"] == "succeeded", (result, diagnostic)
+    return result
+
+
+def prepare(runtime, monkeypatch, kind, *, approved=True):
+    from truthound.mcp import model_process
+
+    adapter, control, marker, _, _ = runtime
+    from truthound.mcp import checkpoint_services
+    original_process = checkpoint_services.ServiceProcess
+
+    def tracked_process(ttl):
+        worker = original_process(ttl)
+        adapter._test_checkpoint_open_worker = worker
+        return worker
+
+    monkeypatch.setattr(checkpoint_services, "ServiceProcess", tracked_process)
+    monkeypatch.setattr(
+        model_process,
+        "sys",
+        SimpleNamespace(
+            executable=adapter._worker_argv()[0],
+            platform=sys.platform,
+            _base_executable=sys._base_executable,
+        ),
+    )
+    path = control / "bindings.json"
+    config = json.loads(path.read_text(encoding="utf-8"))
+    capability = "checkpoint-runner-factory" if kind == "runner" else "escalation-factory"
+    config["plugins"]["fixture"]["capabilities"][capability] = capability
+    config["checkpoints"] = {"service": capability}
+    path.write_text(json.dumps(config), encoding="utf-8")
+    request = {"kind": kind, "binding_id": "service", "idempotency_key": "service-open"}
+    if not approved:
+        pending = invoke(adapter, "checkpoint_services_open", **request)
+        assert pending["issues"] == [{"code": "approval_required"}]
+        assert not marker.exists()
+        return request
+    response = approve(adapter, control, "checkpoint_services_open", **request)
+    effects = marker.read_bytes()
+    assert invoke(adapter, "checkpoint_services_open", **request) == response
+    assert marker.read_bytes() == effects
+    return response["data"]["resource_id"]
+
+
+def command(runtime, identity, action, *, key=None, **kwargs):
+    adapter, control, _, _, _ = runtime
+    response = approve(
+        adapter,
+        control,
+        "checkpoint_services_execute",
+        binding_id="service",
+        service_id=identity,
+        command=action,
+        idempotency_key=key or f"command-{action}",
+        **kwargs,
+    )
+    return plugins.source_artifact(adapter, response["data"]["resource_id"])
+
+
+def test_schedule_edit_preserves_native_run_history_and_approval(runtime, monkeypatch):
+    from truthound.checkpoint import Checkpoint
+    from truthound.checkpoint.runner import CheckpointRunner
+    from truthound.checkpoint.triggers.schedule import ScheduleTrigger
+
+    adapter, control, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "runner")
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="schedule_update",
+        checkpoint_name="approved-checkpoint",
+        trigger_name="approved-schedule",
+        schedule_update={
+            "interval_seconds": 120,
+            "max_runs": 1,
+            "start_time": "2000-01-01T00:00:00",
+        },
+        idempotency_key="edit-native-schedule",
+    )
+    before = marker.read_bytes()
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    assert pending["issues"] == [{"code": "approval_required"}]
+    assert marker.read_bytes() == before
+    response = approve(adapter, control, "checkpoint_services_execute", **request)
+    result = plugins.source_artifact(adapter, response["data"]["resource_id"])
+    checkpoint = Checkpoint(name="native-edit", data_source={"x": [1]})
+    native = ScheduleTrigger(name="approved-schedule", interval_seconds=60, max_runs=1)
+    checkpoint.add_trigger(native)
+    runner = CheckpointRunner().add_checkpoint(checkpoint)
+    from datetime import datetime
+
+    runner.edit_schedule(
+        "native-edit",
+        native.name,
+        {
+            **request["schedule_update"],
+            "start_time": datetime(2000, 1, 1),
+        },
+    )
+    from dataclasses import asdict
+
+    assert result["configuration"] == asdict(native.config)
+    assert result["trigger"] == native.to_dict()
+    assert invoke(adapter, "checkpoint_services_execute", **request) == response
+    conflicting = invoke(
+        adapter,
+        "checkpoint_services_execute",
+        **{
+            **request,
+            "schedule_update": {**request["schedule_update"], "start_time": None},
+        },
+    )
+    assert conflicting["issues"] == [{"code": "idempotency_conflict"}]
+    command(runtime, identity, "start")
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline and "checkpoint-action" not in marker.read_text(
+        encoding="utf-8"
+    ):
+        time.sleep(0.05)
+    command(runtime, identity, "stop")
+    assert marker.read_text(encoding="utf-8").count("checkpoint-action") == 1
+    edited = command(
+        runtime,
+        identity,
+        "schedule_update",
+        key="edit-after-run",
+        checkpoint_name="approved-checkpoint",
+        trigger_name="approved-schedule",
+        schedule_update={"interval_seconds": 1},
+    )
+    assert edited["trigger"]["run_count"] == 1
+    assert edited["trigger"]["last_run"] is not None
+    command(runtime, identity, "start", key="restart-after-edit")
+    command(runtime, identity, "stop", key="stop-after-edit")
+    assert marker.read_text(encoding="utf-8").count("checkpoint-action") == 1
+
+
+@pytest.mark.parametrize(
+    "changes", [{"interval_seconds": 0}, {"run_on_weekdays": []}, {"name": "renamed"}]
+)
+def test_native_schedule_edit_rolls_back_invalid_configuration(changes):
+    from truthound.checkpoint import Checkpoint
+    from truthound.checkpoint.runner import CheckpointRunner
+    from truthound.checkpoint.triggers.schedule import ScheduleTrigger
+
+    trigger = ScheduleTrigger(name="interval", interval_seconds=60)
+    trigger.record_run()
+    runner = CheckpointRunner().add_checkpoint(
+        Checkpoint(name="checkpoint", data_source={"x": [1]}).add_trigger(trigger)
+    )
+    config, state = trigger.config, trigger.to_dict()
+    with pytest.raises(ValueError):
+        runner.edit_schedule("checkpoint", "interval", changes)
+    assert trigger.config is config
+    assert trigger.to_dict() == state
+
+
+def test_native_schedule_edit_rejects_stopped_but_inflight_thread():
+    import threading
+
+    from truthound.checkpoint.runner import CheckpointRunner
+
+    runner = CheckpointRunner()
+    entered, release = threading.Event(), threading.Event()
+
+    def work():
+        entered.set()
+        release.wait(5)
+
+    runner._thread = threading.Thread(target=work)
+    runner._thread.start()
+    try:
+        assert entered.wait(2)
+        with pytest.raises(RuntimeError, match="quiescent"):
+            runner.edit_schedule("unused", "unused", {"enabled": False})
+        with pytest.raises(RuntimeError, match="has not stopped"):
+            runner.start()
+    finally:
+        release.set()
+        runner._thread.join(5)
+
+
+def test_policy_definition_recovery_requires_fresh_approval_and_integrity(runtime, monkeypatch):
+    from truthound.checkpoint.escalation.protocols import EscalationPolicy
+    from truthound.mcp.service import MCPService
+
+    adapter, control, marker, source, asset = runtime
+    identity = prepare(runtime, monkeypatch, "escalation")
+    specification = {
+        "description": "Local parity policy",
+        "triggers": [
+            "unacknowledged",
+            "unresolved",
+            "severity_upgrade",
+            "repeated_failure",
+            "threshold_breach",
+            "manual",
+            "scheduled",
+            "custom",
+        ],
+        "levels": [
+            {
+                "level": 1,
+                "delay_minutes": 0,
+                "targets": [
+                    {
+                        "type": kind,
+                        "identifier": "local-only",
+                        "name": kind,
+                        "priority": index,
+                        "metadata": {"routing": "fixture"},
+                    }
+                    for index, kind in enumerate(
+                        [
+                            "user",
+                            "team",
+                            "channel",
+                            "schedule",
+                            "webhook",
+                            "email",
+                            "phone",
+                            "custom",
+                        ]
+                    )
+                ],
+                "repeat_count": 2,
+                "repeat_interval_minutes": 5,
+                "require_ack": False,
+                "auto_resolve_minutes": 60,
+                "conditions": {"severity": "high"},
+                "metadata": {"label": "local"},
+            }
+        ],
+        "metadata": {"test": True},
+    }
+    direct = EscalationPolicy.from_dict({"name": "new-policy", **specification})
+    actual = command(
+        runtime, identity, "policy_create", policy_name="new-policy", policy_update=specification
+    )
+    assert actual == {"policy": direct.to_dict()}
+    # Exact destination approval is required before worker-side editing.
+    before = marker.read_bytes()
+    pending = invoke(
+        adapter,
+        "checkpoint_services_execute",
+        binding_id="service",
+        service_id=identity,
+        command="policy_update",
+        policy_name="new-policy",
+        policy_update={"levels": []},
+        idempotency_key="unapproved-level-edit",
+    )
+    assert pending["issues"] == [{"code": "approval_required"}]
+    assert marker.read_bytes() == before
+    altered = invoke(
+        adapter,
+        "checkpoint_services_execute",
+        binding_id="service",
+        service_id=identity,
+        command="policy_update",
+        policy_name="new-policy",
+        policy_update={"levels": specification["levels"]},
+        idempotency_key="unapproved-level-edit",
+    )
+    assert altered["issues"] == [{"code": "idempotency_conflict"}]
+    assert command(runtime, identity, "policy", policy_name="new-policy") == actual
+    command(runtime, identity, "policy_remove", policy_name="approved-policy")
+    receipt = command(
+        runtime, identity, "persist_configuration", policy_names=["new-policy", "approved-policy"]
+    )
+    assert receipt["bytes"] > 0
+    argv, policy = adapter._worker_argv, adapter.policy
+    adapter.close()
+    fresh = MCPService(policy)
+    fresh._worker_argv = argv
+    new_runtime = (fresh, control, marker, source, asset)
+    try:
+        before = marker.read_bytes()
+        request = dict(
+            kind="escalation",
+            binding_id="service",
+            snapshot_id=receipt["snapshot_id"],
+            idempotency_key="restore-policy-snapshot",
+        )
+        pending = invoke(fresh, "checkpoint_services_open", **request)
+        assert pending["issues"] == [{"code": "approval_required"}]
+        assert marker.read_bytes() == before
+        restored = approve(fresh, control, "checkpoint_services_open", **request)["data"][
+            "resource_id"
+        ]
+        assert (
+            command(
+                new_runtime, restored, "policy", policy_name="new-policy", key="restored-policy"
+            )
+            == actual
+        )
+        assert command(
+            new_runtime, restored, "policy", policy_name="approved-policy", key="restored-tombstone"
+        ) == {"policy": None}
+        assert command(new_runtime, restored, "status")["running"] is False
+        assert "escalation-notify" not in marker.read_text(encoding="utf-8")
+        engine = native_engine()
+        engine.register_policy(direct)
+        from truthound.checkpoint.escalation.protocols import EscalationTrigger
+
+        expected = asyncio.run(
+            engine.trigger(
+                "new-incident",
+                context={"severity": "high", "source": "local"},
+                trigger_type=EscalationTrigger.MANUAL,
+            )
+        ).to_dict()
+        triggered = command(
+            new_runtime,
+            restored,
+            "trigger",
+            incident_id="new-incident",
+            trigger_type="manual",
+            context={"severity": "high", "source": "local"},
+        )
+        for key in ("success", "action", "targets_notified"):
+            assert triggered[key] == expected[key]
+        for key in ("state", "current_level", "notification_count", "policy_name", "incident_id"):
+            assert triggered["record"][key] == expected["record"][key]
+        assert triggered["record"]["notification_count"] == 8
+        assert triggered["record"]["context"] == expected["record"]["context"]
+        # Altering saved bytes is not an authorization to restore another destination.
+        store = ApprovalStore(control)
+        try:
+            store.connection.execute(
+                "UPDATE checkpoint_service_snapshots SET payload=? WHERE identity=?",
+                (b"{}", receipt["snapshot_id"]),
+            )
+        finally:
+            store.close()
+        failed = invoke(
+            fresh, "checkpoint_services_open", **{**request, "idempotency_key": "tampered-snapshot"}
+        )
+        assert failed["issues"] == [{"code": "invalid_control_state"}]
+    finally:
+        fresh.close()
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"levels": [{"level": 1}, {"level": 1}]},
+        {"levels": [{"level": 0}]},
+        {"levels": [{"level": 1, "targets": [{"type": "smtp", "identifier": "local"}]}]},
+        {"triggers": ["python"]},
+        {"levels": None},
+    ],
+)
+def test_policy_definition_rejects_ambiguous_or_unsupported_configuration(patch):
+    from pydantic import ValidationError
+
+    from truthound.mcp.checkpoint_services import EscalationPolicyUpdate
+
+    with pytest.raises(ValidationError):
+        EscalationPolicyUpdate.model_validate(patch)
+
+
+def test_policy_create_cannot_silently_replace_existing_native_policy(runtime, monkeypatch):
+    adapter, control, _, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "escalation")
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="policy_create",
+        policy_name="approved-policy",
+        policy_update={"enabled": False},
+        idempotency_key="create-duplicate-policy",
+    )
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    store = ApprovalStore(control)
+    try:
+        store.approve(pending["data"]["plan_id"])
+    finally:
+        store.close()
+    failed = invoke(adapter, "checkpoint_services_execute", **request)
+    assert failed["issues"] == [{"code": "outcome_unknown"}]
+    assert adapter._session._checkpoint_services.workers.get(identity) is None
+
+
+@pytest.mark.parametrize("value", [{1: "key"}, ("tuple",), b"binary", object()])
+def test_configuration_persistence_rejects_lossy_native_metadata(value):
+    from truthound.mcp.durable_checkpoint_services import json_configuration
+    from truthound.mcp.policy import MCPError
+
+    with pytest.raises(MCPError, match="unsupported_value"):
+        json_configuration({"metadata": value})
+
+
+def test_running_service_cannot_be_snapshotted_as_stopped():
+    from truthound.mcp.checkpoint_service_worker import execute
+    from truthound.mcp.policy import MCPError
+
+    async def check():
+        engine = native_engine()
+        await engine.start()
+        try:
+            with pytest.raises(MCPError, match="invalid_arguments"):
+                await execute(
+                    engine,
+                    "escalation",
+                    {"command": "persist_configuration", "policy_names": ["approved-policy"]},
+                )
+        finally:
+            await engine.stop()
+
+    asyncio.run(check())
+
+
+def test_runner_uses_native_schedule_and_retains_results(runtime, monkeypatch, tmp_path):
+    from truthound.checkpoint import Checkpoint
+    from truthound.datasources.sql.sqlite import SQLiteDataSource, SQLiteDataSourceConfig
+
+    adapter, _, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "runner")
+    assert "checkpoint-action" not in marker.read_text(encoding="utf-8")
+    assert command(runtime, identity, "start")["running"] is True
+    deadline = time.monotonic() + 10
+    rows = []
+    index = 0
+    while time.monotonic() < deadline and not rows:
+        rows = command(runtime, identity, "results", key=f"results-{index:04}")["results"]
+        index += 1
+    assert len(rows) == 1
+    assert command(runtime, identity, "stop")["running"] is False
+    with SQLiteDataSource(
+        database=str(tmp_path / "operator.db"),
+        table="items",
+        config=SQLiteDataSourceConfig(name="approved-source"),
+    ) as source:
+        direct = Checkpoint(
+            name="approved-checkpoint", data_source=source, validators=["null"]
+        ).run()
+    assert rows[0]["status"] == direct.status.value
+    for key in ("checks", "issues", "execution_issues", "row_count", "column_count"):
+        assert rows[0]["validation_run"][key] == direct.validation_run.to_dict()[key]
+    assert rows[0]["metadata"]["trigger"] == "approved-schedule"
+    assert marker.read_text(encoding="utf-8").count("checkpoint-action") == 1
+    assert command(runtime, identity, "results", key="drained-results")["results"] == []
+    worker = adapter._session._checkpoint_services.workers[identity]
+    invoke(adapter, "resources_release", resource_id=identity)
+    assert worker.closed and worker.process.poll() is not None
+
+
+def native_engine():
+    from truthound.checkpoint.escalation.engine import EscalationEngine, EscalationEngineConfig
+    from truthound.checkpoint.escalation.protocols import (
+        EscalationLevel,
+        EscalationPolicy,
+        EscalationTarget,
+    )
+    from truthound.checkpoint.escalation.scheduler import SchedulerConfig, SchedulerType
+
+    async def notify(record, level, targets):
+        return True
+
+    engine = EscalationEngine(
+        EscalationEngineConfig(
+            scheduler_config=SchedulerConfig(scheduler_type=SchedulerType.ASYNCIO),
+            default_notification_handler=notify,
+        )
+    )
+    engine.register_policy(
+        EscalationPolicy(
+            name="approved-policy",
+            levels=[
+                EscalationLevel(level=1, targets=[EscalationTarget.user("local")]),
+                EscalationLevel(
+                    level=2, delay_minutes=60, targets=[EscalationTarget.user("local")]
+                ),
+            ],
+        )
+    )
+    return engine
+
+
+@pytest.mark.parametrize("action", ["acknowledge", "resolve", "cancel", "escalate"])
+def test_escalation_native_transition_and_notification_parity(runtime, monkeypatch, action):
+    _, _, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "escalation")
+    assert "escalation-notify" not in marker.read_text(encoding="utf-8")
+    assert command(runtime, identity, "start")["running"] is True
+    initial = command(
+        runtime, identity, "trigger", incident_id="incident", policy_name="approved-policy"
+    )
+    record_id = initial["record"]["id"]
+    actual = command(runtime, identity, action, record_id=record_id)
+
+    async def direct_run():
+        engine = native_engine()
+        await engine.start()
+        try:
+            created = await engine.trigger("incident", policy_name="approved-policy")
+            if action == "escalate":
+                result = await engine.escalate(created.record.id)
+            else:
+                result = await getattr(engine, action)(created.record.id, "mcp-approved-operator")
+            return result.to_dict()
+        finally:
+            await engine.stop()
+
+    direct = asyncio.run(direct_run())
+    for key in ("success", "action", "level", "targets_notified", "message", "error", "metadata"):
+        assert actual[key] == direct[key]
+    for key in ("state", "current_level", "notification_count", "incident_id", "policy_name"):
+        assert actual["record"][key] == direct["record"][key]
+    retained = command(runtime, identity, "record", record_id=record_id)
+    assert retained["record"]["state"] == actual["record"]["state"]
+    assert marker.read_text(encoding="utf-8").count("escalation-notify") == (
+        2 if action == "escalate" else 1
+    )
+    assert command(runtime, identity, "stop")["running"] is False
+
+
+@pytest.mark.parametrize("change", ["binding", "package", "policy", "release"])
+def test_service_revocation_reaps_worker(runtime, monkeypatch, change):
+    adapter, control, _, code, _ = runtime
+    identity = prepare(runtime, monkeypatch, "runner")
+    worker = adapter._session._checkpoint_services.workers[identity]
+    if change == "binding":
+        (control / "bindings.json").write_text("{}", encoding="utf-8")
+    elif change == "package":
+        code.write_text(code.read_text(encoding="utf-8") + "\n# changed\n", encoding="utf-8")
+    elif change == "policy":
+        adapter.policy = replace(adapter.policy, max_items=99)
+    else:
+        invoke(adapter, "resources_release", resource_id=identity)
+    result = invoke(
+        adapter,
+        "checkpoint_services_execute",
+        binding_id="service",
+        service_id=identity,
+        command="start",
+        idempotency_key="revoked-start",
+    )
+    assert result["execution_status"] == "failed"
+    worker.process.wait(timeout=5)
+    assert worker.closed
+
+
+def test_service_approval_and_closed_contract(runtime, monkeypatch):
+    adapter, _, marker, _, _ = runtime
+    request = prepare(runtime, monkeypatch, "runner", approved=False)
+    assert invoke(adapter, "checkpoint_services_open", **request, factory="os.system")[
+        "issues"
+    ] == [{"code": "invalid_arguments"}]
+    assert not marker.exists()
+
+
+def test_lost_command_receipt_never_repeats_notification(runtime, monkeypatch):
+    from truthound.mcp.policy import MCPError
+
+    adapter, control, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "escalation")
+    worker = adapter._session._checkpoint_services.workers[identity]
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="trigger",
+        incident_id="uncertain",
+        idempotency_key="uncertain-trigger",
+    )
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    assert pending["issues"] == [{"code": "approval_required"}]
+    store = ApprovalStore(control)
+    try:
+        store.approve(pending["data"]["plan_id"])
+    finally:
+        store.close()
+    original = worker.call
+
+    async def lose_response(*args):
+        await original(*args)
+        raise MCPError("worker_error")
+
+    monkeypatch.setattr(worker, "call", lose_response)
+    result = invoke(adapter, "checkpoint_services_execute", **request)
+    assert result["issues"] == [{"code": "outcome_unknown"}]
+    effects = marker.read_bytes()
+    assert effects.count(b"escalation-notify") == 1
+    assert (
+        invoke(adapter, "checkpoint_services_execute", **request)["execution_status"] != "succeeded"
+    )
+    assert marker.read_bytes() == effects
+    assert worker.closed and worker.process.poll() is not None
+
+
+def test_native_escalation_rejection_is_not_delivery_success(runtime, monkeypatch):
+    identity = prepare(runtime, monkeypatch, "escalation")
+    result = command(runtime, identity, "trigger", incident_id="local", policy_name="absent")
+    direct = asyncio.run(native_engine().trigger("local", policy_name="absent")).to_dict()
+    assert result == direct
+    assert result["success"] is False
+    adapter, _, marker, _, _ = runtime
+    assert "escalation-notify" not in marker.read_text(encoding="utf-8")
+    for extra in ({"context": {}}, {"force": True}, {"acknowledged_by": "someone"}):
+        result = invoke(
+            adapter,
+            "checkpoint_services_execute",
+            binding_id="service",
+            service_id=identity,
+            command="status",
+            idempotency_key="bad-command",
+            **extra,
+        )
+        assert result["issues"] == [{"code": "invalid_arguments"}]
+
+
+def test_command_replay_does_not_redeliver_or_drain(runtime, monkeypatch):
+    adapter, control, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "escalation")
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="trigger",
+        incident_id="once",
+        idempotency_key="trigger-once",
+    )
+    result = approve(adapter, control, "checkpoint_services_execute", **request)
+    effects = marker.read_bytes()
+    assert effects.count(b"escalation-notify") == 1
+    assert invoke(adapter, "checkpoint_services_execute", **request) == result
+    assert marker.read_bytes() == effects
+
+
+def test_policy_edit_query_remove_matches_native_and_preserves_targets(runtime, monkeypatch):
+    from dataclasses import replace as copy_policy
+
+    identity = prepare(runtime, monkeypatch, "escalation")
+    engine = native_engine()
+    original = engine.get_policy("approved-policy")
+    patch = dict(
+        enabled=False,
+        cooldown_minutes=30,
+        max_escalations=2,
+        severity_filter=["critical"],
+        business_hours_only=True,
+        business_hours_start=8,
+        business_hours_end=17,
+        business_days=[0, 2, 4],
+        timezone="UTC",
+    )
+    engine.register_policy(copy_policy(original, **patch))
+    actual = command(
+        runtime, identity, "policy_update", policy_name="approved-policy", policy_update=patch
+    )
+    assert actual["policy"] == engine.get_policy("approved-policy").to_dict()
+    assert actual["policy"]["levels"] == original.to_dict()["levels"]
+    assert command(runtime, identity, "policy", policy_name="approved-policy") == actual
+    denied = command(runtime, identity, "trigger", incident_id="disabled")
+    assert denied == asyncio.run(engine.trigger("disabled")).to_dict()
+    assert not denied["success"]
+    assert command(runtime, identity, "policy_remove", policy_name="approved-policy") == {
+        "removed": engine.unregister_policy("approved-policy")
+    }
+    assert command(
+        runtime, identity, "policy_remove", key="remove-again", policy_name="approved-policy"
+    ) == {"removed": False}
+    assert command(
+        runtime, identity, "policy", key="query-removed", policy_name="approved-policy"
+    ) == {"policy": None}
+
+
+@pytest.mark.parametrize("kind", ["runner", "escalation"])
+def test_missing_native_management_target_never_reports_success(runtime, monkeypatch, kind):
+    identity = prepare(runtime, monkeypatch, kind)
+    adapter, control, marker, _, _ = runtime
+    request = dict(binding_id="service", service_id=identity, idempotency_key="missing-target")
+    if kind == "runner":
+        request.update(command="run_once", checkpoint_name="missing")
+    else:
+        request.update(
+            command="policy_update", policy_name="missing", policy_update={"enabled": False}
+        )
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    assert pending["issues"] == [{"code": "approval_required"}]
+    store = ApprovalStore(control)
+    try:
+        store.approve(pending["data"]["plan_id"])
+    finally:
+        store.close()
+    worker = adapter._session._checkpoint_services.workers[identity]
+    response = invoke(adapter, "checkpoint_services_execute", **request)
+    assert response["issues"] == [{"code": "outcome_unknown"}]
+    effects = marker.read_bytes()
+    assert b"checkpoint-action" not in effects and b"escalation-notify" not in effects
+    assert (
+        invoke(adapter, "checkpoint_services_execute", **request)["execution_status"] != "succeeded"
+    )
+    assert marker.read_bytes() == effects
+    assert worker.closed
+    assert "escalation-notify" not in runtime[2].read_text(encoding="utf-8")
+
+
+def test_incident_and_active_records_follow_native_resolution(runtime, monkeypatch):
+    identity = prepare(runtime, monkeypatch, "escalation")
+    command(runtime, identity, "start")
+    initial = command(
+        runtime, identity, "trigger", incident_id="query-incident", policy_name="approved-policy"
+    )["record"]
+    active = command(runtime, identity, "active_records", policy_name="approved-policy")
+    incident = command(runtime, identity, "incident_records", incident_id="query-incident")
+    assert len(active["records"]) == len(incident["records"]) == 1
+
+    def stable(record):
+        return {k: v for k, v in record.items() if k != "duration_seconds"}
+
+    assert stable(active["records"][0]) == stable(incident["records"][0]) == stable(initial)
+    assert (
+        0
+        <= initial["duration_seconds"]
+        <= active["records"][0]["duration_seconds"]
+        <= incident["records"][0]["duration_seconds"]
+    )
+    command(runtime, identity, "resolve", record_id=initial["id"])
+    assert command(runtime, identity, "active_records", key="resolved-active")["records"] == []
+    retained = command(
+        runtime, identity, "incident_records", key="resolved-incident", incident_id="query-incident"
+    )["records"]
+
+    async def direct():
+        engine = native_engine()
+        await engine.start()
+        try:
+            result = await engine.trigger("query-incident", policy_name="approved-policy")
+            await engine.resolve(result.record.id, "mcp-approved-operator")
+            assert engine.get_active_escalations() == []
+            return engine.get_records_for_incident("query-incident")[0].to_dict()
+        finally:
+            await engine.stop()
+
+    expected = asyncio.run(direct())
+    assert len(retained) == 1
+    for key in ("state", "current_level", "incident_id", "policy_name", "notification_count"):
+        assert retained[0][key] == expected[key]
+    command(runtime, identity, "stop")
+
+
+@pytest.mark.parametrize("action", ["run_once", "run_all"])
+def test_runner_immediate_execution_and_removal_native_parity(
+    runtime, monkeypatch, tmp_path, action
+):
+    from truthound.checkpoint import Checkpoint
+    from truthound.checkpoint.runner import CheckpointRunner
+    from truthound.datasources.sql.sqlite import SQLiteDataSource, SQLiteDataSourceConfig
+
+    identity = prepare(runtime, monkeypatch, "runner")
+    args = {"checkpoint_name": "approved-checkpoint"} if action == "run_once" else {}
+    actual = command(runtime, identity, action, **args)
+    with SQLiteDataSource(
+        database=str(tmp_path / "operator.db"),
+        table="items",
+        config=SQLiteDataSourceConfig(name="approved-source"),
+    ) as source:
+        runner = CheckpointRunner()
+        runner.add_checkpoint(
+            Checkpoint(name="approved-checkpoint", data_source=source, validators=["null"])
+        )
+        direct = (
+            runner.run_once("approved-checkpoint") if action == "run_once" else runner.run_all()[0]
+        )
+        row = actual["result"] if action == "run_once" else actual["results"][0]
+        assert row["status"] == direct.status.value
+        for key in ("checks", "issues", "execution_issues", "row_count", "column_count"):
+            assert row["validation_run"][key] == direct.validation_run.to_dict()[key]
+        assert command(
+            runtime, identity, "remove_checkpoint", checkpoint_name="approved-checkpoint"
+        ) == {"removed": runner.remove_checkpoint("approved-checkpoint")}
+        assert command(
+            runtime,
+            identity,
+            "remove_checkpoint",
+            key="remove-again",
+            checkpoint_name="approved-checkpoint",
+        ) == {"removed": False}
+        assert (
+            command(runtime, identity, "run_all", key="empty-run")["results"]
+            == runner.run_all()
+            == []
+        )
+    assert runtime[2].read_text(encoding="utf-8").count("checkpoint-action") == 1
+
+
+def test_policy_edit_rejects_new_destinations_and_wrong_arguments(runtime, monkeypatch):
+    identity = prepare(runtime, monkeypatch, "escalation")
+    adapter = runtime[0]
+    for patch in (
+        {},
+        {"enabled": None},
+        {"enabled": "yes"},
+        {"timezone": 123},
+        {"business_days": [7]},
+        {"levels": []},
+        {"targets": ["https://example.com"]},
+    ):
+        response = invoke(
+            adapter,
+            "checkpoint_services_execute",
+            binding_id="service",
+            service_id=identity,
+            command="policy_update",
+            policy_name="approved-policy",
+            policy_update=patch,
+            idempotency_key="invalid-policy",
+        )
+        # Empty levels are now a supported declarative edit, but still cannot
+        # alter the factory's destinations without exact operator approval.
+        expected = "approval_required" if patch == {"levels": []} else "invalid_arguments"
+        assert response["issues"] == [{"code": expected}]
+    assert command(runtime, identity, "policy", policy_name="approved-policy")["policy"] == (
+        native_engine().get_policy("approved-policy").to_dict()
+    )
+
+
+def test_policy_edit_requires_exact_approval_and_replay_does_not_restore(runtime, monkeypatch):
+    identity = prepare(runtime, monkeypatch, "escalation")
+    adapter, control, _, _, _ = runtime
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="policy_update",
+        policy_name="approved-policy",
+        policy_update={"enabled": False},
+        idempotency_key="disable-policy",
+    )
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    assert pending["issues"] == [{"code": "approval_required"}]
+    assert command(runtime, identity, "policy", policy_name="approved-policy")["policy"]["enabled"]
+    store = ApprovalStore(control)
+    try:
+        store.approve(pending["data"]["plan_id"])
+    finally:
+        store.close()
+    altered = {**request, "policy_update": {"enabled": True}}
+    assert (
+        invoke(adapter, "checkpoint_services_execute", **altered)["execution_status"] != "succeeded"
+    )
+    result = invoke(adapter, "checkpoint_services_execute", **request)
+    assert result["execution_status"] == "succeeded"
+    command(runtime, identity, "policy_remove", policy_name="approved-policy")
+    assert invoke(adapter, "checkpoint_services_execute", **request) == result
+    assert command(
+        runtime, identity, "policy", key="after-replay", policy_name="approved-policy"
+    ) == {"policy": None}
+
+
+def test_durable_engine_recovers_after_real_worker_and_session_loss(runtime, monkeypatch):
+    from truthound.mcp.service import MCPService
+
+    adapter, control, marker, _, _ = runtime
+    settings = control.parent / "escalation-settings.json"
+    settings.write_text(json.dumps({"durable": True, "crash": True}), encoding="utf-8")
+    identity = prepare(runtime, monkeypatch, "escalation")
+    request = dict(
+        binding_id="service",
+        service_id=identity,
+        command="trigger",
+        incident_id="crash-incident",
+        policy_name="approved-policy",
+        idempotency_key="crash-real-notification",
+    )
+    pending = invoke(adapter, "checkpoint_services_execute", **request)
+    store = ApprovalStore(control)
+    store.approve(pending["data"]["plan_id"])
+    store.close()
+    result = invoke(adapter, "checkpoint_services_execute", **request)
+    assert result["issues"] == [{"code": "outcome_unknown"}]
+    adapter.close()
+    settings.write_text(json.dumps({"durable": True}), encoding="utf-8")
+    recovered = MCPService(adapter.policy)
+    recovered._worker_argv = adapter._worker_argv
+    try:
+        reopened = approve(
+            recovered,
+            control,
+            "checkpoint_services_open",
+            kind="escalation",
+            binding_id="service",
+            idempotency_key="recover-new-session",
+        )["data"]["resource_id"]
+        new_runtime = (recovered, *runtime[1:])
+        status = command(new_runtime, reopened, "recovery_status")
+        assert [row["state"] for row in status["attempts"]] == ["unknown"]
+        command(new_runtime, reopened, "start")
+        existing = command(
+            new_runtime,
+            reopened,
+            "trigger",
+            incident_id="crash-incident",
+            policy_name="approved-policy",
+            key="new-session-existing",
+        )
+        assert existing["action"] == "trigger_existing"
+        command(new_runtime, reopened, "stop")
+        assert marker.read_text(encoding="utf-8").count("escalation-notify") == 1
+    finally:
+        recovered.close()
+
+
+def test_durable_recovery_pins_policy_scope_before_new_session_resume(runtime, monkeypatch):
+    from truthound.mcp.service import MCPService
+
+    adapter, control, _, _, _ = runtime
+    (control.parent / "escalation-settings.json").write_text(
+        json.dumps({"durable": True}), encoding="utf-8"
+    )
+    identity = prepare(runtime, monkeypatch, "escalation")
+    command(
+        runtime, identity, "trigger", incident_id="scope-incident", policy_name="approved-policy"
+    )
+    adapter.close()
+    changed = MCPService(replace(adapter.policy, max_items=adapter.policy.max_items - 1))
+    changed._worker_argv = adapter._worker_argv
+    try:
+        request = dict(
+            kind="escalation", binding_id="service", idempotency_key="changed-scope-open"
+        )
+        pending = invoke(changed, "checkpoint_services_open", **request)
+        store = ApprovalStore(control)
+        store.approve(pending["data"]["plan_id"])
+        store.close()
+        result = invoke(changed, "checkpoint_services_open", **request)
+        assert result["issues"] == [{"code": "outcome_unknown"}]
+    finally:
+        changed.close()
+
+
+def test_durable_runner_limits_survive_new_approved_session(runtime, monkeypatch):
+    from truthound.mcp.service import MCPService
+
+    adapter, control, marker, _, _ = runtime
+    (control.parent / "checkpoint-settings.json").write_text(
+        json.dumps({"durable": True}), encoding="utf-8"
+    )
+    identity = prepare(runtime, monkeypatch, "runner")
+    command(runtime, identity, "start")
+    deadline = time.monotonic() + 10
+    while "checkpoint-action" not in marker.read_text() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    command(runtime, identity, "stop")
+    adapter.close()
+    recovered = MCPService(adapter.policy)
+    recovered._worker_argv = adapter._worker_argv
+    try:
+        identity = approve(
+            recovered,
+            control,
+            "checkpoint_services_open",
+            kind="runner",
+            binding_id="service",
+            idempotency_key="runner-new-session",
+        )["data"]["resource_id"]
+        state = (recovered, *runtime[1:])
+        command(state, identity, "start", key="runner-restart-start")
+        command(state, identity, "stop", key="runner-restart-stop")
+        status = command(state, identity, "recovery_status")
+        assert [row["state"] for row in status["attempts"]] == ["completed"]
+        assert marker.read_text().count("checkpoint-action") == 1
+    finally:
+        recovered.close()
+
+
+@pytest.mark.parametrize("backend", ["asyncio", "apscheduler"])
+def test_durable_pending_escalation_resumes_in_new_worker(runtime, monkeypatch, backend):
+    from truthound.mcp.service import MCPService
+
+    adapter, control, marker, _, _ = runtime
+    (control.parent / "escalation-settings.json").write_text(
+        json.dumps({"durable": True, "delay_minutes": 0, "scheduler": backend}), encoding="utf-8"
+    )
+    identity = prepare(runtime, monkeypatch, "escalation")
+    command(
+        runtime, identity, "trigger", incident_id="pending-incident", policy_name="approved-policy"
+    )
+    worker = adapter._session._checkpoint_services.workers[identity]
+    worker.process.kill()
+    worker.process.wait(timeout=5)
+    adapter.close()
+    recovered = MCPService(adapter.policy)
+    recovered._worker_argv = adapter._worker_argv
+    try:
+        identity = approve(
+            recovered,
+            control,
+            "checkpoint_services_open",
+            kind="escalation",
+            binding_id="service",
+            idempotency_key="pending-new-session",
+        )["data"]["resource_id"]
+        state = (recovered, *runtime[1:])
+        before = command(state, identity, "recovery_status")
+        assert sorted(row["state"] for row in before["attempts"]) == ["completed", "pending"]
+        command(state, identity, "start", key="pending-restart-start")
+        deadline = time.monotonic() + 10
+        while marker.read_text().count("escalation-notify") < 2 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        command(state, identity, "stop", key="pending-restart-stop")
+        assert marker.read_text().count("escalation-notify") == 2
+        after = command(state, identity, "recovery_status", key="pending-restart-status")
+        assert all(row["state"] == "completed" for row in after["attempts"])
+    finally:
+        recovered.close()
+
+
+def test_checkpoint_definition_update_changes_native_validation_and_snapshot(runtime, monkeypatch):
+    from truthound.checkpoint import Checkpoint
+    from truthound.checkpoint.runner import CheckpointRunner
+    from truthound.mcp.validator_wire import constructor, settings
+
+    adapter, control, marker, _, _ = runtime
+    identity = prepare(runtime, monkeypatch, "runner")
+    patch = {
+        "checks": [{"validator": "column_exists", "settings": {"columns": ["missing"]}}],
+        "fail_on_high": True,
+        "tags": {"revision": "reviewed"},
+    }
+    command(
+        runtime,
+        identity,
+        "checkpoint_update",
+        checkpoint_name="approved-checkpoint",
+        checkpoint_update=patch,
+    )
+    result = command(runtime, identity, "run_once", checkpoint_name="approved-checkpoint")
+    check = patch["checks"][0]
+    native = Checkpoint(name="comparison", data_source={"x": [-1, 1]}, validators=["null"])
+    runner = CheckpointRunner().add_checkpoint(native)
+    runner.edit_checkpoint(
+        "comparison",
+        {
+            "validators": [
+                constructor(check["validator"])(
+                    **settings(check["validator"], check["settings"], build=True)
+                )
+            ],
+            "validator_config": {},
+            "fail_on_high": True,
+            "tags": patch["tags"],
+        },
+    )
+    direct = runner.run_once("comparison").to_dict()
+    assert result["result"]["status"] == direct["status"]
+    assert result["result"]["status"] != "success"
+    before = marker.read_text().count("checkpoint-action")
+    snapshot = command(
+        runtime, identity, "persist_configuration", checkpoint_names=["approved-checkpoint"]
+    )["snapshot_id"]
+    reopened = approve(
+        adapter,
+        control,
+        "checkpoint_services_open",
+        kind="runner",
+        binding_id="service",
+        snapshot_id=snapshot,
+        idempotency_key="runner-snapshot-open",
+    )["data"]["resource_id"]
+    restored = command(
+        runtime,
+        reopened,
+        "run_once",
+        key="restored-definition-run",
+        checkpoint_name="approved-checkpoint",
+    )
+    assert restored["result"]["status"] == direct["status"]
+    assert marker.read_text().count("checkpoint-action") == before + 1
+    invalid = invoke(
+        adapter,
+        "checkpoint_services_execute",
+        binding_id="service",
+        service_id=reopened,
+        command="checkpoint_update",
+        checkpoint_name="approved-checkpoint",
+        checkpoint_update={"data_source": "/private/secret"},
+        idempotency_key="reject-source-edit",
+    )
+    assert invalid["issues"] == [{"code": "invalid_arguments"}]
+
+
+def test_durable_runner_configuration_snapshot_keeps_consumed_schedule_slot(runtime, monkeypatch):
+    adapter, control, marker, _, _ = runtime
+    (control.parent / "checkpoint-settings.json").write_text(
+        json.dumps({"durable": True}), encoding="utf-8"
+    )
+    identity = prepare(runtime, monkeypatch, "runner")
+    command(runtime, identity, "start")
+    deadline = time.monotonic() + 10
+    while "checkpoint-action" not in marker.read_text() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    command(runtime, identity, "stop")
+    edited = command(
+        runtime,
+        identity,
+        "schedule_update",
+        checkpoint_name="approved-checkpoint",
+        trigger_name="approved-schedule",
+        schedule_update={"interval_seconds": 120},
+    )
+    assert edited["trigger"]["run_count"] == 1
+    snapshot = command(
+        runtime, identity, "persist_configuration", checkpoint_names=["approved-checkpoint"]
+    )["snapshot_id"]
+    assert (
+        invoke(adapter, "resources_release", resource_id=identity)["execution_status"]
+        == "succeeded"
+    )
+    reopened = approve(
+        adapter,
+        control,
+        "checkpoint_services_open",
+        kind="runner",
+        binding_id="service",
+        snapshot_id=snapshot,
+        idempotency_key="durable-runner-definition-restore",
+    )["data"]["resource_id"]
+    command(runtime, reopened, "start", key="restored-durable-start")
+    command(runtime, reopened, "stop", key="restored-durable-stop")
+    assert marker.read_text().count("checkpoint-action") == 1

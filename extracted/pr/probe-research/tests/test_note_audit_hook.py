@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 from probe.shared.notes import team_note as tnf
 
 _ROOT = Path(__file__).resolve().parent.parent

@@ -1,0 +1,88 @@
+site_name: Optopsy Documentation
+site_description: Options Backtesting Library for Python
+site_author: Michael Chu
+site_url: https://goldspanlabs.github.io/optopsy/
+repo_url: https://github.com/goldspanlabs/optopsy
+repo_name: goldspanlabs/optopsy
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: custom
+    accent: custom
+  font:
+    text: Onest
+    code: JetBrains Mono
+  logo: assets/logo-small-dark.png
+  favicon: assets/logo-small.png
+  features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - toc.follow
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Strategies:
+      - Overview: strategies.md
+      - Single-Leg Strategies: strategies/singles.md
+      - Straddles & Strangles: strategies/straddles-strangles.md
+      - Vertical Spreads: strategies/spreads.md
+      - Butterflies: strategies/butterflies.md
+      - Iron Condors & Iron Butterflies: strategies/iron-strategies.md
+      - Condor Spreads: strategies/condors.md
+      - Covered & Collar Strategies: strategies/covered.md
+      - Calendar Spreads: strategies/calendars.md
+      - Diagonal Spreads: strategies/diagonals.md
+  - Configuration:
+      - Parameters: parameters.md
+      - Entry Signals: entry-signals.md
+      - Plugins: plugins.md
+  - Guides:
+      - Examples: examples.md
+      - Data Management: data.md
+      - AI Chat UI: chat-ui.md
+  - Reference:
+      - API Reference: api-reference.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.arithmatex:
+      generic: true
+  - toc:
+      permalink: true
+  - tables
+  - attr_list
+  - md_in_html
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            heading_level: 4
+

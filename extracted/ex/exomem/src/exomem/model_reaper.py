@@ -1,0 +1,252 @@
+"""Idle-unload reaper — reclaim model singletons that sit resident beyond a threshold.
+
+Only relevant for the GPU-opt-in path (`performance` mode) and `quiet` mode, where a
+model may load lazily and then idle. Started from `server.build_server` ONLY when
+`mode.release_when_idle()`. On a CPU-default normal-mode server it never runs — the
+models are cheap CPU-RAM and there is no CUDA context to reclaim anyway (that's the
+whole point of the CPU-default primary fix; this is the complement for GPU-opt-in).
+
+One daemon thread; each tick it unloads any registered model that is loaded, not
+in-flight, and idle past the threshold, coordinating with the warm thread via
+`readiness.is_warming()`. Unloading under a concurrent encode is inefficiency, not a
+use-after-free — see `embeddings._ModelGuard`. `stop()` lets a live mode switch (PR4)
+or shutdown end it cleanly.
+
+Pure substrate: process telemetry only. Nothing here reasons over notes.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from . import accel, process_memory, readiness
+
+log = logging.getLogger(__name__)
+
+DEFAULT_IDLE_SECONDS = 900.0  # 15 min
+TICK_SECONDS = 60.0
+
+_thread: threading.Thread | None = None
+_stop = threading.Event()
+
+
+@dataclass
+class ResourceSlot:
+    name: str
+    is_loaded: Callable[[], bool]
+    inflight: Callable[[], int]
+    last_activity: Callable[[], float]
+    unload: Callable[[], bool]
+    #: True for a model singleton, which policy may pin (see `mode.reap_models_when_idle`).
+    #: Caches are always reclaimable: they rebuild locally and cheaply, whereas a reaped
+    #: model is reloaded from the hub cache on whichever request arrives next.
+    is_model: bool = False
+
+
+def idle_seconds() -> float:
+    """Idle threshold in seconds from `EXOMEM_IDLE_MINUTES` (default 15 min)."""
+    raw = os.environ.get("EXOMEM_IDLE_MINUTES")
+    if not raw:
+        return DEFAULT_IDLE_SECONDS
+    try:
+        minutes = float(raw)
+    except ValueError:
+        return DEFAULT_IDLE_SECONDS
+    return minutes * 60.0 if minutes > 0 else DEFAULT_IDLE_SECONDS
+
+
+ModelSlot = ResourceSlot
+
+
+def _model_reaping_allowed() -> bool:
+    """Whether policy lets this tick unload model singletons.
+
+    Read per tick rather than captured at `start()`, so a live mode switch takes
+    effect on the next tick without restarting the thread.
+    """
+    from . import mode
+
+    return mode.reap_models_when_idle()
+
+
+def _should_unload(slot: ResourceSlot, now: float, threshold: float) -> bool:
+    """Pure decision: unload iff policy allows it and the slot is loaded, quiet, and stale."""
+    if readiness.is_warming():
+        return False
+    from . import mode
+
+    if slot.is_model and slot.name == "embeddings" and mode.service_profile_enabled():
+        return False
+    if slot.is_model and not _model_reaping_allowed():
+        return False
+    if not slot.is_loaded():
+        return False
+    if slot.inflight() > 0:
+        return False
+    return (now - slot.last_activity()) >= threshold
+
+
+_UNSEEN = object()
+
+
+def _quiet_cache_slot(
+    name: str,
+    is_loaded: Callable[[], bool],
+    unload: Callable[[], bool],
+    activity: Callable[[], object] | None = None,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> ResourceSlot:
+    """Cache slot whose idle clock follows USE, active only when caches are evictable.
+
+    `activity` returns a cheap fingerprint of use -- hit counters, entry
+    counts -- and the clock restarts whenever it changes between ticks. A slot
+    without one is treated as used at the moment it is first observed loaded.
+    Either way the clock also restarts on eviction.
+
+    Measured 2026-09-18 on the personal service: the previous version stamped
+    only the last time a tick saw the cache EMPTY. A cache that requests kept
+    refilling between ticks was never seen empty, so fifteen minutes after
+    process start it looked stale forever and was evicted on every 60 s tick
+    -- 48 evictions of the find RAM caches in four hours, and the first recall
+    after each one paid the cold cliff: a 73k-row matrix reload, page
+    re-parses, a BM25 corpus rebuild.
+    """
+    from . import mode
+
+    state = {"last_empty": clock(), "last_used": clock(), "seen": _UNSEEN}
+
+    def loaded() -> bool:
+        should_retain = mode.retain_cpu_caches()
+        resident = (not should_retain) and is_loaded()
+        now = clock()
+        if not resident:
+            state["last_empty"] = now
+            state["seen"] = _UNSEEN
+            return False
+        signal = activity() if activity is not None else None
+        if state["seen"] is _UNSEEN or (activity is not None and signal != state["seen"]):
+            state["seen"] = signal
+            state["last_used"] = now
+        return True
+
+    def unload_and_restart() -> bool:
+        released = unload()
+        if released:
+            state["last_empty"] = clock()
+            state["seen"] = _UNSEEN
+        return released
+
+    return ResourceSlot(
+        name=name,
+        is_loaded=loaded,
+        inflight=lambda: 0,
+        last_activity=lambda: max(state["last_empty"], state["last_used"]),
+        unload=unload_and_restart,
+    )
+
+
+def default_slots() -> list[ResourceSlot]:
+    """Default reclaimable resources: models when policy allows, CPU caches in quiet mode."""
+    from . import bm25, find
+    from . import embeddings as e
+
+    return [
+        ResourceSlot(
+            "embeddings", lambda: e._MODEL is not None,
+            e.BGE_GUARD.inflight, e.BGE_GUARD.last_activity, e.unload_model,
+            is_model=True,
+        ),
+        ResourceSlot(
+            "activation", lambda: e._ACTIVATION_MODEL is not None,
+            e.ACTIVATION_GUARD.inflight, e.ACTIVATION_GUARD.last_activity, e.unload_activation_model,
+            is_model=True,
+        ),
+        ResourceSlot(
+            "reranker", lambda: e._RERANKER is not None,
+            e.RERANKER_GUARD.inflight, e.RERANKER_GUARD.last_activity, e.unload_reranker,
+            is_model=True,
+        ),
+        ResourceSlot(
+            "clip", lambda: e._CLIP_MODEL is not None or e._CLIP_QUERY_MODEL is not None,
+            e.CLIP_GUARD.inflight, e.CLIP_GUARD.last_activity, e.unload_clip_model,
+            is_model=True,
+        ),
+        _quiet_cache_slot(
+            "index-matrices",
+            lambda: any(v.get("loaded", 0) for v in e.index_cache_status().values()),
+            lambda: any(e.unload_index_caches().values()),
+            e.index_cache_activity,
+        ),
+        _quiet_cache_slot(
+            "bm25-cache",
+            lambda: bool(bm25.cache_status().get("loaded")),
+            bm25.unload_cache,
+            lambda: bm25.cache_status().get("hits"),
+        ),
+        _quiet_cache_slot(
+            "find-ram-caches",
+            lambda: any(
+                section.get("entries", 0) for section in find.cache_status().values()
+            ),
+            lambda: any(find.release_idle_ram_caches().values()),
+            find.cache_activity,
+        ),
+    ]
+
+
+def _reap_once(slots: list[ResourceSlot], now: float, threshold: float) -> list[str]:
+    """Unload every stale slot once; return the names actually reaped. Never raises."""
+    reaped: list[str] = []
+    for s in slots:
+        try:
+            if _should_unload(s, now, threshold):
+                before = accel.gpu_mem()
+                if s.unload():
+                    reaped.append(s.name)
+                    log.info("reaped idle model %s (gpu_mem %s -> %s)", s.name, before, accel.gpu_mem())
+        except Exception:  # noqa: BLE001 — a reaper tick must never crash the thread
+            log.warning("reaper tick failed for %s", s.name, exc_info=True)
+    # A trim the throttle skipped (a release inside the interval) runs on a
+    # later tick, reaped or not, so an idle cell still returns that memory.
+    if reaped or process_memory.trim_pending():
+        process_memory.trim_allocator()
+    return reaped
+
+
+def start(
+    threshold: float | None = None,
+    tick: float = TICK_SECONDS,
+    slots: list[ResourceSlot] | None = None,
+) -> threading.Thread:
+    """Start the idle-unload daemon (idempotent — a second call returns the live thread)."""
+    global _thread
+    if _thread is not None and _thread.is_alive():
+        return _thread
+    _stop.clear()
+    thr = threshold if threshold is not None else idle_seconds()
+    the_slots = slots if slots is not None else default_slots()
+
+    def _run() -> None:
+        log.info("idle-unload reaper started (threshold=%.0fs, tick=%.0fs)", thr, tick)
+        while not _stop.wait(tick):  # returns True when stopped, False on timeout
+            _reap_once(the_slots, time.monotonic(), thr)
+
+    t = threading.Thread(target=_run, name="exomem-reaper", daemon=True)
+    _thread = t
+    t.start()
+    return t
+
+
+def stop() -> None:
+    """Signal the reaper to stop (live mode switch / shutdown). Idempotent."""
+    _stop.set()
+
+
+def is_running() -> bool:
+    return _thread is not None and _thread.is_alive()

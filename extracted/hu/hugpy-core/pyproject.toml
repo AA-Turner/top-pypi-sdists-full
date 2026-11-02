@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hugpy-core"
+version = "0.4.81"
+description = "Hugpy Core: a small fleet API, worker console, dispatch and consolidated history."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Proprietary" }
+authors = [{ name = "putkoff", email = "support@hugpy.ai" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# The installed console is the Flask/abstract_flask app. Storage provides its
+# Add Models routes (HF search/spec/downloads) and Flask is its web runtime;
+# keeping either in the legacy extra produced a console whose visible tabs 404.
+dependencies = ["hugpy-resources>=0.1.2.8,<0.2", "hugpy-settings>=0.1.2", "aiohttp>=3.9", "flask>=2", "hugpy-storage>=0.2.17", "hugpy-engine>=0.3.14", "hugpy-wrapper>=0.1.183", "hugpy-terminal>=0.1.23,<0.2", "psycopg[binary]>=3", "abstract_toolserver>=0.0.106", "abstract_database>=0.0.2.199", "abstract_flask>=0.0.0.1071", "abstract_utilities>=0.2.2.794", "flask-sock>=0.7"]
+
+[project.optional-dependencies]
+terminal = ["hugpy-fleet>=0.1.0"]
+test = ["pytest"]
+legacy = ["abstract_toolserver[server,db]>=0.0.95", "hugpy-media>=0.3.8", "hugpy-video>=0.3.9"]
+# arms: optional packages that plug in via the "hugpy.arms" entry-point group
+video = ["hugpy-video>=0.3.9"]
+media = ["hugpy-media>=0.3.8"]
+
+[project.urls]
+UI = "https://www.npmjs.com/package/@hugpy/ui"
+Homepage = "https://hugpy.ai"
+
+[project.scripts]
+# install|uninstall|status -> the orbit installer; anything else -> the server (web/app.py main)
+hugpy-core = "hugpy_core.install.cli:main"
+
+[project.entry-points."hugpy.storage_install"]
+central = "hugpy_core.registry.central_store:on_storage_install"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["hugpy_core*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.setuptools.package-data]
+"hugpy_core.schema" = ["sql/*.sql"]
+# the published @hugpy/ui build core serves at / (web/console/PROVENANCE.md)
+"hugpy_core.web" = ["install.sh", "static/*", "console/*", "console/*/*", "console/*/*/*"]
+# the folded router's store migrations (0.4.0 shipped without them: /v1/keys failed on the installed service)
+"hugpy_core.router.observability" = ["schema/*.sql"]
+
+[tool.setuptools.exclude-package-data]
+"hugpy_core.web" = ["console/media/*", "console/media/assets/*", "console/video/*", "console/video/assets/*"]
+
+[tool.pypit]
+# PyPI only: no git on the server (it is the repo); boxes converge from PyPI.
+github_push = false

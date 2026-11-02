@@ -1,0 +1,87 @@
+id: cli-mcp-docs
+title: "Documentation for CLI and MCP interfaces"
+worktree: main
+priority: Medium-High
+status: Completed
+completed_date: "2026-03-07"
+description: |
+  Add documentation covering the CLI and MCP server. This includes updating the
+  README with CLI quickstart, adding a dedicated CLI reference, MCP setup guide,
+  and JSON input format reference. All input format documentation should be
+  generated from or consistent with the shared command registry.
+
+category: Documentation
+
+deps:
+  needs:
+    - cli-interface
+    - mcp-server
+
+work:
+  - id: w1
+    summary: "Update README with CLI quickstart and MCP setup sections"
+    status: done
+    notes: |
+      Add sections to README.md:
+      - CLI quickstart: installation, basic usage with 2-3 examples, link to full docs
+      - MCP setup: pip install textcharts[mcp], config snippet for Claude Desktop
+      Keep it concise (under 50 lines added) — link to full docs for details.
+
+  - id: w2
+    summary: "Create JSON input format reference with examples for all 15 chart types"
+    status: done
+    notes: |
+      docs/input-formats.md — one section per chart type showing the expected JSON
+      shape with a minimal working example. This is the canonical reference for
+      both CLI and MCP users. Generate examples from test fixtures to ensure they
+      stay valid. Add tests/test_doc_examples.py to validate all examples render.
+
+  - id: w3
+    summary: "Create MCP configuration guide"
+    status: done
+    notes: |
+      docs/mcp-setup.md — installation, config for Claude Desktop and Claude Code,
+      uvx usage, tool listing, example tool calls with sample input/output.
+
+deferred:
+  - summary: "Auto-generated CLI man pages"
+    reason: "argparse --help is sufficient for v1"
+  - summary: "Video tutorials or animated demos"
+    reason: "Text docs first; multimedia can come later"
+
+metadata:
+  owners:
+    - joe
+  tags:
+    - docs
+    - cli
+    - mcp
+  estimated_effort: "1 day"
+  created_date: "2026-03-07"
+
+impact:
+  business_value: |
+    Documentation is essential for adoption. Users won't discover or use the CLI
+    and MCP interfaces without clear setup instructions and examples.
+  user_impact: |
+    Users can quickly get started with CLI or MCP without reading source code.
+
+files_affected:
+  modified:
+    - "README.md"
+  added:
+    - "docs/input-formats.md"
+    - "docs/mcp-setup.md"
+    - "tests/test_doc_examples.py"
+
+approach: |
+  Keep README additions concise — link to full docs for details. Generate JSON
+  examples from existing test fixtures or the command registry's introspection
+  API to ensure they stay valid. The test_doc_examples.py test file extracts
+  JSON blocks from docs and runs them through execute_command() to verify they
+  produce output without errors.
+
+verification:
+  - description: "All JSON examples in docs are valid and produce charts"
+    command: "uv run -- python -m pytest tests/test_doc_examples.py -v"
+    expected_output: "all examples produce valid output"

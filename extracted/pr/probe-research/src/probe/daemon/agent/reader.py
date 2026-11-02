@@ -194,7 +194,7 @@ def build_reader_agent(instructions: str, *, model, state: ReaderState, session_
                   capabilities=capabilities, retries=2)
 
     @agent.output_validator
-    async def _message_fits(ctx: RunContext[tools.Deps], result: ReadResult) -> ReadResult:
+    async def _message_fits(context: RunContext[tools.Deps], result: ReadResult) -> ReadResult:
         text = (result.message or "").strip()
         if state.ask is None and len(text) > MESSAGE_MAX_CHARS():
             raise ModelRetry(MESSAGE_TOO_LONG.format(n=len(text)))
@@ -242,14 +242,14 @@ def build_reader_agent(instructions: str, *, model, state: ReaderState, session_
         from probe.shared.mailbox import approvals as appr
 
         try:
-            req = fb.hold(text, session_id=session_id, source=fb.Source.DAEMON_READER, harness=harness)
+            request = fb.hold(text, session_id=session_id, source=fb.Source.DAEMON_READER, harness=harness)
         except fb.Refused as exc:
             return f"not sent: {exc}"
         except Exception as exc:  # noqa: BLE001
             return f"tool error ({type(exc).__name__}): {exc}"
-        if req.state == appr.DENIED:
-            return f"not sent: the researcher already said no to this feedback ({req.question.header})."
-        return READER_FEEDBACK_HELD.format(header=req.question.header)
+        if request.state == appr.DENIED:
+            return f"not sent: the researcher already said no to this feedback ({request.question.header})."
+        return READER_FEEDBACK_HELD.format(header=request.question.header)
 
     return agent
 

@@ -1,0 +1,1580 @@
+//! Python binding for Dataforts Phase 3 blob storage.
+//!
+//! Exposes:
+//!
+//! - [`PyBlobRef`] — typed handle to out-of-band content.
+//! - Module functions for registering Rust-implemented adapters
+//!   (only `FileSystemAdapter` in this slice) and routing
+//!   `publish_blob` / `resolve_payload` through the registered
+//!   adapter.
+//!
+//! A follow-up slice will add a `PyBlobAdapter` wrapper that lets
+//! Python classes implement the trait; that needs a
+//! `spawn_blocking` GIL dance per call which this slice keeps out
+//! of scope. The current binding lets Python apps use blob storage
+//! today through a Rust-backed adapter.
+
+use std::ops::Range;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use crate::runtime_guard::GuardedRuntime;
+use async_trait::async_trait;
+use pyo3::exceptions::PyKeyError;
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict};
+use tokio::runtime::Runtime;
+
+use ::net::adapter::net::behavior::TopologyScope;
+use ::net::adapter::net::dataforts::{
+    global_blob_adapter_registry, publish_blob, resolve_payload, BlobAdapter,
+    BlobError as InnerBlobError, BlobRef as InnerBlobRef, FileSystemAdapter,
+    MeshBlobAdapter as InnerMeshBlobAdapter, OverflowConfig as InnerOverflowConfig,
+};
+
+use crate::cortex::{CortexError, PyRedex};
+
+pyo3::create_exception!(
+    _net,
+    BlobError,
+    pyo3::exceptions::PyException,
+    "Raised on dataforts blob operations: hash mismatch, missing \
+     content, unsupported URI scheme, adapter / network failures, \
+     and BlobRef decode errors. Catch with `except BlobError:`."
+);
+
+fn map_blob_err(e: InnerBlobError) -> PyErr {
+    BlobError::new_err(format!("{}", e))
+}
+
+/// Typed handle to a single content-addressed blob. Round-trips
+/// through every binding as a typed value; the `encode()` method
+/// produces the wire form (a discriminator-prefixed byte string)
+/// suitable for use as an event payload.
+#[pyclass(name = "BlobRef", frozen, eq, hash, from_py_object)]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct PyBlobRef {
+    inner: InnerBlobRef,
+}
+
+#[pymethods]
+impl PyBlobRef {
+    /// Construct a BlobRef. `hash` must be exactly 32 bytes
+    /// (BLAKE3-256 digest of the content the URI resolves to).
+    #[new]
+    fn new(uri: String, hash: Vec<u8>, size: u64) -> PyResult<Self> {
+        if hash.len() != 32 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "BlobRef hash must be 32 bytes, got {}",
+                hash.len()
+            )));
+        }
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&hash);
+        Ok(Self {
+            inner: InnerBlobRef::small(uri, arr, size),
+        })
+    }
+
+    #[getter]
+    fn version(&self) -> u8 {
+        self.inner.version()
+    }
+
+    #[getter]
+    fn uri(&self) -> &str {
+        self.inner.uri()
+    }
+
+    /// 32-byte BLAKE3 hash of the content for the `Small` variant;
+    /// `None` for `Manifest` / `Tree` (chunked variants reference many
+    /// hashes — use `tree_root_hash` for `Tree`, or walk the
+    /// manifest's chunk list for `Manifest`). It used to be 32 zero
+    /// bytes, which collapsed every chunked blob onto one cache key;
+    /// C and Go refuse it (SDK audit 2026-10-11).
+    #[getter]
+    fn hash<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyBytes>> {
+        self.inner.small_hash().map(|hash| PyBytes::new(py, hash))
+    }
+
+    #[getter]
+    fn size(&self) -> u64 {
+        self.inner.size()
+    }
+
+    /// `True` for the v0.3 `Tree` variant; `False` for `Small`
+    /// or `Manifest`.
+    #[getter]
+    fn is_tree(&self) -> bool {
+        self.inner.is_tree()
+    }
+
+    /// `True` for any chunked variant (`Manifest` or `Tree`);
+    /// `False` for `Small`.
+    #[getter]
+    fn is_chunked(&self) -> bool {
+        self.inner.is_chunked()
+    }
+
+    /// 32-byte BLAKE3 hash of the root `TreeNode` body. Defined
+    /// only for the v0.3 `Tree` variant; returns 32 zero bytes
+    /// for `Small` / `Manifest`. Check `is_tree` first.
+    #[getter]
+    fn tree_root_hash<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        let hash = self.inner.tree_root_hash().copied().unwrap_or([0; 32]);
+        PyBytes::new(py, &hash)
+    }
+
+    /// Tree depth (1..=MAX_TREE_DEPTH = 4). Defined only for the
+    /// v0.3 `Tree` variant; returns `0` for `Small` / `Manifest`.
+    /// Check `is_tree` first.
+    #[getter]
+    fn tree_depth(&self) -> u8 {
+        self.inner.tree_depth().unwrap_or(0)
+    }
+
+    /// Construct a v0.3 `Tree` `BlobRef` from `(uri, root_hash,
+    /// total_size, depth)`. `root_hash` must be exactly 32 bytes;
+    /// `depth` must be in `1..=4`; `total_size` must be in
+    /// `1..=128 PiB`. Encoding defaults to `Replicated`.
+    ///
+    /// Producers usually build trees implicitly via
+    /// `MeshBlobAdapter.store_stream_tree`; this static method
+    /// exists for callers that hold pre-built tree state
+    /// (e.g. tests, cross-language migration tooling).
+    #[staticmethod]
+    fn tree_from_parts(
+        uri: String,
+        root_hash: Vec<u8>,
+        total_size: u64,
+        depth: u8,
+    ) -> PyResult<Self> {
+        if root_hash.len() != 32 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "tree_from_parts root_hash must be 32 bytes, got {}",
+                root_hash.len()
+            )));
+        }
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&root_hash);
+        InnerBlobRef::tree(
+            uri,
+            ::net::adapter::net::dataforts::Encoding::Replicated,
+            hash,
+            total_size,
+            depth,
+        )
+        .map(|inner| Self { inner })
+        .map_err(map_blob_err)
+    }
+
+    /// Emit the wire-encoded form (discriminator + version + hash +
+    /// size + uri bytes). The result is suitable as an event
+    /// payload — pass it to `RedexFile.append` or `Mesh.publish`.
+    fn encode<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.encode())
+    }
+
+    /// Parse a wire-encoded BlobRef back into a typed handle.
+    /// Raises `BlobError` if the bytes are malformed or carry an
+    /// unsupported version; returns `None` (Python None) when the
+    /// bytes do not start with the discriminator (i.e. an inline
+    /// payload, not a blob ref).
+    #[staticmethod]
+    fn from_encoded(data: &[u8]) -> PyResult<Option<Self>> {
+        match InnerBlobRef::decode(data).map_err(map_blob_err)? {
+            Some(inner) => Ok(Some(Self { inner })),
+            None => Ok(None),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        // Discriminate by variant so chunked refs don't render
+        // a misleading all-zeros `hash=` field.
+        if let Some(root) = self.inner.tree_root_hash() {
+            format!(
+                "BlobRef(Tree, uri={:?}, size={}, depth={}, root_hash={})",
+                self.inner.uri(),
+                self.inner.size(),
+                self.inner.tree_depth().unwrap_or(0),
+                hex32(root)
+            )
+        } else if self.inner.is_chunked() {
+            format!(
+                "BlobRef(Manifest, uri={:?}, size={}, chunks={})",
+                self.inner.uri(),
+                self.inner.size(),
+                self.inner.chunks().len()
+            )
+        } else {
+            let hash = self.inner.small_hash().copied().unwrap_or([0; 32]);
+            format!(
+                "BlobRef(Small, uri={:?}, size={}, hash={})",
+                self.inner.uri(),
+                self.inner.size(),
+                hex32(&hash)
+            )
+        }
+    }
+}
+
+impl PyBlobRef {
+    /// Internal accessor — future bindings code (e.g. surfacing
+    /// `RedexFile::resolve_one` to Python) needs a direct handle
+    /// on the inner ref. Pre-allowed via `#[allow(dead_code)]` so
+    /// the binding can compile while the consumer of this accessor
+    /// is being written.
+    #[allow(dead_code)]
+    pub(crate) fn as_inner(&self) -> &InnerBlobRef {
+        &self.inner
+    }
+
+    /// Internal: wrap a Rust `BlobRef` into the Python facade.
+    /// Used by adapter methods (e.g. `store_stream_tree_from_bytes`)
+    /// that produce a fresh BlobRef on the Rust side.
+    pub(crate) fn from_inner(inner: InnerBlobRef) -> Self {
+        Self { inner }
+    }
+}
+
+fn hex32(bytes: &[u8; 32]) -> String {
+    let mut s = String::with_capacity(64);
+    for b in bytes {
+        use std::fmt::Write;
+        let _ = write!(s, "{:02x}", b);
+    }
+    s
+}
+
+/// Capability tag a node advertises when it supports the v0.3
+/// hierarchical-manifest tree path (`BlobRef::Tree`). Compare
+/// advertisement payloads against this string to decide whether
+/// to publish via `BlobRef::Tree` or downgrade to v0.2 Manifest.
+pub const DATAFORTS_BLOB_TREE_SUPPORTED: &str =
+    ::net::adapter::net::dataforts::blob::blob_tree::DATAFORTS_BLOB_TREE_SUPPORTED;
+
+/// Capability tag a node advertises when it supports the v0.3
+/// Phase B content-defined-chunking store path
+/// (`ChunkingStrategy.cdc(...)`). Independent of the Tree tag —
+/// a node can run Phase A (Tree + Fixed) without Phase B (CDC).
+pub const DATAFORTS_BLOB_CDC_SUPPORTED: &str =
+    ::net::adapter::net::dataforts::blob::cdc::DATAFORTS_BLOB_CDC_SUPPORTED;
+
+/// Capability tag a node advertises when it supports the v0.3
+/// Phase C Reed-Solomon erasure-coding store path
+/// (`Encoding.reed_solomon(k, m)`). Independent of Tree/CDC tags:
+/// a node can run Phase A + B without Phase C (RS). Producers
+/// targeting a peer that doesn't advertise this tag must
+/// downgrade to `Encoding.replicated()`.
+pub const DATAFORTS_BLOB_ERASURE_SUPPORTED: &str =
+    ::net::adapter::net::dataforts::blob::erasure::DATAFORTS_BLOB_ERASURE_SUPPORTED;
+
+/// Capability tag a node advertises when it accepts the v0.3
+/// Phase D per-stream `BandwidthClass` hint. A peer that
+/// doesn't advertise it silently drops the hint and serves
+/// every call uniformly.
+pub const DATAFORTS_BLOB_BANDWIDTH_CLASS_SUPPORTED: &str =
+    ::net::adapter::net::dataforts::blob::bandwidth::DATAFORTS_BLOB_BANDWIDTH_CLASS_SUPPORTED;
+
+/// Per-stream bandwidth class hint for the v0.3 Phase D blob
+/// path. Construct via `foreground()` / `background()` /
+/// `realtime()` staticmethods; future chunking-aware binding
+/// store/fetch calls accept it as a hint.
+#[pyclass(name = "BandwidthClass", frozen, eq, from_py_object)]
+#[derive(Clone, PartialEq, Eq)]
+pub struct PyBandwidthClass {
+    /// Discriminant: `"foreground"`, `"background"`, or
+    /// `"realtime"`.
+    #[pyo3(get)]
+    pub kind: String,
+}
+
+#[pymethods]
+impl PyBandwidthClass {
+    #[staticmethod]
+    pub fn foreground() -> Self {
+        Self {
+            kind: "foreground".to_owned(),
+        }
+    }
+
+    #[staticmethod]
+    pub fn background() -> Self {
+        Self {
+            kind: "background".to_owned(),
+        }
+    }
+
+    #[staticmethod]
+    pub fn realtime() -> Self {
+        Self {
+            kind: "realtime".to_owned(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("BandwidthClass.{}()", self.kind)
+    }
+}
+
+/// Producer-facing encoding-strategy value type. Mirrors the
+/// Rust `Encoding` enum (`Replicated` vs `ReedSolomon { k, m }`)
+/// as a Python class with a `kind` discriminant. Construct via
+/// the `replicated()` / `reed_solomon(k, m)` /
+/// `default_reed_solomon()` staticmethods.
+#[pyclass(name = "Encoding", frozen, eq, from_py_object)]
+#[derive(Clone, PartialEq, Eq)]
+pub struct PyEncoding {
+    /// Discriminant: `"replicated"` or `"reed_solomon"`.
+    #[pyo3(get)]
+    pub kind: String,
+    /// RS data shards per stripe — populated iff
+    /// `kind == "reed_solomon"`.
+    #[pyo3(get)]
+    pub k: Option<u8>,
+    /// RS parity shards per stripe — populated iff
+    /// `kind == "reed_solomon"`.
+    #[pyo3(get)]
+    pub m: Option<u8>,
+}
+
+#[pymethods]
+impl PyEncoding {
+    /// Replication-only encoding. Each chunk stored verbatim;
+    /// cross-node replication provides redundancy.
+    #[staticmethod]
+    pub fn replicated() -> Self {
+        Self {
+            kind: "replicated".to_owned(),
+            k: None,
+            m: None,
+        }
+    }
+
+    /// Reed-Solomon erasure encoding: each stripe of `k` data
+    /// chunks gets `m` parity chunks; stripe survives any `m`
+    /// chunk losses.
+    #[staticmethod]
+    pub fn reed_solomon(k: u8, m: u8) -> Self {
+        Self {
+            kind: "reed_solomon".to_owned(),
+            k: Some(k),
+            m: Some(m),
+        }
+    }
+
+    /// Production RS defaults: `(k=10, m=4)`.
+    #[staticmethod]
+    pub fn default_reed_solomon() -> Self {
+        Self::reed_solomon(
+            ::net::adapter::net::dataforts::blob::erasure::DEFAULT_RS_K,
+            ::net::adapter::net::dataforts::blob::erasure::DEFAULT_RS_M,
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        match self.kind.as_str() {
+            "replicated" => "Encoding.replicated()".to_owned(),
+            "reed_solomon" => format!(
+                "Encoding.reed_solomon(k={}, m={})",
+                self.k.unwrap_or(0),
+                self.m.unwrap_or(0)
+            ),
+            other => format!("Encoding(kind={:?})", other),
+        }
+    }
+}
+
+/// Producer-facing chunking-strategy value type for the v0.3
+/// Tree store path. Construct via the `fixed(size)` /
+/// `cdc(min, avg, max)` / `production_cdc()` classmethods and
+/// pass to the future chunking-aware binding store call. The
+/// Rust core's `MeshBlobAdapter::store_stream_tree` already
+/// consumes the corresponding `ChunkingStrategy` enum; this is
+/// the binding-side mirror surfaced as a Python class with the
+/// `kind` discriminant + per-shape fields, so SDK consumers can
+/// build strategies declaratively without depending on the Rust
+/// enum repr.
+#[pyclass(name = "ChunkingStrategy", frozen, eq, from_py_object)]
+#[derive(Clone, PartialEq, Eq)]
+pub struct PyChunkingStrategy {
+    /// Discriminant: `"fixed"` for fixed-size chunks, `"cdc"`
+    /// for content-defined chunking.
+    #[pyo3(get)]
+    pub kind: String,
+    /// Chunk size in bytes — populated iff `kind == "fixed"`.
+    #[pyo3(get)]
+    pub size: Option<u32>,
+    /// CDC minimum chunk size in bytes — populated iff
+    /// `kind == "cdc"`.
+    #[pyo3(get)]
+    pub min: Option<u32>,
+    /// CDC target average chunk size in bytes — populated iff
+    /// `kind == "cdc"`.
+    #[pyo3(get)]
+    pub avg: Option<u32>,
+    /// CDC maximum chunk size in bytes — populated iff
+    /// `kind == "cdc"`.
+    #[pyo3(get)]
+    pub max: Option<u32>,
+}
+
+#[pymethods]
+impl PyChunkingStrategy {
+    /// Fixed-size chunks. `size` must equal the v0.2-compatible
+    /// `BLOB_CHUNK_SIZE_BYTES` (4 MiB) for cluster-wide dedup.
+    #[staticmethod]
+    pub fn fixed(size: u32) -> Self {
+        Self {
+            kind: "fixed".to_owned(),
+            size: Some(size),
+            min: None,
+            avg: None,
+            max: None,
+        }
+    }
+
+    /// Content-defined chunking (FastCDC). For cluster-wide CDC
+    /// dedup, pass the spec'd production triple — see
+    /// `production_cdc()` for the convenience factory.
+    #[staticmethod]
+    pub fn cdc(min: u32, avg: u32, max: u32) -> Self {
+        Self {
+            kind: "cdc".to_owned(),
+            size: None,
+            min: Some(min),
+            avg: Some(avg),
+            max: Some(max),
+        }
+    }
+
+    /// Production CDC parameters pinned by Phase B of the v0.3
+    /// blob plan: `min = 1 MiB`, `avg = 4 MiB`, `max = 16 MiB`.
+    /// All CDC-stored blobs on a cluster must use these exact
+    /// values to dedup against each other.
+    #[staticmethod]
+    pub fn production_cdc() -> Self {
+        let p = ::net::adapter::net::dataforts::blob::cdc::PRODUCTION_CDC_PARAMS;
+        Self::cdc(p.min, p.avg, p.max)
+    }
+
+    fn __repr__(&self) -> String {
+        match self.kind.as_str() {
+            "fixed" => format!("ChunkingStrategy.fixed(size={})", self.size.unwrap_or(0)),
+            "cdc" => format!(
+                "ChunkingStrategy.cdc(min={}, avg={}, max={})",
+                self.min.unwrap_or(0),
+                self.avg.unwrap_or(0),
+                self.max.unwrap_or(0)
+            ),
+            other => format!("ChunkingStrategy(kind={:?})", other),
+        }
+    }
+}
+
+/// Register a filesystem-backed BlobAdapter under `adapter_id`.
+/// `root` is the on-disk directory the adapter content-addresses
+/// blobs under. Raises `BlobError` if `adapter_id` is already in
+/// use.
+#[pyfunction]
+pub fn register_filesystem_blob_adapter(adapter_id: String, root: String) -> PyResult<()> {
+    let adapter: Arc<dyn BlobAdapter> = Arc::new(FileSystemAdapter::new(
+        adapter_id.clone(),
+        PathBuf::from(root),
+    ));
+    global_blob_adapter_registry()
+        .register(adapter)
+        .map_err(|e| BlobError::new_err(format!("{}", e)))
+}
+
+/// Remove an adapter registration. Returns `True` if an adapter
+/// was removed, `False` if no adapter was registered under that id.
+/// In-flight fetches through the removed adapter still complete
+/// because the registry holds Arc references.
+#[pyfunction]
+pub fn unregister_blob_adapter(adapter_id: &str) -> bool {
+    global_blob_adapter_registry()
+        .unregister(adapter_id)
+        .is_some()
+}
+
+/// True if `adapter_id` resolves to a registered adapter.
+#[pyfunction]
+pub fn blob_adapter_registered(adapter_id: &str) -> bool {
+    global_blob_adapter_registry().get(adapter_id).is_some()
+}
+
+/// Drop every adapter registration. Called from the binding's
+/// `atexit` hook so any `PyBlobAdapter` holding a `Py<PyAny>` is
+/// dropped while the interpreter is still alive and the GIL is
+/// still acquirable. Without this, a `Py<PyAny>` cleanup after
+/// interpreter finalization aborts the process via PyO3's safety
+/// guard. Idempotent.
+///
+/// Counts drained / missing entries and emits the summary to
+/// stderr only when `NET_PY_TRACE_ATEXIT` is set in the
+/// environment — quiet by default so production processes don't
+/// add noise to their shutdown logs, observable when operators
+/// need to debug a shutdown race. The Python binding doesn't link
+/// `tracing` directly so this is the lowest-dep diagnostic that
+/// works in any install.
+#[pyfunction]
+pub fn _drain_blob_adapters() {
+    let registry = global_blob_adapter_registry();
+    let ids = registry.ids();
+    let total = ids.len();
+    let mut drained = 0usize;
+    let mut missing = 0usize;
+    for id in ids {
+        if registry.unregister(&id).is_some() {
+            drained += 1;
+        } else {
+            // Race: another caller unregistered between `ids()`
+            // and our `unregister`. Not a failure; just rare.
+            missing += 1;
+        }
+    }
+    if std::env::var_os("NET_PY_TRACE_ATEXIT").is_some() {
+        eprintln!(
+            "net.py: atexit blob-adapter drain — total={} drained={} missing={}",
+            total, drained, missing,
+        );
+    }
+}
+
+/// Snapshot of currently-registered adapter ids.
+#[pyfunction]
+pub fn blob_adapter_ids() -> Vec<String> {
+    global_blob_adapter_registry().ids()
+}
+
+fn shared_runtime() -> PyResult<Arc<GuardedRuntime>> {
+    use std::sync::OnceLock;
+    static RT: OnceLock<Arc<GuardedRuntime>> = OnceLock::new();
+    if let Some(rt) = RT.get() {
+        return Ok(rt.clone());
+    }
+    let rt = Runtime::new()
+        .map(|rt| Arc::new(GuardedRuntime::new(rt)))
+        .map_err(|e| CortexError::new_err(format!("tokio runtime build: {}", e)))?;
+    Ok(RT.get_or_init(|| rt).clone())
+}
+
+/// Write `data` to the adapter registered under `adapter_id` and
+/// return the encoded BlobRef bytes ready to use as an event
+/// payload. The substrate computes the BLAKE3 hash and verifies
+/// the round-trip on the read side, so the returned bytes are
+/// safe to publish.
+#[pyfunction]
+pub fn blob_publish<'py>(
+    py: Python<'py>,
+    adapter_id: &str,
+    uri: String,
+    data: &[u8],
+) -> PyResult<Bound<'py, PyBytes>> {
+    let adapter = global_blob_adapter_registry()
+        .get(adapter_id)
+        .ok_or_else(|| {
+            PyKeyError::new_err(format!("blob adapter {:?} not registered", adapter_id))
+        })?;
+    let rt = shared_runtime()?;
+    // Copy bytes WHILE the GIL is still held. PyO3's `&[u8]`
+    // extractor accepts both `bytes` (immutable) and `bytearray`
+    // (mutable + resizable). A mutable bytearray's buffer can
+    // move or reallocate if another Python thread mutates it
+    // while the GIL is released; the previous shape captured a
+    // raw pointer + length and copied inside `py.detach()`, which
+    // is unsound for the bytearray case. The copy here is
+    // bounded by the input size — typical blob payloads are
+    // ~70 bytes (wire-encoded BlobRef), so the GIL-hold window
+    // is negligible. For multi-MB stores route through
+    // `MeshBlobAdapter::store` on a PyBytes argument instead.
+    let data_owned = data.to_vec();
+    let bytes = py
+        .detach(|| -> Result<Vec<u8>, InnerBlobError> {
+            rt.block_on(async move { publish_blob(adapter.as_ref(), uri, &data_owned).await })
+        })
+        .map_err(map_blob_err)?;
+    Ok(PyBytes::new(py, &bytes))
+}
+
+/// Resolve `payload` to its content bytes. Inline payloads come
+/// back as-is; encoded-BlobRef payloads route through the adapter
+/// registered under `adapter_id`, fetch + verify, and return the
+/// resolved bytes.
+#[pyfunction]
+pub fn blob_resolve<'py>(
+    py: Python<'py>,
+    adapter_id: &str,
+    payload: &[u8],
+) -> PyResult<Bound<'py, PyBytes>> {
+    let adapter = global_blob_adapter_registry()
+        .get(adapter_id)
+        .ok_or_else(|| {
+            PyKeyError::new_err(format!("blob adapter {:?} not registered", adapter_id))
+        })?;
+    let rt = shared_runtime()?;
+    // Copy bytes under the GIL — see the rationale in
+    // `blob_publish`. PyO3's `&[u8]` accepts mutable `bytearray`,
+    // and a raw-pointer capture across `py.detach()` is unsound
+    // when the caller's buffer can be mutated by another thread.
+    let payload_owned = payload.to_vec();
+    let bytes = py
+        .detach(|| -> Result<bytes::Bytes, InnerBlobError> {
+            rt.block_on(async move { resolve_payload(&payload_owned, adapter.as_ref()).await })
+        })
+        .map_err(map_blob_err)?;
+    Ok(PyBytes::new(py, &bytes))
+}
+
+// =========================================================================
+// Python-implemented BlobAdapter wrapper
+// =========================================================================
+
+/// `BlobAdapter` impl that bridges to a Python object holding
+/// `store` / `fetch` / `fetch_range` / `exists` methods. Each call
+/// crosses the FFI via `spawn_blocking` + `Python::attach` so the
+/// tokio worker thread isn't pinned during Python execution.
+///
+/// **Both sync and `async def` Python methods are supported.** The
+/// bridge inspects the return value via `inspect.iscoroutine`:
+/// - non-coroutine return → use as-is.
+/// - coroutine return → drive to completion via `asyncio.run`.
+///
+/// This lets adapters that do real I/O (e.g. boto3 / aiobotocore,
+/// httpx) live as `async def` methods, while in-memory mock
+/// adapters can stay plain sync.
+///
+/// The Python adapter MUST implement (sync OR async — pick one
+/// shape per method, mixing is fine across methods):
+/// ```python
+/// class MyAdapter:
+///     async def store(self, blob_ref: BlobRef, data: bytes) -> None: ...
+///     async def fetch(self, blob_ref: BlobRef) -> bytes: ...
+///     async def fetch_range(self, blob_ref: BlobRef, start: int, end: int) -> bytes: ...
+///     def exists(self, blob_ref: BlobRef) -> bool: ...
+/// ```
+///
+/// Python exceptions raised inside any method bubble up as
+/// `BlobError::Backend(str(exc))`. Cleanly distinguishing
+/// `NotFound` from other backend errors at the bridge layer
+/// requires the Python adapter to expose a dedicated marker —
+/// future slice; for now everything collapses to Backend.
+pub struct PyBlobAdapter {
+    id: String,
+    py_obj: Arc<Py<PyAny>>,
+}
+
+impl PyBlobAdapter {
+    pub fn new(id: String, py_obj: Py<PyAny>) -> Self {
+        Self {
+            id,
+            py_obj: Arc::new(py_obj),
+        }
+    }
+}
+
+fn pyerr_to_backend(label: &str, err: PyErr) -> InnerBlobError {
+    InnerBlobError::Backend(format!("{}: {}", label, err))
+}
+
+/// A binding-owned asyncio loop, created lazily on the first
+/// `async def` adapter call and kept alive on a dedicated
+/// background thread. Coroutines from `PyBlobAdapter` are
+/// submitted to this loop via `asyncio.run_coroutine_threadsafe`,
+/// so every adapter coroutine sees the same loop across calls.
+///
+/// This avoids the `asyncio.run` per-call footgun: `asyncio.run`
+/// builds a fresh loop each invocation and any state the user's
+/// adapter shares with another loop (an open `aiohttp` session, a
+/// SQLAlchemy async engine, an `aiobotocore` client) explodes with
+/// "attached to a different loop" or hangs.
+///
+/// Users who want their adapter to run on their *application*
+/// event loop (e.g. to share state across the rest of their app)
+/// must submit it themselves via `run_coroutine_threadsafe`
+/// against their own loop. The binding-owned loop is the
+/// "no-config" fallback for adapters that don't share state.
+struct BindingAsyncLoop {
+    loop_obj: Py<PyAny>,
+}
+
+impl BindingAsyncLoop {
+    fn get_or_init(py: Python<'_>) -> std::result::Result<&'static Self, InnerBlobError> {
+        use std::sync::OnceLock;
+        static LOOP: OnceLock<BindingAsyncLoop> = OnceLock::new();
+        if let Some(l) = LOOP.get() {
+            return Ok(l);
+        }
+        let initialized = Self::build(py)?;
+        Ok(LOOP.get_or_init(|| initialized))
+    }
+
+    fn build(py: Python<'_>) -> std::result::Result<Self, InnerBlobError> {
+        let asyncio = py
+            .import("asyncio")
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        let loop_obj = asyncio
+            .call_method0("new_event_loop")
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        // Spawn a dedicated thread that pins the loop and runs it
+        // forever. The thread holds the GIL only while inside
+        // `loop.run_forever()` — Python yields the GIL on every
+        // tick, so other Rust threads can re-enter Python freely.
+        let threading = py
+            .import("threading")
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        let run_forever = loop_obj
+            .getattr("run_forever")
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        let kwargs = pyo3::types::PyDict::new(py);
+        kwargs
+            .set_item("target", run_forever)
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        kwargs
+            .set_item("daemon", true)
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        let thread = threading
+            .call_method("Thread", (), Some(&kwargs))
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        thread
+            .call_method0("start")
+            .map_err(|e| pyerr_to_backend("async-loop init", e))?;
+        Ok(Self {
+            loop_obj: loop_obj.unbind(),
+        })
+    }
+
+    fn loop_for<'py>(&'_ self, py: Python<'py>) -> Bound<'py, PyAny> {
+        self.loop_obj.bind(py).clone()
+    }
+}
+
+/// If `value` is an awaitable / coroutine, drive it on the
+/// binding-owned loop via `asyncio.run_coroutine_threadsafe` and
+/// return the resolved value; otherwise return it unchanged.
+/// Caller holds the GIL.
+fn drive_if_coroutine<'py>(
+    py: Python<'py>,
+    value: Bound<'py, PyAny>,
+    label: &str,
+) -> std::result::Result<Bound<'py, PyAny>, InnerBlobError> {
+    let inspect = py
+        .import("inspect")
+        .map_err(|e| pyerr_to_backend(label, e))?;
+    let is_coro: bool = inspect
+        .call_method1("iscoroutine", (&value,))
+        .and_then(|r| r.extract::<bool>())
+        .map_err(|e| pyerr_to_backend(label, e))?;
+    if !is_coro {
+        return Ok(value);
+    }
+    let asyncio = py
+        .import("asyncio")
+        .map_err(|e| pyerr_to_backend(label, e))?;
+    let binding_loop = BindingAsyncLoop::get_or_init(py)?;
+    let future = asyncio
+        .call_method1(
+            "run_coroutine_threadsafe",
+            (value, binding_loop.loop_for(py)),
+        )
+        .map_err(|e| pyerr_to_backend(label, e))?;
+    // `concurrent.futures.Future.result()` blocks until done; it
+    // releases the GIL internally while waiting on the underlying
+    // condition variable, so the binding-owned loop thread can
+    // run unhindered.
+    future
+        .call_method0("result")
+        .map_err(|e| pyerr_to_backend(label, e))
+}
+
+#[async_trait]
+impl BlobAdapter for PyBlobAdapter {
+    fn adapter_id(&self) -> &str {
+        &self.id
+    }
+
+    async fn store(&self, blob_ref: &InnerBlobRef, bytes: &[u8]) -> Result<(), InnerBlobError> {
+        let obj = self.py_obj.clone();
+        let blob = blob_ref.clone();
+        let data = bytes.to_vec();
+        tokio::task::spawn_blocking(move || -> Result<(), InnerBlobError> {
+            Python::attach(|py| {
+                let py_blob = PyBlobRef { inner: blob };
+                let py_data = PyBytes::new(py, &data);
+                let ret = obj
+                    .bind(py)
+                    .call_method1("store", (py_blob, py_data))
+                    .map_err(|e| pyerr_to_backend("store", e))?;
+                let _ = drive_if_coroutine(py, ret, "store")?;
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| InnerBlobError::Backend(format!("spawn_blocking join: {}", e)))?
+    }
+
+    async fn fetch(&self, blob_ref: &InnerBlobRef) -> Result<bytes::Bytes, InnerBlobError> {
+        let obj = self.py_obj.clone();
+        let blob = blob_ref.clone();
+        tokio::task::spawn_blocking(move || -> Result<bytes::Bytes, InnerBlobError> {
+            Python::attach(|py| {
+                let py_blob = PyBlobRef { inner: blob };
+                let ret = obj
+                    .bind(py)
+                    .call_method1("fetch", (py_blob,))
+                    .map_err(|e| pyerr_to_backend("fetch", e))?;
+                let resolved = drive_if_coroutine(py, ret, "fetch")?;
+                let bytes: Vec<u8> = resolved
+                    .extract()
+                    .map_err(|e| pyerr_to_backend("fetch return", e))?;
+                // Python returns `bytes` which we already had to
+                // materialize into an owned Vec via `.extract()`;
+                // wrap in `Bytes::from` to satisfy the trait. The
+                // copy at the FFI boundary is unavoidable — see
+                // the parallel comment in `ffi::blob::fetch`.
+                Ok(bytes::Bytes::from(bytes))
+            })
+        })
+        .await
+        .map_err(|e| InnerBlobError::Backend(format!("spawn_blocking join: {}", e)))?
+    }
+
+    async fn fetch_range(
+        &self,
+        blob_ref: &InnerBlobRef,
+        range: Range<u64>,
+    ) -> Result<bytes::Bytes, InnerBlobError> {
+        let obj = self.py_obj.clone();
+        let blob = blob_ref.clone();
+        let start = range.start;
+        let end = range.end;
+        tokio::task::spawn_blocking(move || -> Result<bytes::Bytes, InnerBlobError> {
+            Python::attach(|py| {
+                let py_blob = PyBlobRef { inner: blob };
+                let ret = obj
+                    .bind(py)
+                    .call_method1("fetch_range", (py_blob, start, end))
+                    .map_err(|e| pyerr_to_backend("fetch_range", e))?;
+                let resolved = drive_if_coroutine(py, ret, "fetch_range")?;
+                let bytes: Vec<u8> = resolved
+                    .extract()
+                    .map_err(|e| pyerr_to_backend("fetch_range return", e))?;
+                Ok(bytes::Bytes::from(bytes))
+            })
+        })
+        .await
+        .map_err(|e| InnerBlobError::Backend(format!("spawn_blocking join: {}", e)))?
+    }
+
+    async fn exists(&self, blob_ref: &InnerBlobRef) -> Result<bool, InnerBlobError> {
+        let obj = self.py_obj.clone();
+        let blob = blob_ref.clone();
+        tokio::task::spawn_blocking(move || -> Result<bool, InnerBlobError> {
+            Python::attach(|py| {
+                let py_blob = PyBlobRef { inner: blob };
+                let ret = obj
+                    .bind(py)
+                    .call_method1("exists", (py_blob,))
+                    .map_err(|e| pyerr_to_backend("exists", e))?;
+                let resolved = drive_if_coroutine(py, ret, "exists")?;
+                let flag: bool = resolved
+                    .extract()
+                    .map_err(|e| pyerr_to_backend("exists return", e))?;
+                Ok(flag)
+            })
+        })
+        .await
+        .map_err(|e| InnerBlobError::Backend(format!("spawn_blocking join: {}", e)))?
+    }
+}
+
+/// Register a Python-implemented BlobAdapter. `instance` must be a
+/// Python object with `store(blob_ref, data) -> None`,
+/// `fetch(blob_ref) -> bytes`,
+/// `fetch_range(blob_ref, start, end) -> bytes`, and
+/// `exists(blob_ref) -> bool` methods. Each call is dispatched to
+/// the Python instance via `spawn_blocking` so the substrate's
+/// tokio runtime isn't blocked during Python execution.
+///
+/// Methods may be `async def`. When they are, the returned
+/// coroutine is driven on a binding-owned asyncio loop that runs
+/// on a dedicated background thread for the lifetime of the
+/// process. All adapter coroutines share that loop, so adapter
+/// state can be reused across calls (open `aiohttp` sessions,
+/// connection pools, etc.). Adapter code that needs to share
+/// state with the *application's* own asyncio loop must submit
+/// it through `asyncio.run_coroutine_threadsafe(coro, app_loop)`
+/// from inside the adapter method — the binding does not (and
+/// cannot) know about the application's loop.
+#[pyfunction]
+pub fn register_blob_adapter(adapter_id: String, adapter: Py<PyAny>) -> PyResult<()> {
+    let adapter: Arc<dyn BlobAdapter> = Arc::new(PyBlobAdapter::new(adapter_id.clone(), adapter));
+    global_blob_adapter_registry()
+        .register(adapter)
+        .map_err(|e| BlobError::new_err(format!("{}", e)))
+}
+
+// =========================================================================
+// MeshBlobAdapter — Dataforts v0.2 substrate-owned blob CAS
+// =========================================================================
+
+/// Python handle to a [`MeshBlobAdapter`](::net::adapter::net::
+/// dataforts::MeshBlobAdapter): the v0.2 substrate-owned blob
+/// content-addressable store. Each blob chunk lives as a
+/// content-addressed `RedexFile` at `dataforts/blob/<hex32>` on
+/// the wrapped `Redex` handle.
+///
+/// Construct from a `Redex` instance:
+///
+/// ```python
+/// from net import Redex, MeshBlobAdapter, BlobRef
+/// redex = Redex(persistent_dir="/var/lib/net/redex")
+/// adapter = MeshBlobAdapter(redex, "mesh-app")
+/// payload = b"the substrate carries the bytes"
+/// blob_ref = BlobRef("mesh://demo",
+///                    hashlib.blake3(payload).digest(),
+///                    len(payload))
+/// adapter.store(blob_ref, payload)
+/// back = adapter.fetch(blob_ref)
+/// assert back == payload
+/// ```
+///
+/// All adapter methods are blocking from Python's perspective —
+/// the binding pumps the substrate's tokio runtime under the
+/// hood, releasing the GIL for the duration of each call so
+/// concurrent Python threads aren't blocked.
+///
+/// Async equivalent: :class:`AsyncMeshBlobAdapter` — same inner
+/// adapter; awaitable `store` / `fetch` / `fetch_range` / `exists`
+/// / `repair_blob`.
+#[pyclass(name = "MeshBlobAdapter")]
+pub struct PyMeshBlobAdapter {
+    inner: Arc<InnerMeshBlobAdapter>,
+    id: String,
+}
+
+impl PyMeshBlobAdapter {
+    /// Clone the inner `Arc<MeshBlobAdapter>` for the sibling transport
+    /// bindings (`crate::transport`), which install it as the node's
+    /// transfer engine / pass it to `store_dir`.
+    pub(crate) fn inner_arc(&self) -> Arc<InnerMeshBlobAdapter> {
+        self.inner.clone()
+    }
+}
+
+#[pymethods]
+impl PyMeshBlobAdapter {
+    /// Construct a substrate-owned blob adapter against `redex`.
+    /// `adapter_id` is the operator-facing identity surfaced in
+    /// Prometheus + log lines; it doubles as the registry key
+    /// when the adapter is also registered via
+    /// [`register_blob_adapter`].
+    ///
+    /// `persistent=True` flips the per-chunk `RedexFile`s into the
+    /// on-disk persistent path — requires the underlying `Redex`
+    /// to have been constructed with `persistent_dir=...`.
+    ///
+    /// `overflow` opts the adapter into the v0.3 active-overflow
+    /// surface (push-side shedding of cold blobs when local disk
+    /// crosses the high-water threshold). Accepts:
+    ///
+    /// - `False` (default) — v0.2 pull-only posture; no
+    ///   `dataforts.blob.overflow` capability tag advertised,
+    ///   inbound `OverflowPush` requests rejected.
+    /// - `True` — turn on with defaults (85 % high water / 70 %
+    ///   low water / 16 pushes per tick / Mesh scope / 30 s tick).
+    /// - `dict` — typed config. Keys: `enabled` (bool, defaults
+    ///   to `True` when the dict is non-empty), `high_water_ratio`
+    ///   (float), `low_water_ratio` (float), `max_pushes_per_tick`
+    ///   (int), `scope` (str: `"node"` / `"zone"` / `"region"` /
+    ///   `"mesh"`), `tick_interval_ms` (int). Missing keys
+    ///   inherit defaults.
+    #[new]
+    #[pyo3(signature = (
+        redex,
+        adapter_id,
+        *,
+        persistent = false,
+        overflow = None,
+        tree_node_cache_bytes = None,
+    ))]
+    fn new(
+        py: Python<'_>,
+        redex: &PyRedex,
+        adapter_id: String,
+        persistent: bool,
+        overflow: Option<Bound<'_, PyAny>>,
+        tree_node_cache_bytes: Option<usize>,
+    ) -> PyResult<Self> {
+        let mut builder = InnerMeshBlobAdapter::new(adapter_id.clone(), redex.inner_arc())
+            .with_persistent(persistent);
+        if let Some(spec) = overflow {
+            let cfg = parse_overflow_spec(py, spec)?;
+            builder = builder.with_overflow(cfg);
+        }
+        if let Some(cap) = tree_node_cache_bytes {
+            builder = builder.with_tree_node_cache(cap);
+        }
+        Ok(Self {
+            inner: Arc::new(builder),
+            id: adapter_id,
+        })
+    }
+
+    /// Adapter identity (the `adapter_id` passed at construction).
+    #[getter]
+    fn adapter_id(&self) -> &str {
+        &self.id
+    }
+
+    fn __repr__(&self) -> String {
+        format!("MeshBlobAdapter(id={:?})", self.id)
+    }
+
+    /// True iff the adapter is currently advertising
+    /// `dataforts.blob.overflow` and accepting inbound
+    /// `OverflowPush` requests. Cheap (one read-lock acquire);
+    /// safe to call on a hot dashboard path.
+    #[getter]
+    fn overflow_enabled(&self) -> bool {
+        self.inner.overflow_enabled()
+    }
+
+    /// True iff the most recent tick observed local disk at
+    /// or above the high-water threshold. Stays `True`
+    /// through the hysteresis band on the way down; only
+    /// flips back to `False` once disk drops to or below the
+    /// low-water threshold. Tracks `dataforts_blob_overflow_active`.
+    #[getter]
+    fn overflow_active(&self) -> bool {
+        self.inner.overflow_active()
+    }
+
+    /// Snapshot the current overflow configuration as a
+    /// Python dict. Inspection-only — mutate via
+    /// [`set_overflow_enabled`] or [`set_overflow_config`].
+    #[getter]
+    fn overflow_config<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let cfg = self.inner.overflow_config();
+        overflow_config_to_dict(py, cfg)
+    }
+
+    /// Flip the overflow master switch at runtime. The
+    /// adapter's next capability rebroadcast adds (or
+    /// removes) the `dataforts.blob.overflow` tag; peers
+    /// observe the change on the following announcement
+    /// cycle. The rebroadcast itself is the operator's
+    /// responsibility (call `mesh.announce_capabilities`
+    /// after the toggle, or rely on the scheduled cadence).
+    fn set_overflow_enabled(&self, enabled: bool) {
+        self.inner.set_overflow_enabled(enabled);
+    }
+
+    /// Replace the entire overflow configuration in one
+    /// call. Useful for atomic enable + tune. `config` is a
+    /// dict with the same keys [`new`] accepts under the
+    /// `overflow` kwarg.
+    fn set_overflow_config(&self, py: Python<'_>, config: Bound<'_, PyAny>) -> PyResult<()> {
+        let cfg = parse_overflow_spec(py, config)?;
+        self.inner.set_overflow_config(cfg);
+        Ok(())
+    }
+
+    /// Store `data` under the content-address declared by
+    /// `blob_ref`. The substrate verifies that `blake3(data)`
+    /// matches `blob_ref.hash` before persisting; mismatches
+    /// raise `BlobError`. Idempotent — repeated stores of
+    /// identical bytes against the same hash are a no-op.
+    ///
+    /// Releases the GIL during the actual store.
+    pub fn store(&self, py: Python<'_>, blob_ref: &PyBlobRef, data: &[u8]) -> PyResult<()> {
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        // Copy bytes WHILE the GIL is held. `&[u8]` accepts
+        // mutable `bytearray`, whose backing buffer can move or
+        // reallocate if another Python thread mutates it after
+        // the GIL is released. Capturing a raw pointer across
+        // `py.detach()` and reading inside the closure was
+        // unsound for that case.
+        let data_owned = data.to_vec();
+        py.detach(|| -> Result<(), InnerBlobError> {
+            rt.block_on(async move { adapter.store(&blob, &data_owned).await })
+        })
+        .map_err(map_blob_err)
+    }
+
+    /// Fetch the content-addressed bytes for `blob_ref`. Verifies
+    /// `blake3(returned) == blob_ref.hash`; raises `BlobError` on
+    /// mismatch or missing content.
+    pub fn fetch<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        let bytes = py
+            .detach(|| -> Result<bytes::Bytes, InnerBlobError> {
+                rt.block_on(async move { adapter.fetch(&blob).await })
+            })
+            .map_err(map_blob_err)?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    /// Fetch a byte range of `blob_ref`'s content. The range is
+    /// half-open `[start, end)` — `start` is inclusive, `end` is
+    /// exclusive, matching Python slice semantics
+    /// (`payload[start:end]`). The substrate does NOT verify
+    /// partial fetches against the full-content hash — callers
+    /// using range fetch accept that trade-off.
+    pub fn fetch_range<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+        start: u64,
+        end: u64,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        let bytes = py
+            .detach(|| -> Result<bytes::Bytes, InnerBlobError> {
+                rt.block_on(async move { adapter.fetch_range(&blob, start..end).await })
+            })
+            .map_err(map_blob_err)?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    /// Probe local presence. Returns `True` when every chunk of
+    /// `blob_ref` is reachable on the local node, `False`
+    /// otherwise. Doesn't go over the wire.
+    pub fn exists(&self, py: Python<'_>, blob_ref: &PyBlobRef) -> PyResult<bool> {
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        py.detach(|| -> Result<bool, InnerBlobError> {
+            rt.block_on(async move { adapter.exists(&blob).await })
+        })
+        .map_err(map_blob_err)
+    }
+
+    /// Render the adapter's Prometheus text body. Operators pipe
+    /// the result into an HTTP scrape endpoint.
+    pub fn prometheus_text(&self) -> String {
+        self.inner.prometheus_text()
+    }
+
+    /// v0.3: store `data` as a hierarchical-manifest blob
+    /// ([`BlobRef::Tree`]). Returns the resulting BlobRef.
+    /// Wraps `MeshBlobAdapter::store_stream_tree` for callers
+    /// that have the bytes in memory; for true streaming Python
+    /// consumers should chunk into multiple stores via the
+    /// substrate's streaming-store-token API (post-v0.3).
+    ///
+    /// `encoding` defaults to `Encoding::replicated()`. Pass
+    /// `Encoding::reed_solomon(k, m)` for RS-encoded storage.
+    ///
+    /// Returns a Python `BlobRef` carrying the Tree's (uri,
+    /// root_hash, total_size, depth).
+    #[pyo3(signature = (data, *, encoding = None))]
+    pub fn store_stream_tree_from_bytes(
+        &self,
+        py: Python<'_>,
+        data: &[u8],
+        encoding: Option<&PyEncoding>,
+    ) -> PyResult<PyBlobRef> {
+        use bytes::Bytes;
+        use futures::stream;
+        use net::adapter::net::dataforts::blob::blob_tree::ChunkingStrategy;
+        use net::adapter::net::dataforts::Encoding;
+
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let enc = match encoding {
+            Some(e) if e.kind == "reed_solomon" => Encoding::ReedSolomon {
+                k: e.k
+                    .unwrap_or(net::adapter::net::dataforts::blob::erasure::DEFAULT_RS_K),
+                m: e.m
+                    .unwrap_or(net::adapter::net::dataforts::blob::erasure::DEFAULT_RS_M),
+            },
+            _ => Encoding::Replicated,
+        };
+        let owned = data.to_vec();
+        let blob = py
+            .detach(
+                || -> Result<net::adapter::net::dataforts::BlobRef, InnerBlobError> {
+                    rt.block_on(async move {
+                        let s = stream::once(
+                            async move { Ok::<_, InnerBlobError>(Bytes::from(owned)) },
+                        );
+                        adapter
+                            .store_stream_tree(Box::pin(s), enc, ChunkingStrategy::default())
+                            .await
+                    })
+                },
+            )
+            .map_err(map_blob_err)?;
+        Ok(PyBlobRef::from_inner(blob))
+    }
+
+    /// v0.3: repair a Tree-encoded RS blob in-place. Walks every
+    /// stripe, reconstructs missing data chunks from parity, and
+    /// re-stores them under their original content-addressed
+    /// hashes. Returns a dict carrying the `RepairReport` counts.
+    ///
+    /// This is the unauthenticated system-internal entry point;
+    /// callers behind a network surface should route through
+    /// `repair_blob_authorized` (not yet exposed in bindings).
+    pub fn repair_blob<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let rt = shared_runtime()?;
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        let report = py
+            .detach(
+                || -> Result<net::adapter::net::dataforts::blob::RepairReport, InnerBlobError> {
+                    rt.block_on(async move { adapter.repair_blob(&blob).await })
+                },
+            )
+            .map_err(map_blob_err)?;
+        let out = PyDict::new(py);
+        out.set_item("stripes_walked", report.stripes_walked)?;
+        out.set_item("stripes_already_healthy", report.stripes_already_healthy)?;
+        out.set_item("stripes_repaired", report.stripes_repaired)?;
+        out.set_item("chunks_restored", report.chunks_restored)?;
+        out.set_item("stripes_unrecoverable", report.stripes_unrecoverable)?;
+        out.set_item(
+            "replicated_stripes_skipped",
+            report.replicated_stripes_skipped,
+        )?;
+        out.set_item(
+            "replicated_leaves_skipped",
+            report.replicated_leaves_skipped,
+        )?;
+        Ok(out)
+    }
+
+    /// v0.3 tree-walker LRU cache statistics. Returns
+    /// `(hits, misses, bytes, entries)` when the cache is wired
+    /// (constructor `tree_node_cache_bytes` kwarg), `None`
+    /// otherwise.
+    pub fn tree_node_cache_stats(&self) -> Option<(u64, u64, usize, usize)> {
+        self.inner.tree_node_cache_stats()
+    }
+}
+
+/// Parse the Python-side `overflow` kwarg into an
+/// [`InnerOverflowConfig`]. Accepts three shapes:
+///
+/// - `True` / `False` — master switch with default thresholds.
+/// - `dict` with optional typed keys — keys not present
+///   inherit `OverflowConfig::default()`. Unknown keys raise
+///   `TypeError` so a typo doesn't silently fail (e.g.
+///   `high_water_ration` → operator sees the error rather
+///   than the default firing).
+/// - anything else — `TypeError`.
+fn parse_overflow_spec(py: Python<'_>, spec: Bound<'_, PyAny>) -> PyResult<InnerOverflowConfig> {
+    // Try bool first. PyO3's `extract::<bool>()` accepts only
+    // the exact Python `bool` type — `1` / `0` int values
+    // don't fall through, which matches the explicit
+    // "boolean or dict" contract.
+    if let Ok(enabled) = spec.extract::<bool>() {
+        return Ok(InnerOverflowConfig {
+            enabled,
+            ..InnerOverflowConfig::default()
+        });
+    }
+    // Otherwise expect a dict.
+    let dict = spec.cast::<PyDict>().map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err(
+            "overflow: expected bool or dict; got a different type",
+        )
+    })?;
+
+    let mut cfg = InnerOverflowConfig::default();
+    // Track unknown keys so we can surface a single TypeError
+    // listing all of them, instead of failing on the first.
+    let allowed = [
+        "enabled",
+        "high_water_ratio",
+        "low_water_ratio",
+        "max_pushes_per_tick",
+        "scope",
+        "tick_interval_ms",
+    ];
+    let mut unknown = Vec::<String>::new();
+    for (k, _) in dict.iter() {
+        let name: String = k.extract()?;
+        if !allowed.contains(&name.as_str()) {
+            unknown.push(name);
+        }
+    }
+    if !unknown.is_empty() {
+        return Err(pyo3::exceptions::PyTypeError::new_err(format!(
+            "overflow: unknown key(s) {:?}; allowed: {:?}",
+            unknown, allowed
+        )));
+    }
+    // `enabled` is required to be explicit when the dict shape is
+    // used. The plan documents the contract as "kwarg = bool OR
+    // dict-with-explicit-enabled" — silently auto-flipping the
+    // master switch on any non-empty dict diverged from the Rust
+    // and Node bindings, and made it easy to ship a dict that
+    // looks like config-only but actually flips production on.
+    // The bool short-circuit above still covers the simple case
+    // (`overflow=True`).
+    if let Some(v) = dict.get_item("enabled")? {
+        cfg.enabled = v.extract::<bool>()?;
+    } else {
+        return Err(pyo3::exceptions::PyTypeError::new_err(
+            "overflow: dict form requires explicit 'enabled' key (True or False); \
+             pass overflow=True for the simple master-switch case",
+        ));
+    }
+    if let Some(v) = dict.get_item("high_water_ratio")? {
+        cfg.high_water_ratio = v.extract::<f64>()?;
+    }
+    if let Some(v) = dict.get_item("low_water_ratio")? {
+        cfg.low_water_ratio = v.extract::<f64>()?;
+    }
+    if let Some(v) = dict.get_item("max_pushes_per_tick")? {
+        cfg.max_pushes_per_tick = v.extract::<usize>()?;
+    }
+    if let Some(v) = dict.get_item("scope")? {
+        let s: String = v.extract()?;
+        cfg.scope = match s.to_ascii_lowercase().as_str() {
+            "node" => TopologyScope::Node,
+            "zone" => TopologyScope::Zone,
+            "region" => TopologyScope::Region,
+            "mesh" => TopologyScope::Mesh,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "overflow.scope: expected 'node'|'zone'|'region'|'mesh'; got {:?}",
+                    other
+                )));
+            }
+        };
+    }
+    if let Some(v) = dict.get_item("tick_interval_ms")? {
+        cfg.tick_interval_ms = v.extract::<u64>()?;
+    }
+    let _ = py; // Silence unused warning under cfg(feature) shapes.
+    Ok(cfg)
+}
+
+// =========================================================================
+// Async surface — T2-F1.
+//
+// Awaitable top-level publish/resolve helpers + an AsyncMeshBlobAdapter
+// wrapper around the same Arc<InnerMeshBlobAdapter> as the sync sibling.
+// Construction (set_overflow_config, prometheus_text, etc.) stays sync;
+// the actual I/O paths become awaitables.
+// =========================================================================
+
+/// Async sibling of [`blob_publish`]. Same wire-encoded BlobRef
+/// return shape; the actual store happens on the bridge runtime
+/// instead of a blocking thread.
+///
+/// Sync equivalent: :func:`blob_publish`.
+#[pyfunction]
+pub fn async_blob_publish<'py>(
+    py: Python<'py>,
+    adapter_id: &str,
+    uri: String,
+    data: &[u8],
+) -> PyResult<Bound<'py, PyAny>> {
+    let adapter = global_blob_adapter_registry()
+        .get(adapter_id)
+        .ok_or_else(|| {
+            PyKeyError::new_err(format!("blob adapter {:?} not registered", adapter_id))
+        })?;
+    // GIL is still held — copy the payload under the GIL so we
+    // don't capture a raw pointer across the await (PyO3 `&[u8]`
+    // accepts mutable `bytearray`, whose buffer can be relocated
+    // by another Python thread).
+    let data_owned = data.to_vec();
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        let bytes = publish_blob(adapter.as_ref(), uri, &data_owned)
+            .await
+            .map_err(map_blob_err)?;
+        Ok::<Vec<u8>, PyErr>(bytes)
+    })
+}
+
+/// Async sibling of [`blob_resolve`].
+///
+/// Sync equivalent: :func:`blob_resolve`.
+#[pyfunction]
+pub fn async_blob_resolve<'py>(
+    py: Python<'py>,
+    adapter_id: &str,
+    payload: &[u8],
+) -> PyResult<Bound<'py, PyAny>> {
+    let adapter = global_blob_adapter_registry()
+        .get(adapter_id)
+        .ok_or_else(|| {
+            PyKeyError::new_err(format!("blob adapter {:?} not registered", adapter_id))
+        })?;
+    let payload_owned = payload.to_vec();
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        let bytes = resolve_payload(&payload_owned, adapter.as_ref())
+            .await
+            .map_err(map_blob_err)?;
+        Ok::<Vec<u8>, PyErr>(bytes.to_vec())
+    })
+}
+
+/// Async sibling of [`PyMeshBlobAdapter`]. Wraps the same
+/// `Arc<MeshBlobAdapter>`; the sync sibling and this class can
+/// share a single adapter (and registry entry).
+///
+/// Sync equivalent: :class:`MeshBlobAdapter`.
+#[pyclass(name = "AsyncMeshBlobAdapter", module = "_net")]
+pub struct PyAsyncMeshBlobAdapter {
+    inner: Arc<InnerMeshBlobAdapter>,
+    #[allow(dead_code)]
+    id: String,
+}
+
+#[pymethods]
+impl PyAsyncMeshBlobAdapter {
+    /// Build against an existing sync `MeshBlobAdapter`. Cheap
+    /// (`Arc::clone`); operations on either shape touch the same
+    /// underlying adapter / registry entry.
+    #[new]
+    fn new(adapter: &PyMeshBlobAdapter) -> Self {
+        Self {
+            inner: adapter.inner.clone(),
+            id: adapter.id.clone(),
+        }
+    }
+
+    /// Sync — pure rendering, no I/O.
+    pub fn prometheus_text(&self) -> String {
+        self.inner.prometheus_text()
+    }
+
+    /// v0.3 tree-walker LRU cache statistics. Sync — DashMap read.
+    pub fn tree_node_cache_stats(&self) -> Option<(u64, u64, usize, usize)> {
+        self.inner.tree_node_cache_stats()
+    }
+
+    /// Awaitable variant of :meth:`MeshBlobAdapter.store`.
+    pub fn store<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+        data: &[u8],
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        let data_owned = data.to_vec();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            adapter
+                .store(&blob, &data_owned)
+                .await
+                .map_err(map_blob_err)
+        })
+    }
+
+    /// Awaitable variant of :meth:`MeshBlobAdapter.fetch`.
+    pub fn fetch<'py>(&self, py: Python<'py>, blob_ref: &PyBlobRef) -> PyResult<Bound<'py, PyAny>> {
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            let bytes = adapter.fetch(&blob).await.map_err(map_blob_err)?;
+            Ok::<Vec<u8>, PyErr>(bytes.to_vec())
+        })
+    }
+
+    /// Awaitable variant of :meth:`MeshBlobAdapter.fetch_range`.
+    pub fn fetch_range<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+        start: u64,
+        end: u64,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            let bytes = adapter
+                .fetch_range(&blob, start..end)
+                .await
+                .map_err(map_blob_err)?;
+            Ok::<Vec<u8>, PyErr>(bytes.to_vec())
+        })
+    }
+
+    /// Awaitable variant of :meth:`MeshBlobAdapter.exists`.
+    pub fn exists<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            adapter.exists(&blob).await.map_err(map_blob_err)
+        })
+    }
+
+    /// Awaitable variant of :meth:`MeshBlobAdapter.repair_blob`.
+    /// Resolves to a `(stripes_walked, stripes_already_healthy,
+    /// stripes_repaired, chunks_restored, stripes_unrecoverable,
+    /// replicated_stripes_skipped, replicated_leaves_skipped)`
+    /// tuple — same field set as the sync method's dict; left as
+    /// a tuple here to avoid building a PyDict outside the GIL.
+    pub fn repair_blob<'py>(
+        &self,
+        py: Python<'py>,
+        blob_ref: &PyBlobRef,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let adapter = self.inner.clone();
+        let blob = blob_ref.as_inner().clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            let report = adapter.repair_blob(&blob).await.map_err(map_blob_err)?;
+            Ok::<(u64, u64, u64, u64, u64, u64, u64), PyErr>((
+                report.stripes_walked,
+                report.stripes_already_healthy,
+                report.stripes_repaired,
+                report.chunks_restored,
+                report.stripes_unrecoverable,
+                report.replicated_stripes_skipped,
+                report.replicated_leaves_skipped,
+            ))
+        })
+    }
+}
+
+/// Render an [`InnerOverflowConfig`] as a Python dict. Inverse
+/// of [`parse_overflow_spec`] for dict shape; round-trip
+/// preserved (modulo `enabled` semantics: an
+/// `enabled = false` config that came in via a `dict` form
+/// round-trips as `{enabled: false, ...}` rather than `False`,
+/// since the dict shape carries the thresholds).
+fn overflow_config_to_dict<'py>(
+    py: Python<'py>,
+    cfg: InnerOverflowConfig,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new(py);
+    dict.set_item("enabled", cfg.enabled)?;
+    dict.set_item("high_water_ratio", cfg.high_water_ratio)?;
+    dict.set_item("low_water_ratio", cfg.low_water_ratio)?;
+    dict.set_item("max_pushes_per_tick", cfg.max_pushes_per_tick)?;
+    let scope_str = match cfg.scope {
+        TopologyScope::Node => "node",
+        TopologyScope::Zone => "zone",
+        TopologyScope::Region => "region",
+        TopologyScope::Mesh => "mesh",
+    };
+    dict.set_item("scope", scope_str)?;
+    dict.set_item("tick_interval_ms", cfg.tick_interval_ms)?;
+    Ok(dict)
+}

@@ -1,0 +1,75 @@
+cmake_minimum_required(VERSION 3.5.0)
+project(nlp VERSION 0.1.0)
+set(CMAKE_CXX_STANDARD 17)
+
+include(CTest)
+enable_testing()
+
+# Default to an optimized build for single-config generators (Makefiles,
+# Ninja). Without this, a plain `cmake -B build -S .` on Linux/macOS leaves
+# CMAKE_BUILD_TYPE empty, which means NO optimization flags at all -- local
+# developer builds ran unoptimized while CI (which passes
+# -DCMAKE_BUILD_TYPE=Release explicitly) did not. Multi-config generators
+# such as Visual Studio ignore this and pick the config at build time.
+get_property(_isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT _isMultiConfig AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+    message(STATUS "CMAKE_BUILD_TYPE not set; defaulting to Release")
+endif()
+
+find_package(ICU REQUIRED COMPONENTS i18n uc data io)
+find_library(DL_LIBRARY dl)  # Ensure dl library is found
+
+set(CMAKE_GENERATOR_PLATFORM Win32 HINT)
+
+if(MSVC)
+    # Compile the sources within each target in parallel. `cmake --build
+    # --parallel N` with the Visual Studio generator becomes msbuild /m:N,
+    # which parallelises PROJECTS -- so lite's 101 sources (Arun.cpp alone is
+    # ~14k lines) compiled one after another no matter what --parallel said.
+    # Measured on a clean Win32 Release build with --parallel 4:
+    # 189s without, 49s with /MP4 (modelling a 4-core CI runner).
+    add_compile_options(/MP)
+    add_compile_options(/w44005 /w44244 /w44311 /w44211 /w44302 /w44267 /w44312 /w45033 /w44624 /w44996 /w44273)
+    add_definitions(-D_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
+    add_definitions(-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_CRT_NON_CONFORMING_SWPRINTFS)
+    add_definitions(-DNONSTD_)
+    add_definitions(-D_CONSOLE)
+    add_definitions(-DWIN32)
+    add_definitions(-DNDEBUG)
+    add_definitions(-D_WINDOWS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:wchar_t /std:c++17")
+endif()
+
+# Enables the compiled-KB load path in CG::CG (cs/libconsh/cg.cpp).
+# Without this, -COMPILED is a no-op: the engine never loads the analyzer
+# KB library (kb.dll on Windows, kb.so on Linux/macOS) or calls kb_setup.
+add_definitions(-DEMBEDED_KB)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(NLP_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+
+# build shared library (DLL in Windows)
+# add_definitions(-DSHARED_LIB)
+
+include_directories(cs/include)
+include_directories(include)
+include_directories(include/Api)
+include_directories(include/Api/lite)
+include_directories(${ICU_INCLUDE_DIR})
+
+add_subdirectory(cs)
+add_subdirectory(src)
+add_subdirectory(lite)
+add_subdirectory(nlp)
+add_subdirectory(test)
+
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+include(CPack)

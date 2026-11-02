@@ -1,0 +1,376 @@
+from pathlib import Path
+
+import pytest
+from pyrosm import get_data
+
+
+@pytest.fixture
+def test_pbf():
+    pbf_path = get_data("test_pbf")
+    return pbf_path
+
+
+@pytest.fixture
+def helsinki_pbf():
+    pbf_path = get_data("helsinki_pbf")
+    return pbf_path
+
+
+@pytest.fixture
+def helsinki_history_pbf():
+    pbf_path = get_data("helsinki_test_history_pbf")
+    return pbf_path
+
+
+@pytest.fixture
+def test_output_dir():
+    import tempfile
+
+    return str(Path(tempfile.gettempdir()) / "pyrosm_test_results")
+
+
+# Columns of every network frame
+BASE_COLUMNS = ["id", "geometry", "tags", "osm_type", "length"]
+WALKING_COLUMNS = [
+    "bridge",
+    "foot",
+    "highway",
+    "lanes",
+    "lit",
+    "maxspeed",
+    "name",
+    "oneway",
+    "ref",
+    "service",
+    "surface",
+]
+DRIVING_COLUMNS = [
+    "bridge",
+    "highway",
+    "int_ref",
+    "lanes",
+    "maxspeed",
+    "name",
+    "oneway",
+    "ref",
+    "surface",
+]
+CYCLING_COLUMNS = [
+    "bicycle",
+    "bridge",
+    "foot",
+    "highway",
+    "lanes",
+    "lit",
+    "maxspeed",
+    "name",
+    "oneway",
+    "ref",
+    "service",
+    "surface",
+    "tunnel",
+]
+
+
+@pytest.mark.parametrize(
+    "network_type, shape, columns, excluded_highways",
+    [
+        ("walking", (237, 19), WALKING_COLUMNS, ["motorway"]),
+        ("driving", (171, 17), DRIVING_COLUMNS, ["footway", "path"]),
+        (
+            "driving+service",
+            (199, 19),
+            DRIVING_COLUMNS + ["lit", "service"],
+            ["footway", "path"],
+        ),
+        ("cycling", (289, 21), CYCLING_COLUMNS, ["motorway", "motorway_link"]),
+        ("all", (331, 23), CYCLING_COLUMNS + ["access"], []),
+    ],
+    ids=["walking", "driving", "driving+service", "cycling", "all"],
+)
+def test_filter_network_by_type(
+    test_pbf, network_type, shape, columns, excluded_highways
+):
+    from pyrosm import OSM
+    from geopandas import GeoDataFrame
+    from shapely.geometry import LineString
+
+    osm = OSM(filepath=test_pbf)
+    gdf = osm.get_network(network_type=network_type)
+
+    assert isinstance(gdf.loc[0, "geometry"], LineString)
+    assert isinstance(gdf, GeoDataFrame)
+    assert gdf.shape == shape
+    for col in columns + BASE_COLUMNS:
+        assert col in gdf.columns
+
+    # Highway types the network type leaves out by default
+    highways = gdf["highway"].unique()
+    for highway in excluded_highways:
+        assert highway not in highways
+
+
+def test_saving_network_to_shapefile(test_pbf, test_output_dir):
+    from pyrosm import OSM
+    import geopandas as gpd
+    import shutil
+    import numpy as np
+
+    if not Path(test_output_dir).exists():
+        Path(test_output_dir).mkdir(parents=True)
+
+    temp_path = str(Path(test_output_dir) / "pyrosm_test.shp")
+    osm = OSM(filepath=test_pbf)
+    gdf = osm.get_network(network_type="cycling")
+    gdf.to_file(temp_path)
+
+    # Ensure it can be read and matches with original one
+    gdf2 = gpd.read_file(temp_path)
+
+    cols = gdf.columns
+    for col in cols:
+        # Geometry col might contain different types of geoms
+        # (due to saving MultiLineGeometries which might be read as a "single")
+        if col == "geometry":
+            continue
+
+        try:
+            assert gdf[col].tolist() == gdf2[col].tolist()
+        except AssertionError:
+            # Skip if the column contains only None values (to avoid conflict between None and np.nan)
+            if gdf[col].unique().tolist() == [None]:
+                continue
+
+    # Clean up
+    shutil.rmtree(test_output_dir)
+
+
+@pytest.mark.parametrize("as_polygon", [False, True], ids=["list", "shapely box"])
+def test_parse_network_with_bbox(test_pbf, as_polygon):
+    from pyrosm import OSM
+    from geopandas import GeoDataFrame
+    from shapely.geometry import LineString, box
+
+    bounds = [26.94, 60.525, 26.96, 60.535]
+    bounding_box = box(*bounds) if as_polygon else bounds
+    osm = OSM(filepath=test_pbf, bounding_box=bounding_box)
+    gdf = osm.get_network()
+
+    assert isinstance(gdf.loc[0, "geometry"], LineString)
+    assert isinstance(gdf, GeoDataFrame)
+
+    # Test shape (#236: edges crossing the bbox edge are now returned complete
+    # rather than cut, so boundary-crossing edges are included)
+    assert gdf.shape == (71, 19)
+    for col in WALKING_COLUMNS + BASE_COLUMNS:
+        assert col in gdf.columns
+
+    # Should not include 'motorway' ways by default
+    assert "motorway" not in gdf["highway"].unique()
+
+    # Every returned edge intersects the bounding box. Edges that straddle the edge
+    # are returned complete (#236), so the result may extend slightly beyond the
+    # filter; clip with GeoPandas afterwards if exact bounds are required.
+    assert gdf.intersects(box(*bounds)).all()
+
+
+def test_passing_incorrect_bounding_box(test_pbf):
+    from pyrosm import OSM
+
+    wrong_format = "[26.94, 60.525, 26.96, 60.535]"
+    try:
+        osm = OSM(filepath=test_pbf, bounding_box=wrong_format)
+    except ValueError as e:
+        if "bounding_box should be" in str(e):
+            pass
+        else:
+            raise (e)
+    except Exception as e:
+        raise e
+
+
+def test_passing_incorrect_net_type(test_pbf):
+    from pyrosm import OSM
+
+    osm = OSM(filepath=test_pbf)
+    try:
+        osm.get_network("wrong_network")
+    except ValueError as e:
+        if "'network_type' should be one of the following" in str(e):
+            pass
+        else:
+            raise (e)
+    except Exception as e:
+        raise e
+
+    try:
+        osm.get_network(42)
+    except ValueError as e:
+        if "'network_type' should be one of the following" in str(e):
+            pass
+        else:
+            raise (e)
+    except Exception as e:
+        raise e
+
+
+def test_reading_network_from_area_without_data(helsinki_pbf):
+    from pyrosm import OSM
+    from geopandas import GeoDataFrame
+
+    # Bounding box for area that does not have any data
+    bbox = [24.940514, 60.173849, 24.942, 60.175892]
+
+    osm = OSM(filepath=helsinki_pbf, bounding_box=bbox)
+
+    # The tool should warn if no buildings were found
+    with pytest.warns(UserWarning) as w:
+        gdf = osm.get_network()
+        # Check the warning text
+        if "could not find any network data" in str(w):
+            pass
+
+    # Result should be None
+    assert gdf is None
+
+
+def test_adding_extra_attribute(helsinki_pbf):
+    from pyrosm import OSM
+    from geopandas import GeoDataFrame
+
+    osm = OSM(filepath=helsinki_pbf)
+    gdf = osm.get_network()
+    extra_col = "wikidata"
+    extra = osm.get_network(extra_attributes=[extra_col])
+
+    # The extra should have one additional column compared to the original one
+    assert extra.shape[1] == gdf.shape[1] + 1
+    # Should have same number of rows
+    assert extra.shape[0] == gdf.shape[0]
+    assert extra_col in extra.columns
+    assert len(extra[extra_col].dropna().unique()) > 0
+    assert isinstance(gdf, GeoDataFrame)
+
+
+@pytest.mark.parametrize(
+    "bounding_box, edges_shape, nodes_shape",
+    [
+        (None, (1025, 21), (977, 9)),
+        # #236: edges crossing the box edge are returned complete, with their nodes.
+        # #199: the nodes frame keeps every endpoint of the kept edges, also those
+        # just outside the box, so the nodes/edges pair stays consistent for graph
+        # export.
+        ([26.94, 60.525, 26.96, 60.535], (278, 21), (281, 9)),
+    ],
+    ids=["whole file", "bounding box"],
+)
+def test_getting_nodes_and_edges(test_pbf, bounding_box, edges_shape, nodes_shape):
+    from pyrosm import OSM
+    from geopandas import GeoDataFrame
+    from shapely.geometry import Point, LineString
+
+    osm = OSM(filepath=test_pbf, bounding_box=bounding_box)
+
+    nodes, edges = osm.get_network(nodes=True)
+    nodes = nodes.reset_index(drop=True)
+
+    assert isinstance(edges, GeoDataFrame)
+    assert isinstance(edges.loc[0, "geometry"], LineString)
+
+    assert isinstance(nodes, GeoDataFrame)
+    assert isinstance(nodes.loc[0, "geometry"], Point)
+
+    assert edges.shape == edges_shape
+    assert nodes.shape == nodes_shape
+
+    # Edges should have "u" and "v" columns
+    for col in ["u", "v", "length"]:
+        assert col in edges.columns
+
+    # Nodes should have (at least) "id", "lat", and "lon" columns
+    for col in ["id", "lat", "lon"]:
+        assert col in nodes.columns
+
+
+def test_reading_network_from_osh(helsinki_history_pbf):
+    from pyrosm import OSM
+    from pyrosm.utils import datetime_to_unix_time
+    import pandas as pd
+    from geopandas import GeoDataFrame
+    from shapely.geometry import LineString
+
+    timestamp = "2010-01-01"
+    dt = pd.to_datetime(timestamp, utc=True)
+    unix_time = datetime_to_unix_time(dt)
+
+    osm = OSM(filepath=helsinki_history_pbf)
+    gdf = osm.get_network(timestamp=timestamp)
+
+    assert isinstance(gdf, GeoDataFrame)
+    assert isinstance(gdf.loc[0, "geometry"], LineString)
+    assert gdf.shape == (171, 22)
+
+    required_cols = ["highway", "id", "timestamp", "version", "geometry"]
+
+    for col in required_cols:
+        assert col in gdf.columns
+
+    # None of the features should be newer than the given timestamp
+    assert gdf["timestamp"].max() <= unix_time
+
+    # There should be only a single version per id
+    cnt = len(gdf)
+    assert cnt == len(gdf.drop_duplicates(subset=["id"]))
+
+    # Changing the timestamp should parse a different set of elements
+    new_timestamp = "2015-01-01"
+    dt2 = pd.to_datetime(new_timestamp, utc=True)
+    unix_time2 = datetime_to_unix_time(dt2)
+
+    gdf2 = osm.get_network(timestamp=new_timestamp)
+
+    # Now the "current_timestamp" should have been updated
+    assert osm._current_timestamp == unix_time2
+
+    # Number of elements should (likely) be higher
+    assert len(gdf2) > len(gdf)
+
+    # There should be newer timestamps in the data
+    assert gdf2["timestamp"].max() > unix_time
+
+    # But is shouldn't be higher than the given timestamp
+    assert gdf2["timestamp"].max() <= unix_time2
+
+    # Test reading network with nodes
+    n, e = osm.get_network(timestamp=new_timestamp, nodes=True)
+    assert isinstance(n, GeoDataFrame)
+    assert isinstance(e, GeoDataFrame)
+    # Timestamp shouldn't be higher than the given timestamp
+    assert e["timestamp"].max() <= unix_time2
+    assert n["timestamp"].max() <= unix_time2
+
+
+def test_osh_network_does_not_leak_empty_tag_columns(helsinki_history_pbf):
+    """Regression test for the pandas 3.0 string-dtype / Copy-on-Write change.
+
+    Missing tag values became ``pd.NA`` instead of ``None``, so the OSH
+    way-record cleaner stopped stripping empty tags. Every way record then
+    carried the union of all tag keys (NA-valued), inflating the network
+    output from (210, 25) to (383, 27) and admitting extra ways through the
+    highway filter.
+    """
+    from pyrosm import OSM
+
+    osm = OSM(filepath=helsinki_history_pbf)
+    gdf = osm.get_network(timestamp="2010-01-01")
+
+    # An all-NA column is a "phantom" tag that the cleaner failed to strip.
+    phantom = [c for c in gdf.columns if c != "geometry" and gdf[c].isna().all()]
+    assert phantom == [], f"empty tag columns leaked into OSH output: {phantom}"
+
+    # The column set must stay lean (22 with the ``visible`` column; 21 since the latest
+    # version of each way is taken whole (#379); 24 before that, 25 before the network-filter fix and 27 with the
+    # #248 NA-leak bug). The row count dropped by one with the OSMnx-parity filters
+    # (#369), by one more with #379, as a way lost its highway tag before 2010, and by
+    # 33 ways that were deleted before 2010.
+    assert gdf.shape == (171, 22)

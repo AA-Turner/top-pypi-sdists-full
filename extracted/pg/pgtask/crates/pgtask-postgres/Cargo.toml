@@ -1,0 +1,27 @@
+[package]
+name = "pgtask-postgres"
+description = "PostgreSQL storage implementation for pgtask"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+readme = "README.md"
+
+[dependencies]
+chrono.workspace = true
+pgtask-core = { path = "../pgtask-core", version = "0.4.0" }
+pgtask-otel = { path = "../pgtask-otel", version = "0.4.0" }
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+proptest-state-machine.workspace = true
+
+[lints]
+workspace = true

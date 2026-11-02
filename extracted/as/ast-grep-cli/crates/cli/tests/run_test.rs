@@ -118,6 +118,23 @@ export function greet(name: string) {
   Ok(())
 }
 
+/// Verifies that outline honors project-configured hidden-file searches.
+#[test]
+fn test_outline_no_ignore_from_config() -> Result<()> {
+  let dir = create_test_files([
+    ("sgconfig.yml", "ruleDirs: []\nnoIgnore:\n  - hidden\n"),
+    (".hidden.js", "export function hiddenFunction() {}"),
+  ])?;
+
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args(["outline", ".", "--json=compact"])
+    .assert()
+    .success()
+    .stdout(contains(r#""name":"hiddenFunction""#));
+  Ok(())
+}
+
 #[test]
 fn test_outline_javascript_in_html_stdin() -> Result<()> {
   Command::new(cargo_bin!())
@@ -198,6 +215,23 @@ fn test_inspect() -> Result<()> {
 }
 
 #[test]
+fn test_inspect_skipped_file() -> Result<()> {
+  let dir = create_test_files([("a.js", "alert(1)"), ("empty.js", "")])?;
+  // GBK-encoded comment, not valid UTF-8
+  std::fs::write(dir.path().join("gbk.js"), b"alert(2) // \xd6\xd0\xce\xc4")?;
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args(["-p", "alert($A)", "-l", "js", "--inspect", "entity"])
+    .assert()
+    .success()
+    .stderr(contains("sg: entity|file|gbk.js: skipped=invalidUtf8"))
+    .stderr(contains("sg: entity|file|empty.js: skipped=emptyFile"))
+    .stderr(contains("sg: entity|file|gbk.js: language").not())
+    .stderr(contains("scannedFileCount=3,skippedFileCount=2"));
+  Ok(())
+}
+
+#[test]
 fn test_status_code_fail_with_no_match() -> Result<()> {
   let dir = create_test_files([("a.js", "alert(1)")])?;
   Command::new(cargo_bin!())
@@ -239,6 +273,39 @@ fn test_config_arg_in_default_run() -> Result<()> {
     .assert()
     .success()
     .stdout(contains("alert(123)"));
+  Ok(())
+}
+
+/// Verifies that run honors project-configured hidden-file searches.
+#[test]
+fn test_no_ignore_from_config() -> Result<()> {
+  let dir = create_test_files([
+    ("sgconfig.yml", "ruleDirs: []\nnoIgnore:\n  - hidden\n"),
+    (".hidden.js", "alert(123)"),
+  ])?;
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args(["-p", "alert($A)", "-l", "js"])
+    .assert()
+    .success()
+    .stdout(contains("alert(123)"));
+  Ok(())
+}
+
+#[test]
+fn test_cli_no_ignore_overrides_config() -> Result<()> {
+  let dir = create_test_files([
+    ("sgconfig.yml", "ruleDirs: []\nnoIgnore: [hidden]\n"),
+    (".hidden/a.js", "alert(123)"),
+    ("visible.js", "alert(456)"),
+  ])?;
+  Command::new(cargo_bin!())
+    .current_dir(dir.path())
+    .args(["-p", "alert($A)", "-l", "js", "--no-ignore", "vcs"])
+    .assert()
+    .success()
+    .stdout(contains("alert(456)"))
+    .stdout(contains("alert(123)").not());
   Ok(())
 }
 

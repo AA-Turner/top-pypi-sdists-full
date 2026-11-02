@@ -66,15 +66,15 @@ class KeyRefused(RuntimeError):
     """Probe refused the daemon's key itself (a 401, or a 403 naming the credential)."""
 
 
-def _refuse_key(resp: httpx.Response) -> None:
+def _refuse_key(response: httpx.Response) -> None:
     """Raise `KeyRefused` when this answer refuses the credential (not a scope)."""
     try:
-        detail = resp.json().get("detail")
+        detail = response.json().get("detail")
     except (ValueError, AttributeError):
         detail = None
     message = detail.get("message") if isinstance(detail, dict) else detail
-    if credential_refused(resp.status_code, message if isinstance(message, str) else resp.text):
-        raise KeyRefused(f"{resp.request.method} {resp.request.url.path}: HTTP {resp.status_code}")
+    if credential_refused(response.status_code, message if isinstance(message, str) else response.text):
+        raise KeyRefused(f"{response.request.method} {response.request.url.path}: HTTP {response.status_code}")
 
 
 def valid_ref(ref: str) -> str:
@@ -116,10 +116,10 @@ async def whoami(env: dict[str, str]) -> dict:
     with without_limit():
         client = await _client(env)
     async with client:
-        resp = await client.get("/v1/me")
-        _refuse_key(resp)
-        resp.raise_for_status()
-        return resp.json()
+        response = await client.get("/v1/me")
+        _refuse_key(response)
+        response.raise_for_status()
+        return response.json()
 
 
 async def server_features(env: dict[str, str]) -> frozenset[str] | None:
@@ -133,18 +133,18 @@ async def server_features(env: dict[str, str]) -> frozenset[str] | None:
         return features
     try:
         async with await _client(env) as client:
-            resp = await client.get("/v1/server/features")
+            response = await client.get("/v1/server/features")
     except httpx.HTTPError:
         return None
-    _refuse_key(resp)
-    if resp.status_code == 404:
+    _refuse_key(response)
+    if response.status_code == 404:
         _features_shared.set(frozenset())
         _features_until_shared.set(_clock() + NO_FEATURES_RECHECK_S)
         return frozenset()
-    if resp.status_code != 200:
+    if response.status_code != 200:
         return None
     try:
-        listed = resp.json().get("features")
+        listed = response.json().get("features")
     except (ValueError, AttributeError):
         return None
     if not isinstance(listed, list):
@@ -174,36 +174,36 @@ async def deletion_preview(env: dict[str, str], kind: str, ref: str, *, recursiv
         raise RuntimeError("the server declares no trash (or could not be asked): a dry-run delete is not sent")
     segment = quote(ref, safe="")
     async with await _client(env) as client:
-        params = {"dry_run": "true"}
+        parameters = {"dry_run": "true"}
         if recursive and kind == "project":
-            params["recursive"] = "true"
+            parameters["recursive"] = "true"
         # Literal f-strings, one per route: tests/test_parity.py reads the path
         # at the call site.
         if kind == "run":
-            resp = await client.delete(f"/v1/runs/{segment}", params=params)
+            response = await client.delete(f"/v1/runs/{segment}", params=parameters)
         elif kind == "project":
-            resp = await client.delete(f"/v1/projects/{segment}", params=params)
+            response = await client.delete(f"/v1/projects/{segment}", params=parameters)
         elif kind == "experiment":
             # The experiment API's trash preview, under the project it is filed
             # in (`GET /v1/scopes` places it); an experiment has no subtree, so
             # `recursive` never applies. A ref that is not an experiment's is
             # answered as the failed read it is: "unknown owner".
-            resp = await _scope(client, ref)
-            if resp.status_code == 200 and (place := resp.json()).get("kind") == "experiment":
+            response = await _scope(client, ref)
+            if response.status_code == 200 and (place := response.json()).get("kind") == "experiment":
                 project = quote(str(place["project_id"]), safe="")
                 experiment = quote(str(place["id"]), safe="")
-                resp = await client.delete(
-                    f"/v1/projects/{project}/experiments/{experiment}", params=params
+                response = await client.delete(
+                    f"/v1/projects/{project}/experiments/{experiment}", params=parameters
                 )
-            elif resp.status_code == 200:
-                resp = httpx.Response(404)
+            elif response.status_code == 200:
+                response = httpx.Response(404)
         else:
             raise KeyError(kind)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        _refuse_key(response)
+        if response.status_code != 200:
             return {"id": ref, "name": ref, "what": kind, "others": {"unknown owner|items": 1},
                     "count": None, "updated_at": None}
-        data = resp.json()
+        data = response.json()
         me = _who((await whoami(env)).get("user_id")) if data.get("created_by") else None
         return {"id": data.get("id", ref), "name": data.get("name") or ref, "what": kind,
                 "others": others_from(data.get("created_by"), me),
@@ -241,28 +241,28 @@ async def project_slug(env: dict[str, str], ref: str) -> tuple[str, str] | None:
     """`(slug, id)` of the project a project or experiment ref is filed under: the
     project itself, or an experiment's project. `ref` reads as the CLI reads it
     (`probe.cli.refs`): `id:<uuid>`, `slug:<slug>`, a bare uuid or a bare slug;
-    `name:` needs a search, so it answers None, as does an unknown ref, an unfiled
-    one and any answer but a 200. Raises `KeyRefused`, and on a transport failure."""
+    `name:` needs a search, so it answers None, as does an unknown ref and any
+    answer but a 200. Raises `KeyRefused`, and on a transport failure."""
     ref = selector(ref)
     if ref is None:
         return None
     async with await _client(env) as client:
         client.timeout = httpx.Timeout(SCOPE_TIMEOUT_S)
-        resp = await _scope(client, ref)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await _scope(client, ref)
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        place = resp.json()
+        place = response.json()
         project = place.get("project_id") if isinstance(place, dict) else None
         if not isinstance(project, str) or not _UUID.fullmatch(project):
             return None
         if place.get("kind") == "project" and not _UUID.fullmatch(ref):
             return ref, project  # a project named by its slug: no second read
-        resp = await client.get(f"/v1/projects/{project}")
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await client.get(f"/v1/projects/{project}")
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        data = resp.json()
+        data = response.json()
     slug = data.get("slug") if isinstance(data, dict) else None
     return (slug, project) if isinstance(slug, str) and slug else None
 
@@ -282,21 +282,21 @@ async def summary_head(env: dict[str, str], kind: str, ref: str) -> dict | None:
         return None
     async with await _client(env) as client:
         client.timeout = httpx.Timeout(SCOPE_TIMEOUT_S)
-        resp = await _scope(client, ref)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await _scope(client, ref)
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        place = resp.json()
+        place = response.json()
         project = place.get("project_id") if isinstance(place, dict) else None
         if not isinstance(project, str) or not _UUID.fullmatch(project):
             return None
         path = (f"/v1/projects/{project}/experiments/{quote(ref, safe='')}/summary" if kind == "experiment"
                 else f"/v1/projects/{project}/summary")
-        resp = await client.get(path)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await client.get(path)
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        body = resp.json()
+        body = response.json()
     if not isinstance(body, dict) or not isinstance(body.get("version"), int):
         return None
     return {"version": body["version"], "mode": body.get("mode")}
@@ -312,21 +312,21 @@ async def summaries_mode(env: dict[str, str], kind: str, ref: str) -> str | None
         return None
     async with await _client(env) as client:
         client.timeout = httpx.Timeout(SCOPE_TIMEOUT_S)
-        resp = await _scope(client, ref)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await _scope(client, ref)
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        place = resp.json()
+        place = response.json()
         project = place.get("project_id") if isinstance(place, dict) else None
         if not isinstance(project, str) or not _UUID.fullmatch(project):
             return None
         path = (f"/v1/projects/{project}/experiments/{quote(ref, safe='')}/summary" if kind == "experiment"
                 else f"/v1/projects/{project}/summary")
-        resp = await client.get(path)
-        _refuse_key(resp)
-        if resp.status_code != 200:
+        response = await client.get(path)
+        _refuse_key(response)
+        if response.status_code != 200:
             return None
-        body = resp.json()
+        body = response.json()
     mode = body.get("mode") if isinstance(body, dict) else None
     return mode if mode in SUMMARIES_MODES else None
 
@@ -337,10 +337,10 @@ async def edge(env: dict[str, str], edge_id: str) -> dict:
     404, like a missing edge -- and `KeyRefused` when Probe refused the key."""
     segment = quote(valid_ref(edge_id).removeprefix("id:"), safe="")
     async with await _client(env) as client:
-        resp = await client.get(f"/v1/edges/{segment}")
-        _refuse_key(resp)
-        resp.raise_for_status()
-        data = resp.json()
+        response = await client.get(f"/v1/edges/{segment}")
+        _refuse_key(response)
+        response.raise_for_status()
+        data = response.json()
     if not isinstance(data, dict):
         raise ValueError("the edge is not an object")
     return data
@@ -383,14 +383,14 @@ async def run_alerts(env: dict[str, str], session_id: str) -> list[dict] | None:
     try:
         async with await _client(env) as client:
             client.timeout = httpx.Timeout(RUN_ALERTS_TIMEOUT_S)
-            resp = await client.get(f"/v1/sessions/{segment}/run-alerts")
+            response = await client.get(f"/v1/sessions/{segment}/run-alerts")
     except httpx.HTTPError:
         return None
-    _refuse_key(resp)
-    if resp.status_code != 200:
+    _refuse_key(response)
+    if response.status_code != 200:
         return None
     try:
-        alerts = resp.json().get("alerts")
+        alerts = response.json().get("alerts")
     except (ValueError, AttributeError):
         return None
     if not isinstance(alerts, list):
@@ -446,15 +446,15 @@ async def session_messages(env: dict[str, str], session_id: str, instance: str,
             headers = {DAEMON_INSTANCE_HEADER: instance}
             if active_at:
                 headers[AGENT_ACTIVE_HEADER] = active_at
-            resp = await client.get(f"/v1/sessions/{segment}/messages", params={"held": list(held or [])},
+            response = await client.get(f"/v1/sessions/{segment}/messages", params={"held": list(held or [])},
                                     headers=headers)
     except httpx.HTTPError:
         return None
-    _refuse_key(resp)
-    if resp.status_code != 200:
+    _refuse_key(response)
+    if response.status_code != 200:
         return None
     try:
-        body = resp.json()
+        body = response.json()
         rows, revoked = body.get("messages"), body.get("revoked", [])
     except (ValueError, AttributeError):
         return None
@@ -478,16 +478,16 @@ async def ack_session_message(env: dict[str, str], session_id: str, message_id: 
     try:
         async with await _client(env) as client:
             client.timeout = httpx.Timeout(timeout)
-            resp = await client.post(f"/v1/sessions/{segment}/messages/{mid}/ack", json={"state": state},
+            response = await client.post(f"/v1/sessions/{segment}/messages/{mid}/ack", json={"state": state},
                                      headers={DAEMON_INSTANCE_HEADER: instance})
     except httpx.HTTPError:
         return AckResult.RETRY
-    _refuse_key(resp)
-    if resp.status_code == 200:
+    _refuse_key(response)
+    if response.status_code == 200:
         return AckResult.RECORDED
-    if resp.status_code == 404:
+    if response.status_code == 404:
         return AckResult.GONE
-    return AckResult.LEASE_LOST if resp.status_code == 409 else AckResult.RETRY
+    return AckResult.LEASE_LOST if response.status_code == 409 else AckResult.RETRY
 
 
 #: What `others_from` answers when it cannot read the tally: someone else's data.

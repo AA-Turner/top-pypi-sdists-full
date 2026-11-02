@@ -6,6 +6,7 @@ import json
 import multiprocessing
 import os
 import signal
+import shutil
 import textwrap
 import threading
 import time
@@ -14,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import import_jobs as jobs
+from probe.cli.imports import jobs as jobs
 
 
 @pytest.fixture
@@ -72,7 +73,8 @@ def test_identical_approval_runs_once_and_success_is_not_rescheduled(queued, mon
     assert _enqueue()["id"] == first["id"]
     assert len(queued) == 1
     calls = []
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: calls.append(args) or ["Finished."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: calls.append(args) or ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: calls.append(args) or ["Finished."])
     assert jobs.run_worker(first["id"]) == 0
     assert jobs.resume(first["id"])["state"] == jobs.State.SUCCEEDED
     assert _enqueue()["state"] == jobs.State.SUCCEEDED
@@ -91,7 +93,8 @@ def test_worker_records_progress_and_keeps_full_log_with_short_report(queued, mo
         snapshots.append(jobs.get_job(job["id"]))
         return [f"Result {index}" for index in range(30)]
 
-    monkeypatch.setattr(jobs, "_dispatch", execute)
+    monkeypatch.setattr(jobs.kind, "_dispatch", execute)
+    monkeypatch.setattr(jobs.runner, "_dispatch", execute)
     assert jobs.run_worker(job["id"]) == 0
     assert snapshots[0]["state"] == jobs.State.RUNNING
     assert snapshots[0]["progress"] == {
@@ -106,7 +109,7 @@ def test_worker_records_progress_and_keeps_full_log_with_short_report(queued, mo
 
 
 def test_worker_activity_records_public_progress_and_state_changes_without_raw_stdout(queued, monkeypatch):
-    from probe.cli import desktop
+    from probe.cli.imports import desktop
     job = _enqueue()
     folder = Path(job["log_path"]).parent
     initial = jobs.get_job(job["id"])["activity"]
@@ -123,7 +126,8 @@ def test_worker_activity_records_public_progress_and_state_changes_without_raw_s
         print("RAW-TRANSCRIPT-OUTPUT-MUST-STAY-LOCAL")
         progress("Approved upload is progressing", completed=1, total=2)
         return ["One session received"]
-    monkeypatch.setattr(jobs, "_dispatch", execute)
+    monkeypatch.setattr(jobs.kind, "_dispatch", execute)
+    monkeypatch.setattr(jobs.runner, "_dispatch", execute)
     assert jobs.run_worker(job["id"]) == 0
     saved = jobs.get_job(job["id"])
     shown = desktop._public_job(saved)
@@ -135,7 +139,7 @@ def test_worker_activity_records_public_progress_and_state_changes_without_raw_s
 
 
 def test_worker_activity_bounds_are_durable_and_redact_progress(queued):
-    from probe.cli import desktop
+    from probe.cli.imports import desktop
     job = _enqueue()
     folder = Path(job["log_path"]).parent
     for index in range(205):
@@ -180,7 +184,8 @@ def test_connection_retry_keeps_approval_owner_and_caps_backoff(queued, monkeypa
         assert jobs.recover_jobs()[0]["state"] == jobs.State.RUNNING
         waits.append(delay)
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     monkeypatch.setattr(jobs.time, "sleep", sleep)
     assert jobs.run_worker(job["id"]) == 0
     assert waits == [2, 4, 8, 16, 32, 60, 60, 60]
@@ -198,11 +203,13 @@ def test_connection_wait_interruption_remains_recoverable(queued, monkeypatch):
     def interrupt(delay):
         raise jobs._Interrupted
 
-    monkeypatch.setattr(jobs, "_dispatch", offline)
+    monkeypatch.setattr(jobs.kind, "_dispatch", offline)
+    monkeypatch.setattr(jobs.runner, "_dispatch", offline)
     monkeypatch.setattr(jobs.time, "sleep", interrupt)
     assert jobs.run_worker(job["id"]) == 130
     assert jobs.get_job(job["id"])["state"] == jobs.State.INTERRUPTED
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Saved uploads resumed."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Saved uploads resumed."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Saved uploads resumed."])
     assert jobs.recover_jobs()[0]["id"] == job["id"]
     assert jobs.run_worker(job["id"]) == 0
     assert jobs.get_job(job["id"])["attempt"] == 2
@@ -253,7 +260,8 @@ def test_failure_needs_explicit_retry_and_does_not_persist_unknown_error_text(qu
     def fail(*args):
         raise error
 
-    monkeypatch.setattr(jobs, "_dispatch", fail)
+    monkeypatch.setattr(jobs.kind, "_dispatch", fail)
+    monkeypatch.setattr(jobs.runner, "_dispatch", fail)
     assert jobs.run_worker(job["id"]) == 1
     failed = jobs.get_job(job["id"])
     assert failed["state"] == jobs.State.FAILED
@@ -323,8 +331,12 @@ def test_starting_worker_waits_for_status_read_probe(queued, monkeypatch):
         starting.set()
         outcomes.append(jobs.run_worker(job["id"]))
 
-    monkeypatch.setattr(jobs, "_try_lock", pause_status_probe)
-    monkeypatch.setattr(jobs, "_dispatch", lambda *a: ["Imported once."])
+    monkeypatch.setattr(jobs.store, "_try_lock", pause_status_probe)
+    monkeypatch.setattr(jobs.jobs, "_try_lock", pause_status_probe)
+    monkeypatch.setattr(jobs.runner, "_try_lock", pause_status_probe)
+    monkeypatch.setattr(jobs.workers, "_try_lock", pause_status_probe)
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *a: ["Imported once."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *a: ["Imported once."])
     reader = threading.Thread(target=jobs.get_job, args=(job["id"],))
     worker = threading.Thread(target=start_worker)
     reader.start()
@@ -356,7 +368,8 @@ def test_process_lock_blocks_a_second_worker_for_the_same_job(queued, monkeypatc
         assert release.wait(5)
         return ["Done once."]
 
-    monkeypatch.setattr(jobs, "_dispatch", execute)
+    monkeypatch.setattr(jobs.kind, "_dispatch", execute)
+    monkeypatch.setattr(jobs.runner, "_dispatch", execute)
     first = context.Process(target=jobs.run_worker, args=(job["id"],))
     second = context.Process(target=jobs.run_worker, args=(job["id"],))
     first.start()
@@ -392,7 +405,8 @@ def test_distinct_transcript_approvals_serialize_the_whole_upload_and_digest_pas
             second_started.set()
         return ["The durable journal prevents another completed digest."]
 
-    monkeypatch.setattr(jobs, "_dispatch", execute)
+    monkeypatch.setattr(jobs.kind, "_dispatch", execute)
+    monkeypatch.setattr(jobs.runner, "_dispatch", execute)
     first = context.Process(target=jobs.run_worker, args=(first_job["id"],))
     second = context.Process(target=jobs.run_worker, args=(second_job["id"],))
     first.start()
@@ -429,7 +443,8 @@ def test_interrupted_worker_resumes_the_same_approval_and_checkpoint(queued, mon
             context.Event().wait(10)
         return [checkpoint.read_text(), "Remaining approved sessions completed."]
 
-    monkeypatch.setattr(jobs, "_dispatch", execute)
+    monkeypatch.setattr(jobs.kind, "_dispatch", execute)
+    monkeypatch.setattr(jobs.runner, "_dispatch", execute)
     worker = context.Process(target=jobs.run_worker, args=(job["id"],))
     worker.start()
     try:
@@ -459,36 +474,38 @@ def test_edited_approval_is_rejected_before_dispatch(queued, monkeypatch):
     edited = json.loads(record.read_text())
     edited["payload"]["sources"].append("codex")
     record.write_text(json.dumps(edited))
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: pytest.fail("Changed approval ran"))
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: pytest.fail("Changed approval ran"))
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: pytest.fail("Changed approval ran"))
     with pytest.raises(jobs.JobError, match="could not be read"):
         jobs.run_worker(job["id"])
 
 
 def _fake_worker_package(tmp_path, monkeypatch, hook):
     """Use real worker code with a harmless lane and no customer configuration."""
+    real = Path(jobs.runner.__file__).resolve().parents[3]  # probe/
     source = tmp_path / "worker-source"
-    for package in ("probe", "probe/cli", "probe/sdk", "probe/_shared", "probe/foundation",
-                    "probe/foundation/compat", "probe/foundation/durable"):
+    for package in ("probe", "probe/cli", "probe/cli/imports", "probe/sdk", "probe/_shared", "probe/foundation",
+                    "probe/foundation/compat", "probe/foundation/durable", "probe/foundation/front_door",
+                    "probe/cli/imports/transcripts"):
         folder = source / package
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "__init__.py").write_text("")
-    (source / "probe/cli/import_jobs.py").write_text(Path(jobs.__file__).read_text())
-    # Its 3.11-only names come from here (plan 2.11), on every Python.
-    (source / "probe/foundation/compat/compat.py").write_text(
-        Path(jobs.__file__).parents[1].joinpath("foundation/compat/compat.py").read_text()
-    )
-    (source / "probe/foundation/durable/durable.py").write_text(
-        Path(jobs.__file__).parents[1].joinpath("foundation/durable/durable.py").read_text()
-    )
-    # durable's file lock and atomic replace (fcntl on POSIX, msvcrt on Windows).
-    (source / "probe/_shared/oscompat.py").write_text(
-        Path(jobs.__file__).parents[1].joinpath("_shared/oscompat.py").read_text()
-    )
-    (source / "probe/cli/backfill.py").write_text("def stop_all(): pass\n")
-    (source / "probe/cli/backfill_transcripts.py").write_text(textwrap.dedent(hook))
+    # The worker: its pieces, their door, and the `-m probe.cli.import_jobs` entry.
+    shutil.copytree(real / "cli/imports/jobs", source / "probe/cli/imports/jobs",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    (source / "probe/cli/import_jobs.py").write_text((real / "cli/import_jobs.py").read_text())
+    # Its 3.11-only names come from here (plan 2.11), on every Python; the door serves its pieces.
+    for rel in ("foundation/compat/compat.py", "foundation/durable/durable.py",
+                "foundation/front_door/front_door.py",
+                # durable's file lock and atomic replace (fcntl on POSIX, msvcrt on Windows).
+                "_shared/oscompat.py"):
+        (source / "probe" / rel).write_text((real / rel).read_text())
+    (source / "probe/cli/imports/folder").mkdir(parents=True, exist_ok=True)
+    (source / "probe/cli/imports/folder/__init__.py").write_text("def stop_all(): pass\n")
+    (source / "probe/cli/imports/transcripts/background.py").write_text(textwrap.dedent(hook))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("PYTHONPATH", "relative/missing-source")
-    monkeypatch.setattr(jobs, "_source_root", lambda: source)
+    monkeypatch.setattr(jobs.workers, "_source_root", lambda: source)
     return source
 
 
@@ -507,7 +524,7 @@ def test_real_detached_worker_uses_pinned_source_and_canonical_module(tmp_path, 
     source = _fake_worker_package(tmp_path, monkeypatch, """
         import os
         from pathlib import Path
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             if payload['fail']:
@@ -522,12 +539,12 @@ def test_real_detached_worker_uses_pinned_source_and_canonical_module(tmp_path, 
         assert finished["error"] == "The approved account is unavailable."
     else:
         assert finished["state"] == jobs.State.SUCCEEDED
-        assert finished["report"] == [str(source / "probe/cli/backfill_transcripts.py"), "detached=True"]
+        assert finished["report"] == [str(source / "probe/cli/imports/transcripts/background.py"), "detached=True"]
 
 
 def test_bootstrap_failure_is_not_an_endless_automatic_recovery(tmp_path, monkeypatch):
     source = _fake_worker_package(tmp_path, monkeypatch, "")
-    (source / "probe/cli/import_jobs.py").write_text("raise RuntimeError('Broken installation')\n")
+    (source / "probe/cli/imports/jobs/jobs.py").write_text("raise RuntimeError('Broken installation')\n")
     job = jobs.enqueue("transcripts", {"approval": "reviewed"}, "Failed bootstrap")
     failed = _await_job(job["id"], lambda current: current["state"] == jobs.State.FAILED)
     assert failed["attempt"] == 0
@@ -540,7 +557,7 @@ def test_recovery_reclaims_a_real_orphan_agent_before_next_attempt(tmp_path, mon
         import subprocess
         import sys
         from pathlib import Path
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             checkpoint = Path(payload['checkpoint'])
@@ -582,7 +599,7 @@ def test_worker_death_before_registration_closes_gate_before_agent_executes(tmp_
         import sys
         import time
         from pathlib import Path
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             def pause_before_registration(pid):
@@ -658,7 +675,7 @@ def test_one_unreadable_record_does_not_hide_or_restart_other_jobs(queued, corru
 def test_clear_stops_active_queued_and_agent_workers_before_removing_only_local_jobs(tmp_path, monkeypatch):
     _fake_worker_package(tmp_path, monkeypatch, """
         import sys, time
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             if payload.get('complete'):
@@ -797,7 +814,8 @@ def test_cancel_preserves_progress_and_approval_until_explicit_resume_or_reimpor
     assert Path(job['log_path']).exists()
     assert jobs.cancel(job['id']) == canceled
     assert jobs.recover_jobs()[0] == canceled
-    monkeypatch.setattr(jobs, '_dispatch', lambda *args: pytest.fail('Canceled work was restarted'))
+    monkeypatch.setattr(jobs.kind, '_dispatch', lambda *args: pytest.fail('Canceled work was restarted'))
+    monkeypatch.setattr(jobs.runner, '_dispatch', lambda *args: pytest.fail('Canceled work was restarted'))
     assert jobs.run_worker(job['id']) == 0
     assert len(queued) == 1
 
@@ -815,7 +833,8 @@ def test_cancel_preserves_progress_and_approval_until_explicit_resume_or_reimpor
 
 def test_cancel_completed_job_is_unchanged_and_missing_job_is_an_error(queued, monkeypatch):
     job = _enqueue()
-    monkeypatch.setattr(jobs, '_dispatch', lambda *args: ['All uploaded work remains in Probe.'])
+    monkeypatch.setattr(jobs.kind, '_dispatch', lambda *args: ['All uploaded work remains in Probe.'])
+    monkeypatch.setattr(jobs.runner, '_dispatch', lambda *args: ['All uploaded work remains in Probe.'])
     assert jobs.run_worker(job['id']) == 0
     completed = jobs.get_job(job['id'])
     assert jobs.cancel(job['id']) == completed
@@ -835,7 +854,8 @@ def test_recovery_finishes_cancel_intent_after_canceller_crash_without_restartin
         raise jobs.JobError('Stopping process failed')
 
     with monkeypatch.context() as context:
-        context.setattr(jobs, '_signal_worker', interrupted_cancel)
+        context.setattr(jobs.workers, '_signal_worker', interrupted_cancel)
+        context.setattr(jobs.jobs, '_signal_worker', interrupted_cancel)
         with pytest.raises(jobs.JobError, match='Stopping process failed'):
             jobs.cancel(job['id'])
     pending = jobs.get_job(job['id'])
@@ -863,7 +883,7 @@ def test_recovery_does_not_resume_cancellation_completed_after_its_status_read(q
             return stale
         return original_get(*args, **kwargs)
 
-    monkeypatch.setattr(jobs, 'get_job', stale_status)
+    monkeypatch.setattr(jobs.jobs, 'get_job', stale_status)
     assert jobs.recover_jobs() == [canceled]
     assert len(queued) == 1
 
@@ -879,7 +899,8 @@ def test_cancel_intent_wins_over_late_worker_completion_without_losing_counts(qu
         assert late['state'] != jobs.State.SUCCEEDED
         assert late['cancel_requested']
 
-    monkeypatch.setattr(jobs, '_signal_worker', finish_during_cancel)
+    monkeypatch.setattr(jobs.workers, '_signal_worker', finish_during_cancel)
+    monkeypatch.setattr(jobs.jobs, '_signal_worker', finish_during_cancel)
     canceled = jobs.cancel(job['id'])
     assert canceled['state'] == jobs.State.CANCELED
     assert canceled['progress']['completed'] == 2
@@ -921,7 +942,7 @@ def test_cancel_keeps_intent_and_refuses_terminal_state_while_worker_lock_is_own
 def test_cancel_queued_worker_then_active_worker_preserves_other_job_and_receipts(tmp_path, monkeypatch):
     _fake_worker_package(tmp_path, monkeypatch, """
         import sys, time
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             import_jobs.spawn_child([sys.executable, '-c', 'import time; time.sleep(60)'])
@@ -964,7 +985,7 @@ def test_cancel_queued_worker_then_active_worker_preserves_other_job_and_receipt
 
 def test_cancel_connection_retry_stops_replay_and_keeps_observed_progress(tmp_path, monkeypatch):
     _fake_worker_package(tmp_path, monkeypatch, """
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             progress('Uploaded session', completed=1, total=4)
@@ -987,7 +1008,7 @@ def test_cancel_connection_retry_stops_replay_and_keeps_observed_progress(tmp_pa
 def test_cancel_folder_stops_its_agent_and_leaves_session_worker_running(tmp_path, monkeypatch):
     source = _fake_worker_package(tmp_path, monkeypatch, """
         import sys, time
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             import_jobs.spawn_child([sys.executable, '-c', 'import time; time.sleep(60)'])
@@ -995,9 +1016,13 @@ def test_cancel_folder_stops_its_agent_and_leaves_session_worker_running(tmp_pat
                 progress('Uploading saved work', completed=1, total=3)
                 time.sleep(.02)
     """)
-    (source / 'probe/cli/backfill_import.py').write_text(
-        (source / 'probe/cli/backfill_transcripts.py').read_text())
-    (source / 'probe/cli/backfill_coverage.py').write_text('class CoverageError(Exception): pass\n')
+    # The folder lane's entry and its error, where the worker's dispatch imports them.
+    for package in ("probe/cli/imports/folder/flow", "probe/cli/imports/folder/coverage"):
+        (source / package).mkdir(parents=True, exist_ok=True)
+        (source / package / "__init__.py").write_text("")
+    (source / 'probe/cli/imports/folder/flow/background_job.py').write_text(
+        (source / 'probe/cli/imports/transcripts/background.py').read_text())
+    (source / 'probe/cli/imports/folder/coverage/coverage.py').write_text('class CoverageError(Exception): pass\n')
     sessions = jobs.enqueue('transcripts', {'number': 1}, 'Sessions')
     folder = jobs.enqueue('folder', {'number': 2}, 'Folder')
     running = [_await_job(job['id'], lambda row: bool(row['children'])
@@ -1022,7 +1047,7 @@ def test_cancel_retains_launch_ownership_when_worker_fails_before_parent_records
     _fake_worker_package(tmp_path, monkeypatch, """
         import atexit, time
         from pathlib import Path
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             def shutdown():
@@ -1075,7 +1100,7 @@ def test_cancel_waits_for_process_exit_and_force_stops_uncooperative_worker(tmp_
     _fake_worker_package(tmp_path, monkeypatch, """
         import atexit, json, signal, time
         from pathlib import Path
-        from . import import_jobs
+        from probe.cli import import_jobs
 
         def run_background_job(payload, *, progress):
             def shutdown():

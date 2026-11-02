@@ -1,0 +1,17 @@
+language: python
+python:
+  - "2.7"
+  - "3.4"
+  - "3.5"
+  - "3.6"
+install: pip install tox-travis
+script: tox
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  local_dir: build/ghpages
+  on:
+    branch: master
+    condition: $TRAVIS_PYTHON_VERSION = "3.6"

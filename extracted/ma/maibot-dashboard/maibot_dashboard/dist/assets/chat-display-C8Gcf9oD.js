@@ -1,0 +1,1 @@
+function n(t){const a=t?.trim();return a?`账号 ${a}`:""}function o(t,a){const r=n(a);return r?`${t} · ${r}`:t}function e(t){return t==="group"?"群聊":"私聊"}function u(t){return t.target_id?`${t.is_group?"群号":"用户"} ${t.target_id}`:""}export{o as a,u as b,n as f,e as g};

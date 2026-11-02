@@ -7,9 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli.backfill_coverage import Coverage, Scope
-from probe.cli.backfill_ledger import Ledger, Unit
-from probe.cli import backfill_legacy as legacy
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.upload.ledger import Ledger, Unit
+from probe.cli.imports.folder.upload import legacy as legacy
 
 
 PROJECT = {"id": "p1", "slug": "alpha", "customer_id": "tenant-a", "workspace_id": "w1"}

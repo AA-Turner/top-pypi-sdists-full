@@ -1,0 +1,141 @@
+Metadata-Version: 2.4
+Name: mypy-pytest-parametrize
+Version: 2026.10.5.1
+Summary: Check pytest and Karva parametrized values against test annotations.
+Author-email: Adam Dangoor <adamdangoor@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2026 Adam Dangoor
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Documentation, https://github.com/adamtheturtle/mypy-pytest-parametrize#readme
+Project-URL: Issues, https://github.com/adamtheturtle/mypy-pytest-parametrize/issues
+Project-URL: Source, https://github.com/adamtheturtle/mypy-pytest-parametrize
+Keywords: mypy
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Pytest
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: mypy<2.5,>=2.4.0
+Requires-Dist: pytest<10,>=9.1.0
+Requires-Dist: typing-extensions>=4.4.0
+Dynamic: license-file
+
+|Build Status| |PyPI|
+
+mypy-pytest-parametrize
+=======================
+
+Check ``pytest.mark.parametrize`` and ``karva.tags.parametrize`` values against test annotations.
+
+For example, this plugin reports the ``float`` passed to a parameter annotated as ``int``:
+
+.. code:: python
+
+   """Showcase errors in pytest parametrized values."""
+
+   import pytest
+
+
+   @pytest.mark.parametrize(
+       argnames="arg",
+       argvalues=[
+           123,
+           456.789,  # type: ignore[pytest-parametrize]
+       ],
+   )
+   def test_foo(arg: int) -> None:
+       """Check a parametrized integer."""
+       assert arg > 0
+
+Why?
+----
+
+``pytest`` accepts parametrized values without checking them against the test's annotations.
+This plugin lets ``mypy`` find incompatible values before the tests run.
+It supports multiple parameters, stacked decorators, and inline ``pytest.param`` calls.
+
+Installation
+------------
+
+.. code:: shell
+
+   pip install mypy-pytest-parametrize
+
+Configure ``mypy`` to use the plugin
+------------------------------------
+
+Add the plugin to your `mypy configuration file <https://mypy.readthedocs.io/en/stable/config_file.html>`__:
+
+``pyproject.toml``:
+
+.. code:: toml
+
+   [tool.mypy]
+
+   plugins = [
+       "mypy_pytest_parametrize",
+   ]
+
+``mypy.ini``, ``.mypy.ini``, or ``setup.cfg``:
+
+.. code:: ini
+
+   [mypy]
+   plugins = mypy_pytest_parametrize
+
+Karva
+-----
+
+The same plugin configuration checks `Karva <https://github.com/MatthewMckee4/karva>`__ tests using ``@karva.tags.parametrize``.
+It supports Karva's ``arg_names`` and ``arg_values`` keywords, stacked tags, and inline ``karva.param`` calls with IDs or tags.
+Karva must be installed in the environment where ``mypy`` runs.
+
+For a single parameter, Karva treats each row as the parameter's value even when the name is supplied as a list or tuple.
+For example, ``@karva.tags.parametrize(["value"], [(1, "x")])`` supplies a ``tuple[int, str]`` to ``value``.
+
+Karva diagnostics use the existing ``pytest-parametrize`` error code.
+
+Indirect fixtures and static limits
+-----------------------------------
+
+``indirect=True`` is excluded because its values are fixture inputs, rather than the values received by the test.
+With ``indirect=["fixture_name"]``, the other parameters are still checked.
+
+Parameter names and fixture routing determined at runtime are not checked.
+Stored decorator objects and class-level parametrization are also excluded.
+Stored ``pytest.param`` and ``karva.param`` objects and starred values within a row are also skipped when their individual types are unavailable.
+Values typed as ``Any`` retain ``mypy``'s usual behavior.
+
+The plugin follows the proposal in `pytest issue #9334 <https://github.com/pytest-dev/pytest/issues/9334>`__.
+
+.. |Build Status| image:: https://github.com/adamtheturtle/mypy-pytest-parametrize/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/adamtheturtle/mypy-pytest-parametrize/actions
+.. |PyPI| image:: https://badge.fury.io/py/mypy-pytest-parametrize.svg
+   :target: https://badge.fury.io/py/mypy-pytest-parametrize

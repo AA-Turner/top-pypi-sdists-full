@@ -1,0 +1,487 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+import datetime
+from typing import TYPE_CHECKING, Dict, Optional
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "WireTransfer",
+    "Approval",
+    "Cancellation",
+    "CreatedBy",
+    "CreatedByAPIKey",
+    "CreatedByOAuthApplication",
+    "CreatedByUser",
+    "Creditor",
+    "CreditorAddress",
+    "CreditorAddressUnstructured",
+    "Debtor",
+    "DebtorAddress",
+    "DebtorAddressUnstructured",
+    "Remittance",
+    "RemittanceTax",
+    "RemittanceUnstructured",
+    "Reversal",
+    "Submission",
+]
+
+
+class Approval(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was approved, this will contain details of the approval.
+    """
+
+    approved_at: datetime.datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was approved.
+    """
+
+    approved_by: Optional[str] = None
+    """
+    If the Transfer was approved by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class Cancellation(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was not approved, this will contain details of the cancellation.
+    """
+
+    canceled_at: datetime.datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Transfer was canceled.
+    """
+
+    canceled_by: Optional[str] = None
+    """
+    If the Transfer was canceled by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class CreatedByAPIKey(BaseModel):
+    """If present, details about the API key that created the transfer."""
+
+    description: Optional[str] = None
+    """The description set for the API key when it was created."""
+
+
+class CreatedByOAuthApplication(BaseModel):
+    """If present, details about the OAuth Application that created the transfer."""
+
+    name: str
+    """The name of the OAuth Application."""
+
+
+class CreatedByUser(BaseModel):
+    """If present, details about the User that created the transfer."""
+
+    email: str
+    """The email address of the User."""
+
+
+class CreatedBy(BaseModel):
+    """What object created the transfer, either via the API or the dashboard."""
+
+    category: Literal["api_key", "oauth_application", "user"]
+    """The type of object that created this transfer.
+
+    - `api_key` - An API key. Details will be under the `api_key` object.
+    - `oauth_application` - An OAuth application you connected to Increase. Details
+      will be under the `oauth_application` object.
+    - `user` - A User in the Increase dashboard. Details will be under the `user`
+      object.
+    """
+
+    api_key: Optional[CreatedByAPIKey] = None
+    """If present, details about the API key that created the transfer."""
+
+    oauth_application: Optional[CreatedByOAuthApplication] = None
+    """If present, details about the OAuth Application that created the transfer."""
+
+    user: Optional[CreatedByUser] = None
+    """If present, details about the User that created the transfer."""
+
+
+class CreditorAddressUnstructured(BaseModel):
+    """Unstructured address lines."""
+
+    line1: Optional[str] = None
+    """The first line."""
+
+    line2: Optional[str] = None
+    """The second line."""
+
+    line3: Optional[str] = None
+    """The third line."""
+
+
+class CreditorAddress(BaseModel):
+    """The person or business's address."""
+
+    unstructured: Optional[CreditorAddressUnstructured] = None
+    """Unstructured address lines."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Creditor(BaseModel):
+    """The person or business that is receiving the funds from the transfer."""
+
+    address: Optional[CreditorAddress] = None
+    """The person or business's address."""
+
+    name: Optional[str] = None
+    """The person or business's name."""
+
+
+class DebtorAddressUnstructured(BaseModel):
+    """Unstructured address lines."""
+
+    line1: Optional[str] = None
+    """The first line."""
+
+    line2: Optional[str] = None
+    """The second line."""
+
+    line3: Optional[str] = None
+    """The third line."""
+
+
+class DebtorAddress(BaseModel):
+    """The person or business's address."""
+
+    unstructured: Optional[DebtorAddressUnstructured] = None
+    """Unstructured address lines."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Debtor(BaseModel):
+    """The person or business whose funds are being transferred."""
+
+    address: Optional[DebtorAddress] = None
+    """The person or business's address."""
+
+    name: Optional[str] = None
+    """The person or business's name."""
+
+
+class RemittanceTax(BaseModel):
+    """Internal Revenue Service (IRS) tax repayment information.
+
+    Required if `category` is equal to `tax`.
+    """
+
+    date: datetime.date
+    """The month and year the tax payment is for, in YYYY-MM-DD format.
+
+    The day is ignored.
+    """
+
+    identification_number: str
+    """
+    The 9-digit Tax Identification Number (TIN) or Employer Identification Number
+    (EIN).
+    """
+
+    type_code: str
+    """The 5-character tax type code."""
+
+
+class RemittanceUnstructured(BaseModel):
+    """Unstructured remittance information.
+
+    Required if `category` is equal to `unstructured`.
+    """
+
+    message: str
+    """The message to the beneficiary."""
+
+
+class Remittance(BaseModel):
+    """Remittance information sent with the wire transfer."""
+
+    category: Literal["unstructured", "tax"]
+    """The type of remittance information being passed.
+
+    - `unstructured` - The wire transfer contains unstructured remittance
+      information.
+    - `tax` - The wire transfer is for tax payment purposes to the Internal Revenue
+      Service (IRS).
+    """
+
+    tax: Optional[RemittanceTax] = None
+    """Internal Revenue Service (IRS) tax repayment information.
+
+    Required if `category` is equal to `tax`.
+    """
+
+    unstructured: Optional[RemittanceUnstructured] = None
+    """Unstructured remittance information.
+
+    Required if `category` is equal to `unstructured`.
+    """
+
+
+class Reversal(BaseModel):
+    """If your transfer is reversed, this will contain details of the reversal."""
+
+    amount: int
+    """The amount that was reversed in USD cents."""
+
+    created_at: datetime.datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the reversal was created.
+    """
+
+    debtor_routing_number: Optional[str] = None
+    """The debtor's routing number."""
+
+    description: str
+    """
+    The description on the reversal message from Fedwire, set by the reversing bank.
+    """
+
+    input_cycle_date: datetime.date
+    """The Fedwire cycle date for the wire reversal.
+
+    The "Fedwire day" begins at 9:00 PM Eastern Time on the evening before the
+    `cycle date`.
+    """
+
+    input_message_accountability_data: str
+    """The Fedwire transaction identifier."""
+
+    input_sequence_number: str
+    """The Fedwire sequence number."""
+
+    input_source: str
+    """The Fedwire input source identifier."""
+
+    instruction_identification: Optional[str] = None
+    """The sending bank's identifier for the reversal."""
+
+    return_reason_additional_information: Optional[str] = None
+    """Additional information about the reason for the reversal."""
+
+    return_reason_code: Optional[str] = None
+    """A code provided by the sending bank giving a reason for the reversal.
+
+    The common return reason codes are
+    [documented here](/documentation/wire-reversals#reversal-reason-codes).
+    """
+
+    return_reason_code_description: Optional[str] = None
+    """An Increase-generated description of the `return_reason_code`."""
+
+    transaction_id: str
+    """The ID for the Transaction associated with the transfer reversal."""
+
+    wire_transfer_id: str
+    """The ID for the Wire Transfer that is being reversed."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Submission(BaseModel):
+    """
+    After the transfer is submitted to Fedwire, this will contain supplemental details.
+    """
+
+    input_message_accountability_data: str
+    """The accountability data for the submission."""
+
+    submitted_at: datetime.datetime
+    """When this wire transfer was submitted to Fedwire."""
+
+
+class WireTransfer(BaseModel):
+    """
+    Wire transfers move funds between your Increase account and any other account accessible by Fedwire.
+    """
+
+    id: str
+    """The wire transfer's identifier."""
+
+    account_id: str
+    """The Account to which the transfer belongs."""
+
+    account_number: str
+    """The destination account number."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    approval: Optional[Approval] = None
+    """
+    If your account requires approvals for transfers and the transfer was approved,
+    this will contain details of the approval.
+    """
+
+    cancellation: Optional[Cancellation] = None
+    """
+    If your account requires approvals for transfers and the transfer was not
+    approved, this will contain details of the cancellation.
+    """
+
+    created_at: datetime.datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    created_by: Optional[CreatedBy] = None
+    """What object created the transfer, either via the API or the dashboard."""
+
+    creditor: Optional[Creditor] = None
+    """The person or business that is receiving the funds from the transfer."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transfer's
+    currency. For wire transfers this is always equal to `usd`.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    debtor: Optional[Debtor] = None
+    """The person or business whose funds are being transferred."""
+
+    external_account_id: Optional[str] = None
+    """The identifier of the External Account the transfer was made to, if any."""
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    inbound_wire_drawdown_request_id: Optional[str] = None
+    """
+    The ID of an Inbound Wire Drawdown Request in response to which this transfer
+    was sent.
+    """
+
+    network: Literal["wire"]
+    """The transfer's network."""
+
+    pending_transaction_id: Optional[str] = None
+    """The ID for the pending transaction representing the transfer.
+
+    A pending transaction is created when the transfer
+    [requires approval](https://increase.com/documentation/transfer-approvals#transfer-approvals)
+    by someone else in your organization.
+    """
+
+    remittance: Optional[Remittance] = None
+    """Remittance information sent with the wire transfer."""
+
+    reversal: Optional[Reversal] = None
+    """If your transfer is reversed, this will contain details of the reversal."""
+
+    routing_number: str
+    """The American Bankers' Association (ABA) Routing Transit Number (RTN)."""
+
+    source_account_number_id: Optional[str] = None
+    """The Account Number that was passed to the wire's recipient."""
+
+    status: Literal[
+        "pending_approval",
+        "canceled",
+        "pending_creating",
+        "pending_reviewing",
+        "rejected",
+        "requires_attention",
+        "reversed",
+        "submitted",
+        "complete",
+    ]
+    """The lifecycle status of the transfer.
+
+    - `pending_approval` - The transfer is pending approval.
+    - `canceled` - The transfer has been canceled.
+    - `pending_creating` - The transfer is pending creation.
+    - `pending_reviewing` - The transfer is pending review by Increase.
+    - `rejected` - The transfer has been rejected by Increase.
+    - `requires_attention` - The transfer requires attention from an Increase
+      operator.
+    - `reversed` - The transfer has been reversed.
+    - `submitted` - The transfer has been submitted to Fedwire.
+    - `complete` - The transfer has been acknowledged by Fedwire and can be
+      considered complete.
+    """
+
+    submission: Optional[Submission] = None
+    """
+    After the transfer is submitted to Fedwire, this will contain supplemental
+    details.
+    """
+
+    transaction_id: Optional[str] = None
+    """The ID for the transaction funding the transfer."""
+
+    type: Literal["wire_transfer"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `wire_transfer`.
+    """
+
+    unique_end_to_end_transaction_reference: Optional[str] = None
+    """
+    The unique end-to-end transaction reference
+    ([UETR](https://www.swift.com/payments/what-unique-end-end-transaction-reference-uetr))
+    of the transfer.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

@@ -1,0 +1,562 @@
+from django import template
+from django.core.exceptions import FieldDoesNotExist
+from django.db.models import CharField
+from django.urls import NoReverseMatch, reverse
+from django.utils.html import format_html, format_html_join
+
+from nautobot.core.templatetags.helpers import bettertitle
+from nautobot.core.templatetags.perms import can_add, can_change, can_delete
+from nautobot.core.utils import lookup
+from nautobot.core.views import utils as views_utils
+from nautobot.extras import models
+
+register = template.Library()
+
+
+#
+# Instance buttons
+#
+
+
+@register.simple_tag()
+def action_url(instance, action):
+    """
+    URL to the <action> view for the instance.
+
+    Helper to `edit_button`, `delete_button` and `consolidated_detail_view_action_buttons` tags,
+    but can be used separately if needed.
+
+    Args:
+        instance (BaseModel): Model record.
+        action (str): Action (add/edit/delete) to link to.
+    """
+    viewname = lookup.get_route_for_model(instance, action)
+    if action == "add":
+        try:
+            return reverse(viewname)
+        except NoReverseMatch:
+            return None
+
+    # We try different lookups to get a valid reverse url
+    lookup_keys = ["pk", "slug", "key"]
+
+    for lookup_key in lookup_keys:
+        if hasattr(instance, lookup_key):
+            kwargs = {lookup_key: getattr(instance, lookup_key)}
+            try:
+                return reverse(viewname, kwargs=kwargs)
+            except NoReverseMatch:
+                continue
+
+    return None
+
+
+@register.inclusion_tag("buttons/clone.html")
+def clone_button(instance):
+    url = action_url(instance, "add")
+    if not url:
+        return {"url": None}
+
+    # Populate cloned field values
+    param_string = views_utils.prepare_cloned_fields(instance)
+    if param_string:
+        url = f"{url}?{param_string}"
+
+    return {
+        "url": url,
+    }
+
+
+@register.inclusion_tag("buttons/edit.html")
+def edit_button(instance, use_pk=False, key="slug"):
+    """
+    Render a button to edit a model instance.
+
+    Args:
+        instance (BaseModel): Model record.
+        use_pk (bool): Used for backwards compatibility, no-op in this function.
+        key (str): Used for backwards compatibility, no-op in this function.
+    """
+    return {"url": action_url(instance, "edit")}
+
+
+@register.inclusion_tag("buttons/delete.html")
+def delete_button(instance, use_pk=False, key="slug"):
+    """
+    Render a button to delete a model instance.
+
+    Args:
+        instance (BaseModel): Model record.
+        use_pk (bool): Used for backwards compatibility, no-op in this function.
+        key (str): Used for backwards compatibility, no-op in this function.
+    """
+    return {"url": action_url(instance, "delete")}
+
+
+#
+# Copy button
+#
+
+
+@register.inclusion_tag("buttons/copy.html")
+def copy_button(target=None, text=None, label="Copy", size=None, css_class=None):
+    """Render a reusable hover "copy to clipboard" button.
+
+    Renders the standard Nautobot hover-copy button markup (see the v2->v3 migration guide,
+    "Hover Copy Buttons"). The button is hidden until its immediate parent is hovered and copies
+    to the clipboard via ClipboardJS, which is initialized globally in `nautobot.js`.
+
+    Provide exactly one of `target` or `text`:
+
+    Args:
+        target (str, optional): CSS selector (e.g. `"#my_value_id"`) of the element whose text content
+            should be copied. Maps to ClipboardJS's `data-clipboard-target`.
+        text (str, optional): A literal string to copy. Maps to ClipboardJS's `data-clipboard-text`.
+        label (str, optional): Accessible label / tooltip text for the button. Defaults to "Copy".
+        size (str, optional): Bootstrap-style size suffix (e.g. `"sm"`, `"xs"`) applied as `btn-{size}`.
+        css_class (str, optional): Additional CSS class(es) to append to the button.
+    """
+    return {
+        "target": target,
+        "text": text,
+        "label": label,
+        "size": size,
+        "css_class": css_class,
+    }
+
+
+#
+# List buttons
+#
+
+
+@register.inclusion_tag("buttons/add.html")
+def add_button(url, verbose_name=None, list_element=False):
+    """Display an Add Button/List Element on the page.
+
+    This allows an Add Button to either be displayed on a page or within a Button Group.
+    Args:
+        url (str): URL for the object's create page.
+        verbose_name (str, optional): Append the verbose_name to the button text.
+        list_element (bool, optional): Render as a <li> element instead of a button. Defaults to False.
+    """
+    try:
+        url = reverse(url)
+    except NoReverseMatch:
+        return {"add_url": None, "list_element": list_element, "verbose_name": verbose_name}
+
+    return {
+        "add_url": url,
+        "list_element": list_element,
+        "verbose_name": verbose_name,
+    }
+
+
+@register.inclusion_tag("buttons/import.html")
+def import_button(url):  # 3.0 TODO: remove, unused
+    """Deprecated - use job_import_button instead."""
+    return {
+        "import_url": url,
+    }
+
+
+@register.simple_tag
+def job_import_url(content_type):
+    """
+    URL to the run view for the CSV Import system job, prefilled with the given content-type.
+
+    Helper to `job_import_button` tag, but can be used separately if needed.
+    """
+    try:
+        import_url = reverse("extras:job_run_by_class_path", kwargs={"class_path": "nautobot.core.jobs.ImportObjects"})
+        import_url += f"?content_type={content_type.id}"
+    except NoReverseMatch:
+        import_url = None
+    return import_url
+
+
+def render_tag_attrs(attrs_dict):
+    """Converts tag attributes from a dictionary to a string format suitable for HTML rendering."""
+    return format_html_join(" ", '{}="{}"', list(attrs_dict.items()))
+
+
+@register.inclusion_tag("buttons/consolidated_bulk_action_buttons.html", takes_context=True)
+def consolidate_bulk_action_buttons(context):
+    """
+    Generates a list of action buttons for bulk operations (edit, rename, disconnect, update group assignment, delete) based on the
+    model capabilities and user permissions.
+
+    Context must include the following keys:
+        request (HttpRequest): The HTTP request object.
+        model (Model): The model class for the list view.
+        user (User): The current user.
+        bulk_edit_url (str): The URL for the bulk edit action.
+        bulk_delete_url (str): The URL for the bulk delete action.
+        bulk_rename_url (str, optional): The URL for the bulk rename action.
+        bulk_disconnect_url (str, optional): The URL for the bulk disconnect action (cabled-component models only).
+        permissions (dict): A dictionary of specific permissions for the view.
+    """
+
+    model = context["model"]
+    query_string = ""
+    if hasattr(context["request"], "GET") and context["request"].GET:
+        query_string = "?" + context["request"].GET.urlencode()
+
+    # 1. Build ordered list of button descriptors — dropup renders bottom-to-top,
+    #    so list order is: edit (primary), delete (furthest from Edit), non-destructive, rename (closest to Edit)
+    button_defs = []
+
+    if context["bulk_edit_url"] and context["permissions"]["change"]:
+        button_defs.append(
+            {
+                "label": "Edit Selected",
+                "icon": "mdi mdi-pencil",
+                "btn_class": "btn btn-sm btn-warning",
+                "attrs": {"type": "submit", "formaction": reverse(context["bulk_edit_url"]) + query_string},
+                "primary": True,
+            }
+        )
+
+    if context["bulk_delete_url"] and context["permissions"]["delete"]:
+        button_defs.append(
+            {
+                "label": "Delete Selected",
+                "icon": "mdi mdi-trash-can-outline",
+                "btn_class": "btn btn-sm btn-danger",
+                "dropdown_class": "dropdown-item text-danger",
+                "attrs": {
+                    "type": "submit",
+                    "name": "_delete",
+                    "formaction": reverse(context["bulk_delete_url"]) + query_string,
+                },
+                "divider_after": True,
+            }
+        )
+
+    if context.get("bulk_disconnect_url") and context["permissions"]["change"]:
+        button_defs.append(
+            {
+                "label": "Disconnect Selected",
+                "icon": "mdi mdi-ethernet-cable-off",
+                "btn_class": "btn btn-sm btn-danger",
+                "dropdown_class": "dropdown-item",
+                "attrs": {
+                    "type": "submit",
+                    "name": "_disconnect",
+                    "formaction": reverse(context["bulk_disconnect_url"]) + query_string,
+                },
+            }
+        )
+
+    if getattr(model, "is_dynamic_group_associable_model", False) and context["user"].has_perms(
+        ["extras.add_staticgroupassociation"]
+    ):
+        button_defs.append(
+            {
+                "label": "Update Group Assignment",
+                "icon": "mdi mdi-group",
+                "btn_class": "btn btn-sm btn-primary",
+                "dropdown_class": "dropdown-item",
+                "dropdown_icon": "mdi mdi-group text-secondary",
+                "attrs": {
+                    "type": "button",
+                    "id": "update_dynamic_groups_for_selected",
+                    "data-bs-toggle": "modal",
+                    "data-bs-target": "#dynamic_group_assignment_modal",
+                    "data-objects": "selected",
+                },
+            }
+        )
+
+    has_name_field = False
+    if model:
+        try:
+            field = model._meta.get_field("name")
+            has_name_field = isinstance(field, CharField) and field.editable
+        except FieldDoesNotExist:
+            pass
+    if context.get("bulk_rename_url") and context["permissions"]["change"] and has_name_field:
+        button_defs.append(
+            {
+                "label": "Rename Selected",
+                "icon": "mdi mdi-rename",
+                "btn_class": "btn btn-sm btn-warning",
+                "dropdown_class": "dropdown-item",
+                "attrs": {"type": "submit", "formaction": reverse(context["bulk_rename_url"]) + query_string},
+            }
+        )
+
+    if not button_defs:
+        return {"bulk_action_buttons": []}
+
+    # 2. Render — single button standalone, multiple as dropdown
+    is_dropdown = len(button_defs) > 1
+    has_primary = button_defs[0].get("primary", False)
+
+    button_fragment = """
+        <button {attrs}>
+            <span class="{icon}" aria-hidden="true"></span> {label}
+        </button>
+    """
+    buttons = []
+
+    for index, btn in enumerate(button_defs):
+        is_primary = btn.get("primary", False)
+
+        if is_primary:
+            rendered = format_html(
+                button_fragment,
+                label=btn["label"],
+                attrs=render_tag_attrs({"class": btn["btn_class"], **btn["attrs"]}),
+                icon=btn["icon"],
+            )
+            if is_dropdown:
+                rendered += format_html(
+                    """
+                    <button type="button" data-bs-toggle="dropdown" class="{} dropdown-toggle" aria-haspopup="true">
+                        <span class="visually-hidden">Toggle Dropdown</span>
+                        <span class="mdi mdi-chevron-down"></span>
+                    </button>
+                    """,
+                    btn["btn_class"],
+                )
+        elif is_dropdown:
+            css_class = btn.get("dropdown_class", btn["btn_class"])
+            icon = btn.get("dropdown_icon", btn["icon"])
+            rendered = format_html(
+                "<li>{}</li>",
+                format_html(
+                    button_fragment,
+                    label=btn["label"],
+                    attrs=render_tag_attrs({"class": css_class, **btn["attrs"]}),
+                    icon=icon,
+                ),
+            )
+        else:
+            rendered = format_html(
+                button_fragment,
+                label=btn["label"],
+                attrs=render_tag_attrs({"class": btn["btn_class"], **btn["attrs"]}),
+                icon=btn["icon"],
+            )
+        buttons.append(rendered)
+
+        # Divider after destructive actions if non-destructive items follow
+        if is_dropdown and btn.get("divider_after") and index < len(button_defs) - 1:
+            buttons.append(format_html('<li class="dropdown-divider"></li>'))
+
+    # If dropdown but no primary button, prepend a generic "Bulk Actions" toggle
+    if is_dropdown and not has_primary:
+        buttons.insert(
+            0,
+            format_html(
+                """
+                <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true">
+                    Bulk Actions
+                    <span class="mdi mdi-chevron-down" aria-hidden="true"></span>
+                </button>
+                """
+            ),
+        )
+
+    return {"bulk_action_buttons": buttons}
+
+
+@register.inclusion_tag("buttons/consolidated_detail_view_action_buttons.html", takes_context=True)
+def consolidate_detail_view_action_buttons(context):
+    """
+    Generates a list of action buttons for detail view operations (edit, clone, delete) based on the
+    model capabilities and user permissions.
+
+    Context must include the following keys:
+        request (HttpRequest): The HTTP request object.
+        object (Model): The object in the detail view.
+        user (User): The current user.
+    """
+    instance = context["object"]
+    detail_view_action_buttons = []
+    object_edit_url = action_url(instance, "edit")
+    object_delete_url = action_url(instance, "delete")
+    object_clone_url = action_url(instance, "add")
+
+    render_edit_button = bool(object_edit_url and can_change(context["user"], instance))
+    render_delete_button = bool(object_delete_url and can_delete(context["user"], instance))
+    render_clone_button = bool(
+        hasattr(instance, "clone_fields") and object_clone_url and can_add(context["user"], instance)
+    )
+    # Get extra action buttons from model-level lookup
+    extra_action_buttons = lookup.get_extra_detail_view_action_buttons_for_model(instance._meta.model)
+
+    detail_view_action_button_count = sum([render_edit_button, render_delete_button, render_clone_button])
+
+    if detail_view_action_button_count == 0 and not extra_action_buttons:
+        return {
+            "detail_view_action_buttons": detail_view_action_buttons,
+        }
+
+    primary_button_fragment = """
+        <a {attrs}>
+            <span class="{icon}" aria-hidden="true"></span> {label}
+        </a>
+    """
+
+    delete_button_fragment = """
+        <a {attrs}>
+            <span class="{icon}" aria-hidden="true"></span> {label}
+        </a>
+    """
+    dropdown_button_classes = "btn btn-warning rounded-end"
+    edit_button_classes = "btn btn-warning"
+    delete_button_classes = "dropdown-item text-danger"
+    clone_button_classes = "dropdown-item"
+    clone_icon = "mdi mdi-plus-thick text-secondary"
+    delete_button_fragment = f"<li>{delete_button_fragment}</li>"
+
+    if render_edit_button:
+        attrs = {
+            "id": "edit-button",
+            "class": edit_button_classes,
+            "href": object_edit_url,
+        }
+        detail_view_action_buttons.append(
+            format_html(
+                primary_button_fragment,
+                label=f"Edit {bettertitle(context['verbose_name'])}",
+                attrs=render_tag_attrs(attrs),
+                button_class=edit_button_classes,
+                icon="mdi mdi-pencil",
+            ),
+        )
+        if detail_view_action_button_count > 1:
+            detail_view_action_buttons[0] += format_html(
+                """
+                <button type="button" id="actions-dropdown" data-bs-toggle="dropdown" class="{button_class}">
+                    <span aria-hidden="true" class="mdi mdi-chevron-down"></span>
+                    <span class="visually-hidden">More actions</span>
+                 </button>
+                """,
+                button_class=dropdown_button_classes,
+            )
+
+    # Render a generic "Actions" dropdown button if the edit button is not present
+    elif detail_view_action_button_count >= 1 or extra_action_buttons:
+        detail_view_action_buttons.append(
+            format_html(
+                """
+                <button type="button" id="actions-dropdown" data-bs-toggle="dropdown" class="{button_class}">
+                    Actions <span aria-hidden="true" class="mdi mdi-chevron-down"></span>
+                 </button>
+                """,
+                button_class=dropdown_button_classes,
+            )
+        )
+    if render_clone_button:
+        param_string = views_utils.prepare_cloned_fields(instance)
+        if param_string:
+            object_clone_url = f"{object_clone_url}?{param_string}"
+        detail_view_action_buttons.append(
+            format_html(
+                delete_button_fragment,
+                label=f"Clone {bettertitle(context['verbose_name'])}",
+                attrs=render_tag_attrs(
+                    {
+                        "id": "clone-button",
+                        "class": clone_button_classes,
+                        "href": object_clone_url,
+                    }
+                ),
+                icon=clone_icon,
+                button_class=clone_button_classes,
+            )
+        )
+
+    for extra_action_button in extra_action_buttons:
+        rendered_action_button = extra_action_button.render(context)
+        if not rendered_action_button:
+            continue
+        detail_view_action_buttons.append(rendered_action_button)
+
+    # delete button should be rendered as a last one
+    if render_delete_button:
+        # Add a divider before the Delete button when there are multiple actions,
+        # or when there are exactly two actions and Edit is not one of them.
+        # If Edit is rendered, we do not create the Actions dropdown;
+        # instead, we show a standalone Edit dropdown.
+        if len(detail_view_action_buttons) >= 2 or (len(detail_view_action_buttons) == 2 and not render_edit_button):
+            detail_view_action_buttons.append(format_html('<li class="dropdown-divider"></li>'))
+        detail_view_action_buttons.append(
+            format_html(
+                delete_button_fragment,
+                label=f"Delete {bettertitle(context['verbose_name'])}",
+                attrs=render_tag_attrs(
+                    {
+                        "id": "delete-button",
+                        "class": delete_button_classes,
+                        "href": object_delete_url,
+                    }
+                ),
+                icon="mdi mdi-trash-can-outline",
+                button_class=delete_button_classes,
+            )
+        )
+
+    return {
+        "detail_view_action_buttons": detail_view_action_buttons,
+    }
+
+
+@register.inclusion_tag("buttons/job_import.html")
+def job_import_button(content_type, list_element=False):
+    """Display an Import Button/List Element on the page.
+
+    This allows an Import Button to either be displayed on a page or within a Button Group.
+    Args:
+        content_type (str): Django.contrib.ContentType for the model.
+        list_element (bool, optional): Render as a <li> element instead of a button. Defaults to False.
+    """
+    return {"import_url": job_import_url(content_type), "list_element": list_element}
+
+
+@register.simple_tag
+def job_export_url():
+    """
+    URL to the run view for the Export Object List system job.
+
+    Helper to `export_button` tag, but can be used separately if needed.
+    """
+    try:
+        export_url = reverse(
+            "extras:job_run_by_class_path", kwargs={"class_path": "nautobot.core.jobs.ExportObjectList"}
+        )
+    except NoReverseMatch:
+        export_url = None
+    return export_url
+
+
+@register.inclusion_tag("buttons/export.html", takes_context=True)
+def export_button(context, content_type=None, list_element=False):
+    """Display an Export Button/List Element on the page.
+
+    Args:
+        context (dict): current Django Template context
+        content_type (content_type, optional): Django Content Type for the model. Defaults to None.
+        list_element (bool, optional): Render as a <li> element instead of a button. Defaults to False.
+    """
+    if content_type is not None:
+        user = context["request"].user
+        export_templates = models.ExportTemplate.objects.restrict(user, "view").filter(content_type=content_type)
+        export_url = job_export_url()
+        include_yaml_option = hasattr(content_type.model_class(), "to_yaml")
+    else:
+        export_templates = []
+        export_url = None
+        include_yaml_option = False
+
+    return {
+        "export_url": export_url,
+        "query_string": context["request"].GET.urlencode(),
+        "content_type": content_type,
+        "export_templates": export_templates,
+        "include_yaml_option": include_yaml_option,
+        "list_element": list_element,
+    }

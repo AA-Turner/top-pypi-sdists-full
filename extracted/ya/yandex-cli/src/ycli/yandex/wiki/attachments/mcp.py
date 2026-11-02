@@ -1,0 +1,138 @@
+"""Wiki /pages/{id}/attachments FastMCP tools (list/get reads + attach/upload/delete writes).
+
+Binary *downloads and previews* stay CLI/SDK-only (base64 blobs are not an agent payload); the
+upload direction is exposed — an agent supplies small file bytes as base64 in the request.
+"""
+
+from typing import Annotated
+
+from fastmcp.dependencies import Depends
+from pydantic import Base64Bytes, Field
+
+from ycli.settings import AppConfig
+from ycli.yandex.models import Ack, ItemList, Listed, SortDirection
+from ycli.yandex.wiki.attachments.models import AttachedFile, AttachmentOrder
+from ycli.yandex.wiki.client import WikiClient
+from ycli.yandex.wiki.dependencies import (
+    DESTRUCTIVE,
+    LIMIT_CAP,
+    RO,
+    WRITE,
+    All,
+    Next,
+    PageID,
+    app_config,
+    new_server,
+    wiki_client,
+)
+
+mcp = new_server("wiki-attachments")
+
+
+@mcp.tool(name="attachments_list", annotations={**RO, "title": "List Wiki attachments"})
+def list_(
+    page_id: PageID,
+    limit: Annotated[
+        int | None, Field(ge=1, description=f"Max attachments to return; {LIMIT_CAP}")
+    ] = None,
+    all: All = False,
+    next: Next = None,
+    order_by: Annotated[AttachmentOrder | None, Field(description="Sort field.")] = None,
+    order_direction: Annotated[
+        SortDirection | None, Field(description="Sort direction for ``order_by``.")
+    ] = None,
+    client: WikiClient = Depends(wiki_client),
+    config: AppConfig = Depends(app_config),
+) -> Listed[AttachedFile]:
+    """Attachments (name, size, mime type) on a page id, auto-paginated (drains ``next_cursor``).
+
+    Capped at the configured item cap unless ``limit`` is given. This is the list surface;
+    downloading an attachment's bytes is CLI/SDK-only (binary blobs are not an MCP payload).
+    """
+    cap = config.http.tool_cap(limit, all_=all)
+    return client.attachments.list(
+        page_id=page_id,
+        limit=cap,
+        next=next,
+        order_by=order_by,
+        order_direction=order_direction,
+    ).collect()
+
+
+@mcp.tool(
+    name="attachments_get",
+    annotations={**RO, "title": "Get Wiki attachment"},
+)
+def get(
+    page_id: Annotated[int, Field(description="Numeric id of the page the file is attached to.")],
+    file_id: Annotated[int, Field(description="Numeric id of the attachment.")],
+    client: WikiClient = Depends(wiki_client),
+) -> AttachedFile:
+    """Metadata of one attachment (``GET /pages/{id}/attachments/{file_id}``).
+
+    Name, size, MIME type, download URL, whether a preview exists and the virus-check status.
+    Yandex does not document this operation (it is in the live OpenAPI only) and may change it.
+    Fetching the bytes (``download``, ``preview``) is CLI/SDK-only.
+    """
+    return client.attachments.get(page_id=page_id, file_id=file_id)
+
+
+@mcp.tool(
+    name="attachments_attach",
+    annotations={**WRITE, "title": "Attach uploaded files to Wiki page"},
+)
+def attach(
+    page_id: Annotated[int, Field(description="Numeric id of the page to attach to.")],
+    session_ids: Annotated[
+        list[str],
+        Field(description="``session_id`` of each FINISHED upload session to attach."),
+    ],
+    client: WikiClient = Depends(wiki_client),
+) -> ItemList[AttachedFile]:
+    """Attach file(s) from finished upload sessions to a wiki page.
+
+    The final step of the upload pipeline: create the session (``uploadsessions_create``),
+    send the bytes (``uploadsessions_parts_upload``), close it (``uploadsessions_finish``),
+    then attach here. For one small file, ``attachments_upload`` runs the whole pipeline in
+    a single call. Returns the newly-attached files.
+    """
+    return client.attachments.attach(page_id, session_ids)
+
+
+@mcp.tool(
+    name="attachments_upload",
+    annotations={**WRITE, "title": "Upload file to Wiki page"},
+)
+def upload(
+    page_id: Annotated[int, Field(description="Numeric id of the page to attach the file to.")],
+    file_name: Annotated[str, Field(description="Name to give the uploaded file.")],
+    data: Annotated[Base64Bytes, Field(description="The file's bytes, base64-encoded.")],
+    client: WikiClient = Depends(wiki_client),
+) -> ItemList[AttachedFile]:
+    """Upload one small file and attach it to a wiki page in a single call.
+
+    Runs the whole pipeline end to end: opens an upload session sized to ``data``, PUTs the
+    bytes as a single part, finishes the session, and attaches it to the page. Small-file
+    path — for large files drive ``uploadsessions_create`` / ``uploadsessions_parts_upload``
+    (chunked) / ``uploadsessions_finish`` + ``attachments_attach`` yourself. Returns the
+    newly-attached files.
+    """
+    return client.attachments.upload(client.uploadsessions, page_id, file_name=file_name, data=data)
+
+
+@mcp.tool(
+    name="attachments_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Wiki attachment"},
+)
+def delete(
+    page_id: Annotated[int, Field(description="Numeric id of the page the file is attached to.")],
+    file_id: Annotated[int, Field(description="Numeric id of the attachment to delete.")],
+    client: WikiClient = Depends(wiki_client),
+) -> Ack:
+    """Delete an attachment from a wiki page — irreversible (no recovery token).
+
+    The API answers ``204 No Content``; a typed acknowledgement is returned instead. Find
+    ``file_id`` with ``attachments_list`` and double-check it before calling.
+    """
+    client.attachments.delete(page_id=page_id, file_id=file_id)
+    return Ack.deleted("attachment", file_id, from_=f"page {page_id}")

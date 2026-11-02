@@ -11,7 +11,7 @@ from __future__ import annotations
 import sqlite3
 import types
 
-from probe.service import keylatch
+from probe.service.sessions import keylatch
 
 GATEWAY_401 = {"detail": "capture credentials were rejected"}
 
@@ -94,7 +94,7 @@ def test_install_wraps_the_tap_wire_once_and_capture_still_gets_its_answer(tmp_p
 
 def test_the_cli_reads_the_stamp_as_halted(tmp_path, monkeypatch):
     """What `probe session status` / doctor read (`capture_state._halted`)."""
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     _fresh(monkeypatch)
     db = _db(tmp_path)

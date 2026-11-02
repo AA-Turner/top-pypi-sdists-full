@@ -7,9 +7,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_prompts as prompts
-from probe.cli.backfill_run import _git_note
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.agents import prompts as prompts
+from probe.cli.imports.folder.classify.classify import _git_note
 
 
 def _init_repo(root: Path, *, remote: str | None = "git@github.com:Acme-Lab/Train.git"):

@@ -1,0 +1,27 @@
+[package]
+name = "mft"
+version = "0.10.0"
+authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
+edition = "2024"
+rust-version = "1.90"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+mft_rs = { version = "0.9.1", default-features = false, package = "mft" }
+pyo3 = { version = "0.30.1", features = ["abi3-py310"] }
+num-traits = "0.2"
+log = { version = "0.4", features = ["std"] }
+pyo3-file = "0.18.0"
+jiff = { version = "0.2", default-features = false, features = ["std"] }
+sonic-rs = "0.5"
+csv = "1"
+
+[build-dependencies]
+pyo3-build-config = "0.30.1"

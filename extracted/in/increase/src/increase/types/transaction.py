@@ -1,0 +1,5640 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import date, datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "Transaction",
+    "Source",
+    "SourceAccountRevenuePayment",
+    "SourceAccountTransferIntention",
+    "SourceACHTransferIntention",
+    "SourceACHTransferRejection",
+    "SourceACHTransferReturn",
+    "SourceBlockchainOfframpTransferSettlement",
+    "SourceBlockchainOnrampTransferIntention",
+    "SourceCardDisputeAcceptance",
+    "SourceCardDisputeFinancial",
+    "SourceCardDisputeFinancialVisa",
+    "SourceCardDisputeLoss",
+    "SourceCardFinancial",
+    "SourceCardFinancialAdditionalAmounts",
+    "SourceCardFinancialAdditionalAmountsClinic",
+    "SourceCardFinancialAdditionalAmountsDental",
+    "SourceCardFinancialAdditionalAmountsOriginal",
+    "SourceCardFinancialAdditionalAmountsPrescription",
+    "SourceCardFinancialAdditionalAmountsSurcharge",
+    "SourceCardFinancialAdditionalAmountsTotalCumulative",
+    "SourceCardFinancialAdditionalAmountsTotalHealthcare",
+    "SourceCardFinancialAdditionalAmountsTransit",
+    "SourceCardFinancialAdditionalAmountsUnknown",
+    "SourceCardFinancialAdditionalAmountsVision",
+    "SourceCardFinancialNetworkDetails",
+    "SourceCardFinancialNetworkDetailsPulse",
+    "SourceCardFinancialNetworkDetailsVisa",
+    "SourceCardFinancialNetworkIdentifiers",
+    "SourceCardFinancialSchemeFee",
+    "SourceCardFinancialVerification",
+    "SourceCardFinancialVerificationCardVerificationCode",
+    "SourceCardFinancialVerificationCardholderAddress",
+    "SourceCardFinancialVerificationCardholderName",
+    "SourceCardPushTransferAcceptance",
+    "SourceCardRefund",
+    "SourceCardRefundCashback",
+    "SourceCardRefundInterchange",
+    "SourceCardRefundNetworkIdentifiers",
+    "SourceCardRefundPurchaseDetails",
+    "SourceCardRefundPurchaseDetailsCarRental",
+    "SourceCardRefundPurchaseDetailsFleet",
+    "SourceCardRefundPurchaseDetailsLodging",
+    "SourceCardRefundPurchaseDetailsTravel",
+    "SourceCardRefundPurchaseDetailsTravelAncillary",
+    "SourceCardRefundPurchaseDetailsTravelAncillaryService",
+    "SourceCardRefundPurchaseDetailsTravelTripLeg",
+    "SourceCardRefundSchemeFee",
+    "SourceCardRevenuePayment",
+    "SourceCardSettlement",
+    "SourceCardSettlementCashback",
+    "SourceCardSettlementInterchange",
+    "SourceCardSettlementNetworkIdentifiers",
+    "SourceCardSettlementPurchaseDetails",
+    "SourceCardSettlementPurchaseDetailsCarRental",
+    "SourceCardSettlementPurchaseDetailsFleet",
+    "SourceCardSettlementPurchaseDetailsLodging",
+    "SourceCardSettlementPurchaseDetailsTravel",
+    "SourceCardSettlementPurchaseDetailsTravelAncillary",
+    "SourceCardSettlementPurchaseDetailsTravelAncillaryService",
+    "SourceCardSettlementPurchaseDetailsTravelTripLeg",
+    "SourceCardSettlementSchemeFee",
+    "SourceCardSettlementSurcharge",
+    "SourceCashbackPayment",
+    "SourceCheckDepositAcceptance",
+    "SourceCheckDepositReturn",
+    "SourceCheckTransferDeposit",
+    "SourceFednowTransferAcknowledgement",
+    "SourceFednowTransferReturn",
+    "SourceFeePayment",
+    "SourceInboundACHTransfer",
+    "SourceInboundACHTransferAddenda",
+    "SourceInboundACHTransferAddendaFreeform",
+    "SourceInboundACHTransferAddendaFreeformEntry",
+    "SourceInboundACHTransferReturnIntention",
+    "SourceInboundCheckAdjustment",
+    "SourceInboundCheckDepositReturnIntention",
+    "SourceInboundFednowTransferConfirmation",
+    "SourceInboundRealTimePaymentsTransferConfirmation",
+    "SourceInboundWireReversal",
+    "SourceInboundWireTransfer",
+    "SourceInboundWireTransferReversal",
+    "SourceInterestPayment",
+    "SourceInternalSource",
+    "SourceOther",
+    "SourceRealTimePaymentsTransferAcknowledgement",
+    "SourceSampleFunds",
+    "SourceSepaInstantTransferAcceptance",
+    "SourceSwiftTransferIntention",
+    "SourceSwiftTransferReturn",
+    "SourceUkFasterPaymentSystemTransferAcceptance",
+    "SourceWireTransferIntention",
+]
+
+
+class SourceAccountRevenuePayment(BaseModel):
+    """An Account Revenue Payment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `account_revenue_payment`. An Account Revenue Payment represents a payment made to an account from the bank. Account revenue is a type of non-interest income.
+    """
+
+    accrued_on_account_id: str
+    """The account on which the account revenue was accrued."""
+
+    period_end: datetime
+    """The end of the period for which this transaction paid account revenue."""
+
+    period_start: datetime
+    """The start of the period for which this transaction paid account revenue."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceAccountTransferIntention(BaseModel):
+    """An Account Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `account_transfer_intention`. Two Account Transfer Intentions are created from each Account Transfer. One decrements the source account, and the other increments the destination account.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the destination
+    account currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    description: str
+    """The description you chose to give the transfer."""
+
+    destination_account_id: str
+    """The identifier of the Account to where the Account Transfer was sent."""
+
+    source_account_id: str
+    """The identifier of the Account from where the Account Transfer was sent."""
+
+    transfer_id: str
+    """The identifier of the Account Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceACHTransferIntention(BaseModel):
+    """An ACH Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `ach_transfer_intention`. An ACH Transfer Intention is created from an ACH Transfer. It reflects the intention to move money into or out of an Increase account via the ACH network.
+    """
+
+    account_number: str
+    """The account number for the destination account."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    routing_number: str
+    """
+    The American Bankers' Association (ABA) Routing Transit Number (RTN) for the
+    destination account.
+    """
+
+    statement_descriptor: str
+    """A description set when the ACH Transfer was created."""
+
+    transfer_id: str
+    """The identifier of the ACH Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceACHTransferRejection(BaseModel):
+    """An ACH Transfer Rejection object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `ach_transfer_rejection`. An ACH Transfer Rejection is created when an ACH Transfer is rejected by Increase. It offsets the ACH Transfer Intention. These rejections are rare.
+    """
+
+    transfer_id: str
+    """The identifier of the ACH Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceACHTransferReturn(BaseModel):
+    """An ACH Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `ach_transfer_return`. An ACH Transfer Return is created when an ACH Transfer is returned by the receiving bank. It offsets the ACH Transfer Intention. ACH Transfer Returns usually occur within the first two business days after the transfer is initiated, but can occur much later. The return appears as a new posted Transaction; no Pending Transaction is created.
+    """
+
+    addenda_information: Optional[str] = None
+    """
+    Additional free-form information included by the receiving bank in the return's
+    addenda record. This is raw, uninterpreted text whose presence and format are
+    not guaranteed. For a `file_record_edit_criteria` (R17) return the receiving
+    bank may set this to `QUESTIONABLE` (optionally followed by more text) to
+    indicate it believes the transfer was initiated under questionable
+    circumstances.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    raw_return_reason_code: str
+    """The three character ACH return code, in the range R01 to R85."""
+
+    return_reason_code: Literal[
+        "insufficient_fund",
+        "no_account",
+        "account_closed",
+        "invalid_account_number_structure",
+        "account_frozen_entry_returned_per_ofac_instruction",
+        "credit_entry_refused_by_receiver",
+        "unauthorized_debit_to_consumer_account_using_corporate_sec_code",
+        "corporate_customer_advised_not_authorized",
+        "payment_stopped",
+        "non_transaction_account",
+        "uncollected_funds",
+        "routing_number_check_digit_error",
+        "customer_advised_unauthorized_improper_ineligible_or_incomplete",
+        "amount_field_error",
+        "authorization_revoked_by_customer",
+        "invalid_ach_routing_number",
+        "file_record_edit_criteria",
+        "enr_invalid_individual_name",
+        "returned_per_odfi_request",
+        "limited_participation_dfi",
+        "incorrectly_coded_outbound_international_payment",
+        "account_sold_to_another_dfi",
+        "addenda_error",
+        "beneficiary_or_account_holder_deceased",
+        "customer_advised_not_within_authorization_terms",
+        "corrected_return",
+        "duplicate_entry",
+        "duplicate_return",
+        "enr_duplicate_enrollment",
+        "enr_invalid_dfi_account_number",
+        "enr_invalid_individual_id_number",
+        "enr_invalid_representative_payee_indicator",
+        "enr_invalid_transaction_code",
+        "enr_return_of_enr_entry",
+        "enr_routing_number_check_digit_error",
+        "entry_not_processed_by_gateway",
+        "field_error",
+        "foreign_receiving_dfi_unable_to_settle",
+        "iat_entry_coding_error",
+        "improper_effective_entry_date",
+        "improper_source_document_source_document_presented",
+        "invalid_company_id",
+        "invalid_foreign_receiving_dfi_identification",
+        "invalid_individual_id_number",
+        "item_and_rck_entry_presented_for_payment",
+        "item_related_to_rck_entry_is_ineligible",
+        "mandatory_field_error",
+        "misrouted_dishonored_return",
+        "misrouted_return",
+        "no_errors_found",
+        "non_acceptance_of_r62_dishonored_return",
+        "non_participant_in_iat_program",
+        "permissible_return_entry",
+        "permissible_return_entry_not_accepted",
+        "rdfi_non_settlement",
+        "rdfi_participant_in_check_truncation_program",
+        "representative_payee_deceased_or_unable_to_continue_in_that_capacity",
+        "return_not_a_duplicate",
+        "return_of_erroneous_or_reversing_debit",
+        "return_of_improper_credit_entry",
+        "return_of_improper_debit_entry",
+        "return_of_xck_entry",
+        "source_document_presented_for_payment",
+        "state_law_affecting_rck_acceptance",
+        "stop_payment_on_item_related_to_rck_entry",
+        "stop_payment_on_source_document",
+        "timely_original_return",
+        "trace_number_error",
+        "untimely_dishonored_return",
+        "untimely_return",
+    ]
+    """Why the ACH Transfer was returned.
+
+    This reason code is sent by the receiving bank back to Increase.
+
+    - `insufficient_fund` - Code R01. Insufficient funds in the receiving account.
+      Sometimes abbreviated to "NSF."
+    - `no_account` - Code R03. The account does not exist or the receiving bank was
+      unable to locate it.
+    - `account_closed` - Code R02. The account is closed at the receiving bank.
+    - `invalid_account_number_structure` - Code R04. The account number is invalid
+      at the receiving bank.
+    - `account_frozen_entry_returned_per_ofac_instruction` - Code R16. This return
+      code has two separate meanings. (1) The receiving bank froze the account or
+      (2) the Office of Foreign Assets Control (OFAC) instructed the receiving bank
+      to return the entry.
+    - `credit_entry_refused_by_receiver` - Code R23. The receiving bank refused the
+      credit transfer.
+    - `unauthorized_debit_to_consumer_account_using_corporate_sec_code` - Code R05.
+      The receiving bank rejected because of an incorrect Standard Entry Class code.
+      Consumer accounts cannot be debited as `corporate_credit_or_debit` or
+      `corporate_trade_exchange`.
+    - `corporate_customer_advised_not_authorized` - Code R29. The corporate customer
+      at the receiving bank reversed the transfer.
+    - `payment_stopped` - Code R08. The receiving bank stopped payment on this
+      transfer.
+    - `non_transaction_account` - Code R20. The account is not eligible for ACH,
+      such as a savings account with transaction limits.
+    - `uncollected_funds` - Code R09. The receiving bank account does not have
+      enough available balance for the transfer.
+    - `routing_number_check_digit_error` - Code R28. The routing number is
+      incorrect.
+    - `customer_advised_unauthorized_improper_ineligible_or_incomplete` - Code R10.
+      The customer at the receiving bank reversed the transfer.
+    - `amount_field_error` - Code R19. The amount field is incorrect or too large.
+    - `authorization_revoked_by_customer` - Code R07. The customer revoked their
+      authorization for a previously authorized transfer.
+    - `invalid_ach_routing_number` - Code R13. The routing number is invalid.
+    - `file_record_edit_criteria` - Code R17. This return code has multiple
+      meanings. The receiving bank was either unable to process a field in the
+      transfer, or believes the transfer was initiated under questionable
+      circumstances (such as fraud), or identified an improperly-initiated reversing
+      entry.
+    - `enr_invalid_individual_name` - Code R45. A rare return reason. The individual
+      name field was invalid.
+    - `returned_per_odfi_request` - Code R06. The originating financial institution
+      asked for this transfer to be returned. The receiving bank is complying with
+      the request.
+    - `limited_participation_dfi` - Code R34. The receiving bank's regulatory
+      supervisor has limited their participation in the ACH network.
+    - `incorrectly_coded_outbound_international_payment` - Code R85. The outbound
+      international ACH transfer was incorrect.
+    - `account_sold_to_another_dfi` - Code R12. A rare return reason. The account
+      was sold to another bank.
+    - `addenda_error` - Code R25. The addenda record is incorrect or missing.
+    - `beneficiary_or_account_holder_deceased` - Code R15. A rare return reason. The
+      account holder is deceased.
+    - `customer_advised_not_within_authorization_terms` - Code R11. A rare return
+      reason. The customer authorized some payment to the sender, but this payment
+      was not in error.
+    - `corrected_return` - Code R74. A rare return reason. Sent in response to a
+      return that was returned with code `field_error`. The latest return should
+      include the corrected field(s).
+    - `duplicate_entry` - Code R24. A rare return reason. The receiving bank
+      received an exact duplicate entry with the same trace number and amount.
+    - `duplicate_return` - Code R67. A rare return reason. The return this message
+      refers to was a duplicate.
+    - `enr_duplicate_enrollment` - Code R47. A rare return reason. Only used for US
+      Government agency non-monetary automatic enrollment messages.
+    - `enr_invalid_dfi_account_number` - Code R43. A rare return reason. Only used
+      for US Government agency non-monetary automatic enrollment messages.
+    - `enr_invalid_individual_id_number` - Code R44. A rare return reason. Only used
+      for US Government agency non-monetary automatic enrollment messages.
+    - `enr_invalid_representative_payee_indicator` - Code R46. A rare return reason.
+      Only used for US Government agency non-monetary automatic enrollment messages.
+    - `enr_invalid_transaction_code` - Code R41. A rare return reason. Only used for
+      US Government agency non-monetary automatic enrollment messages.
+    - `enr_return_of_enr_entry` - Code R40. A rare return reason. Only used for US
+      Government agency non-monetary automatic enrollment messages.
+    - `enr_routing_number_check_digit_error` - Code R42. A rare return reason. Only
+      used for US Government agency non-monetary automatic enrollment messages.
+    - `entry_not_processed_by_gateway` - Code R84. A rare return reason. The
+      International ACH Transfer cannot be processed by the gateway.
+    - `field_error` - Code R69. A rare return reason. One or more of the fields in
+      the ACH were malformed.
+    - `foreign_receiving_dfi_unable_to_settle` - Code R83. A rare return reason. The
+      Foreign receiving bank was unable to settle this ACH transfer.
+    - `iat_entry_coding_error` - Code R80. A rare return reason. The International
+      ACH Transfer is malformed.
+    - `improper_effective_entry_date` - Code R18. A rare return reason. The ACH has
+      an improper effective entry date field.
+    - `improper_source_document_source_document_presented` - Code R39. A rare return
+      reason. The source document related to this ACH, usually an ACH check
+      conversion, was presented to the bank.
+    - `invalid_company_id` - Code R21. A rare return reason. The Company ID field of
+      the ACH was invalid.
+    - `invalid_foreign_receiving_dfi_identification` - Code R82. A rare return
+      reason. The foreign receiving bank identifier for an International ACH
+      Transfer was invalid.
+    - `invalid_individual_id_number` - Code R22. A rare return reason. The
+      Individual ID number field of the ACH was invalid.
+    - `item_and_rck_entry_presented_for_payment` - Code R53. A rare return reason.
+      Both the Represented Check ("RCK") entry and the original check were presented
+      to the bank.
+    - `item_related_to_rck_entry_is_ineligible` - Code R51. A rare return reason.
+      The Represented Check ("RCK") entry is ineligible.
+    - `mandatory_field_error` - Code R26. A rare return reason. The ACH is missing a
+      required field.
+    - `misrouted_dishonored_return` - Code R71. A rare return reason. The receiving
+      bank does not recognize the routing number in a dishonored return entry.
+    - `misrouted_return` - Code R61. A rare return reason. The receiving bank does
+      not recognize the routing number in a return entry.
+    - `no_errors_found` - Code R76. A rare return reason. Sent in response to a
+      return, the bank does not find the errors alleged by the returning bank.
+    - `non_acceptance_of_r62_dishonored_return` - Code R77. A rare return reason.
+      The receiving bank does not accept the return of the erroneous debit. The
+      funds are not available at the receiving bank.
+    - `non_participant_in_iat_program` - Code R81. A rare return reason. The
+      receiving bank does not accept International ACH Transfers.
+    - `permissible_return_entry` - Code R31. A rare return reason. A return that has
+      been agreed to be accepted by the receiving bank, despite falling outside of
+      the usual return timeframe.
+    - `permissible_return_entry_not_accepted` - Code R70. A rare return reason. The
+      receiving bank had not approved this return.
+    - `rdfi_non_settlement` - Code R32. A rare return reason. The receiving bank
+      could not settle this transaction.
+    - `rdfi_participant_in_check_truncation_program` - Code R30. A rare return
+      reason. The receiving bank does not accept Check Truncation ACH transfers.
+    - `representative_payee_deceased_or_unable_to_continue_in_that_capacity` - Code
+      R14. A rare return reason. The payee is deceased.
+    - `return_not_a_duplicate` - Code R75. A rare return reason. The originating
+      bank disputes that an earlier `duplicate_entry` return was actually a
+      duplicate.
+    - `return_of_erroneous_or_reversing_debit` - Code R62. A rare return reason. The
+      originating financial institution made a mistake and this return corrects it.
+    - `return_of_improper_credit_entry` - Code R36. A rare return reason. Return of
+      a malformed credit entry.
+    - `return_of_improper_debit_entry` - Code R35. A rare return reason. Return of a
+      malformed debit entry.
+    - `return_of_xck_entry` - Code R33. A rare return reason. Return of a destroyed
+      check ("XCK") entry.
+    - `source_document_presented_for_payment` - Code R37. A rare return reason. The
+      source document related to this ACH, usually an ACH check conversion, was
+      presented to the bank.
+    - `state_law_affecting_rck_acceptance` - Code R50. A rare return reason. State
+      law prevents the bank from accepting the Represented Check ("RCK") entry.
+    - `stop_payment_on_item_related_to_rck_entry` - Code R52. A rare return reason.
+      A stop payment was issued on a Represented Check ("RCK") entry.
+    - `stop_payment_on_source_document` - Code R38. A rare return reason. The source
+      attached to the ACH, usually an ACH check conversion, includes a stop payment.
+    - `timely_original_return` - Code R73. A rare return reason. The bank receiving
+      an `untimely_return` believes it was on time.
+    - `trace_number_error` - Code R27. A rare return reason. An ACH return's trace
+      number does not match an originated ACH.
+    - `untimely_dishonored_return` - Code R72. A rare return reason. The dishonored
+      return was sent too late.
+    - `untimely_return` - Code R68. A rare return reason. The return was sent too
+      late.
+    """
+
+    trace_number: str
+    """A 15 digit number that was generated by the bank that initiated the return.
+
+    The trace number of the return is different than that of the original transfer.
+    ACH trace numbers are not unique, but along with the amount and date this number
+    can be used to identify the ACH return at the bank that initiated it.
+    """
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this return."""
+
+    transfer_id: str
+    """The identifier of the ACH Transfer associated with this return.
+
+    This matches the original Transaction's
+    `source.ach_transfer_intention.transfer_id`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceBlockchainOfframpTransferSettlement(BaseModel):
+    """A Blockchain Off-Ramp Transfer Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `blockchain_offramp_transfer_settlement`.
+    """
+
+    source_blockchain_address_id: str
+    """The identifier of the Blockchain Address the funds were received at."""
+
+    transfer_id: str
+    """
+    The identifier of the Blockchain Off-Ramp Transfer that led to this Transaction.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceBlockchainOnrampTransferIntention(BaseModel):
+    """A Blockchain On-Ramp Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `blockchain_onramp_transfer_intention`.
+    """
+
+    destination_blockchain_address: str
+    """The blockchain address the funds were sent to."""
+
+    transfer_id: str
+    """The identifier of the Blockchain On-Ramp Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardDisputeAcceptance(BaseModel):
+    """A Legacy Card Dispute Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_dispute_acceptance`. Contains the details of a successful Card Dispute.
+    """
+
+    accepted_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Card Dispute was accepted.
+    """
+
+    transaction_id: str
+    """
+    The identifier of the Transaction that was created to return the disputed funds
+    to your account.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardDisputeFinancialVisa(BaseModel):
+    """
+    Information for events related to card dispute for card payments processed over Visa's network. This field will be present in the JSON response if and only if `network` is equal to `visa`.
+    """
+
+    event_type: Literal[
+        "chargeback_submitted",
+        "merchant_prearbitration_accepted",
+        "merchant_prearbitration_decline_submitted",
+        "merchant_prearbitration_received",
+        "represented",
+        "user_prearbitration_accepted",
+        "user_prearbitration_decline_received",
+        "user_prearbitration_submitted",
+        "user_withdrawal_submitted",
+    ]
+    """The type of card dispute financial event.
+
+    - `chargeback_submitted` - The user's chargeback was submitted.
+    - `merchant_prearbitration_accepted` - The merchant's pre-arbitration submission
+      was accepted by the user or not responded to in time.
+    - `merchant_prearbitration_decline_submitted` - The user declined the merchant's
+      pre-arbitration submission.
+    - `merchant_prearbitration_received` - The merchant's pre-arbitration submission
+      was received.
+    - `represented` - The transaction was re-presented by the merchant.
+    - `user_prearbitration_accepted` - The user's pre-arbitration was accepted by
+      the merchant or not responded to in time.
+    - `user_prearbitration_decline_received` - The user's pre-arbitration was
+      declined by the merchant.
+    - `user_prearbitration_submitted` - The user's pre-arbitration was submitted.
+    - `user_withdrawal_submitted` - The user withdrew from the dispute.
+    """
+
+
+class SourceCardDisputeFinancial(BaseModel):
+    """A Card Dispute Financial object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_dispute_financial`. Financial event related to a Card Dispute.
+    """
+
+    amount: int
+    """The amount of the financial event."""
+
+    network: Literal["visa", "pulse"]
+    """The network that the Card Dispute is associated with.
+
+    - `visa` - Visa: details will be under the `visa` object.
+    - `pulse` - Pulse: details will be under the `pulse` object.
+    """
+
+    transaction_id: str
+    """
+    The identifier of the Transaction that was created to credit or debit the
+    disputed funds to or from your account.
+    """
+
+    visa: Optional[SourceCardDisputeFinancialVisa] = None
+    """
+    Information for events related to card dispute for card payments processed over
+    Visa's network. This field will be present in the JSON response if and only if
+    `network` is equal to `visa`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardDisputeLoss(BaseModel):
+    """A Legacy Card Dispute Loss object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_dispute_loss`. Contains the details of a lost Card Dispute.
+    """
+
+    explanation: str
+    """Why the Card Dispute was lost."""
+
+    lost_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Card Dispute was lost.
+    """
+
+    transaction_id: str
+    """
+    The identifier of the Transaction that was created to debit the disputed funds
+    from your account.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardFinancialAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardFinancialAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[SourceCardFinancialAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[SourceCardFinancialAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[SourceCardFinancialAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[SourceCardFinancialAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[SourceCardFinancialAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[SourceCardFinancialAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[SourceCardFinancialAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[SourceCardFinancialAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[SourceCardFinancialAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[SourceCardFinancialAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class SourceCardFinancialNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class SourceCardFinancialNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class SourceCardFinancialNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[SourceCardFinancialNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[SourceCardFinancialNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class SourceCardFinancialNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class SourceCardFinancialSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class SourceCardFinancialVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class SourceCardFinancialVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class SourceCardFinancialVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class SourceCardFinancialVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: SourceCardFinancialVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: SourceCardFinancialVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[SourceCardFinancialVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class SourceCardFinancial(BaseModel):
+    """A Card Financial object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_financial`. Card Financials are card transactions that have cleared and settled. Unlike a Card Settlement, which clears a previous authorization, a Card Financial is authorized and cleared in a single message.
+    """
+
+    id: str
+    """The Card Financial identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this financial was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: SourceCardFinancialAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: SourceCardFinancialNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: SourceCardFinancialNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """The pending amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the financial, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[SourceCardFinancialSchemeFee]
+    """The scheme fees associated with this card financial."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_financial"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_financial`.
+    """
+
+    verification: SourceCardFinancialVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardPushTransferAcceptance(BaseModel):
+    """A Card Push Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_push_transfer_acceptance`. A Card Push Transfer Acceptance is created when an Outbound Card Push Transfer sent from Increase is accepted by the receiving bank.
+    """
+
+    settlement_amount: int
+    """The transfer amount in USD cents."""
+
+    transfer_id: str
+    """The identifier of the Card Push Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardRefundCashback(BaseModel):
+    """Cashback debited for this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    amount: str
+    """The cashback amount given as a string containing a decimal number.
+
+    The amount is a positive number if it will be credited to you (e.g.,
+    settlements) and a negative number if it will be debited (e.g., refunds).
+    """
+
+    currency: Literal["USD"]
+    """The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the cashback.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class SourceCardRefundInterchange(BaseModel):
+    """Interchange assessed as a part of this transaction."""
+
+    amount: str
+    """
+    The interchange amount given as a string containing a decimal number in major
+    units (so e.g., "3.14" for $3.14). The amount is a positive number if it is
+    credited to Increase (e.g., settlements) and a negative number if it is debited
+    (e.g., refunds).
+    """
+
+    code: Optional[str] = None
+    """The card network specific interchange code."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the interchange
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class SourceCardRefundNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for this refund."""
+
+    acquirer_business_id: str
+    """
+    A network assigned business ID that identifies the acquirer that processed this
+    transaction.
+    """
+
+    acquirer_reference_number: str
+    """A globally unique identifier for this settlement."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class SourceCardRefundPurchaseDetailsCarRental(BaseModel):
+    """Fields specific to car rentals."""
+
+    car_class_code: Optional[str] = None
+    """Code indicating the vehicle's class."""
+
+    checkout_date: Optional[date] = None
+    """
+    Date the customer picked up the car or, in the case of a no-show or pre-pay
+    transaction, the scheduled pick up date.
+    """
+
+    daily_rental_rate_amount: Optional[int] = None
+    """Daily rate being charged for the vehicle."""
+
+    daily_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily rental
+    rate.
+    """
+
+    days_rented: Optional[int] = None
+    """Number of days the vehicle was rented."""
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "gas", "extra_mileage", "late_return", "one_way_service_fee", "parking_violation"]
+    ] = None
+    """Additional charges (gas, late fee, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `gas` - Gas
+    - `extra_mileage` - Extra mileage
+    - `late_return` - Late return
+    - `one_way_service_fee` - One way service fee
+    - `parking_violation` - Parking violation
+    """
+
+    fuel_charges_amount: Optional[int] = None
+    """Fuel charges for the vehicle."""
+
+    fuel_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel charges
+    assessed.
+    """
+
+    insurance_charges_amount: Optional[int] = None
+    """Any insurance being charged for the vehicle."""
+
+    insurance_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the insurance
+    charges assessed.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show_for_specialized_vehicle"]] = None
+    """
+    An indicator that the cardholder is being billed for a reserved vehicle that was
+    not actually rented (that is, a "no-show" charge).
+
+    - `not_applicable` - Not applicable
+    - `no_show_for_specialized_vehicle` - No show for specialized vehicle
+    """
+
+    one_way_drop_off_charges_amount: Optional[int] = None
+    """
+    Charges for returning the vehicle at a different location than where it was
+    picked up.
+    """
+
+    one_way_drop_off_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the one-way
+    drop-off charges assessed.
+    """
+
+    renter_name: Optional[str] = None
+    """Name of the person renting the vehicle."""
+
+    weekly_rental_rate_amount: Optional[int] = None
+    """Weekly rate being charged for the vehicle."""
+
+    weekly_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the weekly
+    rental rate.
+    """
+
+
+class SourceCardRefundPurchaseDetailsFleet(BaseModel):
+    """Fields specific to fleet purchases."""
+
+    employee_number: Optional[str] = None
+    """The fleet employee number."""
+
+    fuel_quantity: Optional[str] = None
+    """
+    The quantity of fuel purchased, given as a string containing a decimal number in
+    the indicated unit of measure.
+    """
+
+    fuel_type: Optional[
+        Literal[
+            "regular",
+            "mid_or_plus",
+            "premium_or_super",
+            "mid_or_plus_2",
+            "premium_or_super_2",
+            "regular_ethanol_5_blend_non_us",
+            "mid_or_plus_ethanol_5_blend_non_us",
+            "premium_or_super_ethanol_5_blend_non_us",
+            "ethanol_7_7_blend",
+            "mid_or_plus_2_ethanol_5_blend_non_us",
+            "green_gasoline_regular",
+            "green_gasoline_mid_or_plus",
+            "green_gasoline_premium_or_super",
+            "regular_diesel_2",
+            "premium_diesel_2",
+            "regular_diesel_1",
+            "compressed_natural_gas",
+            "liquid_propane_gas",
+            "liquid_natural_gas",
+            "e85",
+            "regular_reformulated",
+            "mid_or_plus_reformulated",
+            "premium_or_super_reformulated",
+            "mid_or_plus_2_reformulated",
+            "premium_or_super_2_reformulated",
+            "diesel_off_road_1_2_non_taxable",
+            "diesel_off_road_non_taxable",
+            "biodiesel_blend_off_road_non_taxable",
+            "racing_fuel",
+            "mid_or_plus_2_ethanol_10_blend",
+            "premium_or_super_2_ethanol_10_blend",
+            "mid_or_plus_ethanol_2_15_blend",
+            "premium_or_super_ethanol_2_15_blend",
+            "premium_or_super_2_ethanol_5_blend_non_us",
+            "regular_ethanol_10_blend",
+            "mid_or_plus_ethanol_10_blend",
+            "premium_or_super_ethanol_10_blend",
+            "b2_diesel_blend_2_biodiesel",
+            "b5_diesel_blend_5_biodiesel",
+            "b10_diesel_blend_10_biodiesel",
+            "b11_diesel_blend_11_biodiesel",
+            "b15_diesel_blend_15_biodiesel",
+            "b20_diesel_blend_20_biodiesel",
+            "b100_diesel_blend_100_biodiesel",
+            "b1_diesel_blend_1_biodiesel",
+            "additized_diesel_2",
+            "additized_diesel_3",
+            "b7_diesel_blend_7_biodiesel_non_us",
+            "b7_premium_diesel_blend_7_biodiesel_non_us",
+            "renewable_diesel_r95_or_greater",
+            "renewable_diesel_biodiesel_6_to_20",
+            "diesel_exhaust_fluid_pump",
+            "premium_diesel_1",
+            "regular_ethanol_15_blend",
+            "mid_or_plus_ethanol_15_blend",
+            "premium_or_super_ethanol_15_blend",
+            "premium_diesel_blend_less_than_20_biodiesel",
+            "premium_diesel_blend_20_or_more_biodiesel",
+            "b75_diesel_blend_75_biodiesel",
+            "b99_diesel_blend_99_biodiesel",
+            "reserved_for_preauthorization_use_only",
+            "undefined_fuel_reserved_for_proprietary_use",
+            "miscellaneous_fuel",
+            "jet_fuel",
+            "aviation_fuel_regular",
+            "aviation_fuel_premium",
+            "aviation_fuel_jp8",
+            "aviation_fuel_4",
+            "aviation_fuel_5",
+            "biojet_diesel",
+            "aviation_biofuel_gasoline",
+            "undefined_aviation_fuel_reserved_for_proprietary_use",
+            "miscellaneous_aviation_fuel",
+            "marine_fuel_1",
+            "marine_fuel_2",
+            "marine_fuel_3",
+            "marine_fuel_4",
+            "marine_fuel_5",
+            "marine_other",
+            "marine_diesel",
+            "miscellaneous_marine_fuel",
+            "kerosene_low_sulfur",
+            "white_gas",
+            "heating_oil",
+            "other_fuel_non_taxable",
+            "kerosene_ultra_low_sulfur",
+            "electric_vehicle_charging_level_1_110_volt",
+            "electric_vehicle_charging_level_2_240_volt",
+            "electric_vehicle_charging_level_3_480_volt",
+            "renewable_diesel_r95_or_greater_off_road_non_taxable",
+            "biodiesel_blend_1_off_road_non_taxable",
+            "biodiesel_blend_75_off_road_non_taxable",
+            "biodiesel_blend_99_off_road_non_taxable",
+            "biodiesel_blend_100_off_road_non_taxable",
+            "renewable_diesel_biodiesel_6_to_20_off_road_non_taxable",
+            "electric_vehicle_charging_level_4_800_volt",
+            "electric_vehicle_charging_level_5_megawatt",
+            "hydrotreated_vegetable_oil_100",
+            "bio_compressed_natural_gas",
+            "miscellaneous_other_fuel",
+        ]
+    ] = None
+    """The type of fuel purchased.
+
+    - `regular` - Regular
+    - `mid_or_plus` - Mid or plus
+    - `premium_or_super` - Premium or super
+    - `mid_or_plus_2` - Mid or plus 2
+    - `premium_or_super_2` - Premium or super 2
+    - `regular_ethanol_5_blend_non_us` - Regular ethanol 5% blend outside the United
+      States
+    - `mid_or_plus_ethanol_5_blend_non_us` - Mid or plus ethanol 5% blend outside
+      the United States
+    - `premium_or_super_ethanol_5_blend_non_us` - Premium or super ethanol 5% blend
+      outside the United States
+    - `ethanol_7_7_blend` - Ethanol 7.7% blend
+    - `mid_or_plus_2_ethanol_5_blend_non_us` - Mid or plus 2 ethanol 5% blend
+      outside the United States
+    - `green_gasoline_regular` - Green gasoline regular
+    - `green_gasoline_mid_or_plus` - Green gasoline mid or plus
+    - `green_gasoline_premium_or_super` - Green gasoline premium or super
+    - `regular_diesel_2` - Regular diesel 2
+    - `premium_diesel_2` - Premium diesel 2
+    - `regular_diesel_1` - Regular diesel 1
+    - `compressed_natural_gas` - Compressed natural gas
+    - `liquid_propane_gas` - Liquid propane gas
+    - `liquid_natural_gas` - Liquid natural gas
+    - `e85` - E85
+    - `regular_reformulated` - Regular reformulated
+    - `mid_or_plus_reformulated` - Mid or plus reformulated
+    - `premium_or_super_reformulated` - Premium or super reformulated
+    - `mid_or_plus_2_reformulated` - Mid or plus 2 reformulated
+    - `premium_or_super_2_reformulated` - Premium or super 2 reformulated
+    - `diesel_off_road_1_2_non_taxable` - Diesel off-road 1/2 non-taxable
+    - `diesel_off_road_non_taxable` - Diesel off-road non-taxable
+    - `biodiesel_blend_off_road_non_taxable` - Biodiesel blend off-road non-taxable
+    - `racing_fuel` - Racing fuel
+    - `mid_or_plus_2_ethanol_10_blend` - Mid or plus 2 ethanol 10% blend
+    - `premium_or_super_2_ethanol_10_blend` - Premium or super 2 ethanol 10% blend
+    - `mid_or_plus_ethanol_2_15_blend` - Mid or plus ethanol 2–15% blend
+    - `premium_or_super_ethanol_2_15_blend` - Premium or super ethanol 2–15% blend
+    - `premium_or_super_2_ethanol_5_blend_non_us` - Premium or super 2 ethanol 5%
+      blend outside the United States
+    - `regular_ethanol_10_blend` - Regular ethanol 10% blend
+    - `mid_or_plus_ethanol_10_blend` - Mid or plus ethanol 10% blend
+    - `premium_or_super_ethanol_10_blend` - Premium or super ethanol 10% blend
+    - `b2_diesel_blend_2_biodiesel` - B2 diesel blend 2% biodiesel
+    - `b5_diesel_blend_5_biodiesel` - B5 diesel blend 5% biodiesel
+    - `b10_diesel_blend_10_biodiesel` - B10 diesel blend 10% biodiesel
+    - `b11_diesel_blend_11_biodiesel` - B11 diesel blend 11% biodiesel
+    - `b15_diesel_blend_15_biodiesel` - B15 diesel blend 15% biodiesel
+    - `b20_diesel_blend_20_biodiesel` - B20 diesel blend 20% biodiesel
+    - `b100_diesel_blend_100_biodiesel` - B100 diesel blend 100% biodiesel
+    - `b1_diesel_blend_1_biodiesel` - B1 diesel blend 1% biodiesel
+    - `additized_diesel_2` - Additized diesel 2
+    - `additized_diesel_3` - Additized diesel 3
+    - `b7_diesel_blend_7_biodiesel_non_us` - B7 diesel blend 7% biodiesel outside
+      the United States
+    - `b7_premium_diesel_blend_7_biodiesel_non_us` - B7 premium diesel blend 7%
+      biodiesel outside the United States
+    - `renewable_diesel_r95_or_greater` - Renewable diesel R95 or greater
+    - `renewable_diesel_biodiesel_6_to_20` - Renewable diesel biodiesel 6% to 20%
+    - `diesel_exhaust_fluid_pump` - Diesel exhaust fluid pump
+    - `premium_diesel_1` - Premium diesel 1
+    - `regular_ethanol_15_blend` - Regular ethanol 15% blend
+    - `mid_or_plus_ethanol_15_blend` - Mid or plus ethanol 15% blend
+    - `premium_or_super_ethanol_15_blend` - Premium or super ethanol 15% blend
+    - `premium_diesel_blend_less_than_20_biodiesel` - Premium diesel blend less than
+      20% biodiesel
+    - `premium_diesel_blend_20_or_more_biodiesel` - Premium diesel blend 20% or more
+      biodiesel
+    - `b75_diesel_blend_75_biodiesel` - B75 diesel blend 75% biodiesel
+    - `b99_diesel_blend_99_biodiesel` - B99 diesel blend 99% biodiesel
+    - `reserved_for_preauthorization_use_only` - Reserved for preauthorization use
+      only
+    - `undefined_fuel_reserved_for_proprietary_use` - Undefined fuel reserved for
+      proprietary use
+    - `miscellaneous_fuel` - Miscellaneous fuel
+    - `jet_fuel` - Jet fuel
+    - `aviation_fuel_regular` - Aviation fuel regular
+    - `aviation_fuel_premium` - Aviation fuel premium
+    - `aviation_fuel_jp8` - Aviation fuel JP8
+    - `aviation_fuel_4` - Aviation fuel 4
+    - `aviation_fuel_5` - Aviation fuel 5
+    - `biojet_diesel` - Biojet diesel
+    - `aviation_biofuel_gasoline` - Aviation biofuel gasoline
+    - `undefined_aviation_fuel_reserved_for_proprietary_use` - Undefined aviation
+      fuel reserved for proprietary use
+    - `miscellaneous_aviation_fuel` - Miscellaneous aviation fuel
+    - `marine_fuel_1` - Marine fuel 1
+    - `marine_fuel_2` - Marine fuel 2
+    - `marine_fuel_3` - Marine fuel 3
+    - `marine_fuel_4` - Marine fuel 4
+    - `marine_fuel_5` - Marine fuel 5
+    - `marine_other` - Marine other
+    - `marine_diesel` - Marine diesel
+    - `miscellaneous_marine_fuel` - Miscellaneous marine fuel
+    - `kerosene_low_sulfur` - Kerosene low sulfur
+    - `white_gas` - White gas
+    - `heating_oil` - Heating oil
+    - `other_fuel_non_taxable` - Other fuel non-taxable
+    - `kerosene_ultra_low_sulfur` - Kerosene ultra low sulfur
+    - `electric_vehicle_charging_level_1_110_volt` - Electric vehicle charging level
+      1 110 volt
+    - `electric_vehicle_charging_level_2_240_volt` - Electric vehicle charging level
+      2 240 volt
+    - `electric_vehicle_charging_level_3_480_volt` - Electric vehicle charging level
+      3 480 volt
+    - `renewable_diesel_r95_or_greater_off_road_non_taxable` - Renewable diesel R95
+      or greater off-road non-taxable
+    - `biodiesel_blend_1_off_road_non_taxable` - Biodiesel blend 1% off-road
+      non-taxable
+    - `biodiesel_blend_75_off_road_non_taxable` - Biodiesel blend 75% off-road
+      non-taxable
+    - `biodiesel_blend_99_off_road_non_taxable` - Biodiesel blend 99% off-road
+      non-taxable
+    - `biodiesel_blend_100_off_road_non_taxable` - Biodiesel blend 100% off-road
+      non-taxable
+    - `renewable_diesel_biodiesel_6_to_20_off_road_non_taxable` - Renewable diesel
+      biodiesel 6% to 20% off-road non-taxable
+    - `electric_vehicle_charging_level_4_800_volt` - Electric vehicle charging level
+      4 800 volt
+    - `electric_vehicle_charging_level_5_megawatt` - Electric vehicle charging level
+      5 megawatt
+    - `hydrotreated_vegetable_oil_100` - Hydrotreated vegetable oil 100
+    - `bio_compressed_natural_gas` - Bio compressed natural gas
+    - `miscellaneous_other_fuel` - Miscellaneous other fuel
+    """
+
+    fuel_unit_cost_amount: Optional[int] = None
+    """The cost per unit of fuel in minor units."""
+
+    fuel_unit_cost_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel unit
+    cost.
+    """
+
+    fuel_unit_of_measure: Optional[
+        Literal["liter", "us_gallon", "imperial_gallon", "kilogram", "pound", "charging_minutes", "kilowatt_hour"]
+    ] = None
+    """The unit of measure for the fuel quantity.
+
+    - `liter` - Liter
+    - `us_gallon` - US gallon
+    - `imperial_gallon` - Imperial gallon
+    - `kilogram` - Kilogram
+    - `pound` - Pound
+    - `charging_minutes` - Charging minutes
+    - `kilowatt_hour` - Kilowatt hour
+    """
+
+    gross_fuel_price_amount: Optional[int] = None
+    """The gross fuel price in minor units."""
+
+    gross_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross fuel
+    price.
+    """
+
+    gross_non_fuel_price_amount: Optional[int] = None
+    """The gross non-fuel price in minor units."""
+
+    gross_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross
+    non-fuel price.
+    """
+
+    net_fuel_price_amount: Optional[int] = None
+    """The net fuel price in minor units."""
+
+    net_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net fuel
+    price.
+    """
+
+    net_non_fuel_price_amount: Optional[int] = None
+    """The net non-fuel price in minor units."""
+
+    net_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net non-fuel
+    price.
+    """
+
+    odometer_reading: Optional[int] = None
+    """The odometer reading reported by the merchant."""
+
+    purchase_type: Optional[
+        Literal[
+            "fuel_purchase", "non_fuel_purchase", "fuel_and_non_fuel_purchase", "fuel_purchase_with_multiple_fuel_types"
+        ]
+    ] = None
+    """The type of fleet purchase.
+
+    - `fuel_purchase` - Fuel purchase
+    - `non_fuel_purchase` - Non-fuel purchase
+    - `fuel_and_non_fuel_purchase` - Fuel and non-fuel purchase
+    - `fuel_purchase_with_multiple_fuel_types` - Fuel purchase with multiple fuel
+      types
+    """
+
+    service_type: Optional[Literal["full_service", "self_service", "high_speed_dispense"]] = None
+    """The type of service provided.
+
+    - `full_service` - Full service
+    - `self_service` - Self service
+    - `high_speed_dispense` - High speed dispense
+    """
+
+    trailer_number: Optional[str] = None
+    """The fleet trailer number."""
+
+
+class SourceCardRefundPurchaseDetailsLodging(BaseModel):
+    """Fields specific to lodging."""
+
+    check_in_date: Optional[date] = None
+    """Date the customer checked in."""
+
+    daily_room_rate_amount: Optional[int] = None
+    """Daily rate being charged for the room."""
+
+    daily_room_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily room
+    rate.
+    """
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "restaurant", "gift_shop", "mini_bar", "telephone", "other", "laundry"]
+    ] = None
+    """Additional charges (phone, late check-out, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `restaurant` - Restaurant
+    - `gift_shop` - Gift shop
+    - `mini_bar` - Mini bar
+    - `telephone` - Telephone
+    - `other` - Other
+    - `laundry` - Laundry
+    """
+
+    folio_cash_advances_amount: Optional[int] = None
+    """Folio cash advances for the room."""
+
+    folio_cash_advances_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the folio cash
+    advances.
+    """
+
+    food_beverage_charges_amount: Optional[int] = None
+    """Food and beverage charges for the room."""
+
+    food_beverage_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the food and
+    beverage charges.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show"]] = None
+    """
+    Indicator that the cardholder is being billed for a reserved room that was not
+    actually used.
+
+    - `not_applicable` - Not applicable
+    - `no_show` - No show
+    """
+
+    prepaid_expenses_amount: Optional[int] = None
+    """Prepaid expenses being charged for the room."""
+
+    prepaid_expenses_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the prepaid
+    expenses.
+    """
+
+    room_nights: Optional[int] = None
+    """Number of nights the room was rented."""
+
+    total_room_tax_amount: Optional[int] = None
+    """Total room tax being charged."""
+
+    total_room_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total room
+    tax.
+    """
+
+    total_tax_amount: Optional[int] = None
+    """Total tax being charged for the room."""
+
+    total_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total tax
+    assessed.
+    """
+
+
+class SourceCardRefundPurchaseDetailsTravelAncillaryService(BaseModel):
+    category: Optional[
+        Literal[
+            "none",
+            "bundled_service",
+            "baggage_fee",
+            "change_fee",
+            "cargo",
+            "carbon_offset",
+            "frequent_flyer",
+            "gift_card",
+            "ground_transport",
+            "in_flight_entertainment",
+            "lounge",
+            "medical",
+            "meal_beverage",
+            "other",
+            "passenger_assist_fee",
+            "pets",
+            "seat_fees",
+            "standby",
+            "service_fee",
+            "store",
+            "travel_service",
+            "unaccompanied_travel",
+            "upgrades",
+            "wifi",
+        ]
+    ] = None
+    """Category of the ancillary service.
+
+    - `none` - None
+    - `bundled_service` - Bundled service
+    - `baggage_fee` - Baggage fee
+    - `change_fee` - Change fee
+    - `cargo` - Cargo
+    - `carbon_offset` - Carbon offset
+    - `frequent_flyer` - Frequent flyer
+    - `gift_card` - Gift card
+    - `ground_transport` - Ground transport
+    - `in_flight_entertainment` - In-flight entertainment
+    - `lounge` - Lounge
+    - `medical` - Medical
+    - `meal_beverage` - Meal beverage
+    - `other` - Other
+    - `passenger_assist_fee` - Passenger assist fee
+    - `pets` - Pets
+    - `seat_fees` - Seat fees
+    - `standby` - Standby
+    - `service_fee` - Service fee
+    - `store` - Store
+    - `travel_service` - Travel service
+    - `unaccompanied_travel` - Unaccompanied travel
+    - `upgrades` - Upgrades
+    - `wifi` - Wi-fi
+    """
+
+    sub_category: Optional[str] = None
+    """Sub-category of the ancillary service, free-form."""
+
+
+class SourceCardRefundPurchaseDetailsTravelAncillary(BaseModel):
+    """Ancillary purchases in addition to the airfare."""
+
+    connected_ticket_document_number: Optional[str] = None
+    """
+    If this purchase has a connection or relationship to another purchase, such as a
+    baggage fee for a passenger transport ticket, this field should contain the
+    ticket document number for the other purchase.
+    """
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "other",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `other` - Other
+    """
+
+    passenger_name_or_description: Optional[str] = None
+    """Name of the passenger or description of the ancillary purchase."""
+
+    services: List[SourceCardRefundPurchaseDetailsTravelAncillaryService]
+    """Additional travel charges, such as baggage fees."""
+
+    ticket_document_number: Optional[str] = None
+    """Ticket document number."""
+
+
+class SourceCardRefundPurchaseDetailsTravelTripLeg(BaseModel):
+    carrier_code: Optional[str] = None
+    """Carrier code (e.g., United Airlines, Jet Blue, etc.)."""
+
+    destination_city_airport_code: Optional[str] = None
+    """Code for the destination city or airport."""
+
+    fare_basis_code: Optional[str] = None
+    """Fare basis code."""
+
+    flight_number: Optional[str] = None
+    """Flight number."""
+
+    service_class: Optional[str] = None
+    """Service class (e.g., first class, business class, etc.)."""
+
+    stop_over_code: Optional[Literal["none", "stop_over_allowed", "stop_over_not_allowed"]] = None
+    """Indicates whether a stopover is allowed on this ticket.
+
+    - `none` - None
+    - `stop_over_allowed` - Stop over allowed
+    - `stop_over_not_allowed` - Stop over not allowed
+    """
+
+
+class SourceCardRefundPurchaseDetailsTravel(BaseModel):
+    """Fields specific to travel."""
+
+    ancillary: Optional[SourceCardRefundPurchaseDetailsTravelAncillary] = None
+    """Ancillary purchases in addition to the airfare."""
+
+    computerized_reservation_system: Optional[str] = None
+    """Indicates the computerized reservation system used to book the ticket."""
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_cancellation",
+            "other",
+            "partial_refund_of_airline_ticket",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `airline_ticket_cancellation` - Airline ticket cancellation
+    - `other` - Other
+    - `partial_refund_of_airline_ticket` - Partial refund of airline ticket
+    """
+
+    departure_date: Optional[date] = None
+    """Date of departure."""
+
+    origination_city_airport_code: Optional[str] = None
+    """Code for the originating city or airport."""
+
+    passenger_name: Optional[str] = None
+    """Name of the passenger."""
+
+    restricted_ticket_indicator: Optional[Literal["no_restrictions", "restricted_non_refundable_ticket"]] = None
+    """Indicates whether this ticket is non-refundable.
+
+    - `no_restrictions` - No restrictions
+    - `restricted_non_refundable_ticket` - Restricted non-refundable ticket
+    """
+
+    ticket_change_indicator: Optional[Literal["none", "change_to_existing_ticket", "new_ticket"]] = None
+    """Indicates why a ticket was changed.
+
+    - `none` - None
+    - `change_to_existing_ticket` - Change to existing ticket
+    - `new_ticket` - New ticket
+    """
+
+    ticket_number: Optional[str] = None
+    """Ticket number."""
+
+    travel_agency_code: Optional[str] = None
+    """Code for the travel agency if the ticket was issued by a travel agency."""
+
+    travel_agency_name: Optional[str] = None
+    """Name of the travel agency if the ticket was issued by a travel agency."""
+
+    trip_legs: Optional[List[SourceCardRefundPurchaseDetailsTravelTripLeg]] = None
+    """Fields specific to each leg of the journey."""
+
+
+class SourceCardRefundPurchaseDetails(BaseModel):
+    """
+    Additional details about the card purchase, such as tax and industry-specific fields.
+    """
+
+    car_rental: Optional[SourceCardRefundPurchaseDetailsCarRental] = None
+    """Fields specific to car rentals."""
+
+    customer_reference_identifier: Optional[str] = None
+    """An identifier from the merchant for the customer or consumer."""
+
+    fleet: Optional[SourceCardRefundPurchaseDetailsFleet] = None
+    """Fields specific to fleet purchases."""
+
+    local_tax_amount: Optional[int] = None
+    """The state or provincial tax amount in minor units."""
+
+    local_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    lodging: Optional[SourceCardRefundPurchaseDetailsLodging] = None
+    """Fields specific to lodging."""
+
+    national_tax_amount: Optional[int] = None
+    """The national tax amount in minor units."""
+
+    national_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    purchase_identifier: Optional[str] = None
+    """An identifier from the merchant for the purchase to the issuer and cardholder."""
+
+    purchase_identifier_format: Optional[
+        Literal[
+            "free_text",
+            "order_number",
+            "rental_agreement_number",
+            "hotel_folio_number",
+            "invoice_number",
+            "visa_recurrent_reference_identifier",
+        ]
+    ] = None
+    """The format of the purchase identifier.
+
+    - `free_text` - Free text
+    - `order_number` - Order number
+    - `rental_agreement_number` - Rental agreement number
+    - `hotel_folio_number` - Hotel folio number
+    - `invoice_number` - Invoice number
+    - `visa_recurrent_reference_identifier` - Visa Recurrent reference identifier
+    """
+
+    travel: Optional[SourceCardRefundPurchaseDetailsTravel] = None
+    """Fields specific to travel."""
+
+
+class SourceCardRefundSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class SourceCardRefund(BaseModel):
+    """A Card Refund object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_refund`. Card Refunds move money back to the cardholder. While they are usually connected to a Card Settlement, an acquirer can also refund money directly to a card without relation to a transaction.
+    """
+
+    id: str
+    """The Card Refund identifier."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's settlement currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    cashback: Optional[SourceCardRefundCashback] = None
+    """Cashback debited for this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's settlement currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    interchange: Optional[SourceCardRefundInterchange] = None
+    """Interchange assessed as a part of this transaction."""
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """The 4-digit MCC describing the merchant's business."""
+
+    merchant_city: str
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_name: str
+    """The name of the merchant."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code. For US merchants this is always a 5-digit ZIP code."""
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network: Literal["visa", "pulse"]
+    """The card network on which this transaction was processed.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: SourceCardRefundNetworkIdentifiers
+    """Network-specific identifiers for this refund."""
+
+    presentment_amount: int
+    """The amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    purchase_details: Optional[SourceCardRefundPurchaseDetails] = None
+    """
+    Additional details about the card purchase, such as tax and industry-specific
+    fields.
+    """
+
+    scheme_fees: List[SourceCardRefundSchemeFee]
+    """The scheme fees associated with this card refund."""
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_refund"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_refund`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardRevenuePayment(BaseModel):
+    """A Card Revenue Payment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_revenue_payment`. Card Revenue Payments reflect earnings from fees on card transactions.
+    """
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transaction
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    period_end: datetime
+    """The end of the period for which this transaction paid interest."""
+
+    period_start: datetime
+    """The start of the period for which this transaction paid interest."""
+
+    transacted_on_account_id: Optional[str] = None
+    """The account the card belonged to."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardSettlementCashback(BaseModel):
+    """Cashback earned on this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    amount: str
+    """The cashback amount given as a string containing a decimal number.
+
+    The amount is a positive number if it will be credited to you (e.g.,
+    settlements) and a negative number if it will be debited (e.g., refunds).
+    """
+
+    currency: Literal["USD"]
+    """The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the cashback.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class SourceCardSettlementInterchange(BaseModel):
+    """Interchange assessed as a part of this transaction."""
+
+    amount: str
+    """
+    The interchange amount given as a string containing a decimal number in major
+    units (so e.g., "3.14" for $3.14). The amount is a positive number if it is
+    credited to Increase (e.g., settlements) and a negative number if it is debited
+    (e.g., refunds).
+    """
+
+    code: Optional[str] = None
+    """The card network specific interchange code."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the interchange
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class SourceCardSettlementNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for this refund."""
+
+    acquirer_business_id: str
+    """
+    A network assigned business ID that identifies the acquirer that processed this
+    transaction.
+    """
+
+    acquirer_reference_number: str
+    """A globally unique identifier for this settlement."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class SourceCardSettlementPurchaseDetailsCarRental(BaseModel):
+    """Fields specific to car rentals."""
+
+    car_class_code: Optional[str] = None
+    """Code indicating the vehicle's class."""
+
+    checkout_date: Optional[date] = None
+    """
+    Date the customer picked up the car or, in the case of a no-show or pre-pay
+    transaction, the scheduled pick up date.
+    """
+
+    daily_rental_rate_amount: Optional[int] = None
+    """Daily rate being charged for the vehicle."""
+
+    daily_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily rental
+    rate.
+    """
+
+    days_rented: Optional[int] = None
+    """Number of days the vehicle was rented."""
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "gas", "extra_mileage", "late_return", "one_way_service_fee", "parking_violation"]
+    ] = None
+    """Additional charges (gas, late fee, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `gas` - Gas
+    - `extra_mileage` - Extra mileage
+    - `late_return` - Late return
+    - `one_way_service_fee` - One way service fee
+    - `parking_violation` - Parking violation
+    """
+
+    fuel_charges_amount: Optional[int] = None
+    """Fuel charges for the vehicle."""
+
+    fuel_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel charges
+    assessed.
+    """
+
+    insurance_charges_amount: Optional[int] = None
+    """Any insurance being charged for the vehicle."""
+
+    insurance_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the insurance
+    charges assessed.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show_for_specialized_vehicle"]] = None
+    """
+    An indicator that the cardholder is being billed for a reserved vehicle that was
+    not actually rented (that is, a "no-show" charge).
+
+    - `not_applicable` - Not applicable
+    - `no_show_for_specialized_vehicle` - No show for specialized vehicle
+    """
+
+    one_way_drop_off_charges_amount: Optional[int] = None
+    """
+    Charges for returning the vehicle at a different location than where it was
+    picked up.
+    """
+
+    one_way_drop_off_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the one-way
+    drop-off charges assessed.
+    """
+
+    renter_name: Optional[str] = None
+    """Name of the person renting the vehicle."""
+
+    weekly_rental_rate_amount: Optional[int] = None
+    """Weekly rate being charged for the vehicle."""
+
+    weekly_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the weekly
+    rental rate.
+    """
+
+
+class SourceCardSettlementPurchaseDetailsFleet(BaseModel):
+    """Fields specific to fleet purchases."""
+
+    employee_number: Optional[str] = None
+    """The fleet employee number."""
+
+    fuel_quantity: Optional[str] = None
+    """
+    The quantity of fuel purchased, given as a string containing a decimal number in
+    the indicated unit of measure.
+    """
+
+    fuel_type: Optional[
+        Literal[
+            "regular",
+            "mid_or_plus",
+            "premium_or_super",
+            "mid_or_plus_2",
+            "premium_or_super_2",
+            "regular_ethanol_5_blend_non_us",
+            "mid_or_plus_ethanol_5_blend_non_us",
+            "premium_or_super_ethanol_5_blend_non_us",
+            "ethanol_7_7_blend",
+            "mid_or_plus_2_ethanol_5_blend_non_us",
+            "green_gasoline_regular",
+            "green_gasoline_mid_or_plus",
+            "green_gasoline_premium_or_super",
+            "regular_diesel_2",
+            "premium_diesel_2",
+            "regular_diesel_1",
+            "compressed_natural_gas",
+            "liquid_propane_gas",
+            "liquid_natural_gas",
+            "e85",
+            "regular_reformulated",
+            "mid_or_plus_reformulated",
+            "premium_or_super_reformulated",
+            "mid_or_plus_2_reformulated",
+            "premium_or_super_2_reformulated",
+            "diesel_off_road_1_2_non_taxable",
+            "diesel_off_road_non_taxable",
+            "biodiesel_blend_off_road_non_taxable",
+            "racing_fuel",
+            "mid_or_plus_2_ethanol_10_blend",
+            "premium_or_super_2_ethanol_10_blend",
+            "mid_or_plus_ethanol_2_15_blend",
+            "premium_or_super_ethanol_2_15_blend",
+            "premium_or_super_2_ethanol_5_blend_non_us",
+            "regular_ethanol_10_blend",
+            "mid_or_plus_ethanol_10_blend",
+            "premium_or_super_ethanol_10_blend",
+            "b2_diesel_blend_2_biodiesel",
+            "b5_diesel_blend_5_biodiesel",
+            "b10_diesel_blend_10_biodiesel",
+            "b11_diesel_blend_11_biodiesel",
+            "b15_diesel_blend_15_biodiesel",
+            "b20_diesel_blend_20_biodiesel",
+            "b100_diesel_blend_100_biodiesel",
+            "b1_diesel_blend_1_biodiesel",
+            "additized_diesel_2",
+            "additized_diesel_3",
+            "b7_diesel_blend_7_biodiesel_non_us",
+            "b7_premium_diesel_blend_7_biodiesel_non_us",
+            "renewable_diesel_r95_or_greater",
+            "renewable_diesel_biodiesel_6_to_20",
+            "diesel_exhaust_fluid_pump",
+            "premium_diesel_1",
+            "regular_ethanol_15_blend",
+            "mid_or_plus_ethanol_15_blend",
+            "premium_or_super_ethanol_15_blend",
+            "premium_diesel_blend_less_than_20_biodiesel",
+            "premium_diesel_blend_20_or_more_biodiesel",
+            "b75_diesel_blend_75_biodiesel",
+            "b99_diesel_blend_99_biodiesel",
+            "reserved_for_preauthorization_use_only",
+            "undefined_fuel_reserved_for_proprietary_use",
+            "miscellaneous_fuel",
+            "jet_fuel",
+            "aviation_fuel_regular",
+            "aviation_fuel_premium",
+            "aviation_fuel_jp8",
+            "aviation_fuel_4",
+            "aviation_fuel_5",
+            "biojet_diesel",
+            "aviation_biofuel_gasoline",
+            "undefined_aviation_fuel_reserved_for_proprietary_use",
+            "miscellaneous_aviation_fuel",
+            "marine_fuel_1",
+            "marine_fuel_2",
+            "marine_fuel_3",
+            "marine_fuel_4",
+            "marine_fuel_5",
+            "marine_other",
+            "marine_diesel",
+            "miscellaneous_marine_fuel",
+            "kerosene_low_sulfur",
+            "white_gas",
+            "heating_oil",
+            "other_fuel_non_taxable",
+            "kerosene_ultra_low_sulfur",
+            "electric_vehicle_charging_level_1_110_volt",
+            "electric_vehicle_charging_level_2_240_volt",
+            "electric_vehicle_charging_level_3_480_volt",
+            "renewable_diesel_r95_or_greater_off_road_non_taxable",
+            "biodiesel_blend_1_off_road_non_taxable",
+            "biodiesel_blend_75_off_road_non_taxable",
+            "biodiesel_blend_99_off_road_non_taxable",
+            "biodiesel_blend_100_off_road_non_taxable",
+            "renewable_diesel_biodiesel_6_to_20_off_road_non_taxable",
+            "electric_vehicle_charging_level_4_800_volt",
+            "electric_vehicle_charging_level_5_megawatt",
+            "hydrotreated_vegetable_oil_100",
+            "bio_compressed_natural_gas",
+            "miscellaneous_other_fuel",
+        ]
+    ] = None
+    """The type of fuel purchased.
+
+    - `regular` - Regular
+    - `mid_or_plus` - Mid or plus
+    - `premium_or_super` - Premium or super
+    - `mid_or_plus_2` - Mid or plus 2
+    - `premium_or_super_2` - Premium or super 2
+    - `regular_ethanol_5_blend_non_us` - Regular ethanol 5% blend outside the United
+      States
+    - `mid_or_plus_ethanol_5_blend_non_us` - Mid or plus ethanol 5% blend outside
+      the United States
+    - `premium_or_super_ethanol_5_blend_non_us` - Premium or super ethanol 5% blend
+      outside the United States
+    - `ethanol_7_7_blend` - Ethanol 7.7% blend
+    - `mid_or_plus_2_ethanol_5_blend_non_us` - Mid or plus 2 ethanol 5% blend
+      outside the United States
+    - `green_gasoline_regular` - Green gasoline regular
+    - `green_gasoline_mid_or_plus` - Green gasoline mid or plus
+    - `green_gasoline_premium_or_super` - Green gasoline premium or super
+    - `regular_diesel_2` - Regular diesel 2
+    - `premium_diesel_2` - Premium diesel 2
+    - `regular_diesel_1` - Regular diesel 1
+    - `compressed_natural_gas` - Compressed natural gas
+    - `liquid_propane_gas` - Liquid propane gas
+    - `liquid_natural_gas` - Liquid natural gas
+    - `e85` - E85
+    - `regular_reformulated` - Regular reformulated
+    - `mid_or_plus_reformulated` - Mid or plus reformulated
+    - `premium_or_super_reformulated` - Premium or super reformulated
+    - `mid_or_plus_2_reformulated` - Mid or plus 2 reformulated
+    - `premium_or_super_2_reformulated` - Premium or super 2 reformulated
+    - `diesel_off_road_1_2_non_taxable` - Diesel off-road 1/2 non-taxable
+    - `diesel_off_road_non_taxable` - Diesel off-road non-taxable
+    - `biodiesel_blend_off_road_non_taxable` - Biodiesel blend off-road non-taxable
+    - `racing_fuel` - Racing fuel
+    - `mid_or_plus_2_ethanol_10_blend` - Mid or plus 2 ethanol 10% blend
+    - `premium_or_super_2_ethanol_10_blend` - Premium or super 2 ethanol 10% blend
+    - `mid_or_plus_ethanol_2_15_blend` - Mid or plus ethanol 2–15% blend
+    - `premium_or_super_ethanol_2_15_blend` - Premium or super ethanol 2–15% blend
+    - `premium_or_super_2_ethanol_5_blend_non_us` - Premium or super 2 ethanol 5%
+      blend outside the United States
+    - `regular_ethanol_10_blend` - Regular ethanol 10% blend
+    - `mid_or_plus_ethanol_10_blend` - Mid or plus ethanol 10% blend
+    - `premium_or_super_ethanol_10_blend` - Premium or super ethanol 10% blend
+    - `b2_diesel_blend_2_biodiesel` - B2 diesel blend 2% biodiesel
+    - `b5_diesel_blend_5_biodiesel` - B5 diesel blend 5% biodiesel
+    - `b10_diesel_blend_10_biodiesel` - B10 diesel blend 10% biodiesel
+    - `b11_diesel_blend_11_biodiesel` - B11 diesel blend 11% biodiesel
+    - `b15_diesel_blend_15_biodiesel` - B15 diesel blend 15% biodiesel
+    - `b20_diesel_blend_20_biodiesel` - B20 diesel blend 20% biodiesel
+    - `b100_diesel_blend_100_biodiesel` - B100 diesel blend 100% biodiesel
+    - `b1_diesel_blend_1_biodiesel` - B1 diesel blend 1% biodiesel
+    - `additized_diesel_2` - Additized diesel 2
+    - `additized_diesel_3` - Additized diesel 3
+    - `b7_diesel_blend_7_biodiesel_non_us` - B7 diesel blend 7% biodiesel outside
+      the United States
+    - `b7_premium_diesel_blend_7_biodiesel_non_us` - B7 premium diesel blend 7%
+      biodiesel outside the United States
+    - `renewable_diesel_r95_or_greater` - Renewable diesel R95 or greater
+    - `renewable_diesel_biodiesel_6_to_20` - Renewable diesel biodiesel 6% to 20%
+    - `diesel_exhaust_fluid_pump` - Diesel exhaust fluid pump
+    - `premium_diesel_1` - Premium diesel 1
+    - `regular_ethanol_15_blend` - Regular ethanol 15% blend
+    - `mid_or_plus_ethanol_15_blend` - Mid or plus ethanol 15% blend
+    - `premium_or_super_ethanol_15_blend` - Premium or super ethanol 15% blend
+    - `premium_diesel_blend_less_than_20_biodiesel` - Premium diesel blend less than
+      20% biodiesel
+    - `premium_diesel_blend_20_or_more_biodiesel` - Premium diesel blend 20% or more
+      biodiesel
+    - `b75_diesel_blend_75_biodiesel` - B75 diesel blend 75% biodiesel
+    - `b99_diesel_blend_99_biodiesel` - B99 diesel blend 99% biodiesel
+    - `reserved_for_preauthorization_use_only` - Reserved for preauthorization use
+      only
+    - `undefined_fuel_reserved_for_proprietary_use` - Undefined fuel reserved for
+      proprietary use
+    - `miscellaneous_fuel` - Miscellaneous fuel
+    - `jet_fuel` - Jet fuel
+    - `aviation_fuel_regular` - Aviation fuel regular
+    - `aviation_fuel_premium` - Aviation fuel premium
+    - `aviation_fuel_jp8` - Aviation fuel JP8
+    - `aviation_fuel_4` - Aviation fuel 4
+    - `aviation_fuel_5` - Aviation fuel 5
+    - `biojet_diesel` - Biojet diesel
+    - `aviation_biofuel_gasoline` - Aviation biofuel gasoline
+    - `undefined_aviation_fuel_reserved_for_proprietary_use` - Undefined aviation
+      fuel reserved for proprietary use
+    - `miscellaneous_aviation_fuel` - Miscellaneous aviation fuel
+    - `marine_fuel_1` - Marine fuel 1
+    - `marine_fuel_2` - Marine fuel 2
+    - `marine_fuel_3` - Marine fuel 3
+    - `marine_fuel_4` - Marine fuel 4
+    - `marine_fuel_5` - Marine fuel 5
+    - `marine_other` - Marine other
+    - `marine_diesel` - Marine diesel
+    - `miscellaneous_marine_fuel` - Miscellaneous marine fuel
+    - `kerosene_low_sulfur` - Kerosene low sulfur
+    - `white_gas` - White gas
+    - `heating_oil` - Heating oil
+    - `other_fuel_non_taxable` - Other fuel non-taxable
+    - `kerosene_ultra_low_sulfur` - Kerosene ultra low sulfur
+    - `electric_vehicle_charging_level_1_110_volt` - Electric vehicle charging level
+      1 110 volt
+    - `electric_vehicle_charging_level_2_240_volt` - Electric vehicle charging level
+      2 240 volt
+    - `electric_vehicle_charging_level_3_480_volt` - Electric vehicle charging level
+      3 480 volt
+    - `renewable_diesel_r95_or_greater_off_road_non_taxable` - Renewable diesel R95
+      or greater off-road non-taxable
+    - `biodiesel_blend_1_off_road_non_taxable` - Biodiesel blend 1% off-road
+      non-taxable
+    - `biodiesel_blend_75_off_road_non_taxable` - Biodiesel blend 75% off-road
+      non-taxable
+    - `biodiesel_blend_99_off_road_non_taxable` - Biodiesel blend 99% off-road
+      non-taxable
+    - `biodiesel_blend_100_off_road_non_taxable` - Biodiesel blend 100% off-road
+      non-taxable
+    - `renewable_diesel_biodiesel_6_to_20_off_road_non_taxable` - Renewable diesel
+      biodiesel 6% to 20% off-road non-taxable
+    - `electric_vehicle_charging_level_4_800_volt` - Electric vehicle charging level
+      4 800 volt
+    - `electric_vehicle_charging_level_5_megawatt` - Electric vehicle charging level
+      5 megawatt
+    - `hydrotreated_vegetable_oil_100` - Hydrotreated vegetable oil 100
+    - `bio_compressed_natural_gas` - Bio compressed natural gas
+    - `miscellaneous_other_fuel` - Miscellaneous other fuel
+    """
+
+    fuel_unit_cost_amount: Optional[int] = None
+    """The cost per unit of fuel in minor units."""
+
+    fuel_unit_cost_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel unit
+    cost.
+    """
+
+    fuel_unit_of_measure: Optional[
+        Literal["liter", "us_gallon", "imperial_gallon", "kilogram", "pound", "charging_minutes", "kilowatt_hour"]
+    ] = None
+    """The unit of measure for the fuel quantity.
+
+    - `liter` - Liter
+    - `us_gallon` - US gallon
+    - `imperial_gallon` - Imperial gallon
+    - `kilogram` - Kilogram
+    - `pound` - Pound
+    - `charging_minutes` - Charging minutes
+    - `kilowatt_hour` - Kilowatt hour
+    """
+
+    gross_fuel_price_amount: Optional[int] = None
+    """The gross fuel price in minor units."""
+
+    gross_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross fuel
+    price.
+    """
+
+    gross_non_fuel_price_amount: Optional[int] = None
+    """The gross non-fuel price in minor units."""
+
+    gross_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross
+    non-fuel price.
+    """
+
+    net_fuel_price_amount: Optional[int] = None
+    """The net fuel price in minor units."""
+
+    net_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net fuel
+    price.
+    """
+
+    net_non_fuel_price_amount: Optional[int] = None
+    """The net non-fuel price in minor units."""
+
+    net_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net non-fuel
+    price.
+    """
+
+    odometer_reading: Optional[int] = None
+    """The odometer reading reported by the merchant."""
+
+    purchase_type: Optional[
+        Literal[
+            "fuel_purchase", "non_fuel_purchase", "fuel_and_non_fuel_purchase", "fuel_purchase_with_multiple_fuel_types"
+        ]
+    ] = None
+    """The type of fleet purchase.
+
+    - `fuel_purchase` - Fuel purchase
+    - `non_fuel_purchase` - Non-fuel purchase
+    - `fuel_and_non_fuel_purchase` - Fuel and non-fuel purchase
+    - `fuel_purchase_with_multiple_fuel_types` - Fuel purchase with multiple fuel
+      types
+    """
+
+    service_type: Optional[Literal["full_service", "self_service", "high_speed_dispense"]] = None
+    """The type of service provided.
+
+    - `full_service` - Full service
+    - `self_service` - Self service
+    - `high_speed_dispense` - High speed dispense
+    """
+
+    trailer_number: Optional[str] = None
+    """The fleet trailer number."""
+
+
+class SourceCardSettlementPurchaseDetailsLodging(BaseModel):
+    """Fields specific to lodging."""
+
+    check_in_date: Optional[date] = None
+    """Date the customer checked in."""
+
+    daily_room_rate_amount: Optional[int] = None
+    """Daily rate being charged for the room."""
+
+    daily_room_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily room
+    rate.
+    """
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "restaurant", "gift_shop", "mini_bar", "telephone", "other", "laundry"]
+    ] = None
+    """Additional charges (phone, late check-out, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `restaurant` - Restaurant
+    - `gift_shop` - Gift shop
+    - `mini_bar` - Mini bar
+    - `telephone` - Telephone
+    - `other` - Other
+    - `laundry` - Laundry
+    """
+
+    folio_cash_advances_amount: Optional[int] = None
+    """Folio cash advances for the room."""
+
+    folio_cash_advances_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the folio cash
+    advances.
+    """
+
+    food_beverage_charges_amount: Optional[int] = None
+    """Food and beverage charges for the room."""
+
+    food_beverage_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the food and
+    beverage charges.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show"]] = None
+    """
+    Indicator that the cardholder is being billed for a reserved room that was not
+    actually used.
+
+    - `not_applicable` - Not applicable
+    - `no_show` - No show
+    """
+
+    prepaid_expenses_amount: Optional[int] = None
+    """Prepaid expenses being charged for the room."""
+
+    prepaid_expenses_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the prepaid
+    expenses.
+    """
+
+    room_nights: Optional[int] = None
+    """Number of nights the room was rented."""
+
+    total_room_tax_amount: Optional[int] = None
+    """Total room tax being charged."""
+
+    total_room_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total room
+    tax.
+    """
+
+    total_tax_amount: Optional[int] = None
+    """Total tax being charged for the room."""
+
+    total_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total tax
+    assessed.
+    """
+
+
+class SourceCardSettlementPurchaseDetailsTravelAncillaryService(BaseModel):
+    category: Optional[
+        Literal[
+            "none",
+            "bundled_service",
+            "baggage_fee",
+            "change_fee",
+            "cargo",
+            "carbon_offset",
+            "frequent_flyer",
+            "gift_card",
+            "ground_transport",
+            "in_flight_entertainment",
+            "lounge",
+            "medical",
+            "meal_beverage",
+            "other",
+            "passenger_assist_fee",
+            "pets",
+            "seat_fees",
+            "standby",
+            "service_fee",
+            "store",
+            "travel_service",
+            "unaccompanied_travel",
+            "upgrades",
+            "wifi",
+        ]
+    ] = None
+    """Category of the ancillary service.
+
+    - `none` - None
+    - `bundled_service` - Bundled service
+    - `baggage_fee` - Baggage fee
+    - `change_fee` - Change fee
+    - `cargo` - Cargo
+    - `carbon_offset` - Carbon offset
+    - `frequent_flyer` - Frequent flyer
+    - `gift_card` - Gift card
+    - `ground_transport` - Ground transport
+    - `in_flight_entertainment` - In-flight entertainment
+    - `lounge` - Lounge
+    - `medical` - Medical
+    - `meal_beverage` - Meal beverage
+    - `other` - Other
+    - `passenger_assist_fee` - Passenger assist fee
+    - `pets` - Pets
+    - `seat_fees` - Seat fees
+    - `standby` - Standby
+    - `service_fee` - Service fee
+    - `store` - Store
+    - `travel_service` - Travel service
+    - `unaccompanied_travel` - Unaccompanied travel
+    - `upgrades` - Upgrades
+    - `wifi` - Wi-fi
+    """
+
+    sub_category: Optional[str] = None
+    """Sub-category of the ancillary service, free-form."""
+
+
+class SourceCardSettlementPurchaseDetailsTravelAncillary(BaseModel):
+    """Ancillary purchases in addition to the airfare."""
+
+    connected_ticket_document_number: Optional[str] = None
+    """
+    If this purchase has a connection or relationship to another purchase, such as a
+    baggage fee for a passenger transport ticket, this field should contain the
+    ticket document number for the other purchase.
+    """
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "other",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `other` - Other
+    """
+
+    passenger_name_or_description: Optional[str] = None
+    """Name of the passenger or description of the ancillary purchase."""
+
+    services: List[SourceCardSettlementPurchaseDetailsTravelAncillaryService]
+    """Additional travel charges, such as baggage fees."""
+
+    ticket_document_number: Optional[str] = None
+    """Ticket document number."""
+
+
+class SourceCardSettlementPurchaseDetailsTravelTripLeg(BaseModel):
+    carrier_code: Optional[str] = None
+    """Carrier code (e.g., United Airlines, Jet Blue, etc.)."""
+
+    destination_city_airport_code: Optional[str] = None
+    """Code for the destination city or airport."""
+
+    fare_basis_code: Optional[str] = None
+    """Fare basis code."""
+
+    flight_number: Optional[str] = None
+    """Flight number."""
+
+    service_class: Optional[str] = None
+    """Service class (e.g., first class, business class, etc.)."""
+
+    stop_over_code: Optional[Literal["none", "stop_over_allowed", "stop_over_not_allowed"]] = None
+    """Indicates whether a stopover is allowed on this ticket.
+
+    - `none` - None
+    - `stop_over_allowed` - Stop over allowed
+    - `stop_over_not_allowed` - Stop over not allowed
+    """
+
+
+class SourceCardSettlementPurchaseDetailsTravel(BaseModel):
+    """Fields specific to travel."""
+
+    ancillary: Optional[SourceCardSettlementPurchaseDetailsTravelAncillary] = None
+    """Ancillary purchases in addition to the airfare."""
+
+    computerized_reservation_system: Optional[str] = None
+    """Indicates the computerized reservation system used to book the ticket."""
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_cancellation",
+            "other",
+            "partial_refund_of_airline_ticket",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `airline_ticket_cancellation` - Airline ticket cancellation
+    - `other` - Other
+    - `partial_refund_of_airline_ticket` - Partial refund of airline ticket
+    """
+
+    departure_date: Optional[date] = None
+    """Date of departure."""
+
+    origination_city_airport_code: Optional[str] = None
+    """Code for the originating city or airport."""
+
+    passenger_name: Optional[str] = None
+    """Name of the passenger."""
+
+    restricted_ticket_indicator: Optional[Literal["no_restrictions", "restricted_non_refundable_ticket"]] = None
+    """Indicates whether this ticket is non-refundable.
+
+    - `no_restrictions` - No restrictions
+    - `restricted_non_refundable_ticket` - Restricted non-refundable ticket
+    """
+
+    ticket_change_indicator: Optional[Literal["none", "change_to_existing_ticket", "new_ticket"]] = None
+    """Indicates why a ticket was changed.
+
+    - `none` - None
+    - `change_to_existing_ticket` - Change to existing ticket
+    - `new_ticket` - New ticket
+    """
+
+    ticket_number: Optional[str] = None
+    """Ticket number."""
+
+    travel_agency_code: Optional[str] = None
+    """Code for the travel agency if the ticket was issued by a travel agency."""
+
+    travel_agency_name: Optional[str] = None
+    """Name of the travel agency if the ticket was issued by a travel agency."""
+
+    trip_legs: Optional[List[SourceCardSettlementPurchaseDetailsTravelTripLeg]] = None
+    """Fields specific to each leg of the journey."""
+
+
+class SourceCardSettlementPurchaseDetails(BaseModel):
+    """
+    Additional details about the card purchase, such as tax and industry-specific fields.
+    """
+
+    car_rental: Optional[SourceCardSettlementPurchaseDetailsCarRental] = None
+    """Fields specific to car rentals."""
+
+    customer_reference_identifier: Optional[str] = None
+    """An identifier from the merchant for the customer or consumer."""
+
+    fleet: Optional[SourceCardSettlementPurchaseDetailsFleet] = None
+    """Fields specific to fleet purchases."""
+
+    local_tax_amount: Optional[int] = None
+    """The state or provincial tax amount in minor units."""
+
+    local_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    lodging: Optional[SourceCardSettlementPurchaseDetailsLodging] = None
+    """Fields specific to lodging."""
+
+    national_tax_amount: Optional[int] = None
+    """The national tax amount in minor units."""
+
+    national_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    purchase_identifier: Optional[str] = None
+    """An identifier from the merchant for the purchase to the issuer and cardholder."""
+
+    purchase_identifier_format: Optional[
+        Literal[
+            "free_text",
+            "order_number",
+            "rental_agreement_number",
+            "hotel_folio_number",
+            "invoice_number",
+            "visa_recurrent_reference_identifier",
+        ]
+    ] = None
+    """The format of the purchase identifier.
+
+    - `free_text` - Free text
+    - `order_number` - Order number
+    - `rental_agreement_number` - Rental agreement number
+    - `hotel_folio_number` - Hotel folio number
+    - `invoice_number` - Invoice number
+    - `visa_recurrent_reference_identifier` - Visa Recurrent reference identifier
+    """
+
+    travel: Optional[SourceCardSettlementPurchaseDetailsTravel] = None
+    """Fields specific to travel."""
+
+
+class SourceCardSettlementSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class SourceCardSettlementSurcharge(BaseModel):
+    """Surcharge amount details, if applicable.
+
+    The amount is positive if the surcharge is added to the overall transaction amount (surcharge), and negative if the surcharge is deducted from the overall transaction amount (discount).
+    """
+
+    amount: int
+    """
+    The surcharge amount in the minor unit of the transaction's settlement currency.
+    """
+
+    presentment_amount: int
+    """
+    The surcharge amount in the minor unit of the transaction's presentment
+    currency.
+    """
+
+
+class SourceCardSettlement(BaseModel):
+    """A Card Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_settlement`. Card Settlements are card transactions that have cleared and settled. While a settlement is usually preceded by an authorization, an acquirer can also directly clear a transaction without first authorizing it.
+    """
+
+    id: str
+    """The Card Settlement identifier."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's settlement currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_authorization: Optional[str] = None
+    """
+    The Card Authorization that was created prior to this Card Settlement, if one
+    exists.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    cashback: Optional[SourceCardSettlementCashback] = None
+    """Cashback earned on this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's settlement currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    interchange: Optional[SourceCardSettlementInterchange] = None
+    """Interchange assessed as a part of this transaction."""
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """The 4-digit MCC describing the merchant's business."""
+
+    merchant_city: str
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_name: str
+    """The name of the merchant."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code. For US merchants this is always a 5-digit ZIP code."""
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network: Literal["visa", "pulse"]
+    """The card network on which this transaction was processed.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: SourceCardSettlementNetworkIdentifiers
+    """Network-specific identifiers for this refund."""
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Transaction."""
+
+    presentment_amount: int
+    """The amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    purchase_details: Optional[SourceCardSettlementPurchaseDetails] = None
+    """
+    Additional details about the card purchase, such as tax and industry-specific
+    fields.
+    """
+
+    scheme_fees: List[SourceCardSettlementSchemeFee]
+    """The scheme fees associated with this card settlement."""
+
+    surcharge: Optional[SourceCardSettlementSurcharge] = None
+    """Surcharge amount details, if applicable.
+
+    The amount is positive if the surcharge is added to the overall transaction
+    amount (surcharge), and negative if the surcharge is deducted from the overall
+    transaction amount (discount).
+    """
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_settlement"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_settlement`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCashbackPayment(BaseModel):
+    """A Cashback Payment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `cashback_payment`. A Cashback Payment represents the cashback paid to a cardholder for a given period. Cashback is usually paid monthly for the prior month's transactions.
+    """
+
+    accrued_on_card_id: Optional[str] = None
+    """The card on which the cashback was accrued."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transaction
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    period_end: datetime
+    """The end of the period for which this transaction paid cashback."""
+
+    period_start: datetime
+    """The start of the period for which this transaction paid cashback."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCheckDepositAcceptance(BaseModel):
+    """A Check Deposit Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `check_deposit_acceptance`. A Check Deposit Acceptance is created when a Check Deposit is processed and its details confirmed. Check Deposits may be returned by the receiving bank, which will appear as a Check Deposit Return.
+    """
+
+    account_number: str
+    """The account number printed on the check.
+
+    This is an account at the bank that issued the check.
+    """
+
+    amount: int
+    """The amount to be deposited in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    auxiliary_on_us: Optional[str] = None
+    """An additional line of metadata printed on the check.
+
+    This typically includes the check number for business checks.
+    """
+
+    check_deposit_id: str
+    """The ID of the Check Deposit that was accepted."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    routing_number: str
+    """The routing number printed on the check.
+
+    This is a routing number for the bank that issued the check.
+    """
+
+    serial_number: Optional[str] = None
+    """The check serial number, if present, for consumer checks.
+
+    For business checks, the serial number is usually in the `auxiliary_on_us`
+    field.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCheckDepositReturn(BaseModel):
+    """A Check Deposit Return object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `check_deposit_return`. A Check Deposit Return is created when a Check Deposit is returned by the bank holding the account it was drawn against. Check Deposits may be returned for a variety of reasons, including insufficient funds or a mismatched account number. Usually, checks are returned within the first 7 days after the deposit is made.
+    """
+
+    amount: int
+    """The returned amount in USD cents."""
+
+    check_deposit_id: str
+    """The identifier of the Check Deposit that was returned."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    return_reason: Literal[
+        "ach_conversion_not_supported",
+        "closed_account",
+        "duplicate_submission",
+        "insufficient_funds",
+        "no_account",
+        "not_authorized",
+        "stale_dated",
+        "stop_payment",
+        "unknown_reason",
+        "unmatched_details",
+        "unreadable_image",
+        "endorsement_irregular",
+        "altered_or_fictitious_item",
+        "frozen_or_blocked_account",
+        "post_dated",
+        "endorsement_missing",
+        "signature_missing",
+        "stop_payment_suspect",
+        "unusable_image",
+        "image_fails_security_check",
+        "cannot_determine_amount",
+        "signature_irregular",
+        "non_cash_item",
+        "unable_to_process",
+        "item_exceeds_dollar_limit",
+        "branch_or_account_sold",
+    ]
+    """
+    Why this check was returned by the bank holding the account it was drawn
+    against.
+
+    - `ach_conversion_not_supported` - The check doesn't allow ACH conversion.
+    - `closed_account` - The account is closed. (Check21 return code `D`)
+    - `duplicate_submission` - The check has already been deposited. (Check21 return
+      code `Y`)
+    - `insufficient_funds` - Insufficient funds (Check21 return code `A`)
+    - `no_account` - No account was found matching the check details. (Check21
+      return code `E`)
+    - `not_authorized` - The check was not authorized. (Check21 return code `Q`)
+    - `stale_dated` - The check is too old. (Check21 return code `G`)
+    - `stop_payment` - The payment has been stopped by the account holder. (Check21
+      return code `C`)
+    - `unknown_reason` - The reason for the return is unknown.
+    - `unmatched_details` - The image doesn't match the details submitted.
+    - `unreadable_image` - The image could not be read. (Check21 return code `U`)
+    - `endorsement_irregular` - The check endorsement was irregular. (Check21 return
+      code `J`)
+    - `altered_or_fictitious_item` - The check present was either altered or fake.
+      (Check21 return code `N`)
+    - `frozen_or_blocked_account` - The account this check is drawn on is frozen.
+      (Check21 return code `F`)
+    - `post_dated` - The check is post dated. (Check21 return code `H`)
+    - `endorsement_missing` - The endorsement was missing. (Check21 return code `I`)
+    - `signature_missing` - The check signature was missing. (Check21 return code
+      `K`)
+    - `stop_payment_suspect` - The bank suspects a stop payment will be placed.
+      (Check21 return code `T`)
+    - `unusable_image` - The bank cannot read the image. (Check21 return code `U`)
+    - `image_fails_security_check` - The check image fails the bank's security
+      check. (Check21 return code `V`)
+    - `cannot_determine_amount` - The bank cannot determine the amount. (Check21
+      return code `W`)
+    - `signature_irregular` - The signature is inconsistent with prior signatures.
+      (Check21 return code `L`)
+    - `non_cash_item` - The check is a non-cash item and cannot be drawn against the
+      account. (Check21 return code `M`)
+    - `unable_to_process` - The bank is unable to process this check. (Check21
+      return code `O`)
+    - `item_exceeds_dollar_limit` - The check exceeds the bank or customer's limit.
+      (Check21 return code `P`)
+    - `branch_or_account_sold` - The bank sold this account and no longer services
+      this customer. (Check21 return code `R`)
+    """
+
+    returned_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the check deposit was returned.
+    """
+
+    transaction_id: str
+    """
+    The identifier of the transaction that reversed the original check deposit
+    transaction.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCheckTransferDeposit(BaseModel):
+    """A Check Transfer Deposit object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `check_transfer_deposit`. An Inbound Check is a check drawn on an Increase account that has been deposited by an external bank account. These types of checks are not pre-registered.
+    """
+
+    back_image_file_id: Optional[str] = None
+    """
+    The identifier of the API File object containing an image of the back of the
+    deposited check.
+    """
+
+    bank_of_first_deposit_routing_number: Optional[str] = None
+    """
+    The American Bankers' Association (ABA) Routing Transit Number (RTN) for the
+    bank depositing this check. In some rare cases, this is not transmitted via
+    Check 21 and the value will be null.
+    """
+
+    deposited_at: datetime
+    """When the check was deposited."""
+
+    front_image_file_id: Optional[str] = None
+    """
+    The identifier of the API File object containing an image of the front of the
+    deposited check.
+    """
+
+    inbound_check_deposit_id: Optional[str] = None
+    """
+    The identifier of the Inbound Check Deposit object associated with this
+    transaction.
+    """
+
+    transaction_id: Optional[str] = None
+    """The identifier of the Transaction object created when the check was deposited."""
+
+    transfer_id: Optional[str] = None
+    """The identifier of the Check Transfer object that was deposited."""
+
+    type: Literal["check_transfer_deposit"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `check_transfer_deposit`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceFednowTransferAcknowledgement(BaseModel):
+    """A FedNow Transfer Acknowledgement object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `fednow_transfer_acknowledgement`. A FedNow Transfer Acknowledgement is created when a FedNow Transfer sent from Increase is acknowledged by the receiving bank.
+    """
+
+    transfer_id: str
+    """The identifier of the FedNow Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceFednowTransferReturn(BaseModel):
+    """A FedNow Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `fednow_transfer_return`. A FedNow Transfer Return is created when a FedNow Transfer sent from Increase is returned by the recipient's bank.
+    """
+
+    amount: int
+    """The returned amount in USD cents. This is always a positive number."""
+
+    return_reason_additional_information: Optional[str] = None
+    """Additional information about the return provided by the recipient's bank."""
+
+    return_reason_code: Literal[
+        "account_closed",
+        "account_blocked",
+        "invalid_agent",
+        "invalid_creditor_account_number",
+        "incorrect_account_number",
+        "end_customer_deceased",
+        "transaction_forbidden",
+        "regulatory_reason",
+        "fraud",
+        "duplication",
+        "wrong_amount",
+        "requested_by_customer",
+        "unable_to_apply",
+        "not_specified",
+        "narrative",
+        "other",
+    ]
+    """The reason the transfer was returned as provided by the recipient's bank.
+
+    - `account_closed` - The destination account is closed. Corresponds to the
+      FedNow reason codes `AC04` and `AC07`.
+    - `account_blocked` - The destination account is currently blocked from
+      receiving transactions. Corresponds to the FedNow reason code `AC06`.
+    - `invalid_agent` - The recipient's bank was not a valid agent for this
+      transfer. Corresponds to the FedNow reason codes `AC14` and `AGNT`.
+    - `invalid_creditor_account_number` - The destination account does not exist.
+      Corresponds to the FedNow reason code `AC03`.
+    - `incorrect_account_number` - The destination account number was incorrect.
+      Corresponds to the FedNow reason code `AC01`.
+    - `end_customer_deceased` - The destination account holder is deceased.
+      Corresponds to the FedNow reason code `MD07`.
+    - `transaction_forbidden` - The transfer was not permitted by the recipient's
+      bank. Corresponds to the FedNow reason code `AG01`.
+    - `regulatory_reason` - The transfer was returned for a regulatory reason at the
+      recipient's bank. Corresponds to the FedNow reason code `RR04`.
+    - `fraud` - The transfer was reported as fraudulent. Corresponds to the FedNow
+      reason code `FR01`.
+    - `duplication` - The transfer duplicated another transfer. Corresponds to the
+      FedNow reason codes `AM05` and `DUPL`.
+    - `wrong_amount` - The transfer amount was incorrect. Corresponds to the FedNow
+      reason code `AM09`.
+    - `requested_by_customer` - The transfer was returned at the request of the
+      recipient's customer. Corresponds to the FedNow reason code `CUST`.
+    - `unable_to_apply` - The recipient's bank could not apply the funds.
+      Corresponds to the FedNow reason code `RUTA`.
+    - `not_specified` - The recipient's bank did not specify a reason. Corresponds
+      to the FedNow reason codes `MS02` and `MS03`.
+    - `narrative` - The reason is provided as narrative information in the
+      additional information field. Corresponds to the FedNow reason code `NARR`.
+    - `other` - The transfer was returned for some other reason.
+    """
+
+    transfer_id: str
+    """The identifier of the FedNow Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceFeePayment(BaseModel):
+    """A Fee Payment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `fee_payment`. A Fee Payment represents a payment made to Increase.
+    """
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transaction
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_period_start: date
+    """The start of this payment's fee period, usually the first day of a month."""
+
+    program_id: Optional[str] = None
+    """The Program for which this fee was incurred."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundACHTransferAddendaFreeformEntry(BaseModel):
+    payment_related_information: str
+    """The payment related information passed in the addendum."""
+
+
+class SourceInboundACHTransferAddendaFreeform(BaseModel):
+    """Unstructured `payment_related_information` passed through by the originator."""
+
+    entries: List[SourceInboundACHTransferAddendaFreeformEntry]
+    """Each entry represents an addendum received from the originator."""
+
+
+class SourceInboundACHTransferAddenda(BaseModel):
+    """Additional information sent from the originator."""
+
+    category: Literal["freeform"]
+    """The type of addendum.
+
+    - `freeform` - Unstructured addendum.
+    """
+
+    freeform: Optional[SourceInboundACHTransferAddendaFreeform] = None
+    """Unstructured `payment_related_information` passed through by the originator."""
+
+
+class SourceInboundACHTransfer(BaseModel):
+    """An Inbound ACH Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_ach_transfer`. An Inbound ACH Transfer Intention is created when an ACH transfer is initiated at another bank and received by Increase.
+    """
+
+    addenda: Optional[SourceInboundACHTransferAddenda] = None
+    """Additional information sent from the originator."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    originator_company_descriptive_date: Optional[str] = None
+    """The description of the date of the transfer, usually in the format `YYMMDD`."""
+
+    originator_company_discretionary_data: Optional[str] = None
+    """Data set by the originator."""
+
+    originator_company_entry_description: str
+    """An informational description of the transfer."""
+
+    originator_company_id: str
+    """An identifier for the originating company.
+
+    This is generally, but not always, a stable identifier across multiple
+    transfers.
+    """
+
+    originator_company_name: str
+    """A name set by the originator to identify themselves."""
+
+    receiver_id_number: Optional[str] = None
+    """The originator's identifier for the transfer recipient."""
+
+    receiver_name: Optional[str] = None
+    """The name of the transfer recipient.
+
+    This value is informational and not verified by Increase.
+    """
+
+    trace_number: str
+    """
+    A 15 digit number recorded in the Nacha file and available to both the
+    originating and receiving bank. Along with the amount, date, and originating
+    routing number, this can be used to identify the ACH transfer at either bank.
+    ACH trace numbers are not unique, but are
+    [used to correlate returns](https://increase.com/documentation/ach-returns#ach-returns).
+    """
+
+    transfer_id: str
+    """The Inbound ACH Transfer's identifier."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundACHTransferReturnIntention(BaseModel):
+    """An Inbound ACH Transfer Return Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_ach_transfer_return_intention`. An Inbound ACH Transfer Return Intention is created when an ACH transfer is initiated at another bank and returned by Increase.
+    """
+
+    inbound_ach_transfer_id: str
+    """The ID of the Inbound ACH Transfer that is being returned."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundCheckAdjustment(BaseModel):
+    """An Inbound Check Adjustment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_check_adjustment`. An Inbound Check Adjustment is created when Increase receives an adjustment for a check or return deposited through Check 21.
+    """
+
+    adjusted_transaction_id: str
+    """The ID of the transaction that was adjusted."""
+
+    amount: int
+    """The amount of the check adjustment in USD cents.
+
+    A positive amount is a credit to your account and a negative amount is a debit.
+    """
+
+    reason: Literal[
+        "late_return", "wrong_payee_credit", "adjusted_amount", "non_conforming_item", "paid", "duplicate_entry"
+    ]
+    """The reason for the adjustment.
+
+    - `late_return` - The return was initiated too late and the receiving
+      institution has responded with a Late Return Claim.
+    - `wrong_payee_credit` - The check was deposited to the wrong payee and the
+      depositing institution has reimbursed the funds with a Wrong Payee Credit.
+    - `adjusted_amount` - The check was deposited with a different amount than what
+      was written on the check.
+    - `non_conforming_item` - The recipient was not able to process the check. This
+      usually happens for e.g., low quality images.
+    - `paid` - The check has already been deposited elsewhere and so this is a
+      duplicate.
+    - `duplicate_entry` - A previous adjustment for the check was applied twice and
+      the duplicate has been reversed.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundCheckDepositReturnIntention(BaseModel):
+    """An Inbound Check Deposit Return Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_check_deposit_return_intention`. An Inbound Check Deposit Return Intention is created when Increase receives an Inbound Check and the User requests that it be returned.
+    """
+
+    inbound_check_deposit_id: str
+    """The ID of the Inbound Check Deposit that is being returned."""
+
+    transfer_id: Optional[str] = None
+    """The identifier of the Check Transfer object that was deposited."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundFednowTransferConfirmation(BaseModel):
+    """An Inbound FedNow Transfer Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_fednow_transfer_confirmation`. An Inbound FedNow Transfer Confirmation is created when a FedNow transfer is initiated at another bank and received by Increase.
+    """
+
+    transfer_id: str
+    """The identifier of the FedNow Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundRealTimePaymentsTransferConfirmation(BaseModel):
+    """An Inbound Real-Time Payments Transfer Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_real_time_payments_transfer_confirmation`. An Inbound Real-Time Payments Transfer Confirmation is created when a Real-Time Payments transfer is initiated at another bank and received by Increase.
+    """
+
+    amount: int
+    """The amount in the minor unit of the transfer's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    creditor_name: str
+    """The name the sender of the transfer specified as the recipient of the transfer."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code of the transfer's
+    currency. This will always be "USD" for a Real-Time Payments transfer.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    debtor_account_number: str
+    """The account number of the account that sent the transfer."""
+
+    debtor_name: str
+    """The name provided by the sender of the transfer."""
+
+    debtor_routing_number: str
+    """The routing number of the account that sent the transfer."""
+
+    transaction_identification: str
+    """The Real-Time Payments network identification of the transfer."""
+
+    transfer_id: str
+    """The identifier of the Real-Time Payments Transfer that led to this Transaction."""
+
+    unstructured_remittance_information: Optional[str] = None
+    """Additional information included with the transfer."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundWireReversal(BaseModel):
+    """An Inbound Wire Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_wire_reversal`. An Inbound Wire Reversal represents a reversal of a wire transfer that was initiated via Increase. The other bank is sending the money back. This most often happens when the original destination account details were incorrect.
+    """
+
+    amount: int
+    """The amount that was reversed in USD cents."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the reversal was created.
+    """
+
+    debtor_routing_number: Optional[str] = None
+    """The debtor's routing number."""
+
+    description: str
+    """
+    The description on the reversal message from Fedwire, set by the reversing bank.
+    """
+
+    input_cycle_date: date
+    """The Fedwire cycle date for the wire reversal.
+
+    The "Fedwire day" begins at 9:00 PM Eastern Time on the evening before the
+    `cycle date`.
+    """
+
+    input_message_accountability_data: str
+    """The Fedwire transaction identifier."""
+
+    input_sequence_number: str
+    """The Fedwire sequence number."""
+
+    input_source: str
+    """The Fedwire input source identifier."""
+
+    instruction_identification: Optional[str] = None
+    """The sending bank's identifier for the reversal."""
+
+    return_reason_additional_information: Optional[str] = None
+    """Additional information about the reason for the reversal."""
+
+    return_reason_code: Optional[str] = None
+    """A code provided by the sending bank giving a reason for the reversal.
+
+    The common return reason codes are
+    [documented here](/documentation/wire-reversals#reversal-reason-codes).
+    """
+
+    return_reason_code_description: Optional[str] = None
+    """An Increase-generated description of the `return_reason_code`."""
+
+    transaction_id: str
+    """The ID for the Transaction associated with the transfer reversal."""
+
+    wire_transfer_id: str
+    """The ID for the Wire Transfer that is being reversed."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundWireTransfer(BaseModel):
+    """An Inbound Wire Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_wire_transfer`. An Inbound Wire Transfer Intention is created when a wire transfer is initiated at another bank and received by Increase.
+    """
+
+    amount: int
+    """The amount in USD cents."""
+
+    creditor_address_line1: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    creditor_address_line2: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    creditor_address_line3: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    creditor_name: Optional[str] = None
+    """A name set by the sender."""
+
+    debtor_address_line1: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    debtor_address_line2: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    debtor_address_line3: Optional[str] = None
+    """A free-form address field set by the sender."""
+
+    debtor_name: Optional[str] = None
+    """A name set by the sender."""
+
+    description: str
+    """An Increase-constructed description of the transfer."""
+
+    end_to_end_identification: Optional[str] = None
+    """A free-form reference string set by the sender, to help identify the transfer."""
+
+    input_message_accountability_data: Optional[str] = None
+    """
+    A unique identifier available to the originating and receiving banks, commonly
+    abbreviated as IMAD. It is created when the wire is submitted to the Fedwire
+    service and is helpful when debugging wires with the originating bank.
+    """
+
+    instructing_agent_routing_number: Optional[str] = None
+    """
+    The American Bankers' Association (ABA) routing number of the bank that sent the
+    wire.
+    """
+
+    instruction_for_creditor_agent: Optional[str] = None
+    """A free-form instruction for the receiving bank set by the sender."""
+
+    instruction_identification: Optional[str] = None
+    """The sending bank's identifier for the wire transfer."""
+
+    purpose: Optional[str] = None
+    """The reason for the wire transfer, as set by the sender."""
+
+    transfer_id: str
+    """The ID of the Inbound Wire Transfer object that resulted in this Transaction."""
+
+    unique_end_to_end_transaction_reference: Optional[str] = None
+    """
+    The Unique End-to-end Transaction Reference
+    ([UETR](https://www.swift.com/payments/what-unique-end-end-transaction-reference-uetr))
+    of the transfer.
+    """
+
+    unstructured_remittance_information: Optional[str] = None
+    """A free-form message set by the sender."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundWireTransferReversal(BaseModel):
+    """An Inbound Wire Transfer Reversal Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_wire_transfer_reversal`. An Inbound Wire Transfer Reversal Intention is created when Increase has received a wire and the User requests that it be reversed.
+    """
+
+    inbound_wire_transfer_id: str
+    """The ID of the Inbound Wire Transfer that is being reversed."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInterestPayment(BaseModel):
+    """An Interest Payment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `interest_payment`. An Interest Payment represents a payment of interest on an account. Interest is usually paid monthly.
+    """
+
+    accrued_on_account_id: str
+    """The account on which the interest was accrued."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transaction
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    period_end: datetime
+    """The end of the period for which this transaction paid interest."""
+
+    period_start: datetime
+    """The start of the period for which this transaction paid interest."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInternalSource(BaseModel):
+    """An Internal Source object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `internal_source`. A transaction between the user and Increase. See the `reason` attribute for more information.
+    """
+
+    amount: int
+    """The amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transaction
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    reason: Literal[
+        "account_closure",
+        "account_revenue_payment_distribution",
+        "bank_drawn_check",
+        "bank_drawn_check_credit",
+        "bank_migration",
+        "check_adjustment",
+        "collection_payment",
+        "collection_receivable",
+        "dishonored_ach_return",
+        "empyreal_adjustment",
+        "error",
+        "error_correction",
+        "fees",
+        "general_ledger_transfer",
+        "interest",
+        "negative_balance_forgiveness",
+        "sample_funds",
+        "sample_funds_return",
+    ]
+    """An Internal Source is a transaction between you and Increase.
+
+    This describes the reason for the transaction.
+
+    - `account_closure` - Account closure
+    - `account_revenue_payment_distribution` - Account revenue payment distribution
+    - `bank_drawn_check` - Bank-drawn check
+    - `bank_drawn_check_credit` - Bank-drawn check credit
+    - `bank_migration` - Bank migration
+    - `check_adjustment` - Check adjustment
+    - `collection_payment` - Collection payment
+    - `collection_receivable` - Collection receivable
+    - `dishonored_ach_return` - Dishonored ACH return
+    - `empyreal_adjustment` - Empyreal adjustment
+    - `error` - Error
+    - `error_correction` - Error correction
+    - `fees` - Fees
+    - `general_ledger_transfer` - General ledger transfer
+    - `interest` - Interest
+    - `negative_balance_forgiveness` - Negative balance forgiveness
+    - `sample_funds` - Sample funds
+    - `sample_funds_return` - Sample funds return
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceOther(BaseModel):
+    """
+    If the category of this Transaction source is equal to `other`, this field will contain an empty object, otherwise it will contain null.
+    """
+
+    pass
+
+
+class SourceRealTimePaymentsTransferAcknowledgement(BaseModel):
+    """A Real-Time Payments Transfer Acknowledgement object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `real_time_payments_transfer_acknowledgement`. A Real-Time Payments Transfer Acknowledgement is created when a Real-Time Payments Transfer sent from Increase is acknowledged by the receiving bank.
+    """
+
+    account_number: str
+    """The destination account number."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    routing_number: str
+    """The American Bankers' Association (ABA) Routing Transit Number (RTN)."""
+
+    transfer_id: str
+    """The identifier of the Real-Time Payments Transfer that led to this Transaction."""
+
+    unstructured_remittance_information: str
+    """Unstructured information that will show on the recipient's bank statement."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceSampleFunds(BaseModel):
+    """A Sample Funds object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `sample_funds`. Sample funds for testing purposes.
+    """
+
+    originator: str
+    """Where the sample funds came from."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceSepaInstantTransferAcceptance(BaseModel):
+    """A SEPA Instant Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `sepa_instant_transfer_acceptance`. A SEPA Instant Transfer Acceptance is created when a SEPA Instant Transfer sent from Increase is accepted by the recipient's bank.
+    """
+
+    accepted_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the recipient's bank accepted the transfer.
+    """
+
+    settlement_amount: int
+    """The transfer amount in USD cents."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceSwiftTransferIntention(BaseModel):
+    """A Swift Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `swift_transfer_intention`. A Swift Transfer initiated via Increase.
+    """
+
+    transfer_id: str
+    """The identifier of the Swift Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceSwiftTransferReturn(BaseModel):
+    """A Swift Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `swift_transfer_return`. A Swift Transfer Return is created when a Swift Transfer is returned by the receiving bank.
+    """
+
+    transfer_id: str
+    """The identifier of the Swift Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceUkFasterPaymentSystemTransferAcceptance(BaseModel):
+    """An UK Faster Payment System Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `uk_faster_payment_system_transfer_acceptance`. A UK Faster Payment System Transfer Acceptance is created when a UK Faster Payment System Transfer sent from Increase is accepted by the recipient's bank.
+    """
+
+    accepted_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the recipient's bank accepted the transfer.
+    """
+
+    settlement_amount: int
+    """The transfer amount in USD cents."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceWireTransferIntention(BaseModel):
+    """A Wire Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `wire_transfer_intention`. A Wire Transfer initiated via Increase and sent to a different bank.
+    """
+
+    account_number: str
+    """The destination account number."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    message_to_recipient: str
+    """The message that will show on the recipient's bank statement."""
+
+    routing_number: str
+    """The American Bankers' Association (ABA) Routing Transit Number (RTN)."""
+
+    transfer_id: str
+    """The identifier of the Wire Transfer that led to this Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Source(BaseModel):
+    """
+    This is an object giving more details on the network-level event that caused the Transaction. Note that for backwards compatibility reasons, additional undocumented keys may appear in this object. These should be treated as deprecated and will be removed in the future.
+    """
+
+    category: Literal[
+        "account_transfer_intention",
+        "ach_transfer_intention",
+        "ach_transfer_rejection",
+        "ach_transfer_return",
+        "cashback_payment",
+        "card_dispute_acceptance",
+        "card_dispute_financial",
+        "card_dispute_loss",
+        "card_refund",
+        "card_settlement",
+        "card_financial",
+        "card_revenue_payment",
+        "check_deposit_acceptance",
+        "check_deposit_return",
+        "fednow_transfer_acknowledgement",
+        "fednow_transfer_return",
+        "check_transfer_deposit",
+        "fee_payment",
+        "inbound_ach_transfer",
+        "inbound_ach_transfer_return_intention",
+        "inbound_check_deposit_return_intention",
+        "inbound_check_adjustment",
+        "inbound_fednow_transfer_confirmation",
+        "inbound_real_time_payments_transfer_confirmation",
+        "inbound_wire_reversal",
+        "inbound_wire_transfer",
+        "inbound_wire_transfer_reversal",
+        "interest_payment",
+        "internal_source",
+        "real_time_payments_transfer_acknowledgement",
+        "sample_funds",
+        "wire_transfer_intention",
+        "swift_transfer_intention",
+        "swift_transfer_return",
+        "card_push_transfer_acceptance",
+        "account_revenue_payment",
+        "blockchain_onramp_transfer_intention",
+        "blockchain_offramp_transfer_settlement",
+        "uk_faster_payment_system_transfer_acceptance",
+        "sepa_instant_transfer_acceptance",
+        "other",
+    ]
+    """The type of the resource.
+
+    We may add additional possible values for this enum over time; your application
+    should be able to handle such additions gracefully.
+
+    - `account_transfer_intention` - Account Transfer Intention: details will be
+      under the `account_transfer_intention` object.
+    - `ach_transfer_intention` - ACH Transfer Intention: details will be under the
+      `ach_transfer_intention` object.
+    - `ach_transfer_rejection` - ACH Transfer Rejection: details will be under the
+      `ach_transfer_rejection` object.
+    - `ach_transfer_return` - ACH Transfer Return: details will be under the
+      `ach_transfer_return` object.
+    - `cashback_payment` - Cashback Payment: details will be under the
+      `cashback_payment` object.
+    - `card_dispute_acceptance` - Legacy Card Dispute Acceptance: details will be
+      under the `card_dispute_acceptance` object.
+    - `card_dispute_financial` - Card Dispute Financial: details will be under the
+      `card_dispute_financial` object.
+    - `card_dispute_loss` - Legacy Card Dispute Loss: details will be under the
+      `card_dispute_loss` object.
+    - `card_refund` - Card Refund: details will be under the `card_refund` object.
+    - `card_settlement` - Card Settlement: details will be under the
+      `card_settlement` object.
+    - `card_financial` - Card Financial: details will be under the `card_financial`
+      object.
+    - `card_revenue_payment` - Card Revenue Payment: details will be under the
+      `card_revenue_payment` object.
+    - `check_deposit_acceptance` - Check Deposit Acceptance: details will be under
+      the `check_deposit_acceptance` object.
+    - `check_deposit_return` - Check Deposit Return: details will be under the
+      `check_deposit_return` object.
+    - `fednow_transfer_acknowledgement` - FedNow Transfer Acknowledgement: details
+      will be under the `fednow_transfer_acknowledgement` object.
+    - `fednow_transfer_return` - FedNow Transfer Return: details will be under the
+      `fednow_transfer_return` object.
+    - `check_transfer_deposit` - Check Transfer Deposit: details will be under the
+      `check_transfer_deposit` object.
+    - `fee_payment` - Fee Payment: details will be under the `fee_payment` object.
+    - `inbound_ach_transfer` - Inbound ACH Transfer Intention: details will be under
+      the `inbound_ach_transfer` object.
+    - `inbound_ach_transfer_return_intention` - Inbound ACH Transfer Return
+      Intention: details will be under the `inbound_ach_transfer_return_intention`
+      object.
+    - `inbound_check_deposit_return_intention` - Inbound Check Deposit Return
+      Intention: details will be under the `inbound_check_deposit_return_intention`
+      object.
+    - `inbound_check_adjustment` - Inbound Check Adjustment: details will be under
+      the `inbound_check_adjustment` object.
+    - `inbound_fednow_transfer_confirmation` - Inbound FedNow Transfer Confirmation:
+      details will be under the `inbound_fednow_transfer_confirmation` object.
+    - `inbound_real_time_payments_transfer_confirmation` - Inbound Real-Time
+      Payments Transfer Confirmation: details will be under the
+      `inbound_real_time_payments_transfer_confirmation` object.
+    - `inbound_wire_reversal` - Inbound Wire Reversal: details will be under the
+      `inbound_wire_reversal` object.
+    - `inbound_wire_transfer` - Inbound Wire Transfer Intention: details will be
+      under the `inbound_wire_transfer` object.
+    - `inbound_wire_transfer_reversal` - Inbound Wire Transfer Reversal Intention:
+      details will be under the `inbound_wire_transfer_reversal` object.
+    - `interest_payment` - Interest Payment: details will be under the
+      `interest_payment` object.
+    - `internal_source` - Internal Source: details will be under the
+      `internal_source` object.
+    - `real_time_payments_transfer_acknowledgement` - Real-Time Payments Transfer
+      Acknowledgement: details will be under the
+      `real_time_payments_transfer_acknowledgement` object.
+    - `sample_funds` - Sample Funds: details will be under the `sample_funds`
+      object.
+    - `wire_transfer_intention` - Wire Transfer Intention: details will be under the
+      `wire_transfer_intention` object.
+    - `swift_transfer_intention` - Swift Transfer Intention: details will be under
+      the `swift_transfer_intention` object.
+    - `swift_transfer_return` - Swift Transfer Return: details will be under the
+      `swift_transfer_return` object.
+    - `card_push_transfer_acceptance` - Card Push Transfer Acceptance: details will
+      be under the `card_push_transfer_acceptance` object.
+    - `account_revenue_payment` - Account Revenue Payment: details will be under the
+      `account_revenue_payment` object.
+    - `blockchain_onramp_transfer_intention` - Blockchain On-Ramp Transfer
+      Intention: details will be under the `blockchain_onramp_transfer_intention`
+      object.
+    - `blockchain_offramp_transfer_settlement` - Blockchain Off-Ramp Transfer
+      Settlement: details will be under the `blockchain_offramp_transfer_settlement`
+      object.
+    - `uk_faster_payment_system_transfer_acceptance` - UK Faster Payment System
+      Transfer Acceptance: details will be under the
+      `uk_faster_payment_system_transfer_acceptance` object.
+    - `sepa_instant_transfer_acceptance` - SEPA Instant Transfer Acceptance: details
+      will be under the `sepa_instant_transfer_acceptance` object.
+    - `other` - The Transaction was made for an undocumented or deprecated reason.
+    """
+
+    account_revenue_payment: Optional[SourceAccountRevenuePayment] = None
+    """An Account Revenue Payment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `account_revenue_payment`. An Account Revenue Payment represents a
+    payment made to an account from the bank. Account revenue is a type of
+    non-interest income.
+    """
+
+    account_transfer_intention: Optional[SourceAccountTransferIntention] = None
+    """An Account Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `account_transfer_intention`. Two Account Transfer Intentions are
+    created from each Account Transfer. One decrements the source account, and the
+    other increments the destination account.
+    """
+
+    ach_transfer_intention: Optional[SourceACHTransferIntention] = None
+    """An ACH Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `ach_transfer_intention`. An ACH Transfer Intention is created from an
+    ACH Transfer. It reflects the intention to move money into or out of an Increase
+    account via the ACH network.
+    """
+
+    ach_transfer_rejection: Optional[SourceACHTransferRejection] = None
+    """An ACH Transfer Rejection object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `ach_transfer_rejection`. An ACH Transfer Rejection is created when an
+    ACH Transfer is rejected by Increase. It offsets the ACH Transfer Intention.
+    These rejections are rare.
+    """
+
+    ach_transfer_return: Optional[SourceACHTransferReturn] = None
+    """An ACH Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `ach_transfer_return`. An ACH Transfer Return is created when an ACH
+    Transfer is returned by the receiving bank. It offsets the ACH Transfer
+    Intention. ACH Transfer Returns usually occur within the first two business days
+    after the transfer is initiated, but can occur much later. The return appears as
+    a new posted Transaction; no Pending Transaction is created.
+    """
+
+    blockchain_offramp_transfer_settlement: Optional[SourceBlockchainOfframpTransferSettlement] = None
+    """A Blockchain Off-Ramp Transfer Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `blockchain_offramp_transfer_settlement`.
+    """
+
+    blockchain_onramp_transfer_intention: Optional[SourceBlockchainOnrampTransferIntention] = None
+    """A Blockchain On-Ramp Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `blockchain_onramp_transfer_intention`.
+    """
+
+    card_dispute_acceptance: Optional[SourceCardDisputeAcceptance] = None
+    """A Legacy Card Dispute Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_dispute_acceptance`. Contains the details of a successful Card
+    Dispute.
+    """
+
+    card_dispute_financial: Optional[SourceCardDisputeFinancial] = None
+    """A Card Dispute Financial object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_dispute_financial`. Financial event related to a Card Dispute.
+    """
+
+    card_dispute_loss: Optional[SourceCardDisputeLoss] = None
+    """A Legacy Card Dispute Loss object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_dispute_loss`. Contains the details of a lost Card Dispute.
+    """
+
+    card_financial: Optional[SourceCardFinancial] = None
+    """A Card Financial object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_financial`. Card Financials are card transactions that have
+    cleared and settled. Unlike a Card Settlement, which clears a previous
+    authorization, a Card Financial is authorized and cleared in a single message.
+    """
+
+    card_push_transfer_acceptance: Optional[SourceCardPushTransferAcceptance] = None
+    """A Card Push Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_push_transfer_acceptance`. A Card Push Transfer Acceptance is
+    created when an Outbound Card Push Transfer sent from Increase is accepted by
+    the receiving bank.
+    """
+
+    card_refund: Optional[SourceCardRefund] = None
+    """A Card Refund object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_refund`. Card Refunds move money back to the cardholder. While
+    they are usually connected to a Card Settlement, an acquirer can also refund
+    money directly to a card without relation to a transaction.
+    """
+
+    card_revenue_payment: Optional[SourceCardRevenuePayment] = None
+    """A Card Revenue Payment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_revenue_payment`. Card Revenue Payments reflect earnings from
+    fees on card transactions.
+    """
+
+    card_settlement: Optional[SourceCardSettlement] = None
+    """A Card Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_settlement`. Card Settlements are card transactions that have
+    cleared and settled. While a settlement is usually preceded by an authorization,
+    an acquirer can also directly clear a transaction without first authorizing it.
+    """
+
+    cashback_payment: Optional[SourceCashbackPayment] = None
+    """A Cashback Payment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `cashback_payment`. A Cashback Payment represents the cashback paid to
+    a cardholder for a given period. Cashback is usually paid monthly for the prior
+    month's transactions.
+    """
+
+    check_deposit_acceptance: Optional[SourceCheckDepositAcceptance] = None
+    """A Check Deposit Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `check_deposit_acceptance`. A Check Deposit Acceptance is created when
+    a Check Deposit is processed and its details confirmed. Check Deposits may be
+    returned by the receiving bank, which will appear as a Check Deposit Return.
+    """
+
+    check_deposit_return: Optional[SourceCheckDepositReturn] = None
+    """A Check Deposit Return object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `check_deposit_return`. A Check Deposit Return is created when a Check
+    Deposit is returned by the bank holding the account it was drawn against. Check
+    Deposits may be returned for a variety of reasons, including insufficient funds
+    or a mismatched account number. Usually, checks are returned within the first 7
+    days after the deposit is made.
+    """
+
+    check_transfer_deposit: Optional[SourceCheckTransferDeposit] = None
+    """A Check Transfer Deposit object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `check_transfer_deposit`. An Inbound Check is a check drawn on an
+    Increase account that has been deposited by an external bank account. These
+    types of checks are not pre-registered.
+    """
+
+    fednow_transfer_acknowledgement: Optional[SourceFednowTransferAcknowledgement] = None
+    """A FedNow Transfer Acknowledgement object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `fednow_transfer_acknowledgement`. A FedNow Transfer Acknowledgement is
+    created when a FedNow Transfer sent from Increase is acknowledged by the
+    receiving bank.
+    """
+
+    fednow_transfer_return: Optional[SourceFednowTransferReturn] = None
+    """A FedNow Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `fednow_transfer_return`. A FedNow Transfer Return is created when a
+    FedNow Transfer sent from Increase is returned by the recipient's bank.
+    """
+
+    fee_payment: Optional[SourceFeePayment] = None
+    """A Fee Payment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `fee_payment`. A Fee Payment represents a payment made to Increase.
+    """
+
+    inbound_ach_transfer: Optional[SourceInboundACHTransfer] = None
+    """An Inbound ACH Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_ach_transfer`. An Inbound ACH Transfer Intention is created
+    when an ACH transfer is initiated at another bank and received by Increase.
+    """
+
+    inbound_ach_transfer_return_intention: Optional[SourceInboundACHTransferReturnIntention] = None
+    """An Inbound ACH Transfer Return Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_ach_transfer_return_intention`. An Inbound ACH Transfer Return
+    Intention is created when an ACH transfer is initiated at another bank and
+    returned by Increase.
+    """
+
+    inbound_check_adjustment: Optional[SourceInboundCheckAdjustment] = None
+    """An Inbound Check Adjustment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_check_adjustment`. An Inbound Check Adjustment is created when
+    Increase receives an adjustment for a check or return deposited through
+    Check 21.
+    """
+
+    inbound_check_deposit_return_intention: Optional[SourceInboundCheckDepositReturnIntention] = None
+    """An Inbound Check Deposit Return Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_check_deposit_return_intention`. An Inbound Check Deposit
+    Return Intention is created when Increase receives an Inbound Check and the User
+    requests that it be returned.
+    """
+
+    inbound_fednow_transfer_confirmation: Optional[SourceInboundFednowTransferConfirmation] = None
+    """An Inbound FedNow Transfer Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_fednow_transfer_confirmation`. An Inbound FedNow Transfer
+    Confirmation is created when a FedNow transfer is initiated at another bank and
+    received by Increase.
+    """
+
+    inbound_real_time_payments_transfer_confirmation: Optional[SourceInboundRealTimePaymentsTransferConfirmation] = None
+    """An Inbound Real-Time Payments Transfer Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_real_time_payments_transfer_confirmation`. An Inbound
+    Real-Time Payments Transfer Confirmation is created when a Real-Time Payments
+    transfer is initiated at another bank and received by Increase.
+    """
+
+    inbound_wire_reversal: Optional[SourceInboundWireReversal] = None
+    """An Inbound Wire Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_wire_reversal`. An Inbound Wire Reversal represents a reversal
+    of a wire transfer that was initiated via Increase. The other bank is sending
+    the money back. This most often happens when the original destination account
+    details were incorrect.
+    """
+
+    inbound_wire_transfer: Optional[SourceInboundWireTransfer] = None
+    """An Inbound Wire Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_wire_transfer`. An Inbound Wire Transfer Intention is created
+    when a wire transfer is initiated at another bank and received by Increase.
+    """
+
+    inbound_wire_transfer_reversal: Optional[SourceInboundWireTransferReversal] = None
+    """An Inbound Wire Transfer Reversal Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_wire_transfer_reversal`. An Inbound Wire Transfer Reversal
+    Intention is created when Increase has received a wire and the User requests
+    that it be reversed.
+    """
+
+    interest_payment: Optional[SourceInterestPayment] = None
+    """An Interest Payment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `interest_payment`. An Interest Payment represents a payment of
+    interest on an account. Interest is usually paid monthly.
+    """
+
+    internal_source: Optional[SourceInternalSource] = None
+    """An Internal Source object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `internal_source`. A transaction between the user and Increase. See the
+    `reason` attribute for more information.
+    """
+
+    other: Optional[SourceOther] = None
+    """
+    If the category of this Transaction source is equal to `other`, this field will
+    contain an empty object, otherwise it will contain null.
+    """
+
+    real_time_payments_transfer_acknowledgement: Optional[SourceRealTimePaymentsTransferAcknowledgement] = None
+    """A Real-Time Payments Transfer Acknowledgement object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `real_time_payments_transfer_acknowledgement`. A Real-Time Payments
+    Transfer Acknowledgement is created when a Real-Time Payments Transfer sent from
+    Increase is acknowledged by the receiving bank.
+    """
+
+    sample_funds: Optional[SourceSampleFunds] = None
+    """A Sample Funds object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `sample_funds`. Sample funds for testing purposes.
+    """
+
+    sepa_instant_transfer_acceptance: Optional[SourceSepaInstantTransferAcceptance] = None
+    """A SEPA Instant Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `sepa_instant_transfer_acceptance`. A SEPA Instant Transfer Acceptance
+    is created when a SEPA Instant Transfer sent from Increase is accepted by the
+    recipient's bank.
+    """
+
+    swift_transfer_intention: Optional[SourceSwiftTransferIntention] = None
+    """A Swift Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `swift_transfer_intention`. A Swift Transfer initiated via Increase.
+    """
+
+    swift_transfer_return: Optional[SourceSwiftTransferReturn] = None
+    """A Swift Transfer Return object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `swift_transfer_return`. A Swift Transfer Return is created when a
+    Swift Transfer is returned by the receiving bank.
+    """
+
+    uk_faster_payment_system_transfer_acceptance: Optional[SourceUkFasterPaymentSystemTransferAcceptance] = None
+    """An UK Faster Payment System Transfer Acceptance object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `uk_faster_payment_system_transfer_acceptance`. A UK Faster Payment
+    System Transfer Acceptance is created when a UK Faster Payment System Transfer
+    sent from Increase is accepted by the recipient's bank.
+    """
+
+    wire_transfer_intention: Optional[SourceWireTransferIntention] = None
+    """A Wire Transfer Intention object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `wire_transfer_intention`. A Wire Transfer initiated via Increase and
+    sent to a different bank.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Transaction(BaseModel):
+    """
+    Transactions are the immutable additions and removals of money from your bank account. They're the equivalent of line items on your bank statement. To learn more, see [Transactions and Transfers](/documentation/transactions-transfers).
+    """
+
+    id: str
+    """The Transaction identifier."""
+
+    account_id: str
+    """The identifier for the Account the Transaction belongs to."""
+
+    amount: int
+    """The Transaction amount in the minor unit of its currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Transaction occurred.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    Transaction's currency. This will match the currency on the Transaction's
+    Account.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    description: str
+    """An informational message describing this transaction.
+
+    Use the fields in `source` to get more detailed information. This field appears
+    as the line-item on the statement.
+    """
+
+    route_id: Optional[str] = None
+    """The identifier for the route this Transaction came through.
+
+    Routes are things like cards and ACH details.
+    """
+
+    route_type: Optional[Literal["account_number", "card", "lockbox"]] = None
+    """The type of the route this Transaction came through.
+
+    - `account_number` - An Account Number.
+    - `card` - A Card.
+    - `lockbox` - A Lockbox.
+    """
+
+    source: Source
+    """
+    This is an object giving more details on the network-level event that caused the
+    Transaction. Note that for backwards compatibility reasons, additional
+    undocumented keys may appear in this object. These should be treated as
+    deprecated and will be removed in the future.
+    """
+
+    type: Literal["transaction"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `transaction`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

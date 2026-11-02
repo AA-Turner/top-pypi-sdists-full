@@ -1,0 +1,105 @@
+# pylint: disable=broad-exception-caught
+# pylint: disable=unused-import
+"""TmcComUart stepper driver uart module."""
+
+import serial
+from ._tmc_com_uart_base import TmcComUartBase, TmcLogger, Loglevel
+from .._tmc_exceptions import TmcComException, TmcDriverException
+
+
+class TmcComUart(TmcComUartBase):
+    """TmcComUart.
+
+    this class is used to communicate with the TMC via UART using
+    pyserial it can be used to change the settings of the TMC. like the
+    current or the microsteppingmode
+    """
+
+    def __init__(self, serialport: str, baudrate: int = 115200):
+        """constructor.
+
+        Args:
+            serialport (string): serialport path
+            baudrate (int): baudrate
+        """
+        super().__init__()
+
+        self.ser = serial.Serial()
+
+        if serialport is None:
+            return
+
+        self.ser.port = serialport
+        self.ser.baudrate = baudrate
+
+    def init(self):
+        """init."""
+        try:
+            self.ser.open()
+        except Exception as e:
+            errnum = e.args[0]
+            self._tmc_logger.log(f"SERIAL ERROR: {e}")
+            if errnum == 2:
+                self._tmc_logger.log(
+                    f""""{self.ser.port} does not exist.
+                      You need to activate the serial port with \"sudo raspi-config\"""",
+                    Loglevel.ERROR,
+                )
+                raise SystemExit from e
+
+            if errnum == 13:
+                self._tmc_logger.log(
+                    """You have no permission to use the serial port.
+
+                    You may need to add your user to the dialout group
+                    with \"sudo usermod -a -G dialout pi\"
+                    """,
+                    Loglevel.ERROR,
+                )
+                raise SystemExit from e
+
+        if self.ser.baudrate is None:
+            raise TmcComException("Baudrate is not set")
+
+        # adjust per baud and hardware. Sequential reads without some delay fail.
+        self.communication_pause = 500 / self.ser.baudrate
+
+        if self.ser is None:
+            return
+
+        self.ser.bytesize = serial.EIGHTBITS
+        self.ser.parity = serial.PARITY_NONE
+        self.ser.stopbits = serial.STOPBITS_ONE
+        self.ser.timeout = 1
+
+        self._uart_flush()
+
+    def __del__(self):
+        """Destructor."""
+        self.deinit()
+
+    def deinit(self):
+        """Destructor."""
+        if self.ser is not None and isinstance(self.ser, serial.Serial):
+            self.ser.close()
+
+    def _uart_write(self, data: list) -> int:
+        """Write data to UART using pyserial.
+
+        Args:
+            data: Data to send
+
+        Returns:
+            Number of bytes written
+        """
+        return self.ser.write(data)
+
+    def _uart_read(self, length: int) -> bytes:
+        """Read data from UART using pyserial."""
+        return self.ser.read(length)
+
+    def _uart_flush(self):
+        """Flush UART buffers."""
+        if self.ser is not None:
+            self.ser.reset_output_buffer()
+            self.ser.reset_input_buffer()

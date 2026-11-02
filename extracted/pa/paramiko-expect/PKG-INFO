@@ -1,8 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: paramiko-expect
-Version: 0.3.5
+Version: 0.3.6
 Summary: An expect-like extension for the Paramiko SSH library
-Home-page: https://github.com/fgimian/paramiko-expect
+Home-page: https://codeberg.org/fgimian/paramiko-expect
 Author: Fotis Gimian
 Author-email: fgimiansoftware@gmail.com
 License: MIT
@@ -19,31 +19,51 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Intended Audience :: Developers
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: paramiko>=1.10.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
 
 Paramiko Expect
 ===============
 
-.. image:: https://img.shields.io/pypi/l/paramiko-expect.svg
-   :target: https://github.com/fgimian/paramiko-expect/blob/master/LICENSE
+|License| |Latest Version| |Python Versions|
 
-.. image:: https://codecov.io/gh/fgimian/paramiko-expect/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/fgimian/paramiko-expect
+|Logo|
 
-.. image:: https://img.shields.io/travis/fgimian/paramiko-expect.svg
-   :target: https://travis-ci.org/fruch/paramiko-expect/
-
-.. image:: https://img.shields.io/pypi/v/paramiko-expect.svg
+.. |License| image:: https://img.shields.io/pypi/l/paramiko-expect.svg
+   :target: https://codeberg.org/fgimian/paramiko-expect/src/main/LICENSE
+.. |Latest Version| image:: https://img.shields.io/pypi/v/paramiko-expect.svg
    :target: https://pypi.python.org/pypi/paramiko-expect/
-
-.. image:: https://img.shields.io/pypi/pyversions/paramiko-expect.svg
-   :target:  https://pypi.python.org/pypi/paramiko-expect/
-
-
-.. image:: https://raw.githubusercontent.com/fgimian/paramiko-expect/master/images/paramiko-expect-logo.png
+.. |Python Versions| image:: https://img.shields.io/pypi/pyversions/paramiko-expect.svg
+   :target: https://pypi.python.org/pypi/paramiko-expect/
+.. |Logo| image:: https://codeberg.org/fgimian/paramiko-expect/raw/main/images/paramiko-expect-logo.png
    :alt: Paramiko Expect Logo
 
 Artwork courtesy of `Open Clip Art
 Library <https://openclipart.org/detail/174780/openmouthed-robot>`_
+
+Repository Archived
+-------------------
+
+This project originally started as a POC while I was automating some tasks on Cisco CDS devices
+in my operations role. While the library worked well, I didn't actually get to use it much myself
+as I moved onto an engineering role soon after. Since then,
+`Israel Fruchter <https://github.com/fruch>`_ has been kindly leading maintenance of the project.
+
+Unfortunately, `Israel is also no longer using this project <https://codeberg.org/fgimian/paramiko-expect/issues/96#issuecomment-26886512>`_
+and `no suitable maintainers were found to take over <https://codeberg.org/fgimian/paramiko-expect/issues/97>`_.
+
+As such, I have decided to archive the project and officially call it discontinued. The community
+is welcome to fork the project and continue its development if required.
 
 Introduction
 ------------
@@ -66,10 +86,10 @@ To install paramiko-expect, simply run the following at your prompt:
     pip install paramiko-expect
 
     # from source
-    pip install git+https://github.com/fgimian/paramiko-expect.git
+    pip install git+https://codeberg.org/fgimian/paramiko-expect.git
 
 So let's check out how it works in general (please see
-`paramiko_expect-demo.py <https://github.com/fgimian/paramiko-expect/blob/master/examples/paramiko_expect-demo.py>`_
+`paramiko_expect-demo.py <https://codeberg.org/fgimian/paramiko-expect/src/main/examples/paramiko_expect-demo.py>`_
 for the complete code):
 
 .. code:: python
@@ -124,7 +144,7 @@ for the complete code):
     print cmd_output_ls
 
 **Important**: Before running this script, be sure to place
-`paramiko_expect-demo-helper.py <https://github.com/fgimian/paramiko-expect/blob/master/examples/paramiko_expect-demo-helper.py>`_
+`paramiko_expect-demo-helper.py <https://codeberg.org/fgimian/paramiko-expect/src/main/examples/paramiko_expect-demo-helper.py>`_
 in ``~``.
 
 The print statements at the bottom of the script provide the following
@@ -165,7 +185,7 @@ output:
     lrwxrwxrwx  1 root root    29 May  1 22:18 vmlinuz -> boot/vmlinuz-3.2.0-23-generic
 
 For interacting with tail-like scripts, we can use the tail function (please see
-`paramiko_expect-tail-demo.py <https://github.com/fgimian/paramiko-expect/blob/master/examples/paramiko_expect-tail-demo.py>`_
+`paramiko_expect-tail-demo.py <https://codeberg.org/fgimian/paramiko-expect/src/main/examples/paramiko_expect-tail-demo.py>`_
 for the complete code):
 
 .. code:: python
@@ -184,7 +204,7 @@ for the complete code):
     interact.tail(line_prefix=hostname+': ')
 
 The true power of the tail function will become more apparent when you
-check out the `Multi-SSH <https://github.com/fgimian/multissh>`_
+check out the `Multi-SSH <https://codeberg.org/fgimian/multissh>`_
 library. Ever thought about tailing a log on multiple servers? Well
 dream no more my friend, it's here!
 
@@ -212,5 +232,5 @@ License
 -------
 
 Paramiko Expect is released under the **MIT** license. Please see the
-`LICENSE <https://github.com/fgimian/paramiko-expect/blob/master/LICENSE>`_
+`LICENSE <https://codeberg.org/fgimian/paramiko-expect/src/main/LICENSE>`_
 file for more details.

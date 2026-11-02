@@ -1,0 +1,290 @@
+# AI Reactor catalog: the gateway and the models the console may deploy
+# (docs/ai-reactor-deploy-spec.md §3). A model that is not listed here cannot be
+# deployed from the console.
+#
+# Factual fields (product_id, entity_name, service, served_model, port, storage_gb,
+# config_block_version) come from the sovereign-ai charts, as rendered with this
+# file's overrides; check them with
+#   uv run python scripts/check-reactor-catalog.py --sovereign-ai ../sovereign-ai
+# Descriptive fields (display_name, description, task, platform, gpu) are written by hand.
+#
+# Every model chart listed here MUST use `strategy: Recreate` (a single-GPU cube
+# deadlocks on a rolling update) and `openshift.createSCC: true`; the check script
+# refuses a chart that does not.
+version: 1
+
+gateway:
+  product_id: com.edgescaleai-cube:esai-sovereign-ai-litellm
+  entity_name: esai-sovereign-ai-litellm
+  # Every live Reactor runs here, and the model entities go to the same namespace.
+  namespace: esai-sovereign-ai
+  # The chart's Service (templates/service.yaml), port 4000.
+  service: litellm
+  port: 4000
+  # Override block version for a NEW gateway. An existing gateway keeps its own.
+  config_block_version: "0.3.4"
+  # Unset: Apollo's default channel, as an install_entity without one gets.
+  release_channel: null
+  # Overrides for a gateway the console installs. Config mode (no Postgres) and the
+  # master key in the Apollo secret `gateway`, so this block carries no credential.
+  # `localModels` is always written explicitly: the chart's own default lists two
+  # placeholder models.
+  base_overrides:
+    database:
+      enabled: false
+    networkPolicy:
+      enabled: false
+    openshift:
+      anyuid: false
+    cloudModels:
+      enabled: false
+    apolloSecrets:
+      enabled: true
+      salt: false
+      dbPassword: false
+    localModels: []
+
+# Applied to EVERY model install, with a model's own `install_overrides` merged over
+# it. Tailscale exposure is on by default in most model charts, with another cube's
+# hostname: on a cube running the Tailscale operator it would advertise an
+# unauthenticated vLLM on the tailnet. A chart without the key ignores it.
+# Overrides may not move the gateway's wiring (Service, port, served name) or carry a
+# credential; catalog.py refuses both. Chart defaults that need these overrides are
+# tracked for a proper fix in sovereign-ai.
+model_overrides:
+  tailscale:
+    expose: false
+
+models:
+  - id: nemotron-3-nano-4b
+    display_name: Nemotron 3 Nano 4B
+    description: Small, fast general chat model from NVIDIA. The quickest to download and start.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 24}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-nemotron-3-nano-4b
+    entity_name: esai-sovereign-ai-nemotron-3-nano-4b
+    config_block_version: "0.1.2"
+    service: nemotron-3-nano-4b
+    port: 8000
+    served_model: nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16
+    storage_gb: 30
+
+  - id: nemotron-3-nano-30b-a3b
+    display_name: Nemotron 3 Nano 30B-A3B
+    description: Mixture-of-experts chat model from NVIDIA, quantized to 4-bit.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 24}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-nemotron-3-nano-30b-a3b
+    entity_name: esai-sovereign-ai-nemotron-3-nano-30b-a3b
+    config_block_version: "0.1.3"
+    service: nemotron-3-nano-30b-a3b
+    port: 8000
+    served_model: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
+    storage_gb: 40
+
+  - id: qwen3-30b-a3b-2507
+    display_name: Qwen3 30B-A3B Instruct
+    description: Strong general chat model with a long context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-qwen3-30b-a3b-2507
+    entity_name: esai-sovereign-ai-qwen3-30b-a3b-2507
+    config_block_version: "0.1.1"
+    service: qwen3-30b-a3b-2507
+    port: 8000
+    served_model: Qwen/Qwen3-30B-A3B-Instruct-2507-FP8
+    storage_gb: 70
+
+  - id: qwen3-coder-30b
+    display_name: Qwen3 Coder 30B
+    description: Coding model with tool calling and a 128K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-qwen3-coder-30b-fp8
+    entity_name: esai-sovereign-ai-qwen3-coder-30b-fp8
+    config_block_version: "0.1.2"
+    service: qwen3-coder-30b-fp8
+    port: 8000
+    served_model: Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+    storage_gb: 70
+
+  # The four below pass --served-model-name, so served_model is that name rather than
+  # the Hugging Face id. The check script resolves it from the chart.
+  - id: lfm2-24b-a2b
+    display_name: LFM2 24B-A2B
+    description: Efficient mixture-of-experts chat model from Liquid AI, with tool calling and a 32K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-lfm2-24b-a2b
+    entity_name: esai-sovereign-ai-lfm2-24b-a2b
+    config_block_version: "0.3.1"
+    service: lfm2-24b-a2b
+    port: 8000
+    served_model: lfm2-24b-a2b          # HF id LiquidAI/LFM2-24B-A2B
+    storage_gb: 100
+
+  - id: trinity-mini
+    display_name: Trinity Mini
+    description: Reasoning model from Arcee AI, with tool calling and a 128K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-trinity-mini
+    entity_name: esai-sovereign-ai-trinity-mini
+    config_block_version: "0.3.1"
+    service: trinity-mini
+    port: 8000
+    served_model: trinity-mini          # HF id arcee-ai/Trinity-Mini-FP8-Block
+    storage_gb: 110
+
+  - id: qwen3-vl-8b
+    display_name: Qwen3-VL 8B
+    description: Vision chat model from Qwen. Send one image with each request; 4K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-qwen3-vl-8b
+    entity_name: esai-sovereign-ai-qwen3-vl-8b
+    config_block_version: "0.1.1"
+    service: qwen3-vl-8b
+    port: 8005
+    served_model: qwen3-vl-8b           # HF id Qwen/Qwen3-VL-8B-Instruct-FP8
+    storage_gb: 25
+
+  - id: qwen3-vl-30b-a3b
+    display_name: Qwen3-VL 30B-A3B
+    description: Larger mixture-of-experts vision chat model from Qwen. Send one image with each request; 4K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-qwen3-vl-30b-a3b
+    entity_name: esai-sovereign-ai-qwen3-vl-30b-a3b
+    config_block_version: "0.1.1"
+    service: qwen3-vl-30b-a3b
+    port: 8004
+    served_model: qwen3-vl-30b-a3b      # HF id Qwen/Qwen3-VL-30B-A3B-Instruct-FP8
+    storage_gb: 70
+
+  # The three below install only with overrides: their published chart defaults
+  # assume a cube they were built on (a Hugging Face secret, a gateway in the same
+  # namespace, a storage class, an older vLLM). Each override mirrors one already
+  # proven by hand; the source is noted per entry.
+  - id: gemma-4-12b
+    display_name: Gemma 4 12B
+    description: Multimodal chat model from Google, quantized to 4-bit; reads images as well as text.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 24}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-gemma-4-12b
+    entity_name: esai-sovereign-ai-gemma-4-12b
+    config_block_version: "0.1.1"
+    service: gemma-4-12b
+    port: 8000
+    served_model: google/gemma-4-12B-it-qat-w4a16-ct
+    storage_gb: 40
+    # As run on cube-o2e87m9a (hitachi-innovation-lab): Google's 4-bit QAT build on
+    # vLLM v0.28.0, which has the per-layer head_dim fix the chart's v0.27.1 lacks
+    # (the BF16 default crash-loops there). The chart pins a storage class only one
+    # cube has; empty means the cube's default.
+    install_overrides:
+      image: {tag: "v0.28.0"}
+      model:
+        name: google/gemma-4-12B-it-qat-w4a16-ct
+        quantization: ""
+        dtype: auto
+        maxModelLen: 16384
+        gpuMemoryUtilization: 0.9
+        maxNumSeqs: 2
+        maxNumBatchedTokens: 8192
+      kvCache: {dtype: auto}
+      huggingface: {enabled: false}
+      storage: {size: 40Gi, storageClass: ""}
+      openshift: {createSCC: true}
+
+  - id: gpt-oss-20b
+    display_name: gpt-oss 20B
+    description: Open-weight reasoning model from OpenAI with tool calling and a 32K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 24}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-openai-oss-20b
+    entity_name: esai-sovereign-ai-openai-oss-20b
+    config_block_version: "0.5.0"
+    service: gpt-oss-20b-svc
+    port: 8000
+    served_model: openai/gpt-oss-20b
+    storage_gb: 100
+    # Published 0.5.0 defaults createSCC to false (fixed in the repo's unpublished
+    # 0.5.1), requires a huggingface-secret for a public model, and enables a
+    # NetworkPolicy that admits only its own namespace.
+    install_overrides:
+      huggingface: {enabled: false}
+      networkPolicy: {enabled: false}
+      openshift: {createSCC: true}
+
+  - id: qwen3-14b
+    display_name: Qwen3 14B
+    description: Mid-size general chat model from Qwen, quantized to 4-bit, with a 64K-token context window.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 24}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-qwen3-14b-turboquant
+    entity_name: esai-sovereign-ai-qwen3-14b-turboquant
+    config_block_version: "0.5.1"
+    service: qwen3-14b-turboquant
+    port: 8000
+    served_model: Qwen/Qwen3-14B-AWQ
+    storage_gb: 50
+    # Published 0.5.1 predates the repo's chart-default fixes: it requires a
+    # huggingface-secret for a public model and enables a same-namespace-only
+    # NetworkPolicy.
+    install_overrides:
+      huggingface: {enabled: false}
+      networkPolicy: {enabled: false}
+      openshift: {createSCC: true}
+
+  # Chart on sovereign-ai's feat/gemma-4-31b-coserve (not yet on main); 0.1.1 is published
+  # on RELEASE and runs on cube-9p4t83wd. Its defaults need no override. NVFP4 weights
+  # (21.7 GiB) target NVIDIA Blackwell; the catalog cannot express an architecture, so the
+  # description says it and min_vram_gb is the smallest card it was sized for comfortably.
+  - id: gemma-4-31b
+    display_name: Gemma 4 31B
+    description: Large multimodal chat model from Google with tool calling, quantized to 4-bit for NVIDIA Blackwell GPUs; reads images as well as text.
+    task: chat
+    platform: x86
+    gpu: {count: 1, min_vram_gb: 48}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-gemma-4-31b
+    entity_name: esai-sovereign-ai-gemma-4-31b
+    config_block_version: "0.1.1"
+    service: gemma-4-31b
+    port: 8000
+    served_model: gemma-4-31b           # --served-model-name; HF id RedHatAI/gemma-4-31B-it-NVFP4
+    storage_gb: 60
+
+# Shown when installed, never deployed (catalog.ShownModel). The AI Reactor reaches
+# these through authenticated pass-through routes rather than `localModels`, so the
+# console has nothing to wire; leaving them off the page would understate what the
+# Reactor is serving. Both run on CPU.
+other_models:
+  - id: laya
+    display_name: Laya
+    description: Typed decision model that answers choice, yes/no and score questions about a described situation, with a probability for each answer.
+    task: decision
+    platform: x86
+    gpu: {count: 0, min_vram_gb: 0}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-laya
+    entity_name: esai-sovereign-ai-laya
+
+  - id: decider-0-8b
+    display_name: Decider 0.8B
+    description: Compact typed decision model that answers choice, yes/no and score questions about a described situation, with a probability for each answer.
+    task: decision
+    platform: x86
+    gpu: {count: 0, min_vram_gb: 0}
+    product_id: com.edgescaleai-cube:esai-sovereign-ai-decider-0-8b
+    entity_name: esai-sovereign-ai-decider-0-8b

@@ -1,0 +1,1537 @@
+//! UDP transport layer for Net.
+//!
+//! This module provides the socket abstraction with optimized settings
+//! for high-throughput UDP communication.
+
+use bytes::{Bytes, BytesMut};
+use std::future::Future;
+use std::io;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::net::UdpSocket;
+
+use crate::error::AdapterError;
+
+use super::protocol::MAX_PACKET_SIZE;
+#[cfg(test)]
+use super::protocol::{NetHeader, HEADER_SIZE};
+
+// --- Recv-loop batching instrument (NRPC_RECV_LOOP_BATCHING_PLAN) --------
+//
+// Symmetric to the send-loop drain instrument in `router.rs`. Measures the
+// receive path's *batch size*: how many packets a single `recvmmsg`
+// (`BatchedTransport::recv_batch`) returned. `packets / syscalls` is the
+// realized ingress syscall-collapse factor — the recv analogue of the send
+// side's packets/flush ratio. Off unless `arm_recv_drain_histo()` is called
+// BEFORE the receive thread starts (the thread latches the flag once at
+// startup), so an unarmed loop does zero recording.
+//
+// Compiled only under the `batched-ingress` build feature — the instrument
+// measures the batched receive path, so when that path isn't built neither is
+// this. Measurement scaffolding, not supported public API: every entry point
+// is `#[doc(hidden)]` and re-exported only so the in-repo integration tests
+// (which compile as external crates) can drive it.
+#[cfg(feature = "batched-ingress")]
+mod recv_instrument {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+    /// Largest batch a single `recvmmsg` can return — mirrors
+    /// `linux::MAX_BATCH_SIZE`. Kept here as a literal because the instrument
+    /// also compiles off Linux (where the `linux` module is absent) yet must
+    /// still size its buckets; the Linux build statically asserts the two agree
+    /// (see the `const _` check below) so they cannot drift.
+    const RECV_BATCH_CAP: u64 = 64;
+
+    /// Number of histogram buckets: one power-of-two band per reachable batch
+    /// size, so there is no bucket a `recvmmsg` capped at `RECV_BATCH_CAP` can
+    /// never fill. Bucket `i` (`i < RECV_DRAIN_BUCKETS - 1`) counts batches in
+    /// `[2^i, 2^(i+1))`; the final bucket holds `[2^(BUCKETS-1), CAP]`. For
+    /// `CAP = 64` that is 7 buckets (top band `64+`, only 64 reachable).
+    #[doc(hidden)]
+    pub const RECV_DRAIN_BUCKETS: usize = RECV_BATCH_CAP.ilog2() as usize + 1;
+
+    // The instrument's bucket cap must track the kernel batch cap it measures.
+    #[cfg(target_os = "linux")]
+    const _: () = assert!(
+        RECV_BATCH_CAP as usize == super::super::linux::MAX_BATCH_SIZE,
+        "RECV_BATCH_CAP must mirror linux::MAX_BATCH_SIZE",
+    );
+
+    static RECV_DRAIN_HISTO: [AtomicU64; RECV_DRAIN_BUCKETS] =
+        [const { AtomicU64::new(0) }; RECV_DRAIN_BUCKETS];
+    static RECV_DRAIN_ARMED: AtomicBool = AtomicBool::new(false);
+    static RECV_DRAIN_MAX: AtomicU64 = AtomicU64::new(0);
+    static RECV_BATCH_SYSCALLS: AtomicU64 = AtomicU64::new(0);
+    static RECV_BATCH_PACKETS: AtomicU64 = AtomicU64::new(0);
+
+    /// Arm the recv-batch-size histogram. Must be called BEFORE the receive
+    /// thread starts — the thread reads the flag once at startup.
+    #[doc(hidden)]
+    pub fn arm_recv_drain_histo() {
+        RECV_DRAIN_ARMED.store(true, Ordering::Relaxed);
+    }
+
+    /// Snapshot the recv-batch-size histogram. Bucket `i`
+    /// (`i < RECV_DRAIN_BUCKETS - 1`) counts `recvmmsg` returns whose packet
+    /// count fell in `[2^i, 2^(i+1))`; the final bucket holds everything from
+    /// `2^(RECV_DRAIN_BUCKETS - 1)` up to the batch cap.
+    #[doc(hidden)]
+    pub fn recv_drain_histo_snapshot() -> [u64; RECV_DRAIN_BUCKETS] {
+        let mut out = [0u64; RECV_DRAIN_BUCKETS];
+        for (i, b) in RECV_DRAIN_HISTO.iter().enumerate() {
+            out[i] = b.load(Ordering::Relaxed);
+        }
+        out
+    }
+
+    /// Largest single `recvmmsg` batch observed so far (exact, not bucketed).
+    #[doc(hidden)]
+    pub fn recv_drain_max() -> u64 {
+        RECV_DRAIN_MAX.load(Ordering::Relaxed)
+    }
+
+    /// `(syscalls, packets)` received via the batched-ingress path.
+    /// `packets / syscalls` is the realized recv syscall-collapse factor
+    /// (→ `MAX_BATCH_SIZE` as the socket saturates).
+    #[doc(hidden)]
+    pub fn recv_batch_stats() -> (u64, u64) {
+        (
+            RECV_BATCH_SYSCALLS.load(Ordering::Relaxed),
+            RECV_BATCH_PACKETS.load(Ordering::Relaxed),
+        )
+    }
+
+    /// Latch the arm flag (called once at receive-thread startup, mirroring
+    /// the send loop's `measure_drain`). Only compiled on Linux, the sole
+    /// batched recv path; the per-packet fallback elsewhere has no batch to
+    /// record.
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub(super) fn recv_drain_armed() -> bool {
+        RECV_DRAIN_ARMED.load(Ordering::Relaxed)
+    }
+
+    /// Record one non-empty `recvmmsg` batch of `packets` packets. `armed` is
+    /// the value latched at thread startup; when false this is a no-op so the
+    /// production path pays nothing.
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub(super) fn record_recv_batch(packets: u64, armed: bool) {
+        if !armed || packets == 0 {
+            return;
+        }
+        RECV_BATCH_SYSCALLS.fetch_add(1, Ordering::Relaxed);
+        RECV_BATCH_PACKETS.fetch_add(packets, Ordering::Relaxed);
+        // floor(log2(packets)), clamped to the top (open-ended) bucket.
+        let bucket = (63 - packets.leading_zeros()).min(RECV_DRAIN_BUCKETS as u32 - 1) as usize;
+        RECV_DRAIN_HISTO[bucket].fetch_add(1, Ordering::Relaxed);
+        RECV_DRAIN_MAX.fetch_max(packets, Ordering::Relaxed);
+    }
+}
+
+#[cfg(feature = "batched-ingress")]
+pub use recv_instrument::{
+    arm_recv_drain_histo, recv_batch_stats, recv_drain_histo_snapshot, recv_drain_max,
+    RECV_DRAIN_BUCKETS,
+};
+
+/// Default receive buffer size (64 MB)
+pub const DEFAULT_RECV_BUFFER_SIZE: usize = 64 * 1024 * 1024;
+
+/// Default send buffer size (64 MB)
+pub const DEFAULT_SEND_BUFFER_SIZE: usize = 64 * 1024 * 1024;
+
+/// Socket buffer configuration
+#[derive(Debug, Clone, Copy)]
+pub struct SocketBufferConfig {
+    /// Receive buffer size in bytes
+    pub recv_buffer_size: usize,
+    /// Send buffer size in bytes
+    pub send_buffer_size: usize,
+}
+
+impl Default for SocketBufferConfig {
+    fn default() -> Self {
+        Self {
+            recv_buffer_size: DEFAULT_RECV_BUFFER_SIZE,
+            send_buffer_size: DEFAULT_SEND_BUFFER_SIZE,
+        }
+    }
+}
+
+impl SocketBufferConfig {
+    /// Configuration for tests with smaller buffers
+    pub fn for_testing() -> Self {
+        Self {
+            recv_buffer_size: 256 * 1024, // 256 KB
+            send_buffer_size: 256 * 1024, // 256 KB
+        }
+    }
+}
+
+/// Net socket wrapper with optimized settings.
+pub struct NetSocket {
+    /// Underlying UDP socket
+    socket: Arc<UdpSocket>,
+    /// Local address
+    local_addr: SocketAddr,
+    /// Receive buffer
+    recv_buf: BytesMut,
+}
+
+impl NetSocket {
+    /// Create a new Net socket bound to the given address with default (production) buffer sizes.
+    pub async fn new(bind_addr: SocketAddr) -> io::Result<Self> {
+        Self::with_config(bind_addr, SocketBufferConfig::default()).await
+    }
+
+    /// Create a new Net socket with custom buffer configuration.
+    pub async fn with_config(
+        bind_addr: SocketAddr,
+        config: SocketBufferConfig,
+    ) -> io::Result<Self> {
+        // Create socket with socket2 for advanced options
+        let socket2 = socket2::Socket::new(
+            if bind_addr.is_ipv4() {
+                socket2::Domain::IPV4
+            } else {
+                socket2::Domain::IPV6
+            },
+            socket2::Type::DGRAM,
+            Some(socket2::Protocol::UDP),
+        )?;
+
+        // Set buffer sizes
+        socket2.set_recv_buffer_size(config.recv_buffer_size)?;
+        socket2.set_send_buffer_size(config.send_buffer_size)?;
+
+        // The port is this node's alone. No SO_REUSEADDR: for UDP it buys
+        // nothing (no TIME_WAIT), and it let a second process bind the same
+        // port without an error and split the node's traffic. On Windows,
+        // where a socket that sets SO_REUSEADDR can still bind over one
+        // that didn't, also claim the port exclusively.
+        #[cfg(windows)]
+        set_exclusive_addr_use(&socket2)?;
+
+        // Set non-blocking for tokio
+        socket2.set_nonblocking(true)?;
+
+        // Bind. The port is exclusive, so "in use" has two likely causes;
+        // name the in-process one, which is easy to miss: a mesh dropped
+        // without `shutdown()` keeps its node — and this socket — alive,
+        // because the language bindings hold its serve registrations until
+        // shutdown (CODE_REVIEW_2026_10_28 AIB-7). Same kind, so callers
+        // matching on `AddrInUse` are unaffected.
+        socket2.bind(&bind_addr.into()).map_err(|e| {
+            if e.kind() == io::ErrorKind::AddrInUse {
+                io::Error::new(
+                    io::ErrorKind::AddrInUse,
+                    format!(
+                        "{bind_addr} is already in use, by another process or by a mesh in \
+                         this process that was dropped without shutdown() (a mesh keeps its \
+                         port until shutdown): {e}"
+                    ),
+                )
+            } else {
+                e
+            }
+        })?;
+
+        // Convert to tokio UdpSocket
+        let std_socket: std::net::UdpSocket = socket2.into();
+        let socket = UdpSocket::from_std(std_socket)?;
+        let local_addr = socket.local_addr()?;
+
+        Ok(Self {
+            socket: Arc::new(socket),
+            local_addr,
+            recv_buf: BytesMut::with_capacity(MAX_PACKET_SIZE),
+        })
+    }
+
+    /// Create from an existing tokio UdpSocket
+    pub fn from_socket(socket: UdpSocket) -> io::Result<Self> {
+        let local_addr = socket.local_addr()?;
+        Ok(Self {
+            socket: Arc::new(socket),
+            local_addr,
+            recv_buf: BytesMut::with_capacity(MAX_PACKET_SIZE),
+        })
+    }
+
+    /// Get the local address
+    #[inline]
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
+    /// Get a reference to the underlying socket
+    #[inline]
+    pub fn socket(&self) -> &UdpSocket {
+        &self.socket
+    }
+
+    /// Get a clone of the Arc socket
+    #[inline]
+    pub fn socket_arc(&self) -> Arc<UdpSocket> {
+        self.socket.clone()
+    }
+
+    /// Connect to a remote address (for send/recv without address)
+    pub async fn connect(&self, addr: SocketAddr) -> io::Result<()> {
+        self.socket.connect(addr).await
+    }
+
+    /// Send a packet to a specific address
+    #[inline]
+    pub async fn send_to(&self, packet: &[u8], target: SocketAddr) -> io::Result<usize> {
+        self.socket.send_to(packet, target).await
+    }
+
+    /// Send a packet to the connected address
+    #[inline]
+    pub async fn send(&self, packet: &[u8]) -> io::Result<usize> {
+        self.socket.send(packet).await
+    }
+
+    /// Try to send a packet without awaiting, returning
+    /// [`io::ErrorKind::WouldBlock`] if the socket cannot take it now.
+    ///
+    /// The awaiting [`Self::send_to`] needs the packet to outlive the
+    /// call, which on a forwarding path means either an owned buffer
+    /// per packet or a borrow held across a suspension point. This
+    /// form borrows for the duration of one syscall and no longer, so
+    /// a relay can send straight out of a buffer it reuses. Callers
+    /// that must not drop under pressure should fall back to
+    /// [`Self::send_to`] with an owned copy on `WouldBlock`.
+    #[inline]
+    pub fn try_send_to(&self, packet: &[u8], target: SocketAddr) -> io::Result<usize> {
+        self.socket.try_send_to(packet, target)
+    }
+
+    /// Receive a packet, returning the data and source address.
+    ///
+    /// Routes through tokio's `recv_buf_from(&mut BufMut)` for the same
+    /// reason as [`PacketReceiver::recv`] (crypto-session perf #130): the
+    /// legacy `resize(MAX_PACKET_SIZE, 0)` + `recv_from(&mut [u8])` shape
+    /// memset ~1500 bytes per packet only for the kernel to overwrite them
+    /// on the next syscall. `recv_buf_from` writes directly into the
+    /// `BytesMut`'s spare capacity, so the kernel's bytes are the first
+    /// writers and no pre-init is needed.
+    pub async fn recv_from(&mut self) -> io::Result<(Bytes, SocketAddr)> {
+        self.recv_buf.clear();
+        self.recv_buf.reserve(MAX_PACKET_SIZE);
+        let (_len, addr) = self.socket.recv_buf_from(&mut self.recv_buf).await?;
+        Ok((self.recv_buf.split().freeze(), addr))
+    }
+
+    /// Receive a packet from the connected address.
+    ///
+    /// Routes through tokio's `recv_buf(&mut BufMut)` for the same reason
+    /// as [`Self::recv_from`] — see that method's docs.
+    pub async fn recv(&mut self) -> io::Result<Bytes> {
+        self.recv_buf.clear();
+        self.recv_buf.reserve(MAX_PACKET_SIZE);
+        let _len = self.socket.recv_buf(&mut self.recv_buf).await?;
+        Ok(self.recv_buf.split().freeze())
+    }
+
+    /// Try to receive a packet without blocking.
+    ///
+    /// Routes through tokio's `try_recv_buf_from(&mut BufMut)` for the
+    /// same reason as [`Self::recv_from`] — see that method's docs.
+    pub fn try_recv_from(&mut self) -> io::Result<Option<(Bytes, SocketAddr)>> {
+        self.recv_buf.clear();
+        self.recv_buf.reserve(MAX_PACKET_SIZE);
+        match self.socket.try_recv_buf_from(&mut self.recv_buf) {
+            Ok((_len, addr)) => Ok(Some((self.recv_buf.split().freeze(), addr))),
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl std::fmt::Debug for NetSocket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetSocket")
+            .field("local_addr", &self.local_addr)
+            .finish()
+    }
+}
+
+/// Where a peer is reached — re-exported from `net-mesh-wire`, which
+/// owns the type since Stage 2 so the wire layer needs nothing native.
+pub use net_wire::peer_addr::PeerAddr;
+
+/// TCP tunnels to blind relays this node reaches only over TCP (UDP to them
+/// got no answer), by the relay's address. Relayed frames for such a relay go
+/// into its tunnel instead of the UDP socket. `live` lets the relayed send
+/// path skip the map entirely while no tunnel exists — the common case — and
+/// direct (`PeerAddr::Udp`) sends never consult any of this.
+#[derive(Default)]
+pub struct RelayTunnels {
+    live: std::sync::atomic::AtomicUsize,
+    map: dashmap::DashMap<SocketAddr, tokio::sync::mpsc::Sender<Vec<u8>>>,
+}
+
+impl RelayTunnels {
+    /// Route `relay`'s frames into `tx` (replacing any earlier tunnel).
+    pub fn install(&self, relay: SocketAddr, tx: tokio::sync::mpsc::Sender<Vec<u8>>) {
+        if self.map.insert(relay, tx).is_none() {
+            self.live.fetch_add(1, std::sync::atomic::Ordering::Release);
+        }
+    }
+
+    /// Stop routing `relay` through a tunnel, but only if `tx` is still its
+    /// tunnel (a newer one is never removed by an older one's teardown).
+    pub fn remove_if(&self, relay: SocketAddr, tx: &tokio::sync::mpsc::Sender<Vec<u8>>) {
+        if self
+            .map
+            .remove_if(&relay, |_, current| current.same_channel(tx))
+            .is_some()
+        {
+            self.live.fetch_sub(1, std::sync::atomic::Ordering::Release);
+        }
+    }
+
+    /// Whether `relay` is currently reached through a tunnel.
+    pub fn contains(&self, relay: &SocketAddr) -> bool {
+        self.sender(*relay).is_some()
+    }
+
+    /// The tunnel to `relay`, when one is up.
+    #[inline]
+    pub fn tunnel_sender(&self, relay: SocketAddr) -> Option<tokio::sync::mpsc::Sender<Vec<u8>>> {
+        self.sender(relay)
+    }
+
+    #[inline]
+    fn sender(&self, relay: SocketAddr) -> Option<tokio::sync::mpsc::Sender<Vec<u8>>> {
+        if self.live.load(std::sync::atomic::Ordering::Acquire) == 0 {
+            return None;
+        }
+        self.map.get(&relay).map(|e| e.value().clone())
+    }
+}
+
+fn tunnel_closed() -> io::Error {
+    io::Error::new(io::ErrorKind::BrokenPipe, "relay tunnel closed")
+}
+
+/// The one outbound submission surface for peer-addressed packets.
+///
+/// Three entry points, one per blocking shape the send inventory
+/// (`docs/internal/spikes/S0D_SEND_INGRESS_INVENTORY.md` §3.1) actually
+/// contains. UDP behaviour is **identical** to the raw socket calls these
+/// replace: [`Self::send`] is `NetSocket::send_to(..).await`,
+/// [`Self::try_send`] is `NetSocket::try_send_to`, and
+/// [`Self::send_bounded`] is `bound_datagram_send` around the former.
+/// Nothing here converts a UDP `WouldBlock` into application backpressure.
+///
+/// Stage 3 adds the RTC half beside `udp`; the entry points and their
+/// contracts do not change when it does.
+#[derive(Clone)]
+pub struct PeerSink {
+    udp: Arc<NetSocket>,
+    /// TCP tunnels to relays (see [`RelayTunnels`]).
+    relay_tunnels: Arc<RelayTunnels>,
+    /// The RTC half (Stage 3). `None` until a node is configured with
+    /// `MeshNodeConfig::rtc`, so compiling the feature changes nothing.
+    #[cfg(feature = "webrtc")]
+    rtc: Option<Arc<super::rtc::RtcTransport>>,
+}
+
+impl PeerSink {
+    /// Build a sink over the node's UDP socket.
+    #[inline]
+    pub fn new(udp: Arc<NetSocket>) -> Self {
+        Self {
+            udp,
+            relay_tunnels: Arc::new(RelayTunnels::default()),
+            #[cfg(feature = "webrtc")]
+            rtc: None,
+        }
+    }
+
+    /// Attach the RTC admission side (Stage 3).
+    #[cfg(feature = "webrtc")]
+    #[must_use]
+    #[inline]
+    pub fn with_rtc(mut self, rtc: Arc<super::rtc::RtcTransport>) -> Self {
+        self.rtc = Some(rtc);
+        self
+    }
+
+    /// The RTC admission side, when this node has one.
+    #[cfg(feature = "webrtc")]
+    #[inline]
+    pub fn rtc(&self) -> Option<&Arc<super::rtc::RtcTransport>> {
+        self.rtc.as_ref()
+    }
+
+    /// Submit to a DataChannel. Synchronous and total: the reserved
+    /// slots/bytes and the published advisory decide here, and nothing
+    /// refuses after acceptance.
+    ///
+    /// Awaiting is not an option on this half — the driver is the one
+    /// task that owns every `str0m::Rtc`, so a sender that blocked
+    /// waiting for room would stall every other peer's `poll_output`,
+    /// not just its own. That is why `send` and `send_bounded` below
+    /// delegate here rather than waiting.
+    #[cfg(feature = "webrtc")]
+    #[inline]
+    fn submit_rtc(&self, packet: &[u8], id: super::rtc::RtcPeerId) -> io::Result<usize> {
+        let Some(rtc) = self.rtc.as_ref() else {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "rtc endpoint addressed on a node with no RTC transport configured",
+            ));
+        };
+        rtc.submit(packet, id)
+            .map(|()| packet.len())
+            .map_err(io::Error::from)
+    }
+
+    /// Frame `packet` for a blind relay: the data header, then the packet.
+    /// One copy per datagram; relayed traffic is the fallback path.
+    #[inline]
+    fn relay_frame(packet: &[u8], channel: u32) -> Vec<u8> {
+        let mut framed =
+            Vec::with_capacity(net_wire::peer_addr::RELAY_DATA_HEADER_LEN + packet.len());
+        framed.extend_from_slice(&net_wire::peer_addr::relay_data_header(channel));
+        framed.extend_from_slice(packet);
+        framed
+    }
+
+    /// The relay tunnels this sink routes relayed frames through.
+    #[inline]
+    pub fn relay_tunnels(&self) -> &Arc<RelayTunnels> {
+        &self.relay_tunnels
+    }
+
+    /// The UDP socket this sink submits on.
+    ///
+    /// For the paths that need the socket itself rather than a submission:
+    /// receive loops, `local_addr`, and the two handshake `recv_from`
+    /// bypasses. Not a send path.
+    #[inline]
+    pub fn udp_socket(&self) -> &Arc<NetSocket> {
+        &self.udp
+    }
+
+    /// Awaited submission. UDP: exactly `socket.send_to(..).await`.
+    #[inline]
+    pub async fn send(&self, packet: &[u8], to: PeerAddr) -> io::Result<usize> {
+        match to {
+            PeerAddr::Udp(addr) => self.udp.send_to(packet, addr).await,
+            // Blind relay: the relay's own tuple carries the framed datagram.
+            // The returned length is the caller's packet, not the frame.
+            PeerAddr::Relayed { relay, channel } => {
+                let framed = Self::relay_frame(packet, channel);
+                match self.relay_tunnels.sender(relay) {
+                    Some(tx) => tx.send(framed).await.map_err(|_| tunnel_closed())?,
+                    None => {
+                        self.udp.send_to(&framed, relay).await?;
+                    }
+                }
+                Ok(packet.len())
+            }
+            // RTC: there is nothing to await. Admission is total and
+            // the driver owns what it accepts, so the awaited entry
+            // point is the synchronous one. `WouldBlock` reaches the
+            // caller unchanged and each row maps it per its
+            // disposition (S0d §3.2).
+            #[cfg(feature = "webrtc")]
+            PeerAddr::Rtc(id) => self.submit_rtc(packet, id),
+            // R5-A: the endpoint type lives in the wire crate, and a
+            // *downstream* consumer can turn on `net-mesh-wire/webrtc`
+            // without the core's `webrtc`. The variant then exists in
+            // the shared type while this crate has no RTC driver to
+            // hand it to, so the match must still be total. It is not
+            // reachable: nothing in a core without `webrtc` can mint
+            // an `Rtc` endpoint.
+            #[cfg(not(feature = "webrtc"))]
+            #[allow(
+                unreachable_patterns,
+                reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+            )]
+            _ => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "rtc endpoint without the core's webrtc feature",
+            )),
+        }
+    }
+
+    /// Non-blocking submission. UDP: exactly `socket.try_send_to(..)`,
+    /// including its `WouldBlock` — the deliberate-shed call sites depend
+    /// on that error reaching them unchanged.
+    #[inline]
+    pub fn try_send(&self, packet: &[u8], to: PeerAddr) -> io::Result<usize> {
+        match to {
+            PeerAddr::Udp(addr) => self.udp.try_send_to(packet, addr),
+            PeerAddr::Relayed { relay, channel } => {
+                let framed = Self::relay_frame(packet, channel);
+                match self.relay_tunnels.sender(relay) {
+                    Some(tx) => tx.try_send(framed).map_err(|e| match e {
+                        tokio::sync::mpsc::error::TrySendError::Full(_) => {
+                            io::Error::from(io::ErrorKind::WouldBlock)
+                        }
+                        tokio::sync::mpsc::error::TrySendError::Closed(_) => tunnel_closed(),
+                    })?,
+                    None => {
+                        self.udp.try_send_to(&framed, relay)?;
+                    }
+                }
+                Ok(packet.len())
+            }
+            #[cfg(feature = "webrtc")]
+            PeerAddr::Rtc(id) => self.submit_rtc(packet, id),
+            // R5-A: the endpoint type lives in the wire crate, and a
+            // *downstream* consumer can turn on `net-mesh-wire/webrtc`
+            // without the core's `webrtc`. The variant then exists in
+            // the shared type while this crate has no RTC driver to
+            // hand it to, so the match must still be total. It is not
+            // reachable: nothing in a core without `webrtc` can mint
+            // an `Rtc` endpoint.
+            #[cfg(not(feature = "webrtc"))]
+            #[allow(
+                unreachable_patterns,
+                reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+            )]
+            _ => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "rtc endpoint without the core's webrtc feature",
+            )),
+        }
+    }
+
+    /// Awaited submission under a caller-chosen deadline. UDP: today's
+    /// `bound_datagram_send(socket.send_to(..), addr, deadline)`.
+    ///
+    /// The deadline is the caller's: the ordered organization egress queue
+    /// passes its own, the caller-facing datagram seam passes
+    /// `DATAGRAM_SEND_DEADLINE`. They are not unified.
+    #[inline]
+    pub async fn send_bounded(
+        &self,
+        packet: &[u8],
+        to: PeerAddr,
+        deadline: Duration,
+    ) -> Result<(), AdapterError> {
+        match to {
+            PeerAddr::Udp(addr) => {
+                bound_datagram_send(self.udp.send_to(packet, addr), to, deadline).await
+            }
+            PeerAddr::Relayed { relay, channel } => {
+                let framed = Self::relay_frame(packet, channel);
+                match self.relay_tunnels.sender(relay) {
+                    Some(tx) => {
+                        let len = framed.len();
+                        let send = async move {
+                            tx.send(framed)
+                                .await
+                                .map(|_| len)
+                                .map_err(|_| tunnel_closed())
+                        };
+                        bound_datagram_send(send, to, deadline).await
+                    }
+                    None => {
+                        bound_datagram_send(self.udp.send_to(&framed, relay), to, deadline).await
+                    }
+                }
+            }
+            // A deadline around a synchronous decision is a no-op by
+            // construction; the RTC half cannot block, so there is
+            // nothing for the deadline to bound. The refusal is mapped
+            // to the same `AdapterError::Connection` shape a UDP send
+            // failure produces, so callers' error handling is
+            // unchanged.
+            #[cfg(feature = "webrtc")]
+            PeerAddr::Rtc(id) => self.submit_rtc(packet, id).map(|_| ()).map_err(|e| {
+                AdapterError::Connection(format!("rtc submission to {to} refused: {e}"))
+            }),
+            // R5-A: total over the shared wire type; see `send`.
+            #[cfg(not(feature = "webrtc"))]
+            #[allow(
+                unreachable_patterns,
+                reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+            )]
+            _ => Err(AdapterError::Connection(
+                "rtc endpoint without the core's webrtc feature".into(),
+            )),
+        }
+    }
+}
+
+impl std::fmt::Debug for PeerSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PeerSink")
+            .field("udp", &self.udp.local_addr())
+            .finish()
+    }
+}
+
+/// Bound one ALREADY-ISSUED datagram send future by `deadline`.
+///
+/// The single place the datagram-send bound is expressed. Taking the future
+/// rather than the socket is what lets both [`PeerSink::send_bounded`] and
+/// the ordered organization egress share the exact same retirement policy —
+/// and lets an instrumented witness substitute a send that never resolves
+/// without duplicating the deadline wrapper it is meant to exercise.
+pub(crate) async fn bound_datagram_send<F>(
+    send: F,
+    addr: PeerAddr,
+    deadline: Duration,
+) -> Result<(), AdapterError>
+where
+    F: Future<Output = io::Result<usize>>,
+{
+    match tokio::time::timeout(deadline, send).await {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(e)) => Err(AdapterError::Connection(format!("send failed: {e}"))),
+        Err(_) => Err(AdapterError::Connection(format!(
+            "send to {addr} exceeded the {deadline:?} datagram deadline"
+        ))),
+    }
+}
+
+/// Parsed packet for processing — re-exported from `net-mesh-wire`.
+pub use net_wire::parsed_packet::ParsedPacket;
+
+/// Receiver task for handling inbound packets
+pub struct PacketReceiver {
+    socket: Arc<UdpSocket>,
+    recv_buf: BytesMut,
+}
+
+impl PacketReceiver {
+    /// Create a new receiver from a shared socket
+    pub fn new(socket: Arc<UdpSocket>) -> Self {
+        Self {
+            socket,
+            recv_buf: BytesMut::with_capacity(MAX_PACKET_SIZE),
+        }
+    }
+
+    /// Receive the next packet.
+    ///
+    /// Routes through tokio's `recv_buf_from(&mut BufMut)` per
+    /// crypto-session perf #130. The legacy
+    /// `resize(MAX_PACKET_SIZE, 0)` + `recv_from(&mut [u8])` shape
+    /// zero-filled ~1500 bytes per packet just for the kernel to
+    /// overwrite them on the next syscall — pure wasted memset
+    /// bandwidth at packet rate. `recv_buf_from` writes directly
+    /// into the `BytesMut`'s spare capacity using `BufMut::chunk_mut`,
+    /// so the kernel's bytes are the first writers and no
+    /// pre-init is needed.
+    ///
+    /// `clear()` + `reserve(MAX_PACKET_SIZE)` returns the buffer
+    /// to length 0 while keeping the existing allocation; the
+    /// `reserve` is a no-op once steady-state capacity is reached.
+    /// The `freeze()` at the end transfers ownership of the
+    /// initialized prefix to the returned `Bytes`; `split()`
+    /// leaves the underlying allocation behind for the next call
+    /// to reuse via `reserve`.
+    pub async fn recv(&mut self) -> io::Result<(Bytes, SocketAddr)> {
+        self.recv_buf.clear();
+        self.recv_buf.reserve(MAX_PACKET_SIZE);
+        let (_len, addr) = self.socket.recv_buf_from(&mut self.recv_buf).await?;
+        Ok((self.recv_buf.split().freeze(), addr))
+    }
+
+    /// Parse the next packet
+    pub async fn recv_parsed(&mut self) -> io::Result<Option<ParsedPacket>> {
+        let (data, addr) = self.recv().await?;
+        // Receive boundary: the socket tuple becomes the peer endpoint.
+        Ok(ParsedPacket::parse(data, PeerAddr::Udp(addr)))
+    }
+}
+
+impl std::fmt::Debug for PacketReceiver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PacketReceiver").finish()
+    }
+}
+
+/// Batched packet receiver using recvmmsg on Linux.
+///
+/// The underlying `BatchedTransport` contains `!Send` raw pointers, so it
+/// cannot live inside a `tokio::spawn` future. Instead, a dedicated OS thread
+/// owns the transport and sends received packets over a bounded channel.
+///
+/// The channel carries a *whole recvmmsg batch* per message (not one packet
+/// per message): a 64-packet recvmmsg costs one `blocking_send` and one
+/// cross-thread handoff instead of 64, so the per-packet overhead the syscall
+/// batching removed isn't silently re-imposed by the channel. `recv()` drains
+/// the most-recent batch from `pending` front-to-back (preserving arrival
+/// order) before pulling the next batch off the channel, so its
+/// one-packet-at-a-time signature is unchanged.
+///
+/// # Shared by two consumers — the batching applies to both, by design
+///
+/// This type is **not** gated on the `batched-ingress` feature. It backs two
+/// receive loops on Linux:
+///  * `NetAdapter::spawn_receiver` — always, on Linux.
+///  * The mesh receive loop — only when `MeshNodeConfig::batched_ingress` is
+///    set (which additionally requires the `batched-ingress` build feature).
+///
+/// The batch-carrying channel above (and its `RECV_BATCH_CHANNEL_DEPTH`-deep
+/// queue, measured in *batches* not packets) is therefore a deliberate change
+/// to both paths, not just the opt-in mesh one. It is transparent: `recv()`'s
+/// contract (one packet at a time, arrival order) is unchanged, and the
+/// `batched-ingress` instrument is the only feature-gated addition. The depth
+/// change shifts the buffering/backpressure point for `NetAdapter` too — see
+/// `RECV_BATCH_CHANNEL_DEPTH` in `new` for the worst-case bound and why it
+/// preserves the existing flow-control behavior.
+#[cfg(target_os = "linux")]
+pub struct BatchedPacketReceiver {
+    rx: tokio::sync::mpsc::Receiver<Vec<(Bytes, SocketAddr)>>,
+    /// Packets from the batch currently being drained, in arrival order. A
+    /// `vec::IntoIter` rather than a `VecDeque` so adopting a freshly received
+    /// batch is a move of the channel's `Vec` (zero element copies); the common
+    /// case is `pending` already exhausted before the next batch arrives, so
+    /// there is nothing to splice and a copy would be pure overhead.
+    pending: std::vec::IntoIter<(Bytes, SocketAddr)>,
+    shutdown: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    _socket: Arc<UdpSocket>,
+    _thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(target_os = "linux")]
+impl BatchedPacketReceiver {
+    /// Create a new batched receiver from a shared socket.
+    ///
+    /// Spawns a dedicated OS thread that owns `BatchedTransport` and sends
+    /// received packets over a bounded channel.
+    #[expect(
+        clippy::expect_used,
+        reason = "std::thread::Builder::spawn only fails on OS resource exhaustion (OOM, ulimit); aborting at startup is the documented behavior for that condition"
+    )]
+    pub fn new(socket: Arc<UdpSocket>) -> Self {
+        use std::os::unix::io::AsRawFd;
+        use std::sync::atomic::Ordering;
+
+        let fd = socket.as_raw_fd();
+
+        // Apply high-throughput socket tuning
+        let _ = super::linux::configure_socket_for_throughput(fd);
+
+        // Channel depth is in *batches* now, not packets. Worst case it
+        // buffers `RECV_BATCH_CHANNEL_DEPTH * MAX_BATCH_SIZE` packets in front
+        // of the kernel socket buffer; once full, the thread's `blocking_send`
+        // parks, the kernel buffer fills, and existing flow control takes over
+        // (unchanged backpressure). Tune against the c128 measurement — see
+        // NRPC_RECV_LOOP_BATCHING_PLAN.
+        const RECV_BATCH_CHANNEL_DEPTH: usize = 64;
+        let (tx, rx) = tokio::sync::mpsc::channel(RECV_BATCH_CHANNEL_DEPTH);
+        let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let thread_shutdown = shutdown.clone();
+
+        let thread = std::thread::Builder::new()
+            .name("net-batch-recv".into())
+            .spawn(move || {
+                // Do NOT set `SO_RCVTIMEO` on the shared
+                // `Arc<UdpSocket>`. The previous code installed a
+                // 500ms timeout to give the receive thread a chance
+                // to check `shutdown`, but `SO_RCVTIMEO` is a
+                // *socket-level* option — every other consumer of
+                // the same `Arc<UdpSocket>` (the sync handshake recv
+                // at `mod.rs:396` and `mesh.rs:6098-6101`) inherited
+                // that timeout.
+                //
+                // Use `recv_batch` instead, which passes
+                // `MSG_DONTWAIT` per-call. That flag is per-syscall,
+                // not per-fd, so no other consumer is affected. The
+                // existing fallback path (non-blocking + 1ms sleep
+                // when empty) is the design that keeps the shared
+                // socket clean. The `SO_RCVTIMEO` path is gone.
+                let mut transport = super::linux::BatchedTransport::new(fd);
+
+                // Latch the recv instrument once at startup (mirrors the send
+                // loop's `measure_drain`): when armed, each non-empty recvmmsg
+                // records its batch size; when unarmed, recording is a no-op.
+                // Only present under the `batched-ingress` feature (the
+                // instrument it feeds is gated there); this receiver is also
+                // used by NetAdapter without the feature, where it doesn't
+                // record.
+                #[cfg(feature = "batched-ingress")]
+                let measure = recv_instrument::recv_drain_armed();
+
+                // Backoff state for the soft-error path. Pre-fix
+                // the thread spun at 1ms forever on persistent
+                // errors (bad fd, permission revoke), wasting
+                // CPU and producing a wall of repeated `warn!`
+                // entries. We now exponentially back off up to
+                // 100ms, reset on every success, and bail on
+                // hard errors (EBADF, ENOTSOCK) via
+                // `raw_os_error` so an unrecoverable socket
+                // doesn't silently consume a thread.
+                const HARD_ERR_EBADF: i32 = libc::EBADF;
+                const HARD_ERR_ENOTSOCK: i32 = libc::ENOTSOCK;
+                let mut backoff_ms: u64 = 1;
+                const MAX_BACKOFF_MS: u64 = 100;
+
+                while !thread_shutdown.load(Ordering::Acquire) {
+                    let result = transport.recv_batch(super::linux::MAX_BATCH_SIZE);
+
+                    match result {
+                        Ok(packets) => {
+                            backoff_ms = 1;
+                            if packets.is_empty() {
+                                // No data available right now — yield
+                                // for 1ms and re-check shutdown. The
+                                // sleep is short enough that shutdown
+                                // is observed promptly.
+                                std::thread::sleep(std::time::Duration::from_millis(1));
+                                continue;
+                            }
+                            // Capture the batch size before the move so it can
+                            // be recorded AFTER a successful handoff: a batch
+                            // dropped because the channel closed mid-teardown is
+                            // never delivered to the consumer, so counting it
+                            // before the send would inflate the syscall/packet
+                            // tallies by the in-flight batch at shutdown.
+                            #[cfg(feature = "batched-ingress")]
+                            let batch_len = packets.len() as u64;
+                            // Hand the whole batch over in a single channel op
+                            // (one cross-thread handoff per recvmmsg, not per
+                            // packet). `recv()` drains it front-to-back.
+                            if tx.blocking_send(packets).is_err() {
+                                return;
+                            }
+                            // One non-empty recvmmsg, successfully handed off,
+                            // is one ingress syscall the consumer will observe.
+                            #[cfg(feature = "batched-ingress")]
+                            recv_instrument::record_recv_batch(batch_len, measure);
+                        }
+                        Err(e) => {
+                            if thread_shutdown.load(Ordering::Acquire) {
+                                return;
+                            }
+                            if e.kind() == io::ErrorKind::WouldBlock
+                                || e.kind() == io::ErrorKind::Interrupted
+                            {
+                                std::thread::sleep(std::time::Duration::from_millis(1));
+                                continue;
+                            }
+                            // Hard errors: socket fd is gone (closed
+                            // out from under us, or never was a
+                            // socket). Looping won't recover; the
+                            // adapter has to be torn down. Surface
+                            // a loud `error!` and exit so the
+                            // channel receiver sees `None` and
+                            // shutdown propagates.
+                            if let Some(raw) = e.raw_os_error() {
+                                if raw == HARD_ERR_EBADF || raw == HARD_ERR_ENOTSOCK {
+                                    tracing::error!(
+                                        error = %e,
+                                        raw_os_error = raw,
+                                        "batched receive: unrecoverable socket error \
+                                         (EBADF/ENOTSOCK), exiting receive thread",
+                                    );
+                                    return;
+                                }
+                            }
+                            // Transient soft error — exponential
+                            // backoff up to MAX_BACKOFF_MS. Pre-fix
+                            // every loop slept exactly 1ms; under a
+                            // sustained soft error that produced a
+                            // 1000 Hz `warn!` storm. Backoff caps
+                            // the storm at ~10 Hz at steady state.
+                            tracing::warn!(error = %e, backoff_ms, "batched receive error");
+                            std::thread::sleep(std::time::Duration::from_millis(backoff_ms));
+                            backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
+                        }
+                    }
+                }
+            })
+            .expect("failed to spawn batch receiver thread");
+
+        Self {
+            rx,
+            pending: Vec::new().into_iter(),
+            shutdown,
+            _socket: socket,
+            _thread: Some(thread),
+        }
+    }
+
+    /// Receive the next packet.
+    ///
+    /// Drains the current batch front-to-back (arrival order) before pulling
+    /// the next recvmmsg batch off the channel, so callers still see one
+    /// packet at a time in the order the kernel delivered them. Returns
+    /// `ConnectionReset` once the receive thread has exited and every buffered
+    /// packet has been handed out.
+    pub async fn recv(&mut self) -> io::Result<(Bytes, SocketAddr)> {
+        loop {
+            if let Some(packet) = self.pending.next() {
+                return Ok(packet);
+            }
+            match self.rx.recv().await {
+                // The thread only sends non-empty batches; the loop re-checks
+                // `pending` and returns the first packet. (An empty batch, were
+                // one ever sent, yields an empty iterator that loops straight
+                // back to await the next.) The assignment is synchronous right
+                // after the channel yields — no await between taking the batch
+                // and adopting it — so a cancelled `recv()` can't drop packets.
+                Some(batch) => self.pending = batch.into_iter(),
+                None => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::ConnectionReset,
+                        "batch receiver closed",
+                    ))
+                }
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for BatchedPacketReceiver {
+    fn drop(&mut self) {
+        self.shutdown
+            .store(true, std::sync::atomic::Ordering::Release);
+        // Close the channel BEFORE joining. The recv thread only checks
+        // `shutdown` at the top of its loop, so a thread currently parked in
+        // `blocking_send` on a full channel would never see the flag — and the
+        // consumer side (us) is being torn down, so nothing drains the channel
+        // to unblock it. Closing the receiver makes that parked `blocking_send`
+        // return `Err`, on which the thread returns; otherwise `join()` below
+        // deadlocks. (The shutdown store still covers the common case where the
+        // thread is in its idle poll.)
+        self.rx.close();
+        if let Some(thread) = self._thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+/// Sender for transmitting packets
+#[derive(Clone)]
+pub struct PacketSender {
+    socket: Arc<UdpSocket>,
+}
+
+impl PacketSender {
+    /// Create a new sender from a shared socket
+    pub fn new(socket: Arc<UdpSocket>) -> Self {
+        Self { socket }
+    }
+
+    /// Send a packet to the specified address
+    #[inline]
+    pub async fn send_to(&self, packet: &[u8], target: SocketAddr) -> io::Result<usize> {
+        self.socket.send_to(packet, target).await
+    }
+
+    /// Send a packet to the connected address
+    #[inline]
+    pub async fn send(&self, packet: &[u8]) -> io::Result<usize> {
+        self.socket.send(packet).await
+    }
+
+    /// Try to send without blocking
+    #[inline]
+    pub fn try_send_to(&self, packet: &[u8], target: SocketAddr) -> io::Result<usize> {
+        self.socket.try_send_to(packet, target)
+    }
+
+    /// Send multiple packets in a single syscall (Linux only).
+    ///
+    /// Falls back to sequential send_to on other platforms.
+    ///
+    /// Uses `BatchedTransport::new_send_only` so we don't allocate the
+    /// 64 × 8KB receive-side buffer set on a pure-send path. This is a
+    /// fresh `BatchedTransport` per call because the struct's iovec
+    /// slots point into the caller's `packets` slice — sharing one
+    /// across concurrent calls would require a lock on the hot path.
+    #[cfg(target_os = "linux")]
+    pub fn send_batch(&self, packets: &[Bytes], target: SocketAddr) -> io::Result<usize> {
+        use std::os::unix::io::AsRawFd;
+        let fd = self.socket.as_raw_fd();
+        let mut batched = super::linux::BatchedTransport::new_send_only(fd);
+        batched.send_batch(packets, target)
+    }
+}
+
+impl std::fmt::Debug for PacketSender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PacketSender").finish()
+    }
+}
+
+/// `SO_EXCLUSIVEADDRUSE`: no other socket may bind this address, even one
+/// that sets `SO_REUSEADDR`. Must be set before `bind`.
+#[cfg(windows)]
+fn set_exclusive_addr_use(socket: &socket2::Socket) -> io::Result<()> {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{
+        setsockopt, SOCKET, SOCKET_ERROR, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+    };
+    let enable: i32 = 1;
+    // SAFETY: `socket` is a live, owned socket for the whole call; the
+    // option value is a valid `i32` whose size is passed alongside it.
+    let rc = unsafe {
+        setsockopt(
+            socket.as_raw_socket() as SOCKET,
+            SOL_SOCKET,
+            SO_EXCLUSIVEADDRUSE,
+            (&enable as *const i32).cast(),
+            std::mem::size_of::<i32>() as i32,
+        )
+    };
+    if rc == SOCKET_ERROR {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn test_socket(addr: SocketAddr) -> io::Result<NetSocket> {
+        NetSocket::with_config(addr, SocketBufferConfig::for_testing()).await
+    }
+
+    /// The recv-batch histogram must size its buckets to exactly the reachable
+    /// batch range — `floor(log2(cap)) + 1` power-of-two bands — so no bucket
+    /// is permanently empty and the cap maps to the final bucket with no clamp
+    /// loss. `recvmmsg` is capped at `linux::MAX_BATCH_SIZE` (= 64), giving 7
+    /// buckets. (Cross-platform: validates the sizing the `record_recv_batch`
+    /// clamp depends on, without needing the Linux-only recv path.)
+    #[cfg(feature = "batched-ingress")]
+    #[test]
+    fn recv_histo_buckets_cover_exactly_the_reachable_range() {
+        const CAP: u64 = 64; // mirrors linux::MAX_BATCH_SIZE (statically asserted in recv_instrument)
+        assert_eq!(
+            RECV_DRAIN_BUCKETS,
+            CAP.ilog2() as usize + 1,
+            "one power-of-two band per reachable batch size"
+        );
+        // A full `CAP`-packet recvmmsg lands in the final bucket via
+        // floor(log2), so the clamp never truncates anything in [1, CAP]...
+        assert_eq!(63 - CAP.leading_zeros(), RECV_DRAIN_BUCKETS as u32 - 1);
+        // ...and one below the cap lands one bucket lower — the bands are tight,
+        // not all collapsed into an oversized top bucket.
+        assert_eq!(
+            63 - (CAP - 1).leading_zeros(),
+            RECV_DRAIN_BUCKETS as u32 - 2
+        );
+    }
+
+    /// The mesh port is exclusive: a second node — or any socket that
+    /// asks for SO_REUSEADDR — cannot bind it while the first holds it,
+    /// and the port is free again once the first is dropped.
+    #[tokio::test]
+    async fn a_bound_mesh_port_cannot_be_shared() {
+        let first = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let addr = first.local_addr();
+
+        let Err(second) = test_socket(addr).await else {
+            panic!("a second NetSocket bound a held port");
+        };
+        assert_eq!(
+            second.kind(),
+            io::ErrorKind::AddrInUse,
+            "a second NetSocket must not bind a held port"
+        );
+        // AIB-7: the message names the in-process cause too.
+        assert!(
+            second.to_string().contains("shutdown()"),
+            "the error should point at a mesh dropped without shutdown(): {second}"
+        );
+
+        // A socket outside Net that opts into reuse is refused too.
+        let raw = socket2::Socket::new(
+            socket2::Domain::IPV4,
+            socket2::Type::DGRAM,
+            Some(socket2::Protocol::UDP),
+        )
+        .unwrap();
+        raw.set_reuse_address(true).unwrap();
+        assert!(
+            raw.bind(&addr.into()).is_err(),
+            "an SO_REUSEADDR socket must not bind over the mesh port"
+        );
+        drop(raw);
+
+        drop(first);
+        test_socket(addr)
+            .await
+            .expect("the port is free once its node lets go of it");
+    }
+
+    #[tokio::test]
+    async fn test_socket_creation() {
+        let socket = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+
+        assert!(socket.local_addr().port() != 0);
+    }
+
+    #[tokio::test]
+    async fn test_socket_send_recv() {
+        let mut socket1 = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let socket2 = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+
+        let addr1 = socket1.local_addr();
+        let addr2 = socket2.local_addr();
+
+        // Send from socket2 to socket1
+        let data = b"hello, net!";
+        socket2.send_to(data, addr1).await.unwrap();
+
+        // Receive on socket1
+        let (received, source) = socket1.recv_from().await.unwrap();
+        assert_eq!(&received[..], data);
+        assert_eq!(source, addr2);
+    }
+
+    #[tokio::test]
+    async fn test_parsed_packet() {
+        use super::super::protocol::{PacketFlags, NONCE_SIZE};
+
+        let nonce = [0u8; NONCE_SIZE];
+        let header = NetHeader::new(
+            0x1234,
+            0x5678,
+            42,
+            nonce,
+            10, // payload_len
+            1,  // event_count
+            PacketFlags::NONE,
+        );
+
+        let mut data = BytesMut::with_capacity(HEADER_SIZE + 26);
+        data.extend_from_slice(&header.to_bytes());
+        data.extend_from_slice(&[0u8; 26]); // 10 bytes payload + 16 bytes tag
+
+        let parsed = ParsedPacket::parse(
+            data.freeze(),
+            PeerAddr::Udp("127.0.0.1:1234".parse().unwrap()),
+        )
+        .unwrap();
+
+        assert_eq!(parsed.header.session_id, 0x1234);
+        assert_eq!(parsed.header.stream_id, 0x5678);
+        assert_eq!(parsed.header.sequence, 42);
+        assert!(parsed.is_valid_length());
+    }
+
+    /// Source pin: crypto-session perf #130 — `PacketReceiver::recv`
+    /// MUST route through tokio's `recv_buf_from` (which appends
+    /// to a `BufMut`'s spare capacity) and MUST NOT `resize(N, 0)`
+    /// on the receive buffer. Pre-fix every packet paid a
+    /// `~1500 byte memset` to zero just for the kernel to
+    /// overwrite the same bytes immediately. A regression that
+    /// flips back to `resize(MAX_PACKET_SIZE, 0)` would silently
+    /// re-introduce gigabytes/sec of memset on high-pps
+    /// deployments — observable only as a microbenchmark
+    /// regression at runtime, so pin via source inspection.
+    #[test]
+    fn packet_receiver_recv_must_use_recv_buf_from_not_resize_zero() {
+        let src = include_str!("transport.rs");
+        let body_idx = src
+            .find("pub async fn recv(&mut self) -> io::Result<(Bytes, SocketAddr)>")
+            .expect("PacketReceiver::recv must exist");
+        // Look at the immediate body of the method (next ~400 chars).
+        let body = &src[body_idx..body_idx + 1200];
+        assert!(
+            body.contains("recv_buf_from"),
+            "regression: PacketReceiver::recv must route through `recv_buf_from` \
+             per crypto-session perf #130; falling back to `recv_from(&mut [u8])` \
+             requires pre-zeroing the buffer. Body: {body}"
+        );
+        assert!(
+            !body.contains("resize(MAX_PACKET_SIZE, 0)"),
+            "regression: PacketReceiver::recv must NOT pre-zero the receive buffer; \
+             pre-fix this memset ~1500 bytes per packet only for the kernel to \
+             overwrite them immediately. Body: {body}"
+        );
+    }
+
+    /// Source pin: the three `NetSocket` receive entry points
+    /// (`recv_from`, `recv`, `try_recv_from`) MUST route through
+    /// tokio's `*_buf*` family (which appends to a `BufMut`'s spare
+    /// capacity) and MUST NOT `resize(N, 0)` on the receive buffer.
+    /// Same rationale as the `PacketReceiver::recv` pin above
+    /// (crypto-session perf #130): pre-fix each call paid ~1500 bytes
+    /// of memset bandwidth per packet only for the kernel to overwrite
+    /// the same bytes immediately. These `NetSocket` methods were
+    /// sibling code in the same file and were missed by the original
+    /// fix; the pin guards against a "simplification" PR that flips
+    /// any of them back to the legacy shape.
+    ///
+    /// Per the same runtime-built-needle pattern as
+    /// `batched_recv_must_use_set_len_not_resize_zero` in `linux.rs`,
+    /// the bad needle is assembled at runtime from the template
+    /// `"resize({}, 0)"` and the identifier `"MAX_PACKET_SIZE"` so
+    /// this test's own assertion strings don't self-match in the
+    /// inspected source.
+    #[test]
+    fn net_socket_recv_methods_must_use_recv_buf_family_not_resize_zero() {
+        let src = include_str!("transport.rs");
+        let src_no_comments: String = src
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let impl_start = src_no_comments
+            .find("impl NetSocket {")
+            .expect("impl NetSocket block must exist");
+        let impl_rest = &src_no_comments[impl_start..];
+        let impl_end = impl_rest
+            .find("\nimpl ")
+            .map(|i| impl_start + 1 + i)
+            .unwrap_or(src_no_comments.len());
+        let impl_body = &src_no_comments[impl_start..impl_end];
+
+        let bad_needle = format!("resize({}, 0)", "MAX_PACKET_SIZE");
+        assert!(
+            !impl_body.contains(&bad_needle),
+            "regression: NetSocket receive methods must NOT pre-zero \
+             the recv buffer per crypto-session perf #130; pre-fix the \
+             memset of ~1500 bytes per packet only existed for the \
+             kernel to overwrite the same bytes immediately."
+        );
+
+        for needle in ["recv_buf_from", "recv_buf(", "try_recv_buf_from"] {
+            assert!(
+                impl_body.contains(needle),
+                "regression: NetSocket impl must route receive through \
+                 tokio's `{needle}` (BufMut spare-capacity API); falling \
+                 back to the `&mut [u8]` family requires pre-zeroing \
+                 the buffer."
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn net_socket_recv_from_round_trips_loopback_datagram() {
+        let mut a = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let b = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let a_addr = a.local_addr();
+
+        b.send_to(b"hello-recv_from", a_addr).await.unwrap();
+
+        let (data, from) = tokio::time::timeout(std::time::Duration::from_secs(2), a.recv_from())
+            .await
+            .expect("recv_from did not return within 2 s")
+            .expect("recv_from failed");
+
+        assert_eq!(&data[..], b"hello-recv_from");
+        assert_eq!(from, b.local_addr());
+    }
+
+    #[tokio::test]
+    async fn net_socket_recv_round_trips_loopback_datagram() {
+        let mut a = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let b = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let a_addr = a.local_addr();
+        let b_addr = b.local_addr();
+
+        a.connect(b_addr).await.unwrap();
+        b.send_to(b"hello-recv", a_addr).await.unwrap();
+
+        let data = tokio::time::timeout(std::time::Duration::from_secs(2), a.recv())
+            .await
+            .expect("recv did not return within 2 s")
+            .expect("recv failed");
+
+        assert_eq!(&data[..], b"hello-recv");
+    }
+
+    #[tokio::test]
+    async fn net_socket_try_recv_from_returns_none_when_empty_and_data_when_ready() {
+        let mut a = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let b = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let a_addr = a.local_addr();
+
+        assert!(
+            matches!(a.try_recv_from(), Ok(None)),
+            "try_recv_from on an empty socket must return Ok(None) \
+             (WouldBlock mapped to None)"
+        );
+
+        b.send_to(b"hello-try_recv_from", a_addr).await.unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            match a.try_recv_from() {
+                Ok(Some((data, from))) => {
+                    assert_eq!(&data[..], b"hello-try_recv_from");
+                    assert_eq!(from, b.local_addr());
+                    break;
+                }
+                Ok(None) => {
+                    if std::time::Instant::now() >= deadline {
+                        panic!("try_recv_from did not observe loopback datagram within 2 s");
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+                Err(e) => panic!("try_recv_from errored: {e}"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sender_receiver() {
+        let socket1 = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let socket2 = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+
+        let addr1 = socket1.local_addr();
+
+        let sender = PacketSender::new(socket2.socket_arc());
+        let mut receiver = PacketReceiver::new(socket1.socket_arc());
+
+        // Send
+        sender.send_to(b"test packet", addr1).await.unwrap();
+
+        // Receive
+        let (data, _) = receiver.recv().await.unwrap();
+        assert_eq!(&data[..], b"test packet");
+    }
+
+    /// Source pin: the Linux `BatchedPacketReceiver`'s receive
+    /// loop must
+    ///
+    /// 1. exponentially back off on transient errors (rather
+    ///    than a fixed `sleep(1ms)`), so a sustained soft error
+    ///    doesn't produce a 1000Hz `warn!` storm; and
+    /// 2. exit on hard socket errors (`EBADF` / `ENOTSOCK`)
+    ///    rather than spin forever.
+    ///
+    /// Pre-fix every error path slept exactly 1ms and looped
+    /// indefinitely; an unrecoverable socket (closed fd,
+    /// permission revoke) silently consumed a thread until
+    /// shutdown. The runtime check is hard to fault-inject
+    /// portably (the receive thread is Linux-only and the
+    /// errors are platform-specific), so the source pin is the
+    /// cheaper tripwire against a "simplification" PR that
+    /// flips back to the busy-loop shape.
+    #[test]
+    fn batched_recv_loop_must_back_off_and_exit_on_hard_error() {
+        let src = include_str!("transport.rs");
+
+        // Body of the Linux batch-receive thread closure. We
+        // can't easily extract just the loop body, so we look
+        // for the markers in the whole file (other Linux
+        // helpers don't carry these names).
+        let src_no_comments: String = src
+            .lines()
+            .map(|l| match l.find("//") {
+                Some(idx) => &l[..idx],
+                None => l,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Backoff doubles up to a cap.
+        assert!(
+            src_no_comments.contains("backoff_ms") && src_no_comments.contains("MAX_BACKOFF_MS"),
+            "regression: batched recv loop must use exponential \
+             backoff (`backoff_ms` / `MAX_BACKOFF_MS`). Pre-fix the \
+             loop slept exactly 1ms forever, producing a 1000Hz \
+             warn! storm under any sustained soft error."
+        );
+
+        // Hard-error early return.
+        assert!(
+            src_no_comments.contains("libc::EBADF") && src_no_comments.contains("libc::ENOTSOCK"),
+            "regression: batched recv loop must check for EBADF / \
+             ENOTSOCK and exit. Without it an unrecoverable socket \
+             silently consumes a thread until shutdown."
+        );
+    }
+
+    /// Runtime smoke test (Linux only): construct the
+    /// `BatchedPacketReceiver`, drive a few packets through the
+    /// recvmmsg loop, and drop it. Exercises the constructor body,
+    /// the `Ok(packets)` happy branch, the `Ok([])` empty-batch
+    /// sleep branch (between sends, while the channel is empty),
+    /// and the `Drop::drop` shutdown handshake. Pairs with the
+    /// source-pin tripwire above — the tripwire catches a
+    /// "simplification" PR; this test catches an actual runtime
+    /// regression where the loop fails to deliver packets or
+    /// fails to shut down within the join.
+    #[cfg(target_os = "linux")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn batched_recv_delivers_and_shuts_down_cleanly() {
+        let recv_sock = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+        let recv_addr = recv_sock.local_addr();
+        let send_sock = test_socket("127.0.0.1:0".parse().unwrap()).await.unwrap();
+
+        let mut batched = BatchedPacketReceiver::new(recv_sock.socket_arc());
+
+        // Send a few packets. Three is enough to exercise the
+        // happy-path branch through the loop without depending on
+        // recvmmsg ever returning more than one at a time.
+        for i in 0..3u8 {
+            send_sock
+                .socket_arc()
+                .send_to(&[0xAA, i, 0xBB], recv_addr)
+                .await
+                .unwrap();
+        }
+
+        // Drain with a bounded deadline. The 1 ms sleep inside the
+        // empty-batch / WouldBlock branch means the thread re-checks
+        // shutdown promptly; 2 s is generous for loopback delivery.
+        let mut got = Vec::new();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while got.len() < 3 && std::time::Instant::now() < deadline {
+            match tokio::time::timeout(std::time::Duration::from_millis(200), batched.recv()).await
+            {
+                Ok(Ok((data, _addr))) => got.push(data),
+                Ok(Err(_)) | Err(_) => continue,
+            }
+        }
+        assert_eq!(
+            got.len(),
+            3,
+            "BatchedPacketReceiver did not deliver three loopback datagrams within 2 s"
+        );
+        // Arrival order must be preserved end-to-end: the recv thread fills the
+        // batch in recvmmsg order and `recv()` drains `pending` (a vec::IntoIter)
+        // front-to-back. From a single loopback sender that means the `i` byte
+        // is monotonic 0,1,2 regardless of whether the kernel coalesced the
+        // three into one recvmmsg batch or returned them singly. Guards the
+        // drain-order contract the IngressReceiver relies on.
+        for (k, data) in got.iter().enumerate() {
+            assert_eq!(
+                data[1], k as u8,
+                "BatchedPacketReceiver reordered packets: position {k} carried marker {}",
+                data[1]
+            );
+        }
+
+        // Dropping the receiver sets the shutdown AtomicBool and
+        // joins the thread. If the loop body doesn't notice the
+        // shutdown flag promptly, this hangs forever — the
+        // `tokio::time::timeout` around `spawn_blocking` bounds the
+        // join so a regression surfaces as a clean test failure
+        // rather than an indefinite hang.
+        let join = tokio::task::spawn_blocking(move || drop(batched));
+        tokio::time::timeout(std::time::Duration::from_secs(2), join)
+            .await
+            .expect("Drop::drop for BatchedPacketReceiver did not join within 2 s")
+            .expect("spawn_blocking join");
+    }
+
+    // The earlier `batched_recv_exits_on_hard_socket_error` runtime
+    // tripwire was deleted: rustc 1.95's IO-safety enforcement aborts
+    // the process the next time anyone closes an already-closed fd
+    // (`fatal runtime error: IO Safety violation: owned file
+    // descriptor already closed, aborting`), and `libc::close(fd)` on
+    // an fd still owned by `Arc<UdpSocket>` is exactly that case. The
+    // source-pin tripwire `batched_recv_loop_must_back_off_and_exit_on_hard_error`
+    // at the start of this module already catches the
+    // "simplification PR that removes the EBADF check" class of
+    // regression by textual matching on the source, and that's the
+    // cheapest tripwire available — runtime fault injection of EBADF
+    // isn't safely possible in modern Rust without leaking the
+    // socket.
+}

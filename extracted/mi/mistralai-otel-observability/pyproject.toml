@@ -1,0 +1,105 @@
+[project]
+name = "mistralai-otel-observability"
+dynamic = ["version"]
+description = "OTLP-first Mistral AI observability SDK"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Mistral AI", email = "support@mistral.ai" },
+]
+keywords = ["ai", "observability", "opentelemetry", "otlp", "mistral", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "opentelemetry-api>=1.45.1,<2.0.0",
+    "opentelemetry-sdk>=1.30.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+grpc = [
+    "opentelemetry-exporter-otlp-proto-grpc>=1.30.0,<2.0.0",
+]
+mistral = [
+    "mistralai>=2.5.2,<3.0.0",
+]
+
+[project.urls]
+Homepage = "https://mistral.ai"
+Documentation = "https://docs.mistral.ai"
+
+[tool.uv]
+exclude-newer = "2 days"
+index-strategy = "first-index"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mistralai"]
+
+# Keep the Socket-backed dev lockfile out of the published sdist so internal
+# registry URLs never ship to public PyPI.
+[tool.hatch.build.targets.sdist]
+exclude = ["uv.lock"]
+
+# The version is derived from the release tag (otel-observability-sdk/vX.Y.Z),
+# not stored in code, so releasing never needs a version-bump PR. The release
+# workflow overrides it at build time via UV_DYNAMIC_VERSIONING_BYPASS.
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+pattern-prefix = "otel-observability-sdk/"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.20.0",
+    "mistralai>=2.5.2,<3.0.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.5",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["A", "ANN401", "C", "C4", "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107", "E", "EM", "PERF", "ERA", "UP", "LOG", "F", "W", "B", "N", "SIM", "DTZ", "PIE", "Q", "I", "T201"]
+ignore = ["E203"]
+fixable = ["ALL"]
+unfixable = []
+exclude = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["mistralai.observability.otel"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*.py" = ["T201"]
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+include = ["mistralai", "tests"]
+
+[tool.pytest.ini_options]
+addopts = ["--cov=mistralai.observability.otel", "--cov-report=term-missing"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["mistralai.observability.otel"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

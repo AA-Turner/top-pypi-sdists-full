@@ -156,10 +156,176 @@ def test_the_detached_worker_never_drains_an_offline_queue(outbox, no_network, a
     assert Journal(directory).pending(), "the offline queue is untouched"
 
 
+def test_a_flush_of_an_offline_run_charges_its_queue_nothing(outbox, no_network):
+    """`flush()` (a span's, a caller's) drains the run's own queue through a transport
+    that refuses everything. That refusal says nothing about the server: no attempt, no failure
+    clock, or a day of flushes would set the run's create aside before `probe sync`."""
+    run = probe.init(mode="offline", project="p1", name="flushed")
+    probe.log({"loss": 1.0}, step=1)
+    for _ in range(3):
+        run._client.flush()
+    assert run._client.transport.refused >= 1, "the flush reached the refusing transport"
+    assert no_network.sent == []
+    (directory,) = offline.find_offline_dirs()
+    (create,) = [op for _, op in Journal(directory).pending() if op["kind"] == offline.CREATE_KIND]
+    assert not create.get("attempts"), create
+    assert not create.get("first_failed_at") and not create.get("last_error"), create
+    probe.finish()
+
+
+def test_an_offline_launch_does_not_drain_its_queue_until_the_finish_timeout(outbox, no_network, monkeypatch, tmp_path):
+    """Only `probe sync` empties an offline queue, so a launch that captured outputs has nothing
+    to wait for: it flushed the run's queue every 0.25 s until PROBE_FINISH_TIMEOUT_SEC (10 s: 42
+    refused passes, measured), each pass refused."""
+    import sys
+    import time
+
+    monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "60")
+    work = tmp_path / "work"
+    work.mkdir()
+    run = probe.init(mode="offline", project="p1", name="launched")
+    started = time.monotonic()
+    result = run.execute([sys.executable, "-c", "open('out.txt', 'w').write('x')"], cwd=str(work),
+                         capture_outputs=True)
+    # The old loop waits the full 60 s; a third of it leaves room for a loaded machine.
+    assert time.monotonic() - started < 20
+    assert result.returncode == 0
+    assert no_network.sent == []
+    (directory,) = offline.find_offline_dirs()
+    assert [op for _, op in Journal(directory).pending() if op["kind"] == offline.CREATE_KIND]
+
+
+def test_crash_recovery_of_an_offline_launch_only_queues(outbox, lab, monkeypatch, tmp_path):
+    """A launcher that dies mid-capture is recovered later by a fresh process: for an offline run
+    that recovery must queue into the run's own queue, never deliver it. Delivering it skipped
+    every check `probe sync` makes (same server, same team, lineage the server takes)."""
+    import httpx
+
+    from probe.sdk.capture.outputs import outputs as outputs_module
+    from probe.sdk.capture.outputs import recovery
+    from probe.sdk.client import client as client_module
+    from probe.sdk.delivery.transport.transport import Transport
+
+    monkeypatch.setenv("PROBE_TOKEN", "ros_pat_deadbeef")
+    work = tmp_path / "work"
+    work.mkdir()
+    run = probe.init(mode="offline", project="p1", name="crashed-launch")
+    probe.log({"loss": 1.0}, step=1)
+    capture = outputs_module.OutputCapture.start(run._client, run.id, cwd=str(work), tee=False, launcher=True)
+    assert capture is not None
+    (work / "result.txt").write_text("output")
+    real_client = client_module.Client
+
+    def observable_client(*, settings, journal, **kw):
+        # The real recovery client, with the fake app as its network so a send is seen.
+        http = httpx.Client(base_url=settings.base_url, transport=httpx.MockTransport(lab.handler))
+        return real_client(settings=settings, journal=journal, transport=Transport(settings, client=http), **kw)
+
+    monkeypatch.setattr(client_module, "Client", observable_client)
+    with outputs_module._live_lock:  # the launcher "died": recovery owns the window now
+        outputs_module._live.discard(capture)
+    before = len(lab.requests)
+    recovery.recover(str(capture._entry))
+    assert lab.requests[before:] == [], "recovery sent an offline run's queue"
+    assert lab.runs == {}
+    (directory,) = offline.find_offline_dirs()
+    ops = [op for _, op in Journal(directory).pending()]
+    assert [op for op in ops if op["kind"] == offline.CREATE_KIND]
+    assert any(op["kind"] == "upload" and "result.txt" in json.dumps(op) for op in ops), "outputs still queued"
+
+
+def test_crash_recovery_of_an_offline_launch_whose_queue_was_deleted_does_nothing(outbox, lab, monkeypatch, tmp_path):
+    """The queue folder is gone (deleted by hand): recovery must not send, and must not
+    recreate the folder without its manifest (`probe sync` would never find it)."""
+    from probe.sdk.capture.outputs import outputs as outputs_module
+    from probe.sdk.capture.outputs import recovery
+
+    monkeypatch.setenv("PROBE_TOKEN", "ros_pat_deadbeef")
+    work = tmp_path / "work"
+    work.mkdir()
+    run = probe.init(mode="offline", project="p1", name="crashed-then-deleted")
+    capture = outputs_module.OutputCapture.start(run._client, run.id, cwd=str(work), tee=False, launcher=True)
+    assert capture is not None
+    (work / "result.txt").write_text("output")
+    (directory,) = offline.find_offline_dirs()
+    shutil.rmtree(directory)
+    # The launcher "died": its live window must not be finalized at this process's exit.
+    with outputs_module._live_lock:
+        outputs_module._live.discard(capture)
+    before = len(lab.requests)
+    assert recovery.recover(str(capture._entry)) is None
+    assert lab.requests[before:] == []
+    assert not directory.exists()
+    assert not capture._entry.exists(), "the recovery record is cleaned up"
+
+
+def test_an_offline_launch_records_the_childs_exit(outbox, no_network, lab):
+    """An offline run cannot ask the server whether it is still open (the read is refused), and
+    nothing else can write it (an offline run cannot be attached): the launcher's verdict is
+    queued, and the exit hook's `finish()` keeps it. It was dropped (and then overwritten by
+    the exit hook), so a child that exited 3 synced `completed`."""
+    import sys
+
+    run = probe.init(mode="offline", project="p1", name="exit-3")
+    result = run.execute([sys.executable, "-c", "raise SystemExit(3)"])
+    assert result.returncode == 3
+    probe.finish()  # what the exit hook does: a default `completed` must not replace the verdict
+    (directory,) = offline.find_offline_dirs()
+    statuses = {op["body"]["status"] for _, op in Journal(directory).pending()
+                if op.get("method") == "PATCH" and isinstance(op.get("body"), dict) and "status" in op["body"]}
+    assert statuses == {"failed"}, statuses
+    no_network.restore()
+    (synced,) = _sync(lab)
+    assert synced["clean"], synced
+    (row,) = lab.runs.values()
+    assert row["status"] == "failed"
+
+
 def test_disabled_and_offline_refuse_to_attach(outbox, monkeypatch):
     monkeypatch.setenv("PROBE_RUN_ID", "some-run")
     with pytest.raises(errors.ValidationError, match="PROBE_RUN_ID"):
         probe.init(mode="offline", project="p1")
+
+
+def test_an_offline_run_with_no_home_is_refused_before_it_queues(outbox, no_network):
+    """Every run has a project, offline too: refused at init, not dead-lettered at sync."""
+    with pytest.raises(errors.ProjectRequired, match="probe project create"):
+        probe.init(mode="offline", name="homeless")
+    assert offline.find_offline_dirs() == []
+
+
+def test_an_offline_run_takes_this_computers_project(outbox, no_network, lab, monkeypatch):
+    monkeypatch.setenv("PROBE_PROJECT", "p1")
+    probe.init(mode="offline", name="from-env")
+    probe.finish()
+    assert _offline_create(offline.find_offline_dirs()[0])["project"] == "p1"
+    no_network.restore()
+    (result,) = _sync(lab)
+    assert result["clean"], result
+    (row,) = lab.runs.values()
+    assert row["project_id"] == next(p for p, r in lab.projects.items() if r["slug"] == "p1")
+
+
+@pytest.mark.parametrize("left_by", ["no home", "the floating path"])
+def test_an_older_clis_homeless_create_is_refused_and_refiled(outbox, no_network, lab, left_by):
+    """A queue an older CLI left with no project (or the init fallback's kept
+    `/v1/runs` path) is never POSTed: refused naming the refile, which delivers it."""
+    _record()
+    (directory,) = offline.find_offline_dirs()
+    (path, op) = next((p, o) for p, o in Journal(directory).pending() if o["kind"] == offline.CREATE_KIND)
+    op["create"].pop("project")
+    if left_by == "the floating path":
+        op["create"]["path"] = "/v1/runs"
+    path.write_text(json.dumps(op))
+    no_network.restore()
+    (refused,) = _sync(lab)
+    assert not refused["clean"] and lab.runs == {}
+    assert any("probe sync <its folder> --project <slug>" in e for e in refused["errors"]), refused
+    assert not [r for r in lab.requests if r.method == "POST" and r.url.path == "/v1/runs"]
+    (fixed,) = _sync(lab, project="p1")
+    assert fixed["clean"], fixed
+    (row,) = lab.runs.values()
+    assert row["project_id"] == next(p for p, r in lab.projects.items() if r["slug"] == "p1")
 
 
 @pytest.mark.parametrize("policy", ["auto", "resume"])
@@ -527,7 +693,6 @@ def test_a_long_offline_run_is_not_cut_off_by_the_op_ceiling(outbox, no_network,
     from probe.sdk.delivery import journal as journal_module
 
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 10)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 10)
     _record(n=50)
     (directory,) = offline.find_offline_dirs()
     ops = [op for _, op in Journal(directory).pending()]
@@ -552,7 +717,6 @@ def test_an_offline_run_on_a_full_disk_still_queues_its_close(outbox, no_network
     from probe.sdk.delivery import journal as journal_module
 
     monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 10**18)
-    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 10**18)
     _record(n=5)
     (directory,) = offline.find_offline_dirs()
     ops = [op for _, op in Journal(directory).pending()]
@@ -964,7 +1128,7 @@ def test_a_gateway_503_outage_records_a_real_offline_run(outbox, lab, tmp_path, 
     monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
-    run = probe.init(name="lb")
+    run = probe.init(project="p1", name="lb")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
     assert run.id.startswith("local:")
@@ -1053,7 +1217,6 @@ def test_writes_the_disk_floor_dropped_are_on_the_close_and_in_the_sync_report(
 
     run = probe.init(mode="offline", project="p1", name="floor")
     monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 10**18)
-    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 10**18)
     for step in range(5):
         probe.log({"loss": 1.0}, step=step)
     with pytest.warns(UserWarning, match=r"probe_finish\.dropped_writes=5"):
@@ -1063,7 +1226,6 @@ def test_writes_the_disk_floor_dropped_are_on_the_close_and_in_the_sync_report(
     close = [op for _, op in Journal(directory).pending()][-1]["body"]
     assert close["summary_metrics"]["probe_finish"]["dropped_writes"] == 5
     monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 0)
     no_network.restore()
     (synced,) = _sync(lab)
     assert synced["state"] == "synced" and not synced["clean"]

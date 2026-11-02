@@ -1,0 +1,82 @@
+"""Disable real network access for the unit test suite.
+
+Unit tests must not touch the network: anything that does is either missing a
+mock or belongs in tst/integration. This autouse fixture (scoped to tst/unit
+via this conftest's location) blocks IP sockets through pytest-socket. AF_UNIX
+sockets are allowed (asyncio's self-pipe / local IPC), and subprocesses run in
+their own interpreter so they are unaffected (e.g. generated CLI scripts).
+
+A test that genuinely needs a socket can opt out with @pytest.mark.enable_socket.
+
+The AWS backends' tests live in store/aws, whose conftest gives them placeholder credentials.
+"""
+
+import pytest
+from pytest_socket import disable_socket, enable_socket
+
+from agent_env.artifact.store import reset_artifact_store
+from agent_env.config import configure, get_config, reset_config
+from agent_env.store import LocalFilesystemObjectStore
+from agent_env.store.document_store.sqlite_document_store import LocalSqliteDocumentStore
+from agent_env.store.routing import enable_namespace_routing
+from agent_env.utils.deprecation import reset_deprecation_state
+
+@pytest.fixture(autouse=True)
+def _disable_network():
+    disable_socket(allow_unix_socket=True)
+    yield
+    enable_socket()
+
+
+@pytest.fixture(autouse=True)
+def _docker_answers(monkeypatch):
+    """A bundle run asks whether Docker and its plugins answer before it deploys containers locally or builds an
+    image, and whether a model endpoint is set before it deploys an agent; unit tests never reach a daemon or a model,
+    so they answer. Tests of the probes themselves patch ``subprocess.run`` or the config."""
+    monkeypatch.setattr("agent_env.bundle.preflight.docker_unreachable", lambda: None)
+    monkeypatch.setattr("agent_env.env.bootstrap.docker_unreachable", lambda: None)
+    monkeypatch.setattr("agent_env.bundle.preflight.docker_plugin_missing", lambda plugin: None)
+    monkeypatch.setattr("agent_env.bundle.preflight.model_endpoint_missing", lambda needed: None)
+
+
+@pytest.fixture(autouse=True)
+def _nothing_published(monkeypatch):
+    """Unit tests reach no registry, so no infra image is published for them and a run builds its infra. Tests of
+    pulling patch the lookup."""
+    monkeypatch.setattr("agent_env.env.published_images._registry_digest", lambda ref: None)
+
+
+@pytest.fixture(autouse=True)
+def deprecations_fire_again():
+    """``warn_deprecated`` warns once per process; each test sees its own first use."""
+    reset_deprecation_state()
+
+
+@pytest.fixture(autouse=True)
+def isolated_state_root(tmp_path_factory, monkeypatch):
+    """A fresh per-user state root and local sandbox root for every unit test, overriding the run's: a sandbox a test
+    creates would otherwise be left in ~/.agent-env-sandboxes."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path_factory.mktemp("state")))
+    monkeypatch.setenv("AGENT_ENV_LOCAL_SANDBOX_DIR", str(tmp_path_factory.mktemp("sandboxes")))
+
+
+@pytest.fixture
+def cli_routing():
+    """Namespace routing on, as the CLI runs, so @local ids are written to the @local namespace's store."""
+    enable_namespace_routing()
+
+
+@pytest.fixture
+def local_stores(tmp_path, monkeypatch):
+    """Local document and object stores under this test's state root, with no infra."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGENT_ENV_OBJECT_STORE", "local")
+    monkeypatch.setenv("AGENT_ENV_DOCUMENT_STORE", "local")
+    configure()
+    reset_artifact_store()  # rebind the cached store to this test's fresh local config
+    cfg = get_config()
+    assert isinstance(cfg.get_object_store(), LocalFilesystemObjectStore)
+    assert isinstance(cfg.get_document_store(), LocalSqliteDocumentStore)
+    yield cfg
+    reset_config()
+    reset_artifact_store()

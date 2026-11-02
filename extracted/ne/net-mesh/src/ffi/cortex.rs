@@ -1,0 +1,5378 @@
+//! C FFI bindings for CortEX + RedEX, behind the `cortex` feature.
+//!
+//! Surface targeted at the Go SDK: NetDb, TasksAdapter, MemoriesAdapter,
+//! and raw RedexFile access. Everything crosses the boundary as:
+//!
+//! - Opaque handles (`*mut T`) freed via dedicated `_free` functions.
+//! - Scalar IDs / timestamps as `u64`.
+//! - Everything else as JSON strings allocated with `CString::into_raw`,
+//!   freed by the caller via [`crate::ffi::net_free_string`].
+//!
+//! Watch / tail iterators use a cursor pattern:
+//! `net_*_next(cursor, timeout_ms, out_json, out_len) -> c_int` returns
+//! `0 = event delivered`, `1 = timeout`, `2 = stream ended cleanly`,
+//! or a negative `NetError`. The Go layer wraps the cursor in a
+//! goroutine that pumps into a channel, calling `close` on `ctx.Done()`.
+//!
+//! # Safety
+//!
+//! Every entry point in this module is `unsafe extern "C"` and shares
+//! the same caller-side contract:
+//!
+//! - Opaque handle pointers are valid, properly aligned, produced by
+//!   this crate's matching constructor (`Box::into_raw` inside the
+//!   FFI surface), and not used after their `_free` counterpart (or
+//!   `net_shutdown`) has returned. Foreign-allocated pointers will UB
+//!   when consumed by `Box::from_raw` in the corresponding `_free`.
+//! - String pointers are non-null, NUL-terminated, and point to valid
+//!   UTF-8 (or, where documented, to opaque bytes paired with an
+//!   explicit length argument).
+//! - Out-parameter pointers (`*mut T`) are non-null and writable for
+//!   the lifetime of the call.
+//! - Buffer / length pairs accurately describe the producer-allocated
+//!   memory the callee may read or write.
+//!
+//! These are the same invariants `include/net.h` documents for C
+//! callers. Per-call `# Safety` rustdoc is suppressed and per-block
+//! `// SAFETY:` comments are gated by the module-level `#![expect]`
+//! below — every `unsafe { }` in this file inherits the contract above.
+#![allow(clippy::missing_safety_doc)]
+#![expect(
+    clippy::undocumented_unsafe_blocks,
+    reason = "module-wide FFI safety contract documented in the # Safety preamble above"
+)]
+#![expect(
+    clippy::multiple_unsafe_ops_per_block,
+    reason = "FFI entry points routinely deref + write to multiple out-parameter fields under the same caller contract; splitting per-op would obscure the single boundary-cross"
+)]
+
+use std::ffi::{c_char, c_int, CStr, CString};
+use std::mem::ManuallyDrop;
+use std::os::raw::c_void;
+use std::ptr;
+use std::sync::Arc;
+
+use futures::stream::BoxStream;
+use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
+use tokio::sync::Mutex as TokioMutex;
+
+use crate::adapter::net::channel::ChannelName;
+use crate::adapter::net::cortex::memories::{
+    MemoriesAdapter as InnerMemoriesAdapter, MemoriesFilter, MemoriesWatcher, Memory,
+    OrderBy as MemoriesOrderBy,
+};
+use crate::adapter::net::cortex::tasks::{
+    OrderBy as TasksOrderBy, Task, TaskStatus, TasksAdapter as InnerTasksAdapter, TasksFilter,
+    TasksWatcher,
+};
+use crate::adapter::net::cortex::workflow::{
+    fan_out as wf_fan_out, try_join as wf_try_join, Action as InnerWfAction, Join as InnerWfJoin,
+    ShardGroup as InnerShardGroup, StatusCounts as WfStatusCounts, TaskStatus as WfTaskStatus,
+    Trigger as InnerWfTrigger, TriggerEngine as InnerTriggerEngine,
+    TriggerWorld as InnerTriggerWorld, WorkflowAdapter as InnerWorkflowAdapter,
+};
+use crate::adapter::net::cortex::WaitForTokenError as InnerWaitForTokenError;
+use crate::adapter::net::netdb::{NetDbError as InnerNetDbError, NetDbSnapshot};
+use crate::adapter::net::redex::{
+    FsyncPolicy, Redex as InnerRedex, RedexError, RedexEvent, RedexFile as InnerRedexFile,
+    RedexFileConfig, WriteToken as InnerWriteToken,
+};
+
+use super::handle_guard::{HandleGuard, FFI_HANDLE_FREE_DEADLINE};
+use super::NetError;
+
+// =========================================================================
+// Extended error codes for the CortEX surface. Keep numbering below -99
+// (NetError::Unknown) so they never collide with the base surface.
+// =========================================================================
+
+// Declared for C in two places: -100..-103 in the shared `net_error_t` enum
+// of include/net.h and include/net.go.h (mirrored in go/net.h), and the rest
+// in include/net_cortex.h (mirrored in go/net_cortex.h).
+// `.github/scripts/check-c-abi.py` fails if a value here and its header differ.
+pub(crate) const NET_ERR_CORTEX_CLOSED: c_int = -100;
+pub(crate) const NET_ERR_CORTEX_FOLD: c_int = -101;
+pub(crate) const NET_ERR_NETDB: c_int = -102;
+pub(crate) const NET_ERR_REDEX: c_int = -103;
+pub(crate) const NET_ERR_TIMEOUT: c_int = 1;
+pub(crate) const NET_ERR_STREAM_ENDED: c_int = 2;
+/// Read-your-writes wait rejected because the token belongs to a
+/// different origin than the bound adapter folds. See
+/// `WaitForTokenError::WrongOrigin`.
+pub(crate) const NET_ERR_WRONG_ORIGIN: c_int = -104;
+/// Read-your-writes wait rejected because the per-channel wait
+/// queue is saturated. See `WaitForTokenError::QueueFull`.
+pub(crate) const NET_ERR_QUEUE_FULL: c_int = -105;
+/// Read-your-writes wait failed because the fold task stopped
+/// before the token's seq was applied. See
+/// `WaitForTokenError::FoldStopped`.
+pub(crate) const NET_ERR_FOLD_STOPPED: c_int = -106;
+/// Feature not built into this `libnet` — the symbol exists for
+/// link-time compatibility but the runtime cannot honor it. Cgo /
+/// dlsym consumers see a stable error rather than a linker
+/// failure when they target a `libnet.so` built without the
+/// `dataforts` feature.
+#[allow(dead_code)] // only referenced from `#[cfg(not(feature = "dataforts"))]` stubs
+pub(crate) const NET_ERR_FEATURE_NOT_BUILT: c_int = -107;
+/// Panic surfaced from inside the substrate during a wait_for_token
+/// call. Caught with `catch_unwind` and reported here rather than
+/// unwinding across the FFI boundary (UB for C / cgo / Python).
+pub(crate) const NET_ERR_PANIC: c_int = -108;
+/// Read-your-writes wait rejected because the token was issued for a
+/// different channel than the adapter folds. Sequence numbers are per
+/// channel, so its seq names nothing here. See
+/// `WaitForTokenError::WrongChannel`.
+///
+/// `-160`, not the next code in this surface's `-100..-109` band: `-109`
+/// is `NET_ERR_MESH_STREAM_OCCUPIED` in the shared C enum, and a wait
+/// that can return either would make the two indistinguishable. `-160` is
+/// used by no surface.
+pub(crate) const NET_ERR_WRONG_CHANNEL: c_int = -160;
+
+/// Non-blocking poll variant of wait_for_token: checks origin
+/// binding and the applied watermark, returns immediately. Maps
+/// to the same code set as the full wait, except QueueFull is
+/// not reachable (no permit is taken). Used by the FFI when the
+/// caller passes timeout_ms == 0 to mean "is the write visible
+/// yet?" without scheduling a Notified future.
+fn tasks_poll_for_token(adapter: &Arc<InnerTasksAdapter>, token: InnerWriteToken) -> c_int {
+    // Route through the adapter's public poll method so the FFI
+    // and every binding consume the same shape; previously the
+    // FFI had its own copy of the logic which the Python binding
+    // didn't share, producing observable divergence on
+    // `timeout_ms == 0` (now fixed in the Python `wait_for_token`
+    // by special-casing zero through this same call).
+    match adapter.poll_for_token(token) {
+        Ok(()) => 0,
+        Err(InnerWaitForTokenError::WrongOrigin { .. }) => NET_ERR_WRONG_ORIGIN,
+        Err(InnerWaitForTokenError::WrongChannel { .. }) => NET_ERR_WRONG_CHANNEL,
+        Err(InnerWaitForTokenError::FoldStopped { .. }) => NET_ERR_FOLD_STOPPED,
+        Err(_) => NET_ERR_TIMEOUT,
+    }
+}
+
+fn memories_poll_for_token(adapter: &Arc<InnerMemoriesAdapter>, token: InnerWriteToken) -> c_int {
+    match adapter.poll_for_token(token) {
+        Ok(()) => 0,
+        Err(InnerWaitForTokenError::WrongOrigin { .. }) => NET_ERR_WRONG_ORIGIN,
+        Err(InnerWaitForTokenError::WrongChannel { .. }) => NET_ERR_WRONG_CHANNEL,
+        Err(InnerWaitForTokenError::FoldStopped { .. }) => NET_ERR_FOLD_STOPPED,
+        Err(_) => NET_ERR_TIMEOUT,
+    }
+}
+
+// =========================================================================
+// Shared utilities
+// =========================================================================
+
+/// One tokio runtime, lazily initialized, used by every CortEX /
+/// RedEX FFI call. The watch / tail cursors rely on a single runtime
+/// so the spawned forwarding tasks survive across cursor calls.
+/// Uses `eprintln! + std::process::abort()` on builder failure
+/// instead of `expect`-panic. See `ffi/mesh.rs::runtime()` for the
+/// full rationale.
+fn runtime() -> &'static Arc<Runtime> {
+    use std::sync::OnceLock;
+    static RT: OnceLock<Arc<Runtime>> = OnceLock::new();
+    RT.get_or_init(|| {
+        match tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(rt) => Arc::new(rt),
+            Err(e) => {
+                eprintln!(
+                    "FATAL: cortex FFI tokio runtime build failure ({e:?}); aborting to avoid panic across the FFI boundary"
+                );
+                std::process::abort();
+            }
+        }
+    })
+}
+
+/// `block_on(...)` wrapper that aborts on runtime-in-runtime
+/// rather than panicking across the FFI boundary. See
+/// `ffi/mesh.rs::block_on` for the full rationale; the check is the
+/// same `Handle::try_current()` test, the abort message names the
+/// cortex surface so the post-mortem is unambiguous.
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    if tokio::runtime::Handle::try_current().is_ok() {
+        eprintln!(
+            "FATAL: cortex FFI called from inside a tokio runtime context; \
+             aborting to avoid runtime-in-runtime panic across the FFI boundary"
+        );
+        std::process::abort();
+    }
+    runtime().block_on(future)
+}
+
+/// Copy a C string into an owned `String`. Returns `None` on null or
+/// non-UTF-8 input.
+///
+/// Returns `String` (not `&str`) by design: a helper that returned a
+/// borrow would need a free-choice lifetime like `Option<&'a str>`,
+/// which would let callers pick `'static` and silently produce a
+/// dangling reference once the caller's `*const c_char` goes out of
+/// scope. Owning the copy eliminates the footgun at a small allocation
+/// cost per FFI call (these paths already allocate for JSON parsing).
+unsafe fn c_str_to_owned(p: *const c_char) -> Option<String> {
+    if p.is_null() {
+        return None;
+    }
+    CStr::from_ptr(p).to_str().ok().map(|s| s.to_owned())
+}
+
+/// Serialize `value` as JSON into a C-owned string + length. On
+/// success writes the pointer to `*out_ptr` and the length to
+/// `*out_len` (excluding the null terminator) and returns `0`.
+/// On non-success the out params are zeroed (`null`, `0`) so a
+/// caller that reads them before checking the return code sees
+/// "no output" rather than stale stack data. The caller must
+/// free the string with `net_free_string` on success.
+///
+/// Null-checks `out_ptr` and `out_len` before writing through
+/// them. Returns `NetError::NullPointer` so the FFI caller can
+/// distinguish "I forgot output pointers" from "the operation
+/// failed."
+fn write_json_out<T: Serialize>(
+    value: &T,
+    out_ptr: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if out_ptr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Ok(s) = serde_json::to_string(value) else {
+        // Pre-zero so the caller can rely on the contract
+        // "non-zero return ⇒ out_ptr is null and out_len is 0"
+        // rather than reading stale data from before the call.
+        unsafe {
+            *out_ptr = ptr::null_mut();
+            *out_len = 0;
+        }
+        return NetError::Unknown.into();
+    };
+    let len = s.len();
+    let Ok(cs) = CString::new(s) else {
+        unsafe {
+            *out_ptr = ptr::null_mut();
+            *out_len = 0;
+        }
+        return NetError::Unknown.into();
+    };
+    unsafe {
+        *out_ptr = cs.into_raw();
+        *out_len = len;
+    }
+    0
+}
+
+/// Helper: pre-zero `*out_ptr` and `*out_len` after a null-check.
+/// Call at the top of every FFI function that takes
+/// `(out_json, out_len)` so subsequent error returns leave the
+/// out params as `(null, 0)` rather than stale stack data. The
+/// audit (#136) calls this contract "pre-zero" — every error
+/// return must satisfy "out_json is null AND out_len is 0,"
+/// distinct from the success contract "out_json is heap-allocated
+/// and out_len is its length." Pre-fix several functions
+/// returned errors without touching the out params, so callers
+/// that didn't strictly check the return code dereferenced
+/// stale data.
+fn zero_out_json(out_ptr: *mut *mut c_char, out_len: *mut usize) {
+    if !out_ptr.is_null() {
+        unsafe {
+            *out_ptr = ptr::null_mut();
+        }
+    }
+    if !out_len.is_null() {
+        unsafe {
+            *out_len = 0;
+        }
+    }
+}
+
+// =========================================================================
+// Compile-time Send + Sync assertions for FFI handle inner types.
+//
+// These handles are returned to C as `*mut HandleType` and routinely
+// shared across goroutines / Python threads — the docstrings on
+// every "open" / "watch" function advertise this pattern. Soundness
+// rests entirely on the inner type's `Send + Sync` impl; the FFI
+// layer doesn't typecheck `Send + Sync` itself, so a future refactor
+// that adds a `Cell` / `RefCell` / `Rc` / `*mut` field to one of
+// these types would compile cleanly while silently introducing a
+// data race that any threaded caller would trigger.
+//
+// The `const _: fn() = ...` idiom is a compile-time trait check
+// without pulling in `static_assertions` as a dep. If any inner
+// type loses `Send + Sync`, this block fails to compile.
+const _: fn() = || {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<InnerRedex>();
+    assert_send_sync::<InnerRedexFile>();
+    assert_send_sync::<InnerTasksAdapter>();
+    assert_send_sync::<InnerMemoriesAdapter>();
+    assert_send_sync::<
+        TokioMutex<Option<BoxStream<'static, std::result::Result<RedexEvent, RedexError>>>>,
+    >();
+    assert_send_sync::<TokioMutex<Option<BoxStream<'static, Vec<Task>>>>>();
+    assert_send_sync::<TokioMutex<Option<BoxStream<'static, Vec<Memory>>>>>();
+};
+
+// =========================================================================
+// Redex manager
+// =========================================================================
+
+/// FFI handle wrapping an [`InnerRedex`] manager.
+///
+/// Carries a [`HandleGuard`] so a Go cgo / Python-thread caller
+/// racing `net_redex_free` against `net_redex_open_file` /
+/// `net_tasks_adapter_open` / `net_memories_adapter_open` doesn't
+/// UAF the dropped inner. Box is intentionally leaked on free;
+/// inner Arc lives in [`ManuallyDrop`] for take-and-drop after
+/// the drain.
+pub struct RedexHandle {
+    inner: ManuallyDrop<Arc<InnerRedex>>,
+    guard: HandleGuard,
+}
+
+impl RedexHandle {
+    /// Crate-internal accessor — sibling FFI modules (the
+    /// blob FFI for `net_mesh_blob_adapter_new`) need to share
+    /// the inner `Arc<Redex>` to wrap it in a `MeshBlobAdapter`.
+    /// The clone bumps the refcount; the redex's `HandleGuard`
+    /// still gates concurrent `_free` on the original handle.
+    ///
+    /// Only `ffi::blob` (gated on the `dataforts + netdb +
+    /// redex-disk` triple) calls this today; without the
+    /// triple the method has no callers and the dead-code
+    /// lint trips. Suppress the lint at the method level so a
+    /// future feature-OFF caller doesn't also need the
+    /// `#[allow]` annotation.
+    ///
+    /// Gated on the handle's [`HandleGuard`]: the `try_enter` op is
+    /// held across the clone so a concurrent `net_redex_free` cannot
+    /// take the inner out of `ManuallyDrop` mid-clone. Returns `None`
+    /// once `_free` has begun — the caller must surface a null result.
+    #[allow(dead_code)]
+    pub(crate) fn redex_arc(&self) -> Option<Arc<InnerRedex>> {
+        let _op = self.guard.try_enter()?;
+        Some((*self.inner).clone())
+    }
+}
+
+/// Create a new Redex manager. `persistent_dir` may be NULL for
+/// heap-only. Returns a heap-allocated handle the caller must free
+/// with `net_redex_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_new(persistent_dir: *const c_char) -> *mut RedexHandle {
+    let dir = if persistent_dir.is_null() {
+        None
+    } else {
+        unsafe { c_str_to_owned(persistent_dir) }
+    };
+    let inner = match dir {
+        Some(d) => InnerRedex::new().with_persistent_dir(d),
+        None => InnerRedex::new(),
+    };
+    Box::into_raw(Box::new(RedexHandle {
+        inner: ManuallyDrop::new(Arc::new(inner)),
+        guard: HandleGuard::new(),
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_free(handle: *mut RedexHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping the inner.
+    // Box stays leaked. See `super::handle_guard` for soundness.
+    let h: &RedexHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: `freeing=true` blocks new ops; `active_ops`
+        // drained to zero. We hold the unique writable reference.
+        unsafe {
+            let inner = ManuallyDrop::take(&mut (*handle).inner);
+            drop(inner);
+        }
+    } else {
+        tracing::warn!(
+            "net_redex_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+// =========================================================================
+// Replication operator surface — Phase I Go binding completion
+// =========================================================================
+//
+// These functions extend the existing `net_redex_*` FFI to expose
+// the operator surface from `Redex::enable_replication`, plus the
+// per-channel metrics view via `replication_prometheus_text`. The
+// Go binding consumes them via `net_redex_enable_replication(mesh)`
+// followed by `net_redex_open_file` with a `RedexFileConfigJson`
+// carrying a populated `replication` field.
+//
+// Cross-link to the Node + Python bindings: the same surface is
+// exposed via `Redex.enableReplication(mesh)` (NAPI) and
+// `Redex.enable_replication(mesh)` (PyO3) in
+// `bindings/{node,python}/src/cortex.rs`. The Go side has its own
+// FFI because there's no shared SDK wrapper — every binding goes
+// straight against the core `Redex` types.
+
+/// RAII guard around the `*mut Arc<MeshNode>` handle the
+/// `net_redex_enable_*` family of FFI entries receives. The
+/// caller contract is "the Arc is consumed regardless of return
+/// code"; without a guard every error path has to remember to
+/// drop the Box manually. Holding the pointer in a guard and
+/// calling `.take()` only on the success path keeps the drop
+/// branch single-sourced — and a future error variant added to
+/// any of these functions automatically inherits the leak-free
+/// behavior.
+///
+/// Constructed via `MeshArcOwned::new` after the FFI's null-check,
+/// consumed via `.take()` on the success path. The Drop impl
+/// frees the Box on every other exit (including panics, though
+/// these are also caught by `catch_unwind` at the FFI boundary).
+struct MeshArcOwned {
+    ptr: *mut Arc<crate::adapter::net::MeshNode>,
+}
+
+impl MeshArcOwned {
+    /// # Safety
+    /// `ptr` must be a non-null pointer produced by
+    /// `net_mesh_arc_clone` and not yet consumed.
+    unsafe fn new(ptr: *mut Arc<crate::adapter::net::MeshNode>) -> Self {
+        Self { ptr }
+    }
+
+    /// Take the Arc out of the guard, leaving Drop to no-op. Use
+    /// only on the success path.
+    ///
+    /// # Safety
+    /// Same conditions as [`Self::new`].
+    unsafe fn take(mut self) -> Arc<crate::adapter::net::MeshNode> {
+        let ptr = std::mem::replace(&mut self.ptr, std::ptr::null_mut());
+        unsafe { *Box::from_raw(ptr) }
+    }
+}
+
+impl Drop for MeshArcOwned {
+    fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            // SAFETY: ptr was produced by `Box::into_raw` on the
+            // caller side (`net_mesh_arc_clone`) and is consumed
+            // here at most once because `take()` clears it.
+            unsafe { drop(Box::from_raw(self.ptr)) };
+        }
+    }
+}
+
+/// Install cross-node replication on this `Redex`. Consumes the
+/// `*mut Arc<MeshNode>` boxed pointer produced by
+/// `net_mesh_arc_clone` — caller MUST NOT free it again
+/// **regardless of return code**: success consumes the Arc into
+/// the new wiring; error returns drop the Arc before returning.
+/// Idempotent — repeated calls return without disturbing the
+/// existing router.
+///
+/// Returns `0` on success, `NetError::NullPointer` (`-1`) when
+/// either handle is NULL, `NetError::ShuttingDown` when the
+/// `Redex` is in `_free`-quiesce.
+#[cfg(feature = "net")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_enable_replication(
+    redex: *mut RedexHandle,
+    mesh_arc: *mut Arc<crate::adapter::net::MeshNode>,
+) -> c_int {
+    if redex.is_null() || mesh_arc.is_null() {
+        if !mesh_arc.is_null() {
+            // SAFETY: caller documented `mesh_arc` as produced by
+            // `net_mesh_arc_clone`. Drop now to honor the
+            // "consumed regardless" contract.
+            unsafe { drop(Box::from_raw(mesh_arc)) };
+        }
+        return NetError::NullPointer.into();
+    }
+    // SAFETY: caller documented `mesh_arc` as produced by
+    // `net_mesh_arc_clone`; checked non-null just above.
+    let arc_guard = unsafe { MeshArcOwned::new(mesh_arc) };
+    let redex_ref = unsafe { &*redex };
+    let _op = match redex_ref.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    // SAFETY: take consumes the guard; subsequent exits no-op on Drop.
+    let mesh = unsafe { arc_guard.take() };
+    // Spawns nothing today, but keep every replication entry point on
+    // the FFI runtime: a C / cgo caller's thread has no reactor.
+    let _rt = runtime().enter();
+    redex_ref.inner.enable_replication(mesh);
+    0
+}
+
+/// Undo `net_redex_enable_replication`: shut every channel's
+/// replication down (gracefully, on the FFI runtime, withdrawing its
+/// chain advertisement) and release this `Redex`'s reference to the
+/// mesh. Idempotent; open files stay open as local logs. Blocks until
+/// the shutdown completes. Called from inside a tokio runtime it aborts
+/// the process (the module's `block_on` guard) rather than panic across
+/// the FFI boundary.
+///
+/// Returns `0`, `NetError::NullPointer` (`-1`) on a NULL handle, or
+/// `NetError::ShuttingDown` while the `Redex` is in `_free`-quiesce.
+#[cfg(feature = "net")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_disable_replication(redex: *mut RedexHandle) -> c_int {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return NetError::NullPointer.into();
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    // Block until every channel's runtime has stopped and dropped its
+    // mesh reference, on the FFI runtime (a C / cgo caller's thread has
+    // none of its own), so a following mesh free / shutdown sees the
+    // mesh released.
+    block_on(h.inner.disable_replication_and_wait());
+    0
+}
+
+/// Count of per-channel replication runtimes registered on this
+/// `Redex`. Returns `0` when replication isn't enabled or on a
+/// NULL handle (defensive — the Go side typically validates the
+/// handle is non-NULL before calling).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_replication_runtime_count(redex: *const RedexHandle) -> u32 {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return 0;
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.inner.replication_runtime_count() as u32
+}
+
+/// Render the per-channel replication metrics as Prometheus text.
+/// Returns a heap-allocated, NUL-terminated string the caller frees
+/// with [`crate::ffi::net_free_string`]. Returns the empty string
+/// (heap-allocated + NUL-terminated) when replication isn't
+/// enabled — the call site can pipe straight into an HTTP scrape
+/// body without branching. Returns NULL only on a NULL input
+/// handle or when the `Redex` is in `_free`-quiesce.
+///
+/// Covers the seven per-channel shapes from
+/// `docs/CONFIG_REPLICATION.md`: `*_lag_seconds`,
+/// `*_sync_bytes_total`, `*_leader_changes_total`,
+/// `*_under_capacity_total`, `*_skip_ahead_total`,
+/// `*_election_thrash_total`, `*_witness_withdrawals_total`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_replication_prometheus_text(
+    redex: *const RedexHandle,
+) -> *mut c_char {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let text = h.inner.replication_prometheus_text();
+    // CString::new rejects strings with interior NULs. Prometheus
+    // text shouldn't contain any, but use the fallback just in
+    // case (replication channel names with embedded NULs would
+    // have been rejected at `ChannelName::new` long before this
+    // path runs).
+    match CString::new(text) {
+        Ok(c) => c.into_raw(),
+        Err(_) => CString::default().into_raw(),
+    }
+}
+
+// =========================================================================
+// Greedy-LRU dataforts operator surface (DATAFORTS_PLAN § Phase 1)
+// =========================================================================
+//
+// Same shape as the replication FFI above. The Go binding consumes
+// `net_redex_enable_greedy_dataforts(mesh, config_json)`; the config
+// rides as a JSON-encoded `RedexGreedyConfigJson` so binding-side
+// validation surfaces typed errors before the install lands.
+
+/// JSON shape the Go (and any C-ABI) consumer encodes for
+/// `net_redex_enable_greedy_dataforts`. All fields optional —
+/// missing fields keep the substrate Phase-1 defaults.
+#[cfg(feature = "dataforts")]
+#[derive(serde::Deserialize, Default)]
+struct RedexGreedyConfigJson {
+    /// Scope filter (`scope:<label>` body matches admit). Empty /
+    /// missing admits regardless.
+    scopes: Option<Vec<String>>,
+    /// Maximum acceptable RTT to the chain's home node, in
+    /// milliseconds. Default `200`.
+    proximity_max_rtt_ms: Option<u64>,
+    /// Per-channel byte cap (floor 1 MiB, default 100 MiB).
+    per_channel_cap_bytes: Option<u64>,
+    /// Cluster-wide byte cap (default 10 GiB; must be ≥
+    /// `per_channel_cap_bytes`).
+    total_cap_bytes: Option<u64>,
+    /// I/O budget as a fraction of measured NIC peak. Range
+    /// `(0.0, 1.0]`. Default `0.25`.
+    bandwidth_budget_fraction: Option<f32>,
+    /// Override for the NIC peak (bytes/sec) the bandwidth budget
+    /// computes against. Default falls back to 1 Gbps; deployments
+    /// on faster NICs should set this explicitly to avoid the
+    /// `dataforts_greedy_admit_rejected_total{reason="bandwidth"}`
+    /// counter saturating under normal load.
+    nic_peak_bytes_per_s: Option<u64>,
+    /// Maximum in-flight `observe_event` tasks before the
+    /// observer drops events under load. Default `1024`. Floor 1.
+    observer_inflight_cap: Option<u64>,
+    /// `"disabled"` / `"any_of_local_capabilities"` (default) /
+    /// `"strict"`.
+    intent_match: Option<String>,
+    /// `"ignore"` / `"soft_preference"` (default) /
+    /// `"strict_required"`.
+    colocation_policy: Option<String>,
+}
+
+#[cfg(feature = "dataforts")]
+impl RedexGreedyConfigJson {
+    fn into_config(self) -> Result<crate::adapter::net::dataforts::GreedyConfig, &'static str> {
+        use crate::adapter::net::dataforts::{
+            ColocationPolicy, GreedyConfig, IntentMatchPolicy, ScopeLabel,
+        };
+        let mut cfg = GreedyConfig::new();
+        if let Some(scopes) = self.scopes {
+            cfg = cfg.with_scopes(scopes.into_iter().map(ScopeLabel::new).collect());
+        }
+        if let Some(ms) = self.proximity_max_rtt_ms {
+            cfg = cfg.with_proximity_max_rtt(std::time::Duration::from_millis(ms));
+        }
+        if let Some(b) = self.per_channel_cap_bytes {
+            cfg = cfg.with_per_channel_cap_bytes(b);
+        }
+        if let Some(b) = self.total_cap_bytes {
+            cfg = cfg.with_total_cap_bytes(b);
+        }
+        if let Some(f) = self.bandwidth_budget_fraction {
+            cfg = cfg.with_bandwidth_budget_fraction(f);
+        }
+        if let Some(peak) = self.nic_peak_bytes_per_s {
+            cfg = cfg.with_nic_peak_bytes_per_s(Some(peak));
+        }
+        if let Some(cap) = self.observer_inflight_cap {
+            cfg = cfg.with_observer_inflight_cap(cap as usize);
+        }
+        if let Some(policy) = self.intent_match {
+            let parsed = match policy.as_str() {
+                "disabled" => IntentMatchPolicy::Disabled,
+                "any_of_local_capabilities" => IntentMatchPolicy::AnyOfLocalCapabilities,
+                "strict" => IntentMatchPolicy::Strict,
+                _ => return Err("unknown intent_match"),
+            };
+            cfg = cfg.with_intent_match(parsed);
+        }
+        if let Some(policy) = self.colocation_policy {
+            let parsed = match policy.as_str() {
+                "ignore" => ColocationPolicy::Ignore,
+                "soft_preference" => ColocationPolicy::SoftPreference,
+                "strict_required" => ColocationPolicy::StrictRequired,
+                _ => return Err("unknown colocation_policy"),
+            };
+            cfg = cfg.with_colocation_policy(parsed);
+        }
+        Ok(cfg)
+    }
+}
+
+/// Install greedy-LRU dataforts wiring on this `Redex`. Same
+/// Arc-consumption contract as `net_redex_enable_replication`:
+/// `mesh_arc` is consumed regardless of return code.
+///
+/// `config_json` is optional — pass NULL or empty to use the
+/// locked Phase-1 defaults. JSON parse errors and validation
+/// errors surface as `NET_ERR_REDEX`.
+///
+/// Returns `0` on success; `NetError::NullPointer` (`-1`) when
+/// either redex or mesh_arc is NULL; `NetError::ShuttingDown`
+/// when the Redex is in `_free`-quiesce;
+/// `NetError::InvalidUtf8` / `NetError::InvalidJson` for malformed
+/// config; `NET_ERR_REDEX` for validation errors.
+#[cfg(all(feature = "net", feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_enable_greedy_dataforts(
+    redex: *mut RedexHandle,
+    mesh_arc: *mut Arc<crate::adapter::net::MeshNode>,
+    config_json: *const c_char,
+) -> c_int {
+    if redex.is_null() || mesh_arc.is_null() {
+        if !mesh_arc.is_null() {
+            unsafe { drop(Box::from_raw(mesh_arc)) };
+        }
+        return NetError::NullPointer.into();
+    }
+    // SAFETY: just verified non-null; documented as a Box from `net_mesh_arc_clone`.
+    let arc_guard = unsafe { MeshArcOwned::new(mesh_arc) };
+    let redex_ref = unsafe { &*redex };
+    let _op = match redex_ref.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg_json: RedexGreedyConfigJson = if config_json.is_null() {
+        RedexGreedyConfigJson::default()
+    } else {
+        let Some(s) = (unsafe { c_str_to_owned(config_json) }) else {
+            return NetError::InvalidUtf8.into();
+        };
+        if s.is_empty() {
+            RedexGreedyConfigJson::default()
+        } else {
+            match serde_json::from_str(&s) {
+                Ok(v) => v,
+                Err(_) => return NetError::InvalidJson.into(),
+            }
+        }
+    };
+    let cfg = match cfg_json.into_config() {
+        Ok(c) => c,
+        Err(_) => return NET_ERR_REDEX,
+    };
+    let mesh = unsafe { arc_guard.take() };
+    let local_caps = Arc::new(crate::adapter::net::behavior::capability::CapabilitySet::default());
+    let registry = crate::adapter::net::behavior::placement::IntentRegistry::defaults();
+    let _rt = runtime().enter();
+    match redex_ref
+        .inner
+        .enable_greedy_dataforts(mesh, cfg, local_caps, registry)
+    {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+/// Uninstall greedy wiring. Idempotent.
+#[cfg(feature = "dataforts")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_disable_greedy_dataforts(redex: *mut RedexHandle) -> c_int {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return NetError::NullPointer.into();
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    h.inner.disable_greedy_dataforts();
+    0
+}
+
+/// Count of channels currently in the greedy cache. Returns `0`
+/// when greedy isn't enabled or on a NULL handle.
+#[cfg(feature = "dataforts")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_cached_channel_count(redex: *const RedexHandle) -> u32 {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return 0;
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.inner
+        .greedy_runtime()
+        .map(|r| r.cached_channel_count() as u32)
+        .unwrap_or(0)
+}
+
+/// Read path into the greedy cache: open the cached copy of `channel` (the
+/// *real* channel name; the cache-name synthesis happens inside). A hit
+/// counts as a served read — it bumps the serve-count metric and, under
+/// data gravity, the chain's heat — which is what makes gravity observable
+/// from a binding.
+///
+/// Returns `0` and writes a file handle to `*out_file` on a hit (read it
+/// with `net_redex_file_read_range` / `_tail`, free it with
+/// `net_redex_file_free`), or `0` with `*out_file = NULL` when the channel
+/// isn't cached or greedy isn't enabled. `NetError::NullPointer` for a NULL
+/// `redex` / `channel` / `out_file` (nothing is written through a NULL
+/// `out_file`), `NetError::InvalidUtf8`, `NET_ERR_REDEX` for an invalid
+/// channel name, `NetError::ShuttingDown` while the Redex is being freed.
+///
+/// # Safety
+/// `redex` is a live handle; `channel` is NUL-terminated UTF-8; `out_file`
+/// is writable.
+#[cfg(feature = "dataforts")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_cache_for(
+    redex: *const RedexHandle,
+    channel: *const c_char,
+    out_file: *mut *mut RedexFileHandle,
+) -> c_int {
+    if out_file.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe { *out_file = ptr::null_mut() };
+    if redex.is_null() || channel.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*redex };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(name) = (unsafe { c_str_to_owned(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Ok(channel) = ChannelName::new(&name) else {
+        return NET_ERR_REDEX;
+    };
+    let _rt = runtime().enter();
+    if let Some(file) = h.inner.greedy_cache_for(&channel) {
+        let handle = Box::new(RedexFileHandle {
+            inner: ManuallyDrop::new(Arc::new(file)),
+            guard: HandleGuard::new(),
+        });
+        unsafe { *out_file = Box::into_raw(handle) };
+    }
+    0
+}
+
+/// Render greedy metrics as Prometheus text. Caller frees via
+/// [`crate::ffi::net_free_string`]. Empty string when greedy
+/// isn't enabled; NULL on a NULL handle or shutting-down Redex.
+#[cfg(feature = "dataforts")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_prometheus_text(
+    redex: *const RedexHandle,
+) -> *mut c_char {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let text = h
+        .inner
+        .greedy_runtime()
+        .map(|r| r.metrics().snapshot().prometheus_text())
+        .unwrap_or_default();
+    match CString::new(text) {
+        Ok(c) => c.into_raw(),
+        Err(_) => CString::default().into_raw(),
+    }
+}
+
+// =========================================================================
+// Data-gravity operator surface (DATAFORTS_PLAN § Phase 4)
+// =========================================================================
+
+/// JSON shape consumed by `net_redex_enable_gravity_for_greedy`.
+/// Mirrors the Python kwargs / Node `DataGravityConfigJs`.
+#[cfg(feature = "dataforts")]
+#[derive(serde::Deserialize, Default)]
+struct RedexGravityConfigJson {
+    /// `true` = counter active. Default `true`.
+    enabled: Option<bool>,
+    /// `[1.01, 10.0]`. Default `2.0`.
+    emit_threshold_ratio: Option<f32>,
+    /// Decay half-life in seconds. Default `1800` (30 min).
+    decay_half_life_secs: Option<u64>,
+    /// Tick cadence in milliseconds. Default `500`.
+    tick_interval_ms: Option<u64>,
+    /// Wire normalization reference rate. Higher value =
+    /// wider dynamic range on the [0.0, 1.0] wire encoding.
+    /// Default `1000.0`. See
+    /// `DataGravityPolicy::normalize_rate_for_wire`.
+    normalization_reference_rate: Option<f32>,
+}
+
+#[cfg(feature = "dataforts")]
+impl RedexGravityConfigJson {
+    fn into_policy_and_tick(
+        self,
+    ) -> (
+        crate::adapter::net::dataforts::DataGravityPolicy,
+        std::time::Duration,
+    ) {
+        let mut policy = crate::adapter::net::dataforts::DataGravityPolicy::new()
+            .with_enabled(self.enabled.unwrap_or(true));
+        if let Some(r) = self.emit_threshold_ratio {
+            policy = policy.with_emit_threshold_ratio(r);
+        }
+        if let Some(secs) = self.decay_half_life_secs {
+            policy = policy.with_decay_half_life(std::time::Duration::from_secs(secs));
+        }
+        if let Some(reference) = self.normalization_reference_rate {
+            policy = policy.with_normalization_reference_rate(reference);
+        }
+        let tick = std::time::Duration::from_millis(self.tick_interval_ms.unwrap_or(500));
+        (policy, tick)
+    }
+}
+
+/// Install data-gravity heat-counter emission on the already-
+/// installed greedy runtime. Same Arc-consumption contract as
+/// `net_redex_enable_replication`: `mesh_arc` is consumed
+/// regardless of return code.
+///
+/// `config_json` is optional — NULL or empty uses the locked
+/// Phase-4 defaults.
+///
+/// Returns `0` on success; `NetError::NullPointer` on NULL
+/// inputs; `NetError::ShuttingDown` on Redex quiesce;
+/// `NetError::InvalidUtf8` / `NetError::InvalidJson` for
+/// malformed config; `NET_ERR_REDEX` when greedy isn't enabled
+/// first or the policy fails validation.
+#[cfg(all(feature = "net", feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_enable_gravity_for_greedy(
+    redex: *mut RedexHandle,
+    mesh_arc: *mut Arc<crate::adapter::net::MeshNode>,
+    config_json: *const c_char,
+) -> c_int {
+    if redex.is_null() || mesh_arc.is_null() {
+        if !mesh_arc.is_null() {
+            unsafe { drop(Box::from_raw(mesh_arc)) };
+        }
+        return NetError::NullPointer.into();
+    }
+    // SAFETY: just verified non-null; documented as a Box from `net_mesh_arc_clone`.
+    let arc_guard = unsafe { MeshArcOwned::new(mesh_arc) };
+    let redex_ref = unsafe { &*redex };
+    let _op = match redex_ref.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg_json: RedexGravityConfigJson = if config_json.is_null() {
+        RedexGravityConfigJson::default()
+    } else {
+        let Some(s) = (unsafe { c_str_to_owned(config_json) }) else {
+            return NetError::InvalidUtf8.into();
+        };
+        if s.is_empty() {
+            RedexGravityConfigJson::default()
+        } else {
+            match serde_json::from_str(&s) {
+                Ok(v) => v,
+                Err(_) => return NetError::InvalidJson.into(),
+            }
+        }
+    };
+    let (policy, tick) = cfg_json.into_policy_and_tick();
+    let mesh = unsafe { arc_guard.take() };
+    // Spawns the gravity tick loop.
+    let _rt = runtime().enter();
+    match redex_ref
+        .inner
+        .enable_gravity_for_greedy(mesh, policy, tick)
+    {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+/// Uninstall gravity. Idempotent. Greedy stays running.
+#[cfg(feature = "dataforts")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_disable_gravity_for_greedy(redex: *mut RedexHandle) -> c_int {
+    let Some(h) = (unsafe { redex.as_ref() }) else {
+        return NetError::NullPointer.into();
+    };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    h.inner.disable_gravity_for_greedy();
+    0
+}
+
+// -------------------------------------------------------------------------
+// dataforts feature-OFF stubs. The Rust crate gates the dataforts surface
+// behind `#[cfg(feature = "dataforts")]`, but cgo / dlsym consumers of
+// `libnet.so` link against the symbols unconditionally. Without these
+// stubs a `libnet` built without the feature link-fails at Go program
+// startup with `undefined symbol`. The stubs return
+// `NET_ERR_FEATURE_NOT_BUILT` so consumers can route to a clean error
+// rather than crash.
+//
+// `mesh_arc` is still consumed to match the success-path contract.
+// -------------------------------------------------------------------------
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_enable_greedy_dataforts(
+    _redex: *mut RedexHandle,
+    mesh_arc: *mut Arc<crate::adapter::net::MeshNode>,
+    _config_json: *const c_char,
+) -> c_int {
+    if !mesh_arc.is_null() {
+        unsafe { drop(Box::from_raw(mesh_arc)) };
+    }
+    NET_ERR_FEATURE_NOT_BUILT
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_disable_greedy_dataforts(_redex: *mut RedexHandle) -> c_int {
+    NET_ERR_FEATURE_NOT_BUILT
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_cached_channel_count(_redex: *const RedexHandle) -> u32 {
+    0
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_cache_for(
+    _redex: *const RedexHandle,
+    _channel: *const c_char,
+    out_file: *mut *mut RedexFileHandle,
+) -> c_int {
+    if !out_file.is_null() {
+        unsafe { *out_file = ptr::null_mut() };
+    }
+    NET_ERR_FEATURE_NOT_BUILT
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_greedy_prometheus_text(
+    _redex: *const RedexHandle,
+) -> *mut c_char {
+    std::ptr::null_mut()
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_enable_gravity_for_greedy(
+    _redex: *mut RedexHandle,
+    mesh_arc: *mut Arc<crate::adapter::net::MeshNode>,
+    _config_json: *const c_char,
+) -> c_int {
+    if !mesh_arc.is_null() {
+        unsafe { drop(Box::from_raw(mesh_arc)) };
+    }
+    NET_ERR_FEATURE_NOT_BUILT
+}
+
+#[cfg(not(feature = "dataforts"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_disable_gravity_for_greedy(_redex: *mut RedexHandle) -> c_int {
+    NET_ERR_FEATURE_NOT_BUILT
+}
+
+// =========================================================================
+// RedexFile
+// =========================================================================
+
+#[derive(Deserialize, Default)]
+struct RedexFileConfigJson {
+    #[serde(default)]
+    persistent: bool,
+    fsync_every_n: Option<u64>,
+    fsync_interval_ms: Option<u64>,
+    retention_max_events: Option<u64>,
+    retention_max_bytes: Option<u64>,
+    retention_max_age_ms: Option<u64>,
+    /// Cross-node replication opt-in. `None` (default) keeps the
+    /// channel single-node; `Some(cfg)` opts into replication and
+    /// requires `net_redex_enable_replication` to have been called
+    /// first — otherwise `net_redex_open_file` returns
+    /// `NET_ERR_REDEX` with the typed error from
+    /// `Redex::open_file`.
+    replication: Option<RedexReplicationConfigJson>,
+}
+
+/// Replication-config JSON shape. Mirrors `ReplicationConfig` from
+/// the core. All fields are optional — omitted ones fall back to
+/// the core's defaults (`factor=3`, `heartbeat_ms=500`,
+/// `placement=Standard`, `on_under_capacity=Withdraw`,
+/// `replication_budget_fraction=0.5`).
+///
+/// `placement` rides as a tagged enum so the Go side serializes a
+/// flat JSON object rather than choosing between a nested form and
+/// an enum string per-strategy. `on_under_capacity` is a flat
+/// string.
+#[derive(Deserialize, Default)]
+struct RedexReplicationConfigJson {
+    factor: Option<u8>,
+    heartbeat_ms: Option<u64>,
+    /// `"standard"` (default), `"pinned"`, `"colocation_strict"`.
+    /// With `"pinned"`, `pinned_nodes` is required.
+    placement: Option<String>,
+    pinned_nodes: Option<Vec<u64>>,
+    leader_pinned: Option<u64>,
+    /// `"withdraw"` (default), `"evict_oldest"`.
+    on_under_capacity: Option<String>,
+    replication_budget_fraction: Option<f32>,
+    /// Placement hints for `"standard"` / `"colocation_strict"`:
+    /// `colocate-with`, `colocate-with-strict` (required by
+    /// `"colocation_strict"`; a chain's 16-hex origin hash), `intent`.
+    placement_metadata: Option<std::collections::BTreeMap<String, String>>,
+}
+
+impl RedexReplicationConfigJson {
+    fn into_config(self) -> Result<crate::adapter::net::redex::ReplicationConfig, &'static str> {
+        use crate::adapter::net::redex::{PlacementStrategy, ReplicationConfig, UnderCapacity};
+        let mut cfg = ReplicationConfig::new();
+        if let Some(f) = self.factor {
+            cfg = cfg.with_factor(f);
+        }
+        if let Some(hb) = self.heartbeat_ms {
+            cfg = cfg.with_heartbeat_ms(hb);
+        }
+        let placement = match self.placement.as_deref() {
+            None | Some("standard") => PlacementStrategy::Standard,
+            Some("colocation_strict") | Some("colocation-strict") => {
+                PlacementStrategy::ColocationStrict
+            }
+            Some("pinned") => {
+                let nodes = self
+                    .pinned_nodes
+                    .ok_or("pinned placement requires pinned_nodes")?;
+                if nodes.is_empty() {
+                    return Err("pinned placement requires non-empty pinned_nodes");
+                }
+                PlacementStrategy::Pinned(nodes)
+            }
+            Some(_) => return Err("unknown placement strategy"),
+        };
+        cfg = cfg.with_placement(placement);
+        if let Some(leader) = self.leader_pinned {
+            cfg = cfg.with_leader_pinned(Some(leader));
+        }
+        let policy = match self.on_under_capacity.as_deref() {
+            None | Some("withdraw") => UnderCapacity::Withdraw,
+            Some("evict_oldest") | Some("evict-oldest") => UnderCapacity::EvictOldest,
+            Some(_) => return Err("unknown on_under_capacity policy"),
+        };
+        cfg = cfg.with_on_under_capacity(policy);
+        if let Some(fr) = self.replication_budget_fraction {
+            cfg = cfg.with_replication_budget_fraction(fr);
+        }
+        for (key, value) in self.placement_metadata.unwrap_or_default() {
+            cfg = cfg.with_placement_metadata(key, value);
+        }
+        cfg.validate().map_err(|_| "replication config invalid")?;
+        Ok(cfg)
+    }
+}
+
+/// FFI handle wrapping a [`InnerRedexFile`].
+///
+/// Carries a [`HandleGuard`] to close the audit-#23 use-after-free:
+/// pre-fix `net_redex_file_free` was an unconditional
+/// `Box::from_raw`, so a Go cgo / Python-thread caller racing
+/// `net_redex_file_append` against `_free` would have its
+/// concurrent `&*handle` deref read freed memory.
+///
+/// `inner` lives in [`ManuallyDrop`] so `_free` can take it out
+/// after quiescing in-flight ops; the outer `Box` is intentionally
+/// leaked (the handle box must outlive `try_enter`'s `fetch_add`
+/// — see [`super::handle_guard`] for the full soundness story).
+pub struct RedexFileHandle {
+    inner: ManuallyDrop<Arc<InnerRedexFile>>,
+    guard: HandleGuard,
+}
+
+/// Open (or get) a RedEX file for raw append / tail / read-range.
+/// `config_json` may be NULL for defaults. Writes the file handle to
+/// `*out_handle` on success. Caller frees with `net_redex_file_free`.
+#[unsafe(no_mangle)]
+// Field-by-field reassignment after `default()` is clearer here than
+// a struct literal because several fields need conditional logic
+// (fsync policy validation) that inlines awkwardly.
+#[allow(clippy::field_reassign_with_default)]
+pub unsafe extern "C" fn net_redex_open_file(
+    redex: *mut RedexHandle,
+    name: *const c_char,
+    config_json: *const c_char,
+    out_handle: *mut *mut RedexFileHandle,
+) -> c_int {
+    if redex.is_null() || name.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // Pre-zero the out-pointer so a cgo / C consumer reading the
+    // slot after a non-zero return sees null rather than stale stack
+    // data. The success path overwrites this with the boxed handle.
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+    }
+    let redex = unsafe { &*redex };
+    let _op = match redex.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(name_str) = (unsafe { c_str_to_owned(name) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Ok(channel) = ChannelName::new(&name_str) else {
+        return NET_ERR_REDEX;
+    };
+    let cfg_json: RedexFileConfigJson = if config_json.is_null() {
+        RedexFileConfigJson::default()
+    } else {
+        let Some(s) = (unsafe { c_str_to_owned(config_json) }) else {
+            return NetError::InvalidUtf8.into();
+        };
+        match serde_json::from_str(&s) {
+            Ok(v) => v,
+            Err(_) => return NetError::InvalidJson.into(),
+        }
+    };
+    let mut cfg = RedexFileConfig::default();
+    cfg.persistent = cfg_json.persistent;
+    match (cfg_json.fsync_every_n, cfg_json.fsync_interval_ms) {
+        (Some(_), Some(_)) | (Some(0), _) | (_, Some(0)) => return NET_ERR_REDEX,
+        (Some(n), None) => cfg.fsync_policy = FsyncPolicy::EveryN(n),
+        (None, Some(ms)) => {
+            cfg.fsync_policy = FsyncPolicy::Interval(std::time::Duration::from_millis(ms))
+        }
+        _ => {}
+    }
+    // Reject `Some(0)` for every retention dimension at the same
+    // gate that rejects fsync zeros above. Setting
+    // `retention_max_events = 0` (or _bytes / _age_ms) means
+    // "evict everything immediately on first append" — almost
+    // certainly a config mistake intended as "no limit", which in
+    // every JSON schema this crate accepts is expressed as `null`
+    // / omission. Pre-fix `Some(0)` was propagated unchecked,
+    // turning a config typo into silent total data loss on every
+    // write.
+    if matches!(cfg_json.retention_max_events, Some(0))
+        || matches!(cfg_json.retention_max_bytes, Some(0))
+        || matches!(cfg_json.retention_max_age_ms, Some(0))
+    {
+        return NET_ERR_REDEX;
+    }
+    cfg.retention_max_events = cfg_json.retention_max_events;
+    cfg.retention_max_bytes = cfg_json.retention_max_bytes;
+    if let Some(ms) = cfg_json.retention_max_age_ms {
+        cfg.retention_max_age_ns = Some(ms.saturating_mul(1_000_000));
+    }
+    if let Some(rep_json) = cfg_json.replication {
+        match rep_json.into_config() {
+            Ok(rep) => cfg.replication = Some(rep),
+            Err(_) => return NET_ERR_REDEX,
+        }
+    }
+    // A replicated channel spawns its replication runtime here; a C /
+    // cgo caller's thread has no tokio reactor, and the spawn panicked
+    // across the FFI boundary. Enter the FFI runtime.
+    let _rt = runtime().enter();
+    match redex.inner.open_file(&channel, cfg) {
+        Ok(file) => {
+            let handle = Box::new(RedexFileHandle {
+                inner: ManuallyDrop::new(Arc::new(file)),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_free(handle: *mut RedexFileHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping the inner.
+    // The outer Box is intentionally leaked — see
+    // `super::handle_guard` for the soundness story (concurrent
+    // ops doing `try_enter`'s `fetch_add` on a deallocated atomic
+    // would UAF).
+    //
+    // SAFETY: `handle` is non-null per the early return above; the
+    // caller's contract pins it to a previously-returned
+    // `*mut RedexFileHandle`. The guard reference outlives this
+    // function (the box stays leaked).
+    let h: &RedexFileHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // No in-flight ops; future try_enter calls bail. Safe to
+        // take the inner Arc and drop it (which drops InnerRedexFile
+        // when no other Arc clones exist).
+        // SAFETY: we hold the unique writable reference at this
+        // point — `freeing=true` blocks all new ops, and active_ops
+        // has drained to zero. Take goes through a `*mut` because
+        // `&` doesn't permit `ManuallyDrop::take` (consumes by
+        // ownership).
+        unsafe {
+            let inner = ManuallyDrop::take(&mut (*handle).inner);
+            drop(inner);
+        }
+    } else {
+        // Timeout: in-flight ops still running past the deadline.
+        // Leak the inner along with the box rather than risk a UAF.
+        // The bus-level `tracing` infra surfaces the wedge for
+        // operators; here we degrade silently rather than panic
+        // across `extern "C"`.
+        tracing::warn!(
+            "net_redex_file_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// Append one payload. Writes the assigned seq to `*out_seq`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_append(
+    handle: *mut RedexFileHandle,
+    payload: *const u8,
+    len: usize,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || payload.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let file = unsafe { &*handle };
+    // Refuse to touch `inner` if `_free` has begun. Without this
+    // gate, a Go cgo / Python-thread caller racing `_free`
+    // against this function reads freed memory after `_free`
+    // drops the inner.
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    // `slice::from_raw_parts` requires `len <= isize::MAX`. A caller
+    // passing a sign-extended `-1` would immediately UB otherwise.
+    if len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(payload, len) };
+    match file.inner.append(slice) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+#[derive(Serialize)]
+struct RedexEventJson {
+    seq: u64,
+    /// Hex-encoded payload so JSON transport is safe for binary data.
+    payload_hex: String,
+    checksum: u32,
+    is_inline: bool,
+}
+
+impl From<RedexEvent> for RedexEventJson {
+    fn from(ev: RedexEvent) -> Self {
+        RedexEventJson {
+            seq: ev.entry.seq,
+            payload_hex: hex_encode(&ev.payload),
+            checksum: ev.entry.checksum(),
+            is_inline: ev.entry.is_inline(),
+        }
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push(HEX[(b >> 4) as usize] as char);
+        s.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    s
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_len(handle: *mut RedexFileHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    let file = unsafe { &*handle };
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        // 0 is a valid `len`; can't distinguish from "freed" via the
+        // return value alone. Caller racing free against `_len`
+        // already accepts the post-free 0 result; this path makes
+        // the read sound (no UAF on `inner`).
+        None => return 0,
+    };
+    file.inner.len() as u64
+}
+
+/// Read the half-open range `[start, end)` into a JSON array.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_read_range(
+    handle: *mut RedexFileHandle,
+    start: u64,
+    end: u64,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let file = unsafe { &*handle };
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let events: Vec<RedexEventJson> = file
+        .inner
+        .read_range(start, end)
+        .into_iter()
+        .map(RedexEventJson::from)
+        .collect();
+    write_json_out(&events, out_json, out_len)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_sync(handle: *mut RedexFileHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let file = unsafe { &*handle };
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match file.inner.sync() {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_close(handle: *mut RedexFileHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let file = unsafe { &*handle };
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match file.inner.close() {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_REDEX,
+    }
+}
+
+// RedEX tail cursor
+
+/// Type alias to keep the [`RedexTailHandle`] field type from
+/// tripping clippy's `type_complexity` lint without `#[allow]`.
+type RedexTailStream = ManuallyDrop<
+    TokioMutex<Option<BoxStream<'static, std::result::Result<RedexEvent, RedexError>>>>,
+>;
+
+/// FFI handle for a tail cursor over a [`RedexFileHandle`].
+///
+/// Same `HandleGuard` recipe applies. The inner is a
+/// `TokioMutex<Option<BoxStream<...>>>`; on free we drain
+/// in-flight `next` calls before taking the inner via
+/// `ManuallyDrop`. Box stays leaked.
+pub struct RedexTailHandle {
+    stream: RedexTailStream,
+    guard: HandleGuard,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_file_tail(
+    handle: *mut RedexFileHandle,
+    from_seq: u64,
+    out_cursor: *mut *mut RedexTailHandle,
+) -> c_int {
+    if handle.is_null() || out_cursor.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // Pre-zero the out-pointer so a non-zero return leaves the
+    // caller with a null cursor rather than stale stack data.
+    unsafe {
+        *out_cursor = std::ptr::null_mut();
+    }
+    let file = unsafe { &*handle };
+    let _op = match file.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let stream = file.inner.tail(from_seq);
+    let boxed: BoxStream<'static, std::result::Result<RedexEvent, RedexError>> = stream.boxed();
+    let cursor = Box::new(RedexTailHandle {
+        stream: ManuallyDrop::new(TokioMutex::new(Some(boxed))),
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_cursor = Box::into_raw(cursor);
+    }
+    0
+}
+
+/// Pull the next tail event. `timeout_ms == 0` blocks indefinitely.
+/// Returns:
+/// * `0`  — event delivered; JSON written to `*out_json` (caller frees
+///   via `net_free_string`).
+/// * `1`  — timeout (no event available within `timeout_ms`).
+/// * `2`  — stream ended (file closed or dropped).
+/// * negative — error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_tail_next(
+    cursor: *mut RedexTailHandle,
+    timeout_ms: u32,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if cursor.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // Pre-zero out params so timeout / stream-end / error
+    // returns leave the caller with `(null, 0)` rather than
+    // stale stack data. The doc-comment establishes this
+    // contract ("non-zero return ⇒ no JSON written"), but pre-
+    // fix the function returned NET_ERR_TIMEOUT and
+    // NET_ERR_STREAM_ENDED without touching the out params.
+    zero_out_json(out_json, out_len);
+    let cursor = unsafe { &*cursor };
+    let _op = match cursor.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    block_on(async move {
+        let mut guard = cursor.stream.lock().await;
+        let Some(stream) = guard.as_mut() else {
+            return NET_ERR_STREAM_ENDED;
+        };
+        let next_fut = stream.next();
+        let outcome = if timeout_ms == 0 {
+            next_fut.await
+        } else {
+            match tokio::time::timeout(
+                std::time::Duration::from_millis(timeout_ms as u64),
+                next_fut,
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(_) => return NET_ERR_TIMEOUT,
+            }
+        };
+        match outcome {
+            Some(Ok(ev)) => {
+                // Drop the cursor guard BEFORE the JSON
+                // serialization so concurrent callers on the
+                // same cursor don't stall waiting for our
+                // write_json_out to finish. Pre-fix the
+                // serialization ran inside the TokioMutex
+                // critical section, so a fast event arrival on
+                // a shared cursor under contention serialized
+                // calls behind whichever caller was building
+                // the JSON. The event is owned at this point;
+                // the mutex was only protecting the stream
+                // poll, not the event itself.
+                drop(guard);
+                let js = RedexEventJson::from(ev);
+                write_json_out(&js, out_json, out_len)
+            }
+            Some(Err(RedexError::Closed)) | None => {
+                *guard = None;
+                NET_ERR_STREAM_ENDED
+            }
+            Some(Err(_)) => {
+                *guard = None;
+                NET_ERR_REDEX
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_redex_tail_free(cursor: *mut RedexTailHandle) {
+    if cursor.is_null() {
+        return;
+    }
+    // Quiesce in-flight `_next` ops before dropping the inner
+    // stream. Box stays leaked.
+    let h: &RedexTailHandle = unsafe { &*cursor };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let stream = ManuallyDrop::take(&mut (*cursor).stream);
+            drop(stream);
+        }
+    } else {
+        tracing::warn!(
+            "net_redex_tail_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+// =========================================================================
+// Tasks adapter — standalone open. Go-side `NetDb` struct composes
+// Redex + Tasks + Memories without a dedicated FFI handle.
+// =========================================================================
+
+/// FFI handle wrapping an [`InnerTasksAdapter`].
+///
+/// Same `HandleGuard` recipe as `RedexHandle` / `RedexFileHandle`.
+/// Box leaked on free; inner Arc lives in `ManuallyDrop` for
+/// take-and-drop after drain.
+pub struct TasksAdapterHandle {
+    inner: ManuallyDrop<Arc<InnerTasksAdapter>>,
+    guard: HandleGuard,
+}
+
+/// Open a tasks adapter against a Redex. `persistent != 0` routes
+/// writes through the Redex's persistent directory (requires the
+/// Redex to have been created with a `persistent_dir`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_adapter_open(
+    redex: *mut RedexHandle,
+    origin_hash: u64,
+    persistent: c_int,
+    out_handle: *mut *mut TasksAdapterHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let redex = unsafe { &*redex };
+    let _op = match redex.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg = if persistent != 0 {
+        RedexFileConfig::default().with_persistent(true)
+    } else {
+        RedexFileConfig::default()
+    };
+    // `open_with_config` spawns the fold task via `tokio::spawn` and
+    // needs a live reactor; run under our runtime.
+    let redex_inner: Arc<InnerRedex> = Arc::clone(&redex.inner);
+    let result = block_on(async move {
+        InnerTasksAdapter::open_with_config(&redex_inner, origin_hash, cfg).await
+    });
+    match result {
+        Ok(adapter) => {
+            let handle = Box::new(TasksAdapterHandle {
+                inner: ManuallyDrop::new(Arc::new(adapter)),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Canonical hash of this adapter's channel, written to `*out_hash`: the
+/// `channel_hash` half of every token the adapter issues, and what
+/// [`net_tasks_wait_for_token`] requires. Returns `0`, `-1` for a NULL
+/// argument (nothing written), or the shutting-down code.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_channel_hash(
+    handle: *mut TasksAdapterHandle,
+    out_hash: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_hash.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    unsafe { *out_hash = tasks.inner.channel_hash() };
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_adapter_close(handle: *mut TasksAdapterHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match tasks.inner.close() {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_CORTEX_CLOSED,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_adapter_free(handle: *mut TasksAdapterHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping inner; box leaked.
+    let h: &TasksAdapterHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let inner = ManuallyDrop::take(&mut (*handle).inner);
+            drop(inner);
+        }
+    } else {
+        tracing::warn!(
+            "net_tasks_adapter_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+#[derive(Serialize)]
+struct TaskJson {
+    id: u64,
+    title: String,
+    status: &'static str,
+    created_ns: u64,
+    updated_ns: u64,
+}
+
+impl From<Task> for TaskJson {
+    fn from(t: Task) -> Self {
+        TaskJson {
+            id: t.id,
+            title: t.title,
+            status: match t.status {
+                TaskStatus::Pending => "pending",
+                TaskStatus::Completed => "completed",
+            },
+            created_ns: t.created_ns,
+            updated_ns: t.updated_ns,
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_create(
+    handle: *mut TasksAdapterHandle,
+    id: u64,
+    title: *const c_char,
+    now_ns: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || title.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(title) = (unsafe { c_str_to_owned(title) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    match tasks.inner.create(id, title, now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_rename(
+    handle: *mut TasksAdapterHandle,
+    id: u64,
+    new_title: *const c_char,
+    now_ns: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || new_title.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(nt) = (unsafe { c_str_to_owned(new_title) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    match tasks.inner.rename(id, nt, now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_complete(
+    handle: *mut TasksAdapterHandle,
+    id: u64,
+    now_ns: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match tasks.inner.complete(id, now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_delete(
+    handle: *mut TasksAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match tasks.inner.delete(id) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Block until fold has applied every event up through `seq`. Pass
+/// `timeout_ms == 0` to wait indefinitely. Returns `0` on success,
+/// `1` on timeout, `NET_ERR_FOLD_STOPPED` (`-106`) if the fold task
+/// stopped before reaching `seq`, or negative on other errors.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_wait_for_seq(
+    handle: *mut TasksAdapterHandle,
+    seq: u64,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let adapter: Arc<InnerTasksAdapter> = Arc::clone(&tasks.inner);
+    block_on(async move {
+        let fut = adapter.wait_for_seq(seq);
+        if timeout_ms == 0 {
+            match fut.await {
+                Ok(()) => 0,
+                Err(_) => NET_ERR_FOLD_STOPPED,
+            }
+        } else {
+            match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms as u64), fut)
+                .await
+            {
+                Ok(Ok(())) => 0,
+                Ok(Err(_)) => NET_ERR_FOLD_STOPPED,
+                Err(_) => NET_ERR_TIMEOUT,
+            }
+        }
+    })
+}
+
+/// Read-your-writes wait on the token `(origin_hash, channel_hash, seq)`.
+/// Returns `0` on success, `NET_ERR_TIMEOUT` (`1`) on deadline,
+/// `NET_ERR_WRONG_ORIGIN` (`-104`) if the token's origin does not match
+/// this adapter, `NET_ERR_WRONG_CHANNEL` (`-160`) if it was issued for
+/// another channel (see [`net_tasks_channel_hash`]), or
+/// `NET_ERR_QUEUE_FULL` (`-105`) if the per-channel wait queue is
+/// saturated.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_wait_for_token(
+    handle: *mut TasksAdapterHandle,
+    origin_hash: u64,
+    channel_hash: u64,
+    seq: u64,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let adapter: Arc<InnerTasksAdapter> = Arc::clone(&tasks.inner);
+    let token = InnerWriteToken::new(origin_hash, channel_hash, seq);
+    // timeout_ms == 0 means "poll, don't wait": check the applied
+    // watermark and origin without scheduling a Notified future.
+    // Callers who want a minimum wait must pass at least 1.
+    if timeout_ms == 0 {
+        return tasks_poll_for_token(&adapter, token);
+    }
+    let deadline = std::time::Duration::from_millis(timeout_ms as u64);
+    // catch_unwind so a panic from the wait future cannot unwind
+    // across the FFI into the C / cgo / Python caller.
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        block_on(async move {
+            match adapter.wait_for_token(token, deadline).await {
+                Ok(()) => 0,
+                Err(InnerWaitForTokenError::Timeout) => NET_ERR_TIMEOUT,
+                Err(InnerWaitForTokenError::WrongOrigin { .. }) => NET_ERR_WRONG_ORIGIN,
+                Err(InnerWaitForTokenError::WrongChannel { .. }) => NET_ERR_WRONG_CHANNEL,
+                Err(InnerWaitForTokenError::QueueFull) => NET_ERR_QUEUE_FULL,
+                Err(InnerWaitForTokenError::FoldStopped { .. }) => NET_ERR_FOLD_STOPPED,
+            }
+        })
+    }));
+    result.unwrap_or(NET_ERR_PANIC)
+}
+
+#[derive(Deserialize, Default)]
+struct TasksFilterJson {
+    status: Option<String>,
+    title_contains: Option<String>,
+    created_after_ns: Option<u64>,
+    created_before_ns: Option<u64>,
+    updated_after_ns: Option<u64>,
+    updated_before_ns: Option<u64>,
+    order_by: Option<String>,
+    limit: Option<u32>,
+}
+
+fn build_tasks_watcher(
+    adapter: &InnerTasksAdapter,
+    filter_json: *const c_char,
+) -> Result<TasksWatcher, c_int> {
+    let mut w = adapter.watch();
+    if filter_json.is_null() {
+        return Ok(w);
+    }
+    let Some(s) = (unsafe { c_str_to_owned(filter_json) }) else {
+        return Err(NetError::InvalidUtf8.into());
+    };
+    let f: TasksFilterJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return Err(NetError::InvalidJson.into()),
+    };
+    w = match f.status.as_deref() {
+        Some("pending") => w.where_status(TaskStatus::Pending),
+        Some("completed") => w.where_status(TaskStatus::Completed),
+        Some(_) => return Err(NetError::InvalidJson.into()),
+        None => w,
+    };
+    if let Some(s) = f.title_contains {
+        w = w.title_contains(s);
+    }
+    if let Some(ns) = f.created_after_ns {
+        w = w.created_after(ns);
+    }
+    if let Some(ns) = f.created_before_ns {
+        w = w.created_before(ns);
+    }
+    if let Some(ns) = f.updated_after_ns {
+        w = w.updated_after(ns);
+    }
+    if let Some(ns) = f.updated_before_ns {
+        w = w.updated_before(ns);
+    }
+    if let Some(o) = f.order_by.as_deref() {
+        w = match o {
+            "id_asc" => w.order_by(TasksOrderBy::IdAsc),
+            "id_desc" => w.order_by(TasksOrderBy::IdDesc),
+            "created_asc" => w.order_by(TasksOrderBy::CreatedAsc),
+            "created_desc" => w.order_by(TasksOrderBy::CreatedDesc),
+            "updated_asc" => w.order_by(TasksOrderBy::UpdatedAsc),
+            "updated_desc" => w.order_by(TasksOrderBy::UpdatedDesc),
+            _ => return Err(NetError::InvalidJson.into()),
+        };
+    }
+    if let Some(l) = f.limit {
+        w = w.limit(l as usize);
+    }
+    Ok(w)
+}
+
+/// Apply JSON filter to a query-side filter (used by `list_tasks`).
+#[allow(clippy::field_reassign_with_default)]
+fn build_tasks_list_filter(filter_json: *const c_char) -> Result<TasksFilter, c_int> {
+    if filter_json.is_null() {
+        return Ok(TasksFilter::default());
+    }
+    let Some(s) = (unsafe { c_str_to_owned(filter_json) }) else {
+        return Err(NetError::InvalidUtf8.into());
+    };
+    let f: TasksFilterJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return Err(NetError::InvalidJson.into()),
+    };
+    let mut out = TasksFilter::default();
+    out.status = match f.status.as_deref() {
+        Some("pending") => Some(TaskStatus::Pending),
+        Some("completed") => Some(TaskStatus::Completed),
+        Some(_) => return Err(NetError::InvalidJson.into()),
+        None => None,
+    };
+    out.title_contains = f.title_contains;
+    out.created_after_ns = f.created_after_ns;
+    out.created_before_ns = f.created_before_ns;
+    out.updated_after_ns = f.updated_after_ns;
+    out.updated_before_ns = f.updated_before_ns;
+    out.order_by = match f.order_by.as_deref() {
+        None => None,
+        Some("id_asc") => Some(TasksOrderBy::IdAsc),
+        Some("id_desc") => Some(TasksOrderBy::IdDesc),
+        Some("created_asc") => Some(TasksOrderBy::CreatedAsc),
+        Some("created_desc") => Some(TasksOrderBy::CreatedDesc),
+        Some("updated_asc") => Some(TasksOrderBy::UpdatedAsc),
+        Some("updated_desc") => Some(TasksOrderBy::UpdatedDesc),
+        // Reject unknown order_by instead of silently falling back —
+        // a misspelling ("createdasc") would otherwise return a
+        // successful but misordered result.
+        Some(_) => return Err(NetError::InvalidJson.into()),
+    };
+    out.limit = f.limit.map(|l| l as usize);
+    Ok(out)
+}
+
+fn run_tasks_list(tasks: &InnerTasksAdapter, filter: &TasksFilter) -> Vec<Task> {
+    let state = tasks.state();
+    let guard = state.read();
+    let mut q = guard.query();
+    if let Some(s) = filter.status {
+        q = q.where_status(s);
+    }
+    if let Some(s) = &filter.title_contains {
+        q = q.title_contains(s.clone());
+    }
+    if let Some(ns) = filter.created_after_ns {
+        q = q.created_after(ns);
+    }
+    if let Some(ns) = filter.created_before_ns {
+        q = q.created_before(ns);
+    }
+    if let Some(ns) = filter.updated_after_ns {
+        q = q.updated_after(ns);
+    }
+    if let Some(ns) = filter.updated_before_ns {
+        q = q.updated_before(ns);
+    }
+    if let Some(o) = filter.order_by {
+        q = q.order_by(o);
+    }
+    if let Some(l) = filter.limit {
+        q = q.limit(l);
+    }
+    q.collect()
+}
+
+/// List tasks matching `filter_json` (may be NULL). Writes a JSON
+/// array of tasks to `*out_json`; caller frees via `net_free_string`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_list(
+    handle: *mut TasksAdapterHandle,
+    filter_json: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // Pre-zero so a filter-build error return leaves the out
+    // params at (null, 0) rather than stale stack data — matches
+    // the contract documented on `write_json_out`.
+    zero_out_json(out_json, out_len);
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let filter = match build_tasks_list_filter(filter_json) {
+        Ok(f) => f,
+        Err(code) => return code,
+    };
+    let items: Vec<TaskJson> = run_tasks_list(&tasks.inner, &filter)
+        .into_iter()
+        .map(TaskJson::from)
+        .collect();
+    write_json_out(&items, out_json, out_len)
+}
+
+/// FFI handle for a tasks-watch cursor.
+///
+/// Same `HandleGuard` recipe. Box leaked on free; inner stream
+/// lives in `ManuallyDrop`.
+pub struct TasksWatchHandle {
+    stream: ManuallyDrop<TokioMutex<Option<BoxStream<'static, Vec<Task>>>>>,
+    guard: HandleGuard,
+}
+
+/// Atomic snapshot + watch. Writes:
+/// * `*out_snapshot` — JSON array of tasks in the current filter result.
+/// * `*out_cursor` — watch cursor; iterate via `net_tasks_watch_next`
+///   and free via `net_tasks_watch_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_snapshot_and_watch(
+    handle: *mut TasksAdapterHandle,
+    filter_json: *const c_char,
+    out_snapshot: *mut *mut c_char,
+    out_snapshot_len: *mut usize,
+    out_cursor: *mut *mut TasksWatchHandle,
+) -> c_int {
+    if handle.is_null()
+        || out_snapshot.is_null()
+        || out_snapshot_len.is_null()
+        || out_cursor.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    // #11: pre-zero the snapshot out-params so every error return
+    // below leaves (null, 0) per the documented out-param contract.
+    zero_out_json(out_snapshot, out_snapshot_len);
+    let tasks = unsafe { &*handle };
+    let _op = match tasks.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let watcher = match build_tasks_watcher(&tasks.inner, filter_json) {
+        Ok(w) => w,
+        Err(code) => return code,
+    };
+    // `watcher.stream()` spawns a forwarding task — needs a live
+    // reactor.
+    let adapter: Arc<InnerTasksAdapter> = Arc::clone(&tasks.inner);
+    let (snapshot, stream) = block_on(async move { adapter.snapshot_and_watch(watcher) });
+    let snapshot_json: Vec<TaskJson> = snapshot.into_iter().map(TaskJson::from).collect();
+    let code = write_json_out(&snapshot_json, out_snapshot, out_snapshot_len);
+    if code != 0 {
+        return code;
+    }
+    let handle = Box::new(TasksWatchHandle {
+        stream: ManuallyDrop::new(TokioMutex::new(Some(stream))),
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_cursor = Box::into_raw(handle);
+    }
+    0
+}
+
+/// Pull the next tasks-watch batch. Semantics match
+/// [`net_redex_tail_next`] — `0` on event (JSON array written),
+/// `1` on timeout, `2` on stream end, negative on error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_watch_next(
+    cursor: *mut TasksWatchHandle,
+    timeout_ms: u32,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if cursor.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // #11: pre-zero so every error return below (ShuttingDown,
+    // stream-ended, NET_ERR_TIMEOUT) leaves (null, 0) rather than
+    // stale stack data — matching the documented out-param contract.
+    zero_out_json(out_json, out_len);
+    let cursor = unsafe { &*cursor };
+    let _op = match cursor.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    block_on(async move {
+        let mut guard = cursor.stream.lock().await;
+        let Some(stream) = guard.as_mut() else {
+            return NET_ERR_STREAM_ENDED;
+        };
+        let next_fut = stream.next();
+        let outcome = if timeout_ms == 0 {
+            next_fut.await
+        } else {
+            match tokio::time::timeout(
+                std::time::Duration::from_millis(timeout_ms as u64),
+                next_fut,
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(_) => return NET_ERR_TIMEOUT,
+            }
+        };
+        match outcome {
+            Some(batch) => {
+                let js: Vec<TaskJson> = batch.into_iter().map(TaskJson::from).collect();
+                write_json_out(&js, out_json, out_len)
+            }
+            None => {
+                *guard = None;
+                NET_ERR_STREAM_ENDED
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_tasks_watch_free(cursor: *mut TasksWatchHandle) {
+    if cursor.is_null() {
+        return;
+    }
+    let h: &TasksWatchHandle = unsafe { &*cursor };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        unsafe {
+            let stream = ManuallyDrop::take(&mut (*cursor).stream);
+            drop(stream);
+        }
+    } else {
+        tracing::warn!(
+            "net_tasks_watch_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+// =========================================================================
+// Memories adapter (same shape as tasks)
+// =========================================================================
+
+/// FFI handle wrapping an [`InnerMemoriesAdapter`].
+///
+/// Same `HandleGuard` recipe as the other cortex handles. Box
+/// leaked on free; inner Arc lives in `ManuallyDrop` for
+/// take-and-drop after drain.
+pub struct MemoriesAdapterHandle {
+    inner: ManuallyDrop<Arc<InnerMemoriesAdapter>>,
+    guard: HandleGuard,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_adapter_open(
+    redex: *mut RedexHandle,
+    origin_hash: u64,
+    persistent: c_int,
+    out_handle: *mut *mut MemoriesAdapterHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let redex = unsafe { &*redex };
+    let _op = match redex.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg = if persistent != 0 {
+        RedexFileConfig::default().with_persistent(true)
+    } else {
+        RedexFileConfig::default()
+    };
+    let redex_inner: Arc<InnerRedex> = Arc::clone(&redex.inner);
+    let result = block_on(async move {
+        InnerMemoriesAdapter::open_with_config(&redex_inner, origin_hash, cfg).await
+    });
+    match result {
+        Ok(adapter) => {
+            let handle = Box::new(MemoriesAdapterHandle {
+                inner: ManuallyDrop::new(Arc::new(adapter)),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Canonical hash of this adapter's channel, written to `*out_hash`: the
+/// `channel_hash` half of every token the adapter issues, and what
+/// [`net_memories_wait_for_token`] requires. Returns `0`, `-1` for a NULL
+/// argument (nothing written), or the shutting-down code.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_channel_hash(
+    handle: *mut MemoriesAdapterHandle,
+    out_hash: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_hash.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    unsafe { *out_hash = mem.inner.channel_hash() };
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_adapter_close(handle: *mut MemoriesAdapterHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match mem.inner.close() {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_CORTEX_CLOSED,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_adapter_free(handle: *mut MemoriesAdapterHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping inner; box leaked.
+    let h: &MemoriesAdapterHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let inner = ManuallyDrop::take(&mut (*handle).inner);
+            drop(inner);
+        }
+    } else {
+        tracing::warn!(
+            "net_memories_adapter_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+#[derive(Serialize)]
+struct MemoryJson {
+    id: u64,
+    content: String,
+    tags: Vec<String>,
+    source: String,
+    created_ns: u64,
+    updated_ns: u64,
+    pinned: bool,
+}
+
+impl From<Memory> for MemoryJson {
+    fn from(m: Memory) -> Self {
+        MemoryJson {
+            id: m.id,
+            content: m.content,
+            tags: m.tags,
+            source: m.source,
+            created_ns: m.created_ns,
+            updated_ns: m.updated_ns,
+            pinned: m.pinned,
+        }
+    }
+}
+
+impl From<std::sync::Arc<Memory>> for MemoryJson {
+    fn from(m: std::sync::Arc<Memory>) -> Self {
+        // FFI boundary: the C side requires owned String / Vec
+        // bytes, so we have to materialize an owned `Memory`
+        // here. `Arc::try_unwrap` succeeds when refcount is 1
+        // (the common case after a query terminates and we own
+        // the only handle) and avoids the deep clone; on a
+        // shared Arc (rare) we fall back to `(*m).clone()` which
+        // pays the legacy cost. Either way, the per-result cost
+        // is at most one Memory clone — same as pre-perf-#96.
+        let owned = std::sync::Arc::try_unwrap(m).unwrap_or_else(|arc| (*arc).clone());
+        owned.into()
+    }
+}
+
+#[derive(Deserialize)]
+struct MemoryStoreInput {
+    id: u64,
+    content: String,
+    tags: Vec<String>,
+    source: String,
+    now_ns: u64,
+}
+
+/// Store a memory. Input is a JSON object
+/// `{id, content, tags, source, now_ns}`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_store(
+    handle: *mut MemoriesAdapterHandle,
+    input_json: *const c_char,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || input_json.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_owned(input_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let input: MemoryStoreInput = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    match mem.inner.store(
+        input.id,
+        input.content,
+        input.tags,
+        input.source,
+        input.now_ns,
+    ) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[derive(Deserialize)]
+struct MemoryRetagInput {
+    id: u64,
+    tags: Vec<String>,
+    now_ns: u64,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_retag(
+    handle: *mut MemoriesAdapterHandle,
+    input_json: *const c_char,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || input_json.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_owned(input_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let input: MemoryRetagInput = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    match mem.inner.retag(input.id, input.tags, input.now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_pin(
+    handle: *mut MemoriesAdapterHandle,
+    id: u64,
+    now_ns: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match mem.inner.pin(id, now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_unpin(
+    handle: *mut MemoriesAdapterHandle,
+    id: u64,
+    now_ns: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match mem.inner.unpin(id, now_ns) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_delete(
+    handle: *mut MemoriesAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match mem.inner.delete(id) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_wait_for_seq(
+    handle: *mut MemoriesAdapterHandle,
+    seq: u64,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let adapter: Arc<InnerMemoriesAdapter> = Arc::clone(&mem.inner);
+    block_on(async move {
+        let fut = adapter.wait_for_seq(seq);
+        if timeout_ms == 0 {
+            match fut.await {
+                Ok(()) => 0,
+                Err(_) => NET_ERR_FOLD_STOPPED,
+            }
+        } else {
+            match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms as u64), fut)
+                .await
+            {
+                Ok(Ok(())) => 0,
+                Ok(Err(_)) => NET_ERR_FOLD_STOPPED,
+                Err(_) => NET_ERR_TIMEOUT,
+            }
+        }
+    })
+}
+
+/// Read-your-writes wait. See [`net_tasks_wait_for_token`] for the
+/// return-code contract.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_wait_for_token(
+    handle: *mut MemoriesAdapterHandle,
+    origin_hash: u64,
+    channel_hash: u64,
+    seq: u64,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let adapter: Arc<InnerMemoriesAdapter> = Arc::clone(&mem.inner);
+    let token = InnerWriteToken::new(origin_hash, channel_hash, seq);
+    // timeout_ms == 0 means "poll, don't wait" (mirrors the
+    // contract on net_tasks_wait_for_token).
+    if timeout_ms == 0 {
+        return memories_poll_for_token(&adapter, token);
+    }
+    let deadline = std::time::Duration::from_millis(timeout_ms as u64);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        block_on(async move {
+            match adapter.wait_for_token(token, deadline).await {
+                Ok(()) => 0,
+                Err(InnerWaitForTokenError::Timeout) => NET_ERR_TIMEOUT,
+                Err(InnerWaitForTokenError::WrongOrigin { .. }) => NET_ERR_WRONG_ORIGIN,
+                Err(InnerWaitForTokenError::WrongChannel { .. }) => NET_ERR_WRONG_CHANNEL,
+                Err(InnerWaitForTokenError::QueueFull) => NET_ERR_QUEUE_FULL,
+                Err(InnerWaitForTokenError::FoldStopped { .. }) => NET_ERR_FOLD_STOPPED,
+            }
+        })
+    }));
+    result.unwrap_or(NET_ERR_PANIC)
+}
+
+#[derive(Deserialize, Default)]
+struct MemoriesFilterJson {
+    source: Option<String>,
+    content_contains: Option<String>,
+    tag: Option<String>,
+    any_tag: Option<Vec<String>>,
+    all_tags: Option<Vec<String>>,
+    pinned: Option<bool>,
+    created_after_ns: Option<u64>,
+    created_before_ns: Option<u64>,
+    updated_after_ns: Option<u64>,
+    updated_before_ns: Option<u64>,
+    order_by: Option<String>,
+    limit: Option<u32>,
+}
+
+fn parse_memories_order_by(s: &str) -> Option<MemoriesOrderBy> {
+    match s {
+        "id_asc" => Some(MemoriesOrderBy::IdAsc),
+        "id_desc" => Some(MemoriesOrderBy::IdDesc),
+        "created_asc" => Some(MemoriesOrderBy::CreatedAsc),
+        "created_desc" => Some(MemoriesOrderBy::CreatedDesc),
+        "updated_asc" => Some(MemoriesOrderBy::UpdatedAsc),
+        "updated_desc" => Some(MemoriesOrderBy::UpdatedDesc),
+        _ => None,
+    }
+}
+
+fn build_memories_watcher(
+    adapter: &InnerMemoriesAdapter,
+    filter_json: *const c_char,
+) -> Result<MemoriesWatcher, c_int> {
+    let mut w = adapter.watch();
+    if filter_json.is_null() {
+        return Ok(w);
+    }
+    let Some(s) = (unsafe { c_str_to_owned(filter_json) }) else {
+        return Err(NetError::InvalidUtf8.into());
+    };
+    let f: MemoriesFilterJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return Err(NetError::InvalidJson.into()),
+    };
+    if let Some(s) = f.source {
+        w = w.where_source(s);
+    }
+    if let Some(s) = f.content_contains {
+        w = w.content_contains(s);
+    }
+    if let Some(t) = f.tag {
+        w = w.where_tag(t);
+    }
+    if let Some(tags) = f.any_tag {
+        w = w.where_any_tag(tags);
+    }
+    if let Some(tags) = f.all_tags {
+        w = w.where_all_tags(tags);
+    }
+    if let Some(p) = f.pinned {
+        w = w.where_pinned(p);
+    }
+    if let Some(ns) = f.created_after_ns {
+        w = w.created_after(ns);
+    }
+    if let Some(ns) = f.created_before_ns {
+        w = w.created_before(ns);
+    }
+    if let Some(ns) = f.updated_after_ns {
+        w = w.updated_after(ns);
+    }
+    if let Some(ns) = f.updated_before_ns {
+        w = w.updated_before(ns);
+    }
+    if let Some(o) = f.order_by.as_deref() {
+        if let Some(ob) = parse_memories_order_by(o) {
+            w = w.order_by(ob);
+        } else {
+            return Err(NetError::InvalidJson.into());
+        }
+    }
+    if let Some(l) = f.limit {
+        w = w.limit(l as usize);
+    }
+    Ok(w)
+}
+
+#[allow(clippy::field_reassign_with_default)]
+fn build_memories_list_filter(filter_json: *const c_char) -> Result<MemoriesFilter, c_int> {
+    if filter_json.is_null() {
+        return Ok(MemoriesFilter::default());
+    }
+    let Some(s) = (unsafe { c_str_to_owned(filter_json) }) else {
+        return Err(NetError::InvalidUtf8.into());
+    };
+    let f: MemoriesFilterJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return Err(NetError::InvalidJson.into()),
+    };
+    let mut out = MemoriesFilter::default();
+    out.source = f.source;
+    out.content_contains = f.content_contains;
+    out.tag = f.tag;
+    out.any_tag = f.any_tag;
+    out.all_tags = f.all_tags;
+    out.pinned = f.pinned;
+    out.created_after_ns = f.created_after_ns;
+    out.created_before_ns = f.created_before_ns;
+    out.updated_after_ns = f.updated_after_ns;
+    out.updated_before_ns = f.updated_before_ns;
+    // Reject unknown order_by instead of silently falling back —
+    // keep parity with build_memories_watcher above.
+    out.order_by = match f.order_by.as_deref() {
+        None => None,
+        Some(o) => match parse_memories_order_by(o) {
+            Some(ob) => Some(ob),
+            None => return Err(NetError::InvalidJson.into()),
+        },
+    };
+    out.limit = f.limit.map(|l| l as usize);
+    Ok(out)
+}
+
+fn run_memories_list(
+    mem: &InnerMemoriesAdapter,
+    filter: &MemoriesFilter,
+) -> Vec<std::sync::Arc<Memory>> {
+    let state = mem.state();
+    let guard = state.read();
+    let mut q = guard.query();
+    if let Some(s) = &filter.source {
+        q = q.where_source(s.clone());
+    }
+    if let Some(s) = &filter.content_contains {
+        q = q.content_contains(s.clone());
+    }
+    if let Some(t) = &filter.tag {
+        q = q.where_tag(t.clone());
+    }
+    if let Some(tags) = &filter.any_tag {
+        q = q.where_any_tag(tags.clone());
+    }
+    if let Some(tags) = &filter.all_tags {
+        q = q.where_all_tags(tags.clone());
+    }
+    if let Some(p) = filter.pinned {
+        q = q.where_pinned(p);
+    }
+    if let Some(ns) = filter.created_after_ns {
+        q = q.created_after(ns);
+    }
+    if let Some(ns) = filter.created_before_ns {
+        q = q.created_before(ns);
+    }
+    if let Some(ns) = filter.updated_after_ns {
+        q = q.updated_after(ns);
+    }
+    if let Some(ns) = filter.updated_before_ns {
+        q = q.updated_before(ns);
+    }
+    if let Some(o) = filter.order_by {
+        q = q.order_by(o);
+    }
+    if let Some(l) = filter.limit {
+        q = q.limit(l);
+    }
+    q.collect()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_list(
+    handle: *mut MemoriesAdapterHandle,
+    filter_json: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // #11: pre-zero so every error return (ShuttingDown, filter-parse
+    // error) leaves (null, 0) per the out-param contract.
+    zero_out_json(out_json, out_len);
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let filter = match build_memories_list_filter(filter_json) {
+        Ok(f) => f,
+        Err(code) => return code,
+    };
+    let items: Vec<MemoryJson> = run_memories_list(&mem.inner, &filter)
+        .into_iter()
+        .map(MemoryJson::from)
+        .collect();
+    write_json_out(&items, out_json, out_len)
+}
+
+/// Inner stream type for the memories-watch cursor — factored out
+/// to keep the `MemoriesWatchHandle` struct readable + appease
+/// `clippy::type_complexity`. Each emission is a
+/// `Vec<Arc<Memory>>` per perf #96.
+type MemoryWatchStream = BoxStream<'static, Vec<std::sync::Arc<Memory>>>;
+
+/// FFI handle for a memories-watch cursor. Same `HandleGuard`
+/// recipe as `TasksWatchHandle`.
+pub struct MemoriesWatchHandle {
+    stream: ManuallyDrop<TokioMutex<Option<MemoryWatchStream>>>,
+    guard: HandleGuard,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_snapshot_and_watch(
+    handle: *mut MemoriesAdapterHandle,
+    filter_json: *const c_char,
+    out_snapshot: *mut *mut c_char,
+    out_snapshot_len: *mut usize,
+    out_cursor: *mut *mut MemoriesWatchHandle,
+) -> c_int {
+    if handle.is_null()
+        || out_snapshot.is_null()
+        || out_snapshot_len.is_null()
+        || out_cursor.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    // #11: pre-zero the snapshot out-params so every error return
+    // below leaves (null, 0) per the documented out-param contract.
+    zero_out_json(out_snapshot, out_snapshot_len);
+    let mem = unsafe { &*handle };
+    let _op = match mem.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let watcher = match build_memories_watcher(&mem.inner, filter_json) {
+        Ok(w) => w,
+        Err(code) => return code,
+    };
+    let adapter: Arc<InnerMemoriesAdapter> = Arc::clone(&mem.inner);
+    let (snapshot, stream) = block_on(async move { adapter.snapshot_and_watch(watcher) });
+    let snapshot_json: Vec<MemoryJson> = snapshot.into_iter().map(MemoryJson::from).collect();
+    let code = write_json_out(&snapshot_json, out_snapshot, out_snapshot_len);
+    if code != 0 {
+        return code;
+    }
+    let handle = Box::new(MemoriesWatchHandle {
+        stream: ManuallyDrop::new(TokioMutex::new(Some(stream))),
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_cursor = Box::into_raw(handle);
+    }
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_watch_next(
+    cursor: *mut MemoriesWatchHandle,
+    timeout_ms: u32,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if cursor.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // #11: pre-zero so every error return (ShuttingDown, stream-ended,
+    // NET_ERR_TIMEOUT) leaves (null, 0) per the out-param contract.
+    zero_out_json(out_json, out_len);
+    let cursor = unsafe { &*cursor };
+    let _op = match cursor.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    block_on(async move {
+        let mut guard = cursor.stream.lock().await;
+        let Some(stream) = guard.as_mut() else {
+            return NET_ERR_STREAM_ENDED;
+        };
+        let next_fut = stream.next();
+        let outcome = if timeout_ms == 0 {
+            next_fut.await
+        } else {
+            match tokio::time::timeout(
+                std::time::Duration::from_millis(timeout_ms as u64),
+                next_fut,
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(_) => return NET_ERR_TIMEOUT,
+            }
+        };
+        match outcome {
+            Some(batch) => {
+                let js: Vec<MemoryJson> = batch.into_iter().map(MemoryJson::from).collect();
+                write_json_out(&js, out_json, out_len)
+            }
+            None => {
+                *guard = None;
+                NET_ERR_STREAM_ENDED
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_memories_watch_free(cursor: *mut MemoriesWatchHandle) {
+    if cursor.is_null() {
+        return;
+    }
+    let h: &MemoriesWatchHandle = unsafe { &*cursor };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        unsafe {
+            let stream = ManuallyDrop::take(&mut (*cursor).stream);
+            drop(stream);
+        }
+    } else {
+        tracing::warn!(
+            "net_memories_watch_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+// =========================================================================
+// NetDb — unified cross-adapter façade
+// =========================================================================
+//
+// Composes RedEX + Tasks + Memories under a single handle. The Rust core
+// (`adapter/net/netdb/db.rs`) consumes `Redex` by value; the FFI cannot do
+// that from an `Arc<InnerRedex>` shared with the parent `RedexHandle`, so
+// the bundle is composed here directly. Snapshot bytes round-trip through
+// the same `NetDbSnapshot` postcard format the Rust + napi + PyO3 surfaces
+// emit, so a bundle captured in Rust restores in Go/C and vice versa.
+
+#[derive(Deserialize)]
+struct NetDbOpenConfigJson {
+    /// origin_hash stamped on every EventMeta by bundled adapters.
+    origin_hash: u64,
+    /// Use persistent-mode RedEX files for every enabled model. Requires
+    /// the parent Redex to have been built with a persistent_dir.
+    #[serde(default)]
+    persistent: bool,
+    /// Include the tasks model.
+    #[serde(default)]
+    with_tasks: bool,
+    /// Include the memories model.
+    #[serde(default)]
+    with_memories: bool,
+}
+
+/// FFI handle wrapping a NetDb bundle.
+///
+/// Holds an Arc-clone of the parent `Redex` plus optional Arc handles to
+/// each enabled adapter. Returned via [`net_netdb_open`] /
+/// [`net_netdb_open_from_snapshot`]; freed via [`net_netdb_free`]. The
+/// adapter Arcs are also re-handed-out via [`net_netdb_tasks`] /
+/// [`net_netdb_memories`] as independent `TasksAdapterHandle` /
+/// `MemoriesAdapterHandle` allocations — those handles must be freed
+/// separately and survive their parent NetDb being freed (Arc semantics).
+pub struct NetDbHandle {
+    #[allow(dead_code)] // kept alive so the adapters' underlying RedEX files outlive us
+    redex: ManuallyDrop<Arc<InnerRedex>>,
+    tasks: Option<ManuallyDrop<Arc<InnerTasksAdapter>>>,
+    memories: Option<ManuallyDrop<Arc<InnerMemoriesAdapter>>>,
+    guard: HandleGuard,
+}
+
+fn parse_netdb_config(
+    config_json: *const c_char,
+) -> std::result::Result<NetDbOpenConfigJson, c_int> {
+    if config_json.is_null() {
+        return Err(NetError::NullPointer.into());
+    }
+    let s = match unsafe { c_str_to_owned(config_json) } {
+        Some(s) => s,
+        None => return Err(NetError::InvalidUtf8.into()),
+    };
+    serde_json::from_str(&s).map_err(|_| NetError::InvalidJson.into())
+}
+
+fn netdb_redex_config(persistent: bool) -> RedexFileConfig {
+    if persistent {
+        RedexFileConfig::default().with_persistent(true)
+    } else {
+        RedexFileConfig::default()
+    }
+}
+
+/// Tuple shape that the NetDb-builder closures emit on success — the
+/// owning Arc for the parent Redex plus an Option-wrapped Arc per
+/// enabled adapter. Factored out so clippy's `type_complexity` lint
+/// doesn't trip on the inline form.
+type NetDbBuildOutcome = (
+    Arc<InnerRedex>,
+    Option<Arc<InnerTasksAdapter>>,
+    Option<Arc<InnerMemoriesAdapter>>,
+);
+
+fn build_netdb_handle(
+    redex_arc: Arc<InnerRedex>,
+    tasks: Option<Arc<InnerTasksAdapter>>,
+    memories: Option<Arc<InnerMemoriesAdapter>>,
+) -> *mut NetDbHandle {
+    let handle = Box::new(NetDbHandle {
+        redex: ManuallyDrop::new(redex_arc),
+        tasks: tasks.map(ManuallyDrop::new),
+        memories: memories.map(ManuallyDrop::new),
+        guard: HandleGuard::new(),
+    });
+    Box::into_raw(handle)
+}
+
+/// Open a NetDb bundle against an existing `Redex`. `config_json` shape:
+/// `{"origin_hash": u64, "persistent": bool, "with_tasks": bool,
+/// "with_memories": bool}`. Failure-atomic: if the second adapter open
+/// fails, the first is closed before returning `NET_ERR_NETDB`.
+///
+/// Returns:
+///   * `0` on success — `*out_handle` owns a fresh `NetDbHandle`.
+///   * `NetError::NullPointer` (`-1`) on null inputs.
+///   * `NetError::InvalidUtf8` / `NetError::InvalidJson` on bad config.
+///   * `NetError::ShuttingDown` when the parent Redex is in `_free`.
+///   * `NET_ERR_NETDB` when any adapter open fails.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_open(
+    redex: *mut RedexHandle,
+    config_json: *const c_char,
+    out_handle: *mut *mut NetDbHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe {
+        *out_handle = ptr::null_mut();
+    }
+    let cfg = match parse_netdb_config(config_json) {
+        Ok(c) => c,
+        Err(rc) => return rc,
+    };
+    let redex_ref = unsafe { &*redex };
+    let _op = match redex_ref.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let redex_arc: Arc<InnerRedex> = Arc::clone(&redex_ref.inner);
+    let file_cfg = netdb_redex_config(cfg.persistent);
+
+    let result = block_on(async move {
+        let tasks = if cfg.with_tasks {
+            match InnerTasksAdapter::open_with_config(&redex_arc, cfg.origin_hash, file_cfg.clone())
+                .await
+            {
+                Ok(t) => Some(Arc::new(t)),
+                Err(e) => return Err((redex_arc, e.to_string())),
+            }
+        } else {
+            None
+        };
+        let memories = if cfg.with_memories {
+            match InnerMemoriesAdapter::open_with_config(&redex_arc, cfg.origin_hash, file_cfg)
+                .await
+            {
+                Ok(m) => Some(Arc::new(m)),
+                Err(e) => {
+                    // First-wins rollback: close tasks if it opened.
+                    if let Some(t) = &tasks {
+                        let _ = t.close();
+                    }
+                    return Err((redex_arc, e.to_string()));
+                }
+            }
+        } else {
+            None
+        };
+        Ok((redex_arc, tasks, memories))
+    });
+    match result {
+        Ok((redex_arc, tasks, memories)) => {
+            let h = build_netdb_handle(redex_arc, tasks, memories);
+            unsafe {
+                *out_handle = h;
+            }
+            0
+        }
+        Err(_) => NET_ERR_NETDB,
+    }
+}
+
+/// Restore a NetDb from a postcard-encoded `NetDbSnapshot` bundle. For
+/// each enabled model whose bundle entry is `Some`, restore from that
+/// entry; otherwise open from scratch. Same failure-atomicity guarantee
+/// as [`net_netdb_open`]. `bundle_len == 0` is treated as a no-op
+/// "open from scratch" — equivalent to `net_netdb_open`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_open_from_snapshot(
+    redex: *mut RedexHandle,
+    config_json: *const c_char,
+    bundle: *const u8,
+    bundle_len: usize,
+    out_handle: *mut *mut NetDbHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe {
+        *out_handle = ptr::null_mut();
+    }
+    if bundle.is_null() && bundle_len != 0 {
+        return NetError::NullPointer.into();
+    }
+    let cfg = match parse_netdb_config(config_json) {
+        Ok(c) => c,
+        Err(rc) => return rc,
+    };
+    let snapshot: Option<NetDbSnapshot> = if bundle_len == 0 {
+        None
+    } else {
+        // `slice::from_raw_parts` requires `len <= isize::MAX`.
+        if bundle_len > isize::MAX as usize {
+            return NetError::InvalidJson.into();
+        }
+        let slice = unsafe { std::slice::from_raw_parts(bundle, bundle_len) };
+        match NetDbSnapshot::decode(slice) {
+            Ok(s) => Some(s),
+            Err(_) => return NET_ERR_NETDB,
+        }
+    };
+    let redex_ref = unsafe { &*redex };
+    let _op = match redex_ref.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let redex_arc: Arc<InnerRedex> = Arc::clone(&redex_ref.inner);
+    let file_cfg = netdb_redex_config(cfg.persistent);
+
+    let result: std::result::Result<NetDbBuildOutcome, String> = block_on(async move {
+        let tasks = match (
+            cfg.with_tasks,
+            snapshot.as_ref().and_then(|s| s.tasks.as_ref()),
+        ) {
+            (true, Some((bytes, last_seq))) => Some(Arc::new(
+                InnerTasksAdapter::open_from_snapshot_with_config(
+                    &redex_arc,
+                    cfg.origin_hash,
+                    file_cfg.clone(),
+                    bytes,
+                    *last_seq,
+                )
+                .await
+                .map_err(|e| e.to_string())?,
+            )),
+            (true, None) => Some(Arc::new(
+                InnerTasksAdapter::open_with_config(&redex_arc, cfg.origin_hash, file_cfg.clone())
+                    .await
+                    .map_err(|e| e.to_string())?,
+            )),
+            (false, _) => None,
+        };
+        let memories = match (
+            cfg.with_memories,
+            snapshot.as_ref().and_then(|s| s.memories.as_ref()),
+        ) {
+            (true, Some((bytes, last_seq))) => {
+                match InnerMemoriesAdapter::open_from_snapshot_with_config(
+                    &redex_arc,
+                    cfg.origin_hash,
+                    file_cfg,
+                    bytes,
+                    *last_seq,
+                )
+                .await
+                {
+                    Ok(m) => Some(Arc::new(m)),
+                    Err(e) => {
+                        if let Some(t) = &tasks {
+                            let _ = t.close();
+                        }
+                        return Err(e.to_string());
+                    }
+                }
+            }
+            (true, None) => {
+                match InnerMemoriesAdapter::open_with_config(&redex_arc, cfg.origin_hash, file_cfg)
+                    .await
+                {
+                    Ok(m) => Some(Arc::new(m)),
+                    Err(e) => {
+                        if let Some(t) = &tasks {
+                            let _ = t.close();
+                        }
+                        return Err(e.to_string());
+                    }
+                }
+            }
+            (false, _) => None,
+        };
+        Ok((redex_arc, tasks, memories))
+    });
+    match result {
+        Ok((redex_arc, tasks, memories)) => {
+            let h = build_netdb_handle(redex_arc, tasks, memories);
+            unsafe {
+                *out_handle = h;
+            }
+            0
+        }
+        Err(_) => NET_ERR_NETDB,
+    }
+}
+
+/// Capture a per-model snapshot bundle. On success allocates a
+/// `Vec<u8>` and hands its parts to the caller — caller MUST free via
+/// [`net_netdb_free_bundle`]. The wire format is the postcard encoding
+/// of `NetDbSnapshot` and round-trips with the Rust + napi + PyO3
+/// snapshot calls.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_snapshot(
+    handle: *mut NetDbHandle,
+    out_bytes: *mut *mut u8,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_bytes.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe {
+        *out_bytes = ptr::null_mut();
+        *out_len = 0;
+    }
+    let netdb = unsafe { &*handle };
+    let _op = match netdb.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let tasks_snap = match &netdb.tasks {
+        Some(t) => match t.snapshot() {
+            Ok(s) => Some(s),
+            Err(_) => return NET_ERR_NETDB,
+        },
+        None => None,
+    };
+    let mem_snap = match &netdb.memories {
+        Some(m) => match m.snapshot() {
+            Ok(s) => Some(s),
+            Err(_) => return NET_ERR_NETDB,
+        },
+        None => None,
+    };
+    let bundle = NetDbSnapshot {
+        tasks: tasks_snap,
+        memories: mem_snap,
+    };
+    let encoded: Vec<u8> = match bundle.encode() {
+        Ok(v) => v,
+        Err(_) => return NET_ERR_NETDB,
+    };
+    let boxed: Box<[u8]> = encoded.into_boxed_slice();
+    let len = boxed.len();
+    let slice_ptr: *mut [u8] = Box::into_raw(boxed);
+    unsafe {
+        *out_bytes = slice_ptr as *mut u8;
+        *out_len = len;
+    }
+    0
+}
+
+/// Free a snapshot bundle produced by [`net_netdb_snapshot`]. NULL-safe.
+/// Caller MUST pass the exact (ptr, len) pair returned by the snapshot
+/// call; passing a different `len` or a pointer not originated from
+/// `net_netdb_snapshot` is undefined behavior.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_free_bundle(bytes: *mut u8, len: usize) {
+    if bytes.is_null() || len == 0 {
+        return;
+    }
+    // SAFETY: paired with `Box::into_raw(Box<[u8]>)` from
+    // `net_netdb_snapshot`. The `(ptr, len)` shape is recreated via
+    // `slice_from_raw_parts_mut` so `Box::from_raw` reconstructs the
+    // original `Box<[u8]>` and drops it.
+    unsafe {
+        let slice_ptr = std::ptr::slice_from_raw_parts_mut(bytes, len);
+        drop(Box::from_raw(slice_ptr));
+    }
+}
+
+/// Hand out an Arc-cloned `TasksAdapterHandle` from this NetDb. The
+/// returned handle is independent — freeing it does NOT close the
+/// underlying adapter (the NetDb still holds its own clone). Returns
+/// `NET_ERR_NETDB` if the tasks model wasn't enabled at open time.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_tasks(
+    handle: *mut NetDbHandle,
+    out_handle: *mut *mut TasksAdapterHandle,
+) -> c_int {
+    if handle.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe {
+        *out_handle = ptr::null_mut();
+    }
+    let netdb = unsafe { &*handle };
+    let _op = match netdb.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let inner = match &netdb.tasks {
+        Some(t) => Arc::clone(t),
+        None => return NET_ERR_NETDB,
+    };
+    let h = Box::new(TasksAdapterHandle {
+        inner: ManuallyDrop::new(inner),
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(h);
+    }
+    0
+}
+
+/// Mirror of [`net_netdb_tasks`] for the memories model.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_memories(
+    handle: *mut NetDbHandle,
+    out_handle: *mut *mut MemoriesAdapterHandle,
+) -> c_int {
+    if handle.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    unsafe {
+        *out_handle = ptr::null_mut();
+    }
+    let netdb = unsafe { &*handle };
+    let _op = match netdb.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let inner = match &netdb.memories {
+        Some(m) => Arc::clone(m),
+        None => return NET_ERR_NETDB,
+    };
+    let h = Box::new(MemoriesAdapterHandle {
+        inner: ManuallyDrop::new(inner),
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(h);
+    }
+    0
+}
+
+/// Close every enabled adapter on this NetDb. Idempotent. Surfaces the
+/// first adapter's close error, logs the second so a double-failure is
+/// observable — matches the Rust core's `NetDb::close()` semantics. The
+/// underlying RedEX files stay open on the parent manager.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_close(handle: *mut NetDbHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let netdb = unsafe { &*handle };
+    let _op = match netdb.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let tasks_err = netdb
+        .tasks
+        .as_ref()
+        .map(|t| t.close())
+        .unwrap_or(Ok(()))
+        .err();
+    let mem_err = netdb
+        .memories
+        .as_ref()
+        .map(|m| m.close())
+        .unwrap_or(Ok(()))
+        .err();
+    match (tasks_err, mem_err) {
+        (None, None) => 0,
+        (Some(_), None) | (None, Some(_)) => NET_ERR_NETDB,
+        (Some(t), Some(m)) => {
+            // Surface tasks' error; log memories' so it's observable.
+            tracing::warn!(
+                tasks_error = %t,
+                memories_error = %m,
+                "net_netdb_close: both adapters failed; surfacing tasks and logging memories",
+            );
+            NET_ERR_NETDB
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_netdb_free(handle: *mut NetDbHandle) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &NetDbHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        unsafe {
+            if let Some(t) = (*handle).tasks.as_mut() {
+                ManuallyDrop::drop(t);
+            }
+            if let Some(m) = (*handle).memories.as_mut() {
+                ManuallyDrop::drop(m);
+            }
+            ManuallyDrop::drop(&mut (*handle).redex);
+        }
+    } else {
+        tracing::warn!(
+            "net_netdb_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+// Re-export of `NetDbError` is intentional: the FFI doesn't expose the
+// variant set directly (errors collapse to `NET_ERR_NETDB`), but a future
+// "detailed error" surface would consume this. Keeping the import alive
+// also pins the doc cross-link from `cortex.rs` to `netdb/error.rs`.
+#[allow(dead_code)]
+fn _netdb_error_keep_alive(e: InnerNetDbError) -> InnerNetDbError {
+    e
+}
+
+// =========================================================================
+// Task lifecycle (WorkflowAdapter) — C ABI shipped in `net_cortex.h`
+// =========================================================================
+//
+// Mirrors the `net_tasks_adapter_*` recipe: a `HandleGuard`-wrapped
+// `Arc<WorkflowAdapter>`, opened against an existing `RedexHandle` (D3:
+// reuse the Redex handle). Status is a small integer code on the wire
+// (see `wf_status_to_code`).
+
+/// FFI handle wrapping an [`InnerWorkflowAdapter`].
+pub struct WorkflowAdapterHandle {
+    inner: ManuallyDrop<Arc<InnerWorkflowAdapter>>,
+    guard: HandleGuard,
+}
+
+/// Wire status codes for a workflow task (stable; mirrored in
+/// `net_cortex.h`).
+fn wf_status_to_code(s: WfTaskStatus) -> c_int {
+    match s {
+        WfTaskStatus::Submitted => 0,
+        WfTaskStatus::Running => 1,
+        WfTaskStatus::Waiting => 2,
+        WfTaskStatus::Blocked => 3,
+        WfTaskStatus::Done => 4,
+        WfTaskStatus::Failed => 5,
+    }
+}
+
+/// Wire-form roll-up of task counts per status.
+#[repr(C)]
+pub struct NetWorkflowStatusCounts {
+    pub submitted: u64,
+    pub running: u64,
+    pub waiting: u64,
+    pub blocked: u64,
+    pub done: u64,
+    pub failed: u64,
+}
+
+/// Open a workflow adapter against a Redex. `persistent != 0` routes
+/// writes through the Redex's persistent directory.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_adapter_open(
+    redex: *mut RedexHandle,
+    origin_hash: u64,
+    persistent: c_int,
+    out_handle: *mut *mut WorkflowAdapterHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let redex = unsafe { &*redex };
+    let _op = match redex.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg = if persistent != 0 {
+        RedexFileConfig::default().with_persistent(true)
+    } else {
+        RedexFileConfig::default()
+    };
+    let redex_inner: Arc<InnerRedex> = Arc::clone(&redex.inner);
+    let result = block_on(async move {
+        InnerWorkflowAdapter::open_with_config(&redex_inner, origin_hash, cfg).await
+    });
+    match result {
+        Ok(adapter) => {
+            let handle = Box::new(WorkflowAdapterHandle {
+                inner: ManuallyDrop::new(Arc::new(adapter)),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Free a workflow adapter handle. Quiesces in-flight ops first.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_adapter_free(handle: *mut WorkflowAdapterHandle) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &WorkflowAdapterHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        unsafe {
+            let inner = ManuallyDrop::take(&mut (*handle).inner);
+            drop(inner);
+        }
+    } else {
+        tracing::warn!(
+            "net_workflow_adapter_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// Shared body for the seq-returning transition entry points.
+unsafe fn wf_seq_op(
+    handle: *mut WorkflowAdapterHandle,
+    out_seq: *mut u64,
+    f: impl FnOnce(
+        &InnerWorkflowAdapter,
+    ) -> Result<u64, crate::adapter::net::cortex::CortexAdapterError>,
+) -> c_int {
+    if handle.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match f(&wf.inner) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Submit a new task (enters at step 0, `submitted`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_submit(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.submit(id)) }
+}
+
+/// Mark the task `running`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_start(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.start(id)) }
+}
+
+/// Park the task `waiting`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_wait(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.wait(id)) }
+}
+
+/// Park the task `blocked`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_block(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.block(id)) }
+}
+
+/// Mark the task `done` (terminal success).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_complete(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.complete(id)) }
+}
+
+/// Mark the task `failed` (terminal failure).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_fail(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.fail(id)) }
+}
+
+/// Advance the step cursor (bumps step, resets attempts).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_advance(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.advance(id)) }
+}
+
+/// Retry the current step (status → `running`; never resurrects `done`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_retry(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.retry(id)) }
+}
+
+/// Delete a task, reclaiming its whole linked subtree.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_delete(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.delete(id)) }
+}
+
+/// Record a parent->child lineage edge (idempotent).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_link(
+    handle: *mut WorkflowAdapterHandle,
+    parent: u64,
+    child: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.link(parent, child)) }
+}
+
+/// Request cancellation of `id` (a worker-observed signal).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_request_cancel(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_seq: *mut u64,
+) -> c_int {
+    unsafe { wf_seq_op(handle, out_seq, |a| a.request_cancel(id)) }
+}
+
+/// Read the current state of `id`. `*out_found` is set to 1 and the
+/// other out-params filled if the task exists, else `*out_found` is 0.
+/// `*out_status` is a `wf_status_to_code` value.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_get(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_found: *mut c_int,
+    out_step: *mut u32,
+    out_status: *mut c_int,
+    out_attempts: *mut u32,
+) -> c_int {
+    if handle.is_null()
+        || out_found.is_null()
+        || out_step.is_null()
+        || out_status.is_null()
+        || out_attempts.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match wf.inner.get(id) {
+        Some(st) => unsafe {
+            *out_found = 1;
+            *out_step = st.step;
+            *out_status = wf_status_to_code(st.status);
+            *out_attempts = st.attempts;
+        },
+        None => unsafe {
+            *out_found = 0;
+        },
+    }
+    0
+}
+
+/// Whether cancellation has been requested for `id` (`*out_bool` 0/1).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_is_cancel_requested(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_bool: *mut c_int,
+) -> c_int {
+    if handle.is_null() || out_bool.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    unsafe {
+        *out_bool = c_int::from(wf.inner.is_cancel_requested(id));
+    }
+    0
+}
+
+/// Roll-up of task counts per status into `*out`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_status_counts(
+    handle: *mut WorkflowAdapterHandle,
+    out: *mut NetWorkflowStatusCounts,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let c: WfStatusCounts = wf.inner.status_counts();
+    unsafe {
+        *out = NetWorkflowStatusCounts {
+            submitted: c.submitted as u64,
+            running: c.running as u64,
+            waiting: c.waiting as u64,
+            blocked: c.blocked as u64,
+            done: c.done as u64,
+            failed: c.failed as u64,
+        };
+    }
+    0
+}
+
+/// Block until every event up through `seq` has folded. `timeout_ms`
+/// of 0 waits indefinitely. Returns `0`, `NET_ERR_TIMEOUT`, or
+/// `NET_ERR_FOLD_STOPPED`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_wait_for_seq(
+    handle: *mut WorkflowAdapterHandle,
+    seq: u64,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let adapter: Arc<InnerWorkflowAdapter> = Arc::clone(&wf.inner);
+    block_on(async move {
+        let fut = adapter.wait_for_seq(seq);
+        if timeout_ms == 0 {
+            match fut.await {
+                Ok(()) => 0,
+                Err(_) => NET_ERR_FOLD_STOPPED,
+            }
+        } else {
+            match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms as u64), fut)
+                .await
+            {
+                Ok(Ok(())) => 0,
+                Ok(Err(_)) => NET_ERR_FOLD_STOPPED,
+                Err(_) => NET_ERR_TIMEOUT,
+            }
+        }
+    })
+}
+
+// =========================================================================
+// Tier 2: shards (fan-out / fan-in) — C ABI
+// =========================================================================
+
+/// FFI handle wrapping an [`InnerShardGroup`] (a plain value).
+///
+/// Intentionally carries no [`HandleGuard`], unlike the async-backed
+/// handles ([`RedexHandle`], [`RedexFileHandle`], [`WorkflowAdapterHandle`]).
+/// Those guards exist (audit #23) to drain *in-flight async ops* before
+/// `_free` drops the inner — a watch cursor pumping on one thread while
+/// another frees. A shard group holds an immutable plain value; every op
+/// over it (`fan_out` / `try_join`) is synchronous and returns before the
+/// next call, so there is nothing to drain and `_free` is a bare
+/// `Box::from_raw`. Lifecycle safety rests on the module-wide contract
+/// (no use after `_free`); the Go wrapper frees only via finalizer, which
+/// cannot run while a call holds the handle reachable.
+pub struct ShardGroupHandle {
+    inner: InnerShardGroup,
+}
+
+/// Build a shard group from `shards[0..n]` + the `reduce` task id.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_shard_group_new(
+    shards: *const u64,
+    n: usize,
+    reduce: u64,
+    out_handle: *mut *mut ShardGroupHandle,
+) -> c_int {
+    if out_handle.is_null() || (shards.is_null() && n != 0) {
+        return NetError::NullPointer.into();
+    }
+    let ids: Vec<u64> = if n == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(shards, n) }.to_vec()
+    };
+    let handle = Box::new(ShardGroupHandle {
+        inner: InnerShardGroup::new(ids, reduce),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(handle);
+    }
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_shard_group_free(handle: *mut ShardGroupHandle) {
+    if handle.is_null() {
+        return;
+    }
+    unsafe { drop(Box::from_raw(handle)) };
+}
+
+/// Fan out: submit every shard task. Returns the last append seq.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_fan_out(
+    wf: *mut WorkflowAdapterHandle,
+    group: *mut ShardGroupHandle,
+    out_seq: *mut u64,
+) -> c_int {
+    if wf.is_null() || group.is_null() || out_seq.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*wf };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let group = unsafe { &*group };
+    match wf_fan_out(&wf.inner, &group.inner) {
+        Ok(seq) => {
+            unsafe {
+                *out_seq = seq;
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+/// Try to join. `*out_kind`: 0 submitted, 1 already_submitted, 2 pending,
+/// 3 failed. On submitted, `*out_seq` holds the reduce seq. On failed, up
+/// to `cap` failed shard ids land in `out_failed`, total in
+/// `*out_failed_count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_try_join(
+    wf: *mut WorkflowAdapterHandle,
+    group: *mut ShardGroupHandle,
+    out_kind: *mut c_int,
+    out_seq: *mut u64,
+    out_failed: *mut u64,
+    cap: usize,
+    out_failed_count: *mut usize,
+) -> c_int {
+    if wf.is_null()
+        || group.is_null()
+        || out_kind.is_null()
+        || out_seq.is_null()
+        || out_failed_count.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*wf };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let group = unsafe { &*group };
+    let join = match wf_try_join(&wf.inner, &group.inner) {
+        Ok(j) => j,
+        Err(_) => return NET_ERR_CORTEX_FOLD,
+    };
+    unsafe {
+        *out_seq = 0;
+        *out_failed_count = 0;
+        match join {
+            InnerWfJoin::Submitted(s) => {
+                *out_kind = 0;
+                *out_seq = s;
+            }
+            InnerWfJoin::AlreadySubmitted => *out_kind = 1,
+            InnerWfJoin::Pending => *out_kind = 2,
+            InnerWfJoin::Failed(ids) => {
+                *out_kind = 3;
+                *out_failed_count = ids.len();
+                if !out_failed.is_null() {
+                    let m = ids.len().min(cap);
+                    std::ptr::copy_nonoverlapping(ids.as_ptr(), out_failed, m);
+                }
+            }
+        }
+    }
+    0
+}
+
+// =========================================================================
+// Tier 2: triggers — C ABI (D5 (a): the engine binds the adapter and
+// reads its state internally)
+// =========================================================================
+
+/// FFI handle: the pure trigger engine + the bound adapter (state reads).
+///
+/// Carries no [`HandleGuard`] by design (same rationale as
+/// [`ShardGroupHandle`]). The guards on the async-backed handles drain
+/// *in-flight async ops* at `_free` (audit #23); the trigger engine has
+/// none — every entry point (`arm_*`, `record_result`, `on_task_change`,
+/// `on_tick`, `armed_count`) takes the internal `parking_lot` mutexes,
+/// runs to completion synchronously, and returns before the next call, so
+/// `_free` is a bare `Box::from_raw` with nothing to quiesce. The
+/// `parking_lot::Mutex`es make *concurrent method calls* sound; they do not
+/// make a call racing `_free` sound — that, as for every handle here, rests
+/// on the module-wide no-use-after-`_free` contract, which the Go wrapper's
+/// finalizer-only free upholds structurally (the handle stays reachable for
+/// the duration of any call). The bound `adapter` is an owned `Arc` clone,
+/// so it (and the state the engine reads) outlives a freed
+/// [`WorkflowAdapterHandle`].
+pub struct TriggerEngineHandle {
+    engine: parking_lot::Mutex<InnerTriggerEngine>,
+    /// Recorded task results (via `net_trigger_record_result`) threaded
+    /// into the `TriggerWorld` so `IfResult` branches can evaluate.
+    results: parking_lot::Mutex<
+        std::collections::HashMap<u64, std::collections::HashMap<String, String>>,
+    >,
+    adapter: Arc<InnerWorkflowAdapter>,
+}
+
+fn wf_action_code(a: &InnerWfAction) -> (c_int, u64) {
+    match a {
+        InnerWfAction::Submit(id) => (0, *id),
+        InnerWfAction::Start(id) => (1, *id),
+    }
+}
+
+fn wf_action_from_code(kind: c_int, id: u64) -> Option<InnerWfAction> {
+    match kind {
+        0 => Some(InnerWfAction::Submit(id)),
+        1 => Some(InnerWfAction::Start(id)),
+        _ => None,
+    }
+}
+
+/// Build a trigger engine bound to `wf` (clones the adapter Arc).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_engine_new(
+    wf: *mut WorkflowAdapterHandle,
+    out_handle: *mut *mut TriggerEngineHandle,
+) -> c_int {
+    if wf.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*wf };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let handle = Box::new(TriggerEngineHandle {
+        engine: parking_lot::Mutex::new(InnerTriggerEngine::new()),
+        results: parking_lot::Mutex::new(std::collections::HashMap::new()),
+        adapter: Arc::clone(&wf.inner),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(handle);
+    }
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_engine_free(handle: *mut TriggerEngineHandle) {
+    if handle.is_null() {
+        return;
+    }
+    unsafe { drop(Box::from_raw(handle)) };
+}
+
+unsafe fn trigger_arm(
+    handle: *mut TriggerEngineHandle,
+    trigger: InnerWfTrigger,
+    action_kind: c_int,
+    action_id: u64,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(action) = wf_action_from_code(action_kind, action_id) else {
+        return NET_ERR_CORTEX_FOLD; // unknown action kind
+    };
+    let h = unsafe { &*handle };
+    h.engine.lock().arm(trigger, action);
+    0
+}
+
+/// Arm IfResult(task, key, value) -> action (0 submit, 1 start): fires
+/// when `task` is Done AND its recorded result `key` equals `value`.
+/// Record the result first via `net_trigger_record_result`. `key`/`value`
+/// are NUL-terminated UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_arm_if_result(
+    handle: *mut TriggerEngineHandle,
+    task: u64,
+    key: *const c_char,
+    value: *const c_char,
+    action_kind: c_int,
+    action_id: u64,
+) -> c_int {
+    if handle.is_null() || key.is_null() || value.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let (key, value) = unsafe {
+        match (CStr::from_ptr(key).to_str(), CStr::from_ptr(value).to_str()) {
+            (Ok(k), Ok(v)) => (k.to_owned(), v.to_owned()),
+            _ => return NetError::InvalidUtf8.into(),
+        }
+    };
+    unsafe {
+        trigger_arm(
+            handle,
+            InnerWfTrigger::IfResult { task, key, value },
+            action_kind,
+            action_id,
+        )
+    }
+}
+
+/// Record `task`'s result `key = value` for `IfResult` evaluation.
+/// `key`/`value` are NUL-terminated UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_record_result(
+    handle: *mut TriggerEngineHandle,
+    task: u64,
+    key: *const c_char,
+    value: *const c_char,
+) -> c_int {
+    if handle.is_null() || key.is_null() || value.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let (key, value) = unsafe {
+        match (CStr::from_ptr(key).to_str(), CStr::from_ptr(value).to_str()) {
+            (Ok(k), Ok(v)) => (k.to_owned(), v.to_owned()),
+            _ => return NetError::InvalidUtf8.into(),
+        }
+    };
+    let h = unsafe { &*handle };
+    h.results.lock().entry(task).or_default().insert(key, value);
+    0
+}
+
+/// Arm AfterTask(task) -> action (0 submit, 1 start).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_arm_after_task(
+    handle: *mut TriggerEngineHandle,
+    task: u64,
+    action_kind: c_int,
+    action_id: u64,
+) -> c_int {
+    unsafe {
+        trigger_arm(
+            handle,
+            InnerWfTrigger::AfterTask(task),
+            action_kind,
+            action_id,
+        )
+    }
+}
+
+/// Arm AfterTerminal(task) -> action.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_arm_after_terminal(
+    handle: *mut TriggerEngineHandle,
+    task: u64,
+    action_kind: c_int,
+    action_id: u64,
+) -> c_int {
+    unsafe {
+        trigger_arm(
+            handle,
+            InnerWfTrigger::AfterTerminal(task),
+            action_kind,
+            action_id,
+        )
+    }
+}
+
+/// `task` changed: evaluate against the bound adapter's state. Fills
+/// parallel `out_kinds[i]` (0 submit, 1 start) / `out_ids[i]` up to `cap`,
+/// with the total fired count in `*out_count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_on_task_change(
+    handle: *mut TriggerEngineHandle,
+    task: u64,
+    tick: u64,
+    out_kinds: *mut c_int,
+    out_ids: *mut u64,
+    cap: usize,
+    out_count: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_count.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let state = h.adapter.state();
+    let guard = state.read();
+    let results = h.results.lock();
+    let world = InnerTriggerWorld::with_results(&guard, tick, &results);
+    let actions = h.engine.lock().on_task_change(task, &world);
+    unsafe {
+        *out_count = actions.len();
+        if !out_kinds.is_null() && !out_ids.is_null() {
+            for (i, a) in actions.iter().take(cap).enumerate() {
+                let (k, id) = wf_action_code(a);
+                *out_kinds.add(i) = k;
+                *out_ids.add(i) = id;
+            }
+        }
+    }
+    0
+}
+
+/// Total armed (not-yet-fired) triggers into `*out`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_armed_count(
+    handle: *mut TriggerEngineHandle,
+    out: *mut usize,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    unsafe {
+        *out = h.engine.lock().armed_count();
+    }
+    0
+}
+
+/// Arm AtTick(tick) -> action (0 submit, 1 start).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_arm_at_tick(
+    handle: *mut TriggerEngineHandle,
+    tick: u64,
+    action_kind: c_int,
+    action_id: u64,
+) -> c_int {
+    unsafe { trigger_arm(handle, InnerWfTrigger::AtTick(tick), action_kind, action_id) }
+}
+
+/// The clock advanced to `now`: fire + disarm every AtTick trigger whose
+/// deadline has passed. Fills parallel `out_kinds[i]`/`out_ids[i]` up to
+/// `cap`, total in `*out_count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_trigger_on_tick(
+    handle: *mut TriggerEngineHandle,
+    now: u64,
+    out_kinds: *mut c_int,
+    out_ids: *mut u64,
+    cap: usize,
+    out_count: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_count.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let state = h.adapter.state();
+    let guard = state.read();
+    let results = h.results.lock();
+    let world = InnerTriggerWorld::with_results(&guard, now, &results);
+    let actions = h.engine.lock().on_tick(&world);
+    unsafe {
+        *out_count = actions.len();
+        if !out_kinds.is_null() && !out_ids.is_null() {
+            for (i, a) in actions.iter().take(cap).enumerate() {
+                let (k, id) = wf_action_code(a);
+                *out_kinds.add(i) = k;
+                *out_ids.add(i) = id;
+            }
+        }
+    }
+    0
+}
+
+/// `id` plus all transitive descendants — the delete subtree. Fills up
+/// to `cap` ids into `out_ids`, total in `*out_count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_subtree(
+    handle: *mut WorkflowAdapterHandle,
+    id: u64,
+    out_ids: *mut u64,
+    cap: usize,
+    out_count: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_count.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let ids = wf.inner.subtree(id);
+    unsafe {
+        *out_count = ids.len();
+        if !out_ids.is_null() {
+            let n = ids.len().min(cap);
+            std::ptr::copy_nonoverlapping(ids.as_ptr(), out_ids, n);
+        }
+    }
+    0
+}
+
+/// Capture a state snapshot. Two-pass like the other buffer returns:
+/// call with `out_bytes` NULL to learn `*out_len`, then again with a
+/// `cap`-sized buffer. `*out_last_seq` / `*out_has_last_seq` carry the
+/// snapshot's last seq (restore both together via `open_from_snapshot`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_snapshot(
+    handle: *mut WorkflowAdapterHandle,
+    out_bytes: *mut u8,
+    cap: usize,
+    out_len: *mut usize,
+    out_last_seq: *mut u64,
+    out_has_last_seq: *mut c_int,
+) -> c_int {
+    if handle.is_null() || out_len.is_null() || out_last_seq.is_null() || out_has_last_seq.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let wf = unsafe { &*handle };
+    let _op = match wf.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let (bytes, last_seq) = match wf.inner.snapshot() {
+        Ok(v) => v,
+        Err(_) => return NET_ERR_CORTEX_FOLD,
+    };
+    unsafe {
+        *out_len = bytes.len();
+        match last_seq {
+            Some(s) => {
+                *out_last_seq = s;
+                *out_has_last_seq = 1;
+            }
+            None => {
+                *out_last_seq = 0;
+                *out_has_last_seq = 0;
+            }
+        }
+        if !out_bytes.is_null() {
+            let n = bytes.len().min(cap);
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_bytes, n);
+        }
+    }
+    0
+}
+
+/// Open a workflow adapter from a snapshot (skips replay up through
+/// `last_seq` when `has_last_seq != 0`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_workflow_open_from_snapshot(
+    redex: *mut RedexHandle,
+    origin_hash: u64,
+    persistent: c_int,
+    state_bytes: *const u8,
+    state_len: usize,
+    last_seq: u64,
+    has_last_seq: c_int,
+    out_handle: *mut *mut WorkflowAdapterHandle,
+) -> c_int {
+    if redex.is_null() || out_handle.is_null() || (state_bytes.is_null() && state_len != 0) {
+        return NetError::NullPointer.into();
+    }
+    let redex = unsafe { &*redex };
+    let _op = match redex.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg = if persistent != 0 {
+        RedexFileConfig::default().with_persistent(true)
+    } else {
+        RedexFileConfig::default()
+    };
+    let bytes: Vec<u8> = if state_len == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(state_bytes, state_len) }.to_vec()
+    };
+    let last = if has_last_seq != 0 {
+        Some(last_seq)
+    } else {
+        None
+    };
+    let redex_inner: Arc<InnerRedex> = Arc::clone(&redex.inner);
+    let result = block_on(async move {
+        InnerWorkflowAdapter::open_from_snapshot_with_config(
+            &redex_inner,
+            origin_hash,
+            cfg,
+            &bytes,
+            last,
+        )
+        .await
+    });
+    match result {
+        Ok(adapter) => {
+            let handle = Box::new(WorkflowAdapterHandle {
+                inner: ManuallyDrop::new(Arc::new(adapter)),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_CORTEX_FOLD,
+    }
+}
+
+// ABI-visible no-op to force the linker to keep `c_void` happy on
+// some older linkers; harmless otherwise.
+#[doc(hidden)]
+pub fn _ffi_cortex_keep_alive() -> *mut c_void {
+    ptr::null_mut()
+}
+
+#[cfg(test)]
+mod tests {
+    //! Direct Rust-side coverage for the C FFI shims. The Go / Node
+    //! / Python binding tests cover happy-path round-trips; these
+    //! pin the corner cases that those tests don't exercise:
+    //! invalid config rejection, watch-cursor lifetime, and the
+    //! shared-runtime contract.
+
+    use super::*;
+    use std::ffi::CString;
+    use std::ptr;
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::thread;
+
+    fn redex() -> *mut RedexHandle {
+        unsafe { net_redex_new(ptr::null()) }
+    }
+
+    fn open_file(redex: *mut RedexHandle, name: &str, cfg_json: Option<&str>) -> c_int {
+        let name_c = CString::new(name).unwrap();
+        let cfg_c = cfg_json.map(|s| CString::new(s).unwrap());
+        let cfg_ptr = cfg_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let mut handle: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            let rc = net_redex_open_file(redex, name_c.as_ptr(), cfg_ptr, &mut handle);
+            if rc == 0 && !handle.is_null() {
+                net_redex_file_free(handle);
+            }
+            rc
+        }
+    }
+
+    /// Conflicting `fsync_every_n` AND `fsync_interval_ms`, as well
+    /// as either set to 0, must be rejected with `NET_ERR_REDEX`.
+    /// Go-side configs come straight from JSON without further
+    /// validation; if these slip past the FFI, the file opens with
+    /// silently-default fsync behavior and durability claims become
+    /// untrue.
+    #[test]
+    fn redex_open_file_rejects_conflicting_or_zero_fsync_config() {
+        let r = redex();
+        // Pre-checks: defaults and each individual setting succeed.
+        assert_eq!(open_file(r, "ok-default", None), 0);
+        assert_eq!(open_file(r, "ok-everyn", Some(r#"{"fsync_every_n":4}"#)), 0);
+        assert_eq!(
+            open_file(r, "ok-interval", Some(r#"{"fsync_interval_ms":50}"#),),
+            0
+        );
+
+        // Rejected combinations. Each row tests one invalid config.
+        let invalid = [
+            ("both-set", r#"{"fsync_every_n":4,"fsync_interval_ms":50}"#),
+            ("zero-everyn", r#"{"fsync_every_n":0}"#),
+            ("zero-interval", r#"{"fsync_interval_ms":0}"#),
+            ("both-zero", r#"{"fsync_every_n":0,"fsync_interval_ms":0}"#),
+            (
+                "everyn-set-interval-zero",
+                r#"{"fsync_every_n":4,"fsync_interval_ms":0}"#,
+            ),
+        ];
+        for (name, cfg) in invalid {
+            let rc = open_file(r, name, Some(cfg));
+            assert_eq!(
+                rc, NET_ERR_REDEX,
+                "config {name:?} ({cfg}) should be rejected with NET_ERR_REDEX (got {rc})"
+            );
+        }
+
+        unsafe { net_redex_free(r) };
+    }
+
+    /// Pin: `net_redex_open_file` rejects `Some(0)` for any
+    /// retention dimension at the same gate that rejects fsync
+    /// zeros. Pre-fix the retention triple was propagated
+    /// unchecked, so a config typo
+    /// (`{"retention_max_events": 0}` instead of `null`) silently
+    /// configured "evict everything immediately" and lost every
+    /// write to the file.
+    #[test]
+    fn redex_open_file_rejects_zero_retention() {
+        let r = redex();
+        let invalid = [
+            ("zero-events", r#"{"retention_max_events":0}"#),
+            ("zero-bytes", r#"{"retention_max_bytes":0}"#),
+            ("zero-age", r#"{"retention_max_age_ms":0}"#),
+            (
+                "any-zero-among-many",
+                r#"{"retention_max_events":1000,"retention_max_bytes":0}"#,
+            ),
+        ];
+        for (name, cfg) in invalid {
+            let rc = open_file(r, name, Some(cfg));
+            assert_eq!(
+                rc, NET_ERR_REDEX,
+                "config {name:?} ({cfg}) must be rejected with NET_ERR_REDEX (got {rc})"
+            );
+        }
+
+        // Non-zero retention still parses.
+        let valid = [
+            ("non-zero-events", r#"{"retention_max_events":10000}"#),
+            ("non-zero-bytes", r#"{"retention_max_bytes":1048576}"#),
+            ("non-zero-age", r#"{"retention_max_age_ms":60000}"#),
+            ("null-retention", r#"{"retention_max_events":null}"#),
+        ];
+        for (name, cfg) in valid {
+            let rc = open_file(r, name, Some(cfg));
+            assert_eq!(
+                rc, 0,
+                "valid config {name:?} ({cfg}) should succeed (got {rc})"
+            );
+        }
+
+        unsafe { net_redex_free(r) };
+    }
+
+    /// `net_redex_open_file` must pre-zero `*out_handle` on entry so
+    /// any non-zero return leaves the caller observing a null
+    /// pointer rather than stale stack data. Cgo / C consumers that
+    /// read `*out_handle` after `rc != 0` would otherwise see a
+    /// random bit pattern from the caller's stack frame and may
+    /// attempt to free it.
+    #[test]
+    fn redex_open_file_zeroes_out_handle_on_error() {
+        let r = redex();
+        let name = CString::new("bad-json").unwrap();
+        let cfg = CString::new("not-json {").unwrap();
+        // Seed the out-pointer with a non-null sentinel that
+        // resembles a leaked handle. A regression would leave this
+        // sentinel in place after the InvalidJson return.
+        let sentinel = 0xDEAD_BEEF_usize as *mut RedexFileHandle;
+        let mut handle: *mut RedexFileHandle = sentinel;
+        let rc = unsafe { net_redex_open_file(r, name.as_ptr(), cfg.as_ptr(), &mut handle) };
+        assert_eq!(rc, NetError::InvalidJson as c_int);
+        assert!(
+            handle.is_null(),
+            "out_handle must be null after rc != 0; got {handle:?}"
+        );
+        unsafe { net_redex_free(r) };
+    }
+
+    /// `net_redex_file_tail` must pre-zero `*out_cursor` on entry
+    /// for the same reason as `net_redex_open_file`. Free the file
+    /// to flip the handle guard into the freeing state so the
+    /// subsequent tail call's `try_enter` bails with ShuttingDown
+    /// after the pre-zero has run.
+    #[test]
+    fn redex_file_tail_zeroes_out_cursor_on_error() {
+        let r = redex();
+        let name = CString::new("tail-zero").unwrap();
+        let mut file: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(
+                net_redex_open_file(r, name.as_ptr(), ptr::null(), &mut file),
+                0
+            );
+            // Free the file. begin_free flips freeing=true; the outer
+            // box stays leaked, so subsequent calls go through but
+            // try_enter bails with ShuttingDown.
+            net_redex_file_free(file);
+        }
+
+        let sentinel = 0xDEAD_BEEF_usize as *mut RedexTailHandle;
+        let mut cursor: *mut RedexTailHandle = sentinel;
+        let rc = unsafe { net_redex_file_tail(file, 0, &mut cursor) };
+        assert_eq!(rc, NetError::ShuttingDown as c_int);
+        assert!(
+            cursor.is_null(),
+            "out_cursor must be null after rc != 0; got {cursor:?}"
+        );
+        unsafe { net_redex_free(r) };
+    }
+
+    /// `net_redex_open_file` with non-JSON config must return
+    /// `InvalidJson`, not silently default. Pinned because the Go
+    /// SDK relies on this distinction to surface a useful error.
+    #[test]
+    fn redex_open_file_rejects_non_json_config() {
+        let r = redex();
+        let name = CString::new("bad-json").unwrap();
+        let cfg = CString::new("not-json {").unwrap();
+        let mut handle: *mut RedexFileHandle = ptr::null_mut();
+        let rc = unsafe { net_redex_open_file(r, name.as_ptr(), cfg.as_ptr(), &mut handle) };
+        assert_eq!(rc, NetError::InvalidJson as c_int);
+        assert!(handle.is_null());
+        unsafe { net_redex_free(r) };
+    }
+
+    /// Once the underlying RedexFile is closed, an outstanding tail
+    /// cursor's next `tail_next` call must observe `STREAM_ENDED`
+    /// cleanly. This is the load-bearing lifetime contract for any
+    /// language binding that pumps the cursor into a goroutine /
+    /// task — without it, the consumer would block on a closed
+    /// stream forever.
+    #[test]
+    fn redex_tail_cursor_observes_close_with_stream_ended() {
+        let r = redex();
+        let name = CString::new("tail-close").unwrap();
+        let mut file: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(
+                net_redex_open_file(r, name.as_ptr(), ptr::null(), &mut file),
+                0
+            );
+        }
+
+        let mut cursor: *mut RedexTailHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(net_redex_file_tail(file, 0, &mut cursor), 0);
+
+            // Close the file while the cursor is live.
+            assert_eq!(net_redex_file_close(file), 0);
+        }
+
+        // Next call on the cursor must return STREAM_ENDED, not
+        // block, not panic, not return an error code.
+        let mut out_json: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        let rc = unsafe { net_redex_tail_next(cursor, 1_000, &mut out_json, &mut out_len) };
+        assert_eq!(
+            rc, NET_ERR_STREAM_ENDED,
+            "expected STREAM_ENDED after file close (got {rc})"
+        );
+        assert!(out_json.is_null(), "no event payload should be written");
+
+        unsafe {
+            net_redex_tail_free(cursor);
+            net_redex_file_free(file);
+            net_redex_free(r);
+        }
+    }
+
+    /// A Go cgo / Python-thread caller racing
+    /// `net_redex_file_free` against a concurrent
+    /// `net_redex_file_append` (or any RedexFile op) must not
+    /// produce a use-after-free. Without the guard, `_free` would
+    /// be an unconditional `Box::from_raw` and the concurrent
+    /// op's `&*handle` deref would read freed memory.
+    ///
+    /// We can't deterministically inject the race in a unit test
+    /// without race-injection scaffolding, but we CAN pin the two
+    /// load-bearing invariants:
+    ///   1. After `_free`, future ops bail with `ShuttingDown`
+    ///      rather than touching the (taken-out) inner.
+    ///   2. `_free` is idempotent — a second call returns
+    ///      immediately without touching the already-taken inner.
+    ///      The leaked outer Box stays valid; the second
+    ///      `begin_free` observes `freeing=true` (set by the
+    ///      first caller's `compare_exchange`) and returns
+    ///      `false`, skipping the `ManuallyDrop::take` branch
+    ///      entirely.
+    #[test]
+    fn redex_file_free_blocks_subsequent_ops_with_shutting_down() {
+        let r = redex();
+        let name = CString::new("free-then-op").unwrap();
+        let mut file: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(
+                net_redex_open_file(r, name.as_ptr(), ptr::null(), &mut file),
+                0
+            );
+        }
+        assert!(!file.is_null());
+
+        // Free the file. begin_free drains immediately (no in-flight
+        // ops), takes the inner, leaks the outer box.
+        unsafe { net_redex_file_free(file) };
+
+        // Subsequent ops via the same handle must bail with
+        // ShuttingDown — try_enter sees freeing=true, decrements,
+        // returns None. They must NOT touch the taken inner.
+        let payload = b"x";
+        let mut out_seq: u64 = 0;
+        let rc =
+            unsafe { net_redex_file_append(file, payload.as_ptr(), payload.len(), &mut out_seq) };
+        assert_eq!(
+            rc,
+            NetError::ShuttingDown as c_int,
+            "post-free append must surface ShuttingDown (got {rc})",
+        );
+        assert_eq!(out_seq, 0, "no seq must be assigned to a post-free append");
+
+        // _len takes the silent path (returns 0 — same as the absent
+        // case) per its contract.
+        assert_eq!(unsafe { net_redex_file_len(file) }, 0);
+
+        // _read_range / _sync / _close also bail with ShuttingDown.
+        let mut out_json: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        unsafe {
+            let rc = net_redex_file_read_range(file, 0, 1, &mut out_json, &mut out_len);
+            assert_eq!(rc, NetError::ShuttingDown as c_int);
+            assert_eq!(net_redex_file_sync(file), NetError::ShuttingDown as c_int);
+            assert_eq!(net_redex_file_close(file), NetError::ShuttingDown as c_int);
+
+            net_redex_free(r);
+        }
+    }
+
+    /// Pin: `net_redex_file_free` is idempotent under the post-fix
+    /// protocol. Pre-fix a second call after the first
+    /// `Box::from_raw` was a double-free; post-fix the second call
+    /// observes `freeing=true` and returns without touching the
+    /// already-taken inner. The handle box is leaked (intentional
+    /// — see handle_guard module docs) so the second call's
+    /// `&*handle` deref is on still-valid memory.
+    #[test]
+    fn redex_file_free_is_idempotent() {
+        let r = redex();
+        let name = CString::new("free-twice").unwrap();
+        let mut file: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(
+                net_redex_open_file(r, name.as_ptr(), ptr::null(), &mut file),
+                0
+            );
+            net_redex_file_free(file);
+            // Second free: must not panic, must not double-take the
+            // ManuallyDrop, must not deallocate the outer box.
+            net_redex_file_free(file);
+            net_redex_free(r);
+        }
+    }
+
+    /// A `net_redex_file_free` racing an in-flight
+    /// `net_redex_file_append` from another thread must wait for
+    /// the append to finish before taking the inner. Without the
+    /// guard, free would proceed immediately and the append's
+    /// subsequent `&*handle` deref would UAF the dropped inner.
+    ///
+    /// We use a long-running append (large payload + sync after)
+    /// on a background thread and call `_free` from the main
+    /// thread once the append has been observed to start. `_free`
+    /// blocks until the append's `try_enter` guard drops.
+    #[test]
+    fn redex_file_free_waits_for_inflight_append() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let r = redex();
+        let name = CString::new("free-races-append").unwrap();
+        let mut file: *mut RedexFileHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(
+                net_redex_open_file(r, name.as_ptr(), ptr::null(), &mut file),
+                0
+            );
+        }
+
+        // Smuggle the raw pointer across threads via usize. The
+        // contract: pre- and during-the-append, no `_free` runs;
+        // the worker signals `started` once it's inside append's
+        // try_enter; main waits for that signal then calls free.
+        let file_addr = file as usize;
+        let started = Arc::new(AtomicBool::new(false));
+        let done = Arc::new(AtomicBool::new(false));
+        let started_w = started.clone();
+        let done_w = done.clone();
+        let worker = std::thread::spawn(move || {
+            // Append a chunk — the inner work is fast, so we wrap
+            // the call in a brief sleep AFTER signaling started so
+            // the test can race _free against an in-flight op.
+            // Doing this without a hook in append itself means we
+            // can only approximate the race; the timing window is
+            // ~30ms which is enough to catch a missing guard.
+            started_w.store(true, Ordering::SeqCst);
+            let payload = b"hello";
+            let mut out_seq: u64 = 0;
+            let h = file_addr as *mut RedexFileHandle;
+            // The append itself completes fast; sleep simulates a
+            // longer-running op. In production a long op is e.g.
+            // a large read_range with serialization.
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            let rc =
+                unsafe { net_redex_file_append(h, payload.as_ptr(), payload.len(), &mut out_seq) };
+            done_w.store(true, Ordering::SeqCst);
+            // The append should succeed if it ran before _free's
+            // begin_free flipped freeing. If it ran after, it
+            // should bail with ShuttingDown — both outcomes are
+            // sound; the bug pre-fix was a UAF panic / corruption,
+            // not a Stale return.
+            assert!(
+                rc == 0 || rc == NetError::ShuttingDown as c_int,
+                "post-fix append after begin_free must EITHER succeed (op got there first) \
+                 OR return ShuttingDown — never UAF. Got rc={rc}, out_seq={out_seq}",
+            );
+        });
+
+        while !started.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+        // Main: free the file. Post-fix this blocks until the
+        // worker's append (which the worker holds via try_enter)
+        // releases; pre-fix it would proceed immediately and the
+        // worker's subsequent inner-deref would UAF.
+        unsafe { net_redex_file_free(file) };
+
+        worker.join().unwrap();
+        assert!(
+            done.load(Ordering::SeqCst),
+            "worker must have completed; the test would otherwise hang \
+             past the watchdog if free's begin_free deadlocked",
+        );
+
+        unsafe { net_redex_free(r) };
+    }
+
+    /// `runtime()` is a process-wide `OnceLock<Arc<Runtime>>`. Many
+    /// FFI entry points call it on first use. We assert that
+    /// concurrent first-callers from N threads all observe the
+    /// same runtime instance — i.e. that `OnceLock` initialization
+    /// is correctly atomic and no thread sees a half-built
+    /// runtime. (`OnceLock` guarantees this; the test pins the
+    /// guarantee against an accidental refactor to a non-atomic
+    /// alternative.)
+    #[test]
+    fn runtime_first_call_returns_same_instance_under_concurrency() {
+        const THREADS: usize = 16;
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let mut handles = Vec::with_capacity(THREADS);
+        for _ in 0..THREADS {
+            let b = barrier.clone();
+            handles.push(thread::spawn(move || {
+                b.wait();
+                let rt = runtime();
+                Arc::as_ptr(rt) as usize
+            }));
+        }
+        let mut ptrs: Vec<usize> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        ptrs.sort();
+        ptrs.dedup();
+        assert_eq!(
+            ptrs.len(),
+            1,
+            "concurrent first-callers observed {} distinct runtimes (must be exactly 1)",
+            ptrs.len()
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // Replication FFI — Phase I Go binding surface
+    // ────────────────────────────────────────────────────────────────
+
+    /// `replication_runtime_count` reads 0 on an empty `Redex` and
+    /// stays 0 when no `enable_replication` was called.
+    #[test]
+    fn replication_runtime_count_zero_when_not_enabled() {
+        let r = redex();
+        unsafe {
+            assert_eq!(net_redex_replication_runtime_count(r), 0);
+            net_redex_free(r);
+        }
+    }
+
+    /// `replication_prometheus_text` returns the empty string
+    /// (heap-allocated + NUL-terminated, NOT NULL) when replication
+    /// isn't enabled — call sites pipe straight into an HTTP body
+    /// without branching.
+    #[test]
+    fn replication_prometheus_text_empty_when_not_enabled() {
+        let r = redex();
+        let p = unsafe { net_redex_replication_prometheus_text(r) };
+        assert!(!p.is_null());
+        let s = unsafe { CStr::from_ptr(p) }.to_str().unwrap();
+        assert_eq!(s, "");
+        unsafe {
+            crate::ffi::net_free_string(p);
+            net_redex_free(r);
+        }
+    }
+
+    /// `replication_prometheus_text` returns NULL on a NULL handle —
+    /// defensive; the Go side typically guards before calling.
+    #[test]
+    fn replication_prometheus_text_null_handle_returns_null() {
+        let p = unsafe { net_redex_replication_prometheus_text(ptr::null()) };
+        assert!(p.is_null());
+    }
+
+    /// Opening a channel with `replication: { ... }` BEFORE
+    /// `enable_replication` was called must fail with
+    /// `NET_ERR_REDEX` — the typed error from `Redex::open_file`.
+    #[test]
+    fn open_file_with_replication_without_enable_fails() {
+        let r = redex();
+        let cfg = r#"{"replication":{"factor":3,"heartbeat_ms":500}}"#;
+        let rc = open_file(r, "ffi/repl_unconfigured", Some(cfg));
+        assert_eq!(rc, NET_ERR_REDEX);
+        unsafe { net_redex_free(r) };
+    }
+
+    /// Invalid replication config (factor below MIN, unknown
+    /// placement, etc.) surfaces `NET_ERR_REDEX` without opening
+    /// the file.
+    #[test]
+    fn open_file_with_invalid_replication_config_rejected() {
+        let r = redex();
+        // Unknown placement strategy.
+        let cfg = r#"{"replication":{"placement":"impossible"}}"#;
+        let rc = open_file(r, "ffi/repl_invalid_placement", Some(cfg));
+        assert_eq!(rc, NET_ERR_REDEX);
+
+        // Pinned without pinned_nodes.
+        let cfg = r#"{"replication":{"placement":"pinned"}}"#;
+        let rc = open_file(r, "ffi/repl_pinned_no_nodes", Some(cfg));
+        assert_eq!(rc, NET_ERR_REDEX);
+
+        // Unknown on_under_capacity.
+        let cfg = r#"{"replication":{"on_under_capacity":"impossible"}}"#;
+        let rc = open_file(r, "ffi/repl_invalid_policy", Some(cfg));
+        assert_eq!(rc, NET_ERR_REDEX);
+
+        unsafe { net_redex_free(r) };
+    }
+
+    /// NULL `redex` to the replication functions surfaces 0 /
+    /// NULL respectively (the documented defensive shape).
+    #[test]
+    fn replication_functions_idempotent_on_null_redex() {
+        unsafe {
+            assert_eq!(net_redex_replication_runtime_count(ptr::null()), 0);
+            let p = net_redex_replication_prometheus_text(ptr::null());
+            assert!(p.is_null());
+        }
+    }
+
+    /// R-8 regression: `net_redex_enable_replication` must drop
+    /// the boxed `Arc<MeshNode>` regardless of return code so the
+    /// Go binding's "consumed on call" contract holds even on
+    /// NullPointer / ShuttingDown errors. We exercise the NULL-
+    /// redex path with a real (but minimal) MeshNode and verify
+    /// the Arc strong count drops after the FFI call returns.
+    ///
+    /// We use an async-Tokio block to satisfy `MeshNode::new`'s
+    /// async signature without making the test runtime async.
+    #[cfg(feature = "net")]
+    #[test]
+    fn enable_replication_drops_mesh_arc_on_null_redex() {
+        use crate::adapter::net::{EntityKeypair, MeshNode, MeshNodeConfig};
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+        use std::sync::Arc;
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mesh = rt.block_on(async {
+            let identity = EntityKeypair::generate();
+            let cfg = MeshNodeConfig::new(
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+                [0u8; 32],
+            );
+            Arc::new(MeshNode::new(identity, cfg).await.unwrap())
+        });
+        let pre_count = Arc::strong_count(&mesh);
+        let boxed_arc: *mut Arc<MeshNode> = Box::into_raw(Box::new(mesh.clone()));
+        assert_eq!(Arc::strong_count(&mesh), pre_count + 1);
+
+        // NULL redex, valid mesh_arc — must drop boxed_arc and
+        // surface NullPointer.
+        let rc = unsafe { net_redex_enable_replication(ptr::null_mut(), boxed_arc) };
+        let expected: c_int = NetError::NullPointer.into();
+        assert_eq!(rc, expected);
+        assert_eq!(
+            Arc::strong_count(&mesh),
+            pre_count,
+            "net_redex_enable_replication must drop the boxed Arc on error paths"
+        );
+    }
+
+    /// Parallel coverage for the greedy FFI surface — pin the
+    /// Arc-consumption contract on the NULL-redex error path
+    /// (same shape as the replication test above).
+    #[cfg(all(feature = "net", feature = "dataforts"))]
+    #[test]
+    fn enable_greedy_drops_mesh_arc_on_null_redex() {
+        use crate::adapter::net::{EntityKeypair, MeshNode, MeshNodeConfig};
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+        use std::sync::Arc;
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mesh = rt.block_on(async {
+            let identity = EntityKeypair::generate();
+            let cfg = MeshNodeConfig::new(
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+                [0u8; 32],
+            );
+            Arc::new(MeshNode::new(identity, cfg).await.unwrap())
+        });
+        let pre_count = Arc::strong_count(&mesh);
+        let boxed_arc: *mut Arc<MeshNode> = Box::into_raw(Box::new(mesh.clone()));
+        assert_eq!(Arc::strong_count(&mesh), pre_count + 1);
+
+        let rc =
+            unsafe { net_redex_enable_greedy_dataforts(ptr::null_mut(), boxed_arc, ptr::null()) };
+        let expected: c_int = NetError::NullPointer.into();
+        assert_eq!(rc, expected);
+        assert_eq!(
+            Arc::strong_count(&mesh),
+            pre_count,
+            "net_redex_enable_greedy_dataforts must drop the boxed Arc on error paths"
+        );
+    }
+
+    /// Smoke test: install greedy on a real Redex + mesh, observe
+    /// the channel-count + Prometheus text shape, then uninstall.
+    #[cfg(all(feature = "net", feature = "dataforts"))]
+    #[test]
+    fn greedy_enable_disable_round_trip() {
+        use crate::adapter::net::{EntityKeypair, MeshNode, MeshNodeConfig};
+        use std::ffi::CString;
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+        use std::sync::Arc;
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mesh = rt.block_on(async {
+            let identity = EntityKeypair::generate();
+            let cfg = MeshNodeConfig::new(
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+                [0u8; 32],
+            );
+            Arc::new(MeshNode::new(identity, cfg).await.unwrap())
+        });
+
+        let r = redex();
+        let boxed_arc: *mut Arc<MeshNode> = Box::into_raw(Box::new(mesh.clone()));
+        // Minimal config — just disable intent matching so the
+        // empty-registry path doesn't gate us.
+        let cfg_json = CString::new(r#"{"intent_match":"disabled"}"#).unwrap();
+        let rc = unsafe { net_redex_enable_greedy_dataforts(r, boxed_arc, cfg_json.as_ptr()) };
+        assert_eq!(rc, 0, "enable must succeed");
+
+        // No channels yet — count is 0.
+        assert_eq!(unsafe { net_redex_greedy_cached_channel_count(r) }, 0);
+
+        // Prometheus text is non-null and contains the metric
+        // family header.
+        let p = unsafe { net_redex_greedy_prometheus_text(r) };
+        assert!(!p.is_null());
+        let text = unsafe { std::ffi::CStr::from_ptr(p) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { super::super::net_free_string(p) };
+        assert!(
+            text.contains("dataforts_greedy_admit_rejected_total"),
+            "Prometheus text must include the admit-rejected metric family"
+        );
+
+        // Uninstall + verify.
+        assert_eq!(unsafe { net_redex_disable_greedy_dataforts(r) }, 0);
+        let p_after = unsafe { net_redex_greedy_prometheus_text(r) };
+        assert!(!p_after.is_null());
+        let after_text = unsafe { std::ffi::CStr::from_ptr(p_after) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { super::super::net_free_string(p_after) };
+        assert!(
+            after_text.is_empty(),
+            "post-disable Prometheus text must be empty; got {after_text:?}"
+        );
+
+        unsafe { net_redex_free(r) };
+    }
+
+    /// `net_redex_greedy_cache_for` contract (plan G-A): NULL out-pointer
+    /// refused before any write; outputs reset before later failures; an
+    /// invalid channel name is NET_ERR_REDEX; greedy off is a clean miss.
+    /// The hit path needs a live mesh and is covered by the Go end-to-end
+    /// test (TestRedexGreedyCacheForReadsAPeersChannel).
+    #[cfg(feature = "dataforts")]
+    #[test]
+    fn greedy_cache_for_contract() {
+        let r = redex();
+        let ch = CString::new("go/greedy/contract").unwrap();
+        let bad = CString::new("").unwrap();
+        unsafe {
+            assert_eq!(
+                net_redex_greedy_cache_for(r, ch.as_ptr(), ptr::null_mut()),
+                c_int::from(NetError::NullPointer)
+            );
+            let mut out = std::ptr::dangling_mut::<RedexFileHandle>();
+            assert_eq!(
+                net_redex_greedy_cache_for(ptr::null(), ch.as_ptr(), &mut out),
+                c_int::from(NetError::NullPointer)
+            );
+            assert!(out.is_null(), "out_file reset before a later failure");
+            let mut out = std::ptr::dangling_mut::<RedexFileHandle>();
+            assert_eq!(
+                net_redex_greedy_cache_for(r, bad.as_ptr(), &mut out),
+                NET_ERR_REDEX
+            );
+            assert!(out.is_null());
+            let mut out = std::ptr::dangling_mut::<RedexFileHandle>();
+            assert_eq!(net_redex_greedy_cache_for(r, ch.as_ptr(), &mut out), 0);
+            assert!(out.is_null(), "greedy off: a miss, not an error");
+            net_redex_free(r);
+        }
+    }
+
+    // =====================================================================
+    // NetDb FFI — composition, accessors, snapshot round-trip
+    // =====================================================================
+
+    /// Helper: open a NetDb with both adapters enabled.
+    fn open_full_netdb(r: *mut RedexHandle, origin: u64, persistent: bool) -> *mut NetDbHandle {
+        let cfg = format!(
+            r#"{{"origin_hash":{origin},"persistent":{persistent},"with_tasks":true,"with_memories":true}}"#,
+            origin = origin,
+            persistent = persistent,
+        );
+        let cfg_c = CString::new(cfg).unwrap();
+        let mut h: *mut NetDbHandle = ptr::null_mut();
+        let rc = unsafe { net_netdb_open(r, cfg_c.as_ptr(), &mut h) };
+        assert_eq!(rc, 0, "net_netdb_open should succeed (rc={rc})");
+        assert!(!h.is_null());
+        h
+    }
+
+    /// `net_netdb_open` must pre-zero `*out_handle` on every non-success
+    /// return so a caller that doesn't strictly check the rc still sees
+    /// `null` rather than stale stack data.
+    #[test]
+    fn netdb_open_zeroes_out_handle_on_error() {
+        let r = redex();
+        let bad = CString::new("not json").unwrap();
+        let sentinel = 0xDEAD_BEEF_usize as *mut NetDbHandle;
+        let mut h: *mut NetDbHandle = sentinel;
+        let rc = unsafe { net_netdb_open(r, bad.as_ptr(), &mut h) };
+        assert_eq!(rc, NetError::InvalidJson as c_int);
+        assert!(h.is_null(), "expected null on error, got {h:?}");
+        unsafe { net_redex_free(r) };
+    }
+
+    /// Asking `net_netdb_tasks` for a model that wasn't enabled at open
+    /// time must return `NET_ERR_NETDB` and leave `*out_handle` null.
+    #[test]
+    fn netdb_accessor_rejects_unenabled_model() {
+        let r = redex();
+        let cfg =
+            CString::new(r#"{"origin_hash":42,"with_tasks":true,"with_memories":false}"#).unwrap();
+        let mut db: *mut NetDbHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(net_netdb_open(r, cfg.as_ptr(), &mut db), 0);
+        }
+
+        // Tasks was enabled → accessor succeeds.
+        let mut t: *mut TasksAdapterHandle = ptr::null_mut();
+        unsafe {
+            assert_eq!(net_netdb_tasks(db, &mut t), 0);
+        }
+        assert!(!t.is_null());
+        unsafe { net_tasks_adapter_free(t) };
+
+        // Memories was NOT enabled → accessor returns NET_ERR_NETDB.
+        let sentinel = 0xDEAD_BEEF_usize as *mut MemoriesAdapterHandle;
+        let mut m: *mut MemoriesAdapterHandle = sentinel;
+        let rc = unsafe { net_netdb_memories(db, &mut m) };
+        assert_eq!(rc, NET_ERR_NETDB);
+        assert!(m.is_null(), "expected null on error, got {m:?}");
+
+        unsafe {
+            net_netdb_free(db);
+            net_redex_free(r);
+        }
+    }
+
+    /// Snapshot bytes round-trip: capture a bundle from a populated
+    /// NetDb, restore into a fresh NetDb, and verify the restored Tasks
+    /// adapter sees the original task. Confirms the postcard wire
+    /// format is stable across the FFI boundary.
+    #[test]
+    fn netdb_snapshot_roundtrips_through_ffi() {
+        let r = redex();
+        let db = open_full_netdb(r, 0xDEAD_BEEF, false);
+
+        // Seed: create one task on the source DB.
+        let mut t: *mut TasksAdapterHandle = ptr::null_mut();
+        let title = CString::new("first").unwrap();
+        let mut seq: u64 = 0;
+        unsafe {
+            assert_eq!(net_netdb_tasks(db, &mut t), 0);
+            assert_eq!(
+                net_tasks_create(t, 1, title.as_ptr(), 1_000_000, &mut seq),
+                0
+            );
+            // Wait for the fold to apply so the snapshot has the task baked in.
+            assert_eq!(net_tasks_wait_for_seq(t, seq, 500), 0);
+            net_tasks_adapter_free(t);
+        }
+
+        // Capture snapshot.
+        let mut bytes: *mut u8 = ptr::null_mut();
+        let mut len: usize = 0;
+        unsafe {
+            assert_eq!(net_netdb_snapshot(db, &mut bytes, &mut len), 0);
+        }
+        assert!(!bytes.is_null());
+        assert!(len > 0, "snapshot bundle should not be empty");
+
+        // Close + free the source DB; the task survives in the bundle.
+        unsafe {
+            let _ = net_netdb_close(db);
+            net_netdb_free(db);
+        }
+
+        // Restore into a fresh DB.
+        let cfg =
+            CString::new(r#"{"origin_hash":3735928559,"with_tasks":true,"with_memories":true}"#)
+                .unwrap();
+        let mut db2: *mut NetDbHandle = ptr::null_mut();
+        let rc = unsafe { net_netdb_open_from_snapshot(r, cfg.as_ptr(), bytes, len, &mut db2) };
+        assert_eq!(rc, 0, "restore should succeed (rc={rc})");
+        assert!(!db2.is_null());
+
+        // Read back tasks and verify the original task is present.
+        let mut t2: *mut TasksAdapterHandle = ptr::null_mut();
+        let filter = CString::new("{}").unwrap();
+        let mut list_json: *mut c_char = ptr::null_mut();
+        let mut list_len: usize = 0;
+        unsafe {
+            assert_eq!(net_netdb_tasks(db2, &mut t2), 0);
+            assert_eq!(
+                net_tasks_list(t2, filter.as_ptr(), &mut list_json, &mut list_len),
+                0
+            );
+        }
+        let list = unsafe { CStr::from_ptr(list_json) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { super::super::net_free_string(list_json) };
+        assert!(
+            list.contains("\"first\""),
+            "restored task list should contain the seeded title; got {list}"
+        );
+        unsafe {
+            net_tasks_adapter_free(t2);
+
+            net_netdb_free_bundle(bytes, len);
+            net_netdb_free(db2);
+            net_redex_free(r);
+        }
+    }
+
+    /// `net_netdb_free_bundle` must NULL-safe-accept null / zero-len
+    /// inputs so callers don't need to branch before freeing on the
+    /// error path (where the rc != 0 contract leaves bytes==null).
+    #[test]
+    fn netdb_free_bundle_is_null_safe() {
+        // Both no-ops; the test passes if neither aborts.
+        unsafe {
+            net_netdb_free_bundle(ptr::null_mut(), 0);
+            net_netdb_free_bundle(ptr::null_mut(), 16);
+            let mut buf: Vec<u8> = vec![0u8; 4];
+            net_netdb_free_bundle(buf.as_mut_ptr(), 0);
+        }
+    }
+
+    /// `net_netdb_open_from_snapshot` with `bundle_len == 0` opens from
+    /// scratch (no entries to restore). Equivalent to `net_netdb_open`.
+    #[test]
+    fn netdb_open_from_empty_snapshot_opens_from_scratch() {
+        let r = redex();
+        let cfg =
+            CString::new(r#"{"origin_hash":1,"with_tasks":true,"with_memories":false}"#).unwrap();
+        let mut db: *mut NetDbHandle = ptr::null_mut();
+        let rc = unsafe { net_netdb_open_from_snapshot(r, cfg.as_ptr(), ptr::null(), 0, &mut db) };
+        assert_eq!(rc, 0);
+        assert!(!db.is_null());
+        unsafe {
+            net_netdb_free(db);
+            net_redex_free(r);
+        }
+    }
+
+    /// The trigger fire calls (`net_trigger_on_tick` /
+    /// `net_trigger_on_task_change`) are *consuming* — they disarm what
+    /// they fire on every call, regardless of whether the out-buffers are
+    /// NULL. A caller must therefore size the buffer up front and call
+    /// ONCE; a "probe with NULL to learn the count, then fill" two-pass
+    /// fires + disarms on the probe and discards the actions, so the fill
+    /// pass returns nothing. This pins both halves: a correctly-sized
+    /// single call returns the action and disarms, and a NULL-buffer probe
+    /// silently drops it (the bug the Go wrapper hit — review 2026-06-25).
+    #[test]
+    fn trigger_on_tick_is_consuming_single_call() {
+        unsafe {
+            let r = net_redex_new(ptr::null());
+            let mut wf: *mut WorkflowAdapterHandle = ptr::null_mut();
+            assert_eq!(net_workflow_adapter_open(r, 0xF00D, 0, &mut wf), 0);
+            let mut eng: *mut TriggerEngineHandle = ptr::null_mut();
+            assert_eq!(net_trigger_engine_new(wf, &mut eng), 0);
+
+            // Arm AtTick(5) -> Submit(2).
+            assert_eq!(net_trigger_arm_at_tick(eng, 5, 0 /* submit */, 2), 0);
+            let mut armed: usize = 0;
+            assert_eq!(net_trigger_armed_count(eng, &mut armed), 0);
+            assert_eq!(armed, 1);
+
+            let mut kinds = [0_i32; 4];
+            let mut ids = [0_u64; 4];
+            let mut count: usize = 0;
+
+            // Below the deadline: nothing fires, the trigger stays armed.
+            assert_eq!(
+                net_trigger_on_tick(eng, 4, kinds.as_mut_ptr(), ids.as_mut_ptr(), 4, &mut count),
+                0
+            );
+            assert_eq!(count, 0);
+            net_trigger_armed_count(eng, &mut armed);
+            assert_eq!(armed, 1);
+
+            // Reaches the deadline: fires once (single, correctly-sized
+            // call) and disarms.
+            assert_eq!(
+                net_trigger_on_tick(eng, 5, kinds.as_mut_ptr(), ids.as_mut_ptr(), 4, &mut count),
+                0
+            );
+            assert_eq!(count, 1);
+            assert_eq!((kinds[0], ids[0]), (0, 2));
+            net_trigger_armed_count(eng, &mut armed);
+            assert_eq!(armed, 0);
+
+            // The footgun: a NULL-buffer "probe" pass still fires + disarms,
+            // so a follow-up fill pass sees nothing — actions lost.
+            assert_eq!(net_trigger_arm_at_tick(eng, 7, 0, 9), 0);
+            assert_eq!(
+                net_trigger_on_tick(eng, 7, ptr::null_mut(), ptr::null_mut(), 0, &mut count),
+                0
+            );
+            assert_eq!(count, 1, "probe reports the count but consumes the trigger");
+            net_trigger_armed_count(eng, &mut armed);
+            assert_eq!(armed, 0, "probe pass already disarmed it");
+            assert_eq!(
+                net_trigger_on_tick(eng, 7, kinds.as_mut_ptr(), ids.as_mut_ptr(), 4, &mut count),
+                0
+            );
+            assert_eq!(count, 0, "the fired action was lost to the probe pass");
+
+            net_trigger_engine_free(eng);
+            net_workflow_adapter_free(wf);
+            net_redex_free(r);
+        }
+    }
+
+    /// A replicated `net_redex_open_file` spawns the channel's
+    /// replication runtime. Called from a plain C / cgo thread, which
+    /// has no tokio reactor, that spawn panicked ("there is no reactor
+    /// running") across the FFI boundary, the same bug the Node and
+    /// Python bindings had. Then `net_redex_disable_replication`
+    /// releases the mesh.
+    ///
+    /// A plain `#[test]` thread is the C caller here: no runtime.
+    #[cfg(feature = "net")]
+    #[test]
+    fn replicated_open_file_from_a_plain_thread_and_disable_replication() {
+        use crate::ffi::mesh::{net_mesh_arc_clone, net_mesh_free, net_mesh_new, net_mesh_node_id};
+        let cfg = CString::new(format!(
+            r#"{{"bind_addr":"127.0.0.1:0","psk_hex":"{}"}}"#,
+            "42".repeat(32)
+        ))
+        .unwrap();
+        let mut mesh = ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg.as_ptr(), &mut mesh) }, 0);
+        let node_id = unsafe { net_mesh_node_id(mesh) };
+        let r = redex();
+        unsafe {
+            assert_eq!(net_redex_enable_replication(r, net_mesh_arc_clone(mesh)), 0);
+        }
+        let repl = format!(
+            r#"{{"replication":{{"heartbeat_ms":150,"placement":"pinned","pinned_nodes":[{node_id}]}}}}"#
+        );
+        assert_eq!(open_file(r, "ffi/repl", Some(&repl)), 0);
+        assert_eq!(unsafe { net_redex_replication_runtime_count(r) }, 1);
+
+        assert_eq!(unsafe { net_redex_disable_replication(r) }, 0);
+        assert_eq!(unsafe { net_redex_disable_replication(r) }, 0, "idempotent");
+        assert_eq!(unsafe { net_redex_replication_runtime_count(r) }, 0);
+        unsafe {
+            net_redex_free(r);
+            net_mesh_free(mesh);
+        }
+    }
+}

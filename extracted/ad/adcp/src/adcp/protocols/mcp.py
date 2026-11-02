@@ -1,0 +1,1946 @@
+from __future__ import annotations
+
+"""MCP protocol adapter using official Python MCP SDK."""
+
+import asyncio
+import contextlib
+import logging
+import time
+from collections.abc import Awaitable, Callable, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlparse
+
+# ExceptionGroup and BaseExceptionGroup are available in Python 3.11+
+# In 3.11+, they're built-in types. For 3.10, we need to handle their absence.
+try:
+    _ExceptionGroup: type[BaseException] | None = ExceptionGroup  # type: ignore[name-defined]
+    _BaseExceptionGroup: type[BaseException] | None = BaseExceptionGroup  # type: ignore[name-defined]
+except NameError:
+    # Python 3.10 - ExceptionGroup doesn't exist
+    _ExceptionGroup = None
+    _BaseExceptionGroup = None
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from mcp import ClientSession
+    from mcp.types import RequestParamsMeta
+
+try:
+    import anyio
+    import httpx2 as _mcp_httpx
+    from mcp import ClientSession as _ClientSession
+    from mcp.client.sse import sse_client
+    from mcp.client.streamable_http import (
+        MCP_SESSION_ID,
+        StreamableHTTPTransport,
+    )
+    from mcp.shared._compat import resync_tracer
+    from mcp.shared._context_streams import create_context_streams
+    from mcp.shared._httpx_utils import MCP_DEFAULT_SSE_READ_TIMEOUT, MCP_DEFAULT_TIMEOUT
+    from mcp.shared.message import SessionMessage
+
+    MCP_AVAILABLE = True
+    _MCP_HTTP_STATUS_ERROR_TYPES: tuple[type[BaseException], ...] = (_mcp_httpx.HTTPStatusError,)
+except ImportError:
+    MCP_AVAILABLE = False
+    _MCP_HTTP_STATUS_ERROR_TYPES = ()
+
+try:
+    import httpx as _httpx
+    from httpx import HTTPStatusError
+
+    HTTPX_AVAILABLE = True
+    _HTTP_STATUS_ERROR_TYPES: tuple[type[BaseException], ...] = (HTTPStatusError,)
+except ImportError:
+    HTTPX_AVAILABLE = False
+    _HTTP_STATUS_ERROR_TYPES = ()
+    _httpx = None  # type: ignore[assignment]
+
+_ALL_HTTP_STATUS_ERROR_TYPES: tuple[type[BaseException], ...] = (
+    *_HTTP_STATUS_ERROR_TYPES,
+    *_MCP_HTTP_STATUS_ERROR_TYPES,
+)
+
+import json
+
+from adcp import _idempotency
+from adcp._response_limit import (
+    DEFAULT_MAX_RESPONSE_BYTES,
+    ResponseLimitPolicy,
+    find_response_limit_error,
+    install_response_limit,
+    resolve_max_response_bytes,
+)
+from adcp.compat.reporting_version import assert_reporting_request_supported
+from adcp.exceptions import (
+    ADCPAuthenticationError,
+    ADCPConnectionError,
+    ADCPError,
+    ADCPResponseEncodingError,
+    ADCPResponseTooLargeError,
+    ADCPTimeoutError,
+    IdempotencyConflictError,
+    IdempotencyExpiredError,
+)
+from adcp.observability import mcp_trace_meta
+from adcp.protocols._adcp_errors import validate_adcp_error as _validate_adcp_error
+from adcp.protocols.base import ProtocolAdapter
+from adcp.signing.autosign import current_operation as _signing_operation
+from adcp.task_options import mark_task_dispatched
+from adcp.types.core import DebugInfo, TaskResult, TaskStatus
+from adcp.validation.client_hooks import (
+    validate_incoming_response,
+    validate_outgoing_request,
+)
+from adcp.validation.schema_validator import SchemaValidationError, format_issues
+
+# MCP replays the sender's context in its HTTP writer task. A mutable holder
+# keeps HTTP diagnostics scoped to the awaiting call, including concurrent
+# callers sharing a session. The response hook itself must never raise.
+_MCP_HTTP_AUTH_ERRORS: ContextVar[list[ADCPAuthenticationError] | None] = ContextVar(
+    "mcp_http_auth_errors", default=None
+)
+
+# Same holder trick for response-budget rejections. The limiter raises inside
+# MCP's HTTP writer task, where anyio rewraps the failure into an
+# ExceptionGroup and the awaiting request is cancelled along with the task
+# group; the list carries the typed error back to the awaiting call.
+_MCP_HTTP_BUDGET_ERRORS: ContextVar[list[ADCPError] | None] = ContextVar(
+    "mcp_http_budget_errors", default=None
+)
+_BUDGET_ERRORS = (ADCPResponseTooLargeError, ADCPResponseEncodingError)
+
+
+def _uncancel_current_task() -> None:
+    """Balance a ``CancelledError`` this module swallows.
+
+    MCP's writer task group cancels the awaiting request when the limiter
+    aborts a body. Converting that into the typed rejection means the
+    cancellation stops here, so the task's cancellation count has to come back
+    down or a later ``asyncio.timeout`` on the same task misreads it.
+    """
+    try:
+        task = asyncio.current_task()
+    except RuntimeError:  # pragma: no cover - no running loop
+        return
+    if task is None:
+        return
+    # Python 3.11+; on 3.10 there is no cancellation count to balance.
+    uncancel = getattr(task, "uncancel", None)
+    cancelling = getattr(task, "cancelling", None)
+    if uncancel is not None and cancelling is not None and cancelling():
+        uncancel()
+
+
+MCPHttpxClientFactory = Callable[..., Any]
+"""Factory returning an MCP-compatible async HTTP client.
+
+The callable must accept ``headers=``, ``timeout=``, ``auth=``,
+``follow_redirects=``, and ``trust_env=`` keyword arguments. The returned
+client must expose ``follow_redirects``, ``trust_env``, and ``event_hooks``
+like :class:`httpx2.AsyncClient` so the adapter can enforce its transport
+security and compose RFC 9421 signing hooks.
+
+Return an actual :class:`httpx2.AsyncClient` (or a subclass) to keep
+``AgentConfig.max_response_bytes`` in force: the budget is installed by
+wrapping the client's transport, which this SDK can only do on the real
+client type. A duck-typed stand-in still works, but its responses are not
+capped and a warning says so at construction time.
+"""
+
+
+def _make_hardened_mcp_http_factory(
+    request_hooks: Sequence[Callable[[Any], Awaitable[None]]] = (),
+    response_hooks: Sequence[Callable[[Any], Awaitable[None]]] = (),
+    response_limit: ResponseLimitPolicy | None = None,
+) -> Callable[..., Any]:
+    """Build an MCP HTTP client factory with fail-closed network defaults."""
+
+    def factory(
+        headers: dict[str, str] | None = None,
+        timeout: Any = None,
+        auth: Any = None,
+        **extra: Any,
+    ) -> Any:
+        kwargs: dict[str, Any] = {
+            **extra,
+            # MCP adds session and protocol headers after client construction,
+            # so constructor-time headers are not a reliable sensitivity test.
+            # Redirects also require a fresh SSRF decision for every target.
+            "follow_redirects": False,
+            "trust_env": False,
+        }
+        if request_hooks or response_hooks:
+            kwargs["event_hooks"] = {
+                "request": list(request_hooks),
+                "response": list(response_hooks),
+            }
+        kwargs["timeout"] = _coerce_mcp_timeout(timeout)
+        if headers is not None:
+            kwargs["headers"] = headers
+        if auth is not None:
+            kwargs["auth"] = auth
+        client = _mcp_httpx.AsyncClient(**kwargs)
+        if response_limit is not None:
+            install_response_limit(client, httpx_module=_mcp_httpx, policy=response_limit)
+        return client
+
+    return factory
+
+
+def _coerce_mcp_timeout(timeout: Any) -> Any:
+    if timeout is None:
+        return _mcp_httpx.Timeout(MCP_DEFAULT_TIMEOUT, read=MCP_DEFAULT_SSE_READ_TIMEOUT)
+    if isinstance(timeout, _mcp_httpx.Timeout):
+        return timeout
+    connect = getattr(timeout, "connect", None)
+    read = getattr(timeout, "read", None)
+    write = getattr(timeout, "write", None)
+    pool = getattr(timeout, "pool", None)
+    if all(value is not None for value in (connect, read, write, pool)):
+        return _mcp_httpx.Timeout(connect=connect, read=read, write=write, pool=pool)
+    return timeout
+
+
+def _make_signing_http_factory(
+    hook: Callable[[Any], Awaitable[None]],
+) -> Callable[..., Any]:
+    """Build an MCP HTTP client factory that installs a signing request hook.
+
+    MCP SDK v2 uses ``httpx2`` internally, but the signing hook only relies
+    on the request's method, URL, headers, and body attributes shared with
+    ``httpx``. Redirects stay disabled because an RFC 9421 signature binds
+    the original ``@authority``.
+    """
+
+    return _make_hardened_mcp_http_factory((hook,))
+
+
+def _preserve_http_auth_response(
+    hook: Callable[[Any], Awaitable[None]],
+) -> Callable[[Any], Awaitable[None]]:
+    """Keep an adopter's auth-status exception from killing the MCP writer.
+
+    Auth diagnostics have already been captured. Let MCP process that
+    response normally; other HTTP failures and hook bugs still propagate.
+    """
+
+    async def wrapped(response: Any) -> None:
+        try:
+            await hook(response)
+        except _ALL_HTTP_STATUS_ERROR_TYPES as exc:
+            if (
+                response.status_code not in (401, 403)
+                or getattr(exc, "response", None) is not response
+            ):
+                raise
+
+    return wrapped
+
+
+def _reject_foreign_httpx_transport(client: Any) -> None:
+    """Refuse a client carrying a transport from the other httpx generation.
+
+    MCP SDK v2 runs on ``httpx2``. An ``httpx`` transport inside an
+    ``httpx2.AsyncClient`` is accepted at construction — httpx2 runs no
+    type check — and then fails on the first request with a bare,
+    message-less ``AssertionError`` raised from
+    ``httpx/_transports/default.py``. Under ``python -O`` that assertion
+    is compiled out, the request reaches the network, and the response
+    comes back unusable. Name the generation mismatch here, at wiring
+    time, where it is fixable.
+    """
+    if not MCP_AVAILABLE or not HTTPX_AVAILABLE:
+        return
+
+    candidates: list[tuple[str, Any]] = [("transport", getattr(client, "_transport", None))]
+    mounts = getattr(client, "_mounts", None)
+    if isinstance(mounts, dict):
+        candidates.extend((f"transport mounted at {pattern}", t) for pattern, t in mounts.items())
+
+    for label, transport in candidates:
+        if transport is None:
+            continue
+        if isinstance(
+            transport, (_httpx.BaseTransport, _httpx.AsyncBaseTransport)
+        ) and not isinstance(transport, (_mcp_httpx.BaseTransport, _mcp_httpx.AsyncBaseTransport)):
+            raise TypeError(
+                f"httpx_client_factory returned a client whose {label} is an httpx "
+                f"transport ({type(transport).__name__}); MCP SDK v2 runs on httpx2, "
+                "and an httpx transport inside an httpx2 client fails on the first "
+                "request with a bare AssertionError. Build the httpx2 transport "
+                "instead — adcp.signing.build_async_ip_pinned_transport2 for an "
+                "IP-pinned one."
+            )
+
+
+def _make_custom_mcp_http_factory(
+    custom_factory: MCPHttpxClientFactory,
+    request_hooks: Sequence[Callable[[Any], Awaitable[None]]] = (),
+    response_hooks: Sequence[Callable[[Any], Awaitable[None]]] = (),
+    response_limit: ResponseLimitPolicy | None = None,
+) -> MCPHttpxClientFactory:
+    """Wrap an adopter factory with mandatory MCP transport invariants."""
+
+    def factory(
+        headers: dict[str, str] | None = None,
+        timeout: Any = None,
+        auth: Any = None,
+        **extra: Any,
+    ) -> Any:
+        kwargs: dict[str, Any] = {
+            **extra,
+            "follow_redirects": False,
+            "trust_env": False,
+            "timeout": _coerce_mcp_timeout(timeout),
+        }
+        if headers is not None:
+            kwargs["headers"] = headers
+        if auth is not None:
+            kwargs["auth"] = auth
+        client = custom_factory(**kwargs)
+
+        if getattr(client, "trust_env", None) is not False:
+            raise ValueError("httpx_client_factory must return a client with trust_env=False")
+        if getattr(client, "follow_redirects", None) is not False:
+            raise ValueError(
+                "httpx_client_factory must return a client with follow_redirects=False"
+            )
+        if not callable(getattr(client, "sse", None)):
+            raise TypeError(
+                "httpx_client_factory must return an MCP-compatible client exposing sse(); "
+                "MCP SDK v2 uses httpx2, so a plain httpx.AsyncClient is not compatible"
+            )
+        _reject_foreign_httpx_transport(client)
+
+        if request_hooks or response_hooks:
+            event_hooks = getattr(client, "event_hooks", None)
+            if not isinstance(event_hooks, dict):
+                raise TypeError(
+                    "httpx_client_factory must return a client exposing an event_hooks dict"
+                )
+            for kind, hooks in (("request", request_hooks), ("response", response_hooks)):
+                installed_hooks = event_hooks.setdefault(kind, [])
+                additions = [hook for hook in hooks if hook not in installed_hooks]
+                if kind == "response" and hooks:
+                    # Capture status before an adopter hook can raise and
+                    # prevent subsequent response hooks from running.
+                    adopter_hooks = [hook for hook in installed_hooks if hook not in hooks]
+                    installed_hooks[:] = [
+                        *hooks,
+                        *(_preserve_http_auth_response(hook) for hook in adopter_hooks),
+                    ]
+                else:
+                    installed_hooks.extend(additions)
+        if response_limit is not None:
+            # After _reject_foreign_httpx_transport: the generation check has
+            # to see the adopter's own transport, not our wrapper. Not
+            # `required` — an adopter may return a duck-typed client that this
+            # SDK cannot reach into, and that client is theirs to bound.
+            install_response_limit(
+                client,
+                httpx_module=_mcp_httpx,
+                policy=response_limit,
+                required=False,
+            )
+        return client
+
+    return factory
+
+
+@asynccontextmanager
+async def streamablehttp_client(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: Any = None,
+    httpx_client_factory: Callable[..., Any] | None = None,
+    auth: Any = None,
+    terminate_on_close: bool = True,
+) -> Any:
+    """Compatibility wrapper matching the MCP SDK v1 streamable client shape.
+
+    MCP SDK v2's convenience client accepts a pre-built ``httpx2`` client and
+    yields only ``(read, write)``. ADCP exposes the current MCP session id, so
+    this mirrors the v2 transport setup while returning ``get_session_id`` as
+    the third tuple item used by older ADCP code.
+    """
+
+    if httpx_client_factory is None:
+        httpx_client_factory = _make_hardened_mcp_http_factory()
+
+    transport = StreamableHTTPTransport(url)
+    client = httpx_client_factory(headers=headers, timeout=timeout, auth=auth)
+
+    async with contextlib.AsyncExitStack() as stack:
+        await stack.enter_async_context(client)
+
+        read_stream_writer, read_stream = create_context_streams[SessionMessage | Exception](0)
+        write_stream, write_stream_reader = create_context_streams[SessionMessage](0)
+
+        async with (
+            read_stream_writer,
+            read_stream,
+            write_stream,
+            write_stream_reader,
+            anyio.create_task_group() as tg,
+        ):
+
+            def start_get_stream() -> None:
+                tg.start_soon(transport.handle_get_stream, client, read_stream_writer)
+
+            tg.start_soon(
+                transport.post_writer,
+                client,
+                write_stream_reader,
+                read_stream_writer,
+                write_stream,
+                start_get_stream,
+                tg,
+            )
+
+            try:
+                yield read_stream, write_stream, lambda: transport.session_id
+            finally:
+                if transport.session_id and terminate_on_close:
+                    await transport.terminate_session(client)
+                tg.cancel_scope.cancel()
+        await resync_tracer()
+
+
+def _text_of(item: Any) -> str | None:
+    """Return the text payload of an MCP content item, or None if not a text item."""
+    if isinstance(item, dict):
+        if item.get("type") != "text":
+            return None
+        text = item.get("text")
+    else:
+        if getattr(item, "type", None) != "text":
+            return None
+        text = getattr(item, "text", None)
+    return text if isinstance(text, str) and text else None
+
+
+#: How much server text may appear in a diagnostic. Attacker-controlled bytes
+#: that have passed no hygiene reach logs and, in an agentic buyer, a model
+#: context window — spec §Response Size Bounds (6) asks for a per-field limit
+#: there, separate from the byte cap on the response as a whole.
+_MAX_DIAGNOSTIC_TEXT = 512
+
+
+def _content_summary(result: Any) -> str:
+    """A bounded description of ``content[]`` for an error message."""
+    content = getattr(result, "content", None)
+    if content is None:
+        return "none"
+    rendered = repr(content)
+    if len(rendered) <= _MAX_DIAGNOSTIC_TEXT:
+        return rendered
+    return f"{rendered[:_MAX_DIAGNOSTIC_TEXT]}… ({len(rendered)} chars total)"
+
+
+def _result_is_error(result: Any) -> bool:
+    return bool(getattr(result, "isError", getattr(result, "is_error", False)))
+
+
+def _result_structured_content(result: Any) -> Any:
+    return getattr(result, "structuredContent", getattr(result, "structured_content", None))
+
+
+def _assert_text_within_budget(
+    text: str,
+    *,
+    limit: int | None,
+    agent_id: str | None,
+    agent_uri: str | None,
+) -> None:
+    """Bound one ``content[].text`` item before it reaches ``json.loads``.
+
+    The bound is the configured per-call budget, not a tighter figure of its
+    own. AdCP spec §MCP Response Extraction / Size Limits
+    (docs/building/by-layer/L0/mcp-response-extraction.mdx) is explicit about
+    why: for a server that answers with ``content[].text`` and no
+    ``structuredContent``, that item *is* the whole response, so a sub-limit
+    here would silently become the effective call cap. This SDK shipped a
+    fixed 1 MiB, which made 1 MiB the real limit for every text-fallback
+    server no matter what ``max_response_bytes`` said.
+
+    Oversize raises rather than skipping. A skipped item leaves extraction to
+    report "no structured data found", which the caller cannot tell from a
+    server that genuinely sent none — spec §Response Size Bounds (7) requires
+    the distinct error instead.
+
+    On both HTTP transports the streaming budget has already bounded the whole
+    body, which makes this bound unreachable there. It is live for a session
+    the caller injected via :meth:`~adcp.ADCPClient.from_mcp_client` — whose
+    transport this SDK does not own — and for anyone calling these extractors
+    on a result obtained some other way.
+
+    Note the asymmetry that follows. ``structuredContent`` arrives already
+    parsed by the MCP SDK, so its allocation happened before any SDK code ran
+    and no post-hoc check can undo it. The spec's extraction algorithm bounds
+    ``content[].text`` for exactly that reason: it is the one payload this
+    layer sees before decoding it.
+    """
+    if limit is None:
+        return
+    # UTF-8 is 1 to 4 bytes per character, which brackets the answer from both
+    # sides without encoding anything. Under a quarter of the budget cannot
+    # exceed it; over the budget in characters already does, and `received`
+    # reads "at least", so the character count is a true lower bound.
+    # Encoding is the last resort, and only for a string already known to be
+    # within a factor of four — this guard must never allocate a multiple of
+    # the budget it is defending.
+    if len(text) <= limit // 4:
+        return
+    if len(text) > limit:
+        raise ADCPResponseTooLargeError(
+            limit=limit,
+            received=len(text),
+            agent_id=agent_id,
+            agent_uri=agent_uri,
+        )
+    size = len(text.encode("utf-8", "surrogatepass"))
+    if size <= limit:
+        return
+    raise ADCPResponseTooLargeError(
+        limit=limit,
+        received=size,
+        agent_id=agent_id,
+        agent_uri=agent_uri,
+    )
+
+
+def extract_adcp_success(
+    result: Any,
+    *,
+    max_response_bytes: int | None = DEFAULT_MAX_RESPONSE_BYTES,
+    agent_id: str | None = None,
+    agent_uri: str | None = None,
+) -> dict[str, Any] | None:
+    """Extract AdCP success response data from an MCP tool result.
+
+    Implements the normative algorithm from AdCP spec §MCP Response Extraction
+    (docs/building/by-layer/L0/mcp-response-extraction.mdx):
+
+    1. If ``isError`` is truthy, return ``None`` — error extraction is a
+       separate path.
+    2. ``structuredContent`` — if present and a non-array object that is NOT
+       an ``adcp_error``-only payload, return it.
+    3. Text fallback — iterate ``content[]`` in order; for each ``type='text'``
+       item, enforce ``max_response_bytes``, then ``json.loads`` and return
+       the result if it is a non-array object that is NOT ``adcp_error``-only.
+    4. No structured data found — return ``None``.
+
+    ``max_response_bytes`` is the same per-call budget the transport enforces
+    — see :func:`_assert_text_within_budget` for why it must not be tighter.
+    ``None`` disables it, matching ``AgentConfig.max_response_bytes``.
+
+    :raises ADCPResponseTooLargeError: a text item exceeds the budget.
+    """
+    if _result_is_error(result):
+        return None
+
+    sc = _result_structured_content(result)
+    if isinstance(sc, dict) and not (len(sc) == 1 and "adcp_error" in sc):
+        return sc
+
+    for item in getattr(result, "content", None) or []:
+        text = _text_of(item)
+        if text is None:
+            continue
+        _assert_text_within_budget(
+            text, limit=max_response_bytes, agent_id=agent_id, agent_uri=agent_uri
+        )
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict) and not (len(parsed) == 1 and "adcp_error" in parsed):
+            return parsed
+    return None
+
+
+def extract_adcp_error(
+    result: Any,
+    *,
+    max_response_bytes: int | None = DEFAULT_MAX_RESPONSE_BYTES,
+    agent_id: str | None = None,
+    agent_uri: str | None = None,
+) -> dict[str, Any] | None:
+    """Extract and validate an AdCP ``adcp_error`` object from an MCP result.
+
+    Implements AdCP spec §Client Detection Order (MCP paths 1 + 5) from
+    docs/building/operating/transport-errors.mdx. Only applies when
+    ``isError`` is truthy. Returns a validated error object or ``None``.
+
+    :raises ADCPResponseTooLargeError: a text item exceeds the budget.
+    """
+    if not _result_is_error(result):
+        return None
+
+    sc = _result_structured_content(result)
+    if isinstance(sc, dict):
+        validated = _validate_adcp_error(sc.get("adcp_error"))
+        if validated is not None:
+            return validated
+
+    for item in getattr(result, "content", None) or []:
+        text = _text_of(item)
+        if text is None:
+            continue
+        # Same budget as the success path. A server answering ``isError=true``
+        # with a giant payload is the same allocation primitive, and the 4 KiB
+        # `adcp_error` cap only applies after json.loads has already run.
+        _assert_text_within_budget(
+            text, limit=max_response_bytes, agent_id=agent_id, agent_uri=agent_uri
+        )
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            validated = _validate_adcp_error(parsed.get("adcp_error"))
+            if validated is not None:
+                return validated
+    return None
+
+
+class MCPAdapter(ProtocolAdapter):
+    """Adapter for MCP protocol using official Python MCP SDK."""
+
+    def __init__(
+        self,
+        *args: Any,
+        httpx_client_factory: MCPHttpxClientFactory | None = None,
+        **kwargs: Any,
+    ):
+        super().__init__(*args, **kwargs)
+        if not MCP_AVAILABLE:
+            raise ImportError(
+                "MCP SDK not installed. Install with: pip install mcp (requires Python 3.10+)"
+            )
+        self._session: Any = None
+        self._exit_stack: Any = None
+        self._connected_url: str | None = None
+        self._get_session_id: Callable[[], str | None] | None = None
+        self._httpx_client_factory = httpx_client_factory
+        # True when the session was injected by ADCPClient.from_mcp_client().
+        # Caller owns the lifecycle — close() is a no-op on injected adapters.
+        self._session_is_injected: bool = False
+        # One-shot so an agent configured without a response budget says so
+        # once, not on every call.
+        self._warned_unbounded_responses: bool = False
+        # Collects budget rejections raised during the current session setup,
+        # where there is no per-call holder to put them in. Replaced on every
+        # connect attempt so a dying session's background stream cannot leak a
+        # stale rejection into the next one.
+        self._connect_budget_errors: list[ADCPError] = []
+
+    def _inject_session(self, session: ClientSession) -> None:
+        """Pre-wire a caller-owned session, bypassing URL-based connection.
+
+        Used by ADCPClient.from_mcp_client(). Once injected, _get_session()
+        returns it immediately and close() is a no-op (caller owns lifecycle).
+        """
+        self._session = session
+        self._session_is_injected = True
+
+    def _http_headers(self) -> dict[str, str]:
+        """Return transport headers for MCP HTTP requests."""
+        headers: dict[str, str] = {}
+        if self.agent_config.auth_token:
+            # Support custom auth headers and types
+            if self.agent_config.auth_type == "bearer":
+                headers[self.agent_config.auth_header] = f"Bearer {self.agent_config.auth_token}"
+            else:
+                headers[self.agent_config.auth_header] = self.agent_config.auth_token
+
+        if self.agent_config.extra_headers:
+            headers.update(self.agent_config.extra_headers)
+        return headers
+
+    def _urls_to_try(self) -> list[str]:
+        """Return MCP endpoint candidates, preserving the configured URL first."""
+        uri = self.agent_config.agent_uri
+        base = uri.rstrip("/")
+        urls_to_try = [uri]
+        if base.endswith("/mcp"):
+            # User pointed at the MCP endpoint; also try the other slash form.
+            urls_to_try.append(f"{base}/" if not uri.endswith("/") else base)
+        else:
+            urls_to_try.extend([f"{base}/mcp", f"{base}/mcp/"])
+        return urls_to_try
+
+    def _record_budget_error(self, sink: list[ADCPError], error: ADCPError) -> None:
+        """Stash a budget rejection so the awaiting call can re-raise it typed.
+
+        Mirrors ``capture_auth_response``: a per-call holder collects it when a
+        tool call is in flight. Otherwise it belongs to the session setup that
+        built this client, which reads ``sink`` as it unwinds — or to the
+        standalone server-push stream, whose failures MCP swallows in a
+        background task. Log either way, so a rejection nobody is waiting on is
+        still visible to an operator.
+        """
+        call_errors = _MCP_HTTP_BUDGET_ERRORS.get()
+        if call_errors is not None:
+            call_errors.append(error)
+            return
+        sink.append(error)
+        logger.warning(
+            "Response budget rejected an MCP response for agent %s outside a tool call: %s",
+            self.agent_config.id,
+            error.message,
+        )
+
+    async def _budget_error_for(
+        self, exc: BaseException, recorded: Sequence[ADCPError]
+    ) -> ADCPError | None:
+        """Return the budget rejection behind ``exc``, tearing down the session.
+
+        The limiter raises inside MCP's writer task, which takes down the anyio
+        task group the awaiting request is parked on — so the caller sees a
+        bare ``CancelledError`` with no link to the real cause, and the session
+        is unusable afterwards. Only a *recorded* rejection is converted, so an
+        ordinary cancellation (task deadline, caller shutdown) is untouched.
+        """
+        budget_error = recorded[-1] if recorded else find_response_limit_error(exc)
+        if budget_error is None:
+            return None
+        if isinstance(exc, asyncio.CancelledError):
+            _uncancel_current_task()
+        try:
+            await self._cleanup_failed_connection("after a rejected MCP response")
+        except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
+            # Cleanup runs while a cancellation may still be unwinding, so the
+            # re-delivered CancelledError is caught too — it must never replace
+            # the rejection the caller needs to see. Interpreter-level exits
+            # (KeyboardInterrupt, SystemExit, GeneratorExit) still propagate.
+            logger.debug("MCP session cleanup failed after a budget rejection: %s", cleanup_error)
+        return budget_error
+
+    async def _session_request(self, operation: Callable[[], Awaitable[Any]], what: str) -> Any:
+        """Run a non-tool session request under the response budget holder.
+
+        ``tools/list`` and the capability handshake carry agent-controlled
+        payloads just like a tool call does, so they need the same conversion
+        from MCP's cancellation back into the typed rejection.
+        """
+        budget_errors: list[ADCPError] = []
+        token = _MCP_HTTP_BUDGET_ERRORS.set(budget_errors)
+        try:
+            result = await operation()
+        except (Exception, asyncio.CancelledError) as exc:
+            budget_error = await self._budget_error_for(exc, budget_errors)
+            if budget_error is not None:
+                raise budget_error from exc
+            raise
+        finally:
+            _MCP_HTTP_BUDGET_ERRORS.reset(token)
+        if budget_errors:
+            raise budget_errors[-1]
+        logger.debug("MCP %s completed within the response budget", what)
+        return result
+
+    def _extraction_budget(self) -> int | None:
+        """The budget the ``content[].text`` extractors enforce.
+
+        The same number the transport enforces, resolved per call so a
+        ``TaskOptions`` override reaches the post-parse check too. (The
+        transport deliberately withholds that override from the
+        session-lifetime SSE stream — see :meth:`_response_limit_policy`.
+        Text arriving over that stream is still bounded here by the per-call
+        number, which is never looser than the one the transport applied.)
+
+        ``None`` means the agent has no bound at all, post-parse or streaming.
+        Spec §Response Size Bounds (8) asks that calls made without one be
+        logged, so say it once per agent rather than silently.
+        """
+        budget = resolve_max_response_bytes(self.agent_config.max_response_bytes)
+        if budget is None and not self._warned_unbounded_responses:
+            self._warned_unbounded_responses = True
+            logger.warning(
+                "Agent %s runs with max_response_bytes=None: its responses are "
+                "read unbounded, with no streaming or post-parse limit.",
+                self.agent_config.id,
+            )
+        return budget
+
+    def _response_limit_policy(self) -> ResponseLimitPolicy:
+        """Budget every MCP response body against the agent's configured cap.
+
+        The sink is created per policy, i.e. per connect attempt, so a stream
+        still unwinding from a previous session reports into that session's
+        list rather than failing the reconnect in progress.
+        """
+        sink: list[ADCPError] = []
+        self._connect_budget_errors = sink
+
+        def limit_provider(long_lived: bool) -> int | None:
+            configured = self.agent_config.max_response_bytes
+            # A per-call override must not reach the session-lifetime stream;
+            # see ResponseLimitPolicy.
+            return configured if long_lived else resolve_max_response_bytes(configured)
+
+        return ResponseLimitPolicy(
+            limit_provider=limit_provider,
+            agent_id=self.agent_config.id,
+            agent_uri=self.agent_config.agent_uri,
+            report=lambda error: self._record_budget_error(sink, error),
+        )
+
+    def _streamable_http_client_factory(
+        self,
+        response_hooks: Sequence[Callable[[Any], Awaitable[None]]] = (),
+    ) -> MCPHttpxClientFactory:
+        """Return the HTTP client factory used for MCP HTTP requests."""
+        request_hooks = tuple(
+            hook
+            for hook in (self.tracing_request_hook, self.signing_request_hook)
+            if hook is not None
+        )
+        response_limit = self._response_limit_policy()
+        if self._httpx_client_factory is not None:
+            return _make_custom_mcp_http_factory(
+                self._httpx_client_factory,
+                request_hooks,
+                response_hooks,
+                response_limit,
+            )
+        return _make_hardened_mcp_http_factory(request_hooks, response_hooks, response_limit)
+
+    def current_mcp_session_id(self) -> str | None:
+        """Return the current SDK-managed MCP Streamable HTTP session id."""
+        return self._get_session_id() if self._get_session_id is not None else None
+
+    async def _cleanup_failed_connection(self, context: str) -> None:
+        """
+        Clean up resources after a failed connection attempt.
+
+        This method handles cleanup without raising exceptions to avoid
+        masking the original connection error.
+
+        Args:
+            context: Description of the context for logging (e.g., "during connection attempt")
+        """
+        if self._exit_stack is not None:
+            old_stack = self._exit_stack
+            self._exit_stack = None
+            self._session = None
+            self._connected_url = None
+            self._get_session_id = None
+            try:
+                await old_stack.aclose()
+            except BaseException as cleanup_error:
+                # Handle all cleanup errors including ExceptionGroup
+                # Re-raise KeyboardInterrupt and SystemExit immediately
+                if isinstance(cleanup_error, (KeyboardInterrupt, SystemExit)):
+                    raise
+
+                if isinstance(cleanup_error, asyncio.CancelledError):
+                    logger.debug(f"MCP session cleanup cancelled {context}")
+                    return
+
+                # Handle ExceptionGroup/BaseExceptionGroup from task group failures (Python 3.11+)
+                # ExceptionGroup: for Exception subclasses (e.g., HTTPStatusError)
+                # BaseExceptionGroup: for BaseException subclasses (e.g., CancelledError)
+                # We need both because CancelledError is a BaseException, not an Exception
+                is_exception_group = (
+                    _ExceptionGroup is not None and isinstance(cleanup_error, _ExceptionGroup)
+                ) or (
+                    _BaseExceptionGroup is not None
+                    and isinstance(cleanup_error, _BaseExceptionGroup)
+                )
+
+                if is_exception_group:
+                    # Check if all exceptions in the group are CancelledError
+                    # If so, treat the entire group as a cancellation
+                    all_cancelled = all(
+                        isinstance(exc, asyncio.CancelledError)
+                        for exc in cleanup_error.exceptions  # type: ignore[attr-defined]
+                    )
+                    if all_cancelled:
+                        logger.debug(f"MCP session cleanup cancelled {context}")
+                        return
+
+                    # Mixed group: skip CancelledErrors and log real errors
+                    exceptions = cleanup_error.exceptions  # type: ignore[attr-defined]
+                    cancelled_errors = [
+                        exc for exc in exceptions if isinstance(exc, asyncio.CancelledError)
+                    ]
+                    cancelled_count = len(cancelled_errors)
+                    if cancelled_count > 0:
+                        logger.debug(
+                            f"Skipping {cancelled_count} CancelledError(s) "
+                            f"in mixed exception group {context}"
+                        )
+
+                    # Log each non-cancelled exception individually
+                    for exc in exceptions:
+                        if not isinstance(exc, asyncio.CancelledError):
+                            self._log_cleanup_error(exc, context)
+                else:
+                    self._log_cleanup_error(cleanup_error, context)
+
+    def _log_cleanup_error(self, exc: BaseException, context: str) -> None:
+        """Log a cleanup error without raising."""
+        # Check for known cleanup error patterns from httpx/anyio
+        exc_str = str(exc).lower()
+
+        # Common cleanup errors that are expected when connection fails
+        is_known_cleanup_error = (
+            isinstance(exc, RuntimeError)
+            and ("cancel scope" in exc_str or "async context" in exc_str)
+        ) or (
+            # HTTP errors during cleanup (if httpx is available)
+            HTTPX_AVAILABLE
+            and isinstance(exc, _ALL_HTTP_STATUS_ERROR_TYPES)
+        )
+
+        if is_known_cleanup_error:
+            # Expected cleanup errors - log at debug level without stack trace
+            logger.debug(f"Ignoring expected cleanup error {context}: {exc}")
+        else:
+            # Truly unexpected cleanup errors - log at warning with full context
+            logger.warning(f"Unexpected error during cleanup {context}: {exc}", exc_info=True)
+
+    async def _get_session(self) -> ClientSession:
+        """
+        Get or create MCP client session with URL fallback handling.
+
+        Raises:
+            ADCPConnectionError: If connection to agent fails
+        """
+        if self._session is not None:
+            return self._session  # type: ignore[no-any-return]
+
+        logger.debug(f"Creating MCP session for agent {self.agent_config.id}")
+
+        # Parse the agent URI to determine transport type
+        parsed = urlparse(self.agent_config.agent_uri)
+
+        # Use SSE transport for HTTP/HTTPS endpoints
+        if parsed.scheme in ("http", "https"):
+            self._exit_stack = AsyncExitStack()
+
+            # Try the user's exact URL first, then the alternate slash form, then
+            # /mcp discovery paths. MCP servers disagree on whether their endpoint
+            # is at /mcp or /mcp/ — try both rather than silently normalizing.
+            headers = self._http_headers()
+            urls_to_try = self._urls_to_try()
+
+            # RFC 9421 auto-signing: if ADCPClient installed a signing request
+            # hook, wire it into streamable_http via a custom httpx client
+            # factory. SSE transport has no equivalent signing knob — warn the
+            # user and fall through to unsigned SSE. Both HTTP transports use
+            # SDK-owned factories with trust_env=False so auth headers are not
+            # sent through ambient proxy settings.
+            auth_failure: ADCPAuthenticationError | None = None
+
+            async def capture_auth_response(response: Any) -> None:
+                nonlocal auth_failure
+                error = None
+                if response.status_code in (401, 403):
+                    challenge = response.headers.get("www-authenticate")
+                    message = f"Authentication failed: HTTP {response.status_code}"
+                    if challenge:
+                        message += f"; WWW-Authenticate: {challenge}"
+                    error = ADCPAuthenticationError(
+                        message,
+                        agent_id=self.agent_config.id,
+                        agent_uri=self.agent_config.agent_uri,
+                        status_code=response.status_code,
+                        www_authenticate=challenge,
+                    )
+                call_errors = _MCP_HTTP_AUTH_ERRORS.get()
+                if call_errors is not None:
+                    call_errors.clear()
+                    if error is not None:
+                        call_errors.append(error)
+                else:
+                    # A successful auth retry replaces an earlier challenge;
+                    # only the final HTTP response determines the diagnostic.
+                    auth_failure = error
+
+            streamable_http_extra: dict[str, Any] = {
+                "httpx_client_factory": self._streamable_http_client_factory(
+                    (capture_auth_response,)
+                )
+            }
+            if (
+                self.signing_request_hook is not None
+                and self.agent_config.mcp_transport != "streamable_http"
+            ):
+                logger.warning(
+                    "RFC 9421 auto-signing is not supported on MCP SSE "
+                    "transport for agent %s; use mcp_transport='streamable_http' "
+                    "to sign outgoing requests.",
+                    self.agent_config.id,
+                )
+
+            last_error = None
+            for url in urls_to_try:
+                try:
+                    get_session_id: Callable[[], str | None] | None = None
+                    # Choose transport based on configuration
+                    if self.agent_config.mcp_transport == "streamable_http":
+                        # Use streamable HTTP transport (newer, bidirectional)
+                        read, write, get_session_id = await self._exit_stack.enter_async_context(
+                            streamablehttp_client(
+                                url,
+                                headers=headers,
+                                timeout=self.agent_config.timeout,
+                                **streamable_http_extra,
+                            )
+                        )
+                    else:
+                        sse_request_hooks = (
+                            (self.tracing_request_hook,)
+                            if self.tracing_request_hook is not None
+                            else ()
+                        )
+                        # Use SSE transport (legacy, but widely supported)
+                        sse_response_limit = self._response_limit_policy()
+                        sse_http_factory = (
+                            _make_custom_mcp_http_factory(
+                                self._httpx_client_factory,
+                                sse_request_hooks,
+                                (capture_auth_response,),
+                                sse_response_limit,
+                            )
+                            if self._httpx_client_factory is not None
+                            else _make_hardened_mcp_http_factory(
+                                sse_request_hooks,
+                                (capture_auth_response,),
+                                sse_response_limit,
+                            )
+                        )
+                        read, write = await self._exit_stack.enter_async_context(
+                            sse_client(
+                                url,
+                                headers=headers,
+                                httpx_client_factory=sse_http_factory,
+                            )
+                        )
+
+                    self._session = await self._exit_stack.enter_async_context(
+                        _ClientSession(read, write)
+                    )
+
+                    # Initialize the session
+                    await self._session.initialize()
+                    self._connected_url = url
+                    if self.agent_config.mcp_transport == "streamable_http":
+                        self._get_session_id = get_session_id
+
+                    logger.info(
+                        f"Connected to MCP agent {self.agent_config.id} at {url} "
+                        f"using {self.agent_config.mcp_transport} transport"
+                    )
+                    if url != self.agent_config.agent_uri:
+                        logger.info(
+                            f"Note: Connected using fallback URL {url} "
+                            f"(configured: {self.agent_config.agent_uri})"
+                        )
+
+                    return self._session  # type: ignore[no-any-return]
+                except BaseException as e:
+                    # Catch BaseException to handle CancelledError from failed initialization
+                    # Re-raise KeyboardInterrupt and SystemExit immediately
+                    if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                        raise
+                    last_error = e
+                    # Clean up the exit stack on failure to avoid resource leaks
+                    await self._cleanup_failed_connection("during connection attempt")
+
+                    # An agent whose handshake alone blows the byte budget is
+                    # not a wrong-URL probe; report it as itself and stop.
+                    # Checked before the cancellation branch below, because a
+                    # limiter abort inside MCP's writer task is delivered to
+                    # this await *as* a CancelledError.
+                    budget_error = (
+                        self._connect_budget_errors[-1]
+                        if self._connect_budget_errors
+                        else find_response_limit_error(e)
+                    )
+                    if budget_error is not None:
+                        if isinstance(e, asyncio.CancelledError):
+                            _uncancel_current_task()
+                        raise budget_error from e
+
+                    # A task-level deadline and caller cancellation both use
+                    # CancelledError to abort discovery. Never reinterpret it
+                    # as a failed URL probe or continue to a fallback URL.
+                    if isinstance(e, asyncio.CancelledError):
+                        raise
+
+                    # MCP v2 replaces non-JSON-RPC HTTP errors with a generic
+                    # message. Preserve the HTTP auth diagnostic captured
+                    # before conversion, and stop URL probing for bad tokens.
+                    if auth_failure is not None:
+                        raise auth_failure from e
+
+                    # If this isn't the last URL to try, create a new exit stack and continue
+                    if url != urls_to_try[-1]:
+                        logger.debug(f"Retrying with next URL after error: {last_error}")
+                        self._exit_stack = AsyncExitStack()
+                        continue
+                    # If this was the last URL, raise the error
+                    logger.error(
+                        f"Failed to connect to MCP agent {self.agent_config.id} using "
+                        f"{self.agent_config.mcp_transport} transport. "
+                        f"Tried URLs: {', '.join(urls_to_try)}"
+                    )
+
+                    # Classify error type for better exception handling
+                    error_str = str(last_error).lower()
+                    if "401" in error_str or "403" in error_str or "unauthorized" in error_str:
+                        raise ADCPAuthenticationError(
+                            f"Authentication failed: {last_error}",
+                            agent_id=self.agent_config.id,
+                            agent_uri=self.agent_config.agent_uri,
+                        ) from last_error
+                    elif "timeout" in error_str:
+                        raise ADCPTimeoutError(
+                            f"Connection timeout: {last_error}",
+                            agent_id=self.agent_config.id,
+                            agent_uri=self.agent_config.agent_uri,
+                            timeout=self.agent_config.timeout,
+                        ) from last_error
+                    else:
+                        raise ADCPConnectionError(
+                            f"Failed to connect: {last_error}",
+                            agent_id=self.agent_config.id,
+                            agent_uri=self.agent_config.agent_uri,
+                        ) from last_error
+
+            # This shouldn't be reached, but just in case
+            raise RuntimeError(f"Failed to connect to MCP agent at {self.agent_config.agent_uri}")
+        else:
+            raise ValueError(f"Unsupported transport scheme: {parsed.scheme}")
+
+    def _serialize_mcp_content(self, content: list[Any]) -> list[dict[str, Any]]:
+        """
+        Convert MCP SDK content objects to plain dicts.
+
+        The MCP SDK returns Pydantic objects (TextContent, ImageContent, etc.)
+        but the rest of the ADCP client expects protocol-agnostic dicts.
+        This method handles the translation at the protocol boundary.
+
+        Args:
+            content: List of MCP content items (may be dicts or Pydantic objects)
+
+        Returns:
+            List of plain dicts representing the content
+        """
+        result = []
+        for item in content:
+            # Already a dict, pass through
+            if isinstance(item, dict):
+                result.append(item)
+            # Pydantic v2 model with model_dump()
+            elif hasattr(item, "model_dump"):
+                result.append(item.model_dump())
+            # Pydantic v1 model with dict()
+            elif hasattr(item, "dict") and callable(item.dict):
+                result.append(item.dict())
+            # Fallback: try to access __dict__
+            elif hasattr(item, "__dict__"):
+                result.append(dict(item.__dict__))
+            # Last resort: serialize as unknown type
+            else:
+                logger.warning(f"Unknown MCP content type: {type(item)}, serializing as string")
+                result.append({"type": "unknown", "data": str(item)})
+        return result
+
+    async def _call_mcp_tool(self, tool_name: str, params: dict[str, Any]) -> TaskResult[Any]:
+        request = await self._prepare_outgoing_request(tool_name, params)
+        result = await self._call_mcp_tool_wire(tool_name, request.payload)
+        return self._finish_incoming_result(tool_name, result, request)
+
+    async def _call_mcp_tool_wire(self, tool_name: str, params: dict[str, Any]) -> TaskResult[Any]:
+        """Call a tool using MCP protocol."""
+        start_time = time.time() if self.agent_config.debug else None
+        debug_info = None
+        debug_request: dict[str, Any] = {}
+        if _idempotency.is_mutating(tool_name) and self.idempotency_capability_check:
+            await self.idempotency_capability_check()
+        params, idempotency_key = _idempotency.inject_key(
+            tool_name, params, client_token=self.idempotency_client_token
+        )
+        # Apply per-instance envelope enrichment (e.g. adcp_version pin).
+        # Runs after idempotency injection so the enriched dict is the
+        # one that's validated and sent.
+        assert_reporting_request_supported(tool_name, params)
+
+        try:
+            # Pre-send schema validation — throws in strict, logs in warn,
+            # skips in off. Runs before session setup so a drifted payload
+            # doesn't even open a connection.
+            try:
+                validate_outgoing_request(
+                    tool_name,
+                    params,
+                    self.request_validation_mode,
+                    version=self._request_version(params),
+                )
+            except SchemaValidationError as exc:
+                return TaskResult[Any](
+                    status=TaskStatus.FAILED,
+                    error=str(exc),
+                    success=False,
+                    idempotency_key=idempotency_key,
+                )
+
+            # Streamable HTTP sends from a long-lived writer task whose
+            # ContextVar snapshot predates this call. Fetch signing policy in
+            # the caller task before enqueueing the message; the request hook
+            # then reads the cache without recursively using this session.
+            if tool_name != "get_adcp_capabilities" and self.signing_capability_check:
+                await self.signing_capability_check()
+
+            session = await self._get_session()
+
+            if self.agent_config.debug:
+                debug_request = {
+                    "protocol": "MCP",
+                    "tool": tool_name,
+                    "params": _idempotency.redact_params(params),
+                    "transport": self.agent_config.mcp_transport,
+                }
+
+            # Stamp the AdCP operation name so the httpx request event hook
+            # installed by ADCPClient (when a SigningConfig is present) can
+            # look up the seller's signing policy for this call. Scoped
+            # tightly around call_tool so session.initialize() above and
+            # other out-of-band traffic stay outside the signing scope.
+            signing_token = _signing_operation.set(tool_name)
+            auth_errors: list[ADCPAuthenticationError] = []
+            auth_token = _MCP_HTTP_AUTH_ERRORS.set(auth_errors)
+            budget_errors: list[ADCPError] = []
+            budget_token = _MCP_HTTP_BUDGET_ERRORS.set(budget_errors)
+            try:
+                # Call the tool using MCP client session
+                mark_task_dispatched(
+                    self.task_options_client_token,
+                    tool_name,
+                    mutating=_idempotency.is_mutating(tool_name),
+                    idempotency_key=idempotency_key,
+                )
+                trace_meta = mcp_trace_meta()
+                with self._outgoing_signing_scope(tool_name, params):
+                    if trace_meta is None:
+                        result = await session.call_tool(tool_name, params)
+                    else:
+                        result = await session.call_tool(
+                            tool_name,
+                            params,
+                            meta=cast("RequestParamsMeta", trace_meta),
+                        )
+            except (Exception, asyncio.CancelledError) as exc:
+                # CancelledError is listed because that is how a limiter abort
+                # reaches this await: it raises inside MCP's writer task, which
+                # tears down the anyio task group the request is parked on.
+                # Only a recorded rejection is converted, so an ordinary
+                # cancellation (task deadline, shutdown) propagates untouched.
+                budget_error = await self._budget_error_for(exc, budget_errors)
+                if budget_error is not None:
+                    raise budget_error from exc
+                if isinstance(exc, Exception) and auth_errors:
+                    raise auth_errors[-1] from exc
+                raise
+            finally:
+                _MCP_HTTP_BUDGET_ERRORS.reset(budget_token)
+                _MCP_HTTP_AUTH_ERRORS.reset(auth_token)
+                _signing_operation.reset(signing_token)
+            if budget_errors:
+                raise budget_errors[-1]
+            if auth_errors:
+                raise auth_errors[-1]
+
+            # Check if this is an error response
+            is_error = _result_is_error(result)
+
+            # Extract human-readable message from content
+            message_text = None
+            if hasattr(result, "content") and result.content:
+                serialized_content = self._serialize_mcp_content(result.content)
+                if isinstance(serialized_content, list):
+                    for item in serialized_content:
+                        is_text = isinstance(item, dict) and item.get("type") == "text"
+                        if is_text and item.get("text"):
+                            message_text = item["text"]
+                            break
+
+            # Handle error responses per transport-errors.mdx §Client Detection
+            # Order. Extract the adcp_error object from structuredContent first,
+            # then from text fallback — whichever is present.
+            if is_error:
+                adcp_error = extract_adcp_error(
+                    result,
+                    max_response_bytes=self._extraction_budget(),
+                    agent_id=self.agent_config.id,
+                    agent_uri=self.agent_config.agent_uri,
+                )
+                # Raise typed idempotency exceptions before building a generic
+                # TaskResult(failed), so callers that catch them distinctly
+                # don't lose the signal.
+                if adcp_error and adcp_error.get("code") in (
+                    "IDEMPOTENCY_CONFLICT",
+                    "IDEMPOTENCY_EXPIRED",
+                ):
+                    from adcp.exceptions import classify_task_error
+
+                    raise classify_task_error(
+                        tool_name, [adcp_error], agent_id=self.agent_config.id
+                    )
+                # FastMCP-style is_error with plain-text content: text-match
+                # fallback for the two idempotency codes.
+                _idempotency.raise_for_idempotency_text(
+                    tool_name, message_text, self.agent_config.id
+                )
+                error_message = (
+                    (adcp_error.get("message") if adcp_error else None)
+                    or message_text
+                    or "Tool execution failed"
+                )
+                if self.agent_config.debug and start_time:
+                    duration_ms = (time.time() - start_time) * 1000
+                    debug_info = DebugInfo(
+                        request=debug_request,
+                        response={
+                            "error": error_message,
+                            "is_error": True,
+                            "adcp_error": adcp_error,
+                        },
+                        duration_ms=duration_ms,
+                    )
+                return TaskResult[Any](
+                    status=TaskStatus.FAILED,
+                    error=error_message,
+                    adcp_error=adcp_error,
+                    success=False,
+                    debug_info=debug_info,
+                    idempotency_key=idempotency_key,
+                )
+
+            # Success extraction per mcp-response-extraction.mdx §Extraction
+            # Algorithm: prefer structuredContent (MCP 2025-03-26+), fall back
+            # to JSON-parsing content[].text for older servers (including the
+            # AdCP reference training agent).
+            data_to_return = extract_adcp_success(
+                result,
+                max_response_bytes=self._extraction_budget(),
+                agent_id=self.agent_config.id,
+                agent_uri=self.agent_config.agent_uri,
+            )
+            if data_to_return is None:
+                raise ValueError(
+                    f"MCP tool {tool_name} returned no structured AdCP data. "
+                    f"Neither structuredContent nor content[].text yielded a "
+                    f"parseable non-adcp_error JSON object. "
+                    f"Got content: {_content_summary(result)}"
+                )
+
+            if self.agent_config.debug and start_time:
+                duration_ms = (time.time() - start_time) * 1000
+                debug_info = DebugInfo(
+                    request=debug_request,
+                    response=_idempotency.deep_redact(
+                        {
+                            "data": data_to_return,
+                            "message": message_text,
+                            "is_error": False,
+                        }
+                    ),
+                    duration_ms=duration_ms,
+                )
+
+            _idempotency.raise_for_idempotency_error(
+                tool_name, data_to_return, self.agent_config.id
+            )
+
+            # Post-receive schema validation — catches field-name drift from
+            # agents. Strict mode fails the task; warn mode logs and returns
+            # the data unchanged; off short-circuits without invoking the
+            # validator. Never raises — mirrors the existing contract where
+            # response-side failures surface as TaskStatus.FAILED.
+            response_version = self._request_version(params) or (
+                data_to_return.get("adcp_version")
+                if isinstance(data_to_return, dict)
+                and isinstance(data_to_return.get("adcp_version"), str)
+                else (
+                    params.get("adcp_version")
+                    if isinstance(params.get("adcp_version"), str)
+                    else None
+                )
+            )
+            response_outcome = validate_incoming_response(
+                tool_name,
+                data_to_return,
+                self.response_validation_mode,
+                version=response_version,
+            )
+            if not response_outcome.valid and self.response_validation_mode == "strict":
+                return TaskResult[Any](
+                    status=TaskStatus.FAILED,
+                    error=(
+                        f"Schema validation failed for {tool_name}: "
+                        f"{format_issues(response_outcome.issues)}"
+                    ),
+                    message=message_text,
+                    success=False,
+                    debug_info=debug_info,
+                    idempotency_key=idempotency_key,
+                )
+
+            # Return both the structured data and the human-readable message
+            task_result = TaskResult[Any](
+                status=TaskStatus.COMPLETED,
+                data=data_to_return,
+                message=message_text,
+                success=True,
+                debug_info=debug_info,
+            )
+            return _idempotency.annotate_result(task_result, idempotency_key)
+
+        except (IdempotencyConflictError, IdempotencyExpiredError, *_BUDGET_ERRORS):
+            # Propagate typed idempotency errors — callers MUST handle these
+            # distinctly (mint fresh key / reconcile state). A budget rejection
+            # is propagated for the same reason: it is a local policy decision
+            # about untrusted input, not an agent-reported task failure, and
+            # collapsing it into TaskResult(failed) would hide a
+            # memory-exhaustion attempt behind an ordinary error string.
+            # `_BUDGET_ERRORS` rather than one of them, so the typed surface
+            # does not diverge by protocol or by which coding the peer used.
+            # Other ADCPError subclasses (connection, timeout) continue to be
+            # converted to TaskResult(failed) below, preserving the contract.
+            raise
+        except Exception as e:
+            if self.agent_config.debug and start_time:
+                duration_ms = (time.time() - start_time) * 1000
+                debug_info = DebugInfo(
+                    request=debug_request,
+                    response={"error": str(e)},
+                    duration_ms=duration_ms,
+                )
+            return TaskResult[Any](
+                status=TaskStatus.FAILED,
+                error=str(e),
+                success=False,
+                debug_info=debug_info,
+                idempotency_key=idempotency_key,
+            )
+
+    # ========================================================================
+    # ADCP Protocol Methods
+    # ========================================================================
+
+    async def get_products(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get advertising products."""
+        return await self._call_mcp_tool("get_products", params)
+
+    async def list_products(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("list_products", params)
+
+    async def request_proposals(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("request_proposals", params)
+
+    async def refine_proposals(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("refine_proposals", params)
+
+    async def decline_proposals(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("decline_proposals", params)
+
+    async def buy_products(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("buy_products", params)
+
+    async def accept_proposal(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("accept_proposal", params)
+
+    async def control_media_buy(self, params: dict[str, Any]) -> TaskResult[Any]:
+        return await self._call_mcp_tool("control_media_buy", params)
+
+    async def list_creative_formats(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List supported creative formats."""
+        return await self._call_mcp_tool("list_creative_formats", params)
+
+    async def sync_creatives(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync creatives."""
+        return await self._call_mcp_tool("sync_creatives", params)
+
+    async def list_creatives(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List creatives."""
+        return await self._call_mcp_tool("list_creatives", params)
+
+    async def get_media_buy_delivery(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get media buy delivery."""
+        return await self._call_mcp_tool("get_media_buy_delivery", params)
+
+    async def get_media_buys(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get media buys with status, creative approval state, and optional delivery snapshots."""
+        return await self._call_mcp_tool("get_media_buys", params)
+
+    async def get_signals(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get signals."""
+        return await self._call_mcp_tool("get_signals", params)
+
+    async def activate_signal(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Activate signal."""
+        return await self._call_mcp_tool("activate_signal", params)
+
+    async def provide_performance_feedback(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Provide performance feedback."""
+        return await self._call_mcp_tool("provide_performance_feedback", params)
+
+    async def log_event(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Log event."""
+        return await self._call_mcp_tool("log_event", params)
+
+    async def sync_event_sources(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync event sources."""
+        return await self._call_mcp_tool("sync_event_sources", params)
+
+    async def sync_audiences(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync audiences."""
+        return await self._call_mcp_tool("sync_audiences", params)
+
+    async def sync_catalogs(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync catalogs."""
+        return await self._call_mcp_tool("sync_catalogs", params)
+
+    async def preview_creative(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Generate preview URLs for a creative manifest."""
+        return await self._call_mcp_tool("preview_creative", params)
+
+    async def create_media_buy(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Create media buy."""
+        return await self._call_mcp_tool("create_media_buy", params)
+
+    async def update_media_buy(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Update media buy."""
+        return await self._call_mcp_tool("update_media_buy", params)
+
+    async def build_creative(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Build creative."""
+        return await self._call_mcp_tool("build_creative", params)
+
+    async def get_creative_delivery(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get creative delivery."""
+        return await self._call_mcp_tool("get_creative_delivery", params)
+
+    async def list_transformers(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List creative transformers."""
+        return await self._call_mcp_tool("list_transformers", params)
+
+    async def list_account_changes(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Read an account's durable change feed."""
+        return await self._call_mcp_tool("list_account_changes", params)
+
+    async def list_accounts(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List accounts."""
+        return await self._call_mcp_tool("list_accounts", params)
+
+    async def sync_accounts(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync accounts."""
+        return await self._call_mcp_tool("sync_accounts", params)
+
+    async def get_account_financials(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get account financials."""
+        return await self._call_mcp_tool("get_account_financials", params)
+
+    async def report_usage(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Report account usage."""
+        return await self._call_mcp_tool("report_usage", params)
+
+    async def get_reporting_status(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Read reporting delivery and reconciliation status."""
+        return await self._call_mcp_tool("get_reporting_status", params)
+
+    async def sync_reporting_status(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Record consumer reporting status."""
+        return await self._call_mcp_tool("sync_reporting_status", params)
+
+    async def sync_reporting_receipts(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Submit reporting materialization reconciliation receipts."""
+        return await self._call_mcp_tool("sync_reporting_receipts", params)
+
+    async def list_tools(self) -> list[str]:
+        """List available tools from MCP agent."""
+        session = await self._get_session()
+        result = await self._session_request(session.list_tools, "tools/list")
+        return [tool.name for tool in result.tools]
+
+    async def get_agent_info(self) -> dict[str, Any]:
+        """
+        Get agent information including AdCP extension metadata from MCP server.
+
+        MCP servers may expose metadata through:
+        - Server capabilities exposed during initialization
+        - extensions.adcp in server info (if supported)
+        - Tool list
+
+        Returns:
+            Dictionary with agent metadata
+        """
+        session = await self._get_session()
+
+        # Extract basic MCP server info
+        info: dict[str, Any] = {
+            "name": getattr(session, "server_name", None),
+            "version": getattr(session, "server_version", None),
+            "protocol": "mcp",
+        }
+
+        # Get available tools. A budget rejection is not a "this agent has no
+        # tools" answer, so it propagates instead of being logged away.
+        try:
+            tools_result = await self._session_request(session.list_tools, "tools/list")
+            tool_names = [tool.name for tool in tools_result.tools]
+            if tool_names:
+                info["tools"] = tool_names
+        except _BUDGET_ERRORS:
+            raise
+        except Exception as e:
+            logger.warning(f"Failed to list tools for {self.agent_config.id}: {e}")
+
+        # Try to extract AdCP extension metadata from server capabilities
+        # MCP servers may expose this in their initialization response
+        capabilities = getattr(session, "_server_capabilities", None)
+        if capabilities is not None:
+            if isinstance(capabilities, dict):
+                extensions = capabilities.get("extensions", {})
+                adcp_ext = extensions.get("adcp", {})
+                if adcp_ext:
+                    info["adcp_version"] = adcp_ext.get("adcp_version")
+                    info["protocols_supported"] = adcp_ext.get("protocols_supported")
+
+        logger.info(f"Retrieved agent info for {self.agent_config.id}")
+        return info
+
+    async def close(self) -> None:
+        """Close the MCP session and clean up resources."""
+        if self._session_is_injected:
+            return  # caller owns lifecycle; never close an injected session
+        await self._cleanup_failed_connection("during close")
+
+    async def close_mcp_session(self, session_id: str | None = None) -> None:
+        """Terminate a stateful Streamable HTTP MCP session by id."""
+        if self._session_is_injected:
+            raise RuntimeError(
+                "close_mcp_session is unavailable for from_mcp_client() sessions; "
+                "the caller owns the injected transport lifecycle."
+            )
+        if self.agent_config.mcp_transport != "streamable_http":
+            raise TypeError(
+                "close_mcp_session is only supported for MCP streamable_http transport; "
+                f"got {self.agent_config.mcp_transport!r}."
+            )
+        if session_id is None:
+            session_id = self.current_mcp_session_id()
+            if session_id is None:
+                raise ValueError(
+                    "No active MCP session id is available; pass session_id explicitly "
+                    "or call after this client has initialized a Streamable HTTP session."
+                )
+        if not session_id or any(ch in session_id for ch in ("\r", "\n", "\x00")):
+            raise ValueError("session_id must be a non-empty MCP session id header value")
+        if not HTTPX_AVAILABLE:
+            raise ImportError("httpx is required to close MCP Streamable HTTP sessions")
+
+        headers = self._http_headers()
+        headers[MCP_SESSION_ID] = session_id
+        redirect_error_type: Any
+        if self._httpx_client_factory is None:
+            timeout = _httpx.Timeout(self.agent_config.timeout)
+            event_hooks: dict[str, list[Any]] = {}
+            if self.signing_request_hook is not None:
+                event_hooks["request"] = [self.signing_request_hook]
+
+            close_response_limit = self._response_limit_policy()
+
+            def client_factory(**kwargs: Any) -> Any:
+                # This path runs on httpx (not httpx2): it is a plain DELETE
+                # outside the MCP session, but the peer's reply is still
+                # untrusted and gets the same budget.
+                return install_response_limit(
+                    _httpx.AsyncClient(
+                        **kwargs,
+                        timeout=timeout,
+                        follow_redirects=False,
+                        trust_env=False,
+                        event_hooks=event_hooks,
+                    ),
+                    httpx_module=_httpx,
+                    policy=close_response_limit,
+                )
+
+            redirect_error_type = HTTPStatusError
+        else:
+            client_factory = self._streamable_http_client_factory()
+            redirect_error_type = _mcp_httpx.HTTPStatusError
+        close_client_kwargs: dict[str, Any] = {"headers": headers}
+        if self._httpx_client_factory is not None:
+            close_client_kwargs["timeout"] = self.agent_config.timeout
+        urls_to_try = (
+            [self._connected_url] if self._connected_url is not None else self._urls_to_try()
+        )
+
+        last_error: BaseException | None = None
+        for url in urls_to_try:
+            try:
+                async with client_factory(**close_client_kwargs) as client:
+                    response = await client.delete(url)
+                if response.is_redirect:
+                    location = response.headers.get("location")
+                    suffix = f" to {location}" if location else ""
+                    raise redirect_error_type(
+                        f"Unexpected redirect while closing MCP session{suffix}",
+                        request=response.request,
+                        response=response,
+                    )
+                response.raise_for_status()
+
+                current_session_id = self._get_session_id() if self._get_session_id else None
+                if current_session_id == session_id:
+                    await self._cleanup_failed_connection("after explicit MCP session close")
+                return
+            except _ALL_HTTP_STATUS_ERROR_TYPES as exc:
+                last_error = exc
+                # Keep fallback behavior symmetrical with session initialization:
+                # a 404/405 on one candidate usually means "try the slash variant".
+                exc_response = getattr(exc, "response", None)
+                status_code = getattr(exc_response, "status_code", None)
+                if status_code in (404, 405) and url != urls_to_try[-1]:
+                    continue
+                break
+            except Exception as exc:
+                last_error = exc
+                if url != urls_to_try[-1]:
+                    continue
+                break
+
+        raise ADCPConnectionError(
+            f"Failed to close MCP session {session_id!r}: {last_error}",
+            agent_id=self.agent_config.id,
+            agent_uri=self.agent_config.agent_uri,
+        ) from last_error
+
+    # ========================================================================
+    # V3 Protocol Methods - Protocol Discovery
+    # ========================================================================
+
+    async def get_adcp_capabilities(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get AdCP capabilities from the agent."""
+        return await self._call_mcp_tool("get_adcp_capabilities", params)
+
+    async def sync_agent_notification_configs(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Replace caller-scoped agent notification subscribers."""
+        return await self._call_mcp_tool("sync_agent_notification_configs", params)
+
+    async def get_principal(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Read the authenticated principal's seller-resolved state."""
+        return await self._call_mcp_tool("get_principal", params)
+
+    async def sync_principal(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Replace selected authenticated-principal configuration."""
+        return await self._call_mcp_tool("sync_principal", params)
+
+    async def get_task_status(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get task status from the agent."""
+        return await self._call_mcp_tool("get_task_status", params)
+
+    async def list_tasks(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List tasks from the agent."""
+        return await self._call_mcp_tool("list_tasks", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Content Standards
+    # ========================================================================
+
+    async def create_content_standards(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Create content standards configuration."""
+        return await self._call_mcp_tool("create_content_standards", params)
+
+    async def get_content_standards(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get content standards configuration."""
+        return await self._call_mcp_tool("get_content_standards", params)
+
+    async def list_content_standards(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List content standards configurations."""
+        return await self._call_mcp_tool("list_content_standards", params)
+
+    async def update_content_standards(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Update content standards configuration."""
+        return await self._call_mcp_tool("update_content_standards", params)
+
+    async def calibrate_content(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Calibrate content against standards."""
+        return await self._call_mcp_tool("calibrate_content", params)
+
+    async def validate_content_delivery(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Validate content delivery against standards."""
+        return await self._call_mcp_tool("validate_content_delivery", params)
+
+    async def get_media_buy_artifacts(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get artifacts associated with a media buy."""
+        return await self._call_mcp_tool("get_media_buy_artifacts", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Governance
+    # ========================================================================
+
+    async def get_creative_features(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Evaluate governance features for a creative."""
+        return await self._call_mcp_tool("get_creative_features", params)
+
+    async def sync_plans(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync campaign governance plans."""
+        return await self._call_mcp_tool("sync_plans", params)
+
+    async def check_governance(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Check an action against campaign governance."""
+        return await self._call_mcp_tool("check_governance", params)
+
+    async def report_plan_outcome(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Report the outcome of a governed action."""
+        return await self._call_mcp_tool("report_plan_outcome", params)
+
+    async def report_plan_adjustment(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Report or review an adjustment to a governed outcome."""
+        return await self._call_mcp_tool("report_plan_adjustment", params)
+
+    async def get_plan_audit_logs(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Retrieve governance audit logs for plans."""
+        return await self._call_mcp_tool("get_plan_audit_logs", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Sponsored Intelligence
+    # ========================================================================
+
+    async def si_get_offering(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get sponsored intelligence offering."""
+        return await self._call_mcp_tool("si_get_offering", params)
+
+    async def si_initiate_session(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Initiate sponsored intelligence session."""
+        return await self._call_mcp_tool("si_initiate_session", params)
+
+    async def si_send_message(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Send message in sponsored intelligence session."""
+        return await self._call_mcp_tool("si_send_message", params)
+
+    async def si_terminate_session(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Terminate sponsored intelligence session."""
+        return await self._call_mcp_tool("si_terminate_session", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Governance (Property Lists)
+    # ========================================================================
+
+    async def create_property_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Create a property list for governance."""
+        return await self._call_mcp_tool("create_property_list", params)
+
+    async def get_property_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get a property list with optional resolution."""
+        return await self._call_mcp_tool("get_property_list", params)
+
+    async def list_property_lists(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List property lists."""
+        return await self._call_mcp_tool("list_property_lists", params)
+
+    async def update_property_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Update a property list."""
+        return await self._call_mcp_tool("update_property_list", params)
+
+    async def delete_property_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Delete a property list."""
+        return await self._call_mcp_tool("delete_property_list", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Governance (Collection Lists)
+    # ========================================================================
+
+    async def create_collection_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Create a collection list for governance."""
+        return await self._call_mcp_tool("create_collection_list", params)
+
+    async def get_collection_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get a collection list with optional resolution."""
+        return await self._call_mcp_tool("get_collection_list", params)
+
+    async def list_collection_lists(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """List collection lists."""
+        return await self._call_mcp_tool("list_collection_lists", params)
+
+    async def update_collection_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Update a collection list."""
+        return await self._call_mcp_tool("update_collection_list", params)
+
+    async def delete_collection_list(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Delete a collection list."""
+        return await self._call_mcp_tool("delete_collection_list", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Governance (Sync Governance)
+    # ========================================================================
+
+    async def sync_governance(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Sync governance agents attached to an account."""
+        return await self._call_mcp_tool("sync_governance", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - TMP
+    # ========================================================================
+
+    async def context_match(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Match ad context to buyer packages."""
+        return await self._call_mcp_tool("context_match", params)
+
+    async def identity_match(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Match user identity for package eligibility."""
+        return await self._call_mcp_tool("identity_match", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Brand Rights
+    # ========================================================================
+
+    async def get_brand_identity(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get brand identity information."""
+        return await self._call_mcp_tool("get_brand_identity", params)
+
+    async def get_rights(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Get available rights for licensing."""
+        return await self._call_mcp_tool("get_rights", params)
+
+    async def acquire_rights(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Acquire rights for brand content usage."""
+        return await self._call_mcp_tool("acquire_rights", params)
+
+    async def update_rights(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Update terms of an existing rights acquisition."""
+        return await self._call_mcp_tool("update_rights", params)
+
+    async def validate_input(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Validate creative input."""
+        return await self._call_mcp_tool("validate_input", params)
+
+    async def verify_brand_claim(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Verify a brand claim."""
+        return await self._call_mcp_tool("verify_brand_claim", params)
+
+    async def verify_brand_claims(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Verify brand claims."""
+        return await self._call_mcp_tool("verify_brand_claims", params)
+
+    # ========================================================================
+    # V3 Protocol Methods - Compliance
+    # ========================================================================
+
+    async def comply_test_controller(self, params: dict[str, Any]) -> TaskResult[Any]:
+        """Compliance test controller (sandbox only)."""
+        return await self._call_mcp_tool("comply_test_controller", params)

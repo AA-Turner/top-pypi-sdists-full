@@ -1,0 +1,905 @@
+import logging
+import os
+import tempfile
+import time
+import unittest
+
+import numpy as np
+
+import egobox as egx
+
+logging.basicConfig(level=logging.INFO)
+
+
+def sphere(x: np.ndarray) -> np.ndarray:
+    """
+    Sphere function
+    Global optimum at x_opt = 0 with f_opt = 0
+    """
+    x = np.atleast_2d(x)
+    y = np.sum(x**2, axis=1).reshape(-1, 1)
+    return y
+
+
+def xsinx(x: np.ndarray) -> np.ndarray:
+    x = np.atleast_2d(x)
+    y = (x - 3.5) * np.sin((x - 3.5) / (np.pi))
+    return y
+
+
+# grad information is used when using SLSQP as infill optimizer
+def cstr_xsinx(x, grad=False):
+    if grad:
+        return np.one(1.0)
+    else:
+        return (x - 18.0).item()
+
+
+def G24(point):
+    """
+    Function G24
+    1 global optimum y_opt = -5.5080 at x_opt =(2.3295, 3.1785)
+    """
+    p = np.atleast_2d(point)
+    return -p[:, 0] - p[:, 1]
+
+
+# Constraints < 0 to be metamodelized
+def G24_c1(point):
+    p = np.atleast_2d(point)
+    return (
+        -2.0 * p[:, 0] ** 4.0
+        + 8.0 * p[:, 0] ** 3.0
+        - 8.0 * p[:, 0] ** 2.0
+        + p[:, 1]
+        - 2.0
+    )
+
+
+# Used as fonction constraint
+def g24_c1(x, grad=False):
+    if grad:
+        raise NotImplementedError("g24_c1: constraint gradient not available")
+    return G24_c1(x).item()
+
+
+def G24_c2(point):
+    p = np.atleast_2d(point)
+    return (
+        -4.0 * p[:, 0] ** 4.0
+        + 32.0 * p[:, 0] ** 3.0
+        - 88.0 * p[:, 0] ** 2.0
+        + 96.0 * p[:, 0]
+        + p[:, 1]
+        - 36.0
+    )
+
+
+# Used as fonction constraint
+def g24_c2(x, grad=False):
+    if grad:
+        raise NotImplementedError("g24_c1: constraint gradient not available")
+    return G24_c2(x).item()
+
+
+# Grouped evaluation
+def g24(point):
+    p = np.atleast_2d(point)
+    res = np.array([G24(p), G24_c1(p), G24_c2(p)]).T
+    print(f"y={res}")
+    return res
+
+
+def g24_geq(point):
+    p = np.atleast_2d(point)
+    return np.array([G24(p), -G24_c1(p), -G24_c2(p)]).T
+
+
+def g24_bare(point):
+    p = np.atleast_2d(point)
+    res = np.array([G24(p)]).T
+    print(f"y={res}")
+    return res
+
+
+def six_humps(x):
+    """
+    Function Six-Hump Camel Back
+    2 global optimum value =-1.0316 located at (0.089842, -0.712656) and  (-0.089842, 0.712656)
+    https://www.sfu.ca/~ssurjano/camel6.html
+    """
+    x = np.atleast_2d(x)
+    x1 = x[:, 0]
+    x2 = x[:, 1]
+    print(f"x={x}")
+    sum1 = 4 * x1**2 - 2.1 * x1**4 + 1.0 / 3.0 * x1**6 + x1 * x2 - 4 * x2**2 + 4 * x2**4
+    print(f"y={np.atleast_2d(sum1).T}")
+    return np.atleast_2d(sum1).T
+
+
+def branin(x):
+    """
+    Branin function as used by Forrester et al.
+    x is in [0, 1]^2, transformed to proper domain internally.
+
+    Returns: [objective, constraint]
+    where constraint should be negative at optimum (x1*x2 - 0.2 < 0)
+    """
+    # Transform from [0,1]^2 to Forrester's domain
+    x1 = x[:, 0] * 15 - 5
+    x2 = x[:, 1] * 15
+
+    # Branin function
+    a = 1
+    b = 5.1 / (4 * np.pi**2)
+    c = 5 / np.pi
+    r = 6
+    s = 10
+    t = 1 / (8 * np.pi)
+
+    obj = a * (x2 - b * x1**2 + c * x1 - r) ** 2 + s * (1 - t) * np.cos(x1) + s
+
+    return obj.reshape(-1, 1)
+
+
+BRANIN_CSTR_CONST = 0.2
+
+
+def branin_constrained(x):
+    """
+    Branin function with a constraint y*y >= 0.2
+    """
+    x = np.atleast_2d(x)
+    obj = branin(x)
+    cstr = obj * obj
+    return np.hstack((obj, cstr.reshape(-1, 1)))
+
+
+class TestEgor(unittest.TestCase):
+    def test_sphere(self):
+        dim = 5
+        egor = egx.Egor(
+            np.array([[-5.12, 5.12]] * dim),  # test ndarray API
+            infill_strategy=egx.InfillStrategy.EI,
+        )
+        optim = egor.minimize(sphere, max_iters=100, seed=42)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(0.0, optim.result.y_opt[0], delta=5e-1)
+        np.testing.assert_allclose(0.0, optim.result.x_opt, atol=5e-1)
+
+    def test_xsinx(self):
+        egor = egx.Egor([[0.0, 25.0]])  # test list of list api
+        optim = egor.minimize(xsinx, max_iters=20, seed=42)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(-15.125, optim.result.y_opt[0], delta=1e-3)
+        self.assertAlmostEqual(18.935, optim.result.x_opt[0], delta=5e-2)
+
+    def test_xsinx_with_reclustering(self):
+        egor = egx.Egor([[0.0, 25.0]], gp_config=egx.GpConfig(n_clusters=0))
+        optim = egor.minimize(xsinx, max_iters=20, seed=42)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(-15.125, optim.result.y_opt[0], delta=1e-3)
+        self.assertAlmostEqual(18.935, optim.result.x_opt[0], delta=5e-2)
+
+    def test_xsinx_with_warmstart(self):
+        if os.path.exists("./test_dir/egor_initial_doe.npy"):
+            os.remove("./test_dir/egor_initial_doe.npy")
+        if os.path.exists("./test_dir/egor_doe.npy"):
+            os.remove("./test_dir/egor_doe.npy")
+        xlimits = [[0.0, 25.0]]
+        doe = egx.lhs(xlimits, 10)
+        egor = egx.Egor(
+            xlimits,
+            x_doe=doe,
+            infill_strategy=egx.InfillStrategy.WB2,
+        )
+        optim = egor.minimize(xsinx, max_iters=15, outdir="./test_dir", seed=42)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(-15.125, optim.result.y_opt[0], delta=1e-3)
+        self.assertAlmostEqual(18.935, optim.result.x_opt[0], delta=1e-3)
+
+        egor = egx.Egor(xlimits)
+        optim = egor.minimize(xsinx, max_iters=5, outdir="./test_dir", warm_start=True)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(-15.125, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(18.935, optim.result.x_opt[0], delta=1e-2)
+
+        self.assertTrue(os.path.exists("./test_dir/egor_initial_doe.npy"))
+        os.remove("./test_dir/egor_initial_doe.npy")
+        self.assertTrue(os.path.exists("./test_dir/egor_doe.npy"))
+        os.remove("./test_dir/egor_doe.npy")
+
+    def test_xsinx_with_hotstart_bool(self):
+        xlimits = [[0.0, 25.0]]
+
+        with tempfile.TemporaryDirectory() as outdir:
+            egor = egx.Egor(xlimits)
+            first = egor.minimize(
+                xsinx, max_iters=1, outdir=outdir, hot_start=True, seed=42
+            )
+            second = egor.minimize(
+                xsinx, max_iters=1, outdir=outdir, hot_start=True, seed=42
+            )
+
+            self.assertTrue(
+                any(
+                    os.path.exists(os.path.join(outdir, filename))
+                    for filename in ("egor_checkpoint.json", "egor_checkpoint.bin")
+                )
+            )
+            self.assertEqual(first.result.x_doe.shape[0], second.result.x_doe.shape[0])
+
+    def test_g24(self):
+        n_doe = 5
+        max_iters = 30
+        n_cstr = 2
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=1e-3)] * n_cstr,
+            n_doe=n_doe,
+            cstr_strategy=egx.ConstraintStrategy.UTB,
+        )
+        start = time.process_time()
+        optim = egor.minimize(
+            g24, max_iters=max_iters, verbose=egx.Verbose.INFO, seed=42
+        )
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, optim.result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, optim.result.x_opt[1], delta=1e-2)
+        self.assertGreaterEqual(n_doe + max_iters, optim.result.x_doe.shape[0])
+        self.assertEqual(1 + n_cstr, optim.result.y_doe.shape[1])
+
+    def test_reinit(self):
+        n_doe = 15
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            cstr_specs=[
+                egx.CstrSpec.geq(0.0, tol=1e-3),
+                egx.CstrSpec.geq(0.0, tol=1e-3),
+            ],
+            n_doe=n_doe,
+            cstr_strategy=egx.ConstraintStrategy.UTB,
+        )
+        optim = egor.minimize(g24_geq, max_iters=1, seed=42, outdir="./test_dir")
+
+        x_expected = optim.result.x_opt
+        y_expected = optim.result.y_opt
+
+        # When warm starting with no iteration, the result should be the same as the previous run
+        optim = egor.minimize(
+            g24_geq, max_iters=0, seed=42, outdir="./test_dir", warm_start=True
+        )
+        np.testing.assert_allclose(optim.result.x_opt, x_expected)
+        np.testing.assert_allclose(optim.result.y_opt, y_expected)
+
+        # delete test_dir
+        if os.path.exists("./test_dir"):
+            import shutil
+
+            shutil.rmtree("./test_dir")
+
+    def test_g24_kpls(self):
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            infill_strategy=egx.InfillStrategy.WB2,
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=5e-3)] * 2,
+            gp_config=egx.GpConfig(
+                regr_spec=egx.RegressionSpec.CONSTANT,
+                corr_spec=egx.CorrelationSpec.SQUARED_EXPONENTIAL,
+                kpls_dim=1,
+            ),
+        )
+        start = time.process_time()
+        optim = egor.minimize(g24, max_iters=30, verbose=2, seed=1)
+        end = time.process_time()
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=5e-1)
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+
+    def test_g24_trego(self):
+        n_doe = 5
+        max_iters = 20
+        n_cstr = 2
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=1e-3)] * n_cstr,
+            n_doe=n_doe,
+            trego=egx.TregoConfig((4, 1)),
+        )
+        start = time.process_time()
+        optim = egor.minimize(g24, max_iters=max_iters, seed=42)
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, optim.result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, optim.result.x_opt[1], delta=1e-2)
+
+        # Test with default TREGO parameters
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=1e-3)] * n_cstr,
+            n_doe=n_doe,
+            trego=True,
+        )
+        optim = egor.minimize(g24, max_iters=max_iters, seed=42)
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+
+    def test_six_humps(self):
+        egor = egx.Egor(
+            [[-3.0, 3.0], [-2.0, 2.0]],
+            infill_strategy=egx.InfillStrategy.WB2,
+        )
+        start = time.process_time()
+        optim = egor.minimize(six_humps, max_iters=45, seed=42)
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        # 2 global optimum value =-1.0316 located at (0.089842, -0.712656) and  (-0.089842, 0.712656)
+        self.assertAlmostEqual(-1.0316, optim.result.y_opt[0], delta=2e-1)
+
+    def test_constructor(self):
+        self.assertRaises(TypeError, egx.Egor)
+        egx.Egor([[0.0, 25.0]], n_doe=10)
+
+    def test_egor_service(self):
+        xlimits = [[0.0, 25.0]]
+        egor = egx.Egor(xlimits, infill_strategy=egx.InfillStrategy.WB2)
+        x_doe = egx.lhs(xlimits, 3, seed=42)
+        y_doe = xsinx(x_doe)
+        for _ in range(10):
+            x = egor.suggest(x_doe, y_doe, seed=42)
+            x_doe = np.concatenate((x_doe, x))
+            y_doe = np.concatenate((y_doe, xsinx(x)))
+        result = egor.best_result(x_doe, y_doe)
+        self.assertAlmostEqual(-15.125, result.y_opt[0], delta=1e-3)
+        self.assertAlmostEqual(18.935, result.x_opt[0], delta=1e-3)
+
+    # Constraint function which prevent from reaching the
+    # the unconstrained minimum located in x=18.9
+    def test_egor_with_fcstrs(self):
+        fcstrs = [cstr_xsinx]
+        egor = egx.Egor([[0.0, 25.0]], infill_strategy=egx.InfillStrategy.WB2, n_doe=5)
+        optim = egor.minimize(xsinx, max_iters=20, fcstrs=fcstrs, seed=42)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+        self.assertAlmostEqual(18, optim.result.x_opt[0], delta=2e-3)
+
+    def test_g24_with_fcstrs(self):
+        n_doe = 5
+        max_iters = 5
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            n_doe=n_doe,
+        )
+        start = time.process_time()
+        fcstrs = [g24_c1, g24_c2]
+        optim = egor.minimize(g24_bare, max_iters=max_iters, fcstrs=fcstrs, seed=42)
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, optim.result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, optim.result.x_opt[1], delta=1e-2)
+        expected_points = n_doe + optim.status.total_iters
+        if optim.status.exit == egx.ExitStatus.SOLVER_CONVERGED:
+            # Convergence consumes an iteration without adding another point.
+            expected_points -= 1
+        else:
+            self.assertEqual(optim.status.exit, egx.ExitStatus.MAX_ITERS_REACHED)
+        self.assertLessEqual(optim.status.total_iters, max_iters)
+        self.assertEqual((expected_points, 2), optim.result.x_doe.shape)
+        self.assertEqual((expected_points, 1), optim.result.y_doe.shape)
+
+    def test_g24_with_fcstrs_and_specs(self):
+        n_doe = 5
+        max_iters = 5
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            n_doe=n_doe,
+        )
+        start = time.process_time()
+        fcstrs = [g24_c1, g24_c2]
+        fcstr_specs = [egx.CstrSpec.leq(0.0), egx.CstrSpec.leq(0.0)]
+        optim = egor.minimize(
+            g24_bare,
+            max_iters=max_iters,
+            fcstrs=fcstrs,
+            fcstr_specs=fcstr_specs,
+            seed=42,
+        )
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, optim.result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, optim.result.x_opt[1], delta=1e-2)
+
+    def test_fcstr_specs_length_mismatch(self):
+        egor = egx.Egor([[0.0, 3.0], [0.0, 4.0]], n_doe=5)
+        fcstrs = [g24_c1, g24_c2]
+        fcstr_specs = [egx.CstrSpec.leq(0.0)]
+        with self.assertRaises(ValueError):
+            _ = egor.minimize(
+                g24_bare,
+                max_iters=5,
+                fcstrs=fcstrs,
+                fcstr_specs=fcstr_specs,
+                seed=42,
+            )
+
+    def test_g24_with_fcstrs_fun_jac_forms(self):
+        def c1_grad(x):
+            return np.array([-8.0 * x[0] ** 3 + 24.0 * x[0] ** 2 - 16.0 * x[0], 1.0])
+
+        def c2_grad(x):
+            return np.array(
+                [-16.0 * x[0] ** 3 + 96.0 * x[0] ** 2 - 176.0 * x[0] + 96.0, 1.0]
+            )
+
+        n_grad_calls = [0]
+
+        def counted(grad):
+            def f(x):
+                n_grad_calls[0] += 1
+                return grad(x)
+
+            return f
+
+        fcstrs = [
+            (lambda x: G24_c1(x).item(), counted(c1_grad)),
+            {"fun": lambda x: G24_c2(x).item(), "jac": counted(c2_grad)},
+        ]
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            n_doe=5,
+            infill_optimizer=egx.InfillOptimizer.SLSQP,
+        )
+        optim = egor.minimize(g24_bare, max_iters=5, fcstrs=fcstrs, seed=42)
+        self.assertGreater(n_grad_calls[0], 0)
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+
+    def test_fcstrs_form_errors(self):
+        egor = egx.Egor([[0.0, 3.0], [0.0, 4.0]], n_doe=5)
+        with self.assertRaisesRegex(ValueError, "type"):
+            egor.minimize(
+                g24_bare, fcstrs=[{"type": "ineq", "fun": g24_c1, "jac": g24_c1}]
+            )
+        with self.assertRaisesRegex(ValueError, "jac"):
+            egor.minimize(g24_bare, fcstrs=[{"fun": g24_c1}])
+        with self.assertRaises(ValueError):
+            egor.minimize(g24_bare, fcstrs=[(g24_c1,)])
+        with self.assertRaises(TypeError):
+            egor.minimize(g24_bare, fcstrs=[(g24_c1, 1.0)])
+        with self.assertRaises(TypeError):
+            egor.minimize(g24_bare, fcstrs=[1.0])
+
+    def test_seed_given_to_constructor(self):
+        def run(egor, **kwargs):
+            return egor.minimize(xsinx, max_iters=3, **kwargs).y_doe
+
+        y_call = run(egx.Egor([[0.0, 25.0]], n_doe=3), seed=42)
+        y_ctor = run(egx.Egor([[0.0, 25.0]], n_doe=3, seed=42))
+        np.testing.assert_array_equal(y_call, y_ctor)
+        # the minimize seed takes precedence
+        y_both = run(egx.Egor([[0.0, 25.0]], n_doe=3, seed=0), seed=42)
+        np.testing.assert_array_equal(y_call, y_both)
+
+        x_doe = np.array([[0.0], [7.0], [25.0]])
+        y_doe = xsinx(x_doe)
+        x_call = egx.Egor([[0.0, 25.0]]).suggest(x_doe, y_doe, seed=42)
+        x_ctor = egx.Egor([[0.0, 25.0]], seed=42).suggest(x_doe, y_doe)
+        np.testing.assert_array_equal(x_call, x_ctor)
+
+    def test_verbose_given_to_constructor(self):
+        egor = egx.Egor([[0.0, 25.0]], n_doe=3, verbose=egx.Verbose.ERROR)
+        egor.minimize(xsinx, max_iters=1, seed=42)
+
+    def test_g24_with_qei(self):
+        n_doe = 5
+        max_iters = 20
+        n_cstr = 2
+        egor = egx.Egor(
+            [[0.0, 3.0], [0.0, 4.0]],
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=1e-3)] * n_cstr,
+            n_doe=n_doe,
+            qei_config=egx.QEiConfig(
+                batch=3, strategy=egx.QEiStrategy.KBLB, optim_every=2
+            ),
+        )
+        start = time.process_time()
+        optim = egor.minimize(g24, max_iters=max_iters, seed=42)
+        end = time.process_time()
+        print(
+            f"Optimization f={optim.result.y_opt} at {optim.result.x_opt} in {end - start}s"
+        )
+        self.assertAlmostEqual(-5.5080, optim.result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, optim.result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, optim.result.x_opt[1], delta=1e-2)
+
+    def test_g24_with_suggest(self):
+        xlimits = [[0.0, 3.0], [0.0, 4.0]]
+        egor = egx.Egor(
+            xlimits,
+            infill_strategy=egx.InfillStrategy.WB2,
+            cstr_specs=[egx.CstrSpec.leq(0.0, tol=1e-2)] * 2,
+        )
+        x_doe = egx.lhs(xlimits, 5, seed=42)
+        y_doe = g24(x_doe)
+        for _ in range(20):
+            x = egor.suggest(x_doe, y_doe, seed=42)
+            x_doe = np.concatenate((x_doe, x))
+            y_doe = np.concatenate((y_doe, g24(x)))
+        res_idx = egor.best_index(y_doe)
+        result = egor.best_result(x_doe, y_doe)
+        for xi, xii in zip(result.x_opt, x_doe[res_idx]):
+            self.assertEqual(xi, xii)
+        self.assertAlmostEqual(-5.5080, result.y_opt[0], delta=1e-2)
+        self.assertAlmostEqual(2.3295, result.x_opt[0], delta=1e-2)
+        self.assertAlmostEqual(3.1785, result.x_opt[1], delta=1e-2)
+
+    def test_branin_constrained(self):
+        xspecs = [[0.0, 1.0], [0.0, 1.0]]
+        egor = egx.Egor(
+            xspecs, cstr_specs=[egx.CstrSpec.geq(0.5)], n_doe=15, trego=True
+        )
+        optim = egor.minimize(
+            branin_constrained,
+            max_iters=90,
+            seed=42,
+            # verbose=egx.Verbose.INFO,
+        )
+        print(
+            f"Optimum found at: x = {optim.result.x_opt}, f(x*) = {optim.result.y_opt[0]}"
+        )
+        self.assertAlmostEqual(0.707, optim.result.y_opt[0], delta=1e-1)
+
+    def test_sphere_with_eq_fcstr(self):
+        """
+        Test optimization of sphere function with an equality constraint.
+
+        Objective: f(x) = x1² + x2² (minimized at origin)
+        Constraint: x1 + x2 = 1
+
+        Analytical solution: x* = (0.5, 0.5) with f(x*) = 0.5
+        """
+
+        def sphere_eq_constraint(x, grad=False):
+            """Equality constraint: x1 + x2 = 1"""
+            if grad:
+                raise NotImplementedError("Constraint gradient not available")
+            x = np.atleast_2d(x)
+            return (x[:, 0] + x[:, 1]).item()
+
+        egor = egx.Egor(
+            [[-2.0, 2.0], [-2.0, 2.0]],
+            n_doe=10,
+        )
+        fcstrs = [sphere_eq_constraint]
+        fcstr_specs = [egx.CstrSpec.eq(1.0)]
+
+        optim = egor.minimize(
+            sphere,
+            max_iters=10,
+            fcstrs=fcstrs,
+            fcstr_specs=fcstr_specs,
+            seed=42,
+            verbose=2,
+        )
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+
+        # Verify the solution is close to analytical optimum (0.5, 0.5)
+        self.assertAlmostEqual(0.5, optim.result.y_opt[0], delta=0.1)
+        np.testing.assert_allclose([0.5, 0.5], optim.result.x_opt, atol=1e-3)
+        # Verify constraint is satisfied
+        constraint_value = optim.result.x_opt[0] + optim.result.x_opt[1]
+        self.assertAlmostEqual(1.0, constraint_value, delta=1e-3)
+
+    def test_sphere_with_eq_cstr(self):
+        """
+        Test optimization of sphere function with a metamodelized equality constraint.
+
+        Objective: f(x) = x1² + x2² (minimized at origin)
+        Constraint: x1 + x2 = 1 (metamodelized via cstr_specs)
+
+        Analytical solution: x* = (0.5, 0.5) with f(x*) = 0.5
+
+        This test uses the cstr_specs API where constraints are returned by the
+        objective function and metamodelized along with the objective.
+        """
+
+        def sphere_with_eq_cstr(point):
+            """
+            Returns [objective, constraint] where constraint should equal 1.
+            """
+            p = np.atleast_2d(point)
+            obj = np.sum(p**2, axis=1).reshape(-1, 1)
+            cstr = (p[:, 0] + p[:, 1]).reshape(-1, 1)
+            return np.hstack((obj, cstr))
+
+        egor = egx.Egor(
+            [[-2.0, 2.0], [-2.0, 2.0]],
+            n_doe=10,
+            cstr_specs=[egx.CstrSpec.eq(1.0)],
+        )
+
+        optim = egor.minimize(sphere_with_eq_cstr, max_iters=20, seed=42, verbose=2)
+        print(f"Optimization f={optim.result.y_opt} at {optim.result.x_opt}")
+
+        # Verify the solution is close to analytical optimum (0.5, 0.5)
+        self.assertAlmostEqual(0.5, optim.result.y_opt[0], delta=1e-3)
+        np.testing.assert_allclose([0.5, 0.5], optim.result.x_opt, atol=1e-3)
+        # Verify constraint is satisfied (constraint value should be close to 1.0)
+        # Check the actual constraint value computed from x coordinates
+        constraint_value_from_x = optim.result.x_opt[0] + optim.result.x_opt[1]
+        self.assertAlmostEqual(1.0, constraint_value_from_x, delta=1e-3)
+        # y_opt holds the raw constraint value returned by the function
+        self.assertEqual((2,), optim.result.y_opt.shape)
+        self.assertAlmostEqual(1.0, optim.result.y_opt[1], delta=1e-3)
+
+    def test_constrained_branin_with_nans(self):
+        def branin_constrained_with_nans(x):
+            def branin_constraint_nans(xi):
+                if np.prod(xi) < BRANIN_CSTR_CONST:
+                    return np.nan
+                else:
+                    return branin(np.atleast_2d(xi))[0, 0]
+
+            res = np.apply_along_axis(branin_constraint_nans, 1, x).reshape(-1, 1)
+            return res
+
+        xspecs = [[0.0, 1.0], [0.0, 1.0]]
+        egor = egx.Egor(
+            xspecs,
+            n_doe=15,
+            failsafe_strategy=egx.FailsafeStrategy.IMPUTATION,
+        )
+        optim = egor.minimize(
+            branin_constrained_with_nans,
+            max_iters=30,
+            seed=42,
+        )
+        print(
+            f"Optimum found at: x = {optim.result.x_opt}, f(x*) = {optim.result.y_opt[0]}"
+        )
+        self.assertAlmostEqual(0.9677, optim.result.x_opt[0], delta=5e-2)
+        self.assertAlmostEqual(0.2067, optim.result.x_opt[1], delta=6e-2)
+
+    nb_calls = 0
+
+    def test_fobj_crash(self):
+        def fobj_crash(x):
+            self.nb_calls = self.nb_calls + 1
+            print(self.nb_calls)
+            if self.nb_calls > 1 and np.prod(x) < BRANIN_CSTR_CONST:
+                # Force a crash for points violating the constraint after the first call
+                error = 1 / 0
+                print(error)  # to use the variable and avoid "unused variable" warning
+            else:
+                return branin(np.atleast_2d(x))
+
+        xspecs = [[0.0, 1.0], [0.0, 1.0]]
+        egor = egx.Egor(
+            xspecs,
+            n_doe=15,
+            failsafe_strategy=egx.FailsafeStrategy.IMPUTATION,
+        )
+        optim = egor.minimize(
+            fobj_crash,
+            max_iters=30,
+            seed=42,
+        )
+        print(
+            f"Optimum found at: x = {optim.result.x_opt}, f(x*) = {optim.result.y_opt[0]}"
+        )
+        self.assertAlmostEqual(0.9677, optim.result.x_opt[0], delta=5e-2)
+        self.assertAlmostEqual(0.2067, optim.result.x_opt[1], delta=6e-2)
+
+    def test_stop_on_error(self):
+        calls = 0
+        EXPECTED_CALLS_BEFORE_ERROR = 3
+
+        def fobj_error(x):
+            nonlocal calls
+            calls += 1
+            if calls > EXPECTED_CALLS_BEFORE_ERROR:
+                raise RuntimeError("simulated objective error")
+            return np.zeros((np.atleast_2d(x).shape[0], 1))
+
+        egor = egx.Egor([[0.0, 1.0]])
+        optim = egor.minimize(fobj_error, max_iters=10, seed=42, stop_on_error=True)
+
+        self.assertEqual(optim.status.exit, egx.ExitStatus.OBJECTIVE_FUNCTION_ERROR)
+        self.assertEqual(optim.status.total_iters, EXPECTED_CALLS_BEFORE_ERROR)
+
+    def test_x_doe_y_doe(self):
+        x_doe = np.array([[0.0], [7.0], [20.0], [25.0]])
+        y_doe = xsinx(x_doe)
+        n_calls = 0
+
+        def counted_xsinx(x):
+            nonlocal n_calls
+            n_calls += x.shape[0]
+            return xsinx(x)
+
+        # x_doe only: the initial doe is evaluated
+        egx.Egor([[0.0, 25.0]], x_doe=x_doe).minimize(counted_xsinx, max_iters=1)
+        self.assertEqual(n_calls, 4 + 1)
+        # x_doe and y_doe: no evaluation of the initial doe
+        n_calls = 0
+        res = egx.Egor([[0.0, 25.0]], x_doe=x_doe, y_doe=y_doe).minimize(
+            counted_xsinx, max_iters=1
+        )
+        self.assertEqual(n_calls, 1)
+        np.testing.assert_array_equal(res.x_doe[:4], x_doe)
+
+    def test_x_doe_y_doe_errors(self):
+        x_doe = np.array([[0.0], [7.0], [25.0]])
+        with self.assertRaises(ValueError):
+            egx.Egor([[0.0, 25.0]], y_doe=xsinx(x_doe))
+        with self.assertRaises(ValueError):
+            egx.Egor([[0.0, 25.0]], x_doe=np.hstack((x_doe, xsinx(x_doe))))
+        with self.assertRaises(ValueError):
+            egx.Egor([[0.0, 25.0]], x_doe=x_doe, y_doe=xsinx(x_doe[:2]))
+
+    def test_n_cstr_inferred_from_cstr_specs(self):
+        specs = [egx.CstrSpec.leq(1.0), egx.CstrSpec.between(0.0, 1.0)]
+        egx.Egor([[0.0, 1.0]], cstr_specs=specs)
+        egx.Egor([[0.0, 1.0]], n_cstr=2, cstr_specs=specs)
+        with self.assertRaises(ValueError):
+            egx.Egor([[0.0, 1.0]], n_cstr=1, cstr_specs=specs)
+
+    def test_cstr_spec_tol(self):
+        spec = egx.CstrSpec.leq(1.0, tol=0.5)
+        self.assertEqual(spec.tol, 0.5)
+        self.assertIsNone(egx.CstrSpec.leq(1.0).tol)
+        self.assertEqual(repr(spec), "Leq(1.0) (tol=0.5)")
+
+        def fun(x):
+            # objective decreases with x, constraint c(x) = x <= 1
+            return np.hstack((-x, x))
+
+        # the only point violating c <= 1 by 0.2 is the best objective:
+        # rejected with the default tolerance, accepted with tol=0.5
+        x_doe = np.array([[0.0], [0.5], [1.2]])
+        y_doe = fun(x_doe)
+        for spec, expected in (
+            ({"leq": 1.0}, 1),
+            ({"leq": 1.0, "tol": 0.5}, 2),
+            (egx.CstrSpec.leq(1.0, tol=0.5), 2),
+        ):
+            with self.subTest(spec=spec):
+                egor = egx.Egor(
+                    [[0.0, 2.0]], cstr_specs=[spec], x_doe=x_doe, y_doe=y_doe
+                )
+                res = egor.minimize(fun, max_iters=0)
+                self.assertEqual(res.x_opt[0], x_doe[expected, 0])
+                self.assertEqual(egor.best_index(y_doe), expected)
+
+    def test_best_index_with_specs(self):
+        # objective increases with x, raw constraint c(x) = x
+        x_doe = np.array([[0.0], [1.6], [2.0], [3.0]])
+        y_doe = np.hstack((x_doe, x_doe))
+        for spec, expected in (
+            # without specs c <= 0: x = 0 is the best
+            (None, 0),
+            # c >= 2: x = 2 is the best feasible point
+            (egx.CstrSpec.geq(2.0), 2),
+            # c >= 2 within 0.5: x = 1.6 is accepted
+            (egx.CstrSpec.geq(2.0, tol=0.5), 1),
+            # c == 3: only x = 3 is feasible
+            (egx.CstrSpec.eq(3.0), 3),
+            # 1.5 <= c <= 2.5
+            (egx.CstrSpec.between(1.5, 2.5), 1),
+        ):
+            with self.subTest(spec=spec):
+                if spec is None:
+                    egor = egx.Egor([[0.0, 3.0]], n_cstr=1)
+                else:
+                    egor = egx.Egor([[0.0, 3.0]], cstr_specs=[spec])
+                self.assertEqual(egor.best_index(y_doe), expected)
+                result = egor.best_result(x_doe, y_doe)
+                np.testing.assert_array_equal(result.x_opt, x_doe[expected])
+                # raw y_doe row is returned
+                np.testing.assert_array_equal(result.y_opt, y_doe[expected])
+                np.testing.assert_array_equal(result.y_doe, y_doe)
+
+        egor = egx.Egor([[0.0, 3.0]], cstr_specs=[egx.CstrSpec.geq(2.0)])
+        with self.assertRaises(ValueError):
+            egor.best_index(x_doe)
+        with self.assertRaises(ValueError):
+            egor.best_result(x_doe, np.hstack((y_doe, y_doe)))
+
+    def test_minimize_results_in_raw_constraint_layout(self):
+        def fun(x):
+            # raw constraints: c1 = x1 >= 0.5, c2 = x1 + x2 == 1
+            return np.hstack(
+                (
+                    np.sum(x**2, axis=1, keepdims=True),
+                    x[:, [0]],
+                    x[:, [0]] + x[:, [1]],
+                )
+            )
+
+        xspecs = [[0.0, 1.0], [0.0, 1.0]]
+        cstr_specs = [egx.CstrSpec.geq(0.5), egx.CstrSpec.eq(1.0, tol=1e-2)]
+        egor = egx.Egor(xspecs, cstr_specs=cstr_specs, n_doe=8)
+        res = egor.minimize(fun, max_iters=3, seed=42)
+
+        self.assertEqual((3,), res.y_opt.shape)
+        np.testing.assert_allclose(res.y_doe, fun(res.x_doe), atol=1e-9)
+        np.testing.assert_allclose(
+            res.y_opt, fun(np.atleast_2d(res.x_opt))[0], atol=1e-9
+        )
+        # minimize() output can be fed back to best_result and Egor(y_doe=)
+        best = egor.best_result(res.x_doe, res.y_doe)
+        np.testing.assert_allclose(best.x_opt, res.x_opt)
+        np.testing.assert_allclose(best.y_opt, res.y_opt)
+        egor = egx.Egor(xspecs, cstr_specs=cstr_specs, x_doe=res.x_doe, y_doe=res.y_doe)
+        restarted = egor.minimize(fun, max_iters=0)
+        np.testing.assert_allclose(restarted.x_opt, res.x_opt)
+
+    def test_enum_long_name_aliases(self):
+        self.assertEqual(
+            egx.ConstraintStrategy.MEAN_CONSTRAINT, egx.ConstraintStrategy.MC
+        )
+        self.assertEqual(
+            egx.ConstraintStrategy.UPPER_TRUST_BOUND, egx.ConstraintStrategy.UTB
+        )
+        self.assertEqual(egx.QEiStrategy.KRIGING_BELIEVER, egx.QEiStrategy.KB)
+        self.assertEqual(
+            egx.QEiStrategy.KRIGING_BELIEVER_LOWER_BOUND, egx.QEiStrategy.KBLB
+        )
+        self.assertEqual(
+            egx.QEiStrategy.KRIGING_BELIEVER_UPPER_BOUND, egx.QEiStrategy.KBUB
+        )
+        self.assertEqual(egx.QEiStrategy.CONSTANT_LIAR_MINIMUM, egx.QEiStrategy.CLMIN)
+        self.assertEqual(
+            egx.FeasibleInfillStrategy.EFI_PROBABILITY, egx.FeasibleInfillStrategy.EFI_P
+        )
+        self.assertEqual(
+            egx.FeasibleInfillStrategy.EFI_FEASIBILITY_ENHANCED,
+            egx.FeasibleInfillStrategy.EFI_FE,
+        )
+        self.assertEqual(repr(egx.QEiStrategy.KRIGING_BELIEVER), "QEiStrategy.KB")
+
+    def test_feasible_infill_strategy_as_int(self):
+        xlimits = [[0.0, 3.0], [0.0, 4.0]]
+        _egor = egx.Egor(
+            xlimits,
+            feasible_infill_strategy=1,
+        )
+
+
+class TestEgorOptim(unittest.TestCase):
+    """`EgorOptim` forwards the `OptimResult` fields and unpacks as (x_opt, y_opt)"""
+
+    def setUp(self):
+        egor = egx.Egor([[0.0, 25.0]], n_doe=5)
+        self.res = egor.minimize(xsinx, max_iters=2, seed=42)
+
+    def test_fields(self):
+        r = self.res.result
+        for name in ("x_opt", "y_opt", "x_doe", "y_doe"):
+            np.testing.assert_array_equal(getattr(self.res, name), getattr(r, name))
+
+    def test_unpacking(self):
+        x_opt, y_opt = self.res
+        np.testing.assert_array_equal(x_opt, self.res.result.x_opt)
+        np.testing.assert_array_equal(y_opt, self.res.result.y_opt)
+
+    def test_read_only(self):
+        with self.assertRaises(AttributeError):
+            self.res.x_opt = np.zeros(1)
+
+
+if __name__ == "__main__":
+    unittest.main(defaultTest=["TestEgor.test_fobj_crash"], exit=False)

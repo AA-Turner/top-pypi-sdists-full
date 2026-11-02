@@ -11,7 +11,7 @@ import os
 import pytest
 
 import probe
-from probe.cli import write_gate
+from probe.cli.lifecycle import write_gate
 from probe.sdk.run import disabled
 from probe.sdk import fluent, probe_config as pc
 from probe.sdk.capture import lineage as inputs, outputs, code as snapshot

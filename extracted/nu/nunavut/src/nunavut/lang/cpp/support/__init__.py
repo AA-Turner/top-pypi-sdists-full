@@ -1,0 +1,61 @@
+#
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+"""
+Contains supporting C++ headers to distribute with generated types.
+"""
+
+import pathlib
+import typing
+
+from nunavut._utilities import ResourceType, iter_package_resources
+
+__version__ = "1.0.0"
+"""Version of the c++ support headers."""
+
+
+def list_support_files(resource_type: int = ResourceType.ANY.value) -> typing.Generator[pathlib.Path, None, None]:
+    """
+    Get a list of C++ support headers embedded in this package.
+
+    .. invisible-code-block: python
+
+        from nunavut.lang.cpp.support import list_support_files
+        import pathlib
+        support_file_count = 0
+
+    .. code-block:: python
+
+        for path in list_support_files():
+            support_file_count += 1
+            assert path.parent.stem == 'support'
+            assert (path.suffix == '.hpp' or path.suffix == '.j2')
+
+    .. invisible-code-block: python
+
+        assert support_file_count > 0
+
+        support_file_count = 0
+        for path in list_support_files(ResourceType.SERIALIZATION_SUPPORT.value):
+            support_file_count +=1
+        assert support_file_count > 0
+
+        support_file_count = 0
+        for path in list_support_files(ResourceType.TYPE_SUPPORT.value):
+            support_file_count +=1
+        assert support_file_count == 0
+
+    :return: A list of C++ support header resources.
+    """
+
+    # for now we say all .hpp resources are type support and all .j2 are serialization support.
+    # We are allowed to change this logic anyway we want without breaking changes.
+    def support_generator() -> typing.Generator[pathlib.Path, None, None]:
+        if resource_type & ResourceType.SERIALIZATION_SUPPORT.value:
+            yield from iter_package_resources(__name__, ".j2")
+        if resource_type & ResourceType.TYPE_SUPPORT.value:
+            yield from iter_package_resources(__name__, ".hpp")
+
+    return support_generator()

@@ -61,6 +61,8 @@ def _needs_pristine_scan(
 ) -> bool:
     """The calc reads a row POPULATION, so its scan must not see the
     SELECT-side WHERE atoms."""
+    if concept_attrs[n].derivation == Derivation.UNNEST:
+        return _defines_existence_set(concept_graph, concept_edges, n)
     if concept_attrs[n].derivation in ROW_SHAPE_BARRIER_DERIVATIONS:
         return True
     # An existence source (a semijoin RHS, `x in <set>`) is a separate
@@ -477,7 +479,17 @@ def _composite_determining_grain(
     ]
     if not determining:
         return None
-    return min(determining, key=lambda grain: (len(grain), sorted(grain)))
+    best: frozenset[str] = min(determining, key=lambda g: (len(g), sorted(g)))
+    chosen = set(best)
+    # Key the scan by the part of the grain the member depends on: a lookup
+    # keyed by an unrelated grouping key reads the fact again to pair them.
+    for key in sorted(chosen):
+        rest = chosen - {key}
+        if len(rest) > 1 and build_fd_determines(
+            environment, rest, address, include_empty_grain=False
+        ):
+            chosen = rest
+    return frozenset(chosen)
 
 
 def _row_arg_lineage_closure(arg: BuildConcept) -> set[str]:

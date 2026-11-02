@@ -1,0 +1,290 @@
+Metadata-Version: 2.5
+Name: mistralai-agents
+Version: 1.1.0rc15
+Summary: Mistral Agents SDK - build and serve agents in Python
+Author-email: Mistral AI <support@mistral.ai>
+License: Apache-2.0
+Keywords: agents,ai,llm,mistral,sdk
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.12
+Requires-Dist: cachetools<8,>=7.1.6
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: mistralai-otel-observability>=0.5.0
+Requires-Dist: mistralai-vibe-harness[observability,workflows]==0.1.14
+Requires-Dist: mistralai-vibe-sdk<0.15,>=0.14.0
+Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1
+Requires-Dist: mistralai-workflows<4,>=3.16.0
+Requires-Dist: mistralai[workflow-payload-compression]<4,>=2.8.0
+Requires-Dist: packaging>=24.1
+Requires-Dist: pydantic>=2.13.4
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: structlog<26,>=25.5.0
+Requires-Dist: typer>=0.15
+Requires-Dist: typing-extensions>=4.16.0
+Provides-Extra: bashkit
+Requires-Dist: bashkit<0.20,>=0.18; extra == 'bashkit'
+Provides-Extra: cli
+Requires-Dist: typer>=0.15; extra == 'cli'
+Provides-Extra: koyeb
+Requires-Dist: koyeb-sdk<2,>=1.5.5; extra == 'koyeb'
+Provides-Extra: sessions-client
+Requires-Dist: httpx>=0.28.1; extra == 'sessions-client'
+Requires-Dist: mistralai-vibe-harness==0.1.14; extra == 'sessions-client'
+Description-Content-Type: text/markdown
+
+# vibe_agents_sdk
+
+SDK for integrating with the `vibe_agents` platform.
+
+> [!NOTE]
+> The authoring API is `mistralai.vibe_agents.sdk.agents`. Full documentation -
+> install, quickstart, capabilities - is on the official site:
+> **https://docs-internal-frameworks.mistral.ai/agents-sdk/**
+
+The first Unified Harness backend release and its exact local/remote support
+matrix are documented in
+[`docs/unified-harness-backend.md`](docs/unified-harness-backend.md).
+Agent folders authored with `mistralai.agents` run on the Unified Harness remote
+runtime.
+Managed deployment requests include an authored Agent's permission policy in
+the harness configuration sent to the control plane.
+The long-term system boundaries, dependency direction, and delivery plan are
+documented in
+[`docs/agents-sdk-harness-target.md`](docs/agents-sdk-harness-target.md).
+The shared pytest and manual QA entrypoint is documented in
+[`docs/unified-harness-qa.md`](docs/unified-harness-qa.md).
+Successful local session creation emits `agents.session_started` telemetry with stable identifiers and bounded
+dimensions. Failed startup emits no success event. When `agents serve` or `agents deploy` cannot register the agent,
+the SDK emits `agents.agent_registration.done` with `status` `error`, the failure category and HTTP status, never the
+server's message.
+Set `AGENTS_SDK_TELEMETRY_ENABLED=false` in tests and CI: the SDK then
+emits no telemetry, and asks the control plane, through `X-Mistral-Exclude-From-Analytics`, to flag the
+events it emits for the run so they stay out of product analytics.
+
+- PyPI / distribution name: `mistralai-agents`
+- Import path: `mistralai.vibe_agents` (PEP 420 namespace package)
+
+Layout follows the `mistralai-workflows` pattern: a single package
+that, over time, will host both the handwritten SDK (contract types and
+clients) and any Speakeasy-generated clients for the
+vibe_agents HTTP API as sibling submodules.
+
+## What's in this package
+
+Two stable submodules today, plus the `mistralai.agents` authoring surface:
+
+- **`mistralai.vibe_agents.session_workflow`** — pure type contract for
+  session workflows: `SessionStartIntent`, `SessionWorkflowStartInput` /
+  `SessionWorkflowOutput` including `public_final_message` for concise
+  end-user termination text and `failure_code` for stable failed-session
+  categories,
+  `SessionWorkflowCommand` discriminated union and subtypes, `Principal`,
+  `SessionWorkflowSubscription`, `Toolset` (per-session connector toolset
+  binding, identified by `id` or `name`), `WorkflowSessionEvent`,
+  `WorkflowSessionEventType`, `SESSION_EVENT_TASK_TYPE`, and the shared Task
+  Protocol `HistoryEntry` / `StateEntry` / `TaskState` payload models.
+  `Principal` requires distinct `customer_id`, `organization_id`, and
+  `workspace_id` UUIDs; `user_id` is optional.
+  `workflow_name` and `deployment_name` are control-plane dispatch metadata,
+  not durable workflow input fields.
+  Imported by any runtime that implements the vibe_agents `SessionWorkflow`
+  contract. Hard dependencies are kept minimal: `pydantic`, `structlog`,
+  `typing-extensions`. Emission is a one-liner
+  `workflows.task(SESSION_EVENT_TASK_TYPE,
+  state=WorkflowSessionHistoryEntryEvent(...).model_dump())` at the caller
+  using the concrete event variant for the row being emitted.
+
+- **`mistralai.vibe_agents.sessions_client`** — typed HTTP client and response
+  models for the vibe_agents sessions API, including the nullable generated
+  session title read field. The concrete client depends on `httpx` behind the
+  `sessions-client` extra. Cloud smoke tests can use `MessageCommand(source="cloud_test", ...)`
+  to identify test traffic while exercising the web cloud runtime without an unknown-source warning.
+
+## Future
+
+A Speakeasy-generated client for the vibe_agents HTTP API will be added as
+a sibling submodule, under `mistralai.vibe_agents.<name>.*`. Same package,
+same distribution. This mirrors the `mistralai-workflows` setup where
+`mistralai.workflows.worker_client` (autogen) lives inside the same
+package as the handwritten workflow SDK.
+
+## Import discipline
+
+The root `__init__.py` does NOT eagerly import the `sessions_client`
+submodule. Importing only session workflow contract types must not pull in HTTP
+client dependencies. Import concrete submodules explicitly:
+
+```python
+from mistralai.vibe_agents.session_workflow import SessionWorkflowStartInput
+from mistralai.vibe_agents.sessions_client import SessionsClient
+```
+
+## Workflow child-session binding
+
+For the Harness backend, `Agent.to_workflow()` takes no operator arguments. Its
+Workflow calls the Agents API Session procedures through
+`WorkflowSessionControlPlaneBinding.from_worker_credential()` (from
+`mistralai.vibe_agents.sdk.app.worker.control_plane`). Deployed workers
+(`agents serve`, `agents run-worker` and managed deployments) build this
+binding themselves.
+
+- **Credential and URL.** The binding calls as the worker, with the
+  service-account token at `MISTRAL_SA_TOKEN_PATH`, else `MISTRAL_API_KEY`,
+  read again on every Activity attempt. The procedure root is
+  `/session-control-plane` below `AGENTS_SDK_DEPLOY_CONTROL_PLANE_URL` when
+  set, else below `${SERVER_URL}/v2/agents`. The Agents API acts as the
+  principal stored on the calling Session, and only for deployed agents in the
+  worker's workspace. Signing keys and HTTP clients never enter Workflow
+  payloads.
+- **Subagent policy.** Each Session runs under the policy in its start input.
+  The Agents API takes it from the agent's stored default when the root
+  Session starts and copies it to every child. A Session with no policy cannot
+  create subagents. A worker whose agent declares `subagents=[...]` registers a
+  default policy of 10 child Turns; any other worker registers none, which
+  clears an earlier one. Internal worker composition can give the private
+  Workflow builder a binding and a static `SubagentPolicy` (from
+  `mistralai.vibe.harness.runtime.agents.policy`), used when the start input
+  has none. A worker whose agent declares subagents on a Sandbox its children
+  cannot share fails at startup.
+- **Tools.** The binding installs `agents.list_configs`, `agents.spawn`,
+  `agents.list`, `agents.send_message` and `agents.interrupt`. Children run as
+  independent top-level Workflows and borrow the root's Koyeb sandbox, or have
+  none. The Session API checks the child Turn limit; its refusal reaches the
+  model as a retryable error, as on a local Runtime. `agents.spawn` returns
+  once the Session API has admitted the child, so the child is discoverable
+  from then on.
+- **Results and interrupts.** After each child Turn, its result goes to the
+  parent through ordinary Session admission: a waiting parent wakes, an idle
+  parent stays idle. Delivery never delays the Turn or changes its outcome. A
+  parent's interrupt targets one exact child Turn and waits for it to end; it
+  does not close the child Session. Only the parent-caused cancellation notice
+  is hidden.
+
+### Independent Session discovery and observation
+
+The Harness `SessionClient` exposes `list_subagents(page=ListPageRequest(...))`
+for admitted direct-child links, newest first. Each link includes
+an ordinary summary, permanent alias, optional configuration name, and agent path.
+`list_catalog()` defaults to roots; `DirectChildrenScope` and `TreeScope` select
+ordinary summaries in newest-created order. Both use opaque `next_cursor` values
+bound to the caller and listing context. Import these request types from
+`mistralai.vibe.harness.app_server.session`.
+
+`rename_session(title)` and `archive_session(archived=True)` update metadata only.
+The alias and execution remain unchanged; archived children remain in graph
+discovery, while catalog lists require `include_archived=True` to include them.
+These procedures use retained control-plane state, not child Workflow commands.
+
+Attach each chosen child independently with its snapshot/cursor, then consume
+its own events after that cursor. A saved snapshot can be reattached through
+`adopt_session_snapshot` to replay a disconnected interval. Canonical metadata
+events can accompany legacy history during this migration; the SDK preserves
+the child's existing Turn/history state and exact Session/root lineage.
+Parent subscriptions do not include descendant transcripts.
+
+### Exact child callbacks and public interruption
+
+A client tool declared with `agents.client_tool` compiles to a client-backed
+callback on both Local and Workflow Hosts. It can be inherited by a child even
+when that child authors its own Hooks. An authored
+`permission_mode="ask"` emits an approval callback on the exact child, before its
+client-tool callback. Other callback-backed hooks are available through the
+Harness Runtime registration API, not a new Agents SDK authoring wrapper.
+
+Use `async with root.provide_callbacks(kinds={"approval", "client_tool"}, handler=handler)`:
+one registration serves the callbacks of the Session and all its descendants,
+and answers each at the Session that opened it. The asynchronous handler
+receives the exact typed callback, with that Session in `session_id`,
+`parent_session_id` and `agent_path`, and returns a `CallbackResult` with its
+ID, or `None` to leave it pending. Closing the registration or client stops
+dispatch; it does not close the child's callback. A provider on a child serves
+that child and its own descendants; the first answer wins. These local kind
+claims do not replace Session authorization or guarantee exclusive processing
+across application clients. Use the callback ID for application-side effect
+idempotency. Authorized manual `answer_callback(result, session_id=...)` remains
+available. Handler failures interrupt the provider context with a task-group
+exception; the callback remains pending for another provider or an authorized
+manual reply.
+
+The remote adapter retains callback variants through the existing callback
+history and result endpoints, including structured errors and annotations. It
+rejects stale or mismatched callback identities. Public
+`child.interrupt_turn(expected_turn_id, reason="...")` uses ordinary command
+admission, preserves completion races, and leaves later Turns untouched. The
+child and parent notification retain the public reason. Callback cleanup events
+may follow the terminal Turn event on interruption.
+
+Workflow callback correlation and accepted replies remain available while their
+Turn or committed work still needs them. After that work commits, the Runtime
+retires the Host's request/result bookkeeping without deleting published history.
+
+Public child control is limited to exact callback answers, exact interruption,
+rename, and archive. Reads stay available; start, steer, queue changes,
+configuration writes, compaction, reset, plugin reload, fork, delete, branching,
+and filesystem rewind do not become public child orchestration permissions.
+
+### Resource lifetime
+
+Tool and Hook callable objects are shared by default within a local runtime or
+Workflow worker. Make them safe for concurrent calls. Each Session retains its
+own invocation context, Hook ordering, cancellation, and result correlation.
+Mutable callable memory is not durable Session state. Completion and connector
+HTTP clients are created per local Session or Workflow Activity; built-in HTTP
+MCP calls open separate protocol sessions, even when declarations are inherited.
+
+Supported Sandbox-backed Sessions install `process.*` with Session-owned records,
+controls, and supervision. Each Session's `process.*` tools address only its own
+records. Children and grandchildren still share the root workspace and operating
+system; this is not OS-process security isolation. Ending a Turn or exporting
+execution for continuation does not dispose that workspace. Logical root closure deletes
+the Sandbox without closing descendant Sessions or removing their history;
+their Sandbox work can then fail. Child closure never deletes the root Sandbox.
+Saved definitions and continuation use binding and Sandbox references, not
+live clients or credentials.
+
+## What this package does NOT contain
+
+- `vibe_agents` service code. The service lives in its own package.
+- Any dependency on `vibe_agents`. Runtimes using this SDK MUST NOT
+  transitively pull in the `vibe_agents` service.
+
+## Contributing
+
+- `make lint` — ruff format check + ruff check
+- `make typecheck` — mypy
+- `make test` — pytest (includes fuzz + integration tiers; excludes perf)
+- `make test-unit` — unit tier only (excludes fuzz, integration, perf); CI runs this as its own job
+- `make coverage` — pytest with branch coverage + missing-line report
+- `make fuzz` — Hypothesis property tests over the parse/fold surfaces
+- `make test-integration` — real client vs in-process fake ASGI server
+- `make perf` — informational pytest-benchmark microbenchmarks (never gated)
+- `make format` — ruff format + fix
+- `make installdeps` — uv sync
+
+### Registry skill catalogue
+
+The internal `sdk.assembly.registry_skills.discover_registry_skill_catalog(client)` helper
+lists accessible skill metadata without downloading bodies or assets. It uses the supplied
+client's credentials and request hooks, pins versions, and gives colliding names stable aliases.
+Listing failures log a warning and preserve metadata from completed pages.
+
+### Lazy file materialization
+
+`SandboxFileMaterializer` in `sdk/sandbox/file_materialization.py` reuses the Harness
+`FileResolver` contract for immutable file bundles. Call
+`ensure_materialized(source, root=namespace, cache_key=relative_directory)` to receive
+the actual bundle directory and the resolver's report, or `None` when unavailable.
+Keep credentials in the provider factory and use resource IDs and pinned revisions in references.
+Cache keys must identify immutable contents, reuse the same source, and keep their bundle
+and adjacent `.complete` receipt disjoint from other keys.
+
+The materializer verifies each required file's size and SHA256 digest before reusing it.
+It serializes concurrent writes and drains publication before propagating cancellation.
+Koyeb stages bundles and publishes them under a filesystem lock. Ordinary resolution,
+validation, read and write failures log a warning and return `None` or an empty file result.

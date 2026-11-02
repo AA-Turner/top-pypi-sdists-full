@@ -75,14 +75,14 @@ def render(path: Path, offset: int | None = None, limit: int | None = None) -> s
     if suffix in IMAGE_SUFFIXES:
         return f"not read: {path.name} is an image - the daemon's model reads text only"
     if suffix in PICKLE_SUFFIXES:
-        return _pickle_refusal(path)
+        return _get_pickle_refusal(path)
     try:
         with path.open("rb") as handle:
             head = handle.read(8192)
     except OSError as exc:
         return f"not read: {path} can't be opened ({type(exc).__name__})"
     if head.startswith(_PICKLE_MAGIC):
-        return _pickle_refusal(path)
+        return _get_pickle_refusal(path)
     if size == 0:
         return f"[{path} · empty file]"
     try:
@@ -112,7 +112,7 @@ class _Refused(Exception):
     """A file the reader will not show, with why."""
 
 
-def _pickle_refusal(path: Path) -> str:
+def _get_pickle_refusal(path: Path) -> str:
     return (f"not read: {path.name} is a pickle (or built on one); loading a pickle runs code, so the reader never "
             "loads one.")
 
@@ -274,7 +274,7 @@ _NAMES = {"b": "bool", "i": "int", "u": "uint", "f": "float", "c": "complex", "U
           "M": "datetime64", "m": "timedelta64", "V": "void"}
 
 
-def _npy_header(handle: IO[bytes]) -> dict:
+def _get_npy_header(handle: IO[bytes]) -> dict:
     """The dict a .npy file starts with, read as a literal (`ast.literal_eval`
     evaluates no code)."""
     if handle.read(6) != b"\x93NUMPY":
@@ -289,7 +289,7 @@ def _npy_header(handle: IO[bytes]) -> dict:
     return header
 
 
-def _dtype_name(descr: Any) -> str:
+def _get_dtype_name(descr: Any) -> str:
     if not isinstance(descr, str):
         return f"structured {descr}"
     kind, size = descr[1:2], descr[2:]
@@ -299,7 +299,7 @@ def _dtype_name(descr: Any) -> str:
 
 
 def _npy(handle: IO[bytes]) -> str:
-    header = _npy_header(handle)
+    header = _get_npy_header(handle)
     descr, shape, fortran = header["descr"], header["shape"], bool(header.get("fortran_order"))
     if not (isinstance(shape, tuple) and all(isinstance(d, int) and not isinstance(d, bool) and d >= 0
                                              for d in shape)):
@@ -307,7 +307,7 @@ def _npy(handle: IO[bytes]) -> str:
     if "O" in str(descr):
         raise _Refused("the array holds Python objects (a pickle); the reader never loads one")
     count = math.prod(shape)
-    text = f"dtype {_dtype_name(descr)}, shape {shape}, {count:,} values"
+    text = f"dtype {_get_dtype_name(descr)}, shape {shape}, {count:,} values"
     letter = _STRUCT.get(descr[1:]) if isinstance(descr, str) else None
     if letter is None or fortran or count == 0:
         return text + ("" if count == 0 else " (first values not shown for this dtype or layout)")

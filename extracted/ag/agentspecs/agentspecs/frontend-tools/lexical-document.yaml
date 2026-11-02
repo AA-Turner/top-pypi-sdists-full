@@ -1,0 +1,20 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: lexical-document
+version: 0.0.1
+name: Lexical Document
+description: >-
+  Frontend tools for interacting with Lexical documents: reading and writing
+  blocks, running Jupyter cells in the page, and drawing diagrams into the
+  document with Excalidraw.
+tags:
+  - frontend
+  - document
+  - lexical
+  - drawing
+  - diagram
+enabled: true
+toolset: all
+icon: "@primer/octicons-react:file"
+emoji: "📄"

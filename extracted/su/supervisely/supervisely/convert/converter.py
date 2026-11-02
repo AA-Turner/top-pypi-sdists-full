@@ -1,0 +1,411 @@
+import gzip
+import lzma
+import os
+import shutil
+import tarfile
+import zipfile
+import zlib
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
+
+from tqdm import tqdm
+
+from supervisely import fs
+from supervisely._utils import is_production
+from supervisely.api.api import Api
+from supervisely.app import get_data_dir
+from supervisely.convert.audio.audio_converter import AudioConverter
+from supervisely.convert.image.csv.csv_converter import CSVConverter
+from supervisely.convert.image.high_color.high_color_depth import (
+    HighColorDepthImageConverter,
+)
+from supervisely.convert.image.image_converter import ImageConverter
+from supervisely.convert.mesh.mesh_converter import MeshConverter
+from supervisely.convert.pointcloud.pointcloud_converter import PointcloudConverter
+from supervisely.convert.pointcloud_episodes.pointcloud_episodes_converter import (
+    PointcloudEpisodeConverter,
+)
+from supervisely.convert.video.video_converter import VideoConverter
+from supervisely.convert.volume.volume_converter import VolumeConverter
+from supervisely.io.env import team_id as env_team_id
+from supervisely.io.fs import (
+    _ArchiveUnpackError,
+    dir_exists,
+    file_exists,
+    is_archive,
+    list_files_recursively,
+    mkdir,
+    remove_dir,
+    remove_junk_from_dir,
+    silent_remove,
+    touch,
+    unpack_archive,
+)
+from supervisely.project.project import Project
+from supervisely.project.project_settings import LabelingInterface
+from supervisely.project.project_type import ProjectType
+from supervisely.sly_logger import logger
+from supervisely.task.progress import Progress
+
+
+class ImportManager:
+    """Manages import of external data (archives, folders) into Supervisely projects via modality-specific converters."""
+
+    def __init__(
+        self,
+        input_data: Union[str, List[str]],
+        project_type: ProjectType,
+        team_id: Optional[int] = None,
+        labeling_interface: LabelingInterface = LabelingInterface.DEFAULT,
+        upload_as_links: bool = False,
+    ):
+        """:param input_data: Path(s) to input data (archives or directories).
+        :type input_data: Union[str, List[str]]
+        :param project_type: Project modality (IMAGES, VIDEOS, etc.).
+        :type project_type: ProjectType
+        :param team_id: Team ID for upload. Defaults to env.
+        :type team_id: int, optional
+        :param labeling_interface: Labeling interface preset.
+        :type labeling_interface: LabelingInterface
+        :param upload_as_links: If True, upload as links.
+        :type upload_as_links: bool
+
+        :raises ValueError: If team_id invalid or project type unsupported.
+        """
+        self._api = Api.from_env()
+        if team_id is not None:
+            team_info = self._api.team.get_info_by_id(team_id)
+            if team_info is None:
+                raise ValueError(
+                    f"Team with id {team_id} does not exist or you do not have access to it."
+                )
+        else:
+            self._team_id = env_team_id()
+        self._labeling_interface = labeling_interface
+        self._upload_as_links = upload_as_links
+        self._remote_files_map = {}
+        self._team_files_id_map: dict = {}
+        self._modality = project_type
+
+        if isinstance(input_data, str):
+            input_data = [input_data]
+
+        self._input_data = os.path.abspath(get_data_dir())
+        for data in input_data:
+            self._prepare_input_data(data)
+        skipped_archives = self._unpack_archives(self._input_data)
+        remove_junk_from_dir(self._input_data)
+        self._report_skipped_archives(skipped_archives)
+
+        self._converter = self.get_converter()
+        if isinstance(self._converter, (HighColorDepthImageConverter, CSVConverter)):
+            self._converter.team_id = self._team_id
+
+    @property
+    def modality(self):
+        return self._modality
+
+    @property
+    def converter(self):
+        return self._converter
+
+    def get_items(self):
+        return self._converter.get_items()
+
+    def get_converter(self):
+        """Return correct converter"""
+        modality_converter_map = {
+            ProjectType.IMAGES.value: ImageConverter,
+            ProjectType.VIDEOS.value: VideoConverter,
+            ProjectType.POINT_CLOUDS.value: PointcloudConverter,
+            ProjectType.VOLUMES.value: VolumeConverter,
+            ProjectType.POINT_CLOUD_EPISODES.value: PointcloudEpisodeConverter,
+            ProjectType.MESHES.value: MeshConverter,
+            ProjectType.AUDIO.value: AudioConverter,
+        }
+        if str(self._modality) not in modality_converter_map:
+            raise ValueError(f"Unsupported project type selected: {self._modality}")
+
+        modality_converter = modality_converter_map[str(self._modality)](
+            self._input_data,
+            self._labeling_interface,
+            self._upload_as_links,
+            self._remote_files_map,
+            self._team_files_id_map,
+        )
+        return modality_converter.detect_format()
+
+    def upload_dataset(self, dataset_id) -> Optional[int]:
+        """Upload converted data to Supervisely"""
+        return self.converter.upload_dataset(self._api, dataset_id)
+
+    # def validate_format(self):
+    #     raise NotImplementedError
+
+    def _prepare_input_data(self, input_data):
+        logger.debug(f"Preparing input data: {input_data}")
+        if dir_exists(input_data):
+            logger.info(f"Input data is a local directory: {input_data}")
+            # return input_data
+            dst_dir = os.path.join(get_data_dir(), os.path.basename(os.path.normpath(input_data)))
+            fs.copy_dir_recursively(input_data, dst_dir)
+        elif file_exists(input_data):
+            logger.info(f"Input data is a local file: {input_data}. Will use its directory")
+            # return os.path.dirname(input_data)
+            dst_file = os.path.join(get_data_dir(), os.path.basename(input_data))
+            fs.copy_file(input_data, dst_file)
+        elif self._api.storage.exists(self._team_id, input_data):
+            if self._upload_as_links and str(self._modality) in [
+                ProjectType.IMAGES.value,
+                ProjectType.VIDEOS.value,
+                ProjectType.MESHES.value,
+            ]:
+                logger.info(f"Input data is a remote file: {input_data}. Scanning...")
+                return self._reproduce_remote_files(input_data)
+            else:
+                if self._upload_as_links and str(self._modality) == ProjectType.VOLUMES.value:
+                    self._scan_remote_files(input_data)
+                logger.info(f"Input data is a remote file: {input_data}. Downloading...")
+                local_path = self._download_input_data(input_data)
+                if self._is_team_files_path(input_data) and str(self._modality) in [
+                    ProjectType.POINT_CLOUDS.value,
+                    ProjectType.POINT_CLOUD_EPISODES.value,
+                ]:
+                    self._build_team_files_id_map(input_data, local_path, is_dir=False)
+                return local_path
+        elif self._api.storage.dir_exists(self._team_id, input_data):
+            if self._upload_as_links and str(self._modality) in [
+                ProjectType.IMAGES.value,
+                ProjectType.VIDEOS.value,
+                ProjectType.POINT_CLOUDS.value,
+                ProjectType.MESHES.value,
+            ]:
+                logger.info(f"Input data is a remote directory: {input_data}. Scanning...")
+                return self._reproduce_remote_files(input_data, is_dir=True)
+            else:
+                if self._upload_as_links and str(self._modality) == ProjectType.VOLUMES.value:
+                    self._scan_remote_files(input_data, is_dir=True)
+                logger.info(f"Input data is a remote directory: {input_data}. Downloading...")
+                local_path = self._download_input_data(input_data, is_dir=True)
+                if self._is_team_files_path(input_data) and str(self._modality) in [
+                    ProjectType.POINT_CLOUDS.value,
+                    ProjectType.POINT_CLOUD_EPISODES.value,
+                ]:
+                    self._build_team_files_id_map(input_data, local_path, is_dir=True)
+                return local_path
+        else:
+            raise RuntimeError(f"Input data not found: {input_data}")
+
+    _CLOUD_STORAGE_PREFIXES = ("s3://", "azure://", "google://", "agent://", "fs://")
+
+    def _is_team_files_path(self, path: str) -> bool:
+        return not any(path.startswith(prefix) for prefix in self._CLOUD_STORAGE_PREFIXES)
+
+    def _build_team_files_id_map(self, remote_path: str, local_path: str, is_dir: bool = False):
+        """Build {local_abs_path: (file_id, remote_path)} for all files from Team Files."""
+        if is_dir:
+            files = self._api.storage.list(self._team_id, remote_path, include_folders=False)
+            dir_path = remote_path.rstrip("/")
+            for file in files:
+                if not hasattr(file, "id") or file.id is None:
+                    continue
+                new_local = os.path.abspath(file.path.replace(dir_path, local_path))
+                self._team_files_id_map[new_local] = (file.id, file.path)
+        else:
+            file_info = self._api.storage.get_info_by_path(self._team_id, remote_path)
+            if file_info and hasattr(file_info, "id") and file_info.id is not None:
+                self._team_files_id_map[os.path.abspath(local_path)] = (
+                    file_info.id,
+                    remote_path,
+                )
+
+    def _download_input_data(self, remote_path, is_dir=False):
+        """Download input data from Supervisely"""
+
+        if not is_dir:
+            dir_name = "Import data"
+            local_path = os.path.join(get_data_dir(), dir_name)
+            mkdir(local_path, remove_content_if_exists=False)
+            save_path = os.path.join(local_path, os.path.basename(remote_path))
+        else:
+            dir_name = os.path.basename(os.path.normpath(remote_path))
+            local_path = os.path.join(get_data_dir(), dir_name)
+
+        if not is_dir:
+            files_size = self._api.storage.get_info_by_path(self._team_id, remote_path).sizeb
+            progress, progress_cb = self._get_progress(files_size)
+            self._api.storage.download(
+                self._team_id, remote_path, save_path, progress_cb=progress_cb
+            )
+            if not is_production():
+                progress.close()
+        else:
+            directory_size = self._api.storage.get_directory_size(self._team_id, remote_path)
+            progress, progress_cb = self._get_progress(directory_size)
+            self._api.storage.download_directory(
+                self._team_id, remote_path, local_path, progress_cb=progress_cb
+            )
+            if not is_production():
+                progress.close()
+
+        return local_path
+
+    def _scan_remote_files(self, remote_path, is_dir=False):
+        """
+        Scan remote directory. Collect local-remote paths mapping
+        Will be used to save relations between uploaded files and remote files (for volumes).
+        """
+
+        dir_path = remote_path.rstrip("/") if is_dir else os.path.dirname(remote_path)
+        dir_name = os.path.basename(dir_path)
+
+        local_path = os.path.abspath(os.path.join(get_data_dir(), dir_name))
+
+        if is_dir:
+            files = self._api.storage.list(self._team_id, remote_path, include_folders=False)
+        else:
+            files = [self._api.storage.get_info_by_path(self._team_id, remote_path)]
+
+        unique_directories = set()
+        for file in files:
+            new_path = file.path.replace(dir_path, local_path)
+            self._remote_files_map[new_path] = file.path
+            unique_directories.add(str(Path(file.path).parent))
+
+        logger.info(f"Scanned remote directories:\n   - " + "\n   - ".join(unique_directories))
+        return local_path
+
+    def _reproduce_remote_files(self, remote_path, is_dir=False):
+        """
+        Scan remote directory and create dummy structure locally.
+        Will be used to detect annotation format (by dataset structure) remotely.
+        """
+
+        dir_path = remote_path.rstrip("/") if is_dir else os.path.dirname(remote_path)
+        dir_name = os.path.basename(dir_path)
+
+        local_path = os.path.abspath(os.path.join(get_data_dir(), dir_name))
+        mkdir(local_path, remove_content_if_exists=False)
+
+        if is_dir:
+            files = self._api.storage.list(self._team_id, remote_path, include_folders=False)
+        else:
+            files = [self._api.storage.get_info_by_path(self._team_id, remote_path)]
+
+        unique_directories = set()
+        for file in files:
+            new_path = file.path.replace(dir_path, local_path)
+            self._remote_files_map[new_path] = file.path
+            Path(new_path).parent.mkdir(parents=True, exist_ok=True)
+            unique_directories.add(str(Path(file.path).parent))
+            touch(new_path)
+
+        logger.info(f"Scanned remote directories:\n   - " + "\n   - ".join(unique_directories))
+        return local_path
+
+    # what reading a damaged zip or tar raises, directly or wrapped by shutil
+    _CORRUPT_ARCHIVE_ERRORS = (
+        shutil.ReadError,
+        tarfile.TarError,
+        zipfile.BadZipFile,
+        EOFError,
+        zlib.error,
+        gzip.BadGzipFile,
+        lzma.LZMAError,
+    )
+
+    # archives that cannot be unpacked; is_archive knows them only when the system has
+    # /etc/mime.types, which the import images do not
+    _UNSUPPORTED_ARCHIVE_EXTS = (".7z", ".rar")
+
+    def _unpack_archives(self, local_path) -> List[Tuple[str, Exception]]:
+        """Unpack if input data contains an archive.
+
+        An archive that cannot be unpacked is left in place and skipped, and whatever
+        it extracted before failing is removed.
+
+        :returns: (path, error) of each skipped archive.
+        """
+
+        skipped = []
+        if self._upload_as_links:
+            return skipped
+        new_paths_to_scan = [local_path]
+        while len(new_paths_to_scan) > 0:
+            archives = []
+            path = new_paths_to_scan.pop()
+            for root, _, files in os.walk(path):
+                if Path(root).name == Project.blob_dir_name:
+                    logger.info(f"Skip unpacking archive in blob dir: {root}")
+                    continue
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # lowercase: mimetypes misses an upper-case compression suffix (DATA.TAR.GZ)
+                    if is_archive(file_path=file.lower()) or file.lower().endswith(
+                        self._UNSUPPORTED_ARCHIVE_EXTS
+                    ):
+                        new_path = file_path.replace("".join(Path(file_path).suffixes), "")
+                        new_path_existed = os.path.exists(new_path)
+                        try:
+                            unpack_archive(file_path, new_path)
+                            archives.append(file_path)
+                            new_paths_to_scan.append(new_path)
+                        except Exception as e:
+                            logger.error(f"Error while unpacking '{file}': {repr(e)}")
+                            skipped.append((file_path, e))
+                            # a broken archive is skipped whole, not imported in part; a folder
+                            # that was already there holds other input and is kept
+                            if not new_path_existed:
+                                remove_dir(new_path)
+
+            for archive in archives:
+                silent_remove(archive)
+        return skipped
+
+    def _report_skipped_archives(self, skipped: List[Tuple[str, Exception]]) -> None:
+        """Fail if only archives that could not be unpacked were given, warn otherwise."""
+
+        if not skipped:
+            return
+        unpack_exts = [ext for _, exts, _ in shutil.get_unpack_formats() for ext in exts]
+        reasons = []
+        for path, error in skipped:
+            name = os.path.basename(path)
+            details = str(error).replace(path, name).replace(self._input_data + os.sep, "")
+            if not name.lower().endswith(tuple(unpack_exts)):
+                reasons.append(
+                    f"'{name}' is not a supported archive format. Use a zip or tar archive instead."
+                )
+            elif isinstance(error, self._CORRUPT_ARCHIVE_ERRORS):
+                reasons.append(
+                    f"'{name}' is corrupt or incomplete ({details}). Upload the archive again."
+                )
+            else:
+                reasons.append(f"'{name}' could not be unpacked ({details}).")
+
+        skipped_paths = {path for path, _ in skipped}
+        if all(f in skipped_paths for f in list_files_recursively(self._input_data)):
+            what = "the archive" if len(skipped) == 1 else "the archives"
+            raise _ArchiveUnpackError(
+                f"Nothing to import: {what} could not be unpacked. " + " ".join(reasons)
+            )
+        logger.warning(
+            f"Skipped {len(skipped)} archive(s) that could not be unpacked, "
+            "importing the rest of the data. " + " ".join(reasons)
+        )
+
+    def _get_progress(
+        self,
+        total: int,
+        message: str = "Downloading...",
+        is_size: bool = True,
+    ) -> tuple:
+        if is_production():
+            progress = Progress(message, total, is_size=is_size)
+            progress_cb = progress.iters_done_report
+        else:
+            progress = tqdm(
+                total=total, desc=message, unit="B" if is_size else "it", unit_scale=is_size
+            )
+            progress_cb = progress.update
+        return progress, progress_cb

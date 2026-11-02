@@ -1,0 +1,196 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/project_config.py
+# Purpose:   Find and read a project's CI config without hyperi-ci installed
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Find and read a project's ``.hyperi-ci.yaml`` with the standard library.
+
+:func:`hyperi_ci.config.load_config` reads the same files in the same order,
+from :data:`CONFIG_FILES`. This module serves the predict-version composite,
+which loads it by path where hyperi-ci is not installed, so it is stdlib-only
+and imports nothing from the package but the stdlib-only
+:mod:`hyperi_ci.vocabulary`.
+
+The composite runs its config readers under ``uv run --with pyyaml`` because a
+runner's python3 may lack PyYAML (the ARC vanilla image has neither it nor
+``yq``). When uv cannot supply it they run on the runner's python3, with ``yq``
+as the fallback parser. A file that exists and cannot be parsed is reported with
+the reason, never read as empty, because an empty config means "every default".
+"""
+
+# KEEP on a 3.14 floor, where this import is otherwise wrong (issue #184).
+# GitHub runs the composite's scripts before any install, on whatever python3
+# the runner has, which may predate our floor.
+# predict-version loads this file by path on the runner's python3, which may predate 3.14.
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any, NamedTuple
+
+#: Every spelling of the project config, in the order the first one found wins.
+CONFIG_FILES = (
+    ".hyperi-ci.yaml",
+    ".hyperi-ci.yml",
+)
+
+#: The shipped defaults, read from the same checkout as this file.
+SHIPPED_DEFAULTS = Path(__file__).resolve().parent / "config" / "defaults.yaml"
+
+#: The reason given when this interpreter has no way to parse YAML at all.
+NO_PARSER = "neither PyYAML nor yq is available to parse it"
+
+
+class ProjectConfig(NamedTuple):
+    """The project config as read, or why it could not be.
+
+    Attributes:
+        data: The parsed mapping, empty when there is no file, None when the
+            file exists and could not be read.
+        name: The file name, for messages. The canonical spelling when absent.
+        problem: Why the file could not be read, else empty.
+
+    """
+
+    data: dict[str, Any] | None
+    name: str
+    problem: str
+
+    @property
+    def unreadable(self) -> str:
+        """One line naming the file and the reason, or empty when it was read."""
+        if self.data is not None:
+            return ""
+        return f"{self.name} could not be read: {self.problem}"
+
+
+def find_config(root: Path) -> Path | None:
+    """Return the project config file under ``root``, or None if there is none."""
+    for name in CONFIG_FILES:
+        candidate = root / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _one_line(text: str) -> str:
+    # A workflow command ends at the first newline, so the reason must not carry one.
+    return " ".join(text.split()) or "no detail given"
+
+
+def _as_mapping(parsed: object) -> tuple[dict[str, Any] | None, str]:
+    if parsed is None:
+        return {}, ""
+    if isinstance(parsed, dict):
+        return parsed, ""
+    return None, f"its top level is a {type(parsed).__name__}, not a mapping"
+
+
+def _parse_with_yq(path: Path) -> tuple[dict[str, Any] | None, str]:
+    """Parse the config with yq, for a runner whose python3 lacks PyYAML."""
+    if not shutil.which("yq"):
+        return None, NO_PARSER
+    result = subprocess.run(
+        ["yq", "-o=json", ".", str(path)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        return None, f"yq could not parse it: {_one_line(result.stderr)}"
+    try:
+        parsed = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return None, f"yq returned no JSON: {exc}"
+    return _as_mapping(parsed)
+
+
+def read_config(path: Path) -> tuple[dict[str, Any] | None, str]:
+    """Read one config file.
+
+    Args:
+        path: Path to the config file.
+
+    Returns:
+        The parsed mapping (empty when the file is absent, None when it exists
+        and could not be read), and the reason it could not be read, else empty.
+
+    """
+    if not path.is_file():
+        return {}, ""
+    try:
+        import yaml
+    except ImportError:
+        return _parse_with_yq(path)
+    try:
+        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        return None, f"it is not valid YAML: {_one_line(str(exc))}"
+    return _as_mapping(parsed)
+
+
+def lookup(config: object, dotted: str) -> object:
+    """Return the value at a dotted key in a parsed config, None when absent."""
+    value = config
+    for part in dotted.split("."):
+        value = value.get(part) if isinstance(value, dict) else None
+    return value
+
+
+def setting(root: Path, key: str) -> tuple[object, str]:
+    """Return a key's value and the layer it came from.
+
+    The project's config file wins, under any spelling
+    :func:`hyperi_ci.vocabulary.key_candidates` accepts, else the value the
+    shipped ``defaults.yaml`` carries. Environment overrides are not read.
+
+    Args:
+        root: The checkout root.
+        key: The dotted key.
+
+    Returns:
+        ``(value, source)``. ``source`` names the file the value came from;
+        the value is None, and the source says why, when neither layer
+        answers.
+
+    """
+    from hyperi_ci.vocabulary import key_candidates
+
+    project = read_project_config(root)
+    if project.data:
+        for candidate in key_candidates(key):
+            value = lookup(project.data, candidate)
+            if value is not None:
+                return value, project.name
+
+    shipped, problem = read_config(SHIPPED_DEFAULTS)
+    if shipped is None:
+        return None, f"{SHIPPED_DEFAULTS.name} could not be read: {problem}"
+    value = lookup(shipped, key)
+    if value is None:
+        return None, f"{SHIPPED_DEFAULTS.name} does not declare {key}"
+    return value, SHIPPED_DEFAULTS.name
+
+
+def read_project_config(root: Path) -> ProjectConfig:
+    """Read whichever config file the project has.
+
+    A project with no config file at all is legitimate and reads as empty.
+
+    Args:
+        root: The checkout root.
+
+    Returns:
+        The config, its file name, and why it could not be read.
+
+    """
+    path = find_config(root)
+    if path is None:
+        return ProjectConfig({}, CONFIG_FILES[0], "")
+    data, problem = read_config(path)
+    return ProjectConfig(data, path.name, problem)

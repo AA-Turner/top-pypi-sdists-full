@@ -1,0 +1,162 @@
+"""Concrete terminal single-key quit listener (Bug 56 bare-`q`).
+
+An environment-agnostic ``IQuitKeyListener`` for terminals that never deliver
+a Ctrl+C byte: when the quit key is pressed the listener invokes its
+Constructor-Injected ``on_quit`` callback, which self-delivers SIGINT so the
+shared ``InterruptGuard`` runs its already-tested WAITING/EXECUTING branch
+unchanged.
+
+The listener is a no-op when stdin is not a TTY, backs off while another reader
+owns stdin (``core.utils.stdin_ownership``), and uses ``msvcrt.kbhit()`` on
+Windows (no terminal-mode change).
+"""
+
+from __future__ import annotations
+
+import importlib
+import os
+import select
+import sys
+import threading
+from typing import Any, Optional, cast
+
+from teddy_executor.core.ports.outbound.quit_key_listener import QuitCallback
+from teddy_executor.core.utils.interrupt_guard import raise_interrupt
+from teddy_executor.core.utils.stdin_ownership import is_stdin_owned
+from teddy_executor.core.utils.terminal import restore_cooked_mode
+
+# The ASCII code of the bare quit key (`q`).
+QUIT_KEY = 0x71
+
+# Seconds the reader sleeps between polls when no byte is ready.
+_POLL_INTERVAL = 0.05
+
+
+class TerminalQuitKeyListener:
+    """Concrete IQuitKeyListener supplied as a process-global singleton.
+
+    Constructor-Injected ``on_quit`` is the trigger hook invoked when the quit
+    key is pressed; when omitted, a quit self-delivers SIGINT to the process so
+    the shared ``InterruptGuard`` handles it unchanged.
+    """
+
+    def __init__(self, on_quit: Optional[QuitCallback] = None) -> None:
+        self._on_quit = on_quit
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    # --- lifecycle ---
+
+    def start(self) -> None:
+        """Begin listening for the quit key (no-op when stdin is not a TTY)."""
+        if not sys.stdin.isatty():
+            return
+        self._stop_event.clear()
+        self._enter_noncanonical_mode()
+        self._thread = threading.Thread(target=self._read_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        """Stop listening and restore cooked mode via the shared helper."""
+        self._stop_event.set()
+        thread = self._thread
+        if thread is not None:
+            thread.join()
+            self._thread = None
+        restore_cooked_mode()
+
+    # --- terminal mode (POSIX) ---
+
+    def _enter_noncanonical_mode(self) -> None:
+        """Switch the controlling TTY to non-canonical mode, re-enabling ISIG."""
+        if sys.platform == "win32":
+            return
+        termios = cast(Any, importlib.import_module("termios"))
+        fd = sys.stdin.fileno()
+        attrs = termios.tcgetattr(fd)
+        # Disable canonical line editing and echo, but RE-ENABLE ISIG so a real
+        # Ctrl+C still generates SIGINT alongside the bare-`q` trigger. ISIG is
+        # set explicitly, not merely preserved, because a prior raw-mode reader
+        # such as prompt_toolkit's vt100 mode clears it and restores it only on a
+        # clean exit, which can leave the terminal unable to deliver SIGINT.
+        attrs[3] = (attrs[3] & ~(termios.ICANON | termios.ECHO)) | termios.ISIG
+        attrs[6][termios.VMIN] = 1
+        attrs[6][termios.VTIME] = 0
+        termios.tcsetattr(fd, termios.TCSAFLUSH, attrs)
+
+    # --- reader ---
+
+    def _read_loop(self) -> None:
+        """Poll for the quit key until ``stop()`` is called.
+
+        The reader is PERSISTENT (Bug 58): a quit fires ``_trigger`` and polling
+        CONTINUES, so every subsequent ``q`` is honoured for the whole session.
+        The listener is started once per session, so a one-shot loop (the
+        previous behaviour) silently disabled the quit mechanism after the first
+        press and left later turns unresponsive to `q`.
+        """
+        while not self._stop_event.is_set():
+            if is_stdin_owned():
+                self._stop_event.wait(_POLL_INTERVAL)
+                continue
+            byte = self._read_one_byte()
+            if byte is None:
+                self._stop_event.wait(_POLL_INTERVAL)
+                continue
+            self._process_byte(byte)
+
+    def _read_one_byte(self) -> Optional[int]:
+        """Read one byte from stdin, or None when none is available."""
+        if sys.platform == "win32":
+            return self._read_one_byte_windows()
+        return self._read_one_byte_posix()
+
+    def _read_one_byte_posix(self) -> Optional[int]:
+        """Read one byte from the controlling TTY (POSIX)."""
+        try:
+            fd = sys.stdin.fileno()
+        except (ValueError, OSError):
+            return None
+        ready, _, _ = select.select([fd], [], [], _POLL_INTERVAL)
+        if not ready:
+            return None
+        # Re-check ownership AFTER the fd is readable but BEFORE consuming a
+        # byte: a concurrent reader (the console ask prompt) can claim stdin
+        # between the loop's guard and this read. Backing off here leaves its
+        # bytes (e.g. prompt_toolkit's CPR reply) intact.
+        if is_stdin_owned():
+            return None
+        try:
+            data = os.read(fd, 1)
+        except OSError:
+            return None
+        if not data:
+            return None
+        return data[0]
+
+    def _read_one_byte_windows(self) -> Optional[int]:
+        """Read one byte via msvcrt (Windows); no terminal-mode change."""
+        msvcrt = cast(Any, importlib.import_module("msvcrt"))
+        if not msvcrt.kbhit():
+            return None
+        # Same re-check before consuming the key (see _read_one_byte_posix).
+        if is_stdin_owned():
+            return None
+        return ord(msvcrt.getwch())
+
+    def _process_byte(self, byte: int) -> None:
+        """Trigger the quit on the quit key; the reader keeps polling."""
+        if byte == QUIT_KEY:
+            self._trigger()
+
+    def _trigger(self) -> None:
+        """Invoke the injected hook, or self-deliver SIGINT by default.
+
+        The default branch uses the shared ``raise_interrupt`` primitive so
+        the installed guard handler runs on every platform. ``os.kill`` would
+        terminate the process on Windows before the handler runs.
+        """
+        if self._on_quit is not None:
+            self._on_quit()
+            return
+        raise_interrupt()

@@ -28,6 +28,7 @@ from probe.sdk.run.metrics.values import (
     _json_safe,
     _log_stamp,
 )
+from probe.sdk.routes import WriteOp, path_for
 
 #: How many distinct flattening warnings one run remembers (#2009 review).
 _FLATTEN_WARNINGS_REMEMBERED = 256
@@ -175,12 +176,7 @@ class MetricsMixin:
         # A SIGTERM handler installed since `probe.init` that runs ours only
         # after its own (Lightning's) gets ours put first (`preempt.run_first`).
         _preempt.run_first()
-        # Resume guard (research-os#364): a resumed run continues its curve. A
-        # step at or below the resume point means the process restarted from
-        # scratch — that is a RETRY, and appending it here would splice two
-        # executions into one series. The HARDWARE rail is exempt in both
-        # directions: its steps are epoch-derived (a different clock), so
-        # they neither clear nor trip a training-step floor.
+        # Resume guard (research-os#364): a step at or below the resume point is a retry (DESIGN.md).
         if (
             kind != "hardware"
             and self._resume_from_step is not None
@@ -189,12 +185,7 @@ class MetricsMixin:
             and step <= self._resume_from_step
         ):
             return self._drop_below_resume(step, strict=strict)
-        # Plan (d): nested dicts flatten to `/` keys. Only when a value IS a
-        # Mapping, so a flat call never pays for it and its body stays
-        # byte-identical to what it has always been.
-        # A DictConfig always takes the flattening path: even `.values()`
-        # resolves its interpolations (and raises on a `???`), and the
-        # flattening path reads it without resolving secrets.
+        # Plan (d): only a Mapping value (and any DictConfig) flattens to `/` keys (DESIGN.md).
         if _is_omegaconf(metrics) or any(isinstance(value, Mapping) for value in metrics.values()):
             metrics = self._flatten_metrics(metrics)
         numeric: dict[str, float] = {}
@@ -206,19 +197,14 @@ class MetricsMixin:
             else:
                 numeric[key] = as_number
 
-        # Plan (f): `commit=False`, or a row already pending for this kind, takes
-        # the buffered path. An ordinary call never does, so its bodies are
-        # byte-identical to what they have always been.
+        # Plan (f): `commit=False`, or a row pending for this kind, takes the buffered path.
         if commit is False or kind in self._pending_rows:
             return self._log_pending(
                 kind, step, numeric, other, dimensions, labels, span_id, agg,
                 wall_clock, strict, commit,
             )
 
-        # Split BEFORE drawing a step, so a call with nothing to write does not
-        # consume one. `if metrics: run.log(metrics)` guards get written the
-        # other way round, and burning an index there would drift the auto axis
-        # away from the loop index — the exact failure auto-increment prevents.
+        # Split BEFORE drawing a step: a call with nothing to write consumes no index (DESIGN.md).
         if not numeric and not other:
             return None
 
@@ -232,13 +218,7 @@ class MetricsMixin:
 
         dims, labs = unit_context.merged(dimensions, labels)
         if numeric and wall_clock is None:
-            # Plan 1.4: date the points when the loop LOGGED them. Omitted, the
-            # server stores COALESCE(wall_clock, now()) -- its receive time -- so
-            # a point the journal held through an outage landed up to minutes
-            # late and findings (which bin by point wall_clock) saw a gap, then a
-            # burst. Stamped here, the time is frozen into the journaled body and
-            # survives any delayed drain. Not in `log_derived*`: a backfill's
-            # call time is not when anything was measured.
+            # Plan 1.4: stamp when the loop LOGGED the points, frozen into the journaled body (DESIGN.md).
             wall_clock = _log_stamp()
         points = [(key, value, dims, labs, span_id, agg) for key, value in numeric.items()]
         return self._write_row(kind, step, points, other, wall_clock, strict, stacklevel=3)
@@ -314,7 +294,7 @@ class MetricsMixin:
             # Returned even when a step record is also written: callers key off
             # this to tell "confirmed" from "spooled" (connectors/harbor.py).
             result = self._client.write(
-                "POST", f"/v1/runs/{self.id}/metrics", self._stamp_writer(body), strict=strict
+                "POST", path_for(WriteOp.METRICS, self.id), self._stamp_writer(body), strict=strict
             )
 
         if other:

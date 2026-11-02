@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+import asyncio
+import functools
+import logging
+import sys
+import time
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+from ..logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
+try:
+    import orjson as jsonlib
+
+    def pack_json(obj: Any) -> str:
+        bjson: bytes = jsonlib.dumps(obj)
+        return bjson.decode("utf-8")
+
+except ImportError:
+    import json as jsonlib
+
+    pack_json = functools.partial(jsonlib.dumps, separators=(",", ":"))
+
+parse_json = jsonlib.loads
+
+
+def is_portrait(portrait: Any) -> bool:
+    """
+    简单判断输入是否符合portrait格式
+
+    Returns:
+        bool: 输入是否符合portrait格式
+    """
+
+    return isinstance(portrait, str) and portrait.startswith("tb.")
+
+
+def is_user_name(user_name: Any) -> bool:
+    """
+    简单判断输入是否符合user_name格式
+
+    Returns:
+        bool: 输入是否符合user_name格式
+    """
+
+    return isinstance(user_name, str) and not user_name.startswith("tb.")
+
+
+def check_rn(rn: int, rn_min: int, rn_max: int) -> None:
+    """
+    检查rn是否位于[rn_min, rn_max]区间内
+
+    Args:
+        rn (int): 请求的条目数
+        rn_min (int): 区间下限
+        rn_max (int): 区间上限
+    """
+
+    if not rn_min <= rn <= rn_max:
+        get_logger().warning(f"rn={rn} is out of range [{rn_min}, {rn_max}]")
+
+
+def tbnum2int(tb_num: int | str, suffix: str) -> int:
+    """
+    将贴吧数字转换为整数
+
+    Args:
+        tb_num (int | str): 贴吧数字
+        suffix (str): 该接口的缩写后缀 其权值为1e4 如"W" "万"
+
+    Returns:
+        int: 整数
+    """
+
+    if not isinstance(tb_num, str):
+        return tb_num
+
+    if tb_num.endswith(suffix):
+        return int(float(tb_num.removesuffix(suffix)) * 1e4)
+
+    return int(tb_num)
+
+
+def vipinfo2bool(vip_info: Mapping | None) -> bool:
+    """
+    判断vipInfo所表示的会员身份当前是否有效
+
+    Args:
+        vip_info (Mapping | None): 回包中的vipInfo字段
+
+    Returns:
+        bool: 当前是否是有效的会员
+    """
+
+    if not vip_info:
+        return False
+    if not int(vip_info["v_status"]):
+        return False
+
+    return int(vip_info["e_time"]) > time.time()
+
+
+def default_datetime() -> datetime:
+    return datetime(1970, 1, 1)
+
+
+def timeout(delay: float, loop: asyncio.AbstractEventLoop) -> asyncio.Timeout:
+    now = loop.time()
+    when = round(now) + delay
+    return asyncio.timeout_at(when)
+
+
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    import warnings
+
+    def deprecated(reason):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                warnings.warn(f"{func.__name__} is deprecated: {reason}", DeprecationWarning, stacklevel=2)
+                return func(*args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
+
+def handle_exception(
+    null_factory: Callable[[], Any],
+    ok_log_level: int = logging.NOTSET,
+    err_log_level: int = logging.WARNING,
+):
+    """
+    处理request抛出的异常 只能用于装饰类成员函数
+
+    Args:
+        null_factory (Callable[[], Any]): 空构造工厂 用于返回一个默认值
+        ok_log_level (int, optional): 正常日志等级. Defaults to logging.NOTSET.
+        err_log_level (int, optional): 异常日志等级. Defaults to logging.WARNING.
+
+    Returns:
+        Callable: 装饰器 用于包装异步类成员函数
+    """
+
+    def wrapper(func):
+        @functools.wraps(func)
+        async def awrapper(self, *args, **kwargs):
+            def _log(log_level: int, err: Exception | None = None) -> None:
+                logger = get_logger()
+                if logger.isEnabledFor(err_log_level):
+                    if err is None:
+                        err = "Succeeded"
+                    log_str = f"{err}. args={args} kwargs={kwargs}"
+                    record = logger.makeRecord(logger.name, log_level, None, 0, log_str, None, None, func.__name__)
+                    logger.handle(record)
+
+            try:
+                ret = await func(self, *args, **kwargs)
+
+                if ok_log_level:
+                    _log(ok_log_level)
+
+            except Exception as err:
+                _log(err_log_level, err)
+
+                ret = null_factory()
+                ret.err = err
+
+                return ret
+
+            else:
+                return ret
+
+        return awrapper
+
+    return wrapper

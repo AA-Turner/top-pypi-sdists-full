@@ -1,0 +1,457 @@
+Metadata-Version: 2.4
+Name: czifile
+Version: 2026.10.14
+Summary: Read Carl Zeiss image files (CZI)
+Home-page: https://www.cgohlke.com
+Author: Christoph Gohlke
+Author-email: cgohlke@cgohlke.com
+License: BSD-3-Clause
+Project-URL: Bug Tracker, https://github.com/cgohlke/czifile/issues
+Project-URL: Source Code, https://github.com/cgohlke/czifile
+Project-URL: Documentation, https://www.cgohlke.com/docs/czifile/
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: numpy>=2.1
+Requires-Dist: imagecodecs>=2026.8.16
+Provides-Extra: all
+Requires-Dist: xarray; extra == "all"
+Requires-Dist: tifffile; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Read Carl Zeiss image files (CZI)
+=================================
+
+Czifile is a Python library for reading image data and metadata from
+Carl Zeiss Image (CZI) files, the native file format of ZEN by
+Carl Zeiss Microscopy GmbH.
+
+Czifile is a pure-Python library under the BSD-3-Clause license. It provides
+single-call array access to scenes and spatial ROIs, xarray DataArray output
+with physical axis coordinates, multi-scene merging, per-dimension selection
+by integer, slice, or sequence, chunk-based iteration, and pyramid-level
+access. It handles Fast Airyscan upsampling and PALM downsampling with
+optional stored-resolution output, and assembles FCS and line-scan files from
+T-chunked subblocks. It also supports Zstd, Chunked, and JPEG XR compression,
+pixel type promotion across channels, and direct access to all ZISRAW segments
+and file-level attachments.
+
+:Author: `Christoph Gohlke <https://www.cgohlke.com>`_
+:License: BSD-3-Clause
+:Version: 2026.10.14
+:DOI: `10.5281/zenodo.14948581 <https://doi.org/10.5281/zenodo.14948581>`_
+
+Quickstart
+----------
+
+Install the czifile package and all dependencies from the
+`Python Package Index <https://pypi.org/project/czifile/>`_::
+
+    python -m pip install -U czifile[all]
+
+See `Examples`_ and `Documentation <https://www.cgohlke.com/docs/czifile/>`_
+for using the programming interface.
+
+Source code, examples, and support are available on
+`GitHub <https://github.com/cgohlke/czifile>`_.
+
+Requirements
+------------
+
+This revision was tested with the following requirements and dependencies
+(other versions may work):
+
+- `CPython <https://www.python.org>`_ 3.12.10, 3.13.16, 3.14.8, 3.15.0 64-bit
+- `Numpy <https://pypi.org/project/numpy>`_ 2.5.4
+- `Imagecodecs <https://pypi.org/project/imagecodecs>`_ 2026.10.10
+- `Xarray <https://pypi.org/project/xarray>`_ 2026.9.0 (recommended)
+- `Matplotlib <https://pypi.org/project/matplotlib/>`_ 3.11.2 (optional)
+- `Tifffile <https://pypi.org/project/tifffile/>`_ 2026.9.20 (optional)
+
+Revisions
+---------
+
+2026.10.14
+
+- Precompute more CziDirectoryEntryDV attributes.
+- Sanitize attachment file names to prevent path traversal.
+- Fix infinite loops on negative segment and attachment chunk sizes.
+- Fix chained CziImage views discarding ROI.
+- Do not close caller-owned file handles on failed CziFile construction.
+- Add CziImage.subblock_sizes property.
+- Size chunks decode cache by predominant subblock size.
+- Bound number of pending futures in CziImage.asarray.
+
+2026.8.16
+
+- Support experimental chunked-extensible compression.
+- Require imagecodecs >= 2026.8.16 for chunked codec.
+
+2026.6.12
+
+- Add CziDirectoryEntryDV.asimage convenience method.
+
+2026.6.6
+
+- Refactor segment, directory, and content file parsing (breaking).
+- Add memmap parameter to CziFile/imread for lock-free parallel subblock reads.
+- Add writable property to BinaryFile.
+- Change read_content functions to accept bytes or memoryview.
+- Remove read_array function.
+- Require imagecodecs >= 2026.6.6 for zstd1 codec.
+- Support Python 3.15.
+
+2026.4.30
+
+- Omit axes from coords when no meaningful metadata is available (breaking).
+- Return coords['T'] as float seconds instead of datetime64 (breaking).
+- Replace pixel_series with coord_scales in CziImage.attrs (breaking).
+- Add coord_offsets, coord_scales, coord_units, and mpp properties to CziImage.
+- Add datetime property to CziImage returning acquisition start as datetime64.
+- Drop support for numpy 2.0 (SPEC0).
+
+2026.4.11
+
+- Fall back to parsing numeric channel names as float coords['C'].
+
+2026.3.17
+
+- Add cache for decoded subblock arrays.
+- Prefer imagecodecs' WIC over JPEGXR codec if available.
+- Import imagecodecs functions on demand.
+
+2026.3.15
+
+- Replace CziImagePlanes with CziImageChunks (breaking).
+- Add CziImage.chunks method for flexible chunk-based iteration.
+- Add CziFile.metadata_segment property.
+- Add offset properties to CziAttachmentEntryA1 and subblock entry classes.
+- Add CziSegmentId.packed property returning the 16-byte on-disk field.
+- Manage update_pending flag in CziFile context manager for writable handles.
+- Improve documentation.
+
+2026.3.14
+
+- Add option to return pixel data at stored resolution.
+- Allow sequence and slice of scene indices in imread and asarray/asxarray.
+- Interpret dimension slice selection as absolute coordinates.
+- Add command line options to select dimensions.
+
+2026.3.12
+
+- Rewrite with many breaking changes.
+- Support Zstd compression schemes.
+- Support reading subblock masks.
+- Add CziFile.scenes interface.
+- Add pyramid level access via CziImage.levels.
+- Add option to read subset of image data.
+- Add option to iterate over image planes in any dimension order.
+- Add xarray-style attributes.
+- Add asxarray method to return image as xarray DataArray with metadata.
+- Add fillvalue and maxworkers parameters to asarray.
+- Add option to specify pixel type.
+- Promote pixel type when channels have mixed types.
+- Remove Mosaic dimension from CziDirectoryEntryDV.dims; use mosaic_index.
+- Reduce caching of CziDirectoryEntryDV properties.
+- Remove resize and order parameters from asarray (breaking).
+- Remove czi2tif function and command line script.
+- Prefix public class names with Czi.
+- Raise CziFileError for issues with CZI file structure.
+- Use logging instead of warnings.
+- Improve representation of instances.
+- Add pytest-based unit tests.
+- Add type hints.
+- Convert docstrings to Google style with Sphinx directives.
+- Remove imagecodecs-lite fallback; require imagecodecs.
+- Remove scipy/ndimage dependency.
+- Make tifffile an optional dependency.
+- Drop support for Python < 3.12 and numpy < 2 (SPEC 0).
+
+2019.7.2.3
+
+- …
+
+Refer to the CHANGES file for older revisions.
+
+Notes
+-----
+
+The API is not stable yet and might change between revisions.
+
+`Carl Zeiss AG <https://www.zeiss.com/>`_ is a manufacturer of microscopes
+and scientific instruments.
+CZI is a proprietary file format written by Zeiss acquisition software
+such as ZEN to store microscopy images and metadata.
+
+CZI files are based on the ZISRAW (Zeiss Image Segment Raw) container
+specification, which is confidential and does not permit writing CZI files:
+
+    | ZISRAW (CZI) File Format Design Specification Release Version 1.2.2.
+    | "CZI 07-2016/CZI-DOC ZEN 2.3/DS_ZISRAW-FileFormat.pdf"
+
+Additional information can be found in the
+`libCZI documentation <https://zeiss.github.io/libczi/>`__.
+
+The ZISRAW format organizes data into typed, length-prefixed segments:
+a file header, image subblocks, XML metadata, and attachments. Each image
+subblock carries pixels for one tile or Z-plane across up to ten logical
+dimensions (X, Y, Z, channel, time, scene, phase, illumination, rotation, and
+mosaic index). Pixel data may be stored uncompressed or compressed with JPEG,
+JPEG XR, or Zstd.
+
+Only a subset of the 2016 specification is implemented. Specifically,
+multi-file images and topography images are not supported.
+Some features are untested due to lack of sample files.
+
+Czifile relies on the `imagecodecs <https://pypi.org/project/imagecodecs/>`__
+package for decoding LZW, Zstd, CHUNKED, JPEG, and JPEG XR compressed images.
+
+Other libraries for reading CZI files (all GPL or LGPL licensed):
+`libczi <https://github.com/ZEISS/libczi>`__,
+`pylibCZIrw <https://pypi.org/project/pylibCZIrw>`__,
+`bioio-czi <https://github.com/bioio-devs/bioio-czi>`__,
+`bio-formats <https://github.com/ome/bioformats>`_,
+`libCZI <https://github.com/zeiss-microscopy/libCZI>`__ (deprecated), and
+`pylibczi <https://github.com/elhuhdron/pylibczi>`__ (deprecated).
+
+Examples
+--------
+
+Import functions and classes used in the examples:
+
+>>> from czifile import (
+...     CziCompressionType,
+...     CziFile,
+...     CziImage,
+...     CziSegment,
+...     CziSegmentId,
+...     CziSubBlockDirectorySegmentData,
+...     CziSubBlockSegmentData,
+...     imread,
+... )
+
+Read image data of the first scene from a CZI file as numpy array:
+
+>>> arr = imread('Example.czi')
+>>> assert arr.shape == (2, 2, 3, 486, 1178)
+>>> assert arr.dtype == 'uint16'
+
+Access scenes, shape, and metadata:
+
+>>> with CziFile('Example.czi') as czi:
+...     assert len(czi.scenes) == 3
+...     img = czi.scenes[0]  # 0 is the absolute coordinate of the first scene
+...     assert img.shape == (2, 2, 3, 486, 1178)
+...     assert img.dims == ('T', 'C', 'Z', 'Y', 'X')
+...     assert img.dtype == 'uint16'
+...     assert img.compression.name == 'ZSTDHDR'
+...     assert list(img.channels) == ['DAPI', 'EGFP']
+...     assert czi.metadata().startswith('<ImageDocument>')
+...
+
+Select dimensions and read as numpy array:
+
+>>> with CziFile('Example.czi') as czi:
+...     img = czi.scenes[0]
+...     assert img.sizes == {'T': 2, 'C': 2, 'Z': 3, 'Y': 486, 'X': 1178}
+...
+...     # integer selection: fix T=0 and C=0; result has Z, but no T or C axis
+...     volume = img(T=0, C=0).asarray()
+...     assert volume.shape == (3, 486, 1178)
+...
+...     # None selection: keep all values but reorder dimensions
+...     # dims order follows the kwargs order, then spatial dims
+...     # T (unspecified) comes first, then C, Z (in kwargs order), then Y X
+...     tczyx = img(C=None, Z=None).asarray()
+...     assert tczyx.shape == (2, 2, 3, 486, 1178)
+...
+...     # read in C-outer, Z-inner, T-innermost order with parallelism
+...     arr = img(C=None, Z=None, T=None).asarray(maxworkers=8)
+...     assert arr.shape == (2, 3, 2, 486, 1178)  # 'C', 'Z', 'T', 'Y', 'X'
+...
+...     # img.bbox gives (x, y, width, height) in global CZI coordinates
+...     x0, y0, *_ = img.bbox
+...     plane_roi = img(T=0, C=0, roi=(x0, y0, 128, 128)).asarray()
+...     assert plane_roi.shape == (3, 128, 128)  # 'Z', 'Y', 'X'
+...
+...     # fill pixels outside subblock coverage with a specific value
+...     padded = img(C=0, roi=(0, 0, 2048, 2048)).asarray(fillvalue=0)
+...     assert padded.shape == (2, 3, 2048, 2048)  # 'T', 'Z', 'Y', 'X'
+...
+
+Iterate image chunks:
+
+>>> with CziFile('Example.czi') as czi:
+...     img = czi.scenes[0]
+...
+...     # iterate individual Y/X planes as CziImage views
+...     # by default, all non-spatial dims are iterated one-at-a-time
+...     for chunk in img.chunks():
+...         assert isinstance(chunk, CziImage)
+...         assert chunk.asarray().shape == (486, 1178)
+...
+...     # keep C in each chunk: iterate T and Z only
+...     for chunk in img.chunks(C=None):
+...         assert chunk.asarray().shape == (2, 486, 1178)
+...
+...     # batch Z into groups of 3; last chunk may be smaller if Z indivisible
+...     for chunk in img.chunks(Z=3):
+...         assert chunk.sizes['Z'] <= 3
+...
+...     # spatial tiling: iterate T x C x Z x grid
+...     for chunk in img.chunks(Y=256, X=256):
+...         assert chunk.shape[-2] <= 256
+...         assert chunk.shape[-1] <= 256
+...
+...     # keep C, tile spatially
+...     for chunk in img.chunks(C=None, Y=256, X=256):
+...         assert chunk.dims[0] == 'C'
+...
+...     # align spatial chunks with stored subblocks
+...     assert img.subblock_sizes == {'Y': 256, 'X': 256}
+...     chunks = img.chunks(**img.subblock_sizes)
+...
+
+Read image as xarray DataArray with physical coordinates and attributes:
+
+>>> with CziFile('Example.czi') as czi:
+...     xarr = czi.scenes[0].asxarray()
+...     assert xarr.name == 'Scene 0'
+...     assert xarr.sizes == {'T': 2, 'C': 2, 'Z': 3, 'Y': 486, 'X': 1178}
+...     assert xarr.coords['X'].size == 1178  # physical axis coordinates
+...
+
+Access multiple scenes:
+
+>>> with CziFile('Example.czi') as czi:
+...     # iterate scenes individually and read as arrays
+...     for img in czi.scenes.values():
+...         arr = img.asarray()
+...
+...     # query which scenes (indices) are available
+...     assert list(czi.scenes.keys()) == [0, 1, 2]
+...
+...     # select the second scene
+...     assert czi.scenes[1].sizes == {
+...         'T': 2,
+...         'C': 2,
+...         'Z': 3,
+...         'Y': 256,
+...         'X': 256,
+...     }
+...
+...     # merge selected scenes into one
+...     img = czi.scenes(scene=[0, 1])  # first 2 scenes
+...     assert img.sizes == {'T': 2, 'C': 2, 'Z': 3, 'Y': 1109, 'X': 1760}
+...
+...     # merge all scenes into one
+...     img = czi.scenes()
+...     assert img.sizes == {'T': 2, 'C': 2, 'Z': 3, 'Y': 2055, 'X': 2581}
+...
+
+Access pyramid levels:
+
+>>> with CziFile('Example.czi') as czi:
+...     img = czi.scenes[0]
+...     assert img.is_pyramid
+...     assert len(img.levels) == 2  # full resolution + 1 downsampled level
+...     assert img.levels[0] is img  # full resolution level is the same as img
+...     overview = img.levels[1]  # lowest-res level
+...     assert overview.sizes == {'T': 2, 'C': 2, 'Z': 3, 'Y': 243, 'X': 589}
+...
+
+Iterate directory entries as CziImage views:
+
+>>> with CziFile('Example.czi') as czi:
+...     for entry in czi.scenes[0].directory_entries:
+...         chunk = entry.asimage(czi)
+...         arr = chunk.asarray()
+...         assert arr.shape == (256, 256)
+...
+
+Access attachments:
+
+>>> with CziFile('Example.czi') as czi:
+...     for attachment in czi.attachments():
+...         name = attachment.attachment_entry.name
+...         data = attachment.data()  # decoded (ndarray, tuple, bytes...)
+...         raw = attachment.data(raw=True)  # bytes; may be written to file
+...
+...     # convenience shortcut for TimeStamps attachment data
+...     assert czi.timestamps.shape == (2,)
+...
+
+Low-level access to CZI file segments:
+
+>>> with CziFile('Example.czi') as czi:
+...     # file header: version, GUIDs, and segment offsets
+...     header = czi.header
+...     assert header.version == (1, 0)
+...     assert str(header.file_guid) == 'f8a61493-053e-c94e-bae0-bc7e96d18997'
+...     assert not header.update_pending
+...
+...     # iterate all subblock segments sequentially via the directory
+...     for segdata in czi.subblocks():
+...         entry = segdata.directory_entry
+...         assert entry.dims == ('H', 'T', 'C', 'Z', 'Y', 'X', 'S')
+...         assert entry.start == (0, 0, 0, 0, 0, 582, 0)
+...         assert entry.shape == (1, 1, 1, 1, 486, 1178, 1)
+...         assert entry.stored_shape == (1, 1, 1, 1, 243, 589, 1)
+...         assert entry.compression == CziCompressionType.ZSTDHDR
+...         assert segdata.data_offset == 661865  # offset of image data
+...         assert segdata.data_size == 183875  # size of compressed image data
+...         tile = segdata.data()  # decompressed image data as numpy array
+...         assert tile.shape == entry.stored_shape
+...         assert tile.dtype == entry.pixel_type.dtype
+...         assert isinstance(segdata.data(raw=True), bytes)  # compressed data
+...         assert segdata.metadata().startswith('<METADATA>')
+...         break  # just the first subblock segment for demonstration
+...
+...     # iterate only image tiles in a selected image view
+...     img = czi.scenes[0](T=0, C=0, Z=0)
+...     for entry in img.directory_entries:
+...         segdata = entry.read_segment_data(czi)
+...         assert isinstance(segdata, CziSubBlockSegmentData)
+...         tile = segdata.data()
+...         assert tile.shape == entry.stored_shape
+...         break  # just the first filtered directory entry
+...
+...     # walk all file segments by type using their ZISRAW segment IDs
+...     for segdata in czi.segments(CziSegmentId.ZISRAWSUBBLOCK):
+...         assert isinstance(segdata, CziSubBlockSegmentData)
+...
+...     # direct low-level segment header at a known file offset
+...     seg = CziSegment(czi, czi.header.directory_position)
+...     assert seg.sid == CziSegmentId.ZISRAWDIRECTORY
+...     assert seg.used_size == 68768
+...     seg_data = seg.data()
+...     assert isinstance(seg_data, CziSubBlockDirectorySegmentData)
+...
+
+View the images and metadata in a CZI file from the console::
+
+    $ python -m czifile Example.czi

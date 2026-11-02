@@ -1,0 +1,1090 @@
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field, replace
+from functools import cached_property
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, overload
+
+from cc_transcript.tools import (
+    BashCall,
+    EditCall,
+    MultiEditCall,
+    NotebookEditCall,
+    SpanEditCall,
+    TaskCall,
+    ToolCallBase,
+    WriteCall,
+    file_path_of,
+    parse_tool_call,
+)
+
+from captain_hook.file import File
+from captain_hook.types import Event
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping, Sequence
+
+    from cc_transcript.ids import ToolDigest
+    from cc_transcript.render import Budget
+    from cc_transcript.tools import FallbackCall, ToolCall
+    from pydantic import BaseModel
+    from spawnllm import Decision, TModel, TSpecialty
+    from spawnllm.decide import Question, TDecideProvider
+
+    from captain_hook.annotations import Annotations
+    from captain_hook.ast_grep import Edit
+    from captain_hook.cmd import Cmd
+    from captain_hook.confirm import Confirm
+    from captain_hook.context import HookContext
+    from captain_hook.contexts import PromptContext
+    from captain_hook.primitives.llm import TJudge
+    from captain_hook.prompt import Prompt
+    from captain_hook.signals.nlp import NlpSignal
+    from captain_hook.tasks import Task, Tasks
+    from captain_hook.types import HookResult, Signal, Signals
+
+T = TypeVar("T", bound=ToolCallBase)
+
+
+def disk_pre_image(path: Path) -> str | None:
+    if not path.exists():
+        return ""
+    if not path.is_file():
+        return None
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    return data.decode(errors="replace")
+
+
+def apply_edit(image: str | None, old: str, new: str, replace_all: bool) -> str | None:
+    """Apply one ``old``→``new`` replacement to ``image``, mirroring the tool's own preconditions.
+
+    ``None`` when ``old`` is absent, or — without ``replace_all`` — ambiguous (more than one match),
+    since the real Edit tool rejects the call rather than editing the first occurrence.
+    """
+    if image is None:
+        return None
+    count = image.count(old)
+    if count == 0 or (not replace_all and count != 1):
+        return None
+    return image.replace(old, new) if replace_all else image.replace(old, new, 1)
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundTask:
+    """A background task keeping the session alive, from a ``Stop``/``SubagentStop`` payload.
+
+    Since Claude Code v2.1.145 a stopping session reports the work still running so a
+    hook can tell "the session is done" from "the session is paused waiting for
+    background work to wake it back up". Each task carries the common fields below
+    plus type-specific extras — a ``shell`` task's ``command``, a ``subagent``'s
+    ``agent_type``, an ``MCP task``'s ``server`` and ``tool`` — preserved in ``raw``.
+
+    Attributes:
+        id: The task's stable identifier.
+        type: The task kind, one of ``shell``, ``subagent``, ``monitor``,
+            ``workflow``, ``teammate``, ``cloud session``, or ``MCP task``.
+        status: The task's reported lifecycle status.
+        description: A human-readable summary of the task.
+        raw: The full task mapping, including the type-specific fields.
+    """
+
+    id: str
+    type: str
+    status: str
+    description: str
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_raw(cls, raw: Mapping[str, Any]) -> BackgroundTask:
+        return cls(
+            id=str(raw.get("id", "")),
+            type=str(raw.get("type", "")),
+            status=str(raw.get("status", "")),
+            description=str(raw.get("description", "")),
+            raw=raw,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class SessionCron:
+    """A scheduled prompt registered on the session, from a ``Stop``/``SubagentStop`` payload.
+
+    A cron keeps a session alive to re-run ``prompt`` on ``schedule``; its presence
+    means the session is paused for future scheduled work rather than finished.
+
+    Attributes:
+        id: The cron's stable identifier.
+        schedule: The cron schedule expression.
+        recurring: Whether the cron fires repeatedly rather than once.
+        prompt: The prompt replayed to the agent when the cron fires.
+    """
+
+    id: str
+    schedule: str
+    recurring: bool
+    prompt: str
+
+    @classmethod
+    def from_raw(cls, raw: Mapping[str, Any]) -> SessionCron:
+        return cls(
+            id=str(raw.get("id", "")),
+            schedule=str(raw.get("schedule", "")),
+            recurring=bool(raw.get("recurring", False)),
+            prompt=str(raw.get("prompt", "")),
+        )
+
+
+@dataclass
+class BaseHookEvent:
+    """Base class for all hook events, providing access to raw payload, context, and convenience methods."""
+
+    event_name: ClassVar[Event]
+
+    _raw: dict[str, Any]
+    ctx: HookContext
+    _resources: dict[tuple[type, int], object] = field(default_factory=dict, init=False, repr=False, compare=False)
+
+    @property
+    def event(self) -> Event:
+        return self.event_name
+
+    @property
+    def agent_id(self) -> str | None:
+        """The subagent id attached to this event, or None for main-agent events.
+
+        A missing, null, or empty ``agent_id`` all mean the main agent.
+        """
+        return self._raw.get("agent_id") or None
+
+    @property
+    def is_subagent(self) -> bool:
+        """Whether this event came from a subagent payload."""
+        return self.agent_id is not None
+
+    @property
+    def session_id(self) -> str:
+        return self._raw["session_id"]
+
+    @property
+    def tool_use_id(self) -> str | None:
+        """The id of the tool call this event concerns; ``None`` on events about no call."""
+        return self._raw.get("tool_use_id")
+
+    @cached_property
+    def tasks(self) -> Tasks:
+        """The live task list for this session, read from Claude Code's native task store.
+
+        Unlike transcript-derived ``task_ops()``, this reflects updates made by
+        subagents, teammates, or resumed sessions. A team lead reads its team's list
+        (:meth:`~captain_hook.tasks.Tasks.list_id`); a session with no store has no tasks.
+        """
+        from captain_hook.tasks import Tasks as T
+
+        return T.for_session(T.list_id(self.session_id, self.transcript_path))
+
+    def task(self, task_id: str) -> Task | None:
+        """Read one current native task without loading the session's other task records.
+
+        The task's native file name and stored id must match ``task_id``.
+        """
+        from captain_hook.tasks import Tasks as T
+
+        return T.native_task(self.session_id, task_id, transcript_path=self.transcript_path)
+
+    @cached_property
+    def skip_permissions(self) -> bool:
+        """Whether the session's ``claude`` process was launched with permission bypass available.
+
+        Walks the process tree to the nearest ``claude`` ancestor and reports whether that
+        process was started with ``--dangerously-skip-permissions`` or
+        ``--allow-dangerously-skip-permissions``.
+        """
+        from captain_hook.util.proc import claude_skip_permissions
+
+        return claude_skip_permissions()
+
+    @cached_property
+    def disallowed_tools(self) -> frozenset[str]:
+        """The tools the session's ``claude`` process was launched without.
+
+        Walks the process tree to the nearest ``claude`` ancestor and collects the tool names
+        it was started with under ``--disallowedTools`` (or ``--disallowed-tools``); a hook
+        reads it to stay silent when the tool it would direct the agent to does not exist.
+        """
+        from captain_hook.util.proc import claude_disallowed_tools
+
+        return claude_disallowed_tools()
+
+    @property
+    def user_prompt(self) -> str | None:
+        return self._raw.get("prompt")
+
+    @property
+    def stop_hook_active(self) -> bool:
+        return self._raw.get("stop_hook_active", False)
+
+    @property
+    def background_tasks(self) -> tuple[BackgroundTask, ...]:
+        """The background tasks keeping this session alive, ``()`` when the payload omits them.
+
+        Populated only on ``Stop`` and ``SubagentStop`` events from Claude Code
+        v2.1.145+; a non-empty tuple means the session is paused waiting for
+        background work to wake it, not done.
+        """
+        return tuple(BackgroundTask.from_raw(t) for t in self._raw.get("background_tasks") or ())
+
+    @property
+    def session_crons(self) -> tuple[SessionCron, ...]:
+        """The scheduled prompts registered on this session, ``()`` when the payload omits them.
+
+        Populated only on ``Stop`` and ``SubagentStop`` events from Claude Code
+        v2.1.145+; a non-empty tuple means the session is paused for future
+        scheduled work.
+        """
+        return tuple(SessionCron.from_raw(c) for c in self._raw.get("session_crons") or ())
+
+    @property
+    def transcript_path(self) -> Path | None:
+        return Path(p) if (p := self._raw.get("transcript_path")) else None
+
+    @property
+    def cwd(self) -> Path | None:
+        return Path(p) if (p := self._raw.get("cwd")) else None
+
+    @property
+    def permission_mode(self) -> str | None:
+        return self._raw.get("permission_mode")
+
+    @property
+    def parent_agent_type(self) -> str | None:
+        return self._raw.get("agent_type")
+
+    @property
+    def tool_name(self) -> str | None:
+        return None
+
+    @property
+    def _tool_input(self) -> dict[str, Any]:
+        return {}
+
+    @cached_property
+    def input(self) -> ToolCall | FallbackCall:
+        return parse_tool_call(self.tool_name or "", self._tool_input, on_error="other")
+
+    def as_input(self, call_type: type[T]) -> T | None:
+        """Return ``input`` narrowed to ``call_type``, or None when it is a different tool call."""
+        return self.input if isinstance(self.input, call_type) else None
+
+    @property
+    def tool_digest(self) -> ToolDigest | None:
+        return self.input.digest if self.tool_name else None
+
+    @cached_property
+    def cmd(self) -> Cmd:
+        """The event's Bash command as a walkable :class:`~captain_hook.cmd.Cmd`.
+
+        Always a ``Cmd`` — an empty or non-Bash command yields one with zero calls — so a handler
+        iterates ``evt.cmd.calls(...)`` or tests ``evt.cmd.call(...)`` without a preceding guard.
+        The raw command text is ``evt.cmd.raw`` (or ``str(evt.cmd)``); ``evt.cmd.q`` and
+        ``evt.cmd.line`` expose the parsed structure. On a rewrite-capable event, rewrites composed
+        via :meth:`~captain_hook.cmd.Call.sub` splice back through it.
+        """
+        from cc_transcript.command import parse_command_line
+
+        from captain_hook.cmd import Cmd
+        from captain_hook.util.shell import safe_parse_command_line
+
+        raw = self.input.command if isinstance(self.input, BashCall) else ""
+        line = safe_parse_command_line(raw)
+        return Cmd(
+            line if line is not None else parse_command_line(""),
+            raw=raw,
+            cwd=self.cwd,
+            event=self if isinstance(self, ToolRewriteEvent) else None,
+        )
+
+    @cached_property
+    def annotations(self) -> Annotations:
+        """The ``ccx:`` annotations this event carries, parsed once: each key mapped to its value, or None for a flag.
+
+        Read from a ``ccx:<key>[=<value>]`` token in a real comment of the Bash command (nested ``sh -c`` and
+        ``eval`` payloads included, quoted strings and heredoc bodies never), from a whole
+        ``ccx: <key>[=<value>] ...`` line in an Agent or Task prompt or in Skill args, and from
+        ``CAPT_HOOK_CCX_RAW`` set to ``1``, ``true``, or ``yes``, which contributes ``raw``. Match it in
+        ``skip_if``/``only_if`` with :class:`~captain_hook.Annotated`.
+
+        Example:
+            >>> if "raw" in evt.annotations:
+            ...     return None
+        """
+        from captain_hook.annotations import event_annotations
+
+        return event_annotations(self)
+
+    @property
+    def command(self) -> Cmd:
+        """The event's Bash command as a walkable :class:`~captain_hook.cmd.Cmd` — an alias for :attr:`cmd`.
+
+        Always a ``Cmd`` (empty for a non-Bash or absent command). The raw command text is
+        ``evt.command.raw`` or ``str(evt.command)``.
+        """
+        return self.cmd
+
+    @property
+    def file(self) -> File | None:
+        return File(path=Path(p)) if (p := file_path_of(self.input)) else None
+
+    @property
+    def content(self) -> str | None:
+        return None
+
+    @property
+    def old(self) -> str | None:
+        return None
+
+    @property
+    def replaced(self) -> str | None:
+        return None
+
+    @property
+    def edit(self) -> Edit | None:
+        return None
+
+    @property
+    def pre_image(self) -> str | None:
+        return None
+
+    @property
+    def post_image(self) -> str | None:
+        return None
+
+    @property
+    def agent_type(self) -> str | None:
+        return None
+
+    def command_matches(self, *patterns: str) -> bool:
+        return False
+
+    def file_matches(self, *globs: str) -> bool:
+        return False
+
+    def content_matches(self, pattern: str) -> bool:
+        return False
+
+    @overload
+    def llm(
+        self,
+        prompt: str | Prompt,
+        model: None = None,
+        *,
+        contexts: Sequence[PromptContext] = (),
+        signals: Sequence[Signal | NlpSignal] | Signals | None = None,
+        when: Callable[[BaseHookEvent], bool] | None = None,
+        hook: str | None = None,
+        retries: int = 2,
+        max_context: int = 2000,
+        specialty: TSpecialty = "review",
+        size: TModel = "small",
+        agent: bool = False,
+        transcript: bool | int | Literal["recent", "full"] = False,
+        tool_results: bool = False,
+        budget: Budget | None = None,
+        diff: bool | str = False,
+        backend: TJudge = "jev",
+    ) -> str | None: ...
+    @overload
+    def llm(
+        self,
+        prompt: str | Prompt,
+        model: type[bool],
+        *,
+        contexts: Sequence[PromptContext] = (),
+        signals: Sequence[Signal | NlpSignal] | Signals | None = None,
+        when: Callable[[BaseHookEvent], bool] | None = None,
+        hook: str | None = None,
+        retries: int = 2,
+        max_context: int = 2000,
+        specialty: TSpecialty = "review",
+        size: TModel = "small",
+        agent: bool = False,
+        transcript: bool | int | Literal["recent", "full"] = False,
+        tool_results: bool = False,
+        budget: Budget | None = None,
+        diff: bool | str = False,
+        backend: TJudge = "jev",
+    ) -> bool | None: ...
+    @overload
+    def llm(
+        self,
+        prompt: str | Prompt,
+        model: type[int],
+        *,
+        contexts: Sequence[PromptContext] = (),
+        signals: Sequence[Signal | NlpSignal] | Signals | None = None,
+        when: Callable[[BaseHookEvent], bool] | None = None,
+        hook: str | None = None,
+        retries: int = 2,
+        max_context: int = 2000,
+        specialty: TSpecialty = "review",
+        size: TModel = "small",
+        agent: bool = False,
+        transcript: bool | int | Literal["recent", "full"] = False,
+        tool_results: bool = False,
+        budget: Budget | None = None,
+        diff: bool | str = False,
+        backend: TJudge = "jev",
+    ) -> int | None: ...
+    @overload
+    def llm[M: BaseModel](
+        self,
+        prompt: str | Prompt,
+        model: type[M],
+        *,
+        contexts: Sequence[PromptContext] = (),
+        signals: Sequence[Signal | NlpSignal] | Signals | None = None,
+        when: Callable[[BaseHookEvent], bool] | None = None,
+        hook: str | None = None,
+        retries: int = 2,
+        max_context: int = 2000,
+        specialty: TSpecialty = "review",
+        size: TModel = "small",
+        agent: bool = False,
+        transcript: bool | int | Literal["recent", "full"] = False,
+        tool_results: bool = False,
+        budget: Budget | None = None,
+        diff: bool | str = False,
+        backend: TJudge = "jev",
+        escalate: Callable[[M], bool] | None = None,
+    ) -> M | None: ...
+    def llm(
+        self,
+        prompt: str | Prompt,
+        model: type[BaseModel] | type[bool] | type[int] | None = None,
+        *,
+        contexts: Sequence[PromptContext] = (),
+        signals: Sequence[Signal | NlpSignal] | Signals | None = None,
+        when: Callable[[BaseHookEvent], bool] | None = None,
+        hook: str | None = None,
+        retries: int = 2,
+        max_context: int = 2000,
+        specialty: TSpecialty = "review",
+        size: TModel = "small",
+        agent: bool = False,
+        transcript: bool | int | Literal["recent", "full"] = False,
+        tool_results: bool = False,
+        budget: Budget | None = None,
+        diff: bool | str = False,
+        backend: TJudge = "jev",
+        escalate: Callable[[Any], bool] | None = None,
+    ) -> BaseModel | str | bool | int | None:
+        """Ask an LLM a question about this event and return a typed answer.
+
+        The public sugar over the LLM stack: delegates to [`llm_evaluate`][captain_hook.llm_evaluate]
+        (contexts, signals, once-per-turn throttling, retries with validation feedback), which calls
+        the backend through ``ctx.call_llm``. ``model`` picks the answer shape: ``None`` returns the
+        raw ``str`` reply, ``bool``/``int`` coerce through a single-field answer schema, and a
+        ``BaseModel`` subclass returns its validated instance. ``size`` picks the model tier
+        (``"small"``/``"medium"``/``"large"``).
+
+        A ``bool`` answer, or a model whose every field is categorical (see
+        :func:`~captain_hook.primitives.llm.verdict_questions`), goes to TypeSafe Jev instead of the
+        LLM unless ``backend="llm"``; a ``str`` reply, an ``int``, or any other model always asks
+        the LLM. ``escalate`` judges a model in two stages, as
+        [`llm_evaluate`][captain_hook.llm_evaluate] does: Jev decides its categorical fields, and
+        only a verdict ``escalate`` returns true for goes on to the LLM for the rest.
+
+        A skipped call — already fired this turn, or a ``required`` context came up empty — returns
+        ``None``; a call that still fails after ``retries`` re-asks raises, and so does a Jev call
+        that times out or errors. A question Jev refuses returns ``None``.
+
+        Example:
+            >>> if evt.llm("Is this print() call debug leftovers?", bool):
+            ...     return evt.warn("Drop the print before finishing.")
+        """
+        from captain_hook.primitives.llm import BoolAnswer, IntAnswer, llm_evaluate
+        from captain_hook.util.caller import hook_name
+
+        result = llm_evaluate(
+            self,
+            prompt,
+            {bool: BoolAnswer, int: IntAnswer}.get(model, model) if model is not None else None,
+            hook=hook or hook_name("llm", None, str(prompt)),
+            signals=signals,
+            when=when,
+            contexts=contexts,
+            max_context=max_context,
+            specialty=specialty,
+            model=size,
+            agent=agent,
+            transcript=transcript,
+            tool_results=tool_results,
+            budget=budget,
+            diff=diff,
+            retries=retries,
+            backend=backend,
+            escalate=escalate,
+        )
+        match result:
+            case BoolAnswer(answer=answer) | IntAnswer(answer=answer):
+                return answer
+            case _:
+                return result
+
+    def decide(
+        self,
+        state: str | Mapping[str, Any] | Sequence[Any],
+        questions: Mapping[str, Question],
+        *,
+        provider: TDecideProvider = "jev",
+        timeout: float = 3.0,
+    ) -> Decision | None:
+        """Ask a fast typed classifier about this event and return its answers, or ``None`` when it fails.
+
+        For questions that need no tools and no transcript reading of their own: one HTTP call to
+        TypeSafe Jev (``provider="jev"``) or OpenAI Decisions (``provider="openai"``) answers every
+        ``Binary``, ``Label``, and ``Score`` question in ``questions`` about ``state`` in about
+        120 ms. ``timeout`` caps the call, retries included, and the request's own deadline cuts
+        it shorter. A timeout, a provider error, or a missing key logs a warning and returns
+        ``None``, so the hook falls through as it would with no verdict; a rejected request or a
+        missing key also records a fault the next session start reports. A question the provider
+        declines answers ``Refused``. Decide on facts the text states; never let a decision about
+        text the agent wrote authorize anything.
+
+        Inline tests stub the call with ``Input(decide={...})``, so a test never reaches the network.
+
+        Example:
+            >>> from spawnllm import Binary, BinaryAnswer
+            >>> asked = {"rollback": Binary("Does the user ask to roll back a release?")}
+            >>> match (decision := evt.decide(evt.user_prompt or "", asked)) and decision.answers["rollback"]:
+            ...     case BinaryAnswer(p_yes=p_yes) if p_yes > 0.9:
+            ...         return evt.warn("Roll back with `ci release rollback`.")
+        """
+        from loguru import logger
+        from spawnllm import JEV, OPENAI, DecideError, DecideKeyMissing
+
+        from captain_hook.context import record_decide_failure
+
+        try:
+            return self.ctx.decide(state, questions, provider={"jev": JEV, "openai": OPENAI}[provider], timeout=timeout)
+        except (DecideError, DecideKeyMissing) as exc:
+            failure = record_decide_failure(provider, exc, str(self.cwd) if self.cwd else None)
+            logger.warning("decide ({}) failed: {}", provider, failure)
+        except TimeoutError as exc:
+            logger.warning("decide ({}) timed out: {}", provider, exc)
+        return None
+
+    def allow(self, *, system_message: str | None = None) -> HookResult:
+        from captain_hook.types import Action
+        from captain_hook.types import HookResult as HR
+
+        return HR(action=Action.allow, system_message=system_message)
+
+    @staticmethod
+    def _render_part(part: str | tuple[str, object] | object) -> str:
+        match part:
+            case str():
+                return part
+            case (str() as label, value):
+                return f"{label}: " + json.dumps(value, default=str)
+            case _:
+                return json.dumps(part, default=str)
+
+    def warn(self, *parts: str | tuple[str, object] | object, system_message: str | None = None) -> HookResult:
+        r"""Emit a warning whose parts are auto-rendered and joined with newlines.
+
+        Each part is rendered by form: a plain ``str`` passes through verbatim; a
+        ``(label, value)`` tuple becomes ``"{label}: {json}"`` with ``value``
+        JSON-encoded; any other object is JSON-encoded directly. Rendered parts are
+        joined with ``"\n"``.
+
+        Args:
+            *parts: Warning fragments, each a ``str``, a ``(label, value)`` tuple, or
+                any JSON-serializable object.
+            system_message: Text shown to the user as Claude Code's ``systemMessage``.
+
+        Returns:
+            A warn :class:`HookResult` carrying the joined message.
+        """
+        from captain_hook.types import Action
+        from captain_hook.types import HookResult as HR
+
+        return replace(
+            HR.of(Action.warn, "\n".join(self._render_part(p) for p in parts)), system_message=system_message
+        )
+
+    def context(self, *parts: str | tuple[str, object] | object, system_message: str | None = None) -> HookResult:
+        r"""Emit advisory context exactly like :meth:`warn`, but without pre-approving the tool.
+
+        Renders and joins *parts* through the same path as :meth:`warn`, then returns a
+        ``warn``-action result with ``approve=False``. On ``PreToolUse`` this drops the
+        ``permissionDecision: allow`` rider a plain warn carries, so the message surfaces as
+        pure ``additionalContext`` and Claude Code's own permission flow still decides the tool.
+        """
+        return replace(self.warn(*parts, system_message=system_message), approve=False)
+
+    def block(self, message: str, *, confirm: Confirm | None = None, system_message: str | None = None) -> HookResult:
+        """Block with ``message``; with ``confirm``, only once a small model confirms the match.
+
+        Args:
+            message: The rule the call breaks, then the remediation.
+            confirm: Send the block through :class:`~captain_hook.Confirm` before it lands; the call is
+                allowed with a one-line note when the model times out, fails, is unsure, or finds no match.
+            system_message: Text shown to the user as Claude Code's ``systemMessage``.
+        """
+        from captain_hook.types import Action
+        from captain_hook.types import HookResult as HR
+
+        return replace(HR.of(Action.block, message), confirm=confirm, system_message=system_message)
+
+
+@dataclass
+class ToolHookEvent(BaseHookEvent):
+    """Event for tool-related hooks, adding tool name, input, command, and file access."""
+
+    @property
+    def tool_name(self) -> str | None:
+        return self._raw.get("tool_name")
+
+    @property
+    def _tool_input(self) -> dict[str, Any]:
+        return self._raw.get("tool_input", {})
+
+    @property
+    def content(self) -> str | None:
+        match self.input:
+            case EditCall(new=new):
+                return new
+            case WriteCall(content=content):
+                return content
+            case MultiEditCall(edits=edits):
+                return "\n".join(span.new for span in edits)
+            case NotebookEditCall(new_source=new_source):
+                return new_source
+            case SpanEditCall(new=new):
+                return new
+            case _:
+                return None
+
+    @property
+    def old(self) -> str | None:
+        match self.input:
+            case EditCall(old=old):
+                return old
+            case MultiEditCall(edits=edits):
+                return "\n".join(span.old for span in edits)
+            case _:
+                return None
+
+    @property
+    def replaced(self) -> str | None:
+        """The pre-image of the text this call overwrites, when knowable.
+
+        An Edit's ``old`` and a MultiEdit's newline-joined olds carry the pre-image at
+        any event. A Write's pre-image is the file's current on-disk content — ``""``
+        for a new file, lossily decoded for non-UTF-8 bytes, ``None`` for a directory
+        or unreadable path — and only at ``PreToolUse``: once the Write lands, disk
+        already holds the new text, so any other event yields ``None``. A registered MCP
+        span-edit tool follows the Write arm — its opaque locator carries no ``old``
+        fragment, so the whole on-disk file stands in as a conservative pre-image (a
+        superset only suppresses, never misreports, an introduced construct). ``None``
+        for other tools.
+        """
+        match self.input:
+            case EditCall() | MultiEditCall():
+                return self.old
+            case WriteCall(file_path=path) if self.event is Event.PreToolUse:
+                return disk_pre_image(Path(path))
+            case SpanEditCall(file_path=path) if self.event is Event.PreToolUse:
+                return disk_pre_image(Path(path))
+            case _:
+                return None
+
+    @property
+    def edit(self) -> Edit | None:
+        """Structured before/after view of the pending edit, or ``None``.
+
+        ``None`` for non-edit tools, files without a supported grammar, and Writes off
+        ``PreToolUse`` (their pre-image is unknowable once the write lands — the same rule as
+        :attr:`replaced`). The pre side is :attr:`replaced`; the post side is :attr:`content`.
+        """
+        from captain_hook.ast_grep import Edit, lang_for_path
+
+        if (
+            not (file := self.file)
+            or not (lang := lang_for_path(file.path))
+            or (old := self.replaced) is None
+            or (new := self.content) is None
+        ):
+            return None
+        return Edit(old_text=old, new_text=new, lang=lang)
+
+    @cached_property
+    def pre_image(self) -> str | None:
+        """The full pre-edit file image for an Edit/MultiEdit/Write/span-edit, read from disk at PreToolUse.
+
+        ``None`` off ``PreToolUse`` — disk already holds the post-edit text — and for other tools.
+        Unlike :attr:`replaced` (an Edit's ``old`` fragment), this is always the whole file, so a
+        comment run's full extent is visible even when the edit touched only part of it.
+        """
+        if self.event is not Event.PreToolUse:
+            return None
+        match self.input:
+            case (
+                EditCall(file_path=path)
+                | MultiEditCall(file_path=path)
+                | WriteCall(file_path=path)
+                | SpanEditCall(file_path=path)
+            ):
+                return disk_pre_image(Path(path))
+            case _:
+                return None
+
+    @cached_property
+    def post_image(self) -> str | None:
+        """The full post-edit file image an Edit/MultiEdit/Write would produce, at PreToolUse.
+
+        A Write is its ``content``; an Edit applies ``old``→``new`` to :attr:`pre_image` (once, or
+        every occurrence when ``replace_all``); a MultiEdit folds its spans in order. A registered MCP
+        span-edit tool yields ``None``: its opaque locator can't be resolved to a position without the
+        tool, so the post-image can't be simulated. ``None`` too when a span's ``old`` is absent from
+        the running image (the tool call would fail), off ``PreToolUse``, or for other tools.
+        """
+        if self.event is not Event.PreToolUse:
+            return None
+        match self.input:
+            case WriteCall(content=content):
+                return content
+            case EditCall(old=old, new=new, replace_all=replace_all):
+                return apply_edit(self.pre_image, old, new, replace_all)
+            case MultiEditCall(edits=edits):
+                image = self.pre_image
+                for span in edits:
+                    image = apply_edit(image, span.old, span.new, span.replace_all)
+                return image
+            case _:
+                return None
+
+    @property
+    def agent_type(self) -> str | None:
+        return call.agent_type if isinstance(call := self.input, TaskCall) else None
+
+    def command_matches(self, *patterns: str) -> bool:
+        if (primary := self.cmd.line.primary) is None:
+            return False
+        return any(primary.matches(p) for p in patterns)
+
+    def file_matches(self, *globs: str) -> bool:
+        return bool(self.file) and self.file.matches(*globs)
+
+    def content_matches(self, pattern: str) -> bool:
+        return bool(self.content) and bool(re.search(pattern, self.content, re.MULTILINE))
+
+
+@dataclass
+class ToolRewriteEvent(ToolHookEvent):
+    """Tool event whose input can be rewritten before it runs.
+
+    Base for the events where Claude Code accepts an ``updatedInput`` decision
+    (``PreToolUse`` and ``PermissionRequest``), adding the ``rewrite*`` helpers.
+    """
+
+    def rewrite(self, updated_input: dict[str, Any], *, note: str | None = None) -> HookResult:
+        """Allow the tool but replace its input with ``updated_input`` (Claude Code's ``updatedInput``).
+
+        ``updated_input`` must satisfy the same tool's schema; ``note`` surfaces as
+        ``additionalContext`` so the model sees that its input was rewritten.
+        """
+        from captain_hook.types import Action
+        from captain_hook.types import HookResult as HR
+
+        return HR(action=Action.rewrite, updated_input=updated_input, note=note)
+
+    def rewrite_command(self, new_command: str, *, note: str | None = None) -> HookResult:
+        """Rewrite a Bash command in place, replacing ``command`` while preserving the rest of the tool input."""
+        return self.rewrite({**self._tool_input, "command": new_command}, note=note)
+
+    def rewrite_content(self, transform: Callable[[str], str], *, note: str | None = None) -> HookResult | None:
+        """Rewrite each editable-content field through ``transform``, allowing the tool with the result.
+
+        Maps the transform onto whichever field holds new source for this tool — an Edit's
+        ``new_string``, a Write's ``content``, a NotebookEdit's ``new_source``, or every span of a
+        MultiEdit's ``edits`` — and preserves the rest of the input. Returns None (a no-op) when
+        ``transform`` leaves every field unchanged, so callers stay idempotent.
+        """
+        base = self._tool_input
+        match self.input:
+            case EditCall():
+                updated = base | {"new_string": transform(base["new_string"])}
+            case WriteCall():
+                updated = base | {"content": transform(base["content"])}
+            case NotebookEditCall():
+                updated = base | {"new_source": transform(base["new_source"])}
+            case MultiEditCall():
+                updated = base | {"edits": [e | {"new_string": transform(e["new_string"])} for e in base["edits"]]}
+            case _:
+                return None
+        return self.rewrite(updated, note=note) if updated != base else None
+
+
+@dataclass
+class PreToolUseEvent(ToolRewriteEvent):
+    """Fires before a tool is executed. Return a block result to prevent execution."""
+
+    event_name: ClassVar[Event] = Event.PreToolUse
+
+
+@dataclass
+class PermissionRequestEvent(ToolRewriteEvent):
+    """Fires when a permission dialog would be shown.
+
+    ``allow``/``block``/``rewrite`` answer the dialog (block maps to a deny with the
+    message shown to the user); ``None`` and ``warn`` fall through, so the dialog
+    shows normally.
+    """
+
+    event_name: ClassVar[Event] = Event.PermissionRequest
+
+    @property
+    def permission_suggestions(self) -> list[dict[str, Any]]:
+        return self._raw.get("permission_suggestions", [])
+
+    @property
+    def agent_type(self) -> str | None:
+        return self._raw.get("agent_type")
+
+
+@dataclass
+class PostToolUseEvent(ToolHookEvent):
+    """Fires after a tool completes successfully, with access to the tool response."""
+
+    event_name: ClassVar[Event] = Event.PostToolUse
+
+    @property
+    def tool_response(self) -> str | None:
+        return self._raw.get("tool_response")
+
+
+@dataclass
+class PostToolUseFailureEvent(ToolHookEvent):
+    """Fires after a tool fails, providing the error message and interrupt status."""
+
+    event_name: ClassVar[Event] = Event.PostToolUseFailure
+
+    @property
+    def error(self) -> str:
+        return self._raw["error"]
+
+    @property
+    def is_interrupt(self) -> bool:
+        return self._raw.get("is_interrupt", False)
+
+
+@dataclass
+class UserPromptSubmitEvent(BaseHookEvent):
+    """Fires when the user submits a prompt, before the agent processes it."""
+
+    event_name: ClassVar[Event] = Event.UserPromptSubmit
+
+
+@dataclass
+class StopEvent(BaseHookEvent):
+    """Fires when the agent is about to stop. Return a block result to prevent stopping."""
+
+    event_name: ClassVar[Event] = Event.Stop
+
+
+@dataclass
+class SubagentStopEvent(BaseHookEvent):
+    """Fires when a subagent finishes. Provides ``agent_type`` for filtering."""
+
+    event_name: ClassVar[Event] = Event.SubagentStop
+
+    @property
+    def agent_type(self) -> str | None:
+        return self._raw.get("agent_type") or self._raw.get("tool_input", {}).get("subagent_type")
+
+
+@dataclass
+class SubagentStartEvent(BaseHookEvent):
+    """Fires when a subagent is launched. Provides ``agent_type`` for filtering."""
+
+    event_name: ClassVar[Event] = Event.SubagentStart
+
+    @property
+    def agent_type(self) -> str | None:
+        return self._raw.get("agent_type") or self._raw.get("tool_input", {}).get("subagent_type")
+
+
+@dataclass
+class PreCompactEvent(BaseHookEvent):
+    """Fires before context compaction, providing the trigger and custom instructions."""
+
+    event_name: ClassVar[Event] = Event.PreCompact
+
+    @property
+    def trigger(self) -> str | None:
+        return self._raw.get("trigger")
+
+    @property
+    def custom_instructions(self) -> str | None:
+        return self._raw.get("custom_instructions")
+
+
+@dataclass
+class NotificationEvent(BaseHookEvent):
+    """Fires on system notifications, providing message, title, and notification type."""
+
+    event_name: ClassVar[Event] = Event.Notification
+
+    @property
+    def message(self) -> str | None:
+        return self._raw.get("message")
+
+    @property
+    def title(self) -> str | None:
+        return self._raw.get("title")
+
+    @property
+    def notification_type(self) -> str | None:
+        return self._raw.get("notification_type")
+
+
+@dataclass
+class MessageDisplayEvent(BaseHookEvent):
+    """Fires once per streamed chunk of an assistant message; a ``rewrite`` replaces the chunk's displayed text.
+
+    ``message_id`` groups the chunks of one message, ``index`` orders them from ``0``, ``final`` marks the
+    last chunk, and ``delta`` is this chunk's text fragment, not the cumulative message.
+    """
+
+    event_name: ClassVar[Event] = Event.MessageDisplay
+
+    @property
+    def message_id(self) -> str:
+        return self._raw["message_id"]
+
+    @property
+    def index(self) -> int:
+        return self._raw["index"]
+
+    @property
+    def final(self) -> bool:
+        return self._raw["final"]
+
+    @property
+    def delta(self) -> str:
+        return self._raw["delta"]
+
+
+@dataclass
+class SessionStartEvent(BaseHookEvent):
+    """Fires when a session starts, providing what triggered it. Warns inject context; it cannot block.
+
+    ``source`` is one of ``"startup"``, ``"resume"``, ``"clear"``, or ``"compact"``.
+    """
+
+    event_name: ClassVar[Event] = Event.SessionStart
+
+    @property
+    def source(self) -> str:
+        return self._raw["source"]
+
+
+@dataclass
+class SessionEndEvent(BaseHookEvent):
+    """Fires when the session ends, providing the termination reason. Output is ignored, so it cannot block."""
+
+    event_name: ClassVar[Event] = Event.SessionEnd
+
+    @property
+    def reason(self) -> str:
+        return self._raw["reason"]
+
+
+@dataclass
+class ResourcePressureEvent(BaseHookEvent):
+    """Fired by the capt-hookd host, not Claude Code, when a session's child process stays resource-heavy.
+
+    ``stage`` is ``"warn"`` on the first sustained sample, ``"judge"`` once the grace period lapses with the
+    child still heavy, and ``"escalate"`` when the child outlives a ``SIGTERM``. ``process`` carries the
+    child's identity (``pid``, ``start_unix``, ``argv``, ``cwd``) and usage; ``metrics`` marks which usage
+    readings were available. Only the warn stage's reply is read: a warn or allow acknowledges it, and any
+    other result makes the host stop tracking the child. The judge and escalate replies are not read.
+
+    The host tracks the child by its pid and sub-second start time at every tick and reads the argv vector it
+    sends fresh at each stage dispatch. The worker verifies again right before a signal with what ``ps``
+    exposes: the parent and group ids, the whole-second start time, the working directory, and the
+    whitespace-normalized joined command text, which is not the argv vector, so two argument vectors that
+    join to the same text compare equal there.
+    """
+
+    event_name: ClassVar[Event] = Event.ResourcePressure
+
+    @property
+    def stage(self) -> Literal["warn", "judge", "escalate"]:
+        return self._raw["stage"]
+
+    @property
+    def process(self) -> Mapping[str, object]:
+        return self._raw["process"]
+
+    @property
+    def pid(self) -> int:
+        return self._raw["process"]["pid"]
+
+    @property
+    def ppid(self) -> int:
+        return self._raw["process"]["ppid"]
+
+    @property
+    def pgid(self) -> int:
+        return self._raw["process"]["pgid"]
+
+    @property
+    def start_unix(self) -> int:
+        return self._raw["process"]["start_unix"]
+
+    @property
+    def start_usec(self) -> int:
+        return self._raw["process"]["start_usec"]
+
+    @property
+    def comm(self) -> str:
+        return self._raw["process"]["comm"]
+
+    @property
+    def argv(self) -> tuple[str, ...]:
+        return tuple(self._raw["process"]["argv"])
+
+    @property
+    def process_cwd(self) -> str | None:
+        return self._raw["process"].get("cwd")
+
+    @property
+    def runtime_s(self) -> float:
+        return self._raw["process"]["runtime_s"]
+
+    @property
+    def cpu_fraction(self) -> float | None:
+        return self._raw["process"]["cpu_fraction"] if self.metrics["cpu"] else None
+
+    @property
+    def disk_bps(self) -> float | None:
+        return self._raw["process"]["disk_bps"] if self.metrics["disk"] else None
+
+    @property
+    def metrics(self) -> Mapping[str, bool]:
+        return self._raw["metrics"]
+
+    @property
+    def claude_pid(self) -> int:
+        return self._raw["claude_pid"]
+
+    @property
+    def claude_start_unix(self) -> int:
+        return self._raw["claude_start_unix"]

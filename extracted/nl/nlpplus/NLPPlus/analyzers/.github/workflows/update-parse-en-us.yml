@@ -1,0 +1,130 @@
+# Install at: VisualText/package-analyzers -> .github/workflows/update-parse-en-us.yml
+#
+# Listener in the cross-repo percolation chain (see
+# VisualText/nlp-engine/docs/PERCOLATION.md).
+#
+# 1. Pulls the latest commit of the parse-en-us submodule's default branch (main).
+# 2. Computes a new semver tag by bumping the latest vX.Y.Z tag.
+# 3. Commits the submodule pointer change, tags, and pushes.
+# 4. Cuts a GitHub release at the new tag. Pushing the v* tag fires
+#    dispatch-update-package-analyzers.yml, which pings the npm and Python
+#    packages to refresh their analyzers submodule.
+#
+# Triggered by parse-en-us (event-type parse-en-us-release) on its release, or
+# by hand. A repository_dispatch ping carries no inputs, so the bump defaults to
+# patch.
+
+name: Update parse-en-us & Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver component to bump"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      create_release:
+        description: "Create a GitHub release at the new tag"
+        required: true
+        default: true
+        type: boolean
+  repository_dispatch:
+    types: [parse-en-us-release]
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules and full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.CLASSIC_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Update parse-en-us to latest main
+        id: submodule
+        run: |
+          set -euo pipefail
+          before=$(git -C parse-en-us rev-parse HEAD)
+          git -C parse-en-us fetch origin main
+          git -C parse-en-us checkout origin/main
+          git -C parse-en-us submodule update --init --recursive
+          after=$(git -C parse-en-us rev-parse HEAD)
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "after=$after"   >> "$GITHUB_OUTPUT"
+          if [ "$before" = "$after" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "parse-en-us already at $after"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "parse-en-us: $before -> $after"
+          fi
+
+      - name: Compute next version
+        id: version
+        run: |
+          set -euo pipefail
+          bump="${{ inputs.bump }}"
+          bump="${bump:-patch}"   # repository_dispatch has no inputs
+          latest=$(git tag --sort=-v:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | head -n1 || true)
+          latest=${latest:-v0.0.0}
+          IFS='.' read -r major minor patch <<<"${latest#v}"
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          new="v${major}.${minor}.${patch}"
+          echo "previous=$latest" >> "$GITHUB_OUTPUT"
+          echo "new=$new"         >> "$GITHUB_OUTPUT"
+          echo "Bumping $latest -> $new"
+
+      - name: Commit submodule update
+        if: steps.submodule.outputs.changed == 'true'
+        run: |
+          git add parse-en-us
+          git commit -m "Update parse-en-us to ${{ steps.submodule.outputs.after }} (${{ steps.version.outputs.new }})"
+
+      - name: Tag and push
+        run: |
+          set -euo pipefail
+          git tag -a "${{ steps.version.outputs.new }}" \
+            -m "Release ${{ steps.version.outputs.new }}"
+          git push origin HEAD
+          git push origin "${{ steps.version.outputs.new }}"
+
+      - name: Create GitHub release
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.create_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new }}
+          name: ${{ steps.version.outputs.new }}
+          generate_release_notes: true
+          token: ${{ secrets.CLASSIC_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Update parse-en-us & bump version"
+            echo ""
+            echo "- previous tag: \`${{ steps.version.outputs.previous }}\`"
+            echo "- new tag: \`${{ steps.version.outputs.new }}\`"
+            echo "- parse-en-us changed: \`${{ steps.submodule.outputs.changed }}\`"
+            echo "- parse-en-us: \`${{ steps.submodule.outputs.before }}\` → \`${{ steps.submodule.outputs.after }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

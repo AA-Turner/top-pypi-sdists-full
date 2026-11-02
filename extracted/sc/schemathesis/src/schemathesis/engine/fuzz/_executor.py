@@ -16,6 +16,7 @@ from hypothesis.errors import Flaky, FlakyStrategyDefinition, Unsatisfiable, Uns
 from hypothesis.strategies import one_of, sampled_from
 from urllib3.exceptions import InsecureRequestWarning
 
+from schemathesis.core import NotSet
 from schemathesis.core.control import SkipTest
 from schemathesis.core.failures import FailureGroup
 from schemathesis.core.result import Ok
@@ -27,7 +28,7 @@ from schemathesis.engine._rate_limit_retry import TRANSPORT_ERRORS, send_tracked
 from schemathesis.engine.control import BudgetExpired
 from schemathesis.engine.errors import build_code_sample, is_inconsistent_replay
 from schemathesis.engine.recorder import ScenarioRecorder
-from schemathesis.engine.run import PhaseName
+from schemathesis.engine.run import PhaseName, relay_events
 from schemathesis.generation import overrides
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis.reporting import FILTER_CASE_EXHAUSTED_MESSAGE, build_unsatisfiable_error
@@ -142,25 +143,34 @@ class FuzzPlan:
     weighted_operations: list[APIOperation]
     operations_by_label: dict[str, APIOperation]
     continue_on_failure_by_label: dict[str, bool]
+    unique_inputs_by_label: dict[str, bool]
 
 
 def build_fuzz_plan(ctx: EngineContext, *, operations: list[APIOperation]) -> FuzzPlan:
     """Resolve settings, sampling weights and per-operation flags once for all workers."""
     import hypothesis
-    from hypothesis import Phase
+    from hypothesis import HealthCheck, Phase
 
     weights_by_label = ctx.schema.compute_fuzz_operation_weights(operations)
+    unique_inputs_by_label = {op.label: ctx.config.generation_for(operation=op).unique_inputs for op in operations}
+    settings = ctx.config.get_hypothesis_settings(apply_ci_profile=False)
+    suppress_health_check = list(settings.suppress_health_check)
+    if any(unique_inputs_by_label.values()):
+        # Once inputs run out, most scenarios repeat sent ones and are rejected; drawing them is not slow generation.
+        suppress_health_check.extend([HealthCheck.filter_too_much, HealthCheck.too_slow])
     return FuzzPlan(
         hypothesis_settings=hypothesis.settings(
-            ctx.config.get_hypothesis_settings(apply_ci_profile=False),
+            settings,
             max_examples=FUZZ_MAX_EXAMPLES,
             phases=[Phase.generate, Phase.reuse],
             deadline=None,
+            suppress_health_check=suppress_health_check,
         ),
         operations=operations,
         weighted_operations=[op for op in operations for _ in range(weights_by_label[op.label])],
         operations_by_label={operation.label: operation for operation in operations},
         continue_on_failure_by_label={op.label: ctx.config.continue_on_failure_for(operation=op) for op in operations},
+        unique_inputs_by_label=unique_inputs_by_label,
     )
 
 
@@ -209,16 +219,10 @@ def _relay_events(
     ctx: EngineContext, *, event_queue: queue.Queue[events.EngineEvent], threads: list[threading.Thread]
 ) -> EventGenerator:
     """Yield worker events, counting failed scenarios, until every worker has exited."""
-    while True:
-        try:
-            event = event_queue.get(timeout=EVENT_QUEUE_TIMEOUT)
-            if isinstance(event, events.FuzzScenarioFinished) and event.status in (Status.FAILURE, Status.ERROR):
-                ctx.control.count_failure(event.id)
-            yield event
-        except queue.Empty:
-            # A worker may put its last event and exit after the poll timed out.
-            if not any(t.is_alive() for t in threads) and event_queue.empty():
-                break
+    for event in relay_events(event_queue, threads, timeout=EVENT_QUEUE_TIMEOUT):
+        if isinstance(event, events.FuzzScenarioFinished) and event.status in (Status.FAILURE, Status.ERROR):
+            ctx.control.count_failure(event.id)
+        yield event
 
 
 def _run_forever(
@@ -269,8 +273,8 @@ def _run_forever(
     except KeyboardInterrupt:
         ctx.stop()
         yield events.Interrupted(phase=None)
-    except GeneratorExit:
-        # The consumer stopped reading events, so wind workers down instead of fuzzing forever.
+    except BaseException:
+        # The consumer stopped reading events or failed, so wind workers down instead of fuzzing forever.
         ctx.stop()
         raise
     finally:
@@ -360,6 +364,21 @@ def _draw_case(
         return None
 
 
+# Workers share the record of sent inputs, so checking and claiming an input must not interleave.
+_SENT_INPUTS_LOCK = threading.Lock()
+
+
+def _claim_input(ctx: EngineContext, case: Case) -> bool:
+    """Claim an input for sending; `False` when it was already sent in this run."""
+    # Hooks may change the case before it is sent; it is identified by what was generated.
+    key = hash(case)
+    with _SENT_INPUTS_LOCK:
+        if not isinstance(ctx.get_cached_outcome(key), NotSet):
+            return False
+        ctx.cache_outcome(key, None)
+    return True
+
+
 def _send_step(
     ctx: EngineContext,
     case: Case,
@@ -381,7 +400,8 @@ def _send_step(
         recorder.forget_case(case_id=case.id)
         return None
     except TRANSPORT_ERRORS as exc:
-        if isinstance(exc, requests.ConnectionError) and ctx.detect_server_outage(exc):
+        outage = isinstance(exc, requests.ConnectionError) and ctx.detect_server_outage(exc)
+        if outage and ctx.server.is_after_outage(exc):
             # The outage stops the run, but the steps the server answered before it went away still get checked.
             return None
         recorder.record_network_error(case_id=case.id, error=exc)
@@ -406,7 +426,8 @@ def _validate_scenario(
     """Run all checks against every answered step; raises the first failure unless it may continue."""
     # Every step is already sent, so a failure only ends the run after the remaining responses are checked.
     first_failure: FailureGroup | None = None
-    for case_id, node in recorder.cases.items():
+    # Checks record their probe requests into the same scenario.
+    for case_id, node in list(recorder.cases.items()):
         interaction = recorder.interactions.get(case_id)
         if interaction is None or interaction.response is None:
             continue
@@ -502,8 +523,14 @@ def _handle_session_end(
     exc: FailureGroup | Exception | KeyboardInterrupt,
     *,
     operations: list[APIOperation],
+    scenario_error: Exception | None,
+    rejected_duplicates: bool,
     event_queue: queue.Queue[events.EngineEvent],
 ) -> None:
+    if isinstance(exc, (_StopFuzzing, Flaky)) and scenario_error is not None:
+        # The replay was stopped or did not raise the error again.
+        event_queue.put(_suite_error(scenario_error))
+        return
     if isinstance(exc, _StopFuzzing):
         # This worker has no work left; other workers keep running.
         return
@@ -514,6 +541,9 @@ def _handle_session_end(
         ctx.control.reach_failure_limit()
     elif isinstance(exc, Flaky) and ctx.has_to_stop:
         # Deadline-induced data-tree noise; campaign already stopping, suppress.
+        return
+    elif isinstance(exc, Unsatisfiable) and rejected_duplicates:
+        # Every input this worker drew was already sent, e.g. by other workers.
         return
     elif isinstance(exc, Unsatisfiable):
         event_queue.put(_suite_error(_explain_unsatisfiable(exc, operations)))
@@ -552,10 +582,15 @@ def _run_forever_thread(
 
     # Per-thread dedup: suppress repeated NonFatalError events for the same operation.
     seen_error_labels: set[str] = set()
+    # Hypothesis reports an error only when replaying its scenario raises it again, which the time limit can prevent.
+    scenario_errors: list[Exception] = []
+    # Set once a scenario is rejected because every input in it was already sent.
+    rejected_duplicates = False
 
     @st.composite
     def scheduler(draw: hypothesis.strategies.DrawFn) -> tuple[ScenarioRecorder, dict[str, list[Response]]]:
         """Compose a scenario: weighted-random producers, then link-biased follow-ups."""
+        nonlocal rejected_duplicates
         if _must_stop_worker(ctx, weighted_operations=weighted_operations, scenario_started=scenario_started):
             raise _StopFuzzing
 
@@ -567,6 +602,7 @@ def _run_forever_thread(
         excluded_operations: set[str] = set()
 
         last_step: tuple[APIOperation, Case, Response] | None = None
+        skipped_duplicate = False
 
         for step in range(MAX_SCENARIO_STEPS):
             if step > 0 and ctx.has_to_stop:
@@ -593,6 +629,10 @@ def _run_forever_thread(
             )
             if case is None:
                 continue
+            if plan.unique_inputs_by_label[operation.label] and not _claim_input(ctx, case):
+                # A failure is reported once, with the scenario that first sent the input.
+                skipped_duplicate = True
+                continue
             recorder.record_case(case=case)
             sent = _send_step(
                 ctx,
@@ -610,6 +650,10 @@ def _run_forever_thread(
             recorder.record_response(case_id=case.id, response=response)
             last_step = (operation, case, response)
 
+        if skipped_duplicate and not recorder.cases:
+            # Rejecting lets Hypothesis end the session once scenarios rarely find an input not sent yet.
+            rejected_duplicates = True
+            hypothesis.reject()
         # A draw Hypothesis rejects must not spend the one scenario allowed past the time limit.
         scenario_started.set()
         _start_scenario(
@@ -640,6 +684,8 @@ def _run_forever_thread(
             )
         except (FailureGroup, Exception, KeyboardInterrupt) as exc:
             status = _status_for(exc)
+            if isinstance(exc, Exception):
+                scenario_errors.append(exc)
             raise
         finally:
             _finish_scenario(
@@ -661,5 +707,12 @@ def _run_forever_thread(
                 if seed is not None:
                     seed += 1
                 continue
-            _handle_session_end(ctx, exc, operations=plan.operations, event_queue=event_queue)
+            _handle_session_end(
+                ctx,
+                exc,
+                operations=plan.operations,
+                scenario_error=scenario_errors[0] if scenario_errors else None,
+                rejected_duplicates=rejected_duplicates,
+                event_queue=event_queue,
+            )
         return

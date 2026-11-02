@@ -24,7 +24,8 @@ import time
 import pytest
 
 from probe._shared import scrub
-from probe.cli import autoupdate, updater, upgrading
+from probe.cli import autoupdate
+from probe.cli.install import updater, upgrade as upgrading
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 from probe.shared.updates import update_report, updates as versions
 
@@ -283,7 +284,7 @@ def test_a_retired_codex_tap_is_reported(monkeypatch, sent):
     monkeypatch.setattr(updater.plugin_cli, "refresh_marketplace", lambda source, market: ok)
     monkeypatch.setattr(updater.plugin_cli, "install", lambda source, plugin_id: ok)
     listed = {"probe-research": "0.120.0", "prbe-codex-tap-plugin": "0.9.3"}
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda codex=None: dict(listed))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda codex=None: dict(listed))
 
     _update()
 
@@ -299,7 +300,11 @@ def test_an_editable_cli_is_behind_with_the_reason(tmp_path, monkeypatch, sent):
         "detect_install",
         lambda: updater.Install(updater.Method.EDITABLE, detail="editable / source checkout"),
     )
-    monkeypatch.setattr(upgrading, "__version__", "0.218.1")
+    monkeypatch.setattr("probe.cli.install.updater.cli_installs.ephemeral.__version__", "0.218.1")
+    monkeypatch.setattr(upgrading.finish, "__version__", "0.218.1")
+    monkeypatch.setattr(upgrading.package_step, "__version__", "0.218.1")
+    monkeypatch.setattr(upgrading.prelude, "__version__", "0.218.1")
+    monkeypatch.setattr(upgrading.turn, "__version__", "0.218.1")
     _which(monkeypatch)
 
     _update(update_report.Trigger.MANUAL)
@@ -595,8 +600,12 @@ def test_an_unparseable_version_is_sent_as_unknown():
 def test_a_cli_tool_missing_from_path(monkeypatch):
     """`upgrade_cli` flags it structurally; the report reads the flag, not the
     wording of the message."""
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: None)  # no `uv` at all
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: None)  # no `uv` at all
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: None)  # no `uv` at all
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: None)  # no `uv` at all
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     res = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.218.1", "0.221.0")
     assert res.missing_binary
 

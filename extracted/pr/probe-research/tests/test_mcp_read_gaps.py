@@ -732,22 +732,14 @@ def test_an_explicit_null_query_or_prefix_means_absent(client, app):
     assert "prefix" not in _params(app, "/v1/shared/files")[-1]
 
 
-def test_the_runs_mode_says_it_lists_filed_runs_and_where_unfiled_ones_are(client):
-    """GET /v1/runs answers FILED runs only (0260), so "every run" overstated
-    what mode=runs returns; unfiled runs are on the browse root."""
+def test_the_runs_mode_says_what_it_lists(client):
+    """mode=runs is the team's runs, newest first -- never "my" runs."""
     tools = asyncio.run(_server(client).list_tools())
     description = next(t for t in tools if t.name == "browse").description
     assert "every run filed under a project" in description
     assert "the team's last N runs" in description
-    assert "Unfiled runs are in browse with no `ref`" in description
+    assert "Unfiled" not in description  # retired with 0418
     assert "my last N runs" not in description
-
-
-def test_runs_mode_does_not_list_unfiled_runs(client, app):
-    filed = _seed_run(app, "filed")
-    _seed_run(app, "floating", project_id=None)
-    out = _call(_server(client), "browse", {"mode": "runs"})
-    assert [row["uuid"] for row in out["data"]["runs"]] == [f"run:{filed}"]
 
 
 def test_browse_mode_tables_and_signature_are_the_same_set(client):

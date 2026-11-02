@@ -1,0 +1,20 @@
+description: Share of eligible Housing Benefit recipients that participate. Not used by
+  the model. Data-built simulations default to positive reported Housing Benefit claims
+  only (d1455 following d1390). Hand-entered households use positive reported Housing
+  Benefit or their per-benefit-unit claims_all_entitled_benefits flag. Direct take-up
+  inputs override either default. Pension-age families can make new claims;
+  working-age families only continue existing awards.
+metadata:
+  economy: false
+  label: Housing benefit take-up rate
+  propagate_metadata_to_children: true
+  unit: /1
+  period: year
+values:
+  2019-01-01: 1
+  2020-01-01: 1
+  2021-01-01: 1
+  2022-01-01: 1
+  2023-01-01: 1
+  2024-01-01: 1
+  2025-01-01: 1

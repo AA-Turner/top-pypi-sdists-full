@@ -1,13 +1,17 @@
-"""ride neighbouring metric ops in one POST and split the batch when it fails."""
+"""Ride a run's neighbouring telemetry ops in few POSTs: its metric ops in one `/metrics` POST and
+its step records in one `/steps/batch` POST (one pass, plan T4); split a batch when it fails."""
 
 from __future__ import annotations
 import json
+import time
 from pathlib import Path
 from typing import Callable
 from .... import errors
 # At module load, not in the drain: a module first imported while a script exits clears
 # its pending KeyboardInterrupt (tests/test_ctrlc_exit_code.py).
 from ....values import unstorable
+from .... import routes
+from ....routes import WriteOp
 
 
 # -- coalesced delivery (plan 1.2) ---------------------------------------------
@@ -16,11 +20,20 @@ from ....values import unstorable
 #: points; a smaller request fails and retries cheaper and keeps one server transaction short).
 MERGE_MAX_POINTS = 5_000
 MERGE_MAX_BYTES = 2 * 1024 * 1024
+#: Step records per `POST /v1/runs/{id}/steps/batch`: the server's cap (`StepBatch`).
+STEPS_MAX = 1_000
+
+
+def _delivery_headers(op: dict) -> list:
+    """What one request carries once for every op in it (`_delivery_scope`): the queuing agent
+    session, its 5-minute effort bucket and the write origin. Ops differing here go apart
+    (review of #3785, I13), as an upload window's do."""
+    return [op.get("agent_session"), _queued_bucket(op), op.get("write_origin")]
 
 
 def _merge_key(op: dict) -> str | None:
     """What a metric op must share with its neighbours to ride in one POST (everything but its
-    points), or None when it never merges.
+    points, and its `_delivery_headers`), or None when it never merges.
 
     Only a logged metrics POST to a run named by its id whose EVERY point has a step or a
     client wall clock: an unstepped point without a timestamp takes the server's transaction
@@ -29,8 +42,8 @@ def _merge_key(op: dict) -> str | None:
     """
     if op.get("kind") != "http" or op.get("method") != "POST" or op.get("correlation"):
         return None
-    match = _METRICS_ROUTE.fullmatch(op.get("path") or "")
-    if match is None or not _is_uuid(match.group(1)):
+    route = routes.classify("POST", op.get("path"))
+    if route.op is not WriteOp.METRICS or not route.exact or not _is_uuid(route.run):
         return None
     body = op.get("body")
     points = body.get("points") if isinstance(body, dict) else None
@@ -52,6 +65,7 @@ def _merge_key(op: dict) -> str | None:
                 op.get("blocking", True),
                 bool(op.get("best_effort")),
                 rest,
+                _delivery_headers(op),
             ],
             sort_keys=True,
         )
@@ -59,41 +73,140 @@ def _merge_key(op: dict) -> str | None:
         return None
 
 
-def _coalesce(
+#: The server feature that serves `POST /v1/runs/{id}/steps/batch`.
+STEPS_BATCH_FEATURE = "steps_batch"
+
+
+def _step_key(op: dict) -> str | None:
+    """What a step op must share with its neighbours to ride in one `/steps/batch` POST (its
+    run, context, writer session and epoch, and its `_delivery_headers`), or None when it
+    never merges."""
+    if op.get("kind") != "http" or op.get("method") != "POST" or op.get("correlation"):
+        return None
+    route = routes.classify("POST", op.get("path"))
+    if route.op is not WriteOp.STEPS or not route.exact or not _is_uuid(route.run):
+        return None
+    body = op.get("body")
+    step = body.get("step_index") if isinstance(body, dict) else None
+    if not isinstance(step, int) or isinstance(step, bool):
+        return None
+    try:
+        return json.dumps(
+            [
+                op.get("run_ref"),
+                op.get("context"),
+                op.get("attribution"),
+                op.get("path"),
+                op.get("blocking", True),
+                bool(op.get("best_effort")),
+                body.get("session_id"),
+                body.get("write_epoch"),
+                _delivery_headers(op),
+            ],
+            sort_keys=True,
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _partition(
     lane: list[tuple[Path, dict]],
     start: int,
     held_back: str | None,
     *,
     still_queued: Callable[[Path, dict], bool] | None = None,
-) -> list:
-    """The ops from ``lane[start]`` on that ride in one POST, or [] when fewer than two would:
-    consecutive, same `_merge_key`, not held back behind a waiting upload, within the point
-    and byte caps. ``still_queued(path, op)`` (a pass that let go of the drain lock, #3618)
-    leaves out an op another drain sent meanwhile and re-reads a changed one."""
+) -> tuple[list, list]:
+    """ONE walk of a run's lane from ``lane[start]`` (plan T4): metric ops sharing the first
+    metric op's `_merge_key` go in the first list, step ops sharing the first step's
+    `_step_key` in the second, interleaved as `Run.log` writes them. It stops at the first
+    other op, a second key, an op that already failed (a retry goes alone), an op held back
+    behind a waiting upload, or a cap. ([], []) unless one list holds two or more: the head
+    then goes alone, as before."""
     if start >= len(lane):
-        return []
-    head_key = _merge_key(lane[start][1])
-    if head_key is None or _attempts(lane[start][1]) > 0:
-        # An op that already failed goes alone: were it the poison in a batch, merging it
-        # again would pin its failure on the head every pass (review of #2053).
-        return []
-    batch: list[tuple[Path, dict]] = []
-    points = size = 0
+        return [], []
+    head = lane[start][1]
+    if _attempts(head) > 0 or (_merge_key(head) is None and _step_key(head) is None):
+        return [], []
+    metrics: list = []
+    steps: list = []
+    metric_key = step_key = None
+    points = size = step_size = 0
     for path, op in lane[start:]:
-        if batch and (held_back is not None and path.name > held_back):
-            break
-        if batch and still_queued is not None and not still_queued(path, op):
+        if metrics or steps:
+            if held_back is not None and path.name > held_back:
+                break
+            if still_queued is not None and not still_queued(path, op):
+                continue
+            if _attempts(op) > 0 or op.get("context") != head.get("context"):
+                break
+        key = _merge_key(op)
+        if key is not None:
+            if metric_key is not None and key != metric_key:
+                break
+            count = len(op["body"]["points"])
+            weight = len(json.dumps(op["body"]["points"]))
+            if metrics and (points + count > MERGE_MAX_POINTS or size + weight > MERGE_MAX_BYTES):
+                break
+            metric_key = key
+            metrics.append((path, op))
+            points += count
+            size += weight
             continue
-        if _merge_key(op) != head_key or (batch and _attempts(op) > 0):
+        key = _step_key(op)
+        if key is None or (step_key is not None and key != step_key):
             break
-        count = len(op["body"]["points"])
-        weight = len(json.dumps(op["body"]["points"]))
-        if batch and (points + count > MERGE_MAX_POINTS or size + weight > MERGE_MAX_BYTES):
+        weight = len(json.dumps(op["body"]))
+        if steps and (len(steps) >= STEPS_MAX or step_size + weight > MERGE_MAX_BYTES):
             break
-        batch.append((path, op))
-        points += count
-        size += weight
-    return batch if len(batch) > 1 else []
+        step_key = key
+        steps.append((path, op))
+        step_size += weight
+    if len(metrics) < 2 and len(steps) < 2:
+        return [], []
+    return metrics, steps
+
+
+#: Per base URL: (whether the server serves `steps_batch`, when that was learned). A drain
+#: builds its clients per pass, so their own feature cache would ask on every pass.
+_STEPS_BATCH_KNOWN: dict[str, tuple[bool, float]] = {}
+_STEPS_BATCH_TTL_SECONDS = 600.0
+
+
+def steps_batch_supported(client) -> bool:
+    """Whether ``client``'s server takes `POST /steps/batch` (`GET /v1/server/features`).
+    An unanswered question is "no", this time only: its steps go one POST each, as before."""
+    cached = getattr(client, "_server_features_cache", None)
+    if isinstance(cached, frozenset):
+        return STEPS_BATCH_FEATURE in cached
+    base = str(getattr(getattr(client, "settings", None), "base_url", "") or "")
+    known = _STEPS_BATCH_KNOWN.get(base)
+    if known is not None and time.monotonic() - known[1] < _STEPS_BATCH_TTL_SECONDS:
+        return known[0]
+    ask = getattr(client, "supports_feature", None)
+    if ask is None:
+        return False
+    try:
+        answer = bool(ask(STEPS_BATCH_FEATURE))
+    except Exception:  # noqa: BLE001 -- unknown is "no", and not remembered
+        return False
+    if base:
+        _STEPS_BATCH_KNOWN[base] = (answer, time.monotonic())
+    return answer
+
+
+def _forget_steps_batch(client) -> None:
+    """The server answered the batch route with "no such route" (rolled back): steps go one
+    by one until the next look."""
+    base = str(getattr(getattr(client, "settings", None), "base_url", "") or "")
+    if base:
+        _STEPS_BATCH_KNOWN[base] = (False, time.monotonic())
+    cached = getattr(client, "_server_features_cache", None)
+    if isinstance(cached, frozenset):
+        client._server_features_cache = cached - {STEPS_BATCH_FEATURE}
+
+
+class _BatchRouteAbsent(Exception):
+    """`POST /steps/batch` met FastAPI's own 404: an older server. Its ops go one by one."""
 
 
 def _count_producers(items: list[tuple[Path, dict]]) -> dict[str, int]:
@@ -133,9 +246,18 @@ def _merged_failure(exc: Exception) -> str:
     return "stop"
 
 
-def _deliver_batch(journal, client, batch, run_ids) -> tuple[list, list, int]:
-    """Send ``batch`` (see `_coalesce`) as one POST. Returns (ops that landed; ops that did
-    not, each with its error; how many landed inside a multi-op POST), in queue order.
+#: Ops a batch sends one at a time (an older server's step records, a split's halves) before it
+#: stops and leaves the rest queued: the pass's next op lets a waiting `finish()` take the drain
+#: lock first (review of #3785, I9: 1,000 POSTs in a row held it for minutes).
+ALONE_MAX = 32
+
+
+def _deliver_items(journal, client, batch, run_ids, send) -> tuple[list, list, int, bool]:
+    """Send ``batch`` as one POST through ``send(client, items)`` (`_send_merged`,
+    `_send_steps`), or each op alone when ``send`` is None, each under its own
+    `_delivery_scope`, at most `ALONE_MAX` of them. Returns (ops that landed; ops that did not,
+    each with its error; how many landed inside a multi-op POST; whether it stopped before the
+    end), in queue order.
 
     A merged POST refused for a reason one op could cause (`_merged_failure`: 413, 422, a
     500) is split in halves down to single ops, which go through `_execute` as an unmerged op
@@ -143,24 +265,35 @@ def _deliver_batch(journal, client, batch, run_ids) -> tuple[list, list, int]:
     dead letter). A refusal true of the whole batch (409 fence, 404, a locked workspace)
     reports every op at once, with no further requests. Anything else (503, 429, a connect
     timeout, an auth block, the caller's deadline) stops the batch at its head, as it would
-    the op alone; the ops after it are not attempted."""
+    the op alone; the ops after it are not attempted. A batch route the server does not have
+    (`_BatchRouteAbsent`) sends its ops one by one."""
     landed: list = []
     failed: list = []
     merged = [0]
+    alone = [0]
 
     def attempt(items) -> bool:
         """False once the batch must stop."""
-        if len(items) == 1:
-            path, op = items[0]
-            try:
-                _execute(journal, client, path, op, run_ids)
-            except Exception as exc:  # noqa: BLE001 -- settled by the caller
-                failed.append((items[0], exc))
-                return classify(exc) in ("permanent", "idempotent")
-            landed.append(items[0])
+        if len(items) == 1 or send is None:
+            for item in items:
+                if alone[0] >= ALONE_MAX:
+                    return False  # the rest stays queued, in order, for the pass's next ops
+                alone[0] += 1
+                path, op = item
+                try:
+                    with _delivery_scope(op):
+                        _execute(journal, client, path, op, run_ids)
+                except Exception as exc:  # noqa: BLE001 -- settled by the caller
+                    failed.append((item, exc))
+                    if classify(exc) not in ("permanent", "idempotent"):
+                        return False
+                    continue
+                landed.append(item)
             return True
         try:
-            _send_merged(client, items)
+            send(client, items)
+        except _BatchRouteAbsent:
+            return attempt_alone(items)
         except Exception as exc:  # noqa: BLE001 -- classified here, settled by the caller
             how = _merged_failure(exc)
             if how == "split":
@@ -175,8 +308,37 @@ def _deliver_batch(journal, client, batch, run_ids) -> tuple[list, list, int]:
         merged[0] += len(items)
         return True
 
-    attempt(list(batch))
-    return landed, failed, merged[0]
+    def attempt_alone(items) -> bool:
+        nonlocal send
+        send = None
+        return attempt(items)
+
+    finished = attempt(list(batch))
+    return landed, failed, merged[0], not finished
+
+
+def _send_steps(client, items) -> None:
+    """One `POST /v1/runs/{id}/steps/batch` carrying every step record of ``items`` in queue
+    order (the server keeps the last of a repeated step, as one-by-one POSTs did). The writer
+    fence (`session_id`, `write_epoch`, shared by `_step_key`) rides once, at the top."""
+    steps: list = []
+    for _, op in items:
+        for value in op.values():
+            unstorable.has_nul(value)
+        unstorable.validate_nuls(op.get("body"), path=op.get("path", ""), method="POST")
+        steps.append({k: v for k, v in op["body"].items() if k not in ("session_id", "write_epoch")})
+    head = items[0][1]
+    body: dict = {"steps": steps}
+    for fence in ("session_id", "write_epoch"):
+        if fence in head["body"]:
+            body[fence] = head["body"][fence]
+    try:
+        client.transport.request("POST", routes.batch_path(WriteOp.STEPS, head["path"]), json_body=body)
+    except errors.NotFoundError as exc:
+        if getattr(exc, "detail", None) == "Not Found":  # FastAPI's: no such route
+            _forget_steps_batch(client)
+            raise _BatchRouteAbsent from exc
+        raise
 
 
 def _send_merged(client, items) -> None:
@@ -194,5 +356,5 @@ def _send_merged(client, items) -> None:
     client.transport.request("POST", head["path"], json_body=body)
 from probe.sdk.delivery.ops.classify import classify  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _execute  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.ops.ops import _attempts, _is_uuid  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.outbox.drain.upload_windows import _METRICS_ROUTE  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.op_handler import _delivery_scope  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ops import _attempts, _is_uuid, _queued_bucket  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -1,4 +1,4 @@
-"""Tests for `probe update` internals (cli/updater.py) + the command's --check codes.
+"""Tests for `probe update` internals (cli/install/updater/updater.py) + the command's --check codes.
 
 Covers the hardening the eng review demanded: install detection from the running
 package path (H4), the legacy probe-agent dance (H3), editable/managed guards
@@ -16,7 +16,7 @@ import pytest
 
 import probe
 from probe import cli
-from probe.cli import updater
+from probe.cli.install import updater
 
 
 # -- version compare --------------------------------------------------------
@@ -37,7 +37,7 @@ def test_is_newer(a, b, expected):
 
 # -- install detection (H4/H3) ---------------------------------------------
 def _patch_pkg(monkeypatch, path: str):
-    monkeypatch.setattr(updater, "_probe_pkg_dir", lambda: Path(path))
+    monkeypatch.setattr(updater.updater, "_probe_pkg_dir", lambda: Path(path))
 
 
 def test_detect_uv_tool(monkeypatch):
@@ -127,26 +127,50 @@ def test_venv_root_both_layouts():
 def _record_run(monkeypatch, *, daemon_extra: bool = False):
     calls: list[list[str]] = []
     monkeypatch.setattr(
-        updater,
+        updater.cli_versions,
+        "_run",
+        lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
+    )
+    monkeypatch.setattr(
+        updater.cli_install,
+        "_run",
+        lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
+    )
+    monkeypatch.setattr(
+        updater.cli_installs.uv_tool,
         "_run",
         lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
     )
     # Whether this environment carries the daemon's AI libraries decides the spec.
     monkeypatch.setattr(
-        updater,
+        updater.cli_install,
+        "_dist",
+        lambda extras=(): "probe-research[%s]"
+        % ",".join(sorted({"all", *extras} | ({"daemon"} if daemon_extra else set()))),
+    )
+    monkeypatch.setattr(
+        updater.cli_installs.uv_tool,
+        "_dist",
+        lambda extras=(): "probe-research[%s]"
+        % ",".join(sorted({"all", *extras} | ({"daemon"} if daemon_extra else set()))),
+    )
+    monkeypatch.setattr(
+        updater.uv_receipt,
         "_dist",
         lambda extras=(): "probe-research[%s]"
         % ",".join(sorted({"all", *extras} | ({"daemon"} if daemon_extra else set()))),
     )
     # No uv receipt to carry over (test_updater_keeps_user_packages.py covers it).
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     return calls
 
 
 def _stub_installed(monkeypatch, versions):
     """Feed _installed_cli_version() a sequence — what it reports after each upgrade."""
     it = iter(versions)
-    monkeypatch.setattr(updater, "_installed_cli_version", lambda: next(it))
+    monkeypatch.setattr(updater.cli_versions, "_installed_cli_version", lambda: next(it))
 
 
 def test_upgrade_uv_tool_advances(monkeypatch):
@@ -250,7 +274,8 @@ def _without_daemon_libraries(monkeypatch):
 
 
 def _installed_as(monkeypatch, method):
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(method))
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(method))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(method))
 
 
 def test_a_tool_install_that_lost_the_daemon_extra_gets_it_back_where_the_daemon_records(monkeypatch):
@@ -338,8 +363,12 @@ def test_the_update_restates_the_daemon_extra_from_the_setting_alone(monkeypatch
     _installed_as(monkeypatch, updater.Method.UV_TOOL)
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
     calls: list[list[str]] = []
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     _stub_installed(monkeypatch, ["0.8.1", "0.8.2"])
     updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.8.1", "0.8.2")
     assert calls[0] == ["uv", "tool", "install", "probe-research[all,daemon]"]
@@ -373,7 +402,7 @@ def test_plugin_confirmed_when_version_advances(monkeypatch):
     fake = _FakeRun()
     monkeypatch.setattr(updater.shutil, "which", lambda _n: "/usr/bin/claude")
     monkeypatch.setattr(updater.subprocess, "run", fake)
-    monkeypatch.setattr(updater, "installed_plugin_version", _seq(["0.6.0", "0.7.0"]))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", _seq(["0.6.0", "0.7.0"]))
     res = updater.update_plugin("0.7.0")
     assert res.confirmed and res.changed and res.after == "0.7.0"
     assert fake.kwargs["stdin"] is subprocess.DEVNULL  # H2: no TTY on the child
@@ -385,7 +414,7 @@ def test_plugin_noop_not_confirmed_even_on_zero_exit(monkeypatch):
     monkeypatch.setattr(
         updater.subprocess, "run", lambda cmd, **k: subprocess.CompletedProcess(cmd, 0)
     )
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.6.0")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.6.0")
     res = updater.update_plugin("0.7.0")
     assert res.attempted and not res.confirmed
 
@@ -403,7 +432,7 @@ def test_plugin_already_current_is_confirmed_but_unchanged(monkeypatch):
     monkeypatch.setattr(
         updater.subprocess, "run", lambda cmd, **k: subprocess.CompletedProcess(cmd, 0)
     )
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.8.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.8.1")
     res = updater.update_plugin("0.8.1")
     assert res.confirmed and not res.changed and "already" in res.message
 
@@ -429,7 +458,7 @@ def test_plugin_failure_names_the_command_and_what_it_said(monkeypatch):
 
     monkeypatch.setattr(updater.shutil, "which", lambda _n: "/usr/bin/claude")
     monkeypatch.setattr(updater.subprocess, "run", fake_run)
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.6.0")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.6.0")
 
     res = updater.update_plugin("0.7.0")
 
@@ -457,7 +486,7 @@ def test_a_failed_refresh_skips_both_installs_and_outlasts_claudes_120s(monkeypa
 
     monkeypatch.setattr(updater.shutil, "which", lambda _n: "/usr/bin/claude")
     monkeypatch.setattr(updater.subprocess, "run", fake_run)
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.6.0")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.6.0")
 
     res = updater.update_plugin("0.7.0")
 
@@ -646,7 +675,7 @@ def test_codex_update_refreshes_and_readds_both_plugins_then_verifies(monkeypatc
             {"probe-research": "0.16.1", "probe-research-tap": "0.1.3"},
         ]
     )
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda codex: next(versions))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda codex: next(versions))
 
     result = updater.update_codex_plugins()
 
@@ -660,15 +689,17 @@ def test_codex_update_refreshes_and_readds_both_plugins_then_verifies(monkeypatc
 
 # -- the wizard's menu after an Update ---------------------------------------
 def _upgrade_to(monkeypatch, result: updater.CliResult):
-    from probe.cli import run_lock, upgrading
+    from probe.cli import run_lock
+    from probe.cli.install import upgrade as upgrading
     from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
     monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(updater, "upgrade_cli", lambda install, current, target: result)
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda install, current, target: result)
     upgrading.perform_update(base_url="https://x", include_plugin=False)
     return versions
 
@@ -702,15 +733,15 @@ def test_the_upgrade_is_judged_by_the_upgraded_environment_not_path(monkeypatch)
     """The `probe` on PATH can be a conda or pipx copy nobody upgraded: judging
     by it reported "CLI upgraded" for an untouched install, or a failure for
     one that moved."""
-    monkeypatch.setattr(updater, "env_cli_version", lambda: "2.0.0")
-    monkeypatch.setattr(updater, "_path_cli_version", lambda: "1.0.0")
+    monkeypatch.setattr(updater.cli_versions, "env_cli_version", lambda: "2.0.0")
+    monkeypatch.setattr(updater.cli_versions, "_path_cli_version", lambda: "1.0.0")
     assert updater._installed_cli_version() == "2.0.0"
 
 
 def test_the_legacy_reinstall_falls_back_to_path(monkeypatch):
     """It deletes the running interpreter's own environment."""
-    monkeypatch.setattr(updater, "env_cli_version", lambda: None)
-    monkeypatch.setattr(updater, "_path_cli_version", lambda: "2.0.0")
+    monkeypatch.setattr(updater.cli_versions, "env_cli_version", lambda: None)
+    monkeypatch.setattr(updater.cli_versions, "_path_cli_version", lambda: "2.0.0")
     assert updater._installed_cli_version() == "2.0.0"
 
 
@@ -725,7 +756,7 @@ def _patch_fetch(monkeypatch, manifest=None, exc=None):
             raise exc
         return manifest
 
-    monkeypatch.setattr(updater, "fetch_latest", fake)
+    monkeypatch.setattr(updater.updater, "fetch_latest", fake)
 
 
 def test_check_current_exit_0(monkeypatch):
@@ -754,14 +785,16 @@ def test_an_upgrade_keeps_the_daemon_extra(monkeypatch):
 def test_an_update_required_beside_the_running_version_goes_past_a_live_run(monkeypatch):
     """The service let a run go on because the CLI is updated beside it (D6):
     the child's own run check must not defer it again (Codex R2 #9)."""
-    from probe.cli import run_lock, upgrading
+    from probe.cli import run_lock
+    from probe.cli.install import upgrade as upgrading
 
     asked = []
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
     monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(updater, "upgrade_cli", lambda install, current, target: asked.append(target) or
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda install, current, target: asked.append(target) or
                         updater.CliResult(True, True, False, probe.__version__, "99.0.0", "beside"))
     monkeypatch.setenv(updater.REQUIRE_SIDE_BY_SIDE_ENV, "1")
     upgrading.perform_update(base_url="https://x", include_plugin=False)
@@ -776,14 +809,15 @@ def test_a_deferred_update_still_approves_probes_codex_hooks(monkeypatch):
     switches their hooks off (#3617): a live run holding the update off must not
     hold that approval off too. Only where Codex holds a copy of Probe's plugins."""
     from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-    from probe.cli import run_lock, upgrading
+    from probe.cli import run_lock
+    from probe.cli.install import upgrade as upgrading
 
     asked: list[int] = []
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
     monkeypatch.setattr(upgrading.autoupdate, "defer_for_run", lambda **_: True)
     monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
     monkeypatch.setattr(upgrading.update_report, "flush", lambda base: None)
-    monkeypatch.setattr(updater, "upgrade_cli", lambda *a: pytest.fail("a deferred update upgrades nothing"))
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda *a: pytest.fail("a deferred update upgrades nothing"))
     monkeypatch.setattr(codex_hooks, "approve",
                         lambda *_a, **_k: asked.append(1) or codex_hooks.Approval(approved=("k", "j"), done=True))
     monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-daemon/1.0.0",))
@@ -830,7 +864,11 @@ def side_by_side(monkeypatch, tmp_path):
     monkeypatch.setattr(installs.active_record, "record_dropped_with", record)
     old = updater.KeptInstall(with_packages=("wandb>=0.17",), python="/gone/bin/python3.12")
     # The running install's receipt, or the new env's: what its install got.
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
+                        if prefix is not None else seen.get("old", old))
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
+                        if prefix is not None else seen.get("old", old))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
                         if prefix is not None else seen.get("old", old))
 
     def install(version, spec, *, with_packages=(), python=None, tools=None, timeout=0):
@@ -917,7 +955,11 @@ def test_an_env_kept_from_an_earlier_install_loses_nothing_unsaid(side_by_side, 
 
 
 def test_what_the_receipt_cannot_restate_is_said_not_a_reason_to_stay(side_by_side, monkeypatch):
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall(
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall(
+        dropped=("--with mine",)))
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall(
+        dropped=("--with mine",)))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall(
         dropped=("--with mine",)))
     result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
     assert result.ok and "not carried over from the uv receipt" in result.message and "--with mine" in result.message
@@ -925,8 +967,14 @@ def test_what_the_receipt_cannot_restate_is_said_not_a_reason_to_stay(side_by_si
 
 def test_no_readable_release_on_a_side_by_side_machine_never_updates_in_place(side_by_side, monkeypatch):
     calls = []
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
-    monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_versions, "_finalize", lambda before, target, tool: updater.CliResult(
+        True, True, True, before, "0.2.0", "upgraded in place"))
+    monkeypatch.setattr(updater.cli_install, "_finalize", lambda before, target, tool: updater.CliResult(
+        True, True, True, before, "0.2.0", "upgraded in place"))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_finalize", lambda before, target, tool: updater.CliResult(
         True, True, True, before, "0.2.0", "upgraded in place"))
     result = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.1.0", None)
     assert not result.ok and "could not be read" in result.message and calls == []
@@ -955,7 +1003,7 @@ def test_a_confirmed_codex_update_approves_probes_hooks(monkeypatch):
 
     _fake_codex(monkeypatch, {})
     versions = {updater.tracking_plugin_name("codex"): "1.0.0", "probe-research-tap": "0.10.24"}
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda _codex=None: dict(versions))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda _codex=None: dict(versions))
     asked: list[int] = []
 
     def approve(*_a, **_k):

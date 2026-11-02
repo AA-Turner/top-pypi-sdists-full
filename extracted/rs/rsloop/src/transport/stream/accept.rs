@@ -1,0 +1,536 @@
+//! Accepting connections and turning them into transports.
+//!
+//! Each listener gets one accept loop. The default runs on the loop runtime as
+//! an async task (`run_*_accept_task`) so it stops cleanly when the socket
+//! closes; `BlockingAcceptLoop` is the fallback for platforms or listeners the
+//! runtime cannot drive, running on a `WorkerThread` instead. Windows fans a
+//! TCP listener out over several IOCP lanes, since one outstanding `AcceptEx`
+//! per listener limits connection setup rate.
+//!
+//! Whichever loop accepted it, the socket is handed to the loop thread before
+//! the protocol is created: `schedule_accepted_transport` posts it as loop work
+//! and `spawn_accepted_transport_with_py` builds the transport there, under the
+//! GIL. TLS servers additionally take a handshake slot first, so a handshake
+//! flood is shed here rather than deeper in.
+
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
+#[cfg(unix)]
+use std::os::unix::net::{UnixListener as StdUnixListener, UnixStream as StdUnixStream};
+#[cfg(windows)]
+use std::rc::Rc;
+use std::{
+    io,
+    net::{TcpListener as StdTcpListener, TcpStream as StdTcpStream},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
+use pyo3::{exceptions::PyRuntimeError, prelude::*};
+
+#[cfg(unix)]
+use super::socket_transport::spawn_unix_transport;
+use super::{
+    AcceptedStream, PyStreamTransport, ServerAcceptTaskGuard, ServerCore, ServerListener,
+    TransportSpawnContext, io_targets::StreamKind, platform::tcp_listener_raw_fd,
+    poll::poll_read_ready, socket_transport::spawn_tcp_transport,
+    tls_transport::spawn_tls_server_transport, tuning::max_pending_tls_handshakes,
+};
+#[cfg(unix)]
+use crate::fd_ops;
+#[cfg(unix)]
+use crate::vibeio::net::UnixListener as VibeUnixListener;
+use crate::{
+    engine::{LoopCommand, LoopTransportCommand},
+    transport::tls::ServerTlsSettings,
+    vibeio::net::TcpListener as VibeTcpListener,
+};
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn configure_accepted_tcp_stream(
+    server: &Arc<ServerCore>,
+    stream: &StdTcpStream,
+    message: &str,
+    already_nonblocking: bool,
+) -> bool {
+    if !already_nonblocking && let Err(err) = stream.set_nonblocking(true) {
+        server.report_error(PyRuntimeError::new_err(err.to_string()), message);
+        return false;
+    }
+    if let Err(err) = stream.set_nodelay(true) {
+        server.report_error(PyRuntimeError::new_err(err.to_string()), message);
+        return false;
+    }
+    true
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+#[cfg(unix)]
+pub(super) fn configure_accepted_unix_stream(
+    server: &Arc<ServerCore>,
+    stream: &StdUnixStream,
+    message: &str,
+    already_nonblocking: bool,
+) -> bool {
+    if !already_nonblocking && let Err(err) = stream.set_nonblocking(true) {
+        server.report_error(PyRuntimeError::new_err(err.to_string()), message);
+        return false;
+    }
+    true
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn report_server_io_error(server: &ServerCore, err: io::Error, message: &str) {
+    if !server.is_closed() {
+        server.report_error(PyRuntimeError::new_err(err.to_string()), message);
+    }
+}
+
+pub(crate) struct BlockingAcceptLoop<L> {
+    server: Arc<ServerCore>,
+    listener: L,
+    stop: Arc<AtomicBool>,
+}
+
+impl<L> BlockingAcceptLoop<L> {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "BlockingAcceptLoop")
+    )]
+    pub(crate) fn new(server: Arc<ServerCore>, listener: L, stop: Arc<AtomicBool>) -> Self {
+        Self {
+            server,
+            listener,
+            stop,
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn server_spawn_context(
+    py: Python<'_>,
+    server: &Arc<ServerCore>,
+    protocol: Py<PyAny>,
+) -> TransportSpawnContext {
+    TransportSpawnContext::new(
+        py,
+        Arc::clone(&server.loop_core),
+        &server.loop_obj,
+        protocol,
+        &server.context,
+        server.context_needs_run,
+    )
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn server_tls_settings(py: Python<'_>, tls: &ServerTlsSettings) -> ServerTlsSettings {
+    ServerTlsSettings {
+        config: Arc::clone(&tls.config),
+        handshake_timeout: tls.handshake_timeout,
+        shutdown_timeout: tls.shutdown_timeout,
+        ssl_context: tls.ssl_context.clone_ref(py),
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn spawn_accepted_tcp_transport(
+    py: Python<'_>,
+    server: &Arc<ServerCore>,
+    stream: StdTcpStream,
+    ipv6: bool,
+) -> PyResult<Py<PyStreamTransport>> {
+    let protocol = server.create_protocol_with_py(py)?;
+    let spawn_context = server_spawn_context(py, server, protocol);
+    let server_ref = Some(Arc::downgrade(server));
+    if let Some(tls) = server.tls.as_ref() {
+        spawn_tls_server_transport(
+            py,
+            spawn_context,
+            StreamKind::Tcp(stream, super::builder::tcp_family(ipv6)),
+            server_tls_settings(py, tls),
+            server_ref,
+            true,
+        )
+    } else {
+        spawn_tcp_transport(
+            py,
+            spawn_context,
+            stream,
+            server_ref,
+            super::builder::tcp_family(ipv6),
+        )
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+#[cfg(unix)]
+pub(super) fn spawn_accepted_unix_transport(
+    py: Python<'_>,
+    server: &Arc<ServerCore>,
+    stream: StdUnixStream,
+) -> PyResult<Py<PyStreamTransport>> {
+    let protocol = server.create_protocol_with_py(py)?;
+    let spawn_context = server_spawn_context(py, server, protocol);
+    let server_ref = Some(Arc::downgrade(server));
+    if let Some(tls) = server.tls.as_ref() {
+        spawn_tls_server_transport(
+            py,
+            spawn_context,
+            StreamKind::Unix(stream),
+            server_tls_settings(py, tls),
+            server_ref,
+            true,
+        )
+    } else {
+        spawn_unix_transport(py, spawn_context, stream, server_ref)
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(crate) fn spawn_accepted_transport_with_py(
+    py: Python<'_>,
+    server: &Arc<ServerCore>,
+    stream: AcceptedStream,
+) -> PyResult<Py<PyStreamTransport>> {
+    match stream {
+        AcceptedStream::Tcp(stream, ipv6) => spawn_accepted_tcp_transport(py, server, stream, ipv6),
+        #[cfg(unix)]
+        AcceptedStream::Unix(stream) => spawn_accepted_unix_transport(py, server, stream),
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn schedule_accepted_transport(
+    server: &Arc<ServerCore>,
+    stream: AcceptedStream,
+    message: &str,
+) {
+    if server.tls.is_some() {
+        let Some(pending) = server.reserve_tls_handshake() else {
+            if !server.is_closed() && !server.tls_overload_reported.swap(true, Ordering::AcqRel) {
+                server.report_error(
+                    PyRuntimeError::new_err(format!(
+                        "pending TLS handshake limit ({}) reached",
+                        max_pending_tls_handshakes()
+                    )),
+                    "TLS server is overloaded",
+                );
+            }
+            return;
+        };
+        let server = Arc::clone(server);
+        let message = message.to_owned();
+        smol::unblock(move || {
+            let _pending = pending;
+            if server.is_closed() {
+                return;
+            }
+            let result =
+                Python::try_attach(|py| spawn_accepted_transport_with_py(py, &server, stream));
+            if let Some(Err(err)) = result
+                && !server.is_closed()
+            {
+                server.report_error(err, &message);
+            }
+        })
+        .detach();
+        return;
+    }
+
+    if let Err(err) = server.loop_core.send_command(LoopCommand::Transport(
+        LoopTransportCommand::ServerAccepted {
+            server: Arc::clone(server),
+            stream,
+        },
+    )) {
+        server.report_error(PyRuntimeError::new_err(err.to_string()), message);
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn run_tcp_accept_loop(params: BlockingAcceptLoop<StdTcpListener>) {
+    let BlockingAcceptLoop {
+        server,
+        listener,
+        stop,
+    } = params;
+    loop {
+        if stop.load(Ordering::Acquire) || server.is_closed() {
+            return;
+        }
+
+        match poll_read_ready(tcp_listener_raw_fd(&listener)) {
+            Ok(false) => continue,
+            Ok(true) => {}
+            Err(err) => {
+                report_server_io_error(&server, err, "TCP server accept failed");
+                return;
+            }
+        }
+
+        if stop.load(Ordering::Acquire) || server.is_closed() {
+            return;
+        }
+
+        loop {
+            match listener.accept() {
+                Ok((stream, addr)) => {
+                    if !configure_accepted_tcp_stream(
+                        &server,
+                        &stream,
+                        "failed to configure TCP connection",
+                        false,
+                    ) {
+                        continue;
+                    }
+                    schedule_accepted_transport(
+                        &server,
+                        AcceptedStream::Tcp(stream, addr.is_ipv6()),
+                        "failed to accept TCP connection",
+                    );
+                }
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                Err(err) => {
+                    report_server_io_error(&server, err, "TCP server accept failed");
+                    return;
+                }
+            }
+        }
+    }
+}
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+pub(crate) async fn run_server_accept_task(
+    server: Arc<ServerCore>,
+    listener: ServerListener,
+    task_guard: ServerAcceptTaskGuard,
+) {
+    match listener {
+        ServerListener::Tcp(listener) => run_tcp_accept_task(server, listener).await,
+        #[cfg(unix)]
+        ServerListener::Unix(listener) => run_unix_accept_task(server, listener).await,
+    }
+    drop(task_guard);
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+pub(super) async fn run_tcp_accept_task(server: Arc<ServerCore>, listener: StdTcpListener) {
+    #[cfg(windows)]
+    {
+        run_windows_tcp_accept_pool(server, listener).await;
+    }
+
+    #[cfg(not(windows))]
+    run_tcp_accept_lane(server, listener).await;
+}
+
+#[cfg(windows)]
+pub(super) struct WindowsAcceptPool(Vec<crate::vibeio::JoinHandle<()>>);
+
+#[cfg(windows)]
+impl Drop for WindowsAcceptPool {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<WindowsAcceptPool as Drop>")
+    )]
+    fn drop(&mut self) {
+        for lane in self.0.drain(..) {
+            lane.cancel();
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+#[cfg(windows)]
+pub(super) async fn run_windows_tcp_accept_pool(server: Arc<ServerCore>, listener: StdTcpListener) {
+    let lane_count = std::thread::available_parallelism()
+        .map_or(4, usize::from)
+        .saturating_mul(2)
+        .clamp(4, 32);
+    let listener = match VibeTcpListener::from_std(listener) {
+        Ok(listener) => Rc::new(listener),
+        Err(err) => {
+            report_server_io_error(&server, err, "TCP server accept failed");
+            return;
+        }
+    };
+    let lanes = (0..lane_count)
+        .map(|_| {
+            crate::vibeio::spawn(run_windows_tcp_accept_lane(
+                Arc::clone(&server),
+                Rc::clone(&listener),
+            ))
+        })
+        .collect();
+    let _pool = WindowsAcceptPool(lanes);
+    std::future::pending::<()>().await;
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+#[cfg(windows)]
+pub(super) async fn run_windows_tcp_accept_lane(
+    server: Arc<ServerCore>,
+    listener: Rc<VibeTcpListener>,
+) {
+    loop {
+        if server.is_closed() {
+            return;
+        }
+
+        match listener.accept_std().await {
+            Ok(stream) => {
+                if !configure_accepted_tcp_stream(
+                    &server,
+                    &stream,
+                    "failed to configure TCP connection",
+                    cfg!(all(unix, any(syscall_accept4, target_os = "linux"))),
+                ) {
+                    continue;
+                }
+                schedule_accepted_transport(
+                    &server,
+                    AcceptedStream::Tcp(stream, listener.is_ipv6()),
+                    "failed to accept TCP connection",
+                );
+            }
+            Err(err) => {
+                report_server_io_error(&server, err, "TCP server accept failed");
+                return;
+            }
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+#[cfg(not(windows))]
+pub(super) async fn run_tcp_accept_lane(server: Arc<ServerCore>, listener: StdTcpListener) {
+    let listener = match VibeTcpListener::from_std(listener) {
+        Ok(listener) => listener,
+        Err(err) => {
+            report_server_io_error(&server, err, "TCP server accept failed");
+            return;
+        }
+    };
+
+    loop {
+        if server.is_closed() {
+            return;
+        }
+
+        match listener.accept_std().await {
+            Ok(stream) => {
+                if !configure_accepted_tcp_stream(
+                    &server,
+                    &stream,
+                    "failed to configure TCP connection",
+                    cfg!(all(unix, any(syscall_accept4, target_os = "linux"))),
+                ) {
+                    continue;
+                }
+                schedule_accepted_transport(
+                    &server,
+                    AcceptedStream::Tcp(stream, listener.is_ipv6()),
+                    "failed to accept TCP connection",
+                );
+            }
+            Err(err) => {
+                report_server_io_error(&server, err, "TCP server accept failed");
+                return;
+            }
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+#[cfg(unix)]
+pub(super) fn run_unix_accept_loop(params: BlockingAcceptLoop<StdUnixListener>) {
+    let BlockingAcceptLoop {
+        server,
+        listener,
+        stop,
+    } = params;
+    loop {
+        if stop.load(Ordering::Acquire) || server.is_closed() {
+            return;
+        }
+
+        match poll_read_ready(fd_ops::RawFd::from(listener.as_raw_fd())) {
+            Ok(false) => continue,
+            Ok(true) => {}
+            Err(err) => {
+                report_server_io_error(&server, err, "Unix server accept failed");
+                return;
+            }
+        }
+
+        if stop.load(Ordering::Acquire) || server.is_closed() {
+            return;
+        }
+
+        loop {
+            match listener.accept() {
+                Ok((stream, _addr)) => {
+                    if !configure_accepted_unix_stream(
+                        &server,
+                        &stream,
+                        "failed to configure Unix connection",
+                        false,
+                    ) {
+                        continue;
+                    }
+                    schedule_accepted_transport(
+                        &server,
+                        AcceptedStream::Unix(stream),
+                        "failed to accept Unix connection",
+                    );
+                }
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                Err(err) => {
+                    report_server_io_error(&server, err, "Unix server accept failed");
+                    return;
+                }
+            }
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure(future = true))]
+#[cfg(unix)]
+pub(super) async fn run_unix_accept_task(server: Arc<ServerCore>, listener: StdUnixListener) {
+    let listener = match VibeUnixListener::from_std(listener) {
+        Ok(listener) => listener,
+        Err(err) => {
+            report_server_io_error(&server, err, "Unix server accept failed");
+            return;
+        }
+    };
+
+    loop {
+        if server.is_closed() {
+            return;
+        }
+
+        match listener.accept_std().await {
+            Ok(stream) => {
+                if !configure_accepted_unix_stream(
+                    &server,
+                    &stream,
+                    "failed to configure Unix connection",
+                    cfg!(any(syscall_accept4, target_os = "linux")),
+                ) {
+                    continue;
+                }
+                schedule_accepted_transport(
+                    &server,
+                    AcceptedStream::Unix(stream),
+                    "failed to accept Unix connection",
+                );
+            }
+            Err(err) => {
+                report_server_io_error(&server, err, "Unix server accept failed");
+                return;
+            }
+        }
+    }
+}

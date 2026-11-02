@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # The Actions in .github/workflows pin third-party code that runs with
+  # repository credentials, so these are the updates worth having weekly.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: "deps"
+    groups:
+      # The reference implementation moves the parity fixtures with it, so its
+      # bumps arrive alone and get a full run of their own.
+      reference:
+        patterns: ["pypulseq"]
+      numerical:
+        patterns: ["numpy"]
+      build:
+        patterns: ["scikit-build-core", "pybind11", "setuptools_scm"]
+      dev-tooling:
+        patterns: ["pytest*", "coverage", "ruff", "pre-commit", "build"]

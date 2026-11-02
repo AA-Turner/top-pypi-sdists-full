@@ -1,0 +1,1765 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Contains the Genome class, with its millions of accessors and wrappers
+around an arbitrary genomic database.
+"""
+
+
+from contextlib import nullcontext
+from copy import deepcopy
+from dataclasses import replace
+import json
+from numbers import Integral
+from os import lstat, remove
+from os.path import isfile, join, lexists
+from pathlib import Path
+import warnings
+
+from serializable import Serializable
+from datacache import FileValidationError
+
+from .download_cache import DownloadCache, inspect_data_file, _same_file_bytes
+from .common import merge_intervals
+from .database import Database, annotation_db_filename, is_complete_database
+from .exon import Exon
+from .gene import Gene
+from .genetic_code import genetic_code, resolve_reference_metadata
+from .annotation_genetic_code import AnnotationGeneticCodes
+from .gene_name_aliases import GeneNameAliases, normalize_aliases, stable_ensembl_gene_id
+from .genome_fasta import GenomeFasta, MissingGenomeFastaError
+from .normalization import normalize_chromosome, normalize_strand
+from .search import find_nearest_locus
+from .sequence_data import SequenceData, fasta_index_path, fasta_index_files
+from .versioned_ids import _split_ens_version, match_version
+from .transcript import Transcript
+
+
+def _inspect_annotation_index(path, gtf_path=None, source=None):
+    inspection = inspect_data_file(path)
+    if (inspection.status == "available" and path.endswith(".db")
+            and not is_complete_database(path, gtf_path=gtf_path, source=source)):
+        return replace(inspection, status="corrupt", error=FileValidationError(
+            path, "incomplete, incompatible, or stale annotation database; rebuild the index"
+        ))
+    return inspection
+
+
+# IUPAC complements, preserving case so soft masking survives.
+_COMPLEMENT = str.maketrans(
+    "ACGTRYKMBVDHNSWacgtrykmbvdhnsw", "TGCAYRMKVBHDNSWtgcayrmkvbhdnsw"
+)
+
+
+def _parse_transcript_support_level(value):
+    """
+    Coerce a raw ``transcript_support_level`` attribute into an int or None.
+
+    Recent Ensembl releases append text such as
+    ``"1 (assigned to previous version 5)"`` after the numeric TSL, and
+    older or missing entries can be ``None`` or the literal string ``"NA"``.
+    Keep only the leading whitespace-separated token and return it as an
+    int when it is a digit, otherwise None.
+    """
+    if not value:
+        return None
+    tokens = value.split()
+    leading = tokens[0] if tokens else None
+    if leading and leading.isdigit():
+        return int(leading)
+    return None
+
+
+class Genome(Serializable):
+    """
+    Bundles together the genomic annotation and sequence data associated with
+    a particular genomic database source (e.g. a single Ensembl release) and
+    provides a wide variety of helper methods for accessing this data.
+    """
+
+    def __init__(
+        self,
+        reference_name,
+        annotation_name,
+        annotation_version=None,
+        gtf_path_or_url=None,
+        transcript_fasta_paths_or_urls=None,
+        protein_fasta_paths_or_urls=None,
+        decompress_on_download=False,
+        copy_local_files_to_cache=False,
+        cache_directory_path=None,
+        genome_fasta_path_or_url=None,
+        reference_metadata=None,
+    ):
+        """
+        Parameters
+        ----------
+        reference_name : str
+            Name of genome assembly which annotations in GTF are aligned against
+            (and from which sequence data is drawn)
+
+        annotation_name : str
+            Name of annotation source (e.g. "Ensembl)
+
+        annotation_version : int or str
+            Version of annotation database (e.g. 75)
+
+        gtf_path_or_url : str
+            Path or URL of GTF file
+
+        transcript_fasta_paths_or_urls : list
+            List of paths or URLs of FASTA files containing transcript sequences
+
+        protein_fasta_paths_or_urls : list
+            List of paths or URLs of FASTA files containing protein sequences
+
+        decompress_on_download : bool
+            If remote file is compressed, decompress the local copy?
+
+        copy_local_files_to_cache : bool
+            If genome data file is local use it directly or copy to cache first?
+
+        cache_directory_path : None
+            Where to place downloaded and cached files for this genome,
+            by default inferred from reference name, annotation name,
+            annotation version, and global cache dir for pyensembl.
+
+        genome_fasta_path_or_url : str or Path, optional
+            Combined reference DNA FASTA. Supports plain or gzip input;
+            indexes and decompressed copies are stored in the cache.
+
+        reference_metadata : dict, optional
+            Taxon identity, compartment translation tables and contig
+            compartments. Inferred offline when possible and preserved on
+            serialization; independent of source URLs and cache paths.
+        """
+        if transcript_fasta_paths_or_urls is None:
+            transcript_fasta_paths_or_urls = []
+        elif isinstance(transcript_fasta_paths_or_urls, str):
+            transcript_fasta_paths_or_urls = [transcript_fasta_paths_or_urls]
+
+        if protein_fasta_paths_or_urls is None:
+            protein_fasta_paths_or_urls = []
+        elif isinstance(protein_fasta_paths_or_urls, str):
+            protein_fasta_paths_or_urls = [protein_fasta_paths_or_urls]
+
+        self.reference_name = reference_name
+        self.annotation_name = annotation_name
+        self.annotation_version = annotation_version
+        self.decompress_on_download = decompress_on_download
+        self.copy_local_files_to_cache = copy_local_files_to_cache
+        self.cache_directory_path = cache_directory_path
+        self._gtf_path_or_url = gtf_path_or_url
+        self._transcript_fasta_paths_or_urls = transcript_fasta_paths_or_urls
+        self._protein_fasta_paths_or_urls = protein_fasta_paths_or_urls
+        self._reference_metadata = self._resolve_reference_metadata(reference_metadata)
+        # Public access returns copies, so this pinned identity is immutable.
+        # Compute it once: genes/transcripts hash their genome frequently.
+        self._reference_metadata_key = json.dumps(self._reference_metadata, sort_keys=True)
+
+        self.download_cache = DownloadCache(
+            reference_name=self.reference_name,
+            annotation_name=self.annotation_name,
+            annotation_version=self.annotation_version,
+            decompress_on_download=self.decompress_on_download,
+            copy_local_files_to_cache=self.copy_local_files_to_cache,
+            install_string_function=self.install_string,
+            cache_directory_path=cache_directory_path,
+        )
+        self._genome_fasta = (
+            self._make_genome_fasta(genome_fasta_path_or_url)
+            if genome_fasta_path_or_url is not None else None
+        )
+        self._genome_fasta_path_or_url = (
+            self._genome_fasta.source if self._genome_fasta is not None else None
+        )
+        self._init_lazy_fields()
+
+    def _resolve_reference_metadata(self, value):
+        return resolve_reference_metadata(value, reference_name=self.reference_name)
+
+    @property
+    def reference_metadata(self):
+        """Copy of the pinned taxonomy, genetic-code and provenance record."""
+        return deepcopy(self._reference_metadata)
+
+    @property
+    def taxon_id(self):
+        """NCBI taxon of the reference, including a strain when known."""
+        return self._reference_metadata["taxon_id"]
+
+    @property
+    def species_taxon_id(self):
+        """NCBI species ancestor of the reference taxon, or None."""
+        return self._reference_metadata["species_taxon_id"]
+
+    @property
+    def nuclear_translation_table(self):
+        """Reference nuclear NCBI translation-table ID, or None."""
+        return self._reference_metadata["translation_tables"]["nuclear"]
+
+    @property
+    def mitochondrial_translation_table(self):
+        """Reference mitochondrial NCBI translation-table ID, or None."""
+        return self._reference_metadata["translation_tables"]["mitochondrial"]
+
+    @property
+    def plastid_translation_table(self):
+        """Reference plastid NCBI translation-table ID, or None."""
+        return self._reference_metadata["translation_tables"]["plastid"]
+
+    @property
+    def contig_compartments(self):
+        """Copy of explicitly supplied contig-to-compartment assignments."""
+        return dict(self._reference_metadata["contig_compartments"])
+
+    def genetic_code(self, contig=None, *, compartment=None):
+        """Resolve a reference default offline, with provenance or a reason
+        it is unknown. An omitted or unrecognized contig uses the species'
+        nuclear table unless a compartment is explicitly supplied.
+        Transcript annotation declarations take precedence;
+        use ``transcript.genetic_code`` when working with a transcript.
+        """
+        return genetic_code(self._reference_metadata, contig, compartment=compartment)
+
+    def _source_translation_table(self, transcript_id):
+        if not self.requires_gtf:
+            return None
+        path = self._local_source_path(self._gtf_path_or_url)
+        if self._annotation_genetic_codes is None or self._annotation_genetic_codes.path != path:
+            self._annotation_genetic_codes = AnnotationGeneticCodes(
+                path, self._gtf_path_or_url, self.download_cache.cache_directory_path,
+            )
+        return self._annotation_genetic_codes.get(transcript_id)
+
+    @property
+    def requires_gtf(self):
+        return self._gtf_path_or_url is not None
+
+    def _make_genome_fasta(self, source):
+        """Storage for this genome's reference DNA; subclasses may share it."""
+        return GenomeFasta(
+            source,
+            self.download_cache.cache_directory_path,
+            install_string_function=self.genome_fasta_install_string,
+        )
+
+    @property
+    def requires_genome_fasta(self):
+        return self._genome_fasta is not None
+
+    @property
+    def genome_fasta_path(self):
+        """Existing uncompressed DNA path, or None; never downloads data."""
+        return self._genome_fasta.installed_path if self.requires_genome_fasta else None
+
+    @property
+    def fasta(self):
+        """Lazy pyfaidx reader, or None when reference DNA is unconfigured
+        or not installed.
+
+        The reader uses zero-based, half-open slices. Prefer ``sequence`` for
+        PyEnsembl's one-based, inclusive coordinates and for errors explaining
+        missing DNA. This property never downloads missing remote data, but
+        the first access may decompress a local gzip file and build its index.
+        """
+        if not self.requires_genome_fasta:
+            return None
+        try:
+            return self._genome_fasta.open()
+        except MissingGenomeFastaError:
+            return None
+
+    def _genome_fasta_setup_hint(self):
+        return "Pass genome_fasta_path_or_url to Genome."
+
+    def _require_genome_fasta(self):
+        if not self.requires_genome_fasta:
+            raise MissingGenomeFastaError(
+                "No reference DNA configured for %s. %s"
+                % (self, self._genome_fasta_setup_hint())
+            )
+        return self._genome_fasta
+
+    def download_genome_fasta(self, overwrite=False, show_progress=False):
+        """Download only configured reference DNA, leaving annotation files alone.
+
+        show_progress displays progress bars for the download and decompression.
+        """
+        genome_fasta = self._require_genome_fasta()
+        with self._explain_download_failure():
+            genome_fasta.prepare(download=True, overwrite=overwrite, show_progress=show_progress)
+        genome_fasta.remember()
+
+    def index_genome_fasta(self, overwrite=False, show_progress=False):
+        """Index configured local DNA without downloading other genome data."""
+        genome_fasta = self._require_genome_fasta()
+        genome_fasta.open(overwrite=overwrite, show_progress=show_progress)
+        genome_fasta.remember()
+
+    def sequence(self, contig, start, end, mask="upper", *, strand="+"):
+        """Return DNA using one-based, inclusive coordinates.
+
+        Contigs may be named as in the FASTA or as pyensembl reports them
+        (e.g. ``gene.contig``). ``strand="-"`` returns the reverse complement,
+        so ``sequence(t.contig, t.start, t.end, strand=t.strand)`` reads a
+        transcript's locus 5' to 3'. Invalid intervals and absent contigs raise
+        ValueError; unconfigured or uninstalled DNA raises
+        MissingGenomeFastaError. Use mask='raw' to preserve soft masking.
+        """
+        if mask not in ("upper", "raw"):
+            raise ValueError("mask must be 'upper' or 'raw'")
+        if isinstance(strand, bool):
+            raise ValueError("Invalid strand: %s" % (strand,))
+        strand = normalize_strand(strand)
+        if any(isinstance(x, bool) or not isinstance(x, Integral) for x in (start, end)):
+            raise ValueError("Genome sequence coordinates must be integers")
+        if start < 1 or end < start:
+            raise ValueError("Genome sequence requires 1 <= start <= end")
+        genome_fasta = self._require_genome_fasta()
+        record = genome_fasta.record(contig)
+        if record is None:
+            similar = genome_fasta.similar_names(contig)[:3]
+            hint = (
+                " (did you mean %s?)" % " or ".join(repr(name) for name in similar)
+                if similar
+                else ""
+            )
+            raise ValueError("Contig %r is absent from genome FASTA %s%s" % (
+                contig, self._genome_fasta_path_or_url, hint
+            ))
+        if end > len(record):
+            raise ValueError("End %d exceeds contig %s length %d" % (end, contig, len(record)))
+        bases = record[int(start) - 1:int(end)].seq
+        if strand == "-":
+            bases = bases.translate(_COMPLEMENT)[::-1]
+        return bases.upper() if mask == "upper" else bases
+
+    @property
+    def requires_transcript_fasta(self):
+        return (
+            self._transcript_fasta_paths_or_urls is not None
+            and len(self._transcript_fasta_paths_or_urls) > 0
+        )
+
+    @property
+    def requires_protein_fasta(self):
+        return (
+            self._protein_fasta_paths_or_urls is not None
+            and len(self._protein_fasta_paths_or_urls) > 0
+        )
+
+    def to_dict(self):
+        """
+        Returns a dictionary of the essential fields of this Genome.
+        """
+        return dict(
+            reference_name=self.reference_name,
+            annotation_name=self.annotation_name,
+            annotation_version=self.annotation_version,
+            gtf_path_or_url=self._gtf_path_or_url,
+            transcript_fasta_paths_or_urls=self._transcript_fasta_paths_or_urls,
+            protein_fasta_paths_or_urls=self._protein_fasta_paths_or_urls,
+            decompress_on_download=self.decompress_on_download,
+            copy_local_files_to_cache=self.copy_local_files_to_cache,
+            cache_directory_path=self.cache_directory_path,
+            genome_fasta_path_or_url=self._genome_fasta_path_or_url,
+            reference_metadata=self.reference_metadata,
+        )
+
+    def _init_lazy_fields(self):
+        """
+        Member data that gets loaded or constructed on demand
+        """
+        self.gtf_path = None
+        self._protein_sequences = None
+        self._transcript_sequences = None
+        self._db = None
+        self._annotation_genetic_codes = None
+        self.protein_fasta_paths = None
+        self.transcript_fasta_paths = None
+
+        # only memoizing the Gene, Transcript, and Exon objects
+        self._genes = {}
+        self._transcripts = {}
+        self._exons = {}
+
+    def _get_cached_path(
+        self, field_name, path_or_url, download_if_missing=False, overwrite=False,
+        show_progress=False,
+    ):
+        """
+        Get the local path for a possibly remote file, invoking either
+        a download or install error message if it's missing.
+        """
+        if len(field_name) == 0:
+            raise ValueError("Expected non-empty field name")
+        if len(path_or_url) == 0:
+            raise ValueError("Expected non-empty path_or_url")
+        return self.download_cache.local_path_or_install_error(
+            field_name=field_name,
+            path_or_url=path_or_url,
+            download_if_missing=download_if_missing,
+            overwrite=overwrite,
+            show_progress=show_progress,
+        )
+
+    def _get_gtf_path(self, download_if_missing=False, overwrite=False, show_progress=False):
+        return self._get_cached_path(
+            field_name="gtf",
+            path_or_url=self._gtf_path_or_url,
+            download_if_missing=download_if_missing,
+            overwrite=overwrite,
+            show_progress=show_progress,
+        )
+
+    def _get_transcript_fasta_paths(
+        self, download_if_missing=False, overwrite=False, show_progress=False
+    ):
+        if not self.requires_transcript_fasta:
+            raise ValueError("No transcript FASTA source for %s" % self)
+        return [
+            self._get_cached_path(
+                field_name="transcript-fasta",
+                path_or_url=path,
+                download_if_missing=download_if_missing,
+                overwrite=overwrite,
+                show_progress=show_progress,
+            )
+            for path in self._transcript_fasta_paths_or_urls
+        ]
+
+    def _get_protein_fasta_paths(
+        self, download_if_missing=False, overwrite=False, show_progress=False
+    ):
+        # get the path for peptide FASTA files containing
+        # this genome's protein sequences
+        if not self.requires_protein_fasta:
+            raise ValueError("No protein FASTA source for %s" % self)
+        return [
+            self._get_cached_path(
+                field_name="protein-fasta",
+                path_or_url=path,
+                download_if_missing=download_if_missing,
+                overwrite=overwrite,
+                show_progress=show_progress,
+            )
+            for path in self._protein_fasta_paths_or_urls
+        ]
+
+    def _set_local_paths(self, download_if_missing=True, overwrite=False, show_progress=False):
+        options = dict(
+            download_if_missing=download_if_missing,
+            overwrite=overwrite,
+            show_progress=show_progress,
+        )
+        with self._explain_download_failure():
+            if self.requires_gtf:
+                self.gtf_path = self._get_gtf_path(**options)
+            if self.requires_transcript_fasta:
+                self.transcript_fasta_paths = self._get_transcript_fasta_paths(**options)
+                if (self._transcript_sequences is not None
+                        and self._transcript_sequences.fasta_paths != self.transcript_fasta_paths):
+                    self._transcript_sequences = None
+            if self.requires_protein_fasta:
+                self.protein_fasta_paths = self._get_protein_fasta_paths(**options)
+                if (self._protein_sequences is not None
+                        and self._protein_sequences.fasta_paths != self.protein_fasta_paths):
+                    self._protein_sequences = None
+
+    def _explain_download_failure(self):
+        """Context around downloads; subclasses can replace a failure with
+        a clearer error, e.g. naming the dates Ensembl publishes."""
+        return nullcontext()
+
+    def _local_source_path(self, path_or_url):
+        """Where a source file is, or will be, on disk; never downloads or copies.
+
+        Downloads and copied files live in the cache; other local files are
+        used in place.
+        """
+        return self.download_cache.local_path(path_or_url)
+
+    def _annotation_sources(self):
+        """Stable roles, in the same order as their derived indexes."""
+        sources = {"gtf": self._gtf_path_or_url} if self.requires_gtf else {}
+        for prefix, paths in (
+            ("transcript_fasta", self._transcript_fasta_paths_or_urls),
+            ("protein_fasta", self._protein_fasta_paths_or_urls),
+        ):
+            sources.update(("%s_%d" % (prefix, i), source)
+                           for i, source in enumerate(paths or [], 1))
+        return sources
+
+    def _annotation_source_paths(self):
+        return [self._local_source_path(source)
+                for source in self._annotation_sources().values()]
+
+    def required_local_files(self):
+        paths = []
+        if self.requires_genome_fasta:
+            paths.append(self._genome_fasta.expected_path)
+        return paths + self._annotation_source_paths()
+
+    def required_local_files_exist(self, empty_files_ok=False):
+        if self.requires_genome_fasta:
+            try:
+                if self.genome_fasta_path is None:
+                    return False
+            except OSError:
+                return False
+        return all(inspect_data_file(path, empty_files_ok).status == "available"
+                   for path in self.required_local_files())
+
+    def _inspect_annotation(self):
+        sources = {role: self.download_cache.inspect(source)
+                   for role, source in self._annotation_sources().items()}
+        indexes = {}
+        for role, path in zip(sources, self._annotation_index_paths()):
+            options = {}
+            if role == "gtf":
+                options = {"gtf_path": sources[role].path, "source": self._gtf_path_or_url}
+            indexes[role + "_index"] = _inspect_annotation_index(path, **options)
+        return sources, indexes
+
+    @staticmethod
+    def _annotation_readiness(sources, indexes):
+        if not sources:
+            return None
+        statuses = {file.status for file in sources.values()}
+        if "inaccessible" in statuses:
+            return "inaccessible"
+        if "corrupt" in statuses:
+            return "invalid"
+        if "missing" in statuses:
+            present = any(file.status != "missing"
+                          for file in list(sources.values()) + list(indexes.values()))
+            return "incomplete" if present else "missing"
+        return "indexed" if all(file.status == "available" for file in indexes.values()) else "not indexed"
+
+    def _annotation_status(self):
+        """How far annotation data is installed; only reads the cache.
+
+        None if none is configured, else 'missing', 'incomplete' (some files
+        but not every download), 'invalid', 'inaccessible', 'not indexed', or
+        'indexed': every source is usable and every index complete.
+        """
+        return self._annotation_readiness(*self._inspect_annotation())
+
+    def inspect_data(self, check_genome_fasta=False):
+        """Offline inventory of configured sources and indexes.
+
+        Return readiness and role-keyed datacache ``FileInspection`` objects.
+        Never downloads, imports, builds indexes, creates directories or loads
+        pickle contents. Availability checks regular, readable, nonempty files;
+        SQLite completeness, local GTF identity, and reference-DNA fingerprints
+        are also checked.
+        ``verified`` is not inferred from an acquisition provenance receipt.
+        """
+        sources, indexes = self._inspect_annotation()
+        annotation = self._annotation_readiness(sources, indexes)
+        files = dict(sources, **indexes)
+        dna = None
+        if self.requires_genome_fasta:
+            fasta = self._genome_fasta
+            try:
+                path = fasta.expected_path
+            except OSError:
+                # Resolving a local gzip source reads its header. Preserve the
+                # original filesystem error as an inspection, not a CLI crash.
+                path = fasta.source
+            source = inspect_data_file(path)
+            index = inspect_data_file(str(fasta.index_path))
+            files["genome_fasta"] = source
+            files["genome_fasta_index_state"] = inspect_data_file(str(fasta.index_state_path))
+            if source.status in ("corrupt", "inaccessible"):
+                dna = "invalid" if source.status == "corrupt" else "inaccessible"
+            else:
+                try:
+                    dna = fasta.status(check=check_genome_fasta)
+                except OSError as error:
+                    dna = "inaccessible"
+                    files["genome_fasta"] = replace(source, status="inaccessible", error=error)
+            if index.status == "available" and dna in ("needs index", "invalid index"):
+                index = replace(index, status="corrupt", error=FileValidationError(
+                    index.path, "stale or invalid reference-DNA index; rebuild the index"
+                ))
+            if dna == "indexed" and index.status != "available":
+                dna = "needs index"
+            files["genome_fasta_index"] = index
+        return {
+            "annotation": annotation,
+            "reference_dna": dna,
+            "installed": annotation in (None, "indexed") and dna in (None, "indexed"),
+            "files": files,
+        }
+
+    def installed(self):
+        """Whether every configured file is downloaded and indexed, so queries
+        need no network access or setup.
+
+        Includes reference DNA when it is configured. Only reads the cache:
+        never downloads, copies, indexes, or creates files.
+        """
+        return self.inspect_data()["installed"]
+
+    def download(self, overwrite=False, show_progress=False):
+        """
+        Download data files needed by this Genome instance.
+
+        Parameters
+        ----------
+        overwrite : bool, optional
+            Download files regardless whether local copy already exists.
+
+        show_progress : bool, optional
+            Display download progress bars.
+        """
+        if overwrite:
+            # A legacy source may refresh into a URL-specific path. Discard
+            # loaded readers, not files, so queries use the selected sources.
+            self.close()
+            self._init_lazy_fields()
+        self._set_local_paths(
+            download_if_missing=True, overwrite=overwrite, show_progress=show_progress
+        )
+        if self.requires_genome_fasta:
+            self.download_genome_fasta(overwrite=overwrite, show_progress=show_progress)
+
+    def index(self, overwrite=False, show_progress=False):
+        """
+        Assuming that all necessary data for this Genome has been downloaded,
+        generate the GTF database and save efficient representation of
+        FASTA sequence files.
+
+        show_progress displays progress bars while the GTF is read, the database
+        is filled, and sequence files are read.
+        """
+        # Another Genome may have rebuilt a shared index since this instance
+        # memoized its genes, even when this call itself can reuse the index.
+        self.clear_cache()
+        if self.requires_gtf:
+            if self._db is not None:
+                with self._explain_download_failure():
+                    self.gtf_path = self._get_gtf_path(
+                        download_if_missing=True, show_progress=show_progress
+                    )
+            database = self.db
+            database.connect_or_create(overwrite=overwrite, show_progress=show_progress)
+        if self.requires_transcript_fasta:
+            paths = self._get_transcript_fasta_paths(show_progress=show_progress)
+            if self._transcript_sequences is not None and self._transcript_sequences.fasta_paths != paths:
+                self._transcript_sequences = None
+            self.transcript_sequences.index(overwrite=overwrite, show_progress=show_progress)
+        if self.requires_protein_fasta:
+            paths = self._get_protein_fasta_paths(show_progress=show_progress)
+            if self._protein_sequences is not None and self._protein_sequences.fasta_paths != paths:
+                self._protein_sequences = None
+            self.protein_sequences.index(overwrite=overwrite, show_progress=show_progress)
+        if self.requires_genome_fasta:
+            self.index_genome_fasta(overwrite=overwrite, show_progress=show_progress)
+            if self.requires_gtf and not self._genome_fasta.remote:
+                missing = set()
+                for contig in self.contigs():
+                    try:
+                        if self._genome_fasta.record(contig) is None:
+                            missing.add(contig)
+                    except ValueError:
+                        pass  # Several FASTA records match; not missing.
+                if missing:
+                    warnings.warn(
+                        "Local genome FASTA lacks %d annotation contigs (e.g. %s). "
+                        "Check assembly and contig naming; matching names alone "
+                        "do not verify assembly identity."
+                        % (len(missing), ", ".join(sorted(missing)[:5])),
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
+    @property
+    def db(self):
+        if not self.requires_gtf:
+            raise ValueError("Missing GTF source for %s" % self)
+        if self._db is None:
+            # make sure GTF file exists locally
+            # and populate self.gtf_path
+            self._set_local_paths(
+                download_if_missing=True,  ## if set at False the files are not downloaded in interactive python, works anyways via command line though
+                overwrite=False,
+            )
+            if self.gtf_path is None:
+                raise ValueError("Property 'gtf_path' of %s cannot be None" % self)
+
+            # Database object turns the GTF dataframes into sqlite3 tables
+            # and wraps them with methods like `query_one`
+            self._db = Database(
+                gtf_path=self.gtf_path,
+                source=self._gtf_path_or_url,
+                install_string=self.install_string(),
+                cache_directory_path=self.download_cache.cache_directory_path,
+                restrict_gtf_columns={
+                    "seqname",
+                    "source",
+                    "feature",
+                    "start",
+                    "end",
+                    "strand",
+                    "gene_id",
+                    "gene_version",
+                    "gene_name",
+                    "gene_biotype",
+                    "transcript_id",
+                    "transcript_version",
+                    "transcript_name",
+                    "transcript_biotype",
+                    "transcript_support_level",
+                    "exon_number",
+                    "exon_id",
+                    "exon_version",
+                    "ccds_id",
+                    "protein_id",
+                    "protein_version",
+                    "transl_table",
+                    "translation_table",
+                },
+                # excluding 'UTR' and 'Selenocysteine'
+                restrict_gtf_features={
+                    "gene",
+                    "transcript",
+                    "exon",
+                    "CDS",
+                    "start_codon",
+                    "stop_codon",
+                },
+            )
+        return self._db
+
+    @property
+    def protein_sequences(self):
+        if self._protein_sequences is None:
+            if not self.requires_protein_fasta:
+                raise ValueError("Missing protein FASTA source for %s" % self)
+            # make sure protein FASTA file exists locally
+            # and populate self.protein_fasta_paths
+            self._set_local_paths(download_if_missing=False, overwrite=False)
+            if self.protein_fasta_paths is None:
+                raise ValueError(
+                    "Property 'protein_fasta_paths' of %s cannot be None" % self
+                )
+            self._protein_sequences = SequenceData(
+                fasta_paths=self.protein_fasta_paths,
+                cache_directory_path=self.download_cache.cache_directory_path,
+                sources=self._protein_fasta_paths_or_urls,
+            )
+        return self._protein_sequences
+
+    @property
+    def transcript_sequences(self):
+        if self._transcript_sequences is None:
+            if not self.requires_transcript_fasta:
+                raise ValueError("Missing transcript FASTA source for %s" % self)
+            # make sure transcript FASTA file exists locally
+            # and populate self.transcript_fasta_paths
+            self._set_local_paths(download_if_missing=False, overwrite=False)
+            if self.transcript_fasta_paths is None:
+                raise ValueError(
+                    "Property 'transcript_fasta_paths' of %s cannot be None" % (self,)
+                )
+            self._transcript_sequences = SequenceData(
+                fasta_paths=self.transcript_fasta_paths,
+                cache_directory_path=self.download_cache.cache_directory_path,
+                sources=self._transcript_fasta_paths_or_urls,
+            )
+        return self._transcript_sequences
+
+    def install_string(self):
+        """
+        Add every missing file to the install string shown to the user
+        in an error message.
+        """
+        args = [
+            "--reference-name",
+            self.reference_name,
+            "--annotation-name",
+            self.annotation_name,
+        ]
+        if self.annotation_version:
+            args.extend(["--annotation-version", str(self.annotation_version)])
+        if self.requires_gtf:
+            args.append("--gtf")
+            args.append('"%s"' % self._gtf_path_or_url)
+        if self.requires_protein_fasta:
+            args += [
+                '--protein-fasta "%s"' % path
+                for path in self._protein_fasta_paths_or_urls
+            ]
+        if self.requires_transcript_fasta:
+            args += [
+                '--transcript-fasta "%s"' % path
+                for path in self._transcript_fasta_paths_or_urls
+            ]
+        if self.requires_genome_fasta:
+            args += ['--genome-fasta-path "%s"' % self._genome_fasta_path_or_url]
+        return "pyensembl install %s" % " ".join(args)
+
+    def genome_fasta_install_string(self):
+        """Command that installs only this genome's reference DNA."""
+        return self.install_string() + " --only-genome-fasta"
+
+    def __str__(self):
+        transcript_fasta_paths_or_urls = (
+            ",".join(self._transcript_fasta_paths_or_urls)
+            if self._transcript_fasta_paths_or_urls is not None
+            else None
+        )
+        protein_fasta_paths_or_urls = (
+            ",".join(self._protein_fasta_paths_or_urls)
+            if self._protein_fasta_paths_or_urls is not None
+            else None
+        )
+        return (
+            "Genome(reference_name=%s, "
+            "annotation_name=%s, "
+            "annotation_version=%s, "
+            "gtf_path_or_url=%s, "
+            "transcript_fasta_paths_or_urls=%s, "
+            "protein_fasta_paths_or_urls=%s)"
+            % (
+                self.reference_name,
+                self.annotation_name,
+                self.annotation_version,
+                self._gtf_path_or_url,
+                transcript_fasta_paths_or_urls,
+                protein_fasta_paths_or_urls,
+            )
+        )
+
+    def __repr__(self):
+        return str(self)
+
+    def _fields(self):
+        # Reference DNA is an attached resource, not annotation identity:
+        # genes and transcripts compare equal with or without it.
+        return (
+            self.reference_name,
+            self.annotation_name,
+            self.annotation_version,
+            self._gtf_path_or_url,
+            tuple(self._protein_fasta_paths_or_urls),
+            tuple(self._transcript_fasta_paths_or_urls),
+            self._reference_metadata_key,
+        )
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self._fields() == other._fields()
+
+    def __hash__(self):
+        return hash(self._fields())
+
+    def clear_cache(self):
+        """Clear values cached in memory without deleting index files."""
+        self._genes.clear()
+        self._transcripts.clear()
+        self._exons.clear()
+        self._annotation_genetic_codes = None
+        if self._db is not None:
+            self._db.clear_cache()
+        if self._transcript_sequences is not None:
+            self._transcript_sequences.clear_cache()
+        if self._protein_sequences is not None:
+            self._protein_sequences.clear_cache()
+        if self.requires_genome_fasta:
+            # Readers returned by .fasta remain usable by their holders.
+            self._genome_fasta.clear_cache()
+
+    def close(self):
+        """Close resources opened by this genome."""
+        if self._db is not None:
+            self._db.close()
+        if self.requires_genome_fasta:
+            self._genome_fasta.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def _index_file_paths(self):
+        """Locate indexes without resolving or loading their source files."""
+        # Include persisted DNA indexes even when this instance did not opt in.
+        # Only our cache is searched; attached user files are never removed.
+        genome_fasta_indexes = (
+            Path(self.download_cache.cache_directory_path) / "genome_fasta"
+        ).glob("*/sequence.fa.fai")
+        paths = [str(path) for path in genome_fasta_indexes] + self._annotation_index_paths()
+        for source in self._transcript_fasta_paths_or_urls + self._protein_fasta_paths_or_urls:
+            cache = self.download_cache
+            indexes = fasta_index_files(self._local_source_path(source), cache.cache_directory_path, source)
+            if not indexes and cache.copy_local_files_to_cache and not cache.is_url_format(source):
+                # A legacy copied FASTA may be gone while its old index remains.
+                indexes = fasta_index_files(
+                    cache._cache_path(source, legacy=True), cache.cache_directory_path, source,
+                )
+            paths.extend(indexes)
+        return list(dict.fromkeys(paths))
+
+    def _annotation_index_paths(self):
+        """Current indexes, identifying attached local FASTAs by their bytes."""
+        cache = self.download_cache
+
+        paths = []
+        if self.requires_gtf:
+            if self._db is not None:
+                paths.append(self._db.local_db_path)
+            else:
+                filename = annotation_db_filename(
+                    self._local_source_path(self._gtf_path_or_url), self._gtf_path_or_url
+                )
+                paths.append(join(cache.cache_directory_path, filename))
+        for source in self._transcript_fasta_paths_or_urls + self._protein_fasta_paths_or_urls:
+            local = self._local_source_path(source)
+            # A changed original means its copied FASTA needs refreshing first.
+            content = local
+            if cache.copy_local_files_to_cache and isfile(source) and (
+                not isfile(local) or not _same_file_bytes(source, local, cache.decompress_on_download)
+            ):
+                content = source
+            paths.append(fasta_index_path(
+                local, cache.cache_directory_path, source, content_path=content,
+            ))
+        return paths
+
+    def delete_index_files(self):
+        """Delete SQLite and FASTA indexes, preserving source files.
+
+        Missing sources and indexes are allowed; nothing is downloaded or
+        copied. Return ``(path, size_in_bytes)`` pairs for the removed files.
+        """
+        self.clear_cache()
+        self.close()
+        deleted = []
+        for path in self._index_file_paths():
+            if lexists(path):
+                size = lstat(path).st_size
+                remove(path)
+                deleted.append((path, size))
+        return deleted
+
+    def _all_feature_values(
+        self,
+        column,
+        feature,
+        distinct=True,
+        contig=None,
+        strand=None,
+        biotype=None,
+    ):
+        """
+        Lookup of all values for a particular feature property from the
+        database. Repeated queries are cached in memory by the database.
+
+        Parameters
+        ----------
+
+        column : str
+            Name of property (e.g. exon_id)
+
+        feature : str
+            Type of entry (e.g. exon)
+
+        distinct : bool, optional
+            Keep only unique values
+
+        contig : str, optional
+            Restrict query to particular contig
+
+        strand : str, optional
+            Restrict results to "+" or "-" strands
+
+        biotype : str, optional
+            Restrict results to rows whose ``{feature}_biotype`` column
+            matches this value (e.g. ``"protein_coding"``). Only meaningful
+            for the ``gene`` and ``transcript`` features.
+
+        Returns a list constructed from query results.
+        """
+        return self.db.query_feature_values(
+            column=column,
+            feature=feature,
+            distinct=distinct,
+            contig=contig,
+            strand=strand,
+            biotype=biotype,
+        )
+
+    def transcript_sequence(self, transcript_id):
+        """Return cDNA nucleotide sequence of transcript, or None if
+        transcript doesn't have cDNA sequence. A versioned ID such as
+        ``ENST00000269305.8`` must match this annotation's version.
+        """
+        return self._sequence_of_id(
+            self.transcript_sequences, "transcript_id", transcript_id
+        )
+
+    def protein_sequence(self, protein_id):
+        """Return amino-acid sequence of protein, or None if the protein is
+        absent from the FASTA. A versioned ID such as ``ENSP00000269305.4``
+        must match this annotation's version.
+        """
+        return self._sequence_of_id(self.protein_sequences, "protein_id", protein_id)
+
+    def _sequence_of_id(self, sequences, id_column, sequence_id):
+        bare, version = _split_ens_version(sequence_id)
+        fasta_versions = sequences.recorded_versions(bare)
+        if self.requires_gtf and (
+            len(fasta_versions) > 1 if version is None else not fasta_versions
+        ):
+            # The FASTA can't settle this ID by itself: Ensembl FASTA headers
+            # before release 83 carry no versions, and a FASTA may hold several.
+            # Use the version the GTF records.
+            installed = self.db.installed_versions(id_column, sequence_id)
+            gtf_id = match_version(sequence_id, installed)
+            if gtf_id is not None and installed[gtf_id] is not None:
+                sequence_id = bare
+                if fasta_versions:
+                    sequence_id = "%s.%d" % (bare, installed[gtf_id])
+        stored_id = sequences.stored_id(sequence_id)
+        return None if stored_id is None else sequences.get(stored_id)
+
+    def genes_at_locus(self, contig, position, end=None, strand=None):
+        """
+        Gene objects overlapping ``position``, or the ``position..end``
+        interval, on ``contig``. Coordinates are one-based and inclusive.
+        Pass ``strand`` to restrict the search to one strand.
+        """
+        gene_ids = self.gene_ids_at_locus(contig, position, end=end, strand=strand)
+        return [self.gene_by_id(gene_id) for gene_id in gene_ids]
+
+    def transcripts_at_locus(self, contig, position, end=None, strand=None):
+        """
+        Transcript objects overlapping ``position``, or the ``position..end``
+        interval, on ``contig``. Coordinates are one-based and inclusive.
+        Pass ``strand`` to restrict the search to one strand.
+        """
+        transcript_ids = self.transcript_ids_at_locus(
+            contig, position, end=end, strand=strand
+        )
+        return [
+            self.transcript_by_id(transcript_id) for transcript_id in transcript_ids
+        ]
+
+    def exons_at_locus(self, contig, position, end=None, strand=None):
+        """
+        Exon objects overlapping ``position``, or the ``position..end``
+        interval, on ``contig``. Coordinates are one-based and inclusive.
+        Pass ``strand`` to restrict the search to one strand.
+        """
+        exon_ids = self.exon_ids_at_locus(contig, position, end=end, strand=strand)
+        return [self.exon_by_id(exon_id) for exon_id in exon_ids]
+
+    def nearest_gene(self, contig, position, end=None, strand=None):
+        """
+        Find the gene on ``contig`` whose locus is nearest to the position
+        (or position..end interval), even if no gene actually overlaps.
+
+        Returns ``(distance, Gene)`` where ``distance`` is the number of
+        intervening bases (0 if the query interval falls inside the gene).
+        Returns ``(inf, None)`` when the contig has no genes on the
+        requested strand.
+
+        Pass ``strand`` to restrict the search to one strand of the contig.
+        """
+        if end is None:
+            end = position
+        return find_nearest_locus(
+            start=position,
+            end=end,
+            loci=self.genes(contig=contig, strand=strand),
+        )
+
+    def merged_gene_intervals(self, contig, strand=None):
+        """
+        Return the union of all gene loci on ``contig`` as a sorted list of
+        non-overlapping ``(start, end)`` tuples. Adjacent intervals
+        (``end + 1 == next start``) are merged into one. Pass ``strand`` to
+        restrict to one strand of the contig.
+
+        Useful for asking "is this position inside any gene?" or computing
+        gene-density coverage without double-counting overlapping genes.
+        """
+        sql = "SELECT start, end FROM gene WHERE seqname = ?"
+        params = [normalize_chromosome(contig)]
+        if strand is not None:
+            sql += " AND strand = ?"
+            params.append(normalize_strand(strand))
+        rows = self.db.run_sql_query(sql, query_params=params)
+        return merge_intervals(rows)
+
+    def nearest_transcript(self, contig, position, end=None, strand=None):
+        """
+        Find the transcript on ``contig`` whose locus is nearest to the
+        position (or position..end interval), even if no transcript
+        overlaps. See :meth:`nearest_gene` for the return shape.
+        """
+        if end is None:
+            end = position
+        return find_nearest_locus(
+            start=position,
+            end=end,
+            loci=self.transcripts(contig=contig, strand=strand),
+        )
+
+    def gene_ids_at_locus(self, contig, position, end=None, strand=None):
+        return self.db.distinct_column_values_at_locus(
+            column="gene_id",
+            feature="gene",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    def gene_names_at_locus(self, contig, position, end=None, strand=None):
+        """
+        Names of genes overlapping ``position``, or the ``position..end``
+        interval, on ``contig``. Coordinates are one-based and inclusive.
+        Pass ``strand`` to restrict the search to one strand.
+        """
+        return self.db.distinct_column_values_at_locus(
+            column="gene_name",
+            feature="gene",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    def exon_ids_at_locus(self, contig, position, end=None, strand=None):
+        return self.db.distinct_column_values_at_locus(
+            column="exon_id",
+            feature="exon",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    def transcript_ids_at_locus(self, contig, position, end=None, strand=None):
+        return self.db.distinct_column_values_at_locus(
+            column="transcript_id",
+            feature="transcript",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    def transcript_names_at_locus(self, contig, position, end=None, strand=None):
+        return self.db.distinct_column_values_at_locus(
+            column="transcript_name",
+            feature="transcript",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    def protein_ids_at_locus(self, contig, position, end=None, strand=None):
+        return self.db.distinct_column_values_at_locus(
+            column="protein_id",
+            feature="CDS",
+            contig=contig,
+            position=position,
+            end=end,
+            strand=strand,
+        )
+
+    ###################################################
+    #
+    #         Methods which return Locus objects
+    #         containing (contig, start, stop, strand)
+    #         of various genomic entities
+    #
+    ###################################################
+
+    def locus_of_gene_id(self, gene_id):
+        """
+        Given a gene ID returns Locus with: chromosome, start, stop, strand
+        """
+        return self.db.query_locus(
+            filter_column="gene_id", filter_value=gene_id, feature="gene"
+        )
+
+    def loci_of_gene_names(self, gene_name):
+        """
+        Given a gene name returns list of Locus objects with fields:
+            chromosome, start, stop, strand
+        You can get multiple results since a gene might have multiple copies
+        in the genome.
+        """
+        return self.db.query_loci("gene_name", gene_name, "gene")
+
+    def locus_of_transcript_id(self, transcript_id):
+        return self.db.query_locus(
+            filter_column="transcript_id",
+            filter_value=transcript_id,
+            feature="transcript",
+        )
+
+    def locus_of_exon_id(self, exon_id):
+        """
+        Given an exon ID returns Locus
+        """
+        return self.db.query_locus("exon_id", exon_id, feature="exon")
+
+    ###################################################
+    #
+    #                  Contigs
+    #
+    ###################################################
+
+    def contigs(self):
+        """
+        Returns all contig names for any gene in the genome
+        (field called "seqname" in Ensembl GTF files)
+        """
+        return self.db.query_feature_values("seqname", "gene")
+
+    ###################################################
+    #
+    #             Gene Info Objects
+    #
+    ###################################################
+
+    def genes(self, contig=None, strand=None, biotype=None):
+        """
+        Returns all Gene objects in the database. Can be restricted to a
+        particular contig/chromosome, strand, or biotype.
+
+        Parameters
+        ----------
+        contig : str
+            Only return genes on the given contig.
+
+        strand : str
+            Only return genes on this strand.
+
+        biotype : str
+            Only return genes with this Ensembl ``gene_biotype``
+            (e.g. ``"protein_coding"``).
+        """
+        gene_ids = self.gene_ids(contig=contig, strand=strand, biotype=biotype)
+        return [self.gene_by_id(gene_id) for gene_id in gene_ids]
+
+    def gene_by_id(self, gene_id):
+        """
+        Construct a Gene object for the given gene ID, such as
+        ``"ENSG00000141510"``. A versioned ID such as
+        ``"ENSG00000141510.16"`` must match this annotation's version.
+        """
+        if gene_id not in self._genes:
+            field_names = [
+                "gene_id",
+                "seqname",
+                "start",
+                "end",
+                "strand",
+            ]
+            optional_field_names = [
+                "gene_name",
+                "gene_biotype",
+            ]
+            # Do not look for gene_name and gene_biotype if they are
+            # not in the database.
+            field_names.extend(
+                [
+                    name
+                    for name in optional_field_names
+                    if self.db.column_exists("gene", name)
+                ]
+            )
+            result = self.db.query_one(
+                field_names,
+                filter_column="gene_id",
+                filter_value=gene_id,
+                feature="gene",
+            )
+            if not result:
+                raise ValueError("Gene not found: %s" % (gene_id,))
+
+            # The stored ID may differ in form from the one given,
+            # e.g. bare where a versioned ID was requested
+            data = dict(zip(field_names, result))
+            gene_id = data["gene_id"]
+            if gene_id not in self._genes:
+                self._genes[gene_id] = Gene(
+                    gene_id=gene_id,
+                    gene_name=data.get("gene_name"),
+                    contig=data["seqname"],
+                    start=data["start"],
+                    end=data["end"],
+                    strand=data["strand"],
+                    biotype=data.get("gene_biotype"),
+                    genome=self,
+                )
+
+        return self._genes[gene_id]
+
+    def genes_by_name(self, gene_name, aliases=None):
+        """
+        Get all the unique genes with the given name (there might be multiple
+        due to copies in the genome), return a list containing a Gene object
+        for each distinct ID.
+
+        aliases optionally supplies a name-to-gene-ID mapping, for example
+        GeneNameAliases.from_hgnc(path). Include all exact and alias matches
+        present in this annotation. No alias data is downloaded by a query.
+        """
+        gene_ids = self.gene_ids_of_gene_name(gene_name, aliases=aliases)
+        return [self.gene_by_id(gene_id) for gene_id in gene_ids]
+
+    def gene_by_protein_id(self, protein_id):
+        """
+        Get the gene ID associated with the given protein ID,
+        return its Gene object
+        """
+        gene_id = self.gene_id_of_protein_id(protein_id)
+        return self.gene_by_id(gene_id)
+
+    ###################################################
+    #
+    #             Gene Names
+    #
+    ###################################################
+
+    def _query_gene_name(self, property_name, property_value, feature_type):
+        results = self.db.query(
+            select_column_names=["gene_name"],
+            filter_column=property_name,
+            filter_value=property_value,
+            feature=feature_type,
+            distinct=True,
+            required=True,
+        )
+        return str(results[0][0])
+
+    def gene_names(self, contig=None, strand=None):
+        """
+        Return all genes in the database,
+        optionally restrict to a chromosome and/or strand.
+        """
+        return self._all_feature_values(
+            column="gene_name", feature="gene", contig=contig, strand=strand
+        )
+
+    def gene_name_of_gene_id(self, gene_id):
+        return self._query_gene_name("gene_id", gene_id, "gene")
+
+    def gene_name_of_transcript_id(self, transcript_id):
+        return self._query_gene_name("transcript_id", transcript_id, "transcript")
+
+    def gene_name_of_transcript_name(self, transcript_name):
+        return self._query_gene_name("transcript_name", transcript_name, "transcript")
+
+    def gene_name_of_exon_id(self, exon_id):
+        return self._query_gene_name("exon_id", exon_id, "exon")
+
+    ###################################################
+    #
+    #             Gene IDs
+    #
+    ###################################################
+
+    def _query_gene_ids(self, property_name, value, feature="gene"):
+        results = self.db.query(
+            select_column_names=["gene_id"],
+            filter_column=property_name,
+            filter_value=value,
+            feature=feature,
+            distinct=True,
+            required=True,
+        )
+        return [str(result[0]) for result in results if result[0]]
+
+    def gene_ids(self, contig=None, strand=None, biotype=None):
+        """
+        What are all the gene IDs (optionally restrict to a given
+        chromosome/contig, strand, or ``gene_biotype``).
+        """
+        return self._all_feature_values(
+            column="gene_id",
+            feature="gene",
+            contig=contig,
+            strand=strand,
+            biotype=biotype,
+        )
+
+    def gene_ids_of_gene_name(self, gene_name, aliases=None):
+        """
+        What are the gene IDs associated with a given gene name?
+        (due to copy events, there might be multiple genes per name)
+
+        aliases is an optional mapping from names to one or more stable IDs.
+        Unknown IDs are ignored; ambiguous names retain every matching gene.
+        """
+        if aliases is None:
+            results = self._query_gene_ids("gene_name", gene_name)
+        else:
+            alias_species = getattr(aliases, "species", None)
+            genome_species = getattr(getattr(self, "species", None), "latin_name", None)
+            if alias_species and genome_species and alias_species != genome_species:
+                raise ValueError("Gene aliases for %s cannot be used with %s" %
+                                 (alias_species, genome_species))
+            alias_map = aliases if isinstance(aliases, GeneNameAliases) else normalize_aliases(aliases)
+            candidates = alias_map.get(gene_name, ())
+            results = []
+            if self.db.column_exists("gene", "gene_name"):
+                results = [str(row[0]) for row in self.db.query(
+                    ["gene_id"], "gene_name", gene_name, "gene", distinct=True
+                ) if row[0]]
+            if candidates:
+                stable_ids = {stable_ensembl_gene_id(gene_id) for gene_id in candidates}
+                results.extend(gene_id for gene_id in self.gene_ids()
+                               if stable_ensembl_gene_id(gene_id) in stable_ids)
+            results = sorted(set(results))
+        if len(results) == 0:
+            raise ValueError("Gene name not found: %s" % gene_name)
+        return results
+
+    def gene_id_of_protein_id(self, protein_id):
+        """
+        What is the gene ID associated with a given protein ID?
+        """
+        results = self._query_gene_ids("protein_id", protein_id, feature="CDS")
+        if len(results) == 0:
+            raise ValueError("Protein ID not found: %s" % protein_id)
+        elif len(results) > 1:
+            raise ValueError(
+                (
+                    "Should have only one gene ID for a given protein ID, "
+                    "but found %d: %s"
+                )
+                % (len(results), results)
+            )
+        return results[0]
+
+    ###################################################
+    #
+    #             Transcript Info Objects
+    #
+    ###################################################
+
+    def transcripts(self, contig=None, strand=None, biotype=None):
+        """
+        Construct Transcript object for every transcript entry in
+        the database. Optionally restrict to a particular contig, strand,
+        or ``transcript_biotype`` (e.g. ``"protein_coding"``).
+        """
+        transcript_ids = self.transcript_ids(
+            contig=contig, strand=strand, biotype=biotype
+        )
+        return [
+            self.transcript_by_id(transcript_id) for transcript_id in transcript_ids
+        ]
+
+    def transcript_by_id(self, transcript_id):
+        """
+        Construct a Transcript object for the given transcript ID, such as
+        ``"ENST00000269305"``. A versioned ID such as
+        ``"ENST00000269305.8"`` must match this annotation's version.
+        """
+        if transcript_id not in self._transcripts:
+            optional_field_names = [
+                "transcript_name",
+                "transcript_biotype",
+                "transcript_support_level",
+            ]
+            field_names = [
+                "transcript_id",
+                "seqname",
+                "start",
+                "end",
+                "strand",
+                "gene_id",
+            ]
+            # Do not look for the optional fields if they are not in the database.
+            field_names.extend(
+                [
+                    name
+                    for name in optional_field_names
+                    if self.db.column_exists("transcript", name)
+                ]
+            )
+            result = self.db.query_one(
+                select_column_names=field_names,
+                filter_column="transcript_id",
+                filter_value=transcript_id,
+                feature="transcript",
+                distinct=True,
+            )
+            if not result:
+                raise ValueError("Transcript not found: %s" % (transcript_id,))
+
+            # The stored ID may differ in form from the one given,
+            # e.g. bare where a versioned ID was requested
+            data = dict(zip(field_names, result))
+            transcript_id = data["transcript_id"]
+            if transcript_id not in self._transcripts:
+                self._transcripts[transcript_id] = Transcript(
+                    transcript_id=transcript_id,
+                    transcript_name=data.get("transcript_name"),
+                    contig=data["seqname"],
+                    start=data["start"],
+                    end=data["end"],
+                    strand=data["strand"],
+                    biotype=data.get("transcript_biotype"),
+                    gene_id=data["gene_id"],
+                    genome=self,
+                    support_level=_parse_transcript_support_level(
+                        data.get("transcript_support_level")
+                    ),
+                )
+
+        return self._transcripts[transcript_id]
+
+    def transcripts_by_name(self, transcript_name):
+        """
+        Transcript objects with the given name, such as ``"TP53-201"``.
+        """
+        transcript_ids = self.transcript_ids_of_transcript_name(transcript_name)
+        return [
+            self.transcript_by_id(transcript_id) for transcript_id in transcript_ids
+        ]
+
+    def transcript_by_protein_id(self, protein_id):
+        """
+        Transcript object that encodes the given protein ID.
+        """
+        transcript_id = self.transcript_id_of_protein_id(protein_id)
+        return self.transcript_by_id(transcript_id)
+
+    ###################################################
+    #
+    #            Transcript Names
+    #
+    ###################################################
+
+    def _query_transcript_names(self, property_name, value):
+        results = self.db.query(
+            select_column_names=["transcript_name"],
+            filter_column=property_name,
+            filter_value=value,
+            feature="transcript",
+            distinct=True,
+            required=True,
+        )
+        return [result[0] for result in results]
+
+    def transcript_names(self, contig=None, strand=None):
+        """
+        What are all the transcript names in the database
+        (optionally, restrict to a given chromosome and/or strand)
+        """
+        return self._all_feature_values(
+            column="transcript_name", feature="transcript", contig=contig, strand=strand
+        )
+
+    def transcript_names_of_gene_name(self, gene_name):
+        return self._query_transcript_names("gene_name", gene_name)
+
+    def transcript_name_of_transcript_id(self, transcript_id):
+        transcript_names = self._query_transcript_names("transcript_id", transcript_id)
+        if len(transcript_names) == 0:
+            raise ValueError(
+                "No transcript names for transcript ID = %s" % transcript_id
+            )
+        elif len(transcript_names) > 1:
+            raise ValueError(
+                "Multiple transcript names for transcript ID = %s" % (transcript_id,)
+            )
+        return transcript_names[0]
+
+    ###################################################
+    #
+    #            Transcript IDs
+    #
+    ###################################################
+
+    def _query_transcript_ids(self, property_name, value, feature="transcript"):
+        results = self.db.query(
+            select_column_names=["transcript_id"],
+            filter_column=property_name,
+            filter_value=value,
+            feature=feature,
+            distinct=True,
+            required=True,
+        )
+        return [result[0] for result in results]
+
+    def transcript_ids(self, contig=None, strand=None, biotype=None):
+        return self._all_feature_values(
+            column="transcript_id",
+            feature="transcript",
+            contig=contig,
+            strand=strand,
+            biotype=biotype,
+        )
+
+    def transcript_ids_of_gene_id(self, gene_id):
+        return self._query_transcript_ids("gene_id", gene_id)
+
+    def transcript_ids_of_gene_name(self, gene_name):
+        return self._query_transcript_ids("gene_name", gene_name)
+
+    def transcript_ids_of_transcript_name(self, transcript_name):
+        return self._query_transcript_ids("transcript_name", transcript_name)
+
+    def transcript_ids_of_exon_id(self, exon_id):
+        # Exon IDs appear only on exon rows
+        return self._query_transcript_ids("exon_id", exon_id, feature="exon")
+
+    def transcript_id_of_protein_id(self, protein_id):
+        """
+        What is the transcript ID associated with a given protein ID?
+        """
+        results = self._query_transcript_ids("protein_id", protein_id, feature="CDS")
+        if len(results) == 0:
+            raise ValueError("Protein ID not found: %s" % protein_id)
+        elif len(results) > 1:
+            raise ValueError(
+                (
+                    "Should have only one transcript ID for a given protein ID, "
+                    "but found %d: %s"
+                )
+                % (len(results), results)
+            )
+        return results[0]
+
+    ###################################################
+    #
+    #             Exon Info Objects
+    #
+    ###################################################
+
+    def exons(self, contig=None, strand=None):
+        """
+        Create exon object for all exons in the database, optionally
+        restrict to a particular chromosome using the `contig` argument.
+        """
+        # DataFrame with single column called "exon_id"
+        exon_ids = self.exon_ids(contig=contig, strand=strand)
+        return [self.exon_by_id(exon_id) for exon_id in exon_ids]
+
+    def exon_by_id(self, exon_id):
+        """
+        Construct an Exon object for the given exon ID. A versioned ID
+        must match this annotation's version.
+        """
+        if exon_id not in self._exons:
+            field_names = [
+                "exon_id",
+                "seqname",
+                "start",
+                "end",
+                "strand",
+                "gene_name",
+                "gene_id",
+            ]
+            has_exon_version = self.db.column_exists("exon", "exon_version")
+            if has_exon_version:
+                field_names.append("exon_version")
+
+            row = self.db.query_one(
+                select_column_names=field_names,
+                filter_column="exon_id",
+                filter_value=exon_id,
+                feature="exon",
+                distinct=True,
+            )
+            if not row:
+                raise ValueError("Exon not found: %s" % (exon_id,))
+
+            # The stored ID may differ in form from the one given,
+            # e.g. bare where a versioned ID was requested
+            data = dict(zip(field_names, row))
+            exon_id = data["exon_id"]
+            if exon_id not in self._exons:
+                version_value = data.get("exon_version")
+                self._exons[exon_id] = Exon(
+                    exon_id=exon_id,
+                    contig=data["seqname"],
+                    start=data["start"],
+                    end=data["end"],
+                    strand=data["strand"],
+                    gene_name=data["gene_name"],
+                    gene_id=data["gene_id"],
+                    exon_version=int(version_value) if version_value else None,
+                )
+
+        return self._exons[exon_id]
+
+    ###################################################
+    #
+    #                Exon IDs
+    #
+    ###################################################
+
+    def _query_exon_ids(self, property_name, value):
+        results = self.db.query(
+            select_column_names=["exon_id"],
+            filter_column=property_name,
+            filter_value=value,
+            feature="exon",
+            distinct=True,
+            required=True,
+        )
+        return [result[0] for result in results]
+
+    def exon_ids(self, contig=None, strand=None):
+        return self._all_feature_values(
+            column="exon_id", feature="exon", contig=contig, strand=strand
+        )
+
+    def exon_ids_of_gene_id(self, gene_id):
+        return self._query_exon_ids("gene_id", gene_id)
+
+    def exon_ids_of_gene_name(self, gene_name):
+        return self._query_exon_ids("gene_name", gene_name)
+
+    def exon_ids_of_transcript_name(self, transcript_name):
+        return self._query_exon_ids("transcript_name", transcript_name)
+
+    def exon_ids_of_transcript_id(self, transcript_id):
+        return self._query_exon_ids("transcript_id", transcript_id)
+
+    ###################################################
+    #
+    #             Protein IDs
+    #
+    ###################################################
+
+    def protein_ids(self, contig=None, strand=None):
+        """
+        What are all the protein IDs
+        (optionally restrict to a given chromosome and/or strand)
+        """
+        protein_ids = self._all_feature_values(
+            column="protein_id",
+            feature="CDS",
+            contig=contig,
+            strand=strand,
+            distinct=True,
+        )
+        # drop None values
+        return [protein_id for protein_id in protein_ids if protein_id]

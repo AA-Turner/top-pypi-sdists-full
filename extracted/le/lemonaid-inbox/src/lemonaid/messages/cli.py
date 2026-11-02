@@ -1,0 +1,285 @@
+"""CLI delivery of Markdown messages to briefs attached to lemon channels."""
+
+import argparse
+import os
+import shlex
+import sqlite3
+import sys
+from pathlib import Path
+
+from .. import brief, lineage
+from ..config import load_config
+from ..inbox import db
+from ..launch.restart import state
+from ..log import get_logger
+from ..watch import push_scout, registry
+from . import autoresume, codex_delivery, dead_letters, recipient, service, store, waiter
+
+_log = get_logger("messages.cli")
+_INBOX_WATCH = ["lemonaid", "inbox", "watch", "--self"]
+
+
+def _fail(message: str) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def _attachment(conn: sqlite3.Connection, channel: str) -> Path:
+    brief.attached.claim_pending(conn)
+    path = brief.attached.by_channel(conn, [channel]).get(channel)
+    if path is None:
+        _fail(f"No brief attached to {channel!r}; attach one before messaging")
+
+    return path
+
+
+def _linked(conn: sqlite3.Connection, args: argparse.Namespace) -> str:
+    """The Lemon-ID of the caller's parent, or of its child `--child` names."""
+    try:
+        own = brief.lemon.own_id(conn, args.channel or "")
+        if args.parent:
+            parent = lineage.links.parent_of(conn, own)
+            if not parent:
+                _fail(f"{own} has no parent link; `lemonaid lemon parent --self --set <parent>`")
+
+            return parent
+
+        child = brief.lemon.lemon_id(conn, args.child)
+    except (LookupError, ValueError, brief.store.ChangedUnderneath) as error:
+        _fail(str(error))
+        raise
+
+    if lineage.links.parent_of(conn, child) != own:
+        _fail(f"{child} is not a child of {own}")
+
+    return child
+
+
+def _text(path: Path) -> str:
+    try:
+        return path.read_text()
+    except OSError as error:
+        _log.warning("Could not read brief %s: %s", path, error)
+        return ""
+
+
+def _recipient(conn: sqlite3.Connection, target: str) -> tuple[str, brief.attached.Attachment]:
+    """(Lemon-ID, attachment) for *target*."""
+    try:
+        recipient = brief.lemon.attachment(conn, target)
+        return brief.identity.ensure(conn, recipient.path), recipient
+    except (LookupError, ValueError, brief.store.ChangedUnderneath) as error:
+        _fail(str(error))
+        raise
+
+
+def cmd_tell(args: argparse.Namespace) -> None:
+    linked = args.parent or args.child
+    message = args.target if linked and args.message is None else args.message
+    if (not linked and not args.target) or message is None:
+        _fail(
+            "Usage: lemonaid tell (<lemon-id-or-channel-or-brief> | --parent | --child <lemon>) <message>"
+        )
+
+    with db.connect() as conn:
+        if linked:
+            lemon_id = _linked(conn, args)
+            try:
+                found = brief.lemon.attachment(conn, lemon_id)
+                channel, row, brief_path = found.channel, found.notification, found.path
+            except LookupError:
+                channel, row, brief_path = "", None, None  # not started; its messages wait
+        else:
+            lemon_id, found = _recipient(conn, args.target)
+            channel, row, brief_path = found.channel, found.notification, found.path
+        parent = lineage.links.parent_of(conn, lemon_id) or ""
+
+        sender = brief.lemon.self_channel(
+            conn, args.channel or "", os.environ.get("USER") or "unknown"
+        )
+        sender_brief = brief.attached.by_channel(conn, [sender]).get(sender)
+        if sender_brief is not None:
+            try:
+                sender_id = brief.identity.ensure(conn, sender_brief)
+                sender = f"{sender_id} ({sender}, {sender_brief.name})"
+            except (ValueError, brief.store.ChangedUnderneath) as error:
+                _fail(str(error))
+    try:
+        inbox = store.inbox_for_id(lemon_id)
+        path = store.send(inbox, sys.stdin.read() if message == "-" else message, sender)
+    except ValueError as error:
+        _fail(str(error))
+
+    if state.blocked(channel):
+        print(path)
+        print(f"queued for {lemon_id}: restart in progress", file=sys.stderr)
+        return
+
+    if channel.startswith("codex:"):
+        service.ensure_running()
+    elif channel.startswith("claude:") and row is not None:
+        push_scout.ensure(channel.removeprefix("claude:"), lemon_id)
+    print(path)
+    found_state = recipient.probe(channel, row, inbox)
+    if found_state.state not in recipient.UNREAD:
+        print(recipient.describe(lemon_id, found_state), file=sys.stderr)
+        return
+
+    line, will_read = (
+        (autoresume.off(lemon_id, parent, found_state), False)  # no record of its session to start
+        if row is None or brief_path is None
+        else autoresume.respond(
+            autoresume.Recipient(lemon_id, parent, row, _text(brief_path), inbox),
+            found_state,
+            load_config(),
+        )
+    )
+    print(line, file=sys.stderr)
+    if not will_read:
+        dead_letters.record(sender, lemon_id, found_state.state, line, path)
+        raise SystemExit(1)
+
+
+def own_lemon(explicit_channel: str) -> tuple[str, str]:
+    """(channel, Lemon-ID) of the calling lemon; exits with a message if it has no brief."""
+    with db.connect() as conn:
+        try:
+            channel = brief.lemon.self_channel(conn, explicit_channel)
+        except LookupError as error:
+            _fail(str(error))
+        brief_path = _attachment(conn, channel)
+        try:
+            return channel, brief.identity.ensure(conn, brief_path)
+        except (ValueError, brief.store.ChangedUnderneath) as error:
+            _fail(str(error))
+            raise
+
+
+def _take_and_print(inbox: Path, channel: str):
+    with state.admission(channel) as allowed:
+        if not allowed:
+            return None
+        result = store.take_next(inbox)
+        if result is not None:
+            path, message = result
+            try:
+                print(message, end="" if message.endswith("\n") else "\n")
+                sys.stdout.flush()
+            except (OSError, UnicodeError):
+                store.restore(path)
+                raise
+        return result
+
+
+def _receive(args: argparse.Namespace, wait: bool) -> None:
+    channel, lemon_id = own_lemon(args.channel or "")
+    inbox = store.inbox_for_id(lemon_id)
+
+    if wait:
+
+        def still_attached() -> bool:
+            with db.connect() as conn:
+                current = brief.attached.by_channel(conn, [channel]).get(channel)
+                if current is None or not current.is_file():
+                    return False
+                try:
+                    now_id = brief.identity.from_path(current)
+                except ValueError as error:
+                    _log.warning("Invalid attached brief %s: %s", current, error)
+                    return False
+
+                if now_id != lemon_id and brief.lemon.current(conn, lemon_id) == now_id:
+                    raise ValueError(f"Lemon-ID changed to {now_id}; rearm the waiter")
+
+                return now_id == lemon_id
+
+        codex_thread = args.codex_thread or codex_delivery.own_thread(channel)
+        try:
+            with (
+                waiter.armed(inbox),
+                registry.registered(
+                    "inbox",
+                    (lemon_id,),
+                    channel,
+                    shlex.join(getattr(args, "invocation", None) or _INBOX_WATCH),
+                ),
+            ):
+                result = store.watch_next(
+                    inbox,
+                    still_attached,
+                    args.timeout,
+                    find=(
+                        (lambda inbox: codex_delivery.deliver_next(inbox, codex_thread))
+                        if codex_thread
+                        else lambda inbox: _take_and_print(inbox, channel)
+                    ),
+                )
+        except (ValueError, TimeoutError, RuntimeError, waiter.AlreadyArmed) as error:
+            _fail(str(error))
+
+        if codex_thread:
+            print(result[1], end="")
+            return
+    else:
+        result = _take_and_print(inbox, channel)
+
+    if result is None:
+        raise SystemExit(1)
+
+
+def cmd_next(args: argparse.Namespace) -> None:
+    _receive(args, wait=False)
+
+
+def cmd_watch(args: argparse.Namespace) -> None:
+    _receive(args, wait=True)
+
+
+_TELL_EPILOG = """\
+The message is always queued. tell then says on stderr whether the recipient
+will read it. A lemon whose harness exited, or an idle Claude with no inbox
+waiter, is started on a prompt to read its inbox, unless it is done or
+archived ([messages] autoresume). tell exits 1 when the recipient still won't
+read it. On exit 1, don't resend or wait for a reply; follow the next step
+that line gives.
+"""
+
+
+def add_tell_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "tell",
+        help="Send a Markdown message to a lemon's inbox",
+        epilog=_TELL_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--parent", action="store_true", help="Send to this lemon's parent")
+    group.add_argument(
+        "--child",
+        metavar="LEMON",
+        help="Send to this lemon's child (a Lemon-ID, channel, or brief)",
+    )
+    parser.add_argument("--channel", help="Sender channel, overriding self detection")
+    parser.add_argument(
+        "target", nargs="?", help="Stable lemon ID, channel, or attached brief name"
+    )
+    parser.add_argument("message", nargs="?", help="Message text")
+    parser.set_defaults(func=cmd_tell)
+
+
+def add_inbox_parsers(subparsers: argparse._SubParsersAction) -> None:
+    for name, command, help_text in (
+        ("next", cmd_next, "Print and handle the next message, if any"),
+        ("watch", cmd_watch, "Wait for one message, print it, and handle it"),
+    ):
+        parser = subparsers.add_parser(name, help=help_text)
+        parser.add_argument("--self", dest="self_target", action="store_true", required=True)
+        parser.add_argument("--channel", help="This lemon's channel, overriding self detection")
+        if name == "watch":
+            parser.add_argument("--timeout", type=float, help="Maximum seconds to wait")
+            parser.add_argument(
+                "--codex-thread",
+                metavar="THREAD",
+                help="Queue the message into this Codex thread (default: $CODEX_THREAD_ID when watching that thread)",
+            )
+        parser.set_defaults(func=command, codex_thread="")

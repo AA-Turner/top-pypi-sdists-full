@@ -1,0 +1,11 @@
+files: 'xvec\/'
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.5
+    hooks:
+      - id: ruff
+      - id: ruff-format
+
+ci:
+  autofix_prs: false
+  autoupdate_schedule: quarterly

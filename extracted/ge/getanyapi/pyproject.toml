@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "getanyapi"
+version = "0.143.14"
+description = "Official typed Python SDK for AnyAPI: any API, one wallet, USD, no subscriptions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "AnyAPI", email = "support@getanyapi.com" }]
+keywords = ["getanyapi", "anyapi", "api", "scraping", "sdk"]
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+  "httpx>=0.27",
+  "pydantic>=2.5",
+  "typing_extensions>=4.7",
+]
+
+[project.urls]
+Homepage = "https://getanyapi.com"
+Documentation = "https://getanyapi.com/docs"
+Repository = "https://github.com/getanyapi-com/sdks"
+Issues = "https://github.com/getanyapi-com/sdks/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "pyright>=1.1.380",
+  "mypy>=1.11",
+  "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/getanyapi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+files = ["src/getanyapi"]
+
+[tool.pyright]
+include = ["src/getanyapi"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

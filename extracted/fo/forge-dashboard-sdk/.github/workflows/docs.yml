@@ -1,0 +1,68 @@
+# Builds the API reference from docstrings plus the test and coverage reports
+# (reports/), and publishes both to GitHub Pages. Separate from ci.yml's own
+# jobs since this deploys something (a live site), not just checks a diff. A
+# repo has one Pages deployment, so both ship from this workflow. The tests
+# run first: a red run fails the build job and nothing is deployed. Pull
+# requests run the build too, so a broken reports step fails before the merge;
+# only the upload and the deploy are main-only.
+name: docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # A pull request's build gets its own group, so it never queues behind (or
+  # ahead of) a deploy.
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: pytest
+        run: >-
+          uv run pytest --cov=forge_dashboard --cov-report=xml
+          --cov-report=html --junitxml=junit.xml -o junit_family=legacy
+      - run: uv run mkdocs build --strict
+      # After mkdocs, whose build cleans site/ and would wipe reports/.
+      - name: Build test and coverage reports
+        run: uv run python hack/reports.py site/reports
+      - if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Live coverage.xml is served and is Cobertura
+        # The deploy succeeds whether or not the file is served. Retries cover
+        # the CDN catching up to the new version.
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 6 --retry-delay 10 --retry-all-errors \
+            --output coverage.xml "${PAGE_URL%/}/reports/coverage/coverage.xml"
+          grep -q '<coverage ' coverage.xml

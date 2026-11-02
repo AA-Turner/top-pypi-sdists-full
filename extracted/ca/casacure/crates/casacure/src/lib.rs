@@ -1,0 +1,52 @@
+//! casacure: a Rust implementation of the CASA table system, sufficient to
+//! replace casacore as the I/O backend of dask-ms.
+//!
+//! See `CASACORE_TO_CASA_RS.md` for the required functionality inventory.
+
+pub mod aipsio;
+pub mod astro;
+pub mod columnset;
+pub mod datafile;
+mod flushgate;
+mod grow;
+pub mod images;
+pub mod ism;
+pub mod lockfile;
+pub mod measures;
+pub mod ms;
+pub mod ms_schema;
+pub mod msutil;
+pub mod quanta;
+pub mod record;
+pub mod ssm;
+pub mod table;
+pub mod tabledesc;
+pub mod taql;
+#[cfg(test)]
+mod testdir;
+pub mod tsm;
+pub mod types;
+
+pub use columnset::{
+    parse_column_set, parse_standard_stman, write_multi_column_set, write_standard_stman,
+    ColumnInfo, ColumnSet, ColumnSetError, DataManager, DataManagerBlob, DmBlob, StandardStMan,
+};
+pub use ism::{write_ism_file, IsmError, IsmFile, IsmHeader, IsmIndex, WriteIsmColumn};
+pub use ssm::{
+    encode_scalar_cell, layout, read_array_cell, scalar_cell_size, write_standard_stman_file,
+    SsmError, SsmIndex, StandardStManFile, StandardStManHeader, StandardStManLayout, WriteColumn,
+    ARRAY_REF_SIZE,
+};
+pub use table::{
+    apply_dminfo_in_place, build_table_dat, casa_value_type, create_table, default_cell_value,
+    get_dminfo, lock_sync_nrrow, parse_table_dat, parse_table_header, patch_copy_nrow,
+    slice_array_value, slice_array_value_inc, DmInfo, DmSpec, Table, TableCreateError, TableDat,
+    TableDatError, TableError, TableHeader, TableReadError, WritableTable, WriteTableError,
+    ROWS_PER_BUCKET,
+};
+pub use tabledesc::{
+    apply_dminfo, parse_table_desc, write_table_desc, ColumnDesc, ColumnKind, DmInfoError,
+    TableDesc, TableDescError, SUPPORTED_DM_TYPES,
+};
+pub use tsm::{write_tsm_file, TsmCube, TsmError, TsmFile, TsmHeader, TsmTileFile};
+pub use types::{UnknownValueType, ValueType};

@@ -247,7 +247,16 @@ def test_a_pause_written_while_the_lift_waits_for_the_lock_is_kept(tmp_path, mon
         with real(path, *a, **k):
             yield
 
-    monkeypatch.setattr(jmod.journal, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.append, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.failures.discards, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.failures.failures, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.failures.pause, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.headroom, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.producers, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.receipts.receipts, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.status_file, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.uploads, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.waiting_room, "file_lock", fresh_pause_then_lock)
     monkeypatch.setattr(jmod.paths, "file_lock", fresh_pause_then_lock)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.file_lock", fresh_pause_then_lock)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.file_lock", fresh_pause_then_lock)
@@ -410,8 +419,9 @@ def test_the_service_lift_reports_nothing_itself(tmp_path, monkeypatch, captured
 
 @contextmanager
 def _running_service(tmp_path, monkeypatch, login_env, *, period="0.2"):
-    from probe.service import paths, server
-    from probe.service.registry import Registry
+    from probe.foundation.service_api import paths
+    from probe.service import server
+    from probe.service.sessions.sessions import Registry
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv(server.OUTBOX_LOOK_ENV, period)
@@ -419,9 +429,10 @@ def _running_service(tmp_path, monkeypatch, login_env, *, period="0.2"):
     async def login():
         return login_env
 
-    monkeypatch.setattr(server, "_outbox_login_env", login)
-    monkeypatch.setattr(server, "_mark_versions", lambda: None)
-    monkeypatch.setattr(server, "_keep", lambda: None)
+    monkeypatch.setattr(server.outbox, "_build_drainer_env", login)
+    monkeypatch.setattr(server.server, "_mark_versions", lambda: None)
+    monkeypatch.setattr(server.lifecycle, "_keep", lambda: None)
+    monkeypatch.setattr(server.server, "_keep", lambda: None)
     path = paths.ensure_dirs().with_name("outbox-test.sock")
     listen = server._bind(path)
     service = server.Service(registry=Registry(paths.service_dir() / "outbox.json"), discovery_s=0, grace_s=30)

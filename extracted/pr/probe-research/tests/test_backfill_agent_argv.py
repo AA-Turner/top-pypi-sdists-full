@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill
+from probe.cli.imports import folder as backfill
 
 
 def _claude(**kw):
@@ -78,11 +78,13 @@ def test_codex_runs_without_hooks_only_when_it_has_the_feature(monkeypatch):
     """`--disable hooks` on a Codex without a `hooks` feature is a hard
     "Unknown feature flag" exit (0.80.0), so it is passed only when
     `codex features list` names it."""
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: frozenset({"hooks", "plugins"}))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: frozenset({"hooks", "plugins"}))
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: frozenset({"hooks", "plugins"}))
     argv = backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"), workdir=Path("/w"))
     assert argv[argv.index("--disable") + 1] == "hooks"
     for features in (frozenset({"plugins"}), None):
-        monkeypatch.setattr(backfill, "codex_features", lambda binary, f=features: f)
+        monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary, f=features: f)
+        monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary, f=features: f)
         argv = backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"), workdir=Path("/w"))
         assert "--disable" not in argv, "an older Codex must still start"
 
@@ -249,7 +251,8 @@ def _codex(**kw):
 
 
 def test_codex_gets_its_model_as_one_element_and_its_effort_as_a_literal(monkeypatch):
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: None)
     argv = _codex(model="gpt-6-astra", effort="medium")
     assert argv[argv.index("-m") + 1] == "gpt-6-astra"
     assert argv[argv.index("model_reasoning_effort=\"medium\"") - 1] == "-c"
@@ -257,7 +260,8 @@ def test_codex_gets_its_model_as_one_element_and_its_effort_as_a_literal(monkeyp
 
 
 def test_codex_gets_neither_when_neither_is_set(monkeypatch):
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: None)
     assert _codex(model=None, effort=None) == _codex()
     assert "-m" not in _codex() and not any("reasoning" in a for a in _codex())
 
@@ -267,20 +271,23 @@ def test_codex_gets_neither_when_neither_is_set(monkeypatch):
 ])
 def test_an_effort_off_the_list_never_reaches_the_argv(monkeypatch, effort):
     """`-c` values are TOML: a string built from input could set a second key."""
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: None)
     assert _codex(effort=effort) == _codex()
     assert _claude(effort=effort) == _claude()
 
 
 @pytest.mark.parametrize("model", ["-c", "--dangerously-bypass-approvals-and-sandbox", "a b", "x" * 81])
 def test_a_model_that_is_not_a_model_name_never_reaches_the_argv(monkeypatch, model):
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: None)
     assert _codex(model=model) == _codex()
     assert _claude(model=model) == _claude()
 
 
 def test_every_listed_effort_reaches_its_agent(monkeypatch):
-    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(backfill.agents.argv, "codex_features", lambda binary: None)
     for effort in backfill.EFFORTS[backfill.Agent.CODEX]:
         assert f'model_reasoning_effort="{effort}"' in _codex(effort=effort)
     for effort in backfill.EFFORTS[backfill.Agent.CLAUDE]:
@@ -295,10 +302,14 @@ def test_claude_model_and_effort_are_dropped_by_a_binary_without_them(monkeypatc
     does not know, before reading a file."""
     full = frozenset({"--output-format", "--verbose", "--allowedTools", "--settings",
                       "--model", "--effort"})
-    monkeypatch.setattr(backfill, "supported_flags", lambda binary, agent=None: full)
+    monkeypatch.setattr(backfill.agents.flags, "supported_flags", lambda binary, agent=None: full)
+    monkeypatch.setattr(backfill.agents.launch, "supported_flags", lambda binary, agent=None: full)
+    monkeypatch.setattr(backfill.agents.argv, "supported_flags", lambda binary, agent=None: full)
     argv = _claude(model="opus", effort="high")
     assert argv[argv.index("--model") + 1] == "opus" and argv[argv.index("--effort") + 1] == "high"
-    monkeypatch.setattr(backfill, "supported_flags", lambda binary, agent=None: full - {"--effort"})
+    monkeypatch.setattr(backfill.agents.flags, "supported_flags", lambda binary, agent=None: full - {"--effort"})
+    monkeypatch.setattr(backfill.agents.launch, "supported_flags", lambda binary, agent=None: full - {"--effort"})
+    monkeypatch.setattr(backfill.agents.argv, "supported_flags", lambda binary, agent=None: full - {"--effort"})
     argv = _claude(model="opus", effort="high")
     assert "--effort" not in argv and "high" not in argv
     assert argv[argv.index("--model") + 1] == "opus"

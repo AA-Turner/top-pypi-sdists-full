@@ -1,0 +1,158 @@
+#!/usr/bin/env python
+# Copyright (c) 2024, openradar developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""
+Transform CF-Radial
+===================
+
+This module provides the utilities to convert between CfRadial1 and
+CfRadial2 formats, following WMO guidelines for radar data processing.
+
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+
+    {}
+
+to_cfradial1
+------------
+Convert a `xarray.DataTree` object to CfRadial1 format. The output is
+an `xarray.Dataset` following the CfRadial1 standard, which can be used
+for radar data visualization and further processing.
+
+Parameters:
+    - dtree: xarray.DataTree
+        Radar xarray object to convert.
+    - filename: str (optional)
+        Output file name for the CfRadial1 dataset.
+    - calibs: bool (default: True)
+        Whether to include calibration parameters.
+
+Returns:
+    - dataset: xarray.Dataset
+        Converted dataset in CfRadial1 format.
+
+to_cfradial2
+------------
+Convert a `xarray.Dataset` object to CfRadial2 format by mapping the
+structure back into a `xarray.DataTree`.
+
+Parameters:
+    - ds: xarray.Dataset
+        CfRadial1 dataset to convert.
+    - kwargs: dict
+        Additional keyword arguments for controlling the conversion, such
+        as specifying sweeps or metadata inclusion.
+
+Returns:
+    - dtree: xarray.DataTree
+        Converted data tree in CfRadial2 format.
+
+"""
+
+__all__ = [
+    "to_cfradial2",
+    "to_cfradial1",
+]
+
+__doc__ = __doc__.format("\n   ".join(__all__))
+
+from xarray import DataTree
+
+from ..io.backends.cfradial1 import (
+    _get_radar_calibration,
+    _get_required_root_dataset,
+    _get_subgroup,
+    _get_sweep_groups,
+    open_cfradial1_datatree,
+)
+from ..io.backends.common import _attach_sweep_groups
+from ..io.export.cfradial1 import _build_cfradial1_dataset
+from ..model import (
+    georeferencing_correction_subgroup,
+    radar_parameters_subgroup,
+)
+
+
+# to_cfradial1 function implementation
+def to_cfradial1(dtree=None, calibs=True):
+    """
+    Convert a radar xarray.DataTree to a CfRadial1 ``xarray.Dataset``.
+
+    Parameters
+    ----------
+    dtree: xarray.DataTree
+        Radar xarray.DataTree object.
+    calibs: bool, optional
+        Whether to include calibration parameters.
+
+    Returns
+    -------
+    xarray.Dataset
+        The assembled CfRadial1 dataset.
+    """
+    return _build_cfradial1_dataset(dtree, calibs=calibs)
+
+
+# to_cfradial2 function implementation
+def to_cfradial2(ds, **kwargs):
+    """Convert a CfRadial1 Dataset to CfRadial2 DataTree."""
+    first_dim = kwargs.pop("first_dim", "auto")
+    optional = kwargs.pop("optional", True)
+    kwargs.pop("site_as_coords", True)
+    sweep = kwargs.pop("sweep", None)
+
+    # Datasets opened via ``engine="cfradial1"`` without a group only expose the
+    # normalized root metadata view. If the original source path is available,
+    # reopen the full volume and delegate to the standard datatree reader.
+    if "sweep_number" not in ds and "fixed_angle" not in ds:
+        if "sweep_group_name" in ds and "sweep_fixed_angle" in ds:
+            source = ds.encoding.get("source")
+            if source:
+                return open_cfradial1_datatree(
+                    source,
+                    sweep=sweep,
+                    first_dim=first_dim,
+                    optional=optional,
+                    optional_groups=True,
+                )
+            raise ValueError(
+                "to_cfradial2 requires a full CfRadial1 volume dataset containing "
+                "`sweep_number` and `fixed_angle`. "
+                "The provided dataset looks like the normalized root metadata view "
+                'returned by `xarray.open_dataset(..., engine="cfradial1")`, but '
+                "it does not retain a readable `encoding['source']` path to reopen "
+                "the full volume."
+            )
+
+    # Create DataTree root node with required data
+    root_data = _get_required_root_dataset(ds, optional=optional)
+    dtree = DataTree(dataset=root_data, name="root")
+
+    # Attach additional root metadata groups as child nodes
+    radar_parameters = _get_subgroup(ds, radar_parameters_subgroup)
+    if radar_parameters.data_vars:
+        dtree["radar_parameters"] = DataTree(radar_parameters, name="radar_parameters")
+
+    calib = _get_radar_calibration(ds)
+    if calib.data_vars:
+        dtree["radar_calibration"] = DataTree(calib, name="radar_calibration")
+
+    georeferencing = _get_subgroup(ds, georeferencing_correction_subgroup)
+    dtree["georeferencing_correction"] = DataTree(
+        georeferencing, name="georeferencing_correction"
+    )
+
+    # Attach sweep child nodes
+    sweep_groups = list(
+        _get_sweep_groups(
+            ds,
+            sweep=sweep,
+            first_dim=first_dim,
+            optional=optional,
+            site_as_coords=True,
+        ).values()
+    )
+    dtree = _attach_sweep_groups(dtree, sweep_groups)
+
+    return dtree

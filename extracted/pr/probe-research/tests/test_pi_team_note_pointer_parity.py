@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 from tests.ts_source import ts_string
 
 PI_CORE = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-pi" / "src" / "core"

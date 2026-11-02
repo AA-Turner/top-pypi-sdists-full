@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dbtlabs-vortex"
+version = "0.2.1"
+authors = [
+    {name = "Connor McArthur", email = "connor@dbtlabs.com"},
+    {name = "Zach Brown", email = "zach.brown@dbtlabs.com"},
+]
+description = "Python client for Vortex"
+readme = "README.md"
+
+# This set of python versions is based on warehouse-extractor (>=3.11) and dbt-mantle (>=3.8). As
+# a result, we have to support quite a wide range of versions.
+requires-python = ">=3.8"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "dbt-protos>=1.0.438",
+    "pydantic>=1",
+    "requests>=2.32.3",
+    "uuid>=1.30"
+]
+
+[project.optional-dependencies]
+dev = [
+    "types-protobuf",
+    "types-requests",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.1",
+    "pylint>=2.17.5",
+    "ruff>=0.9.0",
+]
+ddtrace = [
+    "ddtrace>=1,<3"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dbt-labs/vortex"
+"Bug Tracker" = "https://dbtlabs.atlassian.net/jira/software/c/projects/VX/issues"
+
+[tool.setuptools.packages.find]
+include = ["dbtlabs_vortex*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pylint.messages_control]
+disable = "C0111,R0903,C0103"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+
+[tool.mypy]
+python_version = "3.13"
+exclude = "test_*.py"
+mypy_path = "."
+
+[[tool.uv.index]]
+name = "codeartifact"
+url = "https://dbt-sandbox-859831564954.d.codeartifact.us-east-2.amazonaws.com/pypi/internal-packages/simple"
+publish-url = "https://dbt-sandbox-859831564954.d.codeartifact.us-east-2.amazonaws.com/pypi/internal-packages/"

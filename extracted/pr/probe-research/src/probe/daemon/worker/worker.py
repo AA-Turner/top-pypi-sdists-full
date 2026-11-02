@@ -3,7 +3,7 @@
     probe daemon worker --session-id S --transcript T --cwd C --source claude_code
 
 Spawned and supervised while the session's switch is `daemon`: by the Probe
-service for a session it records (`probe.service.workers`), else by capture
+service for a session it records (`probe.service.sessions.workers`), else by capture
 (`tap watch`). Stopped with SIGTERM at session end -- or when it sees capture is gone
 -- it reads what is on disk at that moment to its end, finishes what is queued
 and exits: at most FINISH_CAP_S from that moment, a run already going included

@@ -1,0 +1,105 @@
+from wslink import register as export_rpc
+from wslink.websocket import LinkProtocol
+
+from trame_dataclass.module.revisions import RevisionsMixin
+from trame_dataclass.v2 import StateDataModel, get_instance
+
+
+def compute_definition(trame_dataclass_class, server_to_use=None):
+    """Build the class definition dict sent to the client when a model is registered.
+
+    The dict includes the class name, lists of dataclass-container fields, client-only
+    fields, deep-reactive fields, and the auto-generated GUI template string.
+    """
+    client_only = getattr(trame_dataclass_class, "CLIENT_ONLY_NAMES", [])
+
+    return {
+        "name": trame_dataclass_class.__name__,
+        "dataclass_containers": list(trame_dataclass_class.DATACLASS_NAMES),
+        "client_only": list(client_only),
+        "deep_reactive": list(trame_dataclass_class.CLIENT_DEEP_REACTIVE),
+        "template": trame_dataclass_class.generate_gui(server_to_use),
+    }
+
+
+class TrameDataclassProtocol(RevisionsMixin, LinkProtocol):
+    """wslink protocol that exposes the trame-dataclass RPC endpoints to the client.
+
+    Tracks registered class definitions (shared across instances of the same class) and
+    wires each ``StateDataModel`` instance to push state deltas over the WebSocket when
+    its fields change.
+    """
+
+    find_instance = staticmethod(get_instance)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_definitions = {}
+        self.next_class_definition_id = 1
+
+    @export_rpc("trame.dataclass.register")
+    def register_instance(self, trame_dataclass):
+        """Register a model instance: ensure its class definition exists and wire up flushing."""
+        if isinstance(trame_dataclass, StateDataModel):
+            self.register_definition(trame_dataclass.__class__)
+            trame_dataclass.register_flush_implementation(self.push_delta)
+
+    def register_definition(self, trame_dataclass_class):
+        """Register a model class definition, returning the existing one if already known."""
+        if not issubclass(trame_dataclass_class, StateDataModel):
+            return None
+
+        if trame_dataclass_class in self.class_definitions:
+            return self.class_definitions[trame_dataclass_class]
+
+        definition_id = self.next_class_definition_id
+        self.next_class_definition_id += 1
+
+        definition = {
+            "id": definition_id,
+            **compute_definition(trame_dataclass_class, self.coreServer.server),
+        }
+        self.class_definitions[trame_dataclass_class] = definition
+
+        return definition
+
+    @export_rpc("trame.dataclass.definition.get")
+    def get_definition(self, class_id):
+        """Return the class definition dict for the given numeric class ID."""
+        for definition in self.class_definitions.values():
+            if definition["id"] == class_id:
+                return definition
+        return None
+
+    @export_rpc("trame.dataclass.state.get")
+    def get_state(self, instance_id):
+        """
+        {
+            id: instance_id,
+            definition: class_id,
+            state: {},
+        }
+        """
+        obj = get_instance(instance_id)
+        if obj is None:
+            return {
+                "id": instance_id,
+                "state": None,
+            }
+
+        return {
+            "id": instance_id,
+            "definition": self.class_definitions[obj.__class__]["id"],
+            **self.snapshot(obj),
+        }
+
+    @export_rpc("trame.dataclass.state.update")
+    def update_state(self, msg):
+        """Apply a client-originated partial state update to the matching server instances.
+
+        *msg* maps instance IDs to partial state dicts.
+        """
+        for dc_id, state in msg.items():
+            obj = get_instance(dc_id)
+            if obj is not None:
+                obj.update_from_client_state(state)

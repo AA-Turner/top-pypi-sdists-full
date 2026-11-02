@@ -1,0 +1,149 @@
+"""Module containing PyTorch-specific transforms for Albumentations.
+This module provides transforms that convert NumPy arrays to PyTorch tensors in
+the appropriate format. It handles both 2D image data and 3D volumetric data,
+ensuring that the tensor dimensions are correctly arranged according to PyTorch's
+expected format (channels first). These transforms are typically used as the final
+step in an augmentation pipeline before feeding data to a PyTorch model.
+"""
+
+from typing import Any
+
+import numpy as np
+import torch
+
+from albumentations.core.transforms_interface import BaseTransformInitSchema, BasicTransform
+from albumentations.core.type_definitions import (
+    MONO_CHANNEL_DIMENSIONS,
+    NUM_MULTI_CHANNEL_DIMENSIONS,
+    NUM_VOLUME_DIMENSIONS,
+    ImageType,
+    StackedMasks4D,
+    Targets,
+    VolumeType,
+)
+
+__all__ = ["ToTensor3D", "ToTensorV2"]
+
+
+class BaseTensorTransform(BasicTransform):
+    """Bridge for tensor-producing terminal transforms that keep public methods typed as torch.Tensor while isolating
+    the core array-return contract.
+    """
+
+    _is_tensor_terminal = True
+
+    def apply(self, img: ImageType, *args: Any, **params: Any) -> Any:
+        raise NotImplementedError
+
+    def apply_to_images(self, images: ImageType, *args: Any, **params: Any) -> Any:
+        raise NotImplementedError
+
+    def apply_to_volume(self, volume: VolumeType, *args: Any, **params: Any) -> Any:
+        raise NotImplementedError
+
+
+class ToTensorV2(BaseTensorTransform):
+    """Converts images/masks to PyTorch Tensors, inheriting from BasicTransform.
+    For images:
+        Converts `HWC` format to PyTorch `CHW` format
+
+    Args:
+        transpose_mask (bool): If True, transposes 3D input mask dimensions from `[height, width, num_channels]` to
+            `[num_channels, height, width]`.
+        p (float): Probability of applying the transform. Default: 1.0.
+
+    Targets:
+        image, images, mask, masks
+
+    Examples:
+        >>> transform = ToTensorV2(transpose_mask=True)
+
+    """
+
+    _targets = (Targets.IMAGE, Targets.IMAGES, Targets.MASK, Targets.MASKS)
+
+    class InitSchema(BaseTransformInitSchema):
+        transpose_mask: bool
+
+    def __init__(self, transpose_mask: bool = False, p: float = 1.0):
+        super().__init__(p=p)
+        self.transpose_mask = transpose_mask
+
+    def apply(self, img: ImageType, *args: Any, **params: Any) -> torch.Tensor:
+        if img.ndim not in {MONO_CHANNEL_DIMENSIONS, NUM_MULTI_CHANNEL_DIMENSIONS}:
+            msg = "Albumentations only supports images in HW or HWC format"
+            raise ValueError(msg)
+
+        image = img
+        if img.ndim == MONO_CHANNEL_DIMENSIONS:
+            image = np.expand_dims(img, 2)
+
+        return torch.from_numpy(np.ascontiguousarray(image.transpose(2, 0, 1)))
+
+    def apply_to_mask(self, mask: ImageType, **params: Any) -> torch.Tensor:
+        if self.transpose_mask and mask.ndim == NUM_MULTI_CHANNEL_DIMENSIONS:
+            mask = mask.transpose(2, 0, 1)
+        return torch.from_numpy(np.ascontiguousarray(mask))
+
+    def apply_to_masks(self, masks: StackedMasks4D, **params: Any) -> torch.Tensor:
+        arr: np.ndarray = masks
+        if self.transpose_mask and arr.ndim == NUM_VOLUME_DIMENSIONS:  # (N, H, W, C)
+            arr = np.transpose(arr, (0, 3, 1, 2))  # -> (N, C, H, W)
+        return torch.from_numpy(np.ascontiguousarray(arr))
+
+    def apply_to_images(self, images: ImageType, *args: Any, **params: Any) -> torch.Tensor:
+        return torch.from_numpy(np.ascontiguousarray(images.transpose(0, 3, 1, 2)))  # -> (N,C,H,W)
+
+
+class ToTensor3D(BaseTensorTransform):
+    """Convert 3D volume data and masks to PyTorch tensors (D,H,W,C or D,H,W -> C,D,H,W).
+    For 3D medical imaging pipelines; p=1.0 by default.
+
+    This transform is designed for 3D medical imaging data. It converts numpy arrays
+    to PyTorch tensors and ensures consistent channel positioning.
+
+    For all inputs (volume data and masks):
+        - Input:  (D, H, W, C) or (D, H, W) - depth, height, width, [channels]
+        - Output: (C, D, H, W) - channels first format for PyTorch
+                 For single-channel input, adds C=1 dimension
+
+    Note:
+        This transform always moves channels to first position as this is
+        the standard PyTorch format. For masks that need to stay in DHWC format,
+        use a different transform or handle the transposition after this transform.
+
+    Args:
+        p (float): Probability of applying the transform. Default: 1.0
+
+    Targets:
+        volume, volumes, mask3d, masks3d
+
+    Examples:
+        >>> transform = ToTensor3D(p=1.0)
+
+    """
+
+    _targets = (Targets.VOLUME, Targets.VOLUMES, Targets.MASK3D, Targets.MASKS3D)
+
+    def __init__(self, p: float = 1.0):
+        super().__init__(p=p)
+
+    def apply_to_volume(self, volume: VolumeType, *args: Any, **params: Any) -> torch.Tensor:
+        if volume.ndim == NUM_VOLUME_DIMENSIONS:  # D,H,W,C
+            return torch.from_numpy(np.ascontiguousarray(volume.transpose(3, 0, 1, 2)))
+        if volume.ndim == NUM_VOLUME_DIMENSIONS - 1:  # D,H,W
+            return torch.from_numpy(np.ascontiguousarray(volume[np.newaxis, ...]))
+        raise TypeError(f"volume must be 3D or 4D array (D,H,W) or (D,H,W,C), got {volume.ndim}D array")
+
+    def apply_to_mask3d(self, mask3d: VolumeType, **params: Any) -> torch.Tensor:
+        return self.apply_to_volume(mask3d, **params)
+
+    def apply_to_volumes(self, volumes: np.ndarray, **params: Any) -> torch.Tensor:
+        if volumes.ndim == NUM_VOLUME_DIMENSIONS + 1:  # N,D,H,W,C
+            return torch.from_numpy(np.ascontiguousarray(volumes.transpose(0, 4, 1, 2, 3)))
+        if volumes.ndim == NUM_VOLUME_DIMENSIONS:  # N,D,H,W
+            return torch.from_numpy(np.ascontiguousarray(volumes[:, np.newaxis, ...]))
+        raise TypeError(f"volumes must be a 4D or 5D array (N,D,H,W) or (N,D,H,W,C), got {volumes.ndim}D array")
+
+    def apply_to_masks3d(self, masks3d: np.ndarray, **params: Any) -> torch.Tensor:
+        return self.apply_to_volumes(masks3d, **params)

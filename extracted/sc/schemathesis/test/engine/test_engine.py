@@ -896,6 +896,21 @@ def test_max_time(ctx):
     assert stream.finished.stop_reason == StopReason.MAX_TIME
 
 
+@pytest.mark.parametrize(
+    ("unique_inputs", "stop_reason"),
+    [(False, StopReason.MAX_TIME), (True, StopReason.COMPLETED)],
+    ids=["repeated-inputs", "unique-inputs"],
+)
+def test_max_time_ends_once_unique_inputs_run_out(ctx, unique_inputs, stop_reason):
+    # An operation without parameters has one input; once sent, unique inputs leave later cycles nothing to send.
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.generation.update(unique_inputs=unique_inputs)
+    stream = execute(schema, max_time=2, max_examples=10, phases=[PhaseName.FUZZING])
+
+    assert stream.finished.stop_reason == stop_reason
+
+
 @pytest.mark.parametrize("workers", [1, 2])
 def test_max_time_reaches_every_operation(ctx, workers):
     # Without a per-operation share the first operation consumes the whole budget and the rest are
@@ -1931,11 +1946,11 @@ def test_max_time_keeps_results_that_landed_as_the_budget_ran_out(ctx, app_runne
 
     @schemathesis.check
     def slow_check(ctx, response, case):
-        time.sleep(3.6 if response.status_code == 500 else 3.2)
+        time.sleep(6.6 if response.status_code == 500 else 6.2)
         assert response.status_code < 500
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
-    stream = execute(schema, checks=(slow_check,), max_time=3, max_examples=1, workers=2, phases=[PhaseName.FUZZING])
+    stream = execute(schema, checks=(slow_check,), max_time=6, max_examples=1, workers=2, phases=[PhaseName.FUZZING])
 
     assert {(event.label, event.status) for event in stream.find_all(events.ScenarioFinished)} == {
         ("GET /first", Status.SUCCESS),
@@ -2053,7 +2068,7 @@ def test_max_time_reserves_for_stateful_when_links_are_only_inferred(ctx, app_ru
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     stream = execute(
         schema,
-        max_time=3,
+        max_time=6,
         max_examples=100_000,
         modes=[GenerationMode.POSITIVE],
         phases=[PhaseName.FUZZING, PhaseName.STATEFUL_TESTING],
@@ -2322,41 +2337,18 @@ def test_max_time_stateful_suite_with_no_time_left_is_not_a_pass(ctx, app_runner
     assert [event.status for event in stream.find_all(events.SuiteFinished)] == [Status.FAILURE, Status.SKIP]
 
 
-def test_planted_bug_behind_an_id_only_the_listing_carries(ctx):
-    # The 500 sits behind an id that generation cannot invent; only the listing response holds it.
-    api = ctx.openapi.apps.collection_with_planted_bug()
-    schema = schemathesis.openapi.from_url(api.schema_url)
-    stream = execute(
-        schema,
-        max_time=10,
-        # More examples than fit in the time limit, so the clock ends the run.
-        max_examples=100_000,
-        checks=(not_a_server_error,),
-        phases=[PhaseName.FUZZING],
-    )
-
-    assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
-
-
-def test_planted_bug_behind_an_undocumented_collection(ctx):
-    # The spec declares no response shape, so the listing body is the only place the tag exists.
-    api = ctx.openapi.apps.undocumented_collection_with_planted_bug()
-    schema = schemathesis.openapi.from_url(api.schema_url)
-    stream = execute(
-        schema,
-        max_time=10,
-        # More examples than fit in the time limit, so the clock ends the run.
-        max_examples=100_000,
-        checks=(not_a_server_error,),
-        phases=[PhaseName.FUZZING],
-    )
-
-    assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
-
-
-def test_planted_bug_behind_a_vocabulary_path_parameter(ctx):
-    # The path segment is a vocabulary value, not an identifier, and only the listing carries it.
-    api = ctx.openapi.apps.vocabulary_path_with_planted_bug()
+# Each planted 500 sits behind a value only a listing response carries, so generation cannot invent it.
+@pytest.mark.parametrize(
+    "app",
+    [
+        "collection_with_planted_bug",
+        "undocumented_collection_with_planted_bug",
+        "vocabulary_path_with_planted_bug",
+    ],
+    ids=["id-only-the-listing-carries", "undocumented-collection", "vocabulary-path-parameter"],
+)
+def test_planted_bug_behind_a_value_only_the_listing_carries(ctx, app):
+    api = getattr(ctx.openapi.apps, app)()
     schema = schemathesis.openapi.from_url(api.schema_url)
     stream = execute(
         schema,

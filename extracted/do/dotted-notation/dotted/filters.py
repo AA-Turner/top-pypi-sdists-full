@@ -1,0 +1,716 @@
+"""
+Filter ops: key-value filters, boolean combinators, and negation.
+"""
+from . import base
+from . import matchers
+from . import predicates
+from .access import Slot, Slice
+
+
+def _any_template(items):
+    """
+    True if any item in an iterable has is_template() returning True.
+    """
+    return any(hasattr(x, 'is_template') and x.is_template() for x in items)
+
+
+def _any_reference(items):
+    """
+    True if any item in an iterable has is_reference() returning True.
+    """
+    return any(hasattr(x, 'is_reference') and x.is_reference() for x in items)
+
+
+class FilterOp(base.MatchOp):
+    """
+    Base of the filters. filtered() and is_filtered() take the Settings
+    of the items under test, for the references in filter values and
+    transforms: root, and the parents of the items when tracked.
+    """
+    def is_pattern(self):
+        return False
+
+    def filtered(self, items, settings=base.SETTINGS):
+        raise NotImplementedError
+
+    def matchable(self, op):
+        raise NotImplementedError
+
+    def match(self, op):
+        raise NotImplementedError
+
+
+class FilterKey(base.MatchOp):
+    """
+    Represents a dotted path in a filter key, e.g. user.id or config.db.host
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # args comes as a single list from pyparsing Group, flatten it
+        if len(self.args) == 1 and isinstance(self.args[0], (list, tuple)):
+            self.parts = tuple(self.args[0])
+        else:
+            self.parts = tuple(self.args)
+        # Override args with tuple of parts for proper hashing
+        self.args = self.parts
+        # For simple keys (single part), expose value for backwards compat;
+        # a packed group, (a,b;), has none
+        self.value = getattr(self.parts[0], 'value', None) if len(self.parts) == 1 else None
+
+    def __repr__(self):
+        out = []
+        for i, p in enumerate(self.parts):
+            if i and not isinstance(p, (Slot, Slice)) and not isinstance(self.parts[i - 1], (Slot, Slice)):
+                out.append('.')
+            out.append(repr(p))
+        return ''.join(out)
+
+    def __hash__(self):
+        return hash(self.parts)
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.parts == other.parts
+
+    def is_dotted(self):
+        return len(self.parts) > 1
+
+    def is_packed(self):
+        """
+        True if the key starts with a packed group, [(p[*];)|sum>2]: the
+        group runs from the item and its tuple is the key's value.
+        """
+        return bool(self.parts) and hasattr(self.parts[0], 'gather')
+
+    def is_template(self):
+        """
+        True if any part of the filter key contains a substitution reference.
+        """
+        return _any_template(self.parts)
+
+    def is_reference(self):
+        """
+        True if any part of the filter key contains an internal reference.
+        """
+        return _any_reference(self.parts)
+
+    def get_values(self, node, settings=base.SETTINGS):
+        """
+        Get all values from node matching this key, traversing dotted path if needed.
+        Supports slot parts (e.g. tags[*]) to yield each element of a list for matching,
+        and a leading packed group, (p[*];), whose tuple is the value; settings
+        are the traversal's, for references inside the group.
+        Yields (value, True) for each match, or (None, False) if no matches.
+        """
+        yield from self._get_values(node, list(self.parts), settings)
+
+    def _get_values(self, node, parts, settings=base.SETTINGS):
+        if not parts:
+            yield node, True
+            return
+        part = parts[0]
+        rest = parts[1:]
+        if hasattr(part, 'gather'):
+            yield from self._get_values(part.gather(node, settings), rest, settings)
+            return
+        # a reference in a part resolves against the node the part is looked
+        # up in, as ^, and that node's ancestors above it
+        below = settings.below(node)
+        if isinstance(part, Slot):
+            # only a reference goes through settings: a resolver taking
+            # literals in segments is not offered a filter key's
+            slots = part._resolved(node=node, settings=settings) if part.is_reference() else (part,)
+            try:
+                for slot in slots:
+                    for v in slot.values(node):
+                        yield from self._get_values(v, rest, below)
+            except (TypeError, AttributeError):
+                yield None, False
+            return
+        if isinstance(part, Slice):
+            try:
+                s = next(iter(part.keys(node, settings=settings)))
+                val = node[s]
+                yield from self._get_values(val, rest, below)
+            except (StopIteration, TypeError, AttributeError, KeyError, IndexError):
+                yield None, False
+            return
+        # Key-like part (Word, Wildcard, etc.)
+        if not hasattr(node, 'keys'):
+            yield None, False
+            return
+        keys = (k for m in self._key_matchers(part, node, settings) for k in m.matches(node.keys()))
+        if len(parts) == 1 and not isinstance(part, Slot):
+            # Simple key - yield all matching values (existing single-key behavior)
+            found_any = False
+            for km in keys:
+                yield node[km], True
+                found_any = True
+            if not found_any:
+                yield None, False
+            return
+        # Dotted path - traverse (first match only at each key-like level)
+        found = False
+        for km in keys:
+            child = node[km]
+            yield from self._get_values(child, rest, below)
+            found = True
+            break
+        if not found:
+            yield None, False
+
+    def _key_matchers(self, part, node, settings):
+        """
+        The match ops a key-like part tests node's keys with: a reference
+        resolved against node and its ancestors, one per value when its
+        path is a pattern, none when it does not resolve; the part itself
+        otherwise.
+        """
+        if not part.is_reference():
+            return (part,)
+        try:
+            val = settings.resolve(part, node, settings.parents or ())
+        except KeyError:
+            return ()
+        if part.is_pattern():
+            return tuple(matchers.ResolvedValue(v) for v in val)
+        return (matchers.ResolvedValue(val),)
+
+    def get_value(self, node):
+        """
+        Get first matching value from node (backwards compat)
+        """
+        for val, found in self.get_values(node):
+            return val, found
+        return None, False
+
+    def matches(self, keys):
+        """
+        For simple keys, delegate to the inner part's matches
+        """
+        if not self.is_dotted() and not self.is_packed():
+            return self.parts[0].matches(keys)
+        return iter(())
+
+    def matchable(self, op):
+        """
+        Check if this filter key can match another
+        """
+        if not isinstance(op, FilterKey):
+            return False
+        if len(self.parts) != len(op.parts):
+            return False
+        for sp, op_p in zip(self.parts, op.parts):
+            if not sp.matchable(op_p):
+                return False
+        return True
+
+    def match(self, op):
+        """
+        Match against another filter key
+        """
+        if not self.matchable(op):
+            return None
+        result = []
+        for sp, op_p in zip(self.parts, op.parts):
+            m = sp.match(op_p)
+            if m is None:
+                return None
+            result.append(m)
+        return '.'.join(str(r) for r in result)
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in each part.
+        """
+        new_parts = tuple(
+            p.resolve(bindings, partial) if hasattr(p, 'resolve') else p
+            for p in self.parts)
+        if all(np is op for np, op in zip(new_parts, self.parts)):
+            return self
+        return FilterKey(*new_parts)
+
+
+class FilterKeyValue(FilterOp):
+    """
+    Single key=value filter comparison.
+    Optionally applies transforms before comparison: key|int=7.
+    """
+    _eq_str = '='
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if len(self.args) == 1 and hasattr(self.args[0], '__iter__') and not isinstance(self.args[0], (str, bytes)):
+            items = list(self.args[0])
+            self.key = items[0]
+            self.val = items[-1]
+            # Middle items are Transform objects
+            self.guard_transforms = tuple(
+                item for item in items[1:-1]
+                if isinstance(item, base.Transform)
+            )
+        else:
+            self.key = self.args[0]
+            self.val = self.args[1]
+            self.guard_transforms = ()
+
+    def __hash__(self):
+        return hash((self._eq_str, self.key, self.val, self.guard_transforms))
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and (self._eq_str, self.key, self.val, self.guard_transforms) == (other._eq_str, other.key, other.val, other.guard_transforms)
+
+    def __repr__(self):
+        t_str = ''.join('|' + t.operator() for t in self.guard_transforms) if self.guard_transforms else ''
+        return f'{self.key}{t_str}{self._eq_str}{self.val}'
+
+    def is_template(self):
+        """
+        True if the key, value, or any transform contains a substitution.
+        """
+        if hasattr(self.key, 'is_template') and self.key.is_template():
+            return True
+        if hasattr(self.val, 'is_template') and self.val.is_template():
+            return True
+        return _any_template(self.guard_transforms)
+
+    def is_reference(self):
+        """
+        True if the key, value, or any transform contains an internal
+        reference.
+        """
+        if hasattr(self.key, 'is_reference') and self.key.is_reference():
+            return True
+        if hasattr(self.val, 'is_reference') and self.val.is_reference():
+            return True
+        return _any_reference(self.guard_transforms)
+
+    def _eq_match(self, node, settings=base.SETTINGS):
+        """
+        True if any value from self.key in node equals self.val (after transforms).
+        """
+        return self._pred_match(node, predicates.EQ, settings)
+
+    def _pred_match(self, node, pred_op, settings=base.SETTINGS):
+        """
+        True if any value from self.key in node satisfies pred_op against
+        self.val after the transforms. A reference in the transforms or in
+        self.val sees the value as ^, node as ^^ and node's tracked parents
+        above that; one that does not resolve matches nothing.
+        """
+        if not hasattr(node, 'keys') and not self.key.is_packed():
+            return False
+        from . import results
+        parents = (node,) + (settings.parents or ())
+        for val, found in self.key.get_values(node, settings):
+            if not found:
+                continue
+            try:
+                if self.guard_transforms:
+                    val = results.apply_transforms(val, self.guard_transforms, settings, parents)
+            except base.UnresolvedReference:
+                continue
+            if results.guard_passes(pred_op, val, self.val, settings, val, parents, 'filters'):
+                return True
+        return False
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self._eq_match(node, settings)
+
+    def filtered(self, items, settings=base.SETTINGS):
+        return (item for item in items if self.is_filtered(item, settings))
+
+    def matchable(self, op):
+        if isinstance(op, type(self)):
+            return True
+        if isinstance(op, FilterOr):
+            return any(self.matchable(f) for f in op.filters)
+        return False
+
+    def match(self, op):
+        if isinstance(op, FilterOr):
+            for f in op.filters:
+                m = self.match(f)
+                if m is not None:
+                    return m
+            return None
+        if not isinstance(op, type(self)):
+            return None
+        if not self.key.matchable(op.key) or not self.val.matchable(op.val):
+            return None
+        if self.key.is_packed():
+            # a packed key has no single value: it matches an equal key
+            mk = self.key.match(op.key)
+        else:
+            mk = next(self.key.matches((op.key.value,)), base.marker)
+        mv = next(self.val.matches((op.val.value,)), base.marker)
+        if mk is None or base.marker in (mk, mv):
+            return None
+        return type(op)(op.key, op.val)
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in key, val, and transforms.
+        """
+        new_key = self.key.resolve(bindings, partial) if hasattr(self.key, 'resolve') else self.key
+        new_val = self.val.resolve(bindings, partial) if hasattr(self.val, 'resolve') else self.val
+        new_transforms = tuple(
+            t.resolve(bindings, partial) for t in self.guard_transforms)
+        if (new_key is self.key and new_val is self.val
+                and all(nt is ot for nt, ot in zip(new_transforms, self.guard_transforms))):
+            return self
+        result = type(self)(new_key, new_val)
+        result.guard_transforms = new_transforms
+        return result
+
+
+class FilterKeyValueNot(FilterKeyValue):
+    """
+    Single key!=value filter (negated key=value).
+    Optionally applies transforms before comparison: key|int!=7.
+    """
+    _eq_str = '!='
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return not self._eq_match(node, settings)
+
+
+class FilterKeyValueLt(FilterKeyValue):
+    """
+    Single key<value filter (less-than).
+    """
+    _eq_str = '<'
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self._pred_match(node, predicates.LT, settings)
+
+
+class FilterKeyValueGt(FilterKeyValue):
+    """
+    Single key>value filter (greater-than).
+    """
+    _eq_str = '>'
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self._pred_match(node, predicates.GT, settings)
+
+
+class FilterKeyValueLe(FilterKeyValue):
+    """
+    Single key<=value filter (less-than-or-equal).
+    """
+    _eq_str = '<='
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self._pred_match(node, predicates.LE, settings)
+
+
+class FilterKeyValueGe(FilterKeyValue):
+    """
+    Single key>=value filter (greater-than-or-equal).
+    """
+    _eq_str = '>='
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self._pred_match(node, predicates.GE, settings)
+
+
+# Lookup by operator string → filter class (built from _eq_str on each subclass).
+FILTER_PRED_CLS = {cls._eq_str: cls for cls in (
+    FilterKeyValue, FilterKeyValueNot,
+    FilterKeyValueLt, FilterKeyValueGt,
+    FilterKeyValueLe, FilterKeyValueGe,
+)}
+
+
+class FilterGroup(FilterOp):
+    """
+    Parenthesized group of filter expressions
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner = self.args[0] if self.args else None
+
+    def __hash__(self):
+        return hash(self.inner)
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.inner == other.inner
+
+    def __repr__(self):
+        return f'({self.inner})'
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self.inner.is_filtered(node, settings) if self.inner else True
+
+    def filtered(self, items, settings=base.SETTINGS):
+        return self.inner.filtered(items, settings) if self.inner else items
+
+    def matchable(self, op):
+        return isinstance(op, FilterGroup) and self.inner.matchable(op.inner)
+
+    def match(self, op):
+        if not self.matchable(op):
+            return None
+        return self.inner.match(op.inner)
+
+    def is_template(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_template')
+                and self.inner.is_template())
+
+    def is_reference(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_reference')
+                and self.inner.is_reference())
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in inner filter.
+        """
+        if self.inner is None:
+            return self
+        new_inner = self.inner.resolve(bindings, partial) if hasattr(self.inner, 'resolve') else self.inner
+        if new_inner is self.inner:
+            return self
+        return FilterGroup(new_inner)
+
+
+class FilterAnd(FilterOp):
+    """
+    Conjunction of filter expressions (all must match)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filters = tuple(self.args)
+
+    def __hash__(self):
+        return hash(self.filters)
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.filters == other.filters
+
+    def __repr__(self):
+        return '&'.join(str(f) for f in self.filters)
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return all(f.is_filtered(node, settings) for f in self.filters)
+
+    def filtered(self, items, settings=base.SETTINGS):
+        for f in self.filters:
+            items = f.filtered(items, settings)
+        return items
+
+    def matchable(self, op):
+        if not isinstance(op, FilterAnd):
+            return False
+        return len(self.filters) == len(op.filters)
+
+    def match(self, op):
+        if not self.matchable(op):
+            return None
+        results = []
+        for sf, of in zip(self.filters, op.filters):
+            if not sf.matchable(of):
+                return None
+            m = sf.match(of)
+            if m is None:
+                return None
+            results.append(m)
+        return FilterAnd(*results)
+
+    def is_template(self):
+        return _any_template(self.filters)
+
+    def is_reference(self):
+        return _any_reference(self.filters)
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in each filter.
+        """
+        new_filters = tuple(
+            f.resolve(bindings, partial) if hasattr(f, 'resolve') else f
+            for f in self.filters)
+        if all(nf is of for nf, of in zip(new_filters, self.filters)):
+            return self
+        return FilterAnd(*new_filters)
+
+
+class FilterOr(FilterOp):
+    """
+    Disjunction of filter expressions (any must match)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filters = tuple(self.args)
+
+    def __hash__(self):
+        return hash(self.filters)
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.filters == other.filters
+
+    def __repr__(self):
+        return ','.join(str(f) for f in self.filters)
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return any(f.is_filtered(node, settings) for f in self.filters)
+
+    def filtered(self, items, settings=base.SETTINGS):
+        # For OR, we need to collect all items that match any filter
+        items = list(items)  # Need to iterate multiple times
+        seen = set()
+        for f in self.filters:
+            for item in f.filtered(items, settings):
+                item_id = id(item)
+                if item_id not in seen:
+                    seen.add(item_id)
+                    yield item
+
+    def is_template(self):
+        return _any_template(self.filters)
+
+    def is_reference(self):
+        return _any_reference(self.filters)
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in each filter.
+        """
+        new_filters = tuple(
+            f.resolve(bindings, partial) if hasattr(f, 'resolve') else f
+            for f in self.filters)
+        if all(nf is of for nf, of in zip(new_filters, self.filters)):
+            return self
+        return FilterOr(*new_filters)
+
+
+class FilterKeyValueFirst(FilterOp):
+    """
+    First-match wrapper for any filter expression
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner = self.args[0] if self.args else None
+
+    def __hash__(self):
+        return hash(self.inner)
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.inner == other.inner
+
+    def __repr__(self):
+        return f'{self.inner}?'
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        return self.inner.is_filtered(node, settings) if self.inner else True
+
+    def filtered(self, items, settings=base.SETTINGS):
+        if self.inner:
+            for item in self.inner.filtered(items, settings):
+                yield item
+                break
+
+    def matchable(self, op):
+        return isinstance(op, FilterKeyValueFirst)
+
+    def match(self, op):
+        if not self.matchable(op):
+            return None
+        if self.inner and op.inner:
+            return self.inner.match(op.inner)
+        return None
+
+    def is_template(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_template')
+                and self.inner.is_template())
+
+    def is_reference(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_reference')
+                and self.inner.is_reference())
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in inner filter.
+        """
+        if self.inner is None:
+            return self
+        new_inner = self.inner.resolve(bindings, partial) if hasattr(self.inner, 'resolve') else self.inner
+        if new_inner is self.inner:
+            return self
+        return FilterKeyValueFirst(new_inner)
+
+
+class FilterNot(FilterOp):
+    """
+    Negation of a filter expression - matches items that DON'T pass the inner filter.
+
+    Examples:
+        [!status="active"]           - items where status != "active"
+        [!(a=1&b=2)]                 - items that don't match both conditions
+        [status="active"&!role="admin"]  - active non-admins
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner = self.args[0] if self.args else None
+
+    def __hash__(self):
+        return hash(('not', self.inner))
+
+    def __eq__(self, other):
+        # spelled out: a compiled class with __hash__ alone compares by identity
+        return self.__class__ == other.__class__ and self.inner == other.inner
+
+    def __repr__(self):
+        return f'!{self.inner}'
+
+    def is_filtered(self, node, settings=base.SETTINGS):
+        if self.inner is None:
+            return False
+        return not self.inner.is_filtered(node, settings)
+
+    def filtered(self, items, settings=base.SETTINGS):
+        if self.inner is None:
+            return
+        yield from (item for item in items if not self.inner.is_filtered(item, settings))
+
+    def matchable(self, op):
+        if not isinstance(op, FilterNot):
+            return False
+        if self.inner is None or op.inner is None:
+            return False
+        return self.inner.matchable(op.inner)
+
+    def match(self, op):
+        if not self.matchable(op):
+            return None
+        return self.inner.match(op.inner)
+
+    def is_template(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_template')
+                and self.inner.is_template())
+
+    def is_reference(self):
+        return (self.inner is not None
+                and hasattr(self.inner, 'is_reference')
+                and self.inner.is_reference())
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in inner filter.
+        """
+        if self.inner is None:
+            return self
+        new_inner = self.inner.resolve(bindings, partial) if hasattr(self.inner, 'resolve') else self.inner
+        if new_inner is self.inner:
+            return self
+        return FilterNot(new_inner)

@@ -1,0 +1,51 @@
+"""Tests for DependencyStatus dataclass."""
+
+from agentic_devtools.cli.setup.dependency_checker import DependencyStatus
+
+
+class TestDependencyStatus:
+    """Tests for DependencyStatus dataclass."""
+
+    def test_default_fields(self):
+        """Default optional fields are None/False/empty."""
+        status = DependencyStatus(name="git", found=True)
+        assert status.name == "git"
+        assert status.found is True
+        assert status.path is None
+        assert status.version is None
+        assert status.required is False
+        assert status.install_hint == ""
+        assert status.category == "Optional"
+
+    def test_all_fields_set(self):
+        """All fields can be set explicitly."""
+        status = DependencyStatus(
+            name="gh",
+            found=True,
+            path="/usr/bin/gh",
+            version="2.65.0",
+            required=False,
+            install_hint="run: agdt-setup-gh-cli",
+            category="Recommended",
+        )
+        assert status.path == "/usr/bin/gh"
+        assert status.version == "2.65.0"
+        assert status.category == "Recommended"
+
+    def test_not_found(self):
+        """A missing dependency has found=False and no path/version."""
+        status = DependencyStatus(name="copilot", found=False)
+        assert not status.found
+        assert status.path is None
+
+    def test_repair_details_default_empty_dict(self):
+        """repair_details defaults to empty dict."""
+        status = DependencyStatus(name="test", found=True)
+        assert status.repair_details == {}
+
+    def test_repair_details_isolation(self):
+        """Each instance has its own repair_details dict."""
+        s1 = DependencyStatus(name="a", found=True)
+        s2 = DependencyStatus(name="b", found=True)
+        s1.repair_details["key"] = "value"
+        assert s2.repair_details == {}

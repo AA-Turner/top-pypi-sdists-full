@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_evidence as ev
+from probe.cli.imports.folder import evidence as ev
 
 
 def _write(root: Path, rel: str, text: str = "w") -> None:

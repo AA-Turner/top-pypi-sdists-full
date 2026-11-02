@@ -12,6 +12,7 @@ from ......foundation.safe_warn import safe_warn as _diagnostics
 from ..... import errors
 
 from ......foundation.request_identity.surface import Surface
+from probe.sdk.routes import WriteOp, path_for
 
 
 #: SDK reliability 2.3, requeue takeover. How long a relaunch waits for a
@@ -249,7 +250,7 @@ class TakeoverMixin:
             # set is the four terminal verdicts). It was never started -- the
             # honest transition is a plain status PATCH, and it needs no epoch
             # bump because no earlier attempt wrote anything to supersede.
-            self.transport.request("PATCH", f"/v1/runs/{run_id}", json_body={"status": "running"})
+            self.transport.request("PATCH", path_for(WriteOp.RUN_PATCH, run_id), json_body={"status": "running"})
             return self.get_run(run_id)
         try:
             receipt = self.reopen_run(run_id, session_id=session_id or str(uuid.uuid4()))

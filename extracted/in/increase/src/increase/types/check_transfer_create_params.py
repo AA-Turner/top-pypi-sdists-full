@@ -1,0 +1,273 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Iterable
+from datetime import date
+from typing_extensions import Literal, Required, Annotated, TypedDict
+
+from .._utils import PropertyInfo
+
+__all__ = [
+    "CheckTransferCreateParams",
+    "PhysicalCheck",
+    "PhysicalCheckMailingAddress",
+    "PhysicalCheckPayer",
+    "PhysicalCheckReturnAddress",
+    "PhysicalCheckSignature",
+    "ThirdParty",
+]
+
+
+class CheckTransferCreateParams(TypedDict, total=False):
+    account_id: Required[str]
+    """The identifier for the account that will send the transfer."""
+
+    amount: Required[int]
+    """The transfer amount in USD cents."""
+
+    fulfillment_method: Required[Literal["physical_check", "third_party"]]
+    """Whether Increase will print and mail the check or if you will do it yourself.
+
+    - `physical_check` - Increase will print and mail a physical check.
+    - `third_party` - Increase will not print a check; you are responsible for
+      printing and mailing a check with the provided account number, routing number,
+      check number, and amount.
+    """
+
+    source_account_number_id: Required[str]
+    """
+    The identifier of the Account Number from which to send the transfer and print
+    on the check.
+    """
+
+    balance_check: Literal["full", "none"]
+    """How the account's available balance should be checked.
+
+    If omitted, the default behavior is `balance_check: full`.
+
+    - `full` - The available balance of the account must be at least the amount of
+      the check, and a Pending Transaction will be created for the full amount. This
+      is the default behavior if `balance_check` is omitted.
+    - `none` - No balance check will performed when the check transfer is initiated.
+      A zero-dollar Pending Transaction will be created. The balance will still be
+      checked when the Inbound Check Deposit is created.
+    """
+
+    check_number: str
+    """The check number Increase should use for the check.
+
+    This should not contain leading zeroes and must be unique across the
+    `source_account_number`. If this is omitted, Increase will generate a check
+    number for you.
+    """
+
+    physical_check: PhysicalCheck
+    """Details relating to the physical check that Increase will print and mail.
+
+    This is required if `fulfillment_method` is equal to `physical_check`. It must
+    not be included if any other `fulfillment_method` is provided.
+    """
+
+    require_approval: bool
+    """Whether the transfer requires explicit approval via the dashboard or API."""
+
+    third_party: ThirdParty
+    """Details relating to the custom fulfillment you will perform.
+
+    This is required if `fulfillment_method` is equal to `third_party`. It must not
+    be included if any other `fulfillment_method` is provided.
+    """
+
+    valid_until_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """If provided, the check will be valid on or before this date.
+
+    After this date, the check transfer will be automatically stopped and deposits
+    will not be accepted. For checks printed by Increase, this date is included on
+    the check as its expiration.
+    """
+
+
+class PhysicalCheckMailingAddress(TypedDict, total=False):
+    """Details for where Increase will mail the check.
+
+    When `physical_check_batch_id` is set, the address must match the Physical Check Batch.
+    """
+
+    city: Required[str]
+    """The city component of the check's destination address."""
+
+    line1: Required[str]
+    """The first line of the address component of the check's destination address."""
+
+    postal_code: Required[str]
+    """The postal code component of the check's destination address."""
+
+    state: Required[str]
+    """The US state component of the check's destination address."""
+
+    line2: str
+    """The second line of the address component of the check's destination address."""
+
+    name: str
+    """The name component of the check's destination address.
+
+    Defaults to the provided `recipient_name` parameter if `name` is not provided.
+    """
+
+    phone: str
+    """The phone number to associate with the check's destination address.
+
+    The phone number is only used when `shipping_method` is `fedex_overnight` and
+    will be supplied to FedEx to be used in case of delivery issues.
+    """
+
+
+class PhysicalCheckPayer(TypedDict, total=False):
+    contents: Required[str]
+    """The contents of the line."""
+
+
+class PhysicalCheckReturnAddress(TypedDict, total=False):
+    """
+    Details for where the courier will return the check to if it is unable to be delivered. Defaults to an Increase-owned address that will mark checks as delivery failed and shred them.
+    """
+
+    city: Required[str]
+    """The city of the return address."""
+
+    line1: Required[str]
+    """The first line of the return address."""
+
+    name: Required[str]
+    """The name of the return address."""
+
+    postal_code: Required[str]
+    """The postal code of the return address."""
+
+    state: Required[str]
+    """The US state of the return address."""
+
+    line2: str
+    """The second line of the return address."""
+
+    phone: str
+    """The phone number to associate with the shipper.
+
+    The phone number is only used when `shipping_method` is `fedex_overnight` and
+    will be supplied to FedEx to be used in case of delivery issues.
+    """
+
+
+class PhysicalCheckSignature(TypedDict, total=False):
+    """The signature that will appear on the check.
+
+    If not provided, the check will be printed with 'No Signature Required'. At most one of `text` and `image_file_id` may be provided.
+    """
+
+    image_file_id: str
+    """The ID of a File containing a PNG of the signature.
+
+    This must have `purpose: check_signature` and be a 1320x120 pixel PNG.
+    """
+
+    text: str
+    """The text that will appear as the signature on the check in cursive font."""
+
+
+class PhysicalCheck(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Details relating to the physical check that Increase will print and mail.
+
+    This is required if `fulfillment_method` is equal to `physical_check`. It must not be included if any other `fulfillment_method` is provided.
+    """
+
+    mailing_address: Required[PhysicalCheckMailingAddress]
+    """Details for where Increase will mail the check.
+
+    When `physical_check_batch_id` is set, the address must match the Physical Check
+    Batch.
+    """
+
+    memo: Required[str]
+    """The descriptor that will be printed on the memo field on the check."""
+
+    payer: Required[Iterable[PhysicalCheckPayer]]
+    """The payer of the check.
+
+    This will be printed on the top-left portion of the check. This should be an
+    array of up to 4 elements, each of which represents a line of the payer.
+    """
+
+    recipient_name: Required[str]
+    """The name that will be printed on the check in the 'To:' field."""
+
+    attachment_file_id: str
+    """The ID of a File to be attached to the check.
+
+    This must have `purpose: check_attachment`. For details on pricing and
+    restrictions, see
+    https://increase.com/documentation/originating-checks#printing-checks .
+    """
+
+    check_voucher_image_file_id: str
+    """The ID of a File to be used as the check voucher image.
+
+    This must have `purpose: check_voucher_image`. For details on pricing and
+    restrictions, see
+    https://increase.com/documentation/originating-checks#printing-checks .
+    """
+
+    note: str
+    """A few paragraphs of text printed on the letter included with the check.
+
+    It can contain at most 22 lines. Paragraphs will wrap at about 120 characters,
+    but depending on your exact message, it might be slightly more or slightly less.
+    """
+
+    physical_check_batch_id: str
+    """The identifier of the Physical Check Batch to mail this check as a part of."""
+
+    return_address: PhysicalCheckReturnAddress
+    """
+    Details for where the courier will return the check to if it is unable to be
+    delivered. Defaults to an Increase-owned address that will mark checks as
+    delivery failed and shred them.
+    """
+
+    return_address_name: str
+    """A custom name to print above the default return address.
+
+    Cannot be provided together with `return_address`.
+    """
+
+    shipping_method: Literal["usps_first_class", "fedex_overnight"]
+    """How to ship the check.
+
+    For details on pricing, timing, and restrictions, see
+    https://increase.com/documentation/originating-checks#printing-checks .
+
+    - `usps_first_class` - USPS First Class
+    - `fedex_overnight` - FedEx Overnight
+    """
+
+    signature: PhysicalCheckSignature
+    """The signature that will appear on the check.
+
+    If not provided, the check will be printed with 'No Signature Required'. At most
+    one of `text` and `image_file_id` may be provided.
+    """
+
+
+class ThirdParty(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Details relating to the custom fulfillment you will perform.
+
+    This is required if `fulfillment_method` is equal to `third_party`. It must not be included if any other `fulfillment_method` is provided.
+    """
+
+    recipient_name: str
+    """The pay-to name you will print on the check.
+
+    If provided, this is used for [Positive Pay](/documentation/positive-pay). If
+    this is omitted, Increase will be unable to validate the payer name when the
+    check is deposited.
+    """

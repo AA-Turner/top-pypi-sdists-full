@@ -14,7 +14,7 @@ in `agent-ci` is ALWAYS -- that lane runs with `working-directory: agent` and
 `pythonpath = ["."]`, so `app.core` is never on the path. It is kept here for the
 developer running it locally against a checkout, and the check that actually
 gates CI lives in the backend suite
-(`tests/unit/test_agent_view_vocabulary_is_generated.py`), which is the one lane
+(`tests/unit/core/test_agent_view_vocabulary_is_generated.py`), which is the one lane
 that installs BOTH trees. A guard that can only skip is not a guard, and this
 file used to be the only home for it.
 

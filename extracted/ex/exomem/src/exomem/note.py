@@ -1,0 +1,2527 @@
+"""The `note` MCP tool: create a compiled note with rule-7 writes.
+
+Handles all six compiled page types: research-note, insight, failure, pattern,
+experiment, production-log. Discriminated by the `note_type` arg.
+
+Path conventions:
+- research-note → Notes/Research/<Project>/<slug>.md (no date prefix; evolves)
+- insight       → Notes/Insights/<slug>.md
+- failure       → Notes/Failures/<slug>.md
+- pattern       → Notes/Patterns/<slug>.md
+- experiment    → Notes/Experiments/<domain>/YYYY-MM-<slug>.md (date from `started`)
+- production-log → Notes/Productions/<medium>/YYYY-MM-<slug>.md (date from `created`)
+
+A vault home (`_Schema/homes.yaml`) replaces that folder for a page whose project (research
+note) or first topic (any other type) it serves; the file stem keeps the type's own form.
+
+Workflow per call:
+1. Validate inputs against the note_type's per-type rules.
+2. Resolve target path; auto-create domain/medium subfolder if needed.
+3. Render frontmatter + body markdown per type.
+4. For each source in `sources:`, compute the updated source file with the new
+   note's wikilink appended to its ingested_into list.
+5. Compute updated top-level index.md (prepend Recent activity bullet, cap-50)
+   and log.md (prepend `## [<date>] note | <path>` entry).
+6. Batch-atomic-write everything.
+
+Sources/Notes/Entities navigation counts are recomputed with each governed
+write. The caller's Unicode title is stored in frontmatter and normalized into
+the canonical H1; the optional ASCII slug controls only the new filename.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import logging
+import os
+import re
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from dataclasses import replace as dataclass_replace
+from pathlib import Path
+from typing import Any
+
+from . import (
+    audit as audit_module,
+)
+from . import (
+    corpus_aware,
+    indexes,
+    memory_refs,
+    note_types,
+    relation_registry,
+    relation_review,
+    semantic_contract,
+    semantic_units,
+    semantic_writes,
+    source_coverage,
+    tag_variants,
+    temporal,
+    vocabulary_resolution,
+)
+from . import (
+    find as find_module,
+)
+from . import (
+    homes as homes_module,
+)
+from . import project_keys as project_keys_module
+from .governance.membership import MembershipUnresolved
+from .kbdir import kb_prefix
+from .vault import (
+    MISSING_CONTENT_HASH,
+    InvalidSlugError,
+    LogEntry,
+    PlannedWrite,
+    WikilinkResolver,
+    append_frontmatter_list_item,
+    batch_atomic_write,
+    canonical_vault_rel,
+    content_hash,
+    ensure_canonical_h1,
+    escape_wikilinks_for_log,
+    find_body_wikilinks,
+    folder_split_warnings,
+    kb_root,
+    normalize_body_wikilinks,
+    normalize_wikilink,
+    parse_frontmatter,
+    plan_log_entries,
+    read_guarded_text,
+    render_wikilink_target,
+    resolve_filename_slug,
+    respell_new_path,
+    rotate_log_if_needed,
+    unique_path,
+    writer_link_visibility,
+    yaml_flow_list,
+    yaml_scalar,
+)
+from .vocabulary.registry import RegistryError
+
+log = logging.getLogger(__name__)
+
+
+# The typed writer places only the shipped compiled types until it reads folders,
+# partitions and fields from the registry (S4b of `add-note-type-registry`).
+NOTE_TYPES = tuple(note_type.key for note_type in note_types.shipped(note_types.compiled))
+
+
+def _load_keys(vault_root: Path) -> project_keys_module.ProjectRegistry:
+    """Load the live project registry (from `_Schema/project-keys.yaml`)."""
+    return project_keys_module.load_project_registry(vault_root)
+
+
+def _plan_project_registrations(
+    vault_root: Path,
+    candidates: list[str],
+    *,
+    category: str,
+) -> tuple[
+    project_keys_module.ProjectRegistry,
+    PlannedWrite | None,
+    list[str],
+]:
+    """Build registry updates for a composed write without mutating the vault."""
+    registry = _load_keys(vault_root)
+    folders = dict(registry.project_to_folder)
+    categories = dict(registry.project_to_category)
+    registry_path = kb_root(vault_root) / "_Schema" / "project-keys.yaml"
+    if registry_path.exists():
+        original = registry_path.read_bytes().decode("utf-8")
+        text = original
+        expected_hash = content_hash(original)
+    else:
+        bootstrap_lines = [
+            "# Project keys for research-notes and cross-cutting projects: list.",
+            "# exomem loads this at startup and auto-appends new keys on use.",
+            "",
+            "projects:",
+        ]
+        for key, folder in folders.items():
+            bootstrap_lines.append(f"  {key}:")
+            bootstrap_lines.append(f"    folder: {folder}")
+            bootstrap_lines.append(f"    category: {categories.get(key, 'uncategorized')}")
+        text = "\n".join(bootstrap_lines) + "\n"
+        expected_hash = MISSING_CONTENT_HASH
+
+    warnings: list[str] = []
+    required_project_dirs: list[Path] = []
+    changed = False
+    for candidate in candidates:
+        if candidate in folders:
+            continue
+        if not project_keys_module._SLUG_RE.match(candidate):
+            continue
+        close = project_keys_module._closest_existing_key(candidate, list(folders))
+        if close is not None:
+            raise project_keys_module.ProjectKeyTypoError(candidate, close[0], close[1])
+        research_dir = kb_root(vault_root) / "Notes" / "Research"
+        folder = project_keys_module._title_case_slug(
+            candidate, [*folders.values(), *project_keys_module.child_folder_names(research_dir)]
+        )
+        if not text.endswith("\n"):
+            text += "\n"
+        text += (
+            "\n  # auto-registered by exomem\n"
+            f"  {candidate}:\n"
+            f"    folder: {folder}\n"
+            f"    category: {category}\n"
+        )
+        folders[candidate] = folder
+        categories[candidate] = category
+        required_project_dirs.append(kb_root(vault_root) / "Notes" / "Research" / folder)
+        changed = True
+        warnings.append(
+            f"Auto-registered project key {candidate!r} (folder: {folder!r}"
+            + (f", category: {category!r}" if category != "uncategorized" else "")
+            + ")."
+        )
+
+    planned_write = (
+        PlannedWrite(
+            path=registry_path,
+            content=text,
+            expected_hash=expected_hash,
+            ensure_directories=tuple(required_project_dirs),
+        )
+        if changed
+        else None
+    )
+    planned_registry = project_keys_module.ProjectRegistry(
+        project_to_folder=folders,
+        project_to_category=categories,
+    )
+    return planned_registry, planned_write, warnings
+
+
+SEVERITY_VALUES = ("minor", "moderate", "serious", "critical")
+
+PATTERN_TYPE_VALUES = (
+    "architectural",
+    "workflow",
+    "prompting",
+    "governance",
+    "pedagogical",
+)
+
+# Lifecycle status enums per type. research-note/insight/failure/pattern share
+# the basic {active, draft} pair; experiment + production-log have richer
+# lifecycles per page-types.md.
+#
+# `concluded` says the experiment finished and its result stands. That is a
+# different claim from `archived`, which steps a page out of active rotation —
+# a concluded experiment usually stays very much in rotation, because a settled
+# result is exactly what later work cites.
+STATUS_BASIC = ("active", "draft")
+STATUS_EXPERIMENT = ("active", "draft", "archived", "concluded")
+
+# How a finished experiment turned out. Deliberately the same closed vocabulary
+# as a semantic unit's `verdict` (see `semantic_units.EPISTEMIC_OUTCOMES`), so a
+# reader never translates between a unit's judgment and its parent's. Never a
+# number: this vault stores no confidence score.
+EXPERIMENT_OUTCOME_VALUES = semantic_units.EPISTEMIC_OUTCOMES
+STATUS_PRODUCTION = (
+    "planned",
+    "recorded",
+    "edited",
+    "published",
+    "reflected",
+    "dropped",
+    "archived",
+)
+
+# Typed-writer types whose registry entry marks `sources:` required. Omitting
+# provenance on one of these returns a warning, never an error: a conclusion
+# drawn from live work with nothing captured is an honest empty list, and
+# inventing a source to silence a gate would be strictly worse than leaving it
+# empty.
+SOURCES_REQUIRED_TYPES = tuple(
+    note_type.key
+    for note_type in note_types.shipped(note_types.compiled)
+    if note_types.sources_required(note_type)
+)
+
+
+def _empty_sources_warning(note_type: str) -> str | None:
+    """Warn when a type that should cite provenance cites none."""
+    if note_type not in SOURCES_REQUIRED_TYPES:
+        return None
+    return (
+        f"no `sources:` cited — frontmatter marks provenance required for "
+        f"{note_type}. If this came from live work with nothing captured, that is "
+        f"an honest empty list; otherwise cite the `Sources/` page it draws from "
+        f"(each entry also appends this note to that source's `ingested_into:`)."
+    )
+
+
+@dataclass
+class NoteResult:
+    path: str  # vault-relative
+    ref: str
+    warnings: list[str]
+    # Corpus-aware "you might want to link these" hints. Non-binding; the
+    # client decides. Omitted from as_dict() when empty so existing callers
+    # see no shape change unless a suggestion fires.
+    suggestions: list[dict] = field(default_factory=list)
+    # Deterministic structural feedback for agents. This is a write-quality
+    # checklist over the Markdown shape, not a semantic truth judgment.
+    write_feedback: dict = field(default_factory=dict)
+    creation: dict = field(default_factory=dict)
+    # The filename slug actually written, after truncation/normalisation. A
+    # caller linking to this note must use THIS value: re-deriving a slug from
+    # the title yields a different string whenever the title was truncated,
+    # and the resulting relation fails to resolve. Declared last so the
+    # positional NoteResult(...) construction below stays valid.
+    slug: str = ""
+
+    def as_dict(self) -> dict:
+        out: dict = {"path": self.path, "ref": self.ref, "warnings": self.warnings}
+        if self.slug:
+            out["slug"] = self.slug
+        if self.suggestions:
+            out["suggestions"] = self.suggestions
+        if self.write_feedback:
+            out["write_feedback"] = self.write_feedback
+        if self.creation:
+            out["creation"] = self.creation
+            resolution = self.creation.get("vocabulary_resolution")
+            if isinstance(resolution, dict):
+                out["vocabulary_resolution"] = resolution
+        return out
+
+
+@dataclass
+class NoteError(Exception):
+    code: str
+    missing: list[str]
+    reason: str
+    details: dict = field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        value = {"code": self.code, "missing": self.missing, "reason": self.reason}
+        if self.details:
+            value.update(self.details)
+        return value
+
+
+@dataclass(frozen=True)
+class _NavigationEntry:
+    """What one new note adds to `index.md` and `log.md`."""
+
+    rel_path_no_ext: str
+    render_date: str
+    activity_summary: str
+    stamp_iso: str
+    log_body: str
+    operation_token: str
+    preflight: semantic_writes.CreationPreflight
+    predecessor_path: str | None = None
+    predecessor_content_hash: str | None = None
+
+
+@dataclass(frozen=True)
+class _NavigationPlan:
+    writes: tuple[PlannedWrite, ...]
+    #: Missing-file warnings that every note of the update carries.
+    warnings: tuple[str, ...]
+    rotation_note: str | None
+
+
+@dataclass(frozen=True)
+class _NoteFinish:
+    """What the reply of a committed note needs beyond the commit itself."""
+
+    note_type: str
+    slug: str
+    status: str
+    tags: list[str]
+    sources_norm: list[str]
+    body_clean: str
+    body_warnings: list[str]
+    source_warnings: list[str]
+    backrefs_planned: int
+    suggestions: bool
+    feedback_registry: relation_registry.RelationRegistry
+    advisory_inputs: corpus_aware.WriteAdvisoryInputs
+    preflight_ms: float
+
+
+@dataclass(frozen=True)
+class _PreparedNote:
+    preflight: semantic_writes.CreationPreflight
+    auxiliary_writes: tuple[PlannedWrite, ...]
+    warnings: tuple[str, ...]
+    identity: str
+    destination: str
+    draft_token: str
+    #: Set when navigation is deferred; `commit_prepared_notes` plans it for the whole batch.
+    navigation: _NavigationEntry | None = None
+    finish: _NoteFinish | None = None
+
+
+def _plan_navigation(root: Path, entries: Sequence[_NavigationEntry]) -> _NavigationPlan:
+    """Plan the index and log updates for one note or for a batch of notes, once.
+
+    Each entry adds one Recent-activity bullet and one log entry, oldest first, so the
+    files end as they do after one commit per note. The counts and the log rotation are
+    decided once for the whole update.
+    """
+    from .relation_census import operation_provenance
+
+    writes: list[PlannedWrite] = []
+    warnings: list[str] = []
+    top_index = kb_root(root) / "index.md"
+    if top_index.is_file():
+        top_text, top_guard = read_guarded_text(root, top_index)
+        new_top = top_text
+        for entry in entries:
+            new_top, _ = indexes._prepend_recent_activity(
+                new_top, date_iso=entry.render_date, summary=entry.activity_summary
+            )
+        sub_writes, counted_top = indexes.compute_subindex_writes(
+            root,
+            top_index_text=new_top,
+            pending_paths=[entry.rel_path_no_ext for entry in entries],
+            include_unchanged=True,
+        )
+        writes.append(PlannedWrite(top_index, counted_top or new_top, guard=top_guard))
+        writes.extend(sub_writes)
+    else:
+        warnings.append(f"{kb_prefix()}index.md missing; skipped Recent activity bump")
+    try:
+        log_plan = plan_log_entries(
+            root,
+            [
+                LogEntry(
+                    entry.stamp_iso,
+                    "note",
+                    entry.rel_path_no_ext,
+                    entry.log_body,
+                    entry.operation_token,
+                    operation_provenance(
+                        entry.preflight,
+                        predecessor_path=entry.predecessor_path,
+                        predecessor_content_hash=entry.predecessor_content_hash,
+                    ),
+                )
+                for entry in entries
+            ],
+            operation_token="\n".join(entry.operation_token for entry in entries),
+        )
+    except (OSError, UnicodeError, ValueError) as error:
+        raise NoteError(
+            "LOG_PLAN_CONFLICT", [], "note log update could not be planned safely"
+        ) from error
+    writes.extend(log_plan.writes)
+    if log_plan.warning is not None:
+        warnings.append(log_plan.warning)
+    return _NavigationPlan(tuple(writes), tuple(warnings), log_plan.rotation_note)
+
+
+def _build_write_feedback(
+    *,
+    vault_root: Path,
+    registry: relation_registry.RelationRegistry,
+    note_type: str,
+    rel_path: str,
+    status: str | None,
+    tags: list[str],
+    sources_norm: list[str],
+    body_clean: str,
+    body_warnings: list[str],
+    source_warnings: list[str],
+    backrefs_planned: int,
+    suggestions_count: int,
+    suggestions_requested: bool,
+) -> dict:
+    document = semantic_units.parse_semantic_units(
+        body_clean,
+        relation_registry=registry,
+        retain_unknown_relations=True,
+    )
+    by_kind: dict[str, int] = {}
+    for unit in document.rich_units:
+        by_kind[unit.kind] = by_kind.get(unit.kind, 0) + 1
+
+    registered_note_relations = tuple(
+        relation
+        for relation in document.note_relations
+        if registry.resolve(relation.kind).status != "unregistered"
+    )
+    note_relation_lines = {relation.line for relation in registered_note_relations}
+    block_relation_lines = {
+        relation.line for unit in document.rich_units for relation in unit.relations
+    }
+    typed_lines = note_relation_lines | block_relation_lines
+
+    body_targets: list[str] = []
+    generic_targets: list[str] = []
+    seen_targets: set[str] = set()
+    seen_generic_targets: set[str] = set()
+    for match in find_body_wikilinks(body_clean):
+        target = match.group(0)[2:-2].split("|", 1)[0].split("#", 1)[0].strip()
+        if target and target not in seen_targets:
+            seen_targets.add(target)
+            body_targets.append(target)
+        line = body_clean.count("\n", 0, match.start()) + 1
+        if target and line not in typed_lines and target not in seen_generic_targets:
+            seen_generic_targets.add(target)
+            generic_targets.append(target)
+
+    typed_note_relations = len(registered_note_relations)
+    typed_block_relations = sum(
+        registry.resolve(relation.kind).status != "unregistered"
+        for unit in document.rich_units for relation in unit.relations
+    )
+    relation_kinds = {relation.kind for relation in document.note_relations} | {
+        relation.kind for unit in document.rich_units for relation in unit.relations
+    }
+    unregistered_labels = sorted(
+        kind for kind in relation_kinds if registry.resolve(kind).status == "unregistered"
+    )
+    relation_debt = audit_module.relation_debt_eligible(
+        vault_root,
+        page_type=note_type,
+        rel_path=rel_path,
+        status=status,
+        tags=tags,
+    ) and not (typed_note_relations or typed_block_relations or generic_targets)
+
+    unresolved = list(source_warnings) + list(body_warnings)
+    next_actions: list[str] = []
+    if unresolved:
+        next_actions.append("resolve or intentionally leave unresolved wikilinks")
+    if suggestions_count:
+        next_actions.append(
+            "review related-page suggestions and add accepted note edges under `## Relations`"
+        )
+    if unregistered_labels:
+        next_actions.append(
+            "review recurring relation vocabulary with "
+            "`schema_memory(operation='infer', subject='relations')`"
+        )
+    if not sources_norm:
+        if not body_targets:
+            next_actions.append(
+                "connect this page now: cite the `Sources/` page it draws from in "
+                "`sources:`, or link the prior conclusions it builds on — it currently "
+                "has no outbound connection of any kind"
+            )
+        else:
+            next_actions.append(
+                "cite the `Sources/` page this drew from in `sources:` — each entry "
+                "appends this note's wikilink to that source's `ingested_into:`. "
+                "A live citing derivative clears the citation backlog; semantic "
+                "compilation remains unassessed"
+            )
+    if relation_debt:
+        next_actions.append(
+            "review relation debt with `connect_memory(operation='suggest-relations')`"
+        )
+    if not next_actions:
+        next_actions.append("no immediate structural follow-up")
+
+    # `related_pages: 0` is ambiguous on its own once the pass is default-off —
+    # it cannot separate "ran, found nothing" from "never ran". Say which, and
+    # name the route back, so a default write is never silently less useful.
+    #
+    # `response_detail` is part of that route, not decoration. Every write
+    # command defaults to compact (`commands._build_product_commands`), and
+    # compact carries neither `suggestions` nor `write_feedback` —
+    # `mutation_terminal.project_terminal` only re-attaches the leaf under
+    # `detail="full"`. A caller replaying this dict without it would pay the
+    # retrieval pass and still be handed nothing back.
+    suggestions_feedback: dict[str, object] = {
+        "related_pages": suggestions_count,
+        "computed": suggestions_requested,
+    }
+    if not suggestions_requested:
+        suggestions_feedback["route"] = {
+            "tool": "create_note",
+            "args": {"suggestions": True, "response_detail": "full"},
+        }
+
+    relation_feedback: dict[str, object] = {
+        "typed_note": typed_note_relations,
+        "typed_block": typed_block_relations,
+        "count_basis": "registered relation syntax, including generic associations; not semantic specificity",
+        "errors": [error.as_dict() for error in document.note_relation_errors],
+        "relation_debt": relation_debt,
+    }
+    if unregistered_labels:
+        relation_feedback["unregistered"] = {
+            "count": len(unregistered_labels),
+            "labels": unregistered_labels,
+            "promotion_route": {
+                "tool": "schema_memory",
+                "args": {"operation": "infer", "subject": "relations"},
+            },
+        }
+
+    return {
+        "contract": "compiled-note",
+        "note_type": note_type,
+        "semantic_blocks": {
+            "total": len(document.rich_units),
+            "by_kind": by_kind,
+            "errors": [error.to_dict() for error in document.semantic_block_errors],
+            "warnings": [warning.to_dict() for warning in document.semantic_block_warnings],
+        },
+        "sources": {
+            "cited": len(sources_norm),
+            "present": bool(sources_norm),
+            "backrefs_planned": backrefs_planned,
+            "required": note_type in SOURCES_REQUIRED_TYPES,
+            "missing": note_type in SOURCES_REQUIRED_TYPES and not sources_norm,
+            "semantic_compilation": source_coverage.compilation_guidance(vault_root, sources_norm),
+        },
+        "links": {
+            "body_wikilinks": len(body_targets),
+            "generic_wikilinks": len(generic_targets),
+            "source_wikilinks": len(sources_norm),
+            "unresolved_count": len(unresolved),
+            "unresolved": unresolved,
+        },
+        "relations": relation_feedback,
+        "suggestions": suggestions_feedback,
+        "next_actions": next_actions,
+    }
+
+
+def _legacy_note(
+    vault_root: Path,
+    *,
+    content: str,
+    note_type: str,
+    title: str,
+    slug: str | None = None,
+    project: str | None = None,
+    projects: list[str] | None = None,
+    sources: list[str] | None = None,
+    tags: list[str] | None = None,
+    status: str | None = None,
+    # failure-specific
+    severity: str | None = None,
+    # pattern-specific
+    pattern_type: str | None = None,
+    # experiment-specific
+    domain: str | None = None,
+    started: str | None = None,
+    duration: str | None = None,
+    hypothesis: str | None = None,
+    n: int | None = None,
+    concluded: str | None = None,
+    # production-log-specific
+    medium: str | None = None,
+    recorded: str | None = None,
+    published: str | None = None,
+    host: str | None = None,
+    editor: str | None = None,
+    # Inert: `_legacy_note`'s only caller is `_legacy_replace`, which has no
+    # callers of its own. Kept aligned with `note()` so the two do not drift.
+    suggestions: bool = False,
+    today: dt.date | None = None,
+    project_category: str | None = None,
+    _planned_writes: list[PlannedWrite] | None = None,
+) -> NoteResult:
+    """Create a compiled note + update indexes/log + back-ref cited sources atomically.
+
+    `today` is dependency-injectable for tests; defaults to dt.date.today().
+    """
+    try:
+        filename_slug, slug_warnings = resolve_filename_slug(title, slug, vault_root=vault_root)
+    except InvalidSlugError as e:
+        raise NoteError(code="INVALID_SLUG", missing=["slug"], reason=str(e)) from e
+
+    # Apply per-type default status if caller didn't specify.
+    if status is None:
+        if note_type == "production-log":
+            status = "planned"
+        else:
+            status = "active"
+
+    # Auto-register unknown project keys BEFORE validation. This is usually
+    # driven through an LLM, so the writer shouldn't force a hand-edit of
+    # `_Schema/project-keys.yaml`. If `project` (or any item in
+    # `projects`) is a valid slug but not yet registered, we add it to the
+    # registry + create the matching folder, then surface a warning so the
+    # registration is visible. Invalid slugs fall through to validation
+    # which rejects them with a typed error.
+    autoregister_warnings: list[str] = []
+    planned_registry: project_keys_module.ProjectRegistry | None = None
+    project_registration_write: PlannedWrite | None = None
+    candidates: list[str] = []
+    if project:
+        candidates.append(project)
+    if projects:
+        candidates.extend(p for p in projects if p)
+    if candidates:
+        if _planned_writes is not None:
+            try:
+                (
+                    planned_registry,
+                    project_registration_write,
+                    autoregister_warnings,
+                ) = _plan_project_registrations(
+                    vault_root,
+                    candidates,
+                    category=project_category or "uncategorized",
+                )
+            except project_keys_module.ProjectKeyTypoError as e:
+                raise NoteError(
+                    code="PROJECT_KEY_TYPO",
+                    missing=["project" if e.key == project else "projects"],
+                    reason=str(e),
+                ) from e
+        else:
+            registry = _load_keys(vault_root)
+            for cand in candidates:
+                if cand in registry.project_to_folder:
+                    continue
+                try:
+                    _, new_folder, was_new = project_keys_module.register_project_key(
+                        vault_root,
+                        cand,
+                        category=project_category or "uncategorized",
+                    )
+                    if was_new:
+                        cat_note = f", category: {project_category!r}" if project_category else ""
+                        autoregister_warnings.append(
+                            f"Auto-registered project key {cand!r} (folder: "
+                            f"{new_folder!r}{cat_note})."
+                        )
+                except project_keys_module.ProjectKeyTypoError as e:
+                    # Surface as a typed validation error — the agent's natural
+                    # recovery is to re-call with the suggested key.
+                    raise NoteError(
+                        code="PROJECT_KEY_TYPO",
+                        missing=["project" if cand == project else "projects"],
+                        reason=str(e),
+                    ) from e
+                except ValueError:
+                    # Invalid slug — fall through to validation which will reject.
+                    pass
+
+    err = _validate(
+        note_type=note_type,
+        content=content,
+        title=title,
+        project=project,
+        projects=projects,
+        status=status,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain,
+        started=started,
+        duration=duration,
+        medium=medium,
+        bridge_of=None,
+        bridge_scope=None,
+        bridge_review=None,
+        vault_root=vault_root,
+        project_registry=planned_registry,
+    )
+    if err is not None:
+        raise NoteError(code=err.code, missing=err.missing, reason=err.reason)
+
+    # Two precisions from one clock read. `date_iso` is the bare day that
+    # names files and index bullets; `stamp_iso` is what gets recorded as
+    # knowledge time. A caller injecting a plain `date` (as every existing
+    # test does) gets the day in both, so day-granular expectations stay true.
+    now = today or temporal.now()
+    date_iso = temporal.render_date(now)
+    stamp_iso = temporal.stamp(now)
+    tags_clean = _clean_tags(tags)
+    tag_warnings = tag_variants.advise_authored(vault_root, tags_clean)
+    exomem_id = memory_refs.new_id()
+
+    note_path = _resolve_path(
+        vault_root=vault_root,
+        note_type=note_type,
+        project=project,
+        slug=filename_slug,
+        domain=domain,
+        medium=medium,
+        started=started,
+        date_iso=date_iso,
+        project_registry=planned_registry,
+        create_parents=_planned_writes is None,
+    )
+    rel_note_no_ext = note_path.relative_to(vault_root).with_suffix("").as_posix()
+    new_note_wikilink = f"[[{render_wikilink_target(rel_note_no_ext, vault_root)}]]"
+
+    # Resolver: the process-shared, freshness-checked instance (find's graph-
+    # lane cache) — a fresh build reads + YAML-parses the whole vault per
+    # write. We register the new note's own path so any body reference back to
+    # itself resolves cleanly; index_sync re-syncs the entry from disk after
+    # the batch write, and the except-path below purges it on failure.
+    from . import find as find_module
+
+    resolver = find_module.shared_resolver(vault_root)
+    resolver.add_pending(rel_note_no_ext, title=title)
+
+    sources_norm, source_warnings = _normalize_sources(
+        sources, vault_root=vault_root, resolver=resolver
+    )
+
+    # Normalize wikilinks inside the body to canonical full form, skipping
+    # code blocks. Unresolvable links pass through with a warning so forward
+    # refs are still permitted.
+    body_clean, body_warnings = normalize_body_wikilinks(content, vault_root, resolver=resolver)
+
+    # Corpus-aware nudges — best-effort, must NEVER block or roll back the write.
+    # Computed PRE-write so the new note isn't in the sidecar yet (no self-match,
+    # no 70MB matrix reload). Skipped entirely when embeddings are disabled, so
+    # the fast test suite and existing note() tests see no behaviour change.
+    corpus_suggestions: list[dict] = []
+    advisory_warnings: list[str] = []
+    if not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        try:
+            existing_links: set[str] = set(sources_norm)
+            for m in find_body_wikilinks(body_clean):
+                inner = m.group(0)[2:-2].split("|", 1)[0].split("#", 1)[0].strip()
+                if inner:
+                    existing_links.add(inner)
+
+            def _cosines() -> dict[str, float]:
+                # One embedding pass, partitioned into the dup band and the
+                # contradiction band — the draft is encoded once per write.
+                return corpus_aware._best_cosine_per_file(vault_root, title=title, body=body_clean)
+
+            if suggestions:
+                # The suggestion query (find-class) and the near-dup sweep
+                # (draft embed + sidecar KNN) are independent read-only
+                # passes — overlap them. The server already encodes from
+                # several threads (worker pool, watcher), so this introduces
+                # no new concurrency class.
+                from concurrent.futures import ThreadPoolExecutor
+
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    fut_sugg = pool.submit(
+                        corpus_aware.suggest_related,
+                        vault_root,
+                        title=title,
+                        body=body_clean,
+                        self_path=rel_note_no_ext,
+                        existing_links=existing_links,
+                        limit=6,
+                    )
+                    fut_cos = pool.submit(_cosines)
+                    cosines = fut_cos.result()
+                    corpus_suggestions = [s.as_dict() for s in fut_sugg.result()]
+            else:
+                # suggestions=False skips ONLY the related-links pass. The
+                # near-dup/contradiction sweep below is a dedupe GUARDRAIL
+                # (SKILL rule: prefer edit/replace over a parallel page) and
+                # stays on in every mode.
+                cosines = _cosines()
+            duplicate_candidates = corpus_aware.detect_duplicates(
+                vault_root,
+                title=title,
+                body=body_clean,
+                self_path=rel_note_no_ext,
+                types_filter=[note_type],
+                precomputed=cosines,
+            )
+            overlap_candidates = corpus_aware.detect_contradictions(
+                vault_root,
+                title=title,
+                body=body_clean,
+                self_path=rel_note_no_ext,
+                precomputed=cosines,
+            )
+            advisory_warnings = corpus_aware.emit_write_advisory_groups(
+                vault_root,
+                self_path=rel_note_no_ext,
+                groups=[
+                    ("near-duplicate", duplicate_candidates),
+                    *corpus_aware.detected_overlap_advisory_groups(overlap_candidates),
+                ],
+                apply_declared_pair_filter=True,
+            )
+        except Exception as e:  # noqa: BLE001 — nudges never break a write
+            log.debug("corpus-aware nudges failed (non-fatal): %s", e)
+
+    note_md = _render_note(
+        note_type=note_type,
+        title=title,
+        project=project,
+        projects=projects,
+        status=status,
+        date_iso=stamp_iso,
+        sources=[render_wikilink_target(source, vault_root) for source in sources_norm],
+        tags=tags_clean,
+        content=body_clean,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain,
+        started=started,
+        duration=duration,
+        hypothesis=hypothesis,
+        n=n,
+        concluded=concluded,
+        medium=medium,
+        recorded=recorded,
+        published=published,
+        host=host,
+        editor=editor,
+        exomem_id=exomem_id,
+    )
+
+    kb = kb_root(vault_root)
+    write_feedback = _build_write_feedback(
+        vault_root=vault_root,
+        registry=relation_registry.load_for_page(
+            vault_root, note_path.relative_to(vault_root).as_posix(), parse_frontmatter(note_md)[0],
+        ),
+        note_type=note_type,
+        rel_path=note_path.relative_to(vault_root).as_posix(),
+        status=status,
+        tags=tags_clean,
+        sources_norm=sources_norm,
+        body_clean=body_clean,
+        body_warnings=body_warnings,
+        source_warnings=source_warnings,
+        backrefs_planned=0,
+        suggestions_count=len(corpus_suggestions),
+        suggestions_requested=suggestions,
+    )
+    writes: list[PlannedWrite] = []
+    if project_registration_write is not None:
+        writes.append(project_registration_write)
+    writes.append(PlannedWrite(path=note_path, content=note_md))
+    warnings: list[str] = (
+        list(autoregister_warnings)
+        + list(slug_warnings)
+        + list(source_warnings)
+        + list(body_warnings)
+        + list(advisory_warnings)
+        + tag_warnings
+    )
+    if not sources_norm:
+        provenance_warning = _empty_sources_warning(note_type)
+        if provenance_warning is not None:
+            warnings.append(provenance_warning)
+    # Back-refs: append the new note's wikilink to each cited source's ingested_into.
+    backrefs_planned = 0
+    for src in sources_norm:
+        src_path = _resolve_source_path(vault_root, src)
+        if src_path is None or not src_path.exists():
+            warnings.append(f"source not found, ingested_into back-ref skipped: {src}")
+            continue
+        original = src_path.read_text(encoding="utf-8")
+        updated = append_frontmatter_list_item(original, "ingested_into", new_note_wikilink)
+        if updated != original:
+            writes.append(PlannedWrite(path=src_path, content=updated))
+            backrefs_planned += 1
+        else:
+            warnings.append(f"could not safely append to ingested_into: in {src}, back-ref skipped")
+
+    # Top index.md Recent activity + log.md entry.
+    top_index = kb / "index.md"
+    log_file = kb / "log.md"
+    activity_summary = _activity_summary(
+        rel_note_no_ext=rel_note_no_ext,
+        title=title,
+        note_type=note_type,
+        project=project,
+        projects=projects,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain,
+        medium=medium,
+        status=status,
+    )
+    log_body = _log_entry_body(
+        note_type=note_type,
+        title=title,
+        project=project,
+        projects=projects,
+        tags=tags_clean,
+        sources=sources_norm,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain,
+        medium=medium,
+        status=status,
+        started=started,
+        duration=duration,
+    )
+
+    if top_index.exists():
+        new_top, trim_note = indexes._prepend_recent_activity(
+            top_index.read_text(encoding="utf-8"),
+            date_iso=date_iso,
+            summary=activity_summary,
+        )
+        # Refresh sub-folder indexes + the top-index Counts rows for Notes/
+        # Entities. Pass the new note's path so counts reflect post-write
+        # state without a second disk scan.
+        sub_writes, new_top_with_counts = indexes.compute_subindex_writes(
+            vault_root,
+            top_index_text=new_top,
+            pending_paths=[rel_note_no_ext],
+        )
+        if new_top_with_counts is not None:
+            new_top = new_top_with_counts
+        # trim_note still flows into the log entry body below — log.md is the
+        # paper trail for cap-50 displacement (SKILL.md trim discipline).
+        writes.append(PlannedWrite(path=top_index, content=new_top))
+        writes.extend(sub_writes)
+    else:
+        warnings.append(f"{kb_prefix()}index.md missing; skipped Recent activity bump")
+
+    if log_file.exists():
+        full_body = log_body + (f"\n\n{trim_note}" if (top_index.exists() and trim_note) else "")
+        new_log = _prepend_log_entry(
+            log_file.read_text(encoding="utf-8"),
+            date_iso=stamp_iso,
+            verb="note",
+            rel_path=rel_note_no_ext,
+            body=full_body,
+        )
+        writes.append(PlannedWrite(path=log_file, content=new_log))
+    else:
+        warnings.append(f"{kb_prefix()}log.md missing; skipped log entry")
+
+    if _planned_writes is None:
+        try:
+            batch_atomic_write(writes, vault_root=vault_root)
+        except Exception as e:
+            log.exception("partial write during note(); some files may be updated")
+            warnings.append(f"partial write — reconcile on desktop: {e}")
+            # Purge this write's add_pending registration from the SHARED resolver
+            # — the note never landed, and a phantom entry would resolve wikilinks
+            # to a nonexistent page until the next full rebuild.
+            try:
+                find_module.on_resolver_files_changed(vault_root, [rel_note_no_ext + ".md"], [])
+            except Exception:  # noqa: BLE001 — purge is best-effort cleanup
+                log.debug("resolver pending-purge failed", exc_info=True)
+            raise
+
+        rotate_note = rotate_log_if_needed(vault_root)
+        if rotate_note:
+            warnings.append(rotate_note)
+    else:
+        # Internal composition seam for replace(): preserve note()'s exact
+        # write plan while letting the supersession pointers join the same batch.
+        _planned_writes.extend(writes)
+
+    write_feedback["sources"]["backrefs_planned"] = backrefs_planned
+
+    return NoteResult(
+        path=note_path.relative_to(vault_root).as_posix(),
+        ref=memory_refs.memory_ref(exomem_id),
+        warnings=warnings,
+        suggestions=corpus_suggestions,
+        write_feedback=write_feedback,
+        slug=filename_slug,
+    )
+
+
+# ---------------- validation ----------------
+
+
+@dataclass
+class _Err:
+    code: str
+    missing: list[str]
+    reason: str
+
+
+_ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_BRIDGE_SCOPE_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+
+
+def _validate(
+    *,
+    note_type: str,
+    content: str,
+    title: str,
+    project: str | None,
+    projects: list[str] | None,
+    status: str,
+    severity: str | None,
+    pattern_type: str | None,
+    domain: str | None,
+    started: str | None,
+    duration: str | None,
+    medium: str | None,
+    bridge_of: list[str] | None,
+    bridge_scope: str | None,
+    bridge_review: str | None,
+    vault_root: Path,
+    project_registry: project_keys_module.ProjectRegistry | None = None,
+) -> _Err | None:
+    missing: list[str] = []
+    reasons: list[str] = []
+
+    if note_type not in NOTE_TYPES:
+        return _Err(
+            code="INVALID_NOTE",
+            missing=["note_type"],
+            reason=(f"note_type {note_type!r} is not supported. Valid: {list(NOTE_TYPES)}."),
+        )
+    if not content or not content.strip():
+        missing.append("content")
+        reasons.append("content is empty")
+    if not title or not title.strip():
+        missing.append("title")
+        reasons.append("title is empty")
+
+    bridge_supplied = bridge_of is not None or bridge_scope is not None or bridge_review is not None
+    if bridge_supplied:
+        if not bridge_of:
+            missing.append("bridge_of")
+            reasons.append("bridge_of must be a non-empty source identity list")
+        elif not all(isinstance(value, str) and value.strip() for value in bridge_of):
+            return _Err(
+                "INVALID_NOTE",
+                ["bridge_of"],
+                "bridge_of entries must be non-empty source paths or stable refs",
+            )
+        if not bridge_scope:
+            missing.append("bridge_scope")
+            reasons.append("bridge_scope is required with bridge_of")
+        elif _BRIDGE_SCOPE_PATTERN.fullmatch(bridge_scope) is None:
+            return _Err(
+                "INVALID_NOTE",
+                ["bridge_scope"],
+                "bridge_scope must be a lowercase slug",
+            )
+        if not bridge_review:
+            missing.append("bridge_review")
+            reasons.append("bridge_review is required with bridge_of")
+        else:
+            try:
+                dt.date.fromisoformat(bridge_review)
+            except (TypeError, ValueError):
+                return _Err(
+                    "INVALID_NOTE",
+                    ["bridge_review"],
+                    "bridge_review must be an ISO date",
+                )
+
+    # Per-type status enum.
+    if note_type == "experiment":
+        if status not in STATUS_EXPERIMENT:
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["status"],
+                reason=(
+                    f"experiment status must be one of {list(STATUS_EXPERIMENT)}, got {status!r}"
+                ),
+            )
+    elif note_type == "production-log":
+        if status not in STATUS_PRODUCTION:
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["status"],
+                reason=(
+                    f"production-log status must be one of {list(STATUS_PRODUCTION)}, "
+                    f"got {status!r}"
+                ),
+            )
+    else:
+        if status not in STATUS_BASIC:
+            missing.append("status")
+            reasons.append(f"status must be 'active' or 'draft', got {status!r}")
+
+    registry = project_registry or _load_keys(vault_root)
+    valid_keys = registry.project_to_folder
+    if note_type == "research-note":
+        if not project:
+            missing.append("project")
+            reasons.append("project is required for research-note")
+        elif project not in valid_keys:
+            # Reaching here means auto-register failed (invalid slug shape).
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["project"],
+                reason=(
+                    f"project {project!r} is not a valid slug "
+                    f"(must be lowercase letters/digits/dashes). "
+                    f"Existing keys: {sorted(valid_keys)}"
+                ),
+            )
+        if projects:
+            reasons.append(
+                "research-note uses singular `project`, not `projects`; "
+                "the `projects` arg was ignored"
+            )
+    elif note_type in ("insight", "failure", "pattern"):
+        if project:
+            reasons.append(
+                f"{note_type} uses plural `projects`, not `project`; the `project` arg was ignored"
+            )
+        if projects:
+            invalid = [p for p in projects if p not in valid_keys]
+            if invalid:
+                return _Err(
+                    code="INVALID_NOTE",
+                    missing=["projects"],
+                    reason=(
+                        f"projects contains keys that aren't valid slugs "
+                        f"and couldn't be auto-registered: {invalid}. "
+                        f"Existing keys: {sorted(valid_keys)}"
+                    ),
+                )
+        if note_type == "failure" and severity is not None and severity not in SEVERITY_VALUES:
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["severity"],
+                reason=(f"severity {severity!r} not valid. Valid: {list(SEVERITY_VALUES)}"),
+            )
+        if (
+            note_type == "pattern"
+            and pattern_type is not None
+            and pattern_type not in PATTERN_TYPE_VALUES
+        ):
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["pattern_type"],
+                reason=(
+                    f"pattern_type {pattern_type!r} not valid. Valid: {list(PATTERN_TYPE_VALUES)}"
+                ),
+            )
+    elif note_type == "experiment":
+        if not domain:
+            missing.append("domain")
+            reasons.append("domain is required for experiment (becomes the subfolder)")
+        if not started:
+            missing.append("started")
+            reasons.append("started (YYYY-MM-DD) is required for experiment")
+        elif not _ISO_DATE_PATTERN.match(started):
+            return _Err(
+                code="INVALID_NOTE",
+                missing=["started"],
+                reason=f"started must be YYYY-MM-DD, got {started!r}",
+            )
+        if not duration:
+            missing.append("duration")
+            reasons.append(
+                "duration is required for experiment (e.g. '30 days', '2 weeks', 'ongoing')"
+            )
+    elif note_type == "production-log":
+        if not medium:
+            missing.append("medium")
+            reasons.append("medium is required for production-log (becomes the subfolder)")
+
+    if missing:
+        return _Err(
+            code="INVALID_NOTE",
+            missing=missing,
+            reason="; ".join(reasons),
+        )
+    return None
+
+
+# ---------------- path / slug ----------------
+
+
+@dataclass(frozen=True, slots=True)
+class _Placement:
+    """The folder and file stem a typed page takes."""
+
+    folder: Path
+    stem: str
+
+
+def _type_default(
+    *,
+    vault_root: Path,
+    note_type: str,
+    project: str | None,
+    slug: str,
+    domain: str | None,
+    medium: str | None,
+    started: str | None,
+    date_iso: str,
+    project_registry: project_keys_module.ProjectRegistry | None,
+) -> _Placement:
+    """The folder and stem of the type's own layout: its folder, partition and stem kind."""
+    definition = note_types.shipped_registry().types[note_type]
+    folder = kb_root(vault_root) / str(definition.folder)
+    if definition.partition == "project":
+        assert project is not None  # validated above
+        # Use live registry so auto-registered keys resolve to their folder.
+        registry = project_registry or _load_keys(vault_root)
+        folder /= registry.folder_for(project) or project.capitalize()
+    elif definition.partition == "domain":
+        assert domain  # validated above
+        folder /= _domain_folder(domain)
+    elif definition.partition == "medium":
+        assert medium  # validated above
+        folder /= _medium_folder(medium)
+    if definition.stem == "started":
+        assert started  # validated above
+        return _Placement(folder, f"{started[:7]}-{slug}")  # YYYY-MM-<slug>
+    if definition.stem == "dated":
+        return _Placement(folder, f"{date_iso[:7]}-{slug}")  # YYYY-MM-<slug>
+    return _Placement(folder, slug)
+
+
+def _homes_warnings(home_set: homes_module.HomeSet) -> list[str]:
+    return [f"HOMES_INVALID: {item['detail']}; pages go to their type folders." for item in home_set.findings]
+
+
+def _home_containing(
+    vault_root: Path, folder: Path, home_set: homes_module.HomeSet
+) -> homes_module.Home | None:
+    """The active home whose folder holds `folder`, if any."""
+    try:
+        below_kb = folder.relative_to(kb_root(vault_root)).parts
+    except ValueError:
+        return None
+    if below_kb[:1] != (note_types.NOTES_FOLDER,):
+        return None
+    return home_set.containing(below_kb[1:])
+
+
+def _require_home_keeps_scope(
+    root: Path,
+    home: homes_module.Home,
+    *,
+    destination: str,
+    default_destination: str,
+    source: str,
+) -> None:
+    """Refuse a home whose audience could differ from the type default's, before anything is written.
+
+    Governance scopes and vocabulary instances bind to paths, so filing a page in a home
+    must not move it into or out of a scope. Anything that cannot be shown equal is a refusal.
+    """
+    frontmatter = parse_frontmatter(source)[0]
+    # An ambiguous instance binding at the home's own path is the existing refusal, and it stands.
+    try:
+        chosen = homes_module.scope_of(root, destination, frontmatter)
+    except MembershipUnresolved as error:
+        raise NoteError("HOME_CHANGES_SCOPE", [], f"home {home.key} cannot be shown to keep the page's audience") from error
+    try:
+        default = homes_module.scope_of(root, default_destination, frontmatter)
+    except (MembershipUnresolved, RegistryError):
+        default = None
+    if chosen != default:
+        raise NoteError(
+            "HOME_CHANGES_SCOPE",
+            [],
+            f"home {home.key} ({home.folder}) would change who can see this page compared with its "
+            "type folder. Declare the home inside the same governance scope, or file the page by type.",
+            {"home": home.key, "folder": home.folder},
+        )
+
+
+def _placement_block(
+    root: Path,
+    destination: str,
+    home_set: homes_module.HomeSet,
+    *,
+    note_type: str,
+    topics: Sequence[str],
+) -> dict[str, Any]:
+    """Where the page goes and, when no home serves it, the call that would make its first topic one."""
+    folder = (root / destination).parent
+    home = _home_containing(root, folder, home_set)
+    block: dict[str, Any] = {
+        "folder": folder.relative_to(root).as_posix(),
+        "basis": f"home:{home.key}" if home is not None else "type_default",
+    }
+    # A research note is filed by project, so a topic home would not move it.
+    if home is None and topics and note_types.shipped_registry().types[note_type].partition != "project":
+        offer = homes_module.offer(home_set, topics[0])
+        if offer is not None:
+            block["make_home"] = offer
+    return block
+
+
+def _place(
+    *,
+    vault_root: Path,
+    note_type: str,
+    project: str | None,
+    slug: str,
+    domain: str | None,
+    medium: str | None,
+    started: str | None,
+    date_iso: str,
+    project_registry: project_keys_module.ProjectRegistry | None = None,
+    home_set: homes_module.HomeSet | None = None,
+    topics: Sequence[str] = (),
+    predecessor: str | None = None,
+) -> _Placement:
+    """Choose the folder: the predecessor's home, then a home for the project or topic, then the type's own.
+
+    A superseding page stays beside its predecessor only when that folder is a home, so a vault
+    without homes files every page where the type's layout always put it. The plural `projects`
+    never places a page. A research note is filed by its project, every other type by its first
+    topic that has a home; the file stem keeps the type's own form in every folder.
+    """
+    default = _type_default(
+        vault_root=vault_root,
+        note_type=note_type,
+        project=project,
+        slug=slug,
+        domain=domain,
+        medium=medium,
+        started=started,
+        date_iso=date_iso,
+        project_registry=project_registry,
+    )
+    if home_set is None or not home_set.homes:
+        return default
+    kb = kb_root(vault_root)
+    if predecessor is not None:
+        parent = (vault_root / predecessor).parent
+        if _home_containing(vault_root, parent, home_set) is not None:
+            return _Placement(parent, default.stem)
+    if note_types.shipped_registry().types[note_type].partition == "project":
+        home = home_set.by_project.get(project) if project else None
+    else:
+        home = next((home_set.by_topic[topic] for topic in topics if topic in home_set.by_topic), None)
+    return _Placement(kb / home.folder, default.stem) if home is not None else default
+
+
+def _resolve_path(
+    *,
+    vault_root: Path,
+    note_type: str,
+    project: str | None,
+    slug: str,
+    domain: str | None,
+    medium: str | None,
+    started: str | None,
+    date_iso: str,
+    project_registry: project_keys_module.ProjectRegistry | None = None,
+    create_parents: bool = True,
+    home_set: homes_module.HomeSet | None = None,
+    topics: Sequence[str] = (),
+    predecessor: str | None = None,
+) -> Path:
+    placement = _place(
+        vault_root=vault_root,
+        note_type=note_type,
+        project=project,
+        slug=slug,
+        domain=domain,
+        medium=medium,
+        started=started,
+        date_iso=date_iso,
+        project_registry=project_registry,
+        home_set=home_set,
+        topics=topics,
+        predecessor=predecessor,
+    )
+    folder = vault_root / respell_new_path(
+        vault_root, placement.folder.relative_to(vault_root).as_posix()
+    )
+    stem = placement.stem
+    from .governance import connector_boundary
+
+    try:
+        connector_boundary.require_create(vault_root, (folder / f"{stem}.md").relative_to(vault_root).as_posix())
+    except ValueError as error:
+        raise NoteError("WRITE_REFUSED", [], "target is unavailable") from error
+    if create_parents:
+        folder.mkdir(parents=True, exist_ok=True)
+    return unique_path(folder, stem, vault_root=vault_root)
+
+
+def _domain_folder(domain: str) -> str:
+    """Return the strict resolver's already-validated path projection exactly."""
+    return domain
+
+
+def _medium_folder(medium: str) -> str:
+    """Title-case medium per fixture convention (Posts, Articles, etc.)."""
+    safe = re.sub(r"[^a-zA-Z0-9-]", "", medium.strip())
+    return safe.title() if safe else "Misc"
+
+
+# ---------------- render ----------------
+
+
+def _render_note(
+    *,
+    note_type: str,
+    title: str,
+    project: str | None,
+    projects: list[str] | None,
+    status: str,
+    date_iso: str,
+    sources: list[str],
+    tags: list[str],
+    content: str,
+    severity: str | None = None,
+    pattern_type: str | None = None,
+    domain: str | None = None,
+    started: str | None = None,
+    duration: str | None = None,
+    hypothesis: str | None = None,
+    n: int | None = None,
+    concluded: str | None = None,
+    medium: str | None = None,
+    recorded: str | None = None,
+    published: str | None = None,
+    host: str | None = None,
+    editor: str | None = None,
+    exomem_id: str,
+    bridge_of: list[str] | None = None,
+    bridge_scope: str | None = None,
+    bridge_review: str | None = None,
+    summary: str | None = None,
+    topics: list[str] | None = None,
+    verbatim_body: bool = False,
+) -> str:
+    lines = ["---"]
+    lines.append(f"type: {note_type}")
+    lines.append(f"exomem_id: {exomem_id}")
+    lines.append(f"title: {yaml_scalar(title.strip())}")
+
+    if summary is not None:
+        lines.append(f"summary: {yaml_scalar(summary)}")
+    if topics is not None:
+        lines.append("topics: [" + ", ".join(yaml_scalar(topic) for topic in topics) + "]")
+
+    # Type-specific required fields, ordered per fixture convention.
+    if note_type == "research-note":
+        lines.append(f"project: {project}")
+    elif note_type == "experiment":
+        lines.append(f"domain: {domain}")
+    elif note_type == "production-log":
+        lines.append(f"medium: {medium}")
+
+    lines.append(f"status: {status}")
+    lines.append(f"created: {date_iso}")
+    lines.append(f"updated: {date_iso}")
+
+    # Experiment-specific dates + numerics, placed near the top so the
+    # temporal scaffolding reads naturally before the body content.
+    if note_type == "experiment":
+        lines.append(f"started: {started}")
+        lines.append(f'duration: "{duration}"')
+        if concluded:
+            lines.append(f"concluded: {concluded}")
+        lines.append(f"n: {n if n is not None else 1}")
+        if hypothesis:
+            lines.append(f'hypothesis: "{hypothesis}"')
+    elif note_type == "production-log":
+        if recorded:
+            lines.append(f"recorded: {recorded}")
+        lines.append(f"published: {published if published else 'null'}")
+        if host:
+            lines.append(f'host: "{host}"')
+        if editor:
+            lines.append(f'editor: "{editor}"')
+
+    # Sources block (shared by all types).
+    if sources:
+        lines.append("sources:")
+        for s in sources:
+            lines.append(f'  - "[[{s}]]"')
+    else:
+        lines.append("sources: []")
+
+    if bridge_of:
+        lines.append("bridge_of:")
+        for source_ref in bridge_of:
+            lines.append(f"  - {yaml_scalar(source_ref)}")
+        lines.append(f"bridge_scope: {bridge_scope}")
+        lines.append(f"bridge_review: {bridge_review}")
+
+    # Plural projects: insight, failure, pattern, production-log.
+    if note_type in ("insight", "failure", "pattern", "production-log") and projects:
+        lines.append("projects: " + yaml_flow_list(projects))
+
+    # Optional categorical fields.
+    if note_type == "failure" and severity:
+        lines.append(f"severity: {severity}")
+    if note_type == "pattern" and pattern_type:
+        lines.append(f"pattern_type: {pattern_type}")
+
+    if tags:
+        lines.append("tags: " + yaml_flow_list(tags))
+    else:
+        lines.append("tags: []")
+    lines.append("---")
+    lines.append("")
+    if verbatim_body:
+        # The body exactly as given: the caller owns its heading, links and last newline.
+        lines.append(content)
+        return "\n".join(lines)
+    lines.append(ensure_canonical_h1(content, title))
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ---------------- sources normalization & resolution ----------------
+
+
+def _normalize_sources(
+    sources: list[str] | None,
+    *,
+    vault_root: Path,
+    resolver: WikilinkResolver,
+) -> tuple[list[str], list[str]]:
+    """Canonicalize captured paths while retaining unresolved caller values.
+
+    Stable memory references resolve to the source's current human path for
+    Markdown/Obsidian rendering. The shared semantic commit boundary performs
+    the authoritative capture-first check; retaining unresolved values here is
+    what lets its public refusal report only what the caller actually supplied.
+    """
+    if not sources:
+        return [], []
+    visible = writer_link_visibility(vault_root)
+    out: list[str] = []
+    seen: set[str] = set()
+    warnings: list[str] = []
+    for s in sources:
+        s = (s or "").strip()
+        if not s:
+            continue
+        cleaned = s
+        if cleaned.startswith("[[") and cleaned.endswith("]]"):
+            cleaned = cleaned[2:-2].strip()
+        cleaned = cleaned.split("|", 1)[0].strip()
+        if cleaned.lower().startswith(memory_refs.REF_PREFIX):
+            try:
+                canonical = memory_refs.resolve_identifier_read_only(
+                    vault_root,
+                    cleaned,
+                ).removesuffix(".md")
+                warning = None
+            except memory_refs.ReferenceError:
+                canonical = cleaned
+                warning = "stable source reference is unavailable"
+        else:
+            canonical, warning = normalize_wikilink(
+                cleaned, vault_root, resolver=resolver, strict=False, visible=visible
+            )
+            if warning:
+                canonical = cleaned
+        if warning:
+            warnings.append(warning)
+        if canonical not in seen:
+            seen.add(canonical)
+            out.append(canonical)
+    return out, warnings
+
+
+def _normalize_bridge_sources(
+    bridge_of: list[str] | None,
+    *,
+    vault_root: Path,
+    resolver: WikilinkResolver,
+) -> list[str] | None:
+    """Resolve bridge dependencies to unique immutable memory refs."""
+    if bridge_of is None:
+        return None
+    refs: list[str] = []
+    for raw in bridge_of:
+        value = str(raw).strip()
+        identity = memory_refs.parse_memory_ref(value)
+        if identity is not None:
+            canonical_ref = memory_refs.memory_ref(identity)
+            try:
+                memory_refs.resolve_identifier_read_only(vault_root, canonical_ref)
+            except memory_refs.ReferenceError as error:
+                raise NoteError(
+                    error.code,
+                    ["bridge_of"],
+                    "bridge source identity is unavailable or ambiguous",
+                ) from error
+        else:
+            canonical, warning = normalize_wikilink(
+                value,
+                vault_root,
+                resolver=resolver,
+                strict=False,
+                visible=writer_link_visibility(vault_root),
+            )
+            if warning or not canonical:
+                raise NoteError(
+                    "INVALID_NOTE",
+                    ["bridge_of"],
+                    "bridge source path is unavailable or ambiguous",
+                )
+            canonical_path = canonical.split("#", 1)[0].removesuffix(".md") + ".md"
+            canonical_ref = memory_refs._ref_for_path_from_scan(
+                vault_root,
+                canonical_path,
+            )
+            if canonical_ref is None:
+                raise NoteError(
+                    "INVALID_NOTE",
+                    ["bridge_of"],
+                    "bridge source requires one unique stable memory identity",
+                )
+        if canonical_ref in refs:
+            raise NoteError(
+                "INVALID_NOTE",
+                ["bridge_of"],
+                "bridge source identities must be unique",
+            )
+        refs.append(canonical_ref)
+    return sorted(refs)
+
+
+def _resolve_source_path(vault_root: Path, kb_relative: str) -> Path | None:
+    """Resolve a cited source to the page that carries its `ingested_into:`.
+
+    A citation names one of two things. An ordinary source is cited as a
+    wikilink with the extension dropped — `Sources/Articles/<slug>` — so the
+    page is found by appending `.md`. A preserved artifact is cited by the path
+    `preserve` returns, and its page sits beside it as `<filename>.md`:
+    `shot.png.md`, not `shot.md`. Replacing the extension therefore misses the
+    page of every artifact that has one, which is where
+    `source not found, ingested_into back-ref skipped` came from.
+
+    Order is load-bearing rather than incidental. `shot.png` has a plausible
+    extension-replaced twin, `shot.md`, which is a *different* page that may
+    also exist — so the artifact's own page has to be tried first or the
+    back-reference lands on a stranger. For a citation that already ends `.md`
+    the ambiguity runs the other way: it is either a full page path or an `.md`
+    artifact whose page `preserve` names `<stem>-notes.md` to avoid a doubled
+    extension, so that form is tried before the path itself.
+
+    Returns the first candidate that exists, else the historical candidate so a
+    genuinely missing source still reports the path a caller would expect.
+    """
+    rel = kb_relative.removeprefix(kb_prefix())
+    base = kb_root(vault_root) / rel
+    if base.suffix.lower() == ".md":
+        candidates = [base.with_name(f"{base.name[:-3]}-notes.md"), base]
+    else:
+        candidates = [base.with_name(base.name + ".md"), base.with_suffix(".md")]
+    root = vault_root.resolve()
+    inside: list[Path] = []
+    for candidate in candidates:
+        try:
+            candidate.resolve().relative_to(root)
+        except ValueError:
+            continue
+        inside.append(candidate)
+    if not inside:
+        return None
+    for candidate in inside:
+        if candidate.exists():
+            return candidate
+    return inside[-1]
+
+
+# ---------------- log + activity helpers ----------------
+
+
+def _prepend_log_entry(text: str, *, date_iso: str, verb: str, rel_path: str, body: str) -> str:
+    """Insert `## [<date>] <verb> | <kb-relative-path>` entry just after the
+    log's `---` separator (newest entries at top)."""
+    title = rel_path.replace(kb_prefix(), "", 1)
+    new_entry = f"## [{date_iso}] {verb} | {title}\n\n{escape_wikilinks_for_log(body)}\n"
+    if new_entry in text:
+        return text
+    sep_idx = text.find(indexes.LOG_SEPARATOR)
+    if sep_idx == -1:
+        return text.rstrip() + "\n\n" + new_entry + "\n"
+    insertion_point = sep_idx + len(indexes.LOG_SEPARATOR)
+    return text[:insertion_point] + "\n" + new_entry + "\n" + text[insertion_point:]
+
+
+def _activity_summary(
+    *,
+    rel_note_no_ext: str,
+    title: str,
+    note_type: str,
+    project: str | None,
+    projects: list[str] | None,
+    severity: str | None = None,
+    pattern_type: str | None = None,
+    domain: str | None = None,
+    medium: str | None = None,
+    status: str | None = None,
+) -> str:
+    path_part = rel_note_no_ext.replace(kb_prefix(), "")
+    modifier_parts: list[str] = []
+    if note_type == "research-note" and project:
+        modifier_parts.append(project)
+    elif note_type in ("insight", "failure", "pattern") and projects:
+        modifier_parts.append("+".join(projects))
+    if note_type == "failure" and severity:
+        modifier_parts.append(severity)
+    if note_type == "pattern" and pattern_type:
+        modifier_parts.append(pattern_type)
+    if note_type == "experiment" and domain:
+        modifier_parts.append(domain)
+    if note_type == "production-log":
+        if medium:
+            modifier_parts.append(medium)
+        if status:
+            modifier_parts.append(status)
+    modifier = (", " + ", ".join(modifier_parts)) if modifier_parts else ""
+    return f'`{path_part}` ({note_type}{modifier}, mobile via exomem) — "{title.strip()}"'
+
+
+def _log_entry_body(
+    *,
+    note_type: str,
+    title: str,
+    project: str | None,
+    projects: list[str] | None,
+    tags: list[str],
+    sources: list[str],
+    severity: str | None = None,
+    pattern_type: str | None = None,
+    domain: str | None = None,
+    medium: str | None = None,
+    status: str | None = None,
+    started: str | None = None,
+    duration: str | None = None,
+) -> str:
+    parts: list[str] = []
+    if note_type == "research-note":
+        scope = project or "unknown"
+    elif note_type == "experiment":
+        scope = f"domain={domain}"
+    elif note_type == "production-log":
+        scope = f"medium={medium}"
+    elif projects:
+        scope = "+".join(projects)
+    else:
+        scope = "cross-cutting"
+    parts.append(
+        f'Mobile compile via exomem. note_type={note_type}. scope={scope}. "{title.strip()}".'
+    )
+    if note_type == "failure" and severity:
+        parts.append(f"severity={severity}.")
+    if note_type == "pattern" and pattern_type:
+        parts.append(f"pattern_type={pattern_type}.")
+    if note_type == "experiment":
+        parts.append(f"started={started}, duration={duration}.")
+    if note_type == "production-log" and status:
+        parts.append(f"status={status}.")
+    if tags:
+        parts.append(f"tags: {tags}.")
+    if sources:
+        parts.append(f"sources: {len(sources)} cited.")
+    return " ".join(parts)
+
+
+# ---------------- tag normalization (matches add._clean_tags) ----------------
+
+
+def _clean_tags(tags: list[str] | None) -> list[str]:
+    if not tags:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in tags:
+        norm = str(t).strip().lower().replace(" ", "-").replace("_", "-")
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return out
+
+
+def _frontmatter_lines(fields: Mapping[str, str | Sequence[str]]) -> str:
+    """Front-matter lines for a caller's extra fields: a scalar, or an inline list."""
+    lines = []
+    for key, value in fields.items():
+        if isinstance(value, str):
+            lines.append(f"{key}: {yaml_scalar(value)}")
+        else:
+            lines.append(f"{key}: [" + ", ".join(yaml_scalar(item) for item in value) + "]")
+    return "\n".join(lines)
+
+
+def planned_destination(
+    vault_root: Path,
+    *,
+    note_type: str,
+    title: str,
+    slug: str | None = None,
+    project: str | None = None,
+    domain: str | None = None,
+    date_iso: str | None = None,
+) -> str:
+    """The vault-relative path `note` would create for these inputs; nothing is written.
+
+    It is the same placement `note` uses, so a caller that must freeze a target before
+    it creates the page (an import plan) asks the leaf instead of computing a folder.
+    `date_iso` is the day a dated folder or name uses, today by default; a caller that
+    creates the note later passes the same day to `note` as `_path_date`.
+    """
+    root = Path(vault_root)
+    filename_slug, _warnings = resolve_filename_slug(title, slug, vault_root=root)
+    path = _resolve_path(
+        vault_root=root,
+        note_type=note_type,
+        project=project,
+        slug=filename_slug,
+        domain=domain,
+        medium=None,
+        started=None,
+        date_iso=date_iso or temporal.render_date(temporal.now()),
+        create_parents=False,
+        home_set=homes_module.load(root),
+    )
+    return canonical_vault_rel(root, path.relative_to(root).as_posix())
+
+
+def note(
+    vault_root: Path,
+    *,
+    content: str,
+    note_type: str,
+    title: str,
+    slug: str | None = None,
+    project: str | None = None,
+    projects: list[str] | None = None,
+    sources: list[str] | None = None,
+    tags: list[str] | None = None,
+    status: str | None = None,
+    severity: str | None = None,
+    pattern_type: str | None = None,
+    domain: str | None = None,
+    started: str | None = None,
+    duration: str | None = None,
+    hypothesis: str | None = None,
+    n: int | None = None,
+    concluded: str | None = None,
+    medium: str | None = None,
+    recorded: str | None = None,
+    published: str | None = None,
+    host: str | None = None,
+    editor: str | None = None,
+    bridge_of: list[str] | None = None,
+    bridge_scope: str | None = None,
+    bridge_review: str | None = None,
+    suggestions: bool = False,
+    today: dt.date | None = None,
+    project_category: str | None = None,
+    validate_only: bool = False,
+    draft_id: str | None = None,
+    draft_hash: str | None = None,
+    draft_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    vocabulary_decision: dict[str, Any] | None = None,
+    summary: str | None = None,
+    topics: str | list[str] | None = None,
+    _return_prepared: bool = False,
+    _defer_navigation: bool = False,
+    _supersedes_target: str | None = None,
+    _extra_frontmatter: Mapping[str, str | Sequence[str]] | None = None,
+    _verbatim_body: bool = False,
+    _path_date: str | None = None,
+    _preflight_operation: str = "create",
+    _predecessor_path: str | None = None,
+    _predecessor_content_hash: str | None = None,
+) -> NoteResult | semantic_writes.CreationPreflight | _PreparedNote:
+    """Create or validate one compiled-note draft through the semantic boundary."""
+    # Coarse per-stage wall-clock timings, logged (never returned) so a slow
+    # write is attributable from service logs alone. Content-free by design.
+    write_started = time.perf_counter()
+    root = Path(vault_root)
+    if summary is not None and (
+        not isinstance(summary, str)
+        or len(summary) > 1_024
+        or (summary and summary.splitlines() != [summary])
+    ):
+        raise NoteError("INVALID_NOTE", ["summary"], "summary must be one line of at most 1024 characters")
+    home_set = homes_module.load(root)
+    home_warnings = _homes_warnings(home_set)
+    topic_writes: tuple[PlannedWrite, ...] = ()
+    topic_warnings: list[str] = []
+    if topics is not None:
+        try:
+            topics, topic_plan, topic_warnings = vocabulary_resolution.plan_topic_registrations(
+                root, topics, home_topics=frozenset(home_set.by_topic), decision=vocabulary_decision
+            )
+        except vocabulary_resolution.VocabularyResolutionError as error:
+            preparation = error.details.get("vocabulary_preparation")
+            if error.code == "VOCABULARY_DECISION_REQUIRED" and isinstance(preparation, dict):
+                return vocabulary_resolution.VocabularyPreparation(preparation)
+            if error.code == "VOCABULARY_DEFERRED":
+                return vocabulary_resolution.VocabularyPreparation(
+                    {"family": "domain", "requested": error.details.get("requested", "")}, deferred=True
+                )
+            raise NoteError(error.code, ["topics"], error.reason, error.details) from error
+        topic_writes = topic_plan.writes
+    try:
+        filename_slug, slug_warnings = resolve_filename_slug(title, slug, vault_root=vault_root)
+    except InvalidSlugError as error:
+        raise NoteError("INVALID_SLUG", ["slug"], str(error)) from error
+    if status is None:
+        status = "planned" if note_type == "production-log" else "active"
+
+    key_candidates = [value for value in ([project] + list(projects or [])) if value]
+    token_value: semantic_writes.DraftToken | None = None
+    domain_binding: vocabulary_resolution.DomainBinding | None = None
+    replay: tuple[project_keys_module.ProjectKeyIntroduction, ...] = ()
+    if draft_token is not None:
+        try:
+            token_value = semantic_writes.DraftToken.decode(draft_token)
+        except semantic_writes.SemanticWriteError as error:
+            raise NoteError(error.code, ["draft_token"], error.reason) from error
+        if token_value.writer != "note" or token_value.operation != _preflight_operation:
+            raise NoteError("INVALID_DRAFT_TOKEN", ["draft_token"], "draft token writer mismatch")
+        if note_type == "experiment":
+            if token_value.vocabulary_binding is None:
+                raise NoteError(
+                    "STALE_VOCABULARY_BINDING",
+                    ["draft_token"],
+                    "experiment draft requires fresh vocabulary validation",
+                )
+            try:
+                domain_binding = vocabulary_resolution.binding_from_dict(
+                    root, token_value.vocabulary_binding
+                )
+            except vocabulary_resolution.VocabularyResolutionError as error:
+                raise NoteError(error.code, ["domain"], error.reason, error.details) from error
+        replay = tuple(
+            project_keys_module.ProjectKeyIntroduction(item.key, item.folder, item.category)
+            for item in token_value.registrations
+        )
+    try:
+        key_plan = project_keys_module.plan_project_keys(
+            root,
+            key_candidates,
+            category=project_category or "uncategorized",
+            replay_introductions=replay,
+        )
+    except project_keys_module.ProjectKeyTypoError as error:
+        raise NoteError(
+            "PROJECT_KEY_TYPO",
+            ["project" if error.key == project else "projects"],
+            str(error),
+        ) from error
+    except ValueError as error:
+        raise NoteError("INVALID_NOTE", ["project"], str(error)) from error
+
+    err = _validate(
+        note_type=note_type,
+        content=content,
+        title=title,
+        project=project,
+        projects=projects,
+        status=status,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain,
+        started=started,
+        duration=duration,
+        medium=medium,
+        bridge_of=bridge_of,
+        bridge_scope=bridge_scope,
+        bridge_review=bridge_review,
+        vault_root=root,
+        project_registry=key_plan.registry,
+    )
+    if err is not None:
+        raise NoteError(err.code, err.missing, err.reason)
+    if note_type == "experiment" and domain_binding is None:
+        try:
+            domain_binding = vocabulary_resolution.resolve_notes_domain(
+                root, domain, decision=vocabulary_decision
+            )
+        except vocabulary_resolution.VocabularyResolutionError as error:
+            preparation = error.details.get("vocabulary_preparation")
+            if error.code == "VOCABULARY_DECISION_REQUIRED" and isinstance(preparation, dict):
+                return vocabulary_resolution.VocabularyPreparation(preparation)
+            if error.code == "VOCABULARY_DEFERRED":
+                return vocabulary_resolution.VocabularyPreparation(
+                    {"family": "domain", "requested": str(domain)}, deferred=True
+                )
+            raise NoteError(error.code, ["domain"], error.reason, error.details) from error
+
+    identity = draft_id or memory_refs.new_id()
+    # The draft token pins the *path* date across the draft->commit gap, so a
+    # note keeps its filename whichever side of midnight it is committed on.
+    # Knowledge time is stamped at commit instead: it records when the write
+    # actually happened, not when the draft was prepared.
+    now = today or temporal.now()
+    render_date = token_value.render_date if token_value is not None else temporal.render_date(now)
+    stamp_iso = token_value.stamp() if token_value is not None else temporal.stamp(now)
+    registrations = tuple(
+        semantic_writes.DraftRegistration(item.key, item.category, item.folder)
+        for item in key_plan.introductions
+    )
+    placement_domain = domain_binding.destination if domain_binding is not None else domain
+    if token_value is None:
+        note_path = _resolve_path(
+            vault_root=root,
+            note_type=note_type,
+            project=project,
+            slug=filename_slug,
+            domain=placement_domain,
+            medium=medium,
+            started=started,
+            # An import plan froze its target under the plan's day (see `planned_destination`);
+            # only the path takes it, and the token keeps today's dates.
+            date_iso=_path_date or render_date,
+            project_registry=key_plan.registry,
+            create_parents=False,
+            home_set=home_set,
+            topics=topics or (),
+            predecessor=_predecessor_path,
+        )
+        # Re-spell the destination to the real on-disk casing *before* it is
+        # bound into the draft token: creating into an existing but
+        # differently-cased folder (`Acme/` vs an on-disk `ACME/`) would
+        # otherwise record the minted spelling as the page's identity path.
+        destination = canonical_vault_rel(root, note_path.relative_to(root).as_posix())
+        token_value = semantic_writes.DraftToken(
+            "note",
+            _preflight_operation,
+            destination,
+            render_date,
+            registrations,
+            render_stamp=stamp_iso,
+            vocabulary_binding=(domain_binding.as_dict() if domain_binding is not None else None),
+        )
+        encoded_token = token_value.encode()
+    else:
+        destination = token_value.destination
+        note_path = root / destination
+        encoded_token = draft_token or ""
+    # Link-free preparation has no consumer for a vault-wide title snapshot.
+    # Keep the detached pending destination and normalizers, but do not read
+    # the corpus merely to resolve an empty set of links.
+    resolver = (
+        find_module.writer_resolver_snapshot(root)
+        if sources or bridge_of or find_body_wikilinks(content)
+        else WikilinkResolver.from_entries(root, ())
+    )
+    rel_note_no_ext = destination.removesuffix(".md")
+    resolver.add_pending(rel_note_no_ext, title=title)
+    sources_norm, source_warnings = _normalize_sources(sources, vault_root=root, resolver=resolver)
+    bridge_refs = _normalize_bridge_sources(
+        bridge_of,
+        vault_root=root,
+        resolver=resolver,
+    )
+    if _verbatim_body:
+        # An imported note keeps the original's body: no link is rewritten, no heading added.
+        # The rendered source, and so the draft hash, holds the body as given.
+        body_clean, body_warnings = content, []
+    else:
+        body_clean, body_warnings = normalize_body_wikilinks(content, root, resolver=resolver)
+    tags_clean = _clean_tags(tags)
+    tag_warnings = tag_variants.advise_authored(root, tags_clean)
+    source = _render_note(
+        note_type=note_type,
+        title=title,
+        project=project,
+        projects=projects,
+        status=status,
+        date_iso=stamp_iso,
+        sources=[render_wikilink_target(item, root) for item in sources_norm],
+        tags=tags_clean,
+        content=body_clean,
+        severity=severity,
+        pattern_type=pattern_type,
+        domain=domain_binding.canonical if domain_binding is not None else domain,
+        started=started,
+        duration=duration,
+        hypothesis=hypothesis,
+        n=n,
+        concluded=concluded,
+        medium=medium,
+        recorded=recorded,
+        published=published,
+        host=host,
+        editor=editor,
+        exomem_id=identity,
+        bridge_of=bridge_refs,
+        bridge_scope=bridge_scope,
+        bridge_review=bridge_review,
+        summary=summary,
+        topics=topics,
+        verbatim_body=_verbatim_body,
+    )
+    if _supersedes_target is not None:
+        marker = f'supersedes: "[[{_supersedes_target}]]"'
+        if marker not in source:
+            boundary = source.find("\n---\n", 4)
+            if boundary == -1:
+                raise NoteError("INVALID_NOTE", [], "rendered note frontmatter is invalid")
+            source = source[:boundary] + "\n" + marker + source[boundary:]
+    if _extra_frontmatter:
+        boundary = source.find("\n---\n", 4)
+        if boundary == -1:
+            raise NoteError("INVALID_NOTE", [], "rendered note frontmatter is invalid")
+        source = source[:boundary] + "\n" + _frontmatter_lines(_extra_frontmatter) + source[boundary:]
+    home = _home_containing(root, (root / destination).parent, home_set)
+    if home is not None:
+        default = _type_default(
+            vault_root=root,
+            note_type=note_type,
+            project=project,
+            slug=filename_slug,
+            domain=placement_domain,
+            medium=medium,
+            started=started,
+            date_iso=render_date,
+            project_registry=key_plan.registry,
+        )
+        _require_home_keeps_scope(
+            root,
+            home,
+            destination=destination,
+            default_destination=respell_new_path(
+                root,
+                canonical_vault_rel(
+                    root, (default.folder / f"{default.stem}.md").relative_to(root).as_posix()
+                ),
+            ),
+            source=source,
+        )
+    try:
+        preflight = semantic_writes.preflight_creation(
+            root,
+            path=destination,
+            source=source,
+            operation=_preflight_operation,
+            writer="note",
+            draft_id=identity,
+            draft_token=encoded_token,
+            registrations=registrations,
+            relation_disposition=relation_disposition,
+            predecessor_path=_predecessor_path,
+            predecessor_content_hash=_predecessor_content_hash,
+            vocabulary_binding=domain_binding,
+            resolver=resolver,
+        )
+    except (semantic_writes.SemanticWriteError, relation_review.RelationReviewError) as error:
+        raise _note_error(error) from error
+    preflight = dataclass_replace(
+        preflight,
+        placement=_placement_block(root, destination, home_set, note_type=note_type, topics=topics or ()),
+    )
+    preflight_ms = (time.perf_counter() - write_started) * 1000.0
+    if draft_hash is not None and preflight.draft_hash != draft_hash:
+        raise NoteError("DRAFT_HASH_MISMATCH", ["draft_hash"], "draft requires fresh validation")
+    warnings = (
+        list(slug_warnings) + list(source_warnings) + list(body_warnings) + tag_warnings + topic_warnings
+        + home_warnings
+        + folder_split_warnings(root, note_path.parent)
+    )
+    if not sources_norm:
+        provenance_warning = _empty_sources_warning(note_type)
+        if provenance_warning is not None:
+            warnings.append(provenance_warning)
+    for item in key_plan.introductions:
+        warnings.append(
+            f"Auto-registered project key {item.key!r} (folder: {item.folder!r}, "
+            f"category: {item.category!r})."
+        )
+    auxiliary: list[PlannedWrite] = [*key_plan.writes, *topic_writes]
+    # Source closure and the guarded source→note back-reference writes live in
+    # the shared semantic commit boundary. Keeping that plan here would give
+    # this facade a second resolver and let Tier-2 writers behave differently.
+    backrefs_planned = len(sources_norm)
+
+    canonical_domain = domain_binding.canonical if domain_binding is not None else domain
+    if validate_only:
+        log.info(
+            "note write timings mode=validate note_type=%s preflight_ms=%.1f",
+            note_type,
+            preflight_ms,
+        )
+        return preflight
+    navigation = _NavigationEntry(
+        rel_note_no_ext,
+        render_date,
+        _activity_summary(
+            rel_note_no_ext=rel_note_no_ext,
+            title=title,
+            note_type=note_type,
+            project=project,
+            projects=projects,
+            severity=severity,
+            pattern_type=pattern_type,
+            domain=canonical_domain,
+            medium=medium,
+            status=status,
+        ),
+        stamp_iso,
+        _log_entry_body(
+            note_type=note_type,
+            title=title,
+            project=project,
+            projects=projects,
+            tags=tags_clean,
+            sources=sources_norm,
+            severity=severity,
+            pattern_type=pattern_type,
+            domain=canonical_domain,
+            medium=medium,
+            status=status,
+            started=started,
+            duration=duration,
+        ),
+        encoded_token,
+        preflight,
+        _predecessor_path,
+        _predecessor_content_hash,
+    )
+    if not _defer_navigation:
+        plan = _plan_navigation(root, [navigation])
+        auxiliary.extend(plan.writes)
+        warnings.extend(plan.warnings)
+        if plan.rotation_note is not None:
+            warnings.append(plan.rotation_note)
+        if _return_prepared:
+            return _PreparedNote(
+                preflight,
+                tuple(auxiliary),
+                tuple(warnings),
+                identity,
+                destination,
+                encoded_token,
+            )
+    # Feedback shares the candidate's selected definitions, without a post-commit page reread.
+    feedback_registry = semantic_contract._authored_relations(
+        preflight.semantic_state,
+        preflight.corpus.registry if preflight.corpus is not None else relation_registry.load_for_page(
+            root, destination, preflight.semantic_state.frontmatter,
+        ),
+    )
+    finish = _NoteFinish(
+        note_type,
+        filename_slug,
+        status,
+        tags_clean,
+        sources_norm,
+        body_clean,
+        body_warnings,
+        source_warnings,
+        backrefs_planned,
+        suggestions,
+        feedback_registry,
+        corpus_aware.WriteAdvisoryInputs(
+            route="remember",
+            target_rel_path=destination,
+            self_path=rel_note_no_ext,
+            title=title,
+            body=body_clean,
+            note_type=note_type,
+        ),
+        preflight_ms,
+    )
+    if _defer_navigation:
+        # The caller commits a batch of notes and plans one navigation update for all of them.
+        return _PreparedNote(
+            preflight,
+            tuple(auxiliary),
+            tuple(warnings),
+            identity,
+            destination,
+            encoded_token,
+            navigation,
+            finish,
+        )
+    commit_started = time.perf_counter()
+    from . import writer_lease
+
+    try:
+        # Under fast acknowledgement the default sweep after the commit is handed to the
+        # batch's `write_advisory` component with these exact inputs.
+        with writer_lease.declare_write_advisory(finish.advisory_inputs):
+            committed = semantic_writes.commit_creation(
+                root,
+                preflight=preflight,
+                auxiliary_writes=tuple(auxiliary),
+                relation_disposition=relation_disposition,
+                relation_review_hash=relation_review_hash,
+                relation_review_reason=relation_review_reason,
+                operation="create",
+            )
+    except (semantic_writes.SemanticWriteError, relation_review.RelationReviewError) as error:
+        raise _note_error(error) from error
+    return _finish_note(
+        root,
+        finish,
+        preflight=preflight,
+        identity=identity,
+        destination=destination,
+        warnings=warnings,
+        committed=committed,
+        commit_ms=(time.perf_counter() - commit_started) * 1000.0,
+        total_started=write_started,
+    )
+
+
+def _finish_note(
+    root: Path,
+    finish: _NoteFinish,
+    *,
+    preflight: semantic_writes.CreationPreflight,
+    identity: str,
+    destination: str,
+    warnings: list[str],
+    committed: semantic_writes.CreationCommit,
+    commit_ms: float,
+    total_started: float,
+) -> NoteResult:
+    """Answer for one committed note: the advisory sweep, the write feedback and the result."""
+    from . import writer_lease
+
+    advisory_started = time.perf_counter()
+    corpus_suggestions: list[dict] = []
+    advisory_warnings: list[str] = []
+    # `suggestions` gates ONLY the related-links query below, and is OFF by
+    # default (#576). That query is one whole hybrid find() over the corpus,
+    # issued here — post-commit — where the write has just moved every
+    # freshness token find's cache keys on, so it is cold by construction; it
+    # measured 26 s of a 33 s advisory span at ~3k pages, and its product is
+    # not even projected into the default response_detail="compact" reply.
+    # The near-dup/contradiction sweep is a dedupe guardrail and stays on in
+    # every mode (locked by tests/test_note_suggestions_knob.py). Its latency
+    # lives inside the widened edge budget; `note write timings ...
+    # advisory_ms` keeps both attributable when they grow. Under fast durable
+    # acknowledgement the sweep still runs, but not here: the batch's
+    # `write_advisory` component runs it with the same inputs, and the terminal
+    # carries its exact result reference.
+    if not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS") and not (
+        writer_lease.write_advisory_deferred(root, finish.advisory_inputs)
+    ):
+        try:
+            if finish.suggestions:
+                corpus_suggestions = [
+                    item.as_dict()
+                    for item in corpus_aware.suggest_related(
+                        root,
+                        title=finish.advisory_inputs.title,
+                        body=finish.body_clean,
+                        self_path=finish.advisory_inputs.self_path,
+                        existing_links=set(finish.sources_norm),
+                        limit=6,
+                    )
+                    if item.path != destination
+                ]
+            # Post-commit: the commit just published this page's chunk vectors,
+            # so the sweep reads them back instead of encoding the draft again.
+            advisory_warnings = [
+                emitted.warning
+                for emitted in corpus_aware.write_advisory_for(root, finish.advisory_inputs)
+            ]
+        except Exception:  # noqa: BLE001 — optional suggestions are best-effort
+            log.debug("corpus-aware nudges failed (non-fatal)", exc_info=True)
+    warnings.extend(advisory_warnings)
+    log.info(
+        "note write timings mode=commit note_type=%s preflight_ms=%.1f "
+        "commit_ms=%.1f advisory_ms=%.1f total_ms=%.1f suggestions=%s",
+        finish.note_type,
+        finish.preflight_ms,
+        commit_ms,
+        (time.perf_counter() - advisory_started) * 1000.0,
+        (time.perf_counter() - total_started) * 1000.0,
+        finish.suggestions,
+    )
+    feedback = _build_write_feedback(
+        vault_root=root,
+        registry=finish.feedback_registry,
+        note_type=finish.note_type,
+        rel_path=destination,
+        status=finish.status,
+        tags=finish.tags,
+        sources_norm=finish.sources_norm,
+        body_clean=finish.body_clean,
+        body_warnings=finish.body_warnings,
+        source_warnings=finish.source_warnings,
+        backrefs_planned=finish.backrefs_planned,
+        suggestions_count=len(corpus_suggestions),
+        suggestions_requested=finish.suggestions,
+    )
+    return NoteResult(
+        destination,
+        memory_refs.memory_ref(identity),
+        warnings,
+        corpus_suggestions,
+        feedback,
+        committed.as_dict(),
+        slug=finish.slug,
+    )
+
+
+def commit_prepared_notes(
+    root: Path, prepared: Sequence[_PreparedNote]
+) -> list[NoteResult | Exception]:
+    """Commit notes that `note(..., _return_prepared=True, _defer_navigation=True)` returned.
+
+    The notes commit as one canonical batch with one navigation update: one Recent-activity
+    bullet and one log entry per note, in one write each. A note that replaces a predecessor
+    is refused, because its successor bookkeeping is the single commit's.
+
+    A raise means that nothing of the batch is on disk: `NoteError` for a refusal, or the
+    write's own error after it rolled back. The caller may then commit each note alone. Once
+    the batch is on disk each note gets its `NoteResult`, or the error that a step after the
+    write raised for that note, as `note` raises it for a note committed alone.
+    """
+    root = Path(root)
+    entries = [item.navigation for item in prepared if item.navigation is not None]
+    finishes = [item.finish for item in prepared if item.finish is not None]
+    if not prepared or len(entries) != len(prepared) or len(finishes) != len(prepared):
+        raise ValueError("commit_prepared_notes needs notes prepared with deferred navigation")
+    if any(entry.predecessor_path is not None for entry in entries):
+        raise NoteError("INVALID_AUXILIARY_WRITE", [], "a note that replaces a predecessor commits alone")
+    started = time.perf_counter()
+    navigation = _plan_navigation(root, entries)
+    try:
+        outcomes = semantic_writes.commit_creations(
+            root,
+            creations=[
+                semantic_writes.BatchCreation(item.preflight, item.auxiliary_writes)
+                for item in prepared
+            ],
+            shared_writes=navigation.writes,
+            operation="create",
+        )
+    except (semantic_writes.SemanticWriteError, relation_review.RelationReviewError) as error:
+        raise _note_error(error) from error
+    commit_ms = (time.perf_counter() - started) * 1000.0 / len(prepared)
+    results: list[NoteResult | Exception] = []
+    for index, (item, finish, outcome) in enumerate(zip(prepared, finishes, outcomes, strict=True)):
+        if isinstance(outcome, (semantic_writes.SemanticWriteError, relation_review.RelationReviewError)):
+            results.append(_note_error(outcome))
+            continue
+        if isinstance(outcome, Exception):
+            results.append(outcome)
+            continue
+        warnings = [*item.warnings, *navigation.warnings]
+        if navigation.rotation_note is not None and index == len(prepared) - 1:
+            warnings.append(navigation.rotation_note)
+        try:
+            results.append(
+                _finish_note(
+                    root,
+                    finish,
+                    preflight=item.preflight,
+                    identity=item.identity,
+                    destination=item.destination,
+                    warnings=warnings,
+                    committed=outcome,
+                    commit_ms=commit_ms,
+                    total_started=started,
+                )
+            )
+        except Exception as error:  # noqa: BLE001 - after the write a failure is this note's own outcome
+            results.append(error)
+    return results
+
+
+def _note_error(
+    error: semantic_writes.SemanticWriteError | relation_review.RelationReviewError,
+) -> NoteError:
+    """The `NoteError` that a semantic-writer error becomes, caused by it."""
+    converted = NoteError(
+        error.code,
+        [],
+        error.reason,
+        dict(getattr(error, "details", None) or {}),
+    )
+    converted.__cause__ = error
+    return converted

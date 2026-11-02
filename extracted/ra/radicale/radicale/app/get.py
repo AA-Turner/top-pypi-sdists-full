@@ -1,0 +1,339 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2008 Nicolas Kandel
+# Copyright © 2008 Pascal Halter
+# Copyright © 2008-2017 Guillaume Ayoub
+# Copyright © 2017-2023 Unrud <unrud@outlook.com>
+# Copyright © 2025-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import contextlib
+import datetime
+import plistlib
+import posixpath
+import re
+import urllib
+import uuid
+from http import client
+from typing import Tuple, Union
+from urllib.parse import parse_qs, quote
+
+from radicale import httputils, pathutils, storage, types, utils, xmlutils
+from radicale.app.base import Access, ApplicationBase
+from radicale.app.report import freebusy_collection_text
+from radicale.item import get_etag
+from radicale.log import logger
+
+
+def propose_filename(collection: storage.BaseCollection, share: Union[dict, None] = None) -> str:
+    """Propose a filename for a collection."""
+    share_bday_automap = False
+    if share and share['Conversion'] == "bday":
+        share_bday_automap = True
+    if collection.tag == "VADDRESSBOOK" and not share_bday_automap:
+        fallback_title = "Address book"
+        suffix = ".vcf"
+    elif collection.tag == "VCALENDAR" or share_bday_automap:
+        fallback_title = "Calendar"
+        suffix = ".ics"
+    else:
+        fallback_title = posixpath.basename(collection.path)
+        suffix = ""
+    if share and 'Properties' in share and share['Properties'] and "D:displayname" in share['Properties']:
+        title = share['Properties']["D:displayname"]
+    elif share_bday_automap:
+        title = fallback_title
+    else:
+        title = collection.get_meta("D:displayname") or fallback_title
+    if title and not title.lower().endswith(suffix.lower()):
+        title += suffix
+    return title
+
+
+_FREEBUSY_VIEW_TIME = re.compile(r"[0-9]{8}T[0-9]{6}Z")
+
+
+def _parse_freebusy_view_time(value: str) -> datetime.datetime:
+    if _FREEBUSY_VIEW_TIME.fullmatch(value) is None:
+        raise ValueError("invalid free-busy view time: %r" % value)
+    return datetime.datetime.strptime(
+        value, "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+
+
+def requests_freebusy_view(environ: types.WSGIEnviron) -> bool:
+    query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
+    view = query.get("view")
+    return view is not None and "freebusy" in view
+
+
+def share_forces_freebusy_view(share: Union[dict, None]) -> bool:
+    """A token can request the free/busy view without ``?view=freebusy``."""
+    if not share or share.get("ShareType") != "token":
+        return False
+    actions = share.get("Actions")
+    if not isinstance(actions, dict):
+        return False
+    config = actions.get("config")
+    if not isinstance(config, dict):
+        return False
+    return config.get("view") == "freebusy"
+
+
+class ApplicationPartGet(ApplicationBase):
+
+    def _content_disposition_attachment(self, filename: str) -> str:
+        value = "attachment"
+        try:
+            encoded_filename = quote(filename, encoding=self._encoding)
+        except UnicodeEncodeError:
+            logger.warning("Failed to encode filename: %r", filename,
+                           exc_info=True)
+            encoded_filename = ""
+        if encoded_filename:
+            value += "; filename*=%s''%s" % (self._encoding, encoded_filename)
+        return value
+
+    def _freebusy_view_range(
+            self, query: dict) -> Tuple[datetime.datetime, datetime.datetime]:
+        starts = query.get("start", [])
+        ends = query.get("end", [])
+        if not starts and not ends:
+            today = datetime.datetime.now(datetime.timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            past_days = self.configuration.get(
+                "reporting", "freebusy_view_past_days")
+            future_days = self.configuration.get(
+                "reporting", "freebusy_view_future_days")
+            return (today - datetime.timedelta(days=past_days),
+                    today + datetime.timedelta(days=future_days))
+        if len(starts) != 1 or len(ends) != 1:
+            raise ValueError("free-busy view requires both start and end")
+        start = _parse_freebusy_view_time(starts[0])
+        end = _parse_freebusy_view_time(ends[0])
+        if end < start:
+            raise ValueError("free-busy view end is before start")
+        return start, end
+
+    def _freebusy_view(self, environ: types.WSGIEnviron, path: str, user: str,
+                       access: Access, share: Union[dict, None]
+                       ) -> types.WSGIResponse:
+        if not access.allows_freebusy() and "i" not in access.permissions:
+            return httputils.NOT_ALLOWED
+        query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
+        with contextlib.ExitStack() as lock_stack:
+            lock_stack.enter_context(self._storage.acquire_lock("r", user))
+            item = next(iter(self._storage.discover(path)), None)
+            if not item:
+                return httputils.NOT_FOUND
+            if (not isinstance(item, storage.BaseCollection) or
+                    item.tag != "VCALENDAR"):
+                return httputils.NOT_ALLOWED
+            if (not access.allows_freebusy(item) and
+                    "i" not in access.permissions):
+                return httputils.NOT_ALLOWED
+            if query.get("view") != ["freebusy"]:
+                return httputils.BAD_REQUEST
+            try:
+                range_start, range_end = self._freebusy_view_range(query)
+            except ValueError as e:
+                logger.warning("Bad free-busy view on %r: %s", path, e,
+                               exc_info=True)
+                return httputils.BAD_REQUEST
+            filename = propose_filename(item, share)
+            if filename.lower().endswith(".ics"):
+                filename = filename[:-4] + "-freebusy.ics"
+            else:
+                filename += "-freebusy.ics"
+            content_disposition = self._content_disposition_attachment(filename)
+            max_occurrence = self.configuration.get(
+                "reporting", "max_freebusy_occurrence")
+            try:
+                answer = freebusy_collection_text(
+                    item, range_start, range_end, max_occurrence,
+                    lock_stack.close)
+            except ValueError as e:
+                logger.warning("Bad free-busy view on %r: %s", path, e,
+                               exc_info=True)
+                return httputils.BAD_REQUEST
+        headers = {
+            "Content-Type": xmlutils.MIMETYPES["VCALENDAR"],
+            "ETag": get_etag(answer),
+            "Content-Disposition": content_disposition}
+        return client.OK, headers, answer, None
+
+    def do_GET(self, environ: types.WSGIEnviron, base_prefix: str, path: str,
+               user: str, user_groups: set, request_info: dict) -> types.WSGIResponse:
+        """Manage GET request."""
+        # Redirect to /.web if the root path is requested
+        if not pathutils.strip_path(path):
+            return httputils.redirect(base_prefix + "/.web")
+        if path == "/.web" or path.startswith("/.web/"):
+            # Redirect to sanitized path for all subpaths of /.web
+            unsafe_path = environ.get("PATH_INFO", "")
+            if len(base_prefix) > 0:
+                unsafe_path = unsafe_path.removeprefix(base_prefix)
+            if unsafe_path != path:
+                location = base_prefix + path
+                logger.info("Redirecting to sanitized path: %r ==> %r",
+                            base_prefix + unsafe_path, location)
+                return httputils.redirect(location, client.MOVED_PERMANENTLY)
+            # Dispatch /.web path to web module
+            return self._web.get(environ, base_prefix, path, user, user_groups, request_info)
+        # Catch /.mobileconfig (dynamically generated)
+        # https://developer.apple.com/business/documentation/Configuration-Profile-Reference.pdf
+        if path == "/.mobileconfig":
+            if user is None or user == "":
+                logger.notice("Access to path %r not allowed for unauthenticated user", path)
+                return httputils.NOT_ALLOWED
+            logger.debug("Request path %r by user %r", path, user)
+            (host, port) = utils.get_server_netloc(environ, force_port=True).split(':')
+            useSSL: int = 0
+            if environ.get("SSL_PROTOCOL") or environ.get("HTTP_X_FORWARDED_PROTO", "") == "https":
+                useSSL = 1
+            uri: str = ""
+            if len(base_prefix) > 0:
+                uri += base_prefix
+            uri += "/"
+            uuid_suffix_input: str = "user=" + user + ":host=" + host + ":port=" + port + ":usessl=" + str(useSSL) + ":uri=" + uri
+            content_disposition = "attachement; filename=x-apple-aspen-config--" + user + "--" + host.replace('.', '_') + "--" + str(port) + "--" + urllib.parse.quote(uri.replace('/', '_'), safe='') + ".mobileconfig"
+            pl: dict = dict(
+                      PayloadType="Configuration",
+                      PayloadVersion=1,
+                      PayloadIdentifier="org.radicale.mobileconfig." + user,
+                      PayloadUUID=str(uuid.UUID(utils.sha256_str("radicale:config:" + uuid_suffix_input)[:32])),
+                      PayloadDisplayName="Radicale Calendar+Contacts",
+                      PayloadContent=[
+                          dict(
+                            PayloadType="com.apple.caldav.account",
+                            PayloadVersion=1,
+                            PayloadIdentifier="org.radicale.mobileconfig." + user + ".caldav",
+                            PayloadUUID=str(uuid.UUID(utils.sha256_str("radicale:caldav:" + uuid_suffix_input)[:32])),
+                            CalDAVAccountDescription="Radicale Calendar",
+                            CalDAVHostName=host,
+                            CalDAVPort=int(port),
+                            CalDAVUsername=user,
+                            CalDAVPrincipalURL=uri,
+                            CalDAVUseSSL=(useSSL == 1)
+                            ),
+                          dict(
+                            PayloadType="com.apple.carddav.account",
+                            PayloadVersion=1,
+                            PayloadIdentifier="org.radicale.mobileconfig." + user + ".carddav",
+                            PayloadUUID=str(uuid.UUID(utils.sha256_str("radicale:carddav:" + uuid_suffix_input)[:32])),
+                            CardDAVAccountDescription="Radicale Contacts",
+                            CardDAVHostName=host,
+                            CardDAVPort=int(port),
+                            CardDAVUsername=user,
+                            CardDAVPrincipalURL=uri,
+                            CardDAVUseSSL=(useSSL == 1)
+                            )
+                        ]
+                      )
+            headers: dict = {
+                    "Content-Type": "application/x-apple-aspen-config",
+                    "Content-Disposition": content_disposition,
+                    }
+            answer = plistlib.dumps(pl).decode()
+            return client.OK, headers, answer, None
+        permissions_filter = None
+        share = None
+        if self._sharing._enabled:
+            # Sharing by token or map (if enabled)
+            share = self._sharing.sharing_collection_resolver(path, user, user_groups)
+            if share:
+                if path != share['PathMapped']:
+                    # overwrite and run through extended permission check
+                    path = share['PathMapped']
+                    user = share['Owner']
+                    permissions_filter = share['Permissions']
+                else:
+                    logger.trace("GET/shares: skip overlap mapping: path=%r", path)
+        access = Access(self._rights, user, user_groups, path, permissions_filter)
+        if share_forces_freebusy_view(share):
+            query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
+            view = query.get("view")
+            if view is None:
+                forced_environ = dict(environ)
+                current = str(forced_environ.get("QUERY_STRING") or "")
+                if current:
+                    forced_environ["QUERY_STRING"] = current + "&view=freebusy"
+                else:
+                    forced_environ["QUERY_STRING"] = "view=freebusy"
+                return self._freebusy_view(
+                    forced_environ, path, user, access, share)
+            if view != ["freebusy"]:
+                return httputils.BAD_REQUEST
+        if requests_freebusy_view(environ):
+            return self._freebusy_view(environ, path, user, access, share)
+        if not access.check("r") and "i" not in access.permissions:
+            return httputils.NOT_ALLOWED
+        with self._storage.acquire_lock("r", user):
+            item = next(iter(self._storage.discover(path)), None)
+            if not item:
+                return httputils.NOT_FOUND
+            if access.check("r", item):
+                limited_access = False
+            elif "i" in access.permissions:
+                limited_access = True
+            else:
+                return httputils.NOT_ALLOWED
+            if isinstance(item, storage.BaseCollection):
+                if not item.tag:
+                    return (httputils.NOT_ALLOWED if limited_access else
+                            httputils.DIRECTORY_LISTING)
+                if share and share['Conversion'] == "bday":
+                    content_type = xmlutils.MIMETYPES["VCALENDAR"]
+                else:
+                    content_type = xmlutils.MIMETYPES[item.tag]
+                content_disposition = self._content_disposition_attachment(
+                    propose_filename(item, share))
+            elif limited_access:
+                return httputils.NOT_ALLOWED
+            else:
+                if share and share['Conversion'] == "bday":
+                    content_type = xmlutils.MIMETYPES["VCALENDAR"]
+                else:
+                    content_type = xmlutils.OBJECT_MIMETYPES[item.name]
+                content_disposition = ""
+            assert item.last_modified
+            headers = {
+                "Content-Type": content_type,
+                "Last-Modified": item.last_modified,
+                "ETag": item.etag}
+            if content_disposition:
+                headers["Content-Disposition"] = content_disposition
+            if share and share['Conversion'] == "bday":
+                if isinstance(item, storage.BaseCollection):
+                    # convert collection VCF to ICS
+                    answer = item.serialize(vcf_to_ics=True, ShareActions=share['Actions'])
+                    # set etag header (64 <hexdigits>)
+                    #   4 chars special token: 'bda0'
+                    #   8 chars date         : 00000000
+                    #   2 chars separator    : 00
+                    #  32 chars              : leading content hash
+                    #   2 chars separator    : 00
+                    #  16 chars              : trailing original etag
+                    headers["ETag"] = '"bda0' + '00000000' + '00' + utils.sha256_str(answer)[:32] + '00' + item.etag[49:]
+                else:
+                    # convert item VCF to ICS
+                    item_converted = item.convert_vcf_to_ics(ShareActions=share['Actions'])
+                    if item_converted is not None:
+                        answer = item_converted.serialize()
+                        # set etag header
+                        headers["ETag"] = item_converted.etag
+                    else:
+                        return httputils.NOT_FOUND
+            else:
+                answer = item.serialize()
+            return client.OK, headers, answer, None

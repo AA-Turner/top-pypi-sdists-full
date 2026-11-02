@@ -1,0 +1,32 @@
+flows:
+- name: login
+  description: Navigate to Kiwix home and verify core UI elements
+  steps:
+  - description: Navigate to home
+    type: navigate
+    url: /
+  - description: Let page settle
+    duration: 2000
+    type: wait
+  - description: Wait for presence of search input
+    selector: 'input[type="text"], input#search, input#searchInput, input[name="search"],
+      input[name="pattern"], form[action*="search"] input, #searchFilter.kiwixSearch'
+    timeout: 15000
+    type: wait_for_selector
+  - contains: true
+    description: Verify still on root route
+    type: verify_url
+    url: /
+  - description: Verify Kiwix search form elements exist
+    selector: 'form#kiwixSearchForm, .kiwixNav__SearchForm, #searchFilter.kiwixSearch'
+    type: verify
+    verify_type: element_exists
+  - description: Verify Wikipedia book link exists on home page
+    selector: 'a.book__link[href*="wikipedia"], .book__list .book__link, #book__title'
+    type: verify
+    verify_type: element_exists
+  - contains: true
+    description: Verify page title contains Kiwix
+    title: Kiwix
+    type: verify
+    verify_type: page_title

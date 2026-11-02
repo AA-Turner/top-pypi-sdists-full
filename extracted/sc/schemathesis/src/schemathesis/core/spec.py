@@ -9,11 +9,13 @@ if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
 
     from schemathesis.auths import AuthContext, AuthProvider, AuthStorage
+    from schemathesis.checks import CheckContext
     from schemathesis.config import GenerationConfig, ProjectConfig
     from schemathesis.core import Body, Specification
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.error_feedback.store import Observation
     from schemathesis.core.errors import InvalidSchema
+    from schemathesis.core.failures import ServerError
     from schemathesis.core.jsonschema.types import JsonSchemaObject, JsonValue
     from schemathesis.core.result import Result
     from schemathesis.core.schema_analysis import SchemaWarning
@@ -217,11 +219,22 @@ class ApiSchema(SchemaMetadata, Protocol):
 
     def evaluate_server_error(self, case: Case, response: Response) -> None: ...  # pragma: no cover
 
-    def evaluate_negative_data(self, case: Case, response: Response) -> None: ...  # pragma: no cover
+    def evaluate_auth(self, ctx: CheckContext, response: Response, case: Case) -> bool | None: ...  # pragma: no cover
+    def server_error(self, case: Case, response: Response) -> ServerError: ...  # pragma: no cover
 
-    def evaluate_positive_data(self, case: Case, response: Response) -> None: ...  # pragma: no cover
+    def evaluate_negative_data(
+        self, ctx: CheckContext, response: Response, case: Case
+    ) -> bool | None: ...  # pragma: no cover
+
+    def evaluate_positive_data(
+        self, ctx: CheckContext, response: Response, case: Case
+    ) -> bool | None: ...  # pragma: no cover
 
     def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome: ...  # pragma: no cover
+
+    def status_name_for_code(self, status_code: int) -> str | None: ...  # pragma: no cover
+
+    def hash_case(self, case: Case) -> int: ...  # pragma: no cover
 
     def prepare_multipart(
         self,
@@ -234,8 +247,6 @@ class ApiSchema(SchemaMetadata, Protocol):
     def get_parameter_serializer(
         self, operation: APIOperation, location: str
     ) -> Callable | None: ...  # pragma: no cover
-
-    def get_request_payload_content_types(self, operation: APIOperation) -> list[str]: ...  # pragma: no cover
 
     def declared_base_path(self) -> str: ...  # pragma: no cover
 

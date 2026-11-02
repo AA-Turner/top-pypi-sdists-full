@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 from probe.shared.notes import team_note as team_note_file
 
 

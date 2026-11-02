@@ -1,0 +1,294 @@
+"""Typed exceptions for Yandex API failures — pure classes, no HTTP imports.
+
+Kept free of any HTTP library so cli/mcp may import it under ARCH-2. The core session
+(``core/session.py``) maps a non-2xx response to one of these and raises it.
+"""
+
+import json
+from http import HTTPStatus
+from typing import cast
+
+from ycli.settings import OAUTH_TOKEN_ENV, ORGANIZATION_ID_ENV
+
+
+class YandexError(Exception):
+    """Base for every Yandex API error. Carries the HTTP status and request URL."""
+
+    def __init__(self, message: str, *, status: int | None = None, url: str | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+        self.url = url
+
+
+class YandexInvalidRequestError(YandexError):
+    """A request refused before it is sent, for a limit of ycli's own.
+
+    What the API can check itself is not checked here (ARCH-9): the request goes out as given
+    and the API's answer comes back as it is.
+    """
+
+
+class YandexStaleContinuationError(YandexError):
+    """A listing cannot go on from the token given: the service no longer takes it.
+
+    The first request of the continued listing was sent and refused. Start the listing again
+    without the token.
+    """
+
+
+class YandexDeclinedError(YandexError):
+    """An operation that destroys or grants was not confirmed by the one asked; nothing was sent."""
+
+
+class YandexNotConfiguredError(YandexError):
+    """The credentials cannot reach this service as they are; the message says what to set.
+
+    Nothing was sent. The other services are not affected: ``ycli auth status`` lists this
+    one as not configured and still passes.
+    """
+
+
+class YandexUnexpectedReplyError(YandexError):
+    """The API answered, but its reply does not fit the model ycli reads it into.
+
+    The request was sent and may have taken effect; what failed is reading the answer. It is
+    told apart from a request that the arguments given cannot build, which is never sent.
+    """
+
+
+class YandexAuthError(YandexError):
+    """401/403 — missing, invalid, or insufficient credentials."""
+
+
+class YandexNotFoundError(YandexError):
+    """404 — the resource does not exist (or is not visible to this token)."""
+
+
+class YandexRateLimitError(YandexError):
+    """429 — rate limited (after the transport's retries were exhausted).
+
+    ``retry_after`` is the server's ``Retry-After`` in seconds, when it sent one.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int | None = None,
+        url: str | None = None,
+        retry_after: float | None = None,
+    ) -> None:
+        super().__init__(message, status=status, url=url)
+        self.retry_after = retry_after
+
+
+class YandexServerError(YandexError):
+    """5xx — upstream Yandex error (after retries were exhausted)."""
+
+
+class YandexClientError(YandexError):
+    """Other 4xx — a client-side problem not covered by the specific classes."""
+
+
+class YandexTimeoutError(YandexError):
+    """A client-side deadline elapsed — e.g. an async operation polled past its attempt budget.
+
+    Not raised by the transport (there is no HTTP status): the ``polling.poll`` helper raises
+    it when ``is_done`` never becomes true within the allotted attempts, so callers can catch a
+    single ``YandexError`` hierarchy for both transport failures and local timeouts.
+    """
+
+
+class YandexConnectionError(YandexError):
+    """No HTTP response at all: DNS, connect or read failure, or a network timeout."""
+
+
+def _error_item(item: object) -> str:
+    """One item of an error list: ``code: msg`` for a validation-style object, else as text."""
+    if not isinstance(item, dict) or "msg" not in item:
+        return str(item)
+    code = item.get("error_code") or item.get("type")
+    return f"{code}: {item.get('msg')}" if code else str(item.get("msg"))
+
+
+def _field_errors(details: object) -> str:
+    """What the details of a DataLens error add: ``collectionId: Too big; title: ...``.
+
+    DataLens sends the list in two places (both measured): ``details`` is the list itself
+    (``[{"path": ["sort"], "message": ...}]``), or holds it (``{"details": [...]}``). An item
+    without a path reads as its message alone. Details that are an object also carry facts
+    of their own (who holds a lock and until when: ``loginOrId``, ``expiryDate``): each
+    plain value is shown under its key, but ``title`` and ``description``, which repeat
+    the code and the message. Any other shape reads as ``""``.
+    """
+    items = details.get("details") if isinstance(details, dict) else details
+    found: list[str] = []
+    for item in items if isinstance(items, list) else []:
+        entry = cast("dict[str, object]", item) if isinstance(item, dict) else {}
+        message, path = entry.get("message"), entry.get("path")
+        if isinstance(message, str):
+            where = ".".join(map(str, path)) if isinstance(path, list) else ""
+            found.append(f"{where}: {message}" if where else message)
+    if isinstance(details, dict):
+        found += [
+            f"{key}: {value}"
+            for key, value in cast("dict[str, object]", details).items()
+            if key not in {"title", "description", "details"}
+            and isinstance(value, str | int | float)
+        ]
+    return "; ".join(found)
+
+
+def status_line(code: int) -> str:
+    """The status of a reply as an error says it: the code and the name HTTP gives it.
+
+    Not the server's own words beside the code: for a code HTTP does not name a server says
+    anything ("Unknown" beside DataLens's 427) and over HTTP/2 nothing, which left two spaces.
+
+    Args:
+        code: The HTTP status code.
+
+    Returns:
+        ``"404 Not Found"``; the code alone when HTTP has no name for it.
+
+    Examples:
+        >>> status_line(404), status_line(427)
+        ('404 Not Found', '427')
+    """
+    return f"{code} {HTTPStatus(code).phrase}" if code in HTTPStatus else str(code)
+
+
+_SIGN_IN = (
+    "run `ycli auth login` to (re)authenticate, or check that "
+    f"{OAUTH_TOKEN_ENV} and {ORGANIZATION_ID_ENV} are set."
+)
+# A 403 comes with a valid token: signing in again does not help, a permission or scope does.
+_PERMISSION = (
+    "the token is valid but lacks access here — ask an administrator for permission "
+    "on this resource, or check that the token's OAuth scopes cover this service."
+)
+_NOT_FOUND = (
+    "check the id or key, and that the token's organization and user can see it "
+    "(Yandex answers 404 for an object the caller may not read)."
+)
+# One status for two cases the reply's text alone tells apart: a version older than the
+# object's, and Tracker's "could not save, try again" for a version just read. Nothing is
+# sent again for the caller; the hint covers both.
+_NOT_SAVED = (
+    "the service did not save the change — read the object's current version and run the "
+    "command again (Tracker sometimes answers this for a version just read)."
+)
+
+
+def next_step(exc: BaseException | None) -> str | None:
+    """What to do about ``exc``, when there is something to do: the hint of every surface.
+
+    The CLI prints it under ``Hint:`` and a tool of the MCP server ends its error with the same
+    line, so a person and an agent are told the same.
+
+    Args:
+        exc: The error a call ended with, if it is known.
+
+    Returns:
+        The next step, or ``None`` when the error names nothing the caller can do.
+
+    Examples:
+        >>> next_step(YandexRateLimitError("slow", status=429, retry_after=30))
+        'the API is rate limiting this token — wait 30 s (Retry-After), then try again.'
+        >>> next_step(YandexServerError("down", status=503)) is None
+        True
+    """
+    if isinstance(exc, YandexAuthError):
+        return _PERMISSION if exc.status == HTTPStatus.FORBIDDEN else _SIGN_IN
+    if isinstance(exc, YandexNotFoundError):
+        return _NOT_FOUND
+    if isinstance(exc, YandexRateLimitError):
+        after = exc.retry_after
+        wait = "wait a little" if after is None else f"wait {after:g} s (Retry-After)"
+        return f"the API is rate limiting this token — {wait}, then try again."
+    if isinstance(exc, YandexClientError) and exc.status == HTTPStatus.PRECONDITION_FAILED:
+        return _NOT_SAVED
+    return None
+
+
+def describe_error_body(body: str) -> str:
+    """The human-readable line from a Yandex error body, or a raw snippet as a fallback.
+
+    Tracker answers ``{"errorMessages": [...]}``, Wiki ``{"message": [...] or "...",
+    "error_code": ...}``, Forms ``{"detail": ...}`` or a bare list of ``{"loc", "error_code",
+    "msg"}`` items, DataLens ``{"code": ..., "message": ..., "details": {"details": [{"path",
+    "message"}]}}``, whose items say which field is wrong, and sometimes only ``{"error":
+    ...}``; anything else is cut to 300 characters.
+
+    Args:
+        body: The response body text.
+
+    Returns:
+        The readable line, or the body cut to 300 characters.
+
+    Examples:
+        >>> describe_error_body('{"errorMessages": ["Issue does not exist."]}')
+        'Issue does not exist.'
+        >>> describe_error_body('{"error_code": "NOT_FOUND", "message": ["No page."]}')
+        'NOT_FOUND: No page.'
+        >>> describe_error_body('[{"loc": [], "error_code": "disabled", "msg": "Blocked"}]')
+        'disabled: Blocked'
+        >>> describe_error_body(
+        ...     '{"code": "VALIDATION_ERROR", "message": "Validation error", "details": '
+        ...     '{"details": [{"path": ["collectionId"], "message": "Too big"}]}}'
+        ... )
+        'VALIDATION_ERROR: Validation error (collectionId: Too big)'
+        >>> describe_error_body('{"error": "Cannot read properties of undefined"}')
+        'Cannot read properties of undefined'
+    """
+    try:
+        data = json.loads(body)
+    except ValueError:
+        data = None
+    if isinstance(data, list) and data:
+        return "; ".join(_error_item(item) for item in data)
+    if isinstance(data, dict):
+        for key in ("errorMessages", "message", "detail", "error"):
+            value = data.get(key)
+            if isinstance(value, list) and value:
+                text = "; ".join(_error_item(item) for item in value)
+            elif isinstance(value, str) and value:
+                text = value
+            else:
+                continue
+            if fields := _field_errors(data.get("details")):
+                text = f"{text} ({fields})"
+            code = data.get("error_code") or data.get("code")
+            return f"{code}: {text}" if isinstance(code, str) else text
+    return body[:300].replace("\n", " ").strip()
+
+
+def error_for_status(
+    status: int, message: str, *, url: str, retry_after: float | None = None
+) -> YandexError:
+    """The typed error for a non-2xx ``status`` — the one status-to-exception mapping.
+
+    Args:
+        status: The non-2xx HTTP status.
+        message: The error message.
+        url: The request URL.
+        retry_after: The server's ``Retry-After`` in seconds, if it sent one.
+
+    Returns:
+        The error ``status`` maps to.
+
+    Examples:
+        >>> type(error_for_status(404, "gone", url="https://x")).__name__
+        'YandexNotFoundError'
+    """
+    match status:
+        case HTTPStatus.UNAUTHORIZED | HTTPStatus.FORBIDDEN:
+            return YandexAuthError(message, status=status, url=url)
+        case HTTPStatus.NOT_FOUND:
+            return YandexNotFoundError(message, status=status, url=url)
+        case HTTPStatus.TOO_MANY_REQUESTS:
+            return YandexRateLimitError(message, status=status, url=url, retry_after=retry_after)
+        case _ if status >= HTTPStatus.INTERNAL_SERVER_ERROR:
+            return YandexServerError(message, status=status, url=url)
+        case _:
+            return YandexClientError(message, status=status, url=url)

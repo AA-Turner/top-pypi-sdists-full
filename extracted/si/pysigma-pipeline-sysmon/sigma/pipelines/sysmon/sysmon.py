@@ -4,7 +4,6 @@ from sigma.processing.transformations import (
 )
 from sigma.processing.conditions import LogsourceCondition
 from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
-from sigma.pipelines.base import Pipeline
 
 sysmon_generic_logsource_eventid_mapping = (
     {  # map generic Sigma log sources to Sysmon event ids
@@ -39,12 +38,23 @@ sysmon_generic_logsource_eventid_mapping = (
     }
 )
 
+# Sysmon event ID 12 covers both registry object creation and deletion; its EventType field tells
+# them apart (CreateKey, DeleteKey or DeleteValue; value creation is event ID 13, SetValue).
+sysmon_generic_logsource_additional_conditions = {
+    "registry_add": {"EventType": "CreateKey"},
+    "registry_delete": {"EventType": ["DeleteKey", "DeleteValue"]},
+}
 
-@Pipeline
+
+# Deliberately not decorated with @Pipeline: that decorator is a process-wide singleton in
+# pySigma, so every decorated function aliases the same object and the last one decorated
+# wins. Plugin autodiscovery finds this function through its ProcessingPipeline return type.
 def sysmon_pipeline() -> ProcessingPipeline:
     return ProcessingPipeline(
         name="Generic Log Sources to Sysmon Transformation",
-        priority=10,
+        # Must run strictly before the priority-10 pipelines (e.g. windows-logsources) that add
+        # the Channel condition for the service: sysmon log source this pipeline sets.
+        priority=5,
         items=[
             processing_item
             for log_source, event_id in sysmon_generic_logsource_eventid_mapping.items()
@@ -54,6 +64,9 @@ def sysmon_pipeline() -> ProcessingPipeline:
                     transformation=AddConditionTransformation(
                         {
                             "EventID": event_id,
+                            **sysmon_generic_logsource_additional_conditions.get(
+                                log_source, {}
+                            ),
                         }
                     ),
                     rule_conditions=[

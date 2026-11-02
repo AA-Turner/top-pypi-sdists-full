@@ -1,0 +1,540 @@
+"""Command-line interface for Boring Semantic Layer - v2 with generic backend support."""
+
+import argparse
+import logging
+import shutil
+import sys
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv ships with the `agent` extra
+
+    def load_dotenv(dotenv_path=None):
+        """Fallback when python-dotenv is not installed.
+
+        Loading an explicit env file without the dependency is an error;
+        the implicit best-effort load is a no-op.
+        """
+        if dotenv_path is not None:
+            raise ImportError(
+                "Loading an env file requires python-dotenv. "
+                "Install with: pip install 'boring-semantic-layer[agent]'"
+            )
+        return False
+
+
+# Tool configurations - how each tool stores skills
+TOOL_CONFIGS = {
+    "claude-code": {
+        "target_pattern": ".claude/skills/{skill_name}/SKILL.md",
+        "description": "Claude Code skills",
+    },
+    "cursor": {
+        "target_pattern": ".cursor/rules/{skill_name}.mdc",
+        "description": "Cursor rules",
+    },
+    "codex": {
+        "target_pattern": ".codex/{skill_name}.codex",
+        "description": "Codex instructions",
+    },
+}
+
+
+def _get_skills_dir() -> Path:
+    """Get the directory containing skill files (bundled with the package).
+
+    Looks in multiple locations:
+    1. Installed shared-data location (sys.prefix/share/bsl/skills)
+    2. Development location (docs/md/skills relative to package)
+    """
+    # First try installed location (shared-data from wheel)
+    installed_skills_dir = Path(sys.prefix) / "share" / "bsl" / "skills"
+    if installed_skills_dir.exists():
+        return installed_skills_dir
+
+    # Fall back to development location
+    package_dir = Path(__file__).parent.parent.parent.parent
+    skills_dir = package_dir / "docs" / "md" / "skills"
+    return skills_dir
+
+
+def _discover_skills_for_tool(tool: str) -> list[dict]:
+    """Discover all skills available for a tool by scanning the directory."""
+    skills_dir = _get_skills_dir()
+    tool_dir = skills_dir / tool
+
+    if not tool_dir.exists():
+        return []
+
+    skills = []
+    config = TOOL_CONFIGS.get(tool, {})
+
+    if tool == "claude-code":
+        # Claude Code: each subdirectory is a skill with SKILL.md
+        for skill_dir in tool_dir.iterdir():
+            if skill_dir.is_dir():
+                skill_file = skill_dir / "SKILL.md"
+                if skill_file.exists():
+                    skill_name = skill_dir.name
+                    target = config["target_pattern"].format(skill_name=skill_name)
+                    skills.append(
+                        {
+                            "name": skill_name,
+                            "source": skill_file,
+                            "target": target,
+                        }
+                    )
+    elif tool == "cursor":
+        # Cursor: each .cursorrules or .mdc file is a skill
+        for skill_file in tool_dir.glob("*.cursorrules"):
+            skill_name = skill_file.stem
+            target = config["target_pattern"].format(skill_name=skill_name)
+            skills.append(
+                {
+                    "name": skill_name,
+                    "source": skill_file,
+                    "target": target,
+                }
+            )
+        for skill_file in tool_dir.glob("*.mdc"):
+            skill_name = skill_file.stem
+            target = config["target_pattern"].format(skill_name=skill_name)
+            skills.append(
+                {
+                    "name": skill_name,
+                    "source": skill_file,
+                    "target": target,
+                }
+            )
+    elif tool == "codex":
+        # Codex: each .codex file is a skill
+        for skill_file in tool_dir.glob("*.codex"):
+            skill_name = skill_file.stem
+            target = config["target_pattern"].format(skill_name=skill_name)
+            skills.append(
+                {
+                    "name": skill_name,
+                    "source": skill_file,
+                    "target": target,
+                }
+            )
+
+    return skills
+
+
+def cmd_skill_list(args):
+    """List available skills."""
+    print("Available BSL skills:\n")
+    for tool, config in TOOL_CONFIGS.items():
+        skills = _discover_skills_for_tool(tool)
+        if skills:
+            print(f"  {tool} ({config['description']}):")
+            for skill in skills:
+                print(f"    ✓ {skill['name']}")
+                print(f"      → {skill['target']}")
+        else:
+            print(f"  {tool}: (no skills found)")
+    print("\nUse 'bsl skill show <tool>' to preview skills")
+    print("Use 'bsl skill install <tool>' to install all skills for a tool")
+
+
+def cmd_skill_show(args):
+    """Show the content of skill files for a tool."""
+    tool = args.tool
+    if tool not in TOOL_CONFIGS:
+        print(f"❌ Unknown tool: {tool}")
+        print(f"   Available tools: {', '.join(TOOL_CONFIGS.keys())}")
+        return
+
+    skills = _discover_skills_for_tool(tool)
+    if not skills:
+        print(f"❌ No skills found for {tool}")
+        return
+
+    for i, skill in enumerate(skills):
+        if i > 0:
+            print("\n" + "=" * 60 + "\n")
+        print(f"# Skill: {skill['name']}")
+        print(f"# Source: {skill['source']}")
+        print(f"# Target: {skill['target']}")
+        print("-" * 60)
+        print(skill["source"].read_text())
+
+
+def cmd_skill_install(args):
+    """Install all skill files for a specific tool."""
+    tool = args.tool
+    if tool not in TOOL_CONFIGS:
+        print(f"❌ Unknown tool: {tool}")
+        print(f"   Available tools: {', '.join(TOOL_CONFIGS.keys())}")
+        return
+
+    skills = _discover_skills_for_tool(tool)
+    if not skills:
+        print(f"❌ No skills found for {tool}")
+        return
+
+    installed = 0
+    skipped = 0
+
+    # Install skill files
+    for skill in skills:
+        target_path = Path.cwd() / skill["target"]
+
+        # Check if target exists
+        if target_path.exists() and not args.force:
+            print(f"⚠️  Skipped {skill['name']} (already exists: {target_path})")
+            skipped += 1
+            continue
+
+        # Create parent directories if needed
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy the file
+        shutil.copy2(skill["source"], target_path)
+        print(f"✅ Installed {skill['name']}")
+        print(f"   → {target_path}")
+        installed += 1
+
+    print(f"\n📦 Installed {installed} skill(s)" + (f", skipped {skipped}" if skipped else ""))
+    if skipped:
+        print("   Use --force to overwrite existing files")
+
+
+def setup_logging(verbose: bool = False):
+    """Set up logging configuration."""
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+def cmd_render(args):
+    """Render a markdown file as a dashboard."""
+    import time
+
+    from boring_semantic_layer.chart.md_parser.dashboard import render_dashboard
+
+    md_path = Path(args.file)
+    if not md_path.exists():
+        print(f"Error: File not found: {md_path}")
+        return
+
+    # Determine output path
+    output_path = Path(args.output) if args.output else md_path.with_suffix(".html")
+
+    # Initial render
+    success = render_dashboard(md_path, output_path)
+
+    if success and args.open:
+        import webbrowser
+
+        webbrowser.open(f"file://{output_path.absolute()}")
+
+    # Watch mode
+    if args.watch:
+        try:
+            from watchdog.events import FileSystemEventHandler
+            from watchdog.observers import Observer
+        except ImportError:
+            print("Error: watchdog package required for --watch mode")
+            print("Install with: uv pip install watchdog")
+            return
+
+        class DashboardChangeHandler(FileSystemEventHandler):
+            def __init__(self, target_path: Path):
+                self.target_path = target_path.resolve()
+                self.last_modified = time.time()
+
+            def on_modified(self, event):
+                if event.is_directory:
+                    return
+                event_path = Path(event.src_path).resolve()
+                if event_path != self.target_path:
+                    return
+                # Debounce
+                current_time = time.time()
+                if current_time - self.last_modified < 0.5:
+                    return
+                self.last_modified = current_time
+                print("\nFile changed, regenerating...")
+                render_dashboard(md_path, output_path)
+
+        print(f"\nWatching {md_path} for changes... (Ctrl+C to stop)")
+        print(f"Output: {output_path}")
+
+        handler = DashboardChangeHandler(md_path)
+        observer = Observer()
+        observer.schedule(handler, str(md_path.parent), recursive=False)
+        observer.start()
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nStopping watch mode...")
+            observer.stop()
+            observer.join()
+
+
+def cmd_serve(args):
+    """Start the BSL HTTP API server."""
+    try:
+        from boring_semantic_layer.server import main as serve_main
+    except ImportError:
+        print("❌ FastAPI/uvicorn not installed.")
+        print("   Install with: pip install 'boring-semantic-layer[server]'")
+        sys.exit(1)
+
+    cors_origins = None
+    if getattr(args, "cors_origins", None):
+        cors_origins = [origin.strip() for origin in args.cors_origins.split(",") if origin.strip()]
+
+    serve_main(
+        config=getattr(args, "config", None),
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        cors_origins=cors_origins,
+    )
+
+
+def cmd_chat(args):
+    """Start an interactive chat session with the semantic model."""
+    import os
+
+    from boring_semantic_layer.agents.chats.cli import start_chat
+
+    # Load .env file early if specified, so env vars are available
+    env_path = getattr(args, "env_path", None)
+    if env_path:
+        load_dotenv(dotenv_path=env_path)
+    else:
+        # Try to load from current directory or parent directories
+        load_dotenv()
+
+    # Get model_path from args or BSL_MODEL_PATH env var
+    model_path = args.sm if hasattr(args, "sm") and args.sm else None
+    if not model_path:
+        model_path_str = os.environ.get("BSL_MODEL_PATH")
+        if model_path_str:
+            model_path = model_path_str
+        else:
+            print("❌ Error: No semantic model file specified.")
+            print("   Use --sm <path> or set BSL_MODEL_PATH environment variable")
+            return
+
+    # Get LLM from args (no validation - let LangChain handle it)
+    llm_model = (
+        args.llm if hasattr(args, "llm") and args.llm else "anthropic:claude-opus-4-20250514"
+    )
+    initial_query = " ".join(args.query) if hasattr(args, "query") and args.query else None
+    profile = args.profile if hasattr(args, "profile") else None
+    profile_file = args.profile_file if hasattr(args, "profile_file") else None
+    auto_exit = args.auto_exit if hasattr(args, "auto_exit") else False
+
+    # Note: profile.py handles BSL_PROFILE_FILE env var and auto-selection
+
+    start_chat(
+        model_path=model_path,
+        llm_model=llm_model,
+        chart_backend=args.chart_backend,
+        initial_query=initial_query,
+        profile=profile,
+        profile_file=profile_file,
+        env_path=env_path,  # Pass through for start_chat's internal use
+        auto_exit=auto_exit,
+    )
+
+
+def main():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        prog="bsl",
+        description="Boring Semantic Layer - CLI tools and integrations",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
+    )
+    parser.add_argument(
+        "--env-path",
+        type=Path,
+        help="Path to a .env file for loading credentials before running the command",
+    )
+
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Render command
+    render_parser = subparsers.add_parser(
+        "render", help="Render a markdown file as an interactive dashboard"
+    )
+    render_parser.add_argument(
+        "file",
+        type=str,
+        help="Path to markdown file with BSL queries",
+    )
+    render_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        help="Output HTML file path (default: same name with .html extension)",
+    )
+    render_parser.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the rendered dashboard in browser",
+    )
+    render_parser.add_argument(
+        "-w",
+        "--watch",
+        action="store_true",
+        help="Watch for file changes and auto-regenerate",
+    )
+    render_parser.set_defaults(func=cmd_render)
+
+    # Chat command
+    chat_parser = subparsers.add_parser("chat", help="Start interactive chat session")
+    chat_parser.add_argument(
+        "--sm",
+        help="Path or URL to semantic model definition (YAML file). Can also be set via BSL_MODEL_PATH environment variable.",
+    )
+    chat_parser.add_argument(
+        "--chart-backend",
+        choices=["plotext", "altair", "plotly"],
+        default="plotext",
+        help="Chart backend for visualizations (default: plotext)",
+    )
+    chat_parser.add_argument(
+        "--llm",
+        default="anthropic:claude-opus-4-20250514",
+        help="LLM model to use. Format: [provider:]model (e.g., gpt-4o, openai:gpt-4o, anthropic:claude-sonnet-4-20250514, google_genai:gemini-1.5-pro)",
+    )
+    chat_parser.add_argument(
+        "--profile",
+        "-p",
+        help="Profile name to use for database connection (e.g., 'my_flights_db')",
+    )
+    chat_parser.add_argument(
+        "--profile-file",
+        help="Path or URL to profiles.yml file (default: looks for profiles.yml in current directory and examples/)",
+    )
+    chat_parser.add_argument(
+        "query",
+        nargs="*",
+        help="Optional initial query to run",
+    )
+    chat_parser.add_argument(
+        "--auto-exit",
+        action="store_true",
+        help="Exit after running the initial query (non-interactive mode)",
+    )
+    chat_parser.set_defaults(func=cmd_chat)
+
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start the BSL HTTP API server (requires boring-semantic-layer[server])",
+    )
+    serve_parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to semantic_config.py (default: ./semantic_config.py or BSL_CONFIG_PATH)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to listen on (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload on code changes (development only)",
+    )
+    serve_parser.add_argument(
+        "--cors-origins",
+        help="Comma-separated CORS allowlist. Defaults to BSL_CORS_ORIGINS or no origins.",
+    )
+    serve_parser.set_defaults(func=cmd_serve)
+
+    # Skill command with subcommands
+    skill_parser = subparsers.add_parser(
+        "skill",
+        help="Manage BSL skills for AI coding assistants",
+    )
+    skill_subparsers = skill_parser.add_subparsers(dest="skill_command", help="Skill command")
+
+    # skill list
+    skill_list_parser = skill_subparsers.add_parser("list", help="List available skills")
+    skill_list_parser.set_defaults(func=cmd_skill_list)
+
+    # skill show <tool>
+    skill_show_parser = skill_subparsers.add_parser("show", help="Show skill content")
+    skill_show_parser.add_argument(
+        "tool",
+        choices=list(TOOL_CONFIGS.keys()),
+        help="Tool to show skills for",
+    )
+    skill_show_parser.set_defaults(func=cmd_skill_show)
+
+    # skill install <tool>
+    skill_install_parser = skill_subparsers.add_parser(
+        "install", help="Install all skills for a tool"
+    )
+    skill_install_parser.add_argument(
+        "tool",
+        choices=list(TOOL_CONFIGS.keys()),
+        help="Tool to install skills for",
+    )
+    skill_install_parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite existing file",
+    )
+    skill_install_parser.set_defaults(func=cmd_skill_install)
+
+    args = parser.parse_args()
+
+    # Setup logging
+    setup_logging(args.verbose)
+
+    # Load env vars if requested
+    if args.env_path:
+        load_dotenv(dotenv_path=args.env_path)
+
+    # Check if a command was provided
+    if not hasattr(args, "func"):
+        # Handle 'bsl skill' without subcommand
+        if args.command == "skill":
+            skill_parser.print_help()
+        else:
+            parser.print_help()
+        sys.exit(1)
+
+    # Execute command
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        print("\n👋 Interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Error: {e}", file=sys.stderr)
+        if args.verbose:
+            raise
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

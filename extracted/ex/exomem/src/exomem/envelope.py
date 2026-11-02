@@ -1,0 +1,455 @@
+"""The delegation envelope — per-action-class authority under hard ceilings.
+
+Where `prominence` answers "how much should Exomem participate in a
+conversation?", the envelope answers the question underneath it: **"what is
+Exomem allowed to do on its own, for this KIND of action?"**
+
+Three things are deliberately separate, and keeping them separate is the whole
+design:
+
+- **Ceilings are product law.** Every action class carries a hard ceiling. No
+  prominence level, override, configuration value or adaptation may authorize
+  behaviour above it. `restructure_execution` is confirm-required at every
+  level, in v1, always.
+- **The envelope chooses a disposition BELOW the ceiling.** Three classes carry
+  a range; two are fixed; `disclosure` carries none at all and is served marked
+  governance-owned, because the governance plane owns cross-boundary release.
+- **Prominence only sets the defaults.** Absent an explicit override, each
+  configurable disposition is a pure derivation from the active level
+  (`derive_envelope`), so the served envelope is always attributable to
+  (level, overrides) and nothing else.
+
+Storage rides the same shared per-machine config file `mode` and `prominence`
+use (`mode.config_path()`), for the same reason: the MCP server and the CLI are
+often different OS users, and `bootstrap` serves the active envelope from the
+server. What travels with the vault is the family-disposition store (portable
+review state); machine posture stays here. An absent `envelope` object means
+pure derivation, which is exactly today's shipped behaviour — so rollback is
+deleting a key rather than a migration.
+
+**Write-time strictness, read-time tolerance.** An unknown class id or an
+out-of-range disposition is refused at write with a named, class-specific
+error. The same thing found in the STORED file — written, say, by a newer
+runtime — is reported and ignored at read. Reading the envelope must never
+break bootstrap.
+
+Torch-free and import-cheap by design: `commands.op_bootstrap` serves this on
+every session start.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from . import mode
+
+log = logging.getLogger(__name__)
+
+#: The closed v1 set. A new action class arrives only through a spec change: an
+#: unclassified future behaviour has no envelope cell and therefore no
+#: authority, which is the fail-closed posture the authority matrix requires.
+ACTION_CLASSES: tuple[str, ...] = (
+    "hygiene_writes",
+    "proactive_capture",
+    "link_acceptance",
+    "structural_suggestions",
+    "restructure_execution",
+    "disclosure",
+)
+
+#: The hard ceiling per class. Product law: nothing below may exceed it.
+CEILINGS: dict[str, str] = {
+    "hygiene_writes": "silent",
+    "proactive_capture": "silent-capable",
+    "link_acceptance": "confirm",
+    "structural_suggestions": "advisory",
+    "restructure_execution": "confirm-required",
+    "disclosure": "governance-owned",
+}
+
+#: The three configurable classes and the closed range each one may take.
+RANGES: dict[str, tuple[str, ...]] = {
+    "proactive_capture": ("off", "advisory", "silent"),
+    "link_acceptance": ("off", "advisory", "confirm-shortcut"),
+    "structural_suggestions": ("off", "advisory"),
+}
+
+#: The two classes whose disposition is not configurable at all.
+FIXED: dict[str, str] = {
+    "hygiene_writes": "silent",
+    "restructure_execution": "confirm",
+}
+
+#: Carries no disposition; the governance plane owns it end to end.
+GOVERNANCE_OWNED: frozenset[str] = frozenset({"disclosure"})
+
+#: Why `confirm-shortcut` sits BELOW the `confirm` ceiling rather than beside it.
+CONFIRM_SHORTCUT: str = (
+    "an inline single-action confirmation rendered with the surfaced item — one "
+    "action approving that one named acceptance. The confirmation step itself is "
+    "never skipped"
+)
+
+#: The sole specified error for `restructure_execution`. Standing delegation
+#: ("do this kind of thing from now on") would be an envelope cell ABOVE the
+#: current ceiling; it does not exist in v1, and only a deliberate founder
+#: ratification may ever create one. Pinned as its own refusal so it cannot be
+#: shadowed by the generic range refusal, and so the capability cannot drift in
+#: as a convenience.
+FOUNDER_GATE: str = (
+    "standing restructure delegation is absent in v1; founder ratification is required. "
+    "Automatic collections stay refused"
+)
+
+# The six actions are closed product operations, not vault vocabulary (O2/R3).
+# Registry saves here mean additive entries; edits to existing meanings stay restructure.
+PROMOTION_CLASSES: dict[str, tuple[str, str]] = {
+    "entity_creation": ("proactive_capture", "proactive_capture"),
+    "typed_edge": ("proactive_capture", "proactive_capture"),
+    "registry_save": ("proactive_capture", "structural_suggestions"),
+    "queue_acceptance": ("link_acceptance", "link_acceptance"),
+    "edge_removal": ("restructure_execution", "restructure_execution"),
+    "promotion_revert": ("restructure_execution", "restructure_execution"),
+}
+
+
+def promotion_classes(*, owner: bool) -> dict[str, str]:
+    """Project the resolved caller's v1 classes; scope and write guards still apply."""
+    return {action: classes[0 if owner else 1] for action, classes in PROMOTION_CLASSES.items()}
+
+
+def _owner_actions(action_class: str) -> str:
+    return ", ".join(
+        action.replace("_", " ")
+        for action, (owner_class, _other) in PROMOTION_CLASSES.items()
+        if owner_class == action_class
+    )
+
+
+# Generate promotion clauses from the map so served prose cannot classify them differently.
+CONFIRM_REQUIRED: str = (
+    "confirm-required: restructure application, collection creation, supersession, entity merge, deletion, "
+    f"{_owner_actions('restructure_execution')}. Deletion has a server confirm parameter; "
+    "adoption apply is preview-first; supersession has no server-side gate yet: future work. Additive owner "
+    f"promotions on v1: {_owner_actions('proactive_capture')} follow proactive_capture. "
+    "Meaning, alias, deprecation and deletion edits stay restructure."
+)
+
+#: The protocol the agent contract teaches for actions covered by the envelope.
+#: Read-only recall follows governance, not capture or restructure dispositions.
+#: Four moves, in order, and the order is the mechanism: an agent that
+#: checks the disposition before naming the class has already decided which
+#: cell it is reading from.
+#:
+#: Command-free for the same reason as everything else served here.
+DECIDER_PROTOCOL: tuple[str, ...] = (
+    "classify envelope actions, promotions from promotion_classes; unclassified action has no "
+    "authority; read-only recall follows governance",
+    "above the ceiling: a proposal, never an act",
+    "off blocks initiation, not explicit requests; advisory: surface and stop; silent: act "
+    "under prominence; confirm/confirm-shortcut: obtain confirmation for that action",
+    "triage addressed review decisions; ordinary writes keep mutation receipts",
+)
+
+_CONFIG_KEY = "envelope"
+ENVELOPE_PREFIX = "exomem://envelope/"
+
+
+def _normalize_class(value: str | None) -> str:
+    return str(value or "").strip().lower()
+
+
+def _normalize_disposition(value: str | None) -> str:
+    return str(value or "").strip().lower().replace("_", "-")
+
+
+def envelope_ref(action_class: str) -> str:
+    """The stable triage reference for one envelope action class."""
+    return f"{ENVELOPE_PREFIX}{_normalize_class(action_class)}"
+
+
+def is_envelope_ref(value: str) -> bool:
+    return str(value or "").strip().lower().startswith(ENVELOPE_PREFIX)
+
+
+def parse_envelope_ref(value: str) -> str:
+    """Return the addressed class; setters retain the canonical refusals."""
+    raw = str(value or "").strip()
+    if not raw.lower().startswith(ENVELOPE_PREFIX):
+        raise ValueError(f"INVALID_ENVELOPE_REFERENCE: expected {ENVELOPE_PREFIX}<action-class>")
+    return _normalize_class(raw[len(ENVELOPE_PREFIX) :])
+
+
+def derive_envelope(
+    level: str, *, proactive_capture_permitted: bool | None = None
+) -> dict[str, str]:
+    """``action class -> disposition`` for one prominence level. Pure; no I/O.
+
+    The design's derivation table, and the only place it exists. `disclosure`
+    is absent because it carries no disposition to derive.
+
+    Two rows are worth stating rather than reading off the table. `hygiene_writes`
+    and `restructure_execution` are fixed, so they do not vary by level — they
+    are returned anyway, because a caller asking "what is the envelope at this
+    level" wants the whole envelope, not the configurable part of it.
+    `proactive_capture` is `silent` at `balanced`, not `advisory`: balanced has
+    captured stepping stones on its own since the prominence contract shipped,
+    and `silent` here means "acts without asking" — narration remains the
+    prominence axis it already is. Tightening it would turn every routine
+    capture into a question, which is a nag increase inside the programme that
+    exists to remove nags.
+
+    `proactive_capture_permitted` overrides the level's own answer for that one
+    row. The level is not always the whole story about capture authority: an
+    unreadable preference record resolves to `balanced` for recall and
+    narration while capture drops to `off` (`prominence.effective_capture_level`).
+    Deriving this row from the level alone put the withheld write authority back
+    one key over, next to the gate that had just refused it. Callers with a
+    request in hand pass what that request's gate decided; a caller asking what
+    a level would give passes nothing and gets the table.
+    """
+    resolved = str(level or "").strip().lower()
+    if proactive_capture_permitted is None:
+        proactive_capture_permitted = resolved in {"balanced", "maximal"}
+    proactive = "silent" if proactive_capture_permitted else "off"
+    advisory = "off" if resolved == "off" else "advisory"
+    return {
+        "hygiene_writes": FIXED["hygiene_writes"],
+        "proactive_capture": proactive,
+        "link_acceptance": advisory,
+        "structural_suggestions": advisory,
+        "restructure_execution": FIXED["restructure_execution"],
+    }
+
+
+def stored_overrides() -> tuple[dict[str, str], list[dict]]:
+    """``(usable overrides, ignored rows)`` read from the shared config file.
+
+    Never raises and never refuses. An unknown class id or an out-of-range
+    value — a newer runtime's, most plausibly — is reported in the second
+    element and dropped from the first, because bootstrap serves this payload
+    and a config it cannot fully understand must still produce an envelope.
+    """
+    raw = mode.read_config().get(_CONFIG_KEY)
+    if raw in (None, ""):
+        return {}, []
+    if not isinstance(raw, dict):
+        log.warning("ignoring malformed %s in config: %r", _CONFIG_KEY, type(raw).__name__)
+        return {}, [{"class": None, "value": None, "reason": "malformed_envelope"}]
+
+    usable: dict[str, str] = {}
+    ignored: list[dict] = []
+    for key in sorted(raw):
+        action_class = _normalize_class(key)
+        value = raw[key]
+        disposition = _normalize_disposition(value) if isinstance(value, str) else None
+        if action_class not in ACTION_CLASSES:
+            ignored.append({"class": str(key), "value": value, "reason": "unknown_class"})
+            continue
+        if action_class in GOVERNANCE_OWNED:
+            ignored.append(
+                {"class": action_class, "value": value, "reason": "governance_owned"}
+            )
+            continue
+        if action_class in FIXED:
+            if disposition != FIXED[action_class]:
+                ignored.append({"class": action_class, "value": value, "reason": "fixed"})
+            continue
+        if disposition not in RANGES[action_class]:
+            ignored.append({"class": action_class, "value": value, "reason": "out_of_range"})
+            continue
+        usable[action_class] = disposition
+    return usable, ignored
+
+
+def active(level: str | None = None) -> dict[str, str]:
+    """``action class -> the disposition in force``, overrides applied."""
+    resolved_level = level or _active_level()
+    derived = derive_envelope(
+        resolved_level, proactive_capture_permitted=_proactive_permitted(level)
+    )
+    overrides, _ignored = stored_overrides()
+    derived.update(overrides)
+    return derived
+
+
+def _proactive_permitted(
+    level: str | None = None, surface: str | None = None, gate: dict | None = None
+) -> bool | None:
+    """Whether this request may capture proactively, or None to use the table.
+
+    An explicit `level` is a "what would this level give?" question and keeps
+    the table's answer. Everything else asks `prominence` about the request in
+    hand, so a caller with no `engagement` payload to take a gate from --
+    `capture_sweep` through `active()`, most importantly -- still picks up a
+    floor it was never handed.
+    """
+    from . import prominence as prominence_module
+
+    if gate is None:
+        if level is not None:
+            return None
+        gate = prominence_module.capture_gate(surface=surface)
+    # `all`, not `any`: the envelope row is one disposition covering both
+    # capture kinds, so it may only say "act" when the gate permits both. The
+    # table agrees at every canonical level today; if a level ever permits
+    # one kind and withholds the other, the envelope must take the withheld
+    # side, or it grants back exactly what this row exists to refuse.
+    return all(bool(rule.get("proactive_permitted")) for rule in gate.values())
+
+
+def resolved(
+    level: str | None = None, surface: str | None = None, *, capture_gate: dict | None = None,
+    promotion_classes: dict[str, str] | None = None,
+) -> dict:
+    """Bootstrap-shaped view: every class, its ceiling, disposition and provenance.
+
+    `disclosure` appears with a null disposition and `governance-owned`
+    provenance rather than being omitted: a client that cannot see the class at
+    all would have no way to learn that the class exists and is somebody else's
+    to decide.
+
+    `capture_gate` is the gate the caller already computed for this request.
+    Pass it whenever the envelope is served BESIDE that gate -- both keys of one
+    `engagement` block then come from one object, so they cannot drift apart in
+    the payload an agent actually reads.
+    """
+    from . import prominence as prominence_module
+
+    resolved_level = prominence_module.normalize(level) or prominence_module.resolve(surface)
+    derived = derive_envelope(
+        resolved_level,
+        proactive_capture_permitted=_proactive_permitted(level, surface, capture_gate),
+    )
+    overrides, ignored = stored_overrides()
+
+    classes: dict[str, dict] = {}
+    for action_class in ACTION_CLASSES:
+        if action_class in GOVERNANCE_OWNED:
+            classes[action_class] = {
+                "ceiling": CEILINGS[action_class],
+                "disposition": None,
+                "provenance": "governance-owned",
+            }
+            continue
+        if action_class in FIXED:
+            # BEFORE the override lookup, deliberately. `stored_overrides`
+            # already drops a stored value for a fixed class, so this branch is
+            # the second of two independent refusals — and it is the one on the
+            # path that actually reaches a client. A ceiling that held only
+            # because the storage reader happened to filter correctly would be
+            # an accident rather than product law.
+            provenance = "fixed"
+            disposition = FIXED[action_class]
+        elif action_class in overrides:
+            provenance = "override"
+            disposition = overrides[action_class]
+        else:
+            provenance = "derived"
+            disposition = derived[action_class]
+        classes[action_class] = {
+            "ceiling": CEILINGS[action_class],
+            "disposition": disposition,
+            "provenance": provenance,
+        }
+    served: dict = {
+        "level": resolved_level,
+        "classes": classes,
+        "protocol": list(DECIDER_PROTOCOL),
+        "confirm_required": CONFIRM_REQUIRED,
+        # Named, so the agent does not improvise a refusal -- or, worse,
+        # improvise a consent -- when a user asks for standing delegation.
+        "founder_gate": FOUNDER_GATE,
+    }
+    if promotion_classes is not None:
+        served["promotion_classes"] = dict(promotion_classes)
+    if ignored:
+        # Present only when there is something to report. An always-present empty
+        # list would spend bytes on every session start to say nothing, and this
+        # payload is the entire contract a hookless client receives.
+        served["ignored"] = ignored
+    return served
+
+
+def _active_level() -> str:
+    from . import prominence as prominence_module
+
+    return prominence_module.resolve()
+
+
+# --------------------------------------------------------------- write surface
+
+
+def set_disposition(action_class: str, disposition: str) -> Path:
+    """Persist one explicit override (atomic). Refuses everything out of bounds.
+
+    The refusal order is deliberate. `restructure_execution` is checked before
+    the value is looked at at all, so the founder-gate refusal is the SOLE error
+    that class can produce — a generic range message would let a standing
+    delegation request read as a typo.
+    """
+    name = _normalize_class(action_class)
+    if name not in ACTION_CLASSES:
+        raise ValueError(
+            f"UNKNOWN_ACTION_CLASS: {action_class!r} is not a v1 envelope action class. "
+            f"Valid: {list(ACTION_CLASSES)}"
+        )
+    if name in GOVERNANCE_OWNED:
+        raise ValueError(
+            f"DISCLOSURE_IS_GOVERNANCE_OWNED: {name} is not envelope-configurable; the "
+            "governance plane owns cross-boundary disclosure"
+        )
+    if name == "restructure_execution":
+        raise ValueError(f"STANDING_DELEGATION_REFUSED: {FOUNDER_GATE}")
+    if name in FIXED:
+        raise ValueError(
+            f"ENVELOPE_CLASS_FIXED: {name} is fixed at {FIXED[name]!r} and carries no range"
+        )
+    value = _normalize_disposition(disposition)
+    if value not in RANGES[name]:
+        raise ValueError(
+            f"ENVELOPE_DISPOSITION_OUT_OF_RANGE: {name} accepts {list(RANGES[name])}, "
+            f"not {disposition!r}"
+        )
+    stored = mode.read_config().get(_CONFIG_KEY)
+    envelope_object = dict(stored) if isinstance(stored, dict) else {}
+    envelope_object[name] = value
+    return _write_envelope(envelope_object)
+
+
+def reset_disposition(action_class: str) -> Path:
+    """Drop one override so the class returns to pure derivation."""
+    name = _normalize_class(action_class)
+    if name not in ACTION_CLASSES:
+        raise ValueError(
+            f"UNKNOWN_ACTION_CLASS: {action_class!r} is not a v1 envelope action class. "
+            f"Valid: {list(ACTION_CLASSES)}"
+        )
+    stored = mode.read_config().get(_CONFIG_KEY)
+    envelope_object = dict(stored) if isinstance(stored, dict) else {}
+    if name not in envelope_object:
+        # Nothing to clear. Writing anyway would rewrite the shared config file
+        # for a no-op, which is exactly the kind of write that races with
+        # another process's `mode` change.
+        return mode.config_path()
+    envelope_object.pop(name)
+    return _write_envelope(envelope_object)
+
+
+def _write_envelope(envelope_object: dict[str, str]) -> Path:
+    """Atomic swap into the shared config, mirroring `prominence.write_prominence`.
+
+    Same file, same `schema` key, same read-modify-write — so an envelope write
+    can never drop a `mode` or `prominence` the user already set. An envelope
+    with no overrides left removes the key entirely rather than storing `{}`,
+    because "absent means derived" is the rollback contract and an empty object
+    should not be a second spelling of it.
+    """
+    data = mode.read_config()
+    data["schema"] = 1
+    if envelope_object:
+        data[_CONFIG_KEY] = envelope_object
+    else:
+        data.pop(_CONFIG_KEY, None)
+    return mode.write_config(data)

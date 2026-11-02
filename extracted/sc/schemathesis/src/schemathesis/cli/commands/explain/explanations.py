@@ -110,6 +110,39 @@ EXPLANATIONS: dict[str, Explanation] = {
     "ST115": Explanation(
         summary="GraphQL response that is not a JSON object, such as a list, a string or null.",
     ),
+    "ST116": Explanation(
+        summary="GraphQL `data` that does not match the query, such as a missing field or a value of the wrong type.",
+        notes="""
+            Checked only for successful responses without `errors`, whose `data` must be an object or `null`. Every
+            requested field must be present under its alias, with no unrequested fields, a value of its declared type,
+            and no `null` for a non-nullable field.
+        """,
+    ),
+    "ST117": Explanation(
+        summary="gRPC response or status details that do not decode as the declared message.",
+        notes="""
+            A successful response must decode as the method's output message, and `grpc-status-details-bin` on an
+            error must decode as `google.rpc.Status`. Required fields, wire types and `google.protobuf.Any` values of
+            known types are checked as strict protobuf runtimes check them. Regenerate the descriptor set if the
+            server's protos changed.
+        """,
+    ),
+    "ST118": Explanation(
+        summary="gRPC response with fields its message, as the server reflects it, does not declare.",
+        notes="""
+            Applies to schemas loaded through reflection only: the server sends fields its own reflected descriptors
+            lack, so the reflection data is stale or the response is built from a different message.
+        """,
+    ),
+    "ST119": Explanation(
+        summary="gRPC request the server's gRPC library failed to decode before any handler ran.",
+        notes="""
+            Schemathesis sends requests that match the schema, so the server's message type is stricter than its
+            descriptor, e.g. a custom `bytes` type with a fixed length. Declare the constraint, or validate in the
+            handler and answer `INVALID_ARGUMENT`. Recognized on Go, Node and synchronous Python servers; on
+            others, the same failure is ST101.
+        """,
+    ),
     "ST201": Explanation(
         summary="Schema-violating request accepted.",
         notes="""
@@ -191,7 +224,8 @@ EXPLANATIONS: dict[str, Explanation] = {
         summary="Request with missing or invalid credentials accepted on an operation that requires authentication.",
         notes="""
             After a `2xx`, Schemathesis resends the request without credentials and with invalid ones. A public
-            operation needs `security: []` in the schema.
+            operation needs `security: []` in the schema. For gRPC, a successful call that carried `authorization`
+            metadata is resent without it and must fail with `UNAUTHENTICATED` or `PERMISSION_DENIED`.
         """,
     ),
     "ST402": Explanation(

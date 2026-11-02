@@ -125,9 +125,25 @@ def is_plain_text(value: str) -> bool:
     return parse(value) == ("text", "plain")
 
 
-def is_sse(value: str) -> bool:
+def is_sse(value: str | None) -> bool:
     """Detect the text/event-stream media type for Server-Sent Events."""
-    return parse(value) == ("text", "event-stream")
+    if value is None:
+        return False
+    try:
+        return parse(value) == ("text", "event-stream")
+    except MalformedMediaType:
+        return False
+
+
+def is_json_sequence(value: str | None) -> bool:
+    """Detect JSON Lines and JSON Text Sequences, which carry one JSON value per line or record."""
+    if value is None:
+        return False
+    try:
+        main, sub = parse(value)
+    except MalformedMediaType:
+        return False
+    return main == "application" and (sub in ("jsonl", "x-ndjson", "json-seq") or sub.endswith("+json-seq"))
 
 
 def is_form_urlencoded(value: str | None) -> bool:
@@ -196,8 +212,3 @@ def matches_either(first: tuple[str, str], second: tuple[str, str]) -> bool:
 def same_family(first: str, second: str) -> bool:
     """Whether both media types are variations of the same well-known type, e.g. `application/json` and `+json`."""
     return any(check(first) and check(second) for check in (is_json, is_xml, is_plain_text, is_yaml))
-
-
-def matches(expected: str, actual: str) -> bool:
-    """Check if two media type strings match with wildcard support."""
-    return matches_parts(parse(expected), parse(actual))

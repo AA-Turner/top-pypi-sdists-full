@@ -102,7 +102,7 @@ def test_the_capture_word_pi_waits_out_is_the_clis():
     """`CaptureReason` (daemon.ts) is the reading pi's footer looks at again until
     the recorder claims the session (#3619). Renamed in `capture_state.REASONS`
     alone, the looks would stop and the footer say "not capturing" again."""
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     assert set(ts_object(PI_CORE / "daemon.ts", "CaptureReason").values()) <= set(capture_state.REASONS)
 
@@ -277,7 +277,7 @@ def test_the_helper_sends_the_limit_the_sdk_resolves(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# hosted.ts, paths.ts, tapRuntime.ts <- probe/service/paths.py, hooks/tap-python.sh
+# hosted.ts, paths.ts, tapRuntime.ts <- probe/foundation/service_api/paths.py, hooks/tap-python.sh
 # ---------------------------------------------------------------------------
 
 
@@ -286,31 +286,31 @@ def test_pi_finds_the_service_where_the_service_keeps_its_files():
     service's lock file (`statusline_refresh._is_the_service`); pi re-states
     where that file is. The machine key is pinned by a fixture both languages
     read (tests/hosted.test.ts the other half)."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     assert ts_string(PATHS, "SERVICE_DIRNAME") == paths.SERVICE_DIRNAME
     assert ts_string(PATHS, "SERVICE_LOCK_NAME") == paths.LOCK_NAME
     assert ts_string(PATHS, "SERVICE_RUNTIME_NAME") == paths.RUNTIME_NAME
     assert tuple(ts_list(HOSTED, "MACHINE_ID_FILES")) == paths.MACHINE_ID_FILES
     # sha256(b"probe-service\0" + id): the prefix, one NUL byte, the id.
-    assert 'b"probe-service\\0" + machine_id()' in (AGENT / "src" / "probe" / "service" / "paths.py").read_text(encoding="utf-8")
+    assert 'b"probe-service\\0" + machine_id()' in (AGENT / "src" / "probe" / "foundation" / "service_api" / "paths.py").read_text(encoding="utf-8")
     assert ts_string(HOSTED, "MACHINE_KEY_PREFIX") == "probe-service"
     assert re.search(r"export const MACHINE_KEY_SEPARATOR = 0x00;", HOSTED.read_text(encoding="utf-8"))
     assert re.search(rf"export const MACHINE_KEY_LEN = {paths.MACHINE_KEY_LEN};", HOSTED.read_text(encoding="utf-8"))
     # Windows's machine id: the same registry value the service reads (`_windows_guid`).
-    source = (AGENT / "src" / "probe" / "service" / "paths.py").read_text(encoding="utf-8")
+    source = (AGENT / "src" / "probe" / "foundation" / "service_api" / "paths.py").read_text(encoding="utf-8")
     key = re.search(r'winreg\.HKEY_LOCAL_MACHINE, r"([^"]+)"', source)
     value = re.search(r'QueryValueEx\(key, "([^"]+)"\)', source)
     assert key and value and "KEY_WOW64_64KEY" in source
     assert ts_string(HOSTED, "WINDOWS_GUID_KEY") == "HKLM\\" + key.group(1)
     assert ts_string(HOSTED, "WINDOWS_GUID_VALUE") == value.group(1)
-    # What the service runs as (`client.py`: `python -I -m probe.service`), which /proc shows.
+    # What the service runs as (`start.py`: `python -I -m probe.service`), which /proc shows.
     assert ts_string(HOSTED, "SERVICE_COMMAND_MARK") == "probe.service"
-    assert '"-m", "probe.service"' in (AGENT / "src" / "probe" / "service" / "client.py").read_text(encoding="utf-8")
+    assert '"-m", "probe.service"' in (AGENT / "src" / "probe" / "foundation" / "service_api" / "start.py").read_text(encoding="utf-8")
 
 
 def test_the_machine_key_fixture_is_the_services(monkeypatch):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     fixture = json.loads((AGENT / "tests" / "fixtures" / "service-machine-key.json").read_text(encoding="utf-8"))
     assert fixture["cases"]
@@ -324,8 +324,8 @@ def test_pi_picks_the_taps_interpreter_as_tap_python_sh_does():
     """#3338 taught the hooks to run the tap on a Python 3.11+ (Apple's 3.9 broke
     every session); pi's own search (`tapRuntime.ts`) asks the same places in the
     same order and leaves the same note for `probe doctor`."""
-    from probe.cli import doctor
-    from probe.service import paths
+    from probe.cli.wizard import doctor
+    from probe.foundation.service_api import paths
 
     script = (TAP_ROOT / "hooks" / "tap-python.sh").read_text(encoding="utf-8")
     versioned = re.search(r"for name in ((?:python3\.\d+ ?)+); do", script)

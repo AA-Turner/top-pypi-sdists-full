@@ -1,0 +1,497 @@
+# Copyright (c) 2026 MiniStack Contributors. SPDX-License-Identifier: MIT
+# Copies or substantial portions, including AI-assisted ports or rewrites, must retain this notice (see LICENSE).
+"""
+DynamoDB Streams Emulator.
+Supports: ListStreams, DescribeStream, GetShardIterator, GetRecords.
+Uses X-Amz-Target header for action routing (JSON API, prefix
+DynamoDBStreams_20120810). Shares the ``dynamodb`` credential scope and reads
+stream records directly from ministack.services.dynamodb (single synthetic
+shard per stream; no duplicate storage).
+"""
+
+import base64
+import json
+import logging
+import time
+
+from ministack.core.arn import ArnParseError, parse_arn
+from ministack.core.responses import error_response_json, get_account_id, get_region, json_response
+from ministack.services import dynamodb as _ddb
+
+logger = logging.getLogger("dynamodb_streams")
+
+# Single synthetic shard per stream — MiniStack does not model shard splitting.
+_DEFAULT_SHARD_ID = "shardId-00000000000000000000-00000000"
+
+# "A shard iterator expires 15 minutes after it is returned to the requester."
+_ITERATOR_TTL_SECONDS = 15 * 60
+# "GetRecords can retrieve a maximum of 1 MB of data or 1000 stream records,
+# whichever comes first."
+_GET_RECORDS_MAX_BYTES = 1024 * 1024
+
+def _shard_not_found():
+    # Real AWS: "ResourceNotFoundException: Requested resource not found: Shard does not exist"
+    return error_response_json("ResourceNotFoundException",
+                               "Requested resource not found: Shard does not exist", 400)
+
+
+_ITERATOR_TYPES = {
+    "TRIM_HORIZON",
+    "LATEST",
+    "AT_SEQUENCE_NUMBER",
+    "AFTER_SEQUENCE_NUMBER",
+}
+
+
+async def handle_request(method, path, headers, body, query_params):
+    target = headers.get("x-amz-target", "")
+    action = target.split(".")[-1] if "." in target else ""
+
+    try:
+        data = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        return error_response_json("SerializationException", "Invalid JSON", 400)
+
+    handlers = {
+        "ListStreams": _list_streams,
+        "DescribeStream": _describe_stream,
+        "GetShardIterator": _get_shard_iterator,
+        "GetRecords": _get_records,
+    }
+
+    handler = handlers.get(action)
+    if not handler:
+        return error_response_json("UnknownOperationException", f"Unknown action: {action}", 400)
+    return handler(data)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _encode_iterator(
+    table_name: str,
+    shard_id: str,
+    position: int,
+    *,
+    account_id: str | None = None,
+    region: str | None = None,
+    stream_arn: str | None = None,
+) -> str:
+    """Encode an opaque shard iterator.
+
+    The token is intentionally opaque: callers must treat it as bytes and pass
+    it back unmodified. We base64-url-encode a small JSON payload so it stays
+    short enough to fit in AWS's 2 KB iterator limit.
+    """
+    payload_data = {"t": table_name, "s": shard_id, "p": position, "i": time.time()}
+    if account_id:
+        payload_data["a"] = account_id
+    if region:
+        payload_data["r"] = region
+    if stream_arn:
+        payload_data["arn"] = stream_arn
+    payload = json.dumps(payload_data, separators=(",", ":"))
+    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
+
+
+def _decode_iterator(token: str) -> dict | None:
+    try:
+        raw = base64.urlsafe_b64decode(token.encode("ascii"))
+        obj = json.loads(raw)
+        if not isinstance(obj, dict) or "t" not in obj or "p" not in obj:
+            return None
+        return obj
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def _stream_source(stream_arn: str):
+    """Extract the parsed spec and table name from a stream ARN of the form
+    ``arn:aws:dynamodb:{region}:{account}:table/{name}/stream/{label}``.
+
+    Invalid or out-of-shape stream ARNs map to ``None`` so describe/list paths
+    keep DynamoDB Streams' not-found behavior.
+    """
+    try:
+        spec = parse_arn(stream_arn)
+    except ArnParseError:
+        return None
+    if spec.service != "dynamodb" or not spec.region or not spec.account_id:
+        return None
+    parts = spec.resource.split("/")
+    if (
+        len(parts) < 4
+        or parts[0] != "table"
+        or parts[2] != "stream"
+        or not parts[1]
+        or not parts[3]
+    ):
+        return None
+    return spec, parts[1]
+
+
+def _table_from_stream_arn(stream_arn: str) -> str | None:
+    source = _stream_source(stream_arn)
+    if source is None:
+        return None
+    return source[1]
+
+
+def _request_stream_source(stream_arn: str):
+    source = _stream_source(stream_arn)
+    if source is None:
+        return None
+    spec, table_name = source
+    if spec.account_id != get_account_id() or spec.region != get_region():
+        return None
+    return spec, table_name
+
+
+def _records_for(account_id: str, region: str, table_name: str) -> list:
+    """Return the unexpired stream records for a table, oldest first.
+
+    Reads directly from the dynamodb module so TransactWriteItems,
+    BatchWriteItem, and the single-item ops all stay in sync automatically.
+    Index ``i`` here is absolute stream position ``_horizon(...) + i``: records
+    that age out are dropped off the front, so positions handed to clients in a
+    shard iterator are always absolute and never shift underneath them.
+    """
+    return _ddb.stream_live_records(table_name, account_id=account_id, region=region)
+
+
+def _horizon(account_id: str, region: str, table_name: str) -> int:
+    """Absolute position of the oldest record still on the stream."""
+    return _ddb.stream_start_position(table_name, account_id=account_id, region=region)
+
+
+def _enabled_stream_info(
+    table_name: str,
+    *,
+    account_id: str | None = None,
+    region: str | None = None,
+) -> dict | None:
+    """Return a dict describing a table's current stream, or ``None`` when
+    the table does not have an enabled stream."""
+    if account_id is None or region is None:
+        table = _ddb._tables.get(table_name)
+    else:
+        table = _ddb._tables.get_scoped(account_id, region, table_name)
+    if not table:
+        return None
+    spec = table.get("StreamSpecification")
+    if not spec or not spec.get("StreamEnabled"):
+        return None
+    stream_arn = table.get("LatestStreamArn")
+    stream_label = table.get("LatestStreamLabel")
+    if not stream_arn or not stream_label:
+        return None
+    return {
+        "TableName": table_name,
+        "StreamArn": stream_arn,
+        "StreamLabel": stream_label,
+        "StreamViewType": spec.get("StreamViewType", "NEW_AND_OLD_IMAGES"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Operations
+# ---------------------------------------------------------------------------
+
+def _list_streams(data):
+    """List streams, optionally filtered by TableName.
+
+    Pagination: the real API returns up to 100 streams per page with
+    ``LastEvaluatedStreamArn``. MiniStack deployments have a small number of
+    tables so we return everything in one page but still honour ``Limit``.
+    """
+    table_filter = data.get("TableName")
+    limit = int(data.get("Limit", 100) or 100)
+    exclusive_start = data.get("ExclusiveStartStreamArn")
+
+    streams = []
+    names = sorted(_ddb._tables.keys())
+    if table_filter:
+        names = [n for n in names if n == table_filter]
+
+    for name in names:
+        info = _enabled_stream_info(name)
+        if info is None:
+            continue
+        streams.append({
+            "StreamArn": info["StreamArn"],
+            "TableName": info["TableName"],
+            "StreamLabel": info["StreamLabel"],
+        })
+
+    if exclusive_start:
+        idx = next((i for i, s in enumerate(streams) if s["StreamArn"] == exclusive_start), -1)
+        if idx >= 0:
+            streams = streams[idx + 1:]
+
+    page = streams[:limit]
+    response: dict = {"Streams": page}
+    if len(page) == limit and len(streams) > limit:
+        response["LastEvaluatedStreamArn"] = page[-1]["StreamArn"]
+    return json_response(response)
+
+
+def _describe_stream(data):
+    stream_arn = data.get("StreamArn")
+    if not stream_arn:
+        return error_response_json("ValidationException", "StreamArn is required", 400)
+
+    source = _request_stream_source(stream_arn)
+    if source is None:
+        return error_response_json(
+            "ResourceNotFoundException", f"Stream not found: {stream_arn}", 400
+        )
+    spec, table_name = source
+
+    info = _enabled_stream_info(table_name, account_id=spec.account_id, region=spec.region)
+    closed = None
+    if info is None or info["StreamArn"] != stream_arn:
+        closed = _ddb.closed_stream(stream_arn)
+        if closed is None:
+            return error_response_json(
+                "ResourceNotFoundException", f"Stream not found: {stream_arn}", 400
+            )
+        info = closed
+
+    records = closed["records"] if closed else _records_for(spec.account_id, spec.region, table_name)
+    starting_seq = records[0]["dynamodb"]["SequenceNumber"] if records else None
+
+    shard: dict = {
+        "ShardId": _DEFAULT_SHARD_ID,
+        "SequenceNumberRange": {},
+    }
+    if starting_seq:
+        shard["SequenceNumberRange"]["StartingSequenceNumber"] = starting_seq
+        if closed:
+            shard["SequenceNumberRange"]["EndingSequenceNumber"] = records[-1]["dynamodb"]["SequenceNumber"]
+
+    if closed:
+        key_schema = closed["KeySchema"]
+        created = closed["CreationRequestDateTime"]
+    else:
+        table = _ddb._tables.get_scoped(spec.account_id, spec.region, table_name, {})
+        key_schema = table.get("KeySchema", [])
+        created = table.get("CreationDateTime", 0)
+
+    # AWS shard pagination: Limit caps the number of Shards returned (max 100),
+    # ExclusiveStartShardId skips past a previously-returned shard. We expose
+    # one synthetic shard so this is degenerate, but the fields must be honored
+    # for SDK consumers that pass them.
+    # The single synthetic shard has no children.
+    all_shards = [] if (data.get("ShardFilter") or {}).get("Type") == "CHILD_SHARDS" else [shard]
+    start_shard = data.get("ExclusiveStartShardId")
+    if start_shard:
+        idx = next((i for i, s in enumerate(all_shards) if s["ShardId"] == start_shard), -1)
+        all_shards = all_shards[idx + 1:] if idx >= 0 else []
+    limit = min(int(data.get("Limit", 100) or 100), 100)
+    page = all_shards[:limit]
+
+    description = {
+        "StreamArn": stream_arn,
+        "StreamLabel": info["StreamLabel"],
+        "StreamStatus": "DISABLED" if closed else "ENABLED",
+        "StreamViewType": info["StreamViewType"],
+        "CreationRequestDateTime": created,
+        "TableName": table_name,
+        "KeySchema": key_schema,
+        "Shards": page,
+    }
+    if len(page) == limit and len(all_shards) > limit:
+        description["LastEvaluatedShardId"] = page[-1]["ShardId"]
+    return json_response({"StreamDescription": description})
+
+
+def _get_shard_iterator(data):
+    stream_arn = data.get("StreamArn")
+    shard_id = data.get("ShardId") or _DEFAULT_SHARD_ID
+    if shard_id != _DEFAULT_SHARD_ID:
+        return _shard_not_found()
+    iterator_type = data.get("ShardIteratorType")
+    seq_number = data.get("SequenceNumber")
+
+    if not stream_arn:
+        return error_response_json("ValidationException", "StreamArn is required", 400)
+    if iterator_type not in _ITERATOR_TYPES:
+        return error_response_json(
+            "ValidationException",
+            f"ShardIteratorType must be one of {sorted(_ITERATOR_TYPES)}",
+            400,
+        )
+
+    source = _request_stream_source(stream_arn)
+    if source is None:
+        return error_response_json(
+            "ResourceNotFoundException", f"Stream not found: {stream_arn}", 400
+        )
+    spec, table_name = source
+
+    info = _enabled_stream_info(table_name, account_id=spec.account_id, region=spec.region)
+    if info is None or info["StreamArn"] != stream_arn:
+        closed = _ddb.closed_stream(stream_arn)
+        if closed is None:
+            return error_response_json(
+                "ResourceNotFoundException", f"Stream not found: {stream_arn}", 400
+            )
+        records, horizon = closed["records"], closed["trimmed"]
+    else:
+        records = _records_for(spec.account_id, spec.region, table_name)
+        horizon = _horizon(spec.account_id, spec.region, table_name)
+    position = horizon
+    if iterator_type == "TRIM_HORIZON":
+        position = horizon
+    elif iterator_type == "LATEST":
+        position = horizon + len(records)
+    elif iterator_type in ("AT_SEQUENCE_NUMBER", "AFTER_SEQUENCE_NUMBER"):
+        if not seq_number:
+            return error_response_json(
+                "ValidationException",
+                f"SequenceNumber is required for {iterator_type}",
+                400,
+            )
+        idx = next(
+            (i for i, r in enumerate(records)
+             if r["dynamodb"]["SequenceNumber"] == seq_number),
+            None,
+        )
+        if idx is None:
+            return error_response_json(
+                "TrimmedDataAccessException",
+                f"Sequence number {seq_number} not found on stream",
+                400,
+            )
+        position = horizon + (idx if iterator_type == "AT_SEQUENCE_NUMBER" else idx + 1)
+
+    iterator = _encode_iterator(
+        table_name,
+        shard_id,
+        position,
+        account_id=spec.account_id,
+        region=spec.region,
+        stream_arn=stream_arn,
+    )
+    return json_response({"ShardIterator": iterator})
+
+
+def _cap_page_bytes(page: list) -> list:
+    """Stop the page before the record that would pass 1 MB."""
+    total = 0
+    for i, record in enumerate(page):
+        size = len(json.dumps(record, separators=(",", ":"), default=str).encode("utf-8"))
+        if i and total + size > _GET_RECORDS_MAX_BYTES:
+            return page[:i]
+        total += size
+    return page
+
+
+def _get_records(data):
+    iterator = data.get("ShardIterator")
+    limit = int(data.get("Limit", 1000))
+    if limit < 1:
+        return error_response_json("ValidationException",
+            f"1 validation error detected: Value '{limit}' at 'limit' failed to satisfy constraint: "
+            "Member must have value greater than or equal to 1", 400)
+    limit = min(limit, 1000)
+
+    if not iterator:
+        return error_response_json("ValidationException", "ShardIterator is required", 400)
+
+    decoded = _decode_iterator(iterator)
+    if decoded is None:
+        return error_response_json(
+            "ValidationException", "ShardIterator is not valid", 400
+        )
+
+    table_name = decoded["t"]
+    shard_id = decoded.get("s", _DEFAULT_SHARD_ID)
+    if shard_id != _DEFAULT_SHARD_ID:
+        return _shard_not_found()
+    position = int(decoded.get("p", 0))
+    account_id = decoded.get("a", get_account_id())
+    region = decoded.get("r", get_region())
+    stream_arn = decoded.get("arn")
+
+    if account_id != get_account_id() or region != get_region():
+        return error_response_json(
+            "ValidationException", "ShardIterator is not valid", 400
+        )
+    issued = decoded.get("i")
+    if not isinstance(issued, (int, float)) or time.time() - issued >= _ITERATOR_TTL_SECONDS:
+        return error_response_json("ExpiredIteratorException",
+            "The shard iterator has expired and can no longer be used to retrieve stream records.", 400)
+
+    info = _enabled_stream_info(table_name, account_id=account_id, region=region)
+    closed = None
+    if info is None or (stream_arn and info["StreamArn"] != stream_arn):
+        closed = _ddb.closed_stream(stream_arn) if stream_arn else None
+        if closed is None:
+            return error_response_json(
+                "ExpiredIteratorException",
+                "Iterator references a stream that is no longer enabled",
+                400,
+            )
+
+    # ``position`` is absolute, so an iterator minted before records expired
+    # still lands correctly; one that now points behind the trim horizon
+    # resumes at the horizon rather than skipping live records.
+    # An iterator whose position has since been trimmed (records past 24 h)
+    # raises TrimmedDataAccessException, as botocore documents.
+    horizon = closed["trimmed"] if closed else _horizon(account_id, region, table_name)
+    if position < horizon:
+        return error_response_json("TrimmedDataAccessException",
+            "The data you are trying to access has been trimmed", 400)
+    if closed:
+        offset = position - closed["trimmed"]
+        page = closed["records"][offset:offset + limit]
+    else:
+        page = _ddb.stream_records_since(
+            table_name, position, limit, account_id=account_id, region=region
+        )
+    page = _cap_page_bytes(page)
+    next_position = position + len(page)
+    # The Streams Record shape carries no eventSourceARN (Lambda events do).
+    page = [{k: v for k, v in r.items() if k != "eventSourceARN"} for r in page]
+    if closed and next_position >= closed["trimmed"] + len(closed["records"]):
+        # "If set to null, the shard has been closed and the requested
+        # iterator will not return any more data."
+        return json_response({"Records": page})
+    next_iterator = _encode_iterator(
+        table_name,
+        shard_id,
+        next_position,
+        account_id=account_id,
+        region=region,
+        stream_arn=stream_arn,
+    )
+
+    return json_response({
+        "Records": page,
+        "NextShardIterator": next_iterator,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle
+# ---------------------------------------------------------------------------
+
+def get_state():
+    # All state lives in the dynamodb module; nothing to persist here.
+    return {}
+
+
+def load_persisted_state(data):
+    return _restore_state(data)
+
+
+def _restore_state(data):
+    pass
+
+
+def reset():
+    # Stream records are cleared by dynamodb.reset(); keep this a no-op so
+    # ordering between reset callers never matters.
+    pass

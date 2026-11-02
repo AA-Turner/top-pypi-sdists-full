@@ -1,0 +1,441 @@
+"""Camera semantics: the named moves, and the one resolver that expands them.
+
+This module exists because the alternative was two hand-maintained tables. The
+compiler owned `CAMERA_MOVES` and `an.ir.validate` owned a frozenset of the
+same names, reconciled by a test — which works, and is not what "a move that
+validates cannot then raise" means. It means *one table*.
+
+It lives under `an/ir/` rather than in the cutout adapter because the IR layer
+must not import an adapter, and validate is in the IR layer. The camera is IR
+semantics anyway: `Camera`/`CameraKey` are schema models, and a renderer that
+cannot honour a move says so through `can_render`, not by keeping its own
+vocabulary.
+
+The geometry it encodes, verified numerically against the vendored PixiJS
+composition: `root.pivot` IS a 2D camera, because PixiJS composes
+``world = position + M·(local − pivot)`` and the runtime indexes the centre
+container as ``root``. `+x` moves the CAMERA right, which moves content left.
+"""
+
+from __future__ import annotations
+
+import random
+from typing import Callable
+
+from an.ir.schema import Camera, CameraKey, Shot
+
+__all__ = [
+    "CAMERA_MOVES",
+    "DOLLY_IN",
+    "DOLLY_OUT",
+    "FOLLOW_OVERLAY_FIELDS",
+    "PAN_FRACTION",
+    "CameraError",
+    "camera_keys",
+    "camera_shake_offsets",
+    "dolly_frames",
+    "dolly_growth",
+    "follow_overlay",
+    "frame_times",
+    "plane_dolly_scale",
+]
+
+#: How far a pan travels, as a fraction of the canvas width (a tilt uses the
+#: same fraction of the height). A third of the frame is a legible move at any
+#: resolution and is the one number a named pan has to choose; an author who
+#: wants a different distance writes `keys` and says so.
+PAN_FRACTION: float = 1.0 / 3.0
+
+
+#: How far the named dollies travel (an#478), as :attr:`CameraKey.dolly`. Chosen
+#: so the character plane grows as under ``push_in`` (×1.25) and ``pull_out``
+#: (×0.8): ``dolly_in`` is ``push_in`` with depth, a foreground plane at depth
+#: 1.4 growing ×1.39 and a moon at 0.08 ×1.02 (the design of record's numbers).
+DOLLY_IN: float = 0.2
+DOLLY_OUT: float = -0.25
+
+
+class CameraError(ValueError):
+    """A camera that cannot be resolved into keys.
+
+    A plain `ValueError` subclass so the IR layer can raise it without knowing
+    about any renderer; the cutout compiler re-raises it as a
+    `CutoutCompileError` at its own boundary.
+    """
+
+
+def _zoom_keys(duration: float, start: float, end: float) -> list[CameraKey]:
+    """Two keys that vary only `zoom` — the pre-an#109 document, as keys."""
+    return [
+        CameraKey(at=0.0, zoom=start, easing="ease_in_out"),
+        CameraKey(at=duration, zoom=end),
+    ]
+
+
+def _dolly_keys(duration: float, end: float) -> list[CameraKey]:
+    """Two keys that vary only ``dolly`` (an#478), eased as a push-in is."""
+    return [
+        CameraKey(at=0.0, easing="ease_in_out"),
+        CameraKey(at=duration, dolly=end),
+    ]
+
+
+def _move_keys(duration: float, axis: str, sign: float) -> list[CameraKey]:
+    """Two keys that vary only one translation axis. The distance is filled in
+    by :func:`camera_keys`, which is the only place that knows the canvas."""
+    return [
+        CameraKey(at=0.0, easing="ease_in_out"),
+        CameraKey(at=duration, **{axis: sign}),
+    ]
+
+
+#: The named moves, as KEY LISTS. `move` is sugar over `keys` — one code path,
+#: two front doors.
+#:
+#: The five zoom moves must desugar to **exactly** the document they produced
+#: before an#109, which is more specific than "a scale tween": two animations
+#: named `__camera__<shot>_scale_x`/`_scale_y`, one channel each targeting
+#: `root`, keyframes `[(0.0, s0, "ease_in_out"), (duration, s1, null)]`, on two
+#: tracks rooted at `"__camera__"`, and **no pivot channels**. The emitter emits
+#: only the channels that actually vary, which is what makes that true rather
+#: than merely intended — and what keeps every camera scene's contract hash
+#: where it was.
+CAMERA_MOVES: dict[str, Callable[[float], list[CameraKey]]] = {
+    "hold": lambda d: [],
+    "push_in": lambda d: _zoom_keys(d, 1.0, 1.25),
+    "pull_out": lambda d: _zoom_keys(d, 1.0, 0.8),
+    "zoom_in": lambda d: _zoom_keys(d, 1.0, 1.5),
+    "zoom_out": lambda d: _zoom_keys(d, 1.0, 0.7),
+    # an#109. `+x` moves the CAMERA right, so `pan_left` ends at negative x.
+    # In film a lateral translation on a fixed head is a *truck*, not a pan; on
+    # an orthographic 2D stage the two are indistinguishable, and the epic's
+    # done-when says `pan_left`, so the ambiguity lives here rather than in a
+    # purist rename nobody would search for.
+    "pan_left": lambda d: _move_keys(d, "x", -1.0),
+    "pan_right": lambda d: _move_keys(d, "x", 1.0),
+    "tilt_up": lambda d: _move_keys(d, "y", -1.0),
+    "tilt_down": lambda d: _move_keys(d, "y", 1.0),
+    # an#478: the camera travels toward (away from) the scene, so each plane
+    # grows by its depth; a flat zoom grows them all alike.
+    "dolly_in": lambda d: _dolly_keys(d, DOLLY_IN),
+    "dolly_out": lambda d: _dolly_keys(d, DOLLY_OUT),
+}
+
+#: Moves a pan/tilt scales by the canvas HEIGHT rather than the width. A frame
+#: is wider than it is tall, so one span for both axes makes a tilt travel
+#: further than the picture it is tilting across.
+_VERTICAL_MOVES: frozenset[str] = frozenset({"tilt_up", "tilt_down"})
+
+
+def camera_keys(shot: Shot, *, width: int, height: int) -> list[CameraKey]:
+    """The shot's camera as an explicit key list — the ONE resolver.
+
+    `move` and `keys` are two front doors on one path. **Validate calls this
+    and so does the compiler**, which is what makes "a move that validates
+    cannot then raise" true by construction rather than by two tables agreeing
+    — the arrangement it replaced (an#109 review, H-1).
+
+    >>> from an.ir.schema import Camera, Shot
+    >>> push = Shot(id="s", renderer="cutout", duration=2.0, camera=Camera(move="push_in"))
+    >>> [(k.at, k.zoom) for k in camera_keys(push, width=320, height=240)]
+    [(0.0, 1.0), (2.0, 1.25)]
+    >>> pan = Shot(id="s", renderer="cutout", duration=2.0, camera=Camera(move="pan_left"))
+    >>> [(k.at, round(k.x, 3)) for k in camera_keys(pan, width=320, height=240)]
+    [(0.0, 0.0), (2.0, -106.667)]
+    """
+    camera: Camera | None = shot.camera
+    if camera is None:
+        return []
+    if camera.move is not None and camera.keys is not None:
+        raise CameraError(
+            f"shot {shot.id!r} sets BOTH camera.move={camera.move!r} and "
+            f"camera.keys ({len(camera.keys)} keys). They are two front doors "
+            "on one path, so a scene that sets both says two things about the "
+            "same camera and there is no reading that is not a guess. Keep the "
+            "one you meant."
+        )
+    if camera.follow is not None:
+        if camera.move not in (None, "", "hold"):
+            raise CameraError(
+                f"shot {shot.id!r} sets camera.follow (on "
+                f"{camera.follow.target!r}) and also camera.move={camera.move!r}. "
+                "A follow IS the camera's path, so the two cannot both drive it. "
+                "Keep the follow, or the move (a follow may dolly or zoom with "
+                "`camera.keys` that set only `dolly` and `zoom`, an#625)."
+            )
+        if camera.keys is not None:
+            _refuse_unknown_key_fields(shot, list(camera.keys))
+            _refuse_a_follow_overlay_that_moves(shot, camera.keys)
+            _refuse_keys_that_cannot_play(
+                shot, list(camera.keys), max(0.001, float(shot.duration))
+            )
+        # A follow's keys come from the COMPILED motion (an#445): the compiler
+        # resolves them (`camera_follow_keys`), its `keys` an overlay of dolly
+        # and zoom on that path (an#625); at the IR level there are none.
+        return []
+    duration = max(0.001, float(shot.duration))
+    if camera.keys is not None:
+        keys = list(camera.keys)
+        _refuse_unknown_key_fields(shot, keys)
+        _refuse_keys_that_cannot_play(shot, keys, duration)
+        return keys
+    if camera.move is None:
+        return []
+    # Normalise BEFORE the emptiness test, or the guard grows an arbitrary seam:
+    # `move=""` fell through the falsiness check and was ignored, while
+    # `move="  "` reached the lookup and raised. Same input, two behaviours.
+    move = camera.move.strip()
+    if not move:
+        return []
+    if move not in CAMERA_MOVES:
+        raise CameraError(
+            f"shot {shot.id!r} asks for camera.move={move!r}, which the cutout "
+            f"renderer does not implement (it has: {sorted(CAMERA_MOVES)}). "
+            "Write `camera.keys` if you need a move the presets do not name."
+        )
+    keys = CAMERA_MOVES[move](duration)
+    # `_move_keys` carries a unit SIGN on its axis; the distance needs the
+    # canvas, which only the caller knows.
+    span = float(height if move in _VERTICAL_MOVES else width) * PAN_FRACTION
+    return [k.model_copy(update={"x": k.x * span, "y": k.y * span}) for k in keys]
+
+
+#: What a follow's key overlay may set (an#625): how far the camera travels in
+#: and its zoom. Its position is the follow's, and a roll would turn the frame
+#: the follow holds the target in.
+FOLLOW_OVERLAY_FIELDS: frozenset[str] = frozenset({"at", "zoom", "dolly", "easing"})
+
+
+def _refuse_a_follow_overlay_that_moves(shot: Shot, keys: list[CameraKey]) -> None:
+    """A follow's ``keys`` are an overlay of ``dolly`` and ``zoom`` on its
+    path (an#625): one that also places or rolls the camera would be a second
+    path, which a follow cannot share."""
+    for i, key in enumerate(keys):
+        moved = sorted(
+            f for f in key.model_fields_set - FOLLOW_OVERLAY_FIELDS if getattr(key, f)
+        )
+        if moved:
+            raise CameraError(
+                f"shot {shot.id!r} follows {shot.camera.follow.target!r} and its "
+                f"camera.keys[{i}] sets {', '.join(moved)}: beside a follow, keys "
+                f"may set only {sorted(FOLLOW_OVERLAY_FIELDS - {'at', 'easing'})} "
+                "(the follow is the camera's position). Drop them, or drop the follow."
+            )
+
+
+def follow_overlay(
+    keys: list[CameraKey] | None, times: list[float]
+) -> list[tuple[float, float]]:
+    """``(zoom, dolly)`` of a follow's key overlay at each of ``times`` (an#625),
+    each field by the keys' own easings; ``(1.0, 0.0)`` with no overlay.
+
+    >>> follow_overlay([CameraKey(at=0.0), CameraKey(at=1.0, dolly=0.2)], [0.0, 1.0])
+    [(1.0, 0.0), (1.0, 0.2)]
+    >>> follow_overlay(None, [0.0, 0.5])
+    [(1.0, 0.0), (1.0, 0.0)]
+    """
+    if not keys:
+        rest = CameraKey()
+        return [(rest.zoom, rest.dolly)] * len(times)
+    from an.timing import evaluate_channel
+
+    ch = _key_channels(keys, ("zoom", "dolly"))
+    return [
+        (evaluate_channel(ch["zoom"], t), evaluate_channel(ch["dolly"], t))
+        for t in times
+    ]
+
+
+def _refuse_unknown_key_fields(shot: Shot, keys: list[CameraKey]) -> None:
+    """A key field the camera does not read is a typo, not a choice (an#454):
+    `{t: 0, x: 0}` would otherwise play `at: 0` and ignore `t`, silently."""
+    known = sorted(CameraKey.model_fields)
+    for i, key in enumerate(keys):
+        unknown = sorted(key.model_extra or {})
+        if unknown:
+            raise CameraError(
+                f"shot {shot.id!r}: camera key {i} has {unknown}, which no camera "
+                f"reads (a key is {{{', '.join(known)}}}: `at` in shot seconds, "
+                "`x`/`y` the camera's position in scene pixels, `+x` moving it "
+                "right, `zoom` a magnification, `rotation` in radians, `easing` "
+                "for the segment that starts at this key)."
+            )
+
+
+def _refuse_keys_that_cannot_play(
+    shot: Shot, keys: list[CameraKey], duration: float
+) -> None:
+    """Keys the compiler would emit as keyframes that never play.
+
+    Raised rather than warned, and raised HERE rather than only reported by
+    validate, because the alternative is a silent no-op: a keyframe past the
+    shot's end is emitted and never reached, and an out-of-order key runs the
+    camera backwards through a curve the author did not write. Both are
+    `test_loud_discards.py`'s subject matter.
+
+    Raising also makes validate's ERROR a prediction of a raise, which is
+    `_check_camera`'s stated contract — before an#109's review, three of its
+    four errors fired on scenes that compiled fine (M-2).
+    """
+    times = [float(k.at) for k in keys]
+    if times != sorted(times):
+        raise CameraError(
+            f"shot {shot.id!r}: camera keys are not in time order ({times}). "
+            "They are emitted as keyframes in list order, so an out-of-order "
+            "key runs the camera backwards through a curve nobody wrote."
+        )
+    outside = [t for t in times if not (0.0 <= t <= duration)]
+    if outside:
+        raise CameraError(
+            f"shot {shot.id!r}: camera keys at {outside} are outside the shot "
+            f"(0 … {duration}). A keyframe past the end never plays; one before "
+            "the start opens the shot mid-move."
+        )
+
+
+def camera_shake_offsets(
+    shot: Shot, *, width: int, height: int
+) -> list[tuple[float, float, float]]:
+    """The shot's camera shakes as ``(time, dx, dy)`` screen offsets — the ONE resolver (an#429).
+
+    Empty when the shot has none. Each shake is at rest (``0, 0``) at its
+    start and its end; between, the frame jumps ``frequency`` times a second
+    to a seeded offset of at most ``amplitude`` × the frame height, scaled
+    down linearly to rest when ``decay``. Validate and the compiler both call
+    this, so a shake that validates cannot then raise (as with
+    :func:`camera_keys`).
+
+    >>> from an.ir.schema import Camera, CameraShake, Shot
+    >>> s = Shot(id="s", duration=2.0, camera=Camera(shake=[CameraShake(at=1.0, duration=0.25, frequency=8)]))
+    >>> [(t, round(dx, 2), round(dy, 2)) for t, dx, dy in camera_shake_offsets(s, width=1280, height=720)]
+    [(1.0, 0.0, 0.0), (1.125, 3.72, 2.79), (1.25, 0.0, 0.0)]
+    """
+    camera: Camera | None = shot.camera
+    if camera is None or not camera.shake:
+        return []
+    duration = max(0.001, float(shot.duration))
+    shakes = sorted(camera.shake, key=lambda k: float(k.at))
+    out: list[tuple[float, float, float]] = []
+    for i, k in enumerate(shakes):
+        start, length = float(k.at), float(k.duration)
+        end = start + length
+        if start < 0.0 or end > duration + 1e-9:
+            raise CameraError(
+                f"shot {shot.id!r}: the camera shake at {start:g}s lasts {length:g}s, "
+                f"past the shot (0 … {duration:g}s): its frames would never play. "
+                "Shorten it or move it earlier."
+            )
+        if i and start < float(shakes[i - 1].at) + float(shakes[i - 1].duration) - 1e-9:
+            raise CameraError(
+                f"shot {shot.id!r}: two camera shakes overlap (at "
+                f"{float(shakes[i - 1].at):g}s and {start:g}s). Write one longer shake, "
+                "or move the second after the first ends."
+            )
+        steps = max(1, round(length * float(k.frequency)))
+        amp = float(k.amplitude) * float(height)
+        rng = random.Random(int(k.seed))
+        for j in range(steps + 1):
+            t = start + length * j / steps
+            if j in (0, steps):
+                out.append((t, 0.0, 0.0))
+                continue
+            env = 1.0 - j / steps if k.decay else 1.0
+            dx, dy = (amp * env * rng.uniform(-1.0, 1.0) for _ in range(2))
+            out.append((t, dx, dy))
+    return out
+
+
+def dolly_growth(factor: float, dolly: float) -> float:
+    """How much a plane of parallax ``factor`` grows when the camera has
+    travelled ``dolly`` (an#478): a pinhole camera, the plane at distance
+    ``1 / factor`` in units of the character plane's.
+
+    >>> dolly_growth(1.0, 0.2), round(dolly_growth(1.4, 0.2), 3), dolly_growth(0.0, 0.2)
+    (1.25, 1.389, 1.0)
+    """
+    return 1.0 / (1.0 - factor * dolly)
+
+
+def plane_dolly_scale(factor: float, dolly: float, *, plane: str = "") -> float:
+    """The scale a plane of parallax ``factor`` takes ON TOP of the root's zoom
+    when the camera has travelled ``dolly`` (an#478): its growth over the
+    character plane's, ``(1 − dolly) / (1 − factor · dolly)``. Exactly ``1.0``
+    without a dolly or at ``factor`` 1. A dolly that reaches the plane (the
+    camera at or past it) is a :class:`CameraError`.
+
+    >>> plane_dolly_scale(1.0, 0.2), plane_dolly_scale(0.0, 0.0), round(plane_dolly_scale(0.0, 0.2), 3)
+    (1.0, 1.0, 0.8)
+    """
+    if factor * dolly >= 1.0:
+        raise CameraError(
+            f"the camera dollies {dolly:g} of the way to the character plane, "
+            f"which takes it past plane {plane or '?'!r} (depth {factor:g}, at "
+            f"{1.0 / factor:g} of that distance). Dolly less, or move the plane "
+            "further back."
+        )
+    return dolly_growth(factor, dolly) / dolly_growth(1.0, dolly)
+
+
+def frame_times(*, duration: float, fps: float) -> list[float]:
+    """The time of every frame the render draws, the shot's end included.
+
+    >>> frame_times(duration=0.5, fps=4)
+    [0.0, 0.25, 0.5]
+    """
+    frames = max(1, round(duration * fps))
+    return [min(duration, n / fps) for n in range(frames + 1)]
+
+
+def _key_channels(keys: list[CameraKey], fields) -> dict:
+    """``{field: Channel}`` of ``keys``, each field by the keys' own easings."""
+    from an.timing.channel import Channel, Keyframe
+
+    return {
+        f: Channel(
+            "camera",
+            f,
+            [Keyframe(float(k.at), float(getattr(k, f)), k.easing) for k in keys],
+        )
+        for f in fields
+    }
+
+
+def dolly_frames(
+    keys: list[CameraKey], *, duration: float, fps: float
+) -> list[CameraKey]:
+    """``keys`` as one linear key per frame when any of them dollies (an#478),
+    else ``keys`` unchanged (and a single key, which is no move, as a single
+    ``zoom`` key is not).
+
+    A dolly's growth is not linear in its travel, so a key list that eases
+    ``dolly`` cannot be eased in ``zoom`` too: each frame's key is the camera
+    evaluated there (every field by the keys' own easings), its ``zoom``
+    multiplied by the character plane's growth. Exact at every whole frame, as
+    a follow is (an#445); a sample between two frames (a motion-blur shutter)
+    sees the two frames' keys interpolated linearly, and a ``step`` easing
+    becomes a one-frame ramp.
+
+    >>> frames = dolly_frames(CAMERA_MOVES["dolly_in"](1.0), duration=1.0, fps=4)
+    >>> [(k.at, round(k.zoom, 3), round(k.dolly, 3)) for k in frames][::2]
+    [(0.0, 1.0, 0.0), (0.5, 1.111, 0.1), (1.0, 1.25, 0.2)]
+    """
+    if len(keys) < 2 or not any(k.dolly for k in keys):
+        return keys
+    from an.timing import evaluate_channel
+
+    fields = _key_channels(keys, ("x", "y", "zoom", "rotation", "dolly"))
+    out = []
+    for t in frame_times(duration=duration, fps=fps):
+        at = {f: evaluate_channel(ch, t) for f, ch in fields.items()}
+        out.append(
+            CameraKey(
+                at=t,
+                x=at["x"],
+                y=at["y"],
+                zoom=at["zoom"] * dolly_growth(1.0, at["dolly"]),
+                rotation=at["rotation"],
+                dolly=at["dolly"],
+                easing="linear",
+            )
+        )
+    return out

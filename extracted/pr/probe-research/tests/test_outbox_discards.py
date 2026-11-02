@@ -524,7 +524,7 @@ def test_the_rescuer_moves_discards_and_reports_them_once(tmp_path, monkeypatch,
 
 
 def test_an_sdk_discard_keeps_its_answer_and_is_counted(tmp_path, monkeypatch):
-    """`cli/backfill_delivery.py` reads `discard_delivery(...)["state"]`: its
+    """`cli/imports/folder/upload/receipts.py` reads `discard_delivery(...)["state"]`: its
     return stays the state dict. The count rides `sdk.delivery.summary`."""
     from probe.sdk.client.client import Client
 
@@ -541,3 +541,106 @@ def test_an_sdk_discard_keeps_its_answer_and_is_counted(tmp_path, monkeypatch):
         assert "discarded" in tm.DELIVERY_SUMMARY_FIELDS
     finally:
         client.close()
+
+
+# -- `discard --held` rescues first --------------------------------------------------------
+
+
+_ACCOUNT = ("lab-42", "00000000-0000-0000-0000-000000000001")
+_LOGIN = "probe_pat_storedlogin_B_0123456789abcdef"
+
+
+def _dead_jobs_writes(root, url, run_id, n=3) -> None:
+    """A PROBE_TOKEN job of this account queued ``n`` writes; its key was revoked (the lane
+    head carries the 401) and the job is gone."""
+    queue = Journal(str(root / CREDENTIAL_NAMESPACE / FP), context={
+        "name": None, "base_url": url,
+        "principal": {"source": "env", "fingerprint": FP, "customer_id": _ACCOUNT[0], "user_id": _ACCOUNT[1]},
+    })
+    for step in range(1, n + 1):
+        queue.append_http("POST", f"/v1/runs/{run_id}/metrics",
+                          {"points": [{"key": "loss", "kind": "model", "value": 1.0, "step_index": step}]})
+    head, op = queue.pending()[0]
+    op["last_error"] = "AuthError: invalid or revoked token"
+    head.write_text(json.dumps(op))
+
+
+@pytest.mark.parametrize("named", [False, True])
+def test_discard_held_leaves_the_writes_the_login_sends_queued(app, tmp_path, monkeypatch, capsys, named):
+    """What most likely set Bucket's 12,357 writes aside: an agent clearing an auth banner with
+    `discard --held` (and the credential `probe outbox drain` named). The dead key was the
+    signed-in account's own, so the login now sends them instead."""
+    import importlib
+
+    from probe.sdk.delivery.outbox.drain.drain import drain
+    from probe.sdk.settings import settings as config
+    from tests.served_fake_app import serve
+    from tests.test_outbox import seeded_run
+
+    from probe.sdk.delivery import outbox as outbox_worker
+
+    main = importlib.import_module("probe.cli.main")
+    run_id = seeded_run(app, tmp_path)
+    root = tmp_path / "outbox"
+    monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
+    monkeypatch.setattr(main, "_journal", lambda: Journal(str(root)))
+    kicked: list = []
+    monkeypatch.setattr(main, "_kick_drainer", lambda *a, **k: kicked.append(1))
+    with serve(app) as url:
+        _dead_jobs_writes(root, url, run_id)
+        config.save_context({"base_url": url, "token": _LOGIN, "identity": None})
+        main.outbox_discard(op_id=None, held=True, credential=FP if named else None)
+        out = capsys.readouterr().out
+        assert "discarded 0 held write(s)" in out and "kept 3 write(s) your login sends" in out
+        assert len(Journal(str(root / CREDENTIAL_NAMESPACE / FP)).pending()) == 3 and kicked
+        assert drain(Journal(str(root))).delivered == 3
+    assert sorted(p["step_index"] for p in app.metric_points_posted[run_id]) == [1, 2, 3]
+
+
+def test_discard_held_still_drops_a_named_credential_the_login_may_not_send(app, tmp_path, monkeypatch, capsys):
+    import importlib
+
+    from probe.sdk.settings import settings as config
+    from tests.served_fake_app import serve
+    from tests.test_outbox import seeded_run
+
+    from probe.sdk.delivery import outbox as outbox_worker
+
+    main = importlib.import_module("probe.cli.main")
+    run_id = seeded_run(app, tmp_path)
+    root = tmp_path / "outbox"
+    monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
+    monkeypatch.setattr(main, "_journal", lambda: Journal(str(root)))
+    monkeypatch.setattr(main, "_kick_drainer", lambda *a, **k: None)
+    app.me_identities[_LOGIN] = {"customer_id": "lab-99", "user_id": "u-someone-else"}
+    with serve(app) as url:
+        _dead_jobs_writes(root, url, run_id)
+        config.save_context({"base_url": url, "token": _LOGIN, "identity": None})
+        main.outbox_discard(op_id=None, held=True, credential=FP)
+    out = capsys.readouterr().out
+    assert "discarded 3 held write(s)" in out and "kept" not in out
+    assert len(os.listdir(root / "discarded")) == 3
+
+
+def test_discard_held_adopts_nothing_with_the_rescue_switched_off(app, tmp_path, monkeypatch, capsys):
+    """`PROBE_OUTBOX_RESCUE=off`: only `probe outbox adopt` adopts."""
+    import importlib
+
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account
+    from probe.sdk.settings import settings as config
+    from tests.served_fake_app import serve
+    from tests.test_outbox import seeded_run
+
+    main = importlib.import_module("probe.cli.main")
+    run_id = seeded_run(app, tmp_path)
+    root = tmp_path / "outbox"
+    monkeypatch.setattr(main, "_journal", lambda: Journal(str(root)))
+    monkeypatch.setattr(main, "_kick_drainer", lambda *a, **k: None)
+    monkeypatch.setenv(outbox_worker.RESCUE_ENV, "off")
+    with serve(app) as url:
+        _dead_jobs_writes(root, url, run_id)
+        config.save_context({"base_url": url, "token": _LOGIN, "identity": None})
+        main.outbox_discard(op_id=None, held=True, credential=FP)
+    assert "discarded 3 held write(s)" in capsys.readouterr().out
+    assert adopted_account(FP) is None

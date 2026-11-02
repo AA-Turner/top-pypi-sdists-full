@@ -8,6 +8,7 @@ stuck-in-C-call path, throwaway disks and forks: DESIGN.md.
 
 from __future__ import annotations
 
+import _thread
 import contextvars
 import os
 import queue
@@ -15,8 +16,10 @@ import signal
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+
 
 ENV = "PROBE_SIGTERM_FLUSH_SECONDS"
 DEFAULT_SECONDS = 20.0
@@ -37,6 +40,10 @@ _SDK_GRACE_SECONDS = 2.0
 #: worker closes without it (`_close_unanswered`): running Python, it answers
 #: within milliseconds; inside a C call it runs no handler until that returns.
 _ANSWER_SECONDS = 0.5
+#: How long dying spends forcing unsynced op files to disk: SIGTERM's default action is due.
+_DIE_FLUSH_SECONDS = 1.0
+#: The longest a note to stderr may take: a pipe nobody reads must not keep the process alive.
+_NOTE_SECONDS = 0.5
 
 _IDLE = "idle"
 #: Another handler ran first and returned: its own stop is under way.
@@ -464,6 +471,7 @@ def _take_over() -> None:
     if st.phase not in (_IDLE, _GRACE, _DEFERRED):
         return
     st.phase = _FLUSHING
+    _ignore_sigint()
     if st.defer_frame is not None:
         st.defer_frame = None
         try:
@@ -494,7 +502,8 @@ def _take_over() -> None:
 
 
 def _worker(commands: queue.SimpleQueue) -> None:
-    """Pre-started at install: the handler may not start a thread. Wakes the
+    """Pre-started at install: a thread the handler starts may wait on `threading`'s lock
+    until the handler returns (DESIGN.md, RE-ENTRANCY). Wakes the
     main thread when a grace or a deferral runs out, and runs the close --
     by itself when the main thread does not answer that wake."""
     wake_at: float | None = None
@@ -554,16 +563,21 @@ def _close_unanswered() -> None:
     """The main thread did not answer: it is inside a C call -- a collective
     whose peers never join (Lightning 2.6 broadcasts from its SIGTERM handler,
     and a node preempted alone has no peer in it), a hung syscall -- and runs
-    no Python handler until that returns. So the close goes ahead here, and
-    this thread ends the process when it is done or out of time: nothing on
-    the main thread can."""
+    no Python handler until that returns. So the close goes ahead without it,
+    on a thread of its own waited for until the deadline (it may block on what
+    the stuck thread holds: the journal's append lock around an inline fsync),
+    and this thread ends the process when it is done or out of time: nothing
+    on the main thread can."""
     st = _state
     st.phase = _FLUSHING
     st.forced = False
     ending_ = st.ending
     if ending_ is not None and ending_.exit_code is None:
         st.ending = Ending(ending_.signum, ending_.deadline, EXIT_CODE)
-    _close()
+    deadline = st.ending.deadline if st.ending is not None else time.monotonic() + _DIE_FLUSH_SECONDS
+    # No thread to be had: no close, rather than one that may block the only thread that can
+    # end the process (the run is left to the outbox and the server's reaper).
+    _run_until(_close, deadline)
     _note(
         "probe: SIGTERM: the main thread is stuck in a call that runs no signal handler; "
         + ("closed the run from another thread" if st.close_finished else
@@ -584,6 +598,14 @@ def _close() -> None:
     except BaseException:  # noqa: BLE001 -- the main thread dies on time regardless
         pass
     finally:
+        # Within the close's deadline, never past it (review of #3785, C2). On this thread: the
+        # handler waiting for the close may hold `threading`'s lock, which a thread's start
+        # waits on. A stalled fsync holds only this thread: the main thread dies at the
+        # deadline, and `_close_unanswered` waits for this close no longer.
+        ending_ = st.ending
+        _flush_journal(
+            deadline=ending_.deadline if ending_ is not None else time.monotonic() + _DIE_FLUSH_SECONDS
+        )
         st.done.set()
 
 
@@ -600,11 +622,78 @@ def _close_runs() -> None:
         _fluent._close_for_preemption()
 
 
-def _note(message: str) -> None:
-    """Straight to fd 2: the interrupted frame may hold ``sys.stderr``'s lock."""
+def _flush_journal(*, deadline: float | None, wait: bool = True) -> None:
+    """Force the ops `log()` left to the journal flusher to disk, starting no fsync after
+    ``deadline``; ``wait=False`` never waits for a flush the main thread was interrupted in
+    (review of #3785, C1). Never imports (the main thread may hold the import lock): a process that never
+    loaded the flusher has none."""
+    flusher = sys.modules.get("probe.sdk.delivery.journal.flusher")
+    if flusher is not None:
+        flusher.flush_journal(deadline=deadline, wait=wait)
+
+
+def _run_until(work: Callable[[], object], deadline: float) -> None:
+    """``work`` on a thread of its own, waited for until ``deadline`` (monotonic) whatever signal
+    lands meanwhile. A raw `_thread` thread: `Thread.start()` waits, with no timeout, on
+    `threading`'s limbo lock, which the frame a SIGTERM interrupted may hold (DESIGN.md,
+    RE-ENTRANCY). No thread to be had: nothing runs."""
+    done = threading.Event()
+
+    def run() -> None:
+        try:
+            work()
+        except BaseException:  # noqa: BLE001 -- said nowhere: stderr's lock may be held
+            pass
+        finally:
+            done.set()
+
     try:
-        os.write(2, message.encode("utf-8", "replace"))
-    except Exception:  # noqa: BLE001
+        _thread.start_new_thread(run, ())
+    except Exception:  # noqa: BLE001 -- no thread to be had
+        return
+    except BaseException:  # noqa: BLE001 -- a Ctrl-C inside `start()`: the thread may run; wait for it
+        pass
+    while not done.is_set():
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        try:
+            done.wait(left)
+        except BaseException:  # noqa: BLE001 -- see the docstring
+            continue
+
+
+def _flush_journal_bounded(deadline: float) -> None:
+    """The dying flush, on a thread of its own waited for until ``deadline`` (`_run_until`): an
+    fsync a stalled disk never answers (a hung network mount) cannot keep the default action from
+    ending the process, and that thread ends with it (final review of #3794). No thread to be
+    had: no flush, rather than an fsync on the thread that must end the process."""
+    _run_until(lambda: _flush_journal(deadline=deadline, wait=False), deadline)
+
+
+def _note(message: str) -> None:
+    """Straight to fd 2 (the interrupted frame may hold ``sys.stderr``'s lock), waited for at most
+    `_NOTE_SECONDS`: a stderr pipe nobody reads blocks the write, and this may be the thread that
+    must end the process."""
+    data = message.encode("utf-8", "replace")
+    _run_until(lambda: os.write(2, data), time.monotonic() + _NOTE_SECONDS)
+
+
+def _flush_streams() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:  # noqa: BLE001 -- a stream already closed, or gone
+            pass
+
+
+def _ignore_sigint() -> None:
+    """From here the process dies of SIGTERM: a SIGINT (a Ctrl-C, torch's parent death signal)
+    would raise KeyboardInterrupt at whatever bytecode it lands on and unwind it instead, and a
+    process past `_FLUSHING` ignores every later SIGTERM. Main thread only, as every caller is."""
+    try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    except BaseException:  # noqa: BLE001
         pass
 
 
@@ -612,19 +701,22 @@ def _die(*, quiet: bool = False) -> None:
     """End the process as SIGTERM's default action would."""
     st = _state
     st.phase = _DYING
+    _ignore_sigint()
+    # The default action skips atexit: ops `log()` left to the flusher go to disk here, without
+    # waiting for a flush the signal interrupted (it may be this thread's: review of #3785, C1),
+    # and for at most `_DIE_FLUSH_SECONDS` however long the disk takes.
+    _flush_journal_bounded(time.monotonic() + _DIE_FLUSH_SECONDS)
     try:
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
-    except Exception:  # noqa: BLE001
+    except BaseException:  # noqa: BLE001
         pass
     if not quiet:
-        for stream in (sys.stdout, sys.stderr):
-            try:
-                stream.flush()
-            except Exception:  # noqa: BLE001 -- its lock may be the interrupted frame's
-                pass
+        # Waited for at most `_NOTE_SECONDS`, as a note is: a pipe nobody reads, or a lock the
+        # interrupted frame holds, would keep the flush, and this thread, from ever returning.
+        _run_until(_flush_streams, time.monotonic() + _NOTE_SECONDS)
     try:
         signal.raise_signal(signal.SIGTERM)
-    except Exception:  # noqa: BLE001
+    except BaseException:  # noqa: BLE001
         pass
     # Still here: a PID 1 (the kernel drops a default-action signal it sends
     # itself) or SIGTERM blocked. Exit with what a shell reports for it.

@@ -1,0 +1,331 @@
+- name: 16 to 19 Bursary Fund pays actual costs for care leavers below the cap
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 600
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [true]
+    bursary_fund_16_to_19: [600]
+
+- name: 16 to 19 Bursary Fund caps vulnerable-group support at 1200
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 2_000
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19: [1_200]
+
+- name: 16 to 19 Bursary Fund covers self-supporting UC recipients
+  period: 2025
+  input:
+    people:
+      student:
+        age: 18
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_self_supporting: true
+        bursary_fund_16_to_19_participation_costs: 900
+        universal_credit_reported: 100
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [true]
+    bursary_fund_16_to_19: [900]
+
+- name: 16 to 19 Bursary Fund does not cover UC recipients without self-supporting status
+  period: 2025
+  input:
+    people:
+      student:
+        age: 18
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_participation_costs: 900
+        universal_credit_reported: 100
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [false]
+    bursary_fund_16_to_19: [0]
+
+- name: 16 to 19 Bursary Fund covers self-supporting Income Support recipients
+  period: 2025
+  input:
+    people:
+      student:
+        age: 18
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_self_supporting: true
+        bursary_fund_16_to_19_participation_costs: 850
+        income_support_reported: 100
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [true]
+    bursary_fund_16_to_19: [850]
+
+- name: 16 to 19 Bursary Fund covers students with disability benefit and UC
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_participation_costs: 700
+        pip_dl_category: STANDARD
+        universal_credit_reported: 100
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [true]
+    bursary_fund_16_to_19: [700]
+
+- name: 16 to 19 Bursary Fund does not use a parent UC claim for the disability route
+  period: 2025
+  input:
+    people:
+      parent:
+        age: 40
+        universal_credit_reported: 100
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_participation_costs: 700
+        pip_dl_category: STANDARD
+      sibling:
+        age: 10
+    benunits:
+      benunit:
+        members: ["parent", "student", "sibling"]
+    households:
+      household:
+        members: ["parent", "student", "sibling"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [false, false, false]
+    bursary_fund_16_to_19: [0, 0, 0]
+
+- name: 16 to 19 Bursary Fund does not cover disability benefit without UC or ESA
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_participation_costs: 700
+        pip_dl_category: STANDARD
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [false]
+    bursary_fund_16_to_19: [0]
+
+- name: 16 to 19 Bursary Fund excludes apprentices
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        is_apprentice: true
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 600
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_in_qualifying_education: [false]
+    bursary_fund_16_to_19: [0]
+
+- name: 16 to 19 Bursary Fund excludes over-19 students without funded extension
+  period: 2025
+  input:
+    people:
+      student:
+        age: 20
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 600
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_age_eligible: [false]
+    bursary_fund_16_to_19: [0]
+
+- name: 16 to 19 Bursary Fund does not extend vulnerable-group support beyond age 18
+  period: 2025
+  input:
+    people:
+      student:
+        age: 20
+        bursary_fund_16_to_19_in_qualifying_education: true
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 500
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_age_eligible: [false]
+    bursary_fund_16_to_19: [0]
+
+- name: 16 to 19 Bursary Fund covers students with disability benefit and ESA
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_participation_costs: 800
+        dla_sc_category: MIDDLE
+        esa_income_reported: 100
+    benunits:
+      benunit:
+        members: ["student"]
+        would_claim_uc: false
+    households:
+      household:
+        members: ["student"]
+        country: ENGLAND
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [true]
+    bursary_fund_16_to_19: [800]
+
+- name: 16 to 19 Bursary Fund only applies in England
+  period: 2025
+  input:
+    people:
+      student:
+        age: 17
+        current_education: POST_SECONDARY
+        bursary_fund_16_to_19_in_care_or_care_leaver: true
+        bursary_fund_16_to_19_participation_costs: 600
+    benunits:
+      benunit:
+        members: ["student"]
+    households:
+      household:
+        members: ["student"]
+        country: WALES
+  output:
+    bursary_fund_16_to_19_vulnerable_group_eligible: [false]
+    bursary_fund_16_to_19: [0]
+
+# Signal regressions only: these do not certify a new lawful legacy claim
+# or an education institution's needs assessment/grant decision.
+- name: Issue2263 raw IR-ESA screened to nil is not own-right ESA receipt
+  period: 2025
+  input:
+    age: 17
+    current_education: POST_SECONDARY
+    pip_dl_category: STANDARD
+    esa_income_reported: 3_000
+    employment_income: 20_000
+    hours_worked: 2_080
+    would_claim_uc: false
+  output:
+    is_on_income_related_esa: false
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: false
+
+# A continuing preassessed award can supply the helper signal at 20; DfE
+# section 3.1 still excludes 19+ students from the defined vulnerable groups.
+- name: Issue2263 continuing own-right ESA gives a helper signal only
+  period: 2025
+  input:
+    age: 20
+    esa_income_reported: 3_000
+    would_claim_uc: false
+  output:
+    is_on_income_related_esa: true
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: true
+
+- name: Issue2263 assessed contributory ESA zero overrides its raw report proxy
+  period: 2025
+  input:
+    age: 20
+    esa_contrib_reported: 3_000
+    esa_contrib: 0
+  output:
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: false
+
+- name: Issue2263 positive contributory ESA retains the helper signal
+  period: 2025
+  input:
+    age: 20
+    esa_contrib: 3_000
+  output:
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: true
+
+- name: Issue2263 explicit own-right false overrides a reported UC signal
+  period: 2025
+  input:
+    age: 17
+    universal_credit_reported: 100
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: false
+  output:
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: false
+
+- name: Issue2263 explicit own-right true remains authoritative
+  period: 2025
+  input:
+    age: 17
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: true
+  output:
+    bursary_fund_16_to_19_receives_uc_or_esa_in_own_right: true

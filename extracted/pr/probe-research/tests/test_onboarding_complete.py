@@ -2,7 +2,8 @@
 
 import pytest
 
-from probe.cli import import_jobs, onboarding_complete
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.wizard.account import onboarding_complete
 from tests.test_tui_review import _run
 
 pytestmark = pytest.mark.tui
@@ -12,7 +13,7 @@ pytestmark = pytest.mark.tui
 def completion(monkeypatch):
     jobs, opened = [], []
     monkeypatch.delenv("PROBE_DASHBOARD_URL", raising=False)
-    monkeypatch.setattr(import_jobs, "list_jobs", lambda: jobs)
+    monkeypatch.setattr(import_jobs.jobs, "list_jobs", lambda: jobs)
     monkeypatch.setattr(onboarding_complete.webbrowser, "open", lambda url: opened.append(url) or True)
     return jobs, opened
 

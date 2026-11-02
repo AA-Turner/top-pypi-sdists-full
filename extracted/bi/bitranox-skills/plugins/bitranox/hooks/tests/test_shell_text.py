@@ -1,0 +1,1270 @@
+"""Tests for shell_text.py. ASCII only.
+
+This module exists so the command-scanning guards agree about what counts as DATA. The cases below
+are the corpus that proved the two former copies behaviourally identical before they were merged;
+keeping them here is what stops the next edit from splitting the behaviour again.
+"""
+import os
+import subprocess
+import pytest
+import shell_text as S
+
+
+# ---- the point of the module: a body is data, not a command ------------------------------------
+
+def test_body_is_dropped_and_surrounding_commands_are_kept():
+    out = S.strip_heredoc_bodies("cat <<EOF\nbody line\nEOF\necho after")
+    assert "body line" not in out
+    assert "cat <<EOF" in out and "echo after" in out
+
+
+def test_the_opener_line_is_kept_because_it_is_a_real_command():
+    """`cat <<EOF > file.txt` still redirects and `cmd <<EOF | grep x` still pipes."""
+    assert "> file.txt" in S.strip_heredoc_bodies("cat <<EOF > file.txt\nbody\nEOF")
+    assert "| grep x" in S.strip_heredoc_bodies("cmd <<EOF | grep x\nbody\nEOF")
+
+
+def test_terminator_line_itself_is_dropped():
+    assert S.strip_heredoc_bodies("cat <<EOF\nb\nEOF").strip() == "cat <<EOF"
+
+
+# ---- opener forms bash accepts -----------------------------------------------------------------
+
+def test_quoted_and_dash_and_spaced_openers():
+    for opener in ("<<EOF", "<<'EOF'", '<<"EOF"', "<<-EOF", "<< EOF"):
+        text = "cat %s\nSECRETBODY\nEOF\necho after" % opener
+        out = S.strip_heredoc_bodies(text)
+        assert "SECRETBODY" not in out, opener
+        assert "echo after" in out, opener
+
+
+def test_dash_form_allows_an_indented_terminator():
+    out = S.strip_heredoc_bodies("cat <<-EOF\n\tindented\n\tEOF\necho after")
+    assert "indented" not in out and "echo after" in out
+
+
+def test_underscore_delimiters_are_recognised():
+    out = S.strip_heredoc_bodies("cat <<_MARK_\nbody\n_MARK_\necho after")
+    assert "body" not in out and "echo after" in out
+
+
+def test_a_delimiter_may_start_with_a_digit():
+    """A delimiter is any shell WORD: real bash runs `cat <<9INVALID` as a heredoc and prints
+    `body`, so its body is data like any other and is stripped."""
+    text = "cat <<9INVALID\nbody\n9INVALID\necho after"
+    assert S.strip_heredoc_bodies(text) == "cat <<9INVALID\necho after"
+
+
+# ---- multiple and unterminated -----------------------------------------------------------------
+
+def test_two_heredocs_in_one_command():
+    out = S.strip_heredoc_bodies("cat <<A\nfirst\nA\ncat <<B\nsecond\nB\ndone")
+    assert "first" not in out and "second" not in out
+    assert "done" in out
+
+
+def test_the_same_delimiter_reused_does_not_swallow_the_second_command():
+    out = S.strip_heredoc_bodies("cat <<E\na\nE\ncat <<E\nb\nE\necho after")
+    assert "a" not in out.split("\n")[1:] and "echo after" in out
+
+
+def test_an_unterminated_heredoc_consumes_the_rest():
+    """The safe direction: the shell would treat those lines as data too."""
+    out = S.strip_heredoc_bodies("cat <<EOF\nbody\nmore body")
+    assert out.strip() == "cat <<EOF"
+
+
+def test_a_lowercase_terminator_does_not_close_an_uppercase_delimiter():
+    out = S.strip_heredoc_bodies("cat <<EOF\nbody\neof")
+    assert "body" not in out and "eof" not in out
+
+
+# ---- inputs that must pass through untouched ---------------------------------------------------
+
+def test_commands_without_a_heredoc_are_unchanged():
+    for text in ("", "echo hello", "git status\ngit log", "multi\nline\nno heredoc", "\n\n\n"):
+        assert S.strip_heredoc_bodies(text) == text, text
+
+
+def test_a_quoted_mention_is_not_an_opener():
+    """A guard documenting the syntax must not be mangled by the stripper itself."""
+    text = "echo '<<NOTAHEREDOC'"
+    assert S.strip_heredoc_bodies(text) == text
+
+
+# ---- the guards must share ONE implementation --------------------------------------------------
+
+def test_both_guards_use_this_exact_function():
+    """Re-exported, not re-implemented: a second copy is how the behaviour split last time."""
+    import git_footgun_guard as G
+    import shell_prefix_selfref_guard as P
+    assert G.strip_heredoc_bodies is S.strip_heredoc_bodies
+    assert P.strip_heredoc_bodies is S.strip_heredoc_bodies
+
+
+# --- mask_data_regions ----------------------------------------------------------------------------
+
+
+def test_mask_consumes_the_quote_characters_too():
+    """Keeping the quotes leaves `"$MAIN"` as two bare `"` tokens, which loses the subcommand."""
+    masked = S.mask_data_regions('git -C "$MAIN" commit')
+    assert masked.split() == ["git", "-C", "QQQQQQQ", "commit"]
+
+
+def test_mask_preserves_length():
+    for command in ['git commit -m "a; b"', "echo 'x' ; ls", "n=$((1+2))", "echo ${FOO}", "a `b` c"]:
+        assert len(S.mask_data_regions(command)) == len(command)
+
+
+def test_mask_hides_a_semicolon_inside_a_double_quoted_message():
+    assert ";" not in S.mask_data_regions('git commit -m "wip; git push"')
+
+
+def test_mask_hides_a_newline_inside_a_quoted_message():
+    assert "\n" not in S.mask_data_regions("git commit -m 'line one\nline two'")
+
+
+def test_mask_handles_nested_command_substitution():
+    masked = S.mask_data_regions("x=$(echo $(date)) ; ls")
+    assert masked.endswith(" ; ls")
+    assert "(" not in masked and ")" not in masked
+
+
+def test_mask_handles_arithmetic_expansion():
+    masked = S.mask_data_regions("n=$((1+2)) ; ls")
+    assert "(" not in masked and ")" not in masked
+
+
+def test_mask_leaves_parameter_expansion_as_one_token():
+    masked = S.mask_data_regions("echo ${FOO} ; ls")
+    assert "{" not in masked and "}" not in masked
+
+
+def test_mask_turns_a_backslash_newline_into_whitespace():
+    """A line continuation must not become filler, or the tokens it joins fuse into one word."""
+    assert S.mask_data_regions("git -c a=b \\\ncommit").split() == ["git", "-c", "a=b", "commit"]
+
+
+def test_mask_blanks_comments():
+    assert ";" not in S.mask_data_regions("git commit -m x  # ; git push")
+
+
+def test_mask_survives_an_unterminated_quote():
+    assert len(S.mask_data_regions('git commit -m "oops')) == len('git commit -m "oops')
+
+
+def test_blank_unexpanded_text_still_leaves_double_quotes_alone():
+    """The two functions answer different questions and must keep treating quotes differently."""
+    assert "$?" in S.blank_unexpanded_text('echo "rc=$?"')
+    assert "$?" not in S.mask_data_regions('echo "rc=$?"')
+
+
+@pytest.mark.parametrize("command, status_read", [
+    # OPEN-WORK [820], the [530] shape: `"$(echo ")" ...)"` is ONE string, and the single quotes
+    # inside its substitution are real quotes, so this `$?` is a literal
+    ('echo "$(echo ")" \'$?\')"', False),
+    # a toggling walk closed the string at the inner quote and read `it's` as opening a single-quoted
+    # string that ran to the end, hiding the real status read after it
+    ('echo "$(echo "it\'s")"; echo $?', True),
+    ('x="$(echo ")" # it\'s\n)"; echo $?', True),
+    # controls: a double-quoted `$?` inside the substitution expands, as one outside does
+    ('echo "$(printf \'%s\' "$?")"', True),
+    ('echo "$(echo ")")"; echo \'rc=$?\'', False),
+])
+def test_blank_unexpanded_text_reads_a_substitution_inside_double_quotes_as_its_own_shell(
+        command, status_read):
+    out = S.blank_unexpanded_text(command)
+    assert len(out) == len(command)
+    assert ("$?" in out) is status_read
+
+
+def test_blank_unexpanded_text_survives_a_pathologically_nested_substitution():
+    """Each `"$(` level is read as its own shell; a nesting deeper than any real command must not
+    exhaust Python's recursion limit."""
+    command = 'echo ' + '"$(' * 5000 + "echo '$?'" + ')"' * 5000
+    assert len(S.blank_unexpanded_text(command)) == len(command)
+
+
+# blank_unexpanded_text under PowerShell: the escape character is the BACKTICK and a backslash is a
+# path separator, the same mirror image mask_data_regions and the separator walk already honour.
+_PS_PATH_THEN_LITERAL = 'Write-Host "C:' + chr(92) + 'temp' + chr(92) + '"; Write-Host ' + "'$?'"
+
+
+def test_blank_unexpanded_text_closes_a_powershell_string_at_a_trailing_backslash():
+    """Read as Bash, `\\"` keeps the double quote open, so the single-quoted `$?` after it is never
+    blanked and a guard reads a literal as a status check. PowerShell closes the string there."""
+    assert "$?" not in S.blank_unexpanded_text(_PS_PATH_THEN_LITERAL, tool_name="PowerShell")
+    assert "$?" in S.blank_unexpanded_text(_PS_PATH_THEN_LITERAL)       # the Bash reading
+
+
+def test_blank_unexpanded_text_honours_the_powershell_backtick_escape():
+    """`` `' `` is an escaped quote in PowerShell, so the `$?` between two of them is a real
+    expansion - blanking it is the silent-miss direction. Under Bash the same text is a quote."""
+    command = "Write-Host `'$?`'"
+    assert "$?" in S.blank_unexpanded_text(command, tool_name="PowerShell")
+    assert "$?" not in S.blank_unexpanded_text(command)
+
+
+def test_blank_unexpanded_text_has_no_ansi_c_string_under_powershell():
+    """`$'...'` is Bash only; in PowerShell `$` then a single-quoted string, blanked like one."""
+    out = S.blank_unexpanded_text("echo $'a;b'; x", tool_name="PowerShell")
+    assert out.endswith("; x") and "a;b" not in out
+
+
+@pytest.mark.parametrize("command", [
+    "echo 'rc=$?' # $? here", 'echo "rc=$?"', "a\\ #b; echo $?", "echo $'it\\'s' $?",
+])
+def test_blank_unexpanded_text_defaults_to_the_bash_reading(command):
+    """Existing callers pass no tool: the default and an explicit None must equal the Bash arm."""
+    bash = S.blank_unexpanded_text(command, tool_name="Bash")
+    assert S.blank_unexpanded_text(command) == bash
+    assert S.blank_unexpanded_text(command, tool_name=None) == bash
+
+
+# --------------------------------------------------------------------------
+# split_for_tool: a Bash|PowerShell matcher delivers command strings in two
+# different languages, and the TOOL decides which, never the host OS.
+# --------------------------------------------------------------------------
+
+WIN_PATH = r"C:\Users\me\msg.txt"
+
+
+def test_split_for_tool_keeps_a_windows_path_whole_for_powershell():
+    """In PowerShell a backslash is a PATH SEPARATOR, so eating it destroys the argument.
+
+    A guard that then resolves the token - opens it, stats it, runs it - gets nothing back and
+    fails open, which is a guard approving exactly what it exists to block.
+    """
+    assert S.split_for_tool("git commit -F " + WIN_PATH, "PowerShell")[-1] == WIN_PATH
+
+
+def test_split_for_tool_matches_bash_itself_for_the_bash_tool():
+    """Not a bug on this arm, and the reason the split must be keyed rather than made uniform.
+
+    Real bash gives `C:Usersmemsg.txt` for that same unquoted string - verified against bash - so
+    shlex is not merely acceptable here, it is what the tool actually does. Applying the Windows
+    rules to a Bash command would be a NEW defect on a Windows host.
+    """
+    assert S.split_for_tool("git commit -F " + WIN_PATH, "Bash")[-1] == "C:Usersmemsg.txt"
+
+
+def test_split_for_tool_defaults_to_bash_for_an_unknown_tool():
+    assert S.split_for_tool("git commit -F " + WIN_PATH)[-1] == "C:Usersmemsg.txt"
+
+
+@pytest.mark.parametrize("command,expected", [
+    (r'a "b c"', ["a", "b c"]),                        # quotes group
+    (r'a "b\"c"', ["a", 'b"c']),                       # 2n+1 backslashes -> literal quote
+    (r'a "b\\" c', ["a", "b\\", "c"]),                 # 2n backslashes -> n, quote still toggles
+    (r'a C:\dir\file.txt', ["a", r"C:\dir\file.txt"]), # a run with no quote after it is literal
+    ("", []),                                          # must not become the interpreter path
+])
+def test_split_for_tool_follows_the_documented_backslash_rules(command, expected):
+    """The CRT rules are only surprising around quotes; a plain path must pass through untouched."""
+    assert S.split_for_tool(command, "PowerShell") == expected
+
+
+_B = chr(92)   # kept out of the literals below so this file needs no escaping puzzles
+
+
+@pytest.mark.parametrize("argv", [
+    ["git", "commit", "-F", "C:" + _B + "Users" + _B + "me" + _B + "msg.txt"],
+    ["a", "C:" + _B + "dir" + _B + " "],          # a space inside a quoted path
+    ["x", 'b"c'],                                  # an embedded quote
+    ["p", "C:" + _B + "a b" + _B + "c.txt"],
+    ["q", ""],                                     # an empty argument must survive
+    ["tool", _B + _B + "server" + _B + "share" + _B + "f.txt"],   # UNC
+    ["n", "trailing" + _B],                        # a run with nothing after it
+])
+def test_split_for_tool_inverts_list2cmdline(argv):
+    """The property, rather than cases I happened to think of.
+
+    `subprocess.list2cmdline` is the stdlib's own Windows command-line BUILDER, quoting to the
+    same C-runtime rules this splitter reads. Requiring the two to be inverses covers the shapes
+    a hand-written case list reliably misses - UNC prefixes, a trailing backslash run, an empty
+    argument - and it fails if either side drifts.
+    """
+    assert S.split_for_tool(subprocess.list2cmdline(argv), "PowerShell") == argv
+
+
+@pytest.mark.parametrize("command,expected", [
+    ("find . -newermt '-3 minutes'", ["find", ".", "-newermt", "-3 minutes"]),
+    ("x --hook='a b' y", ["x", "--hook=a b", "y"]),         # a quote mid-word still opens one
+    ("x 'it''s'", ["x", "it's"]),                           # '' is one literal quote
+    ("x 'C:" + _B + "temp" + _B + "' y", ["x", "C:" + _B + "temp" + _B, "y"]),  # no escape inside
+    ("x '\"q\"' y", ["x", '"q"', "y"]),                      # a double quote inside is literal
+    ("x \"it's\" y", ["x", "it's", "y"]),                    # an apostrophe in double quotes
+    ("x it's", ["x", "it's"]),                              # an unterminated quote stays literal
+    ("x '' y", ["x", "", "y"]),                              # an empty string is an argument
+])
+def test_split_for_tool_reads_powershell_single_quotes(command, expected):
+    """A PowerShell single-quoted string is verbatim (about_Quoting_Rules), which the C-runtime
+    rules know nothing about: `-newermt '-3 minutes'` arrived as `'-3` and `minutes'`, and two
+    hooks each grew a private re-join to undo it. An apostrophe with no closing quote is kept as
+    a character rather than raising, because no PowerShell caller of this splitter catches a
+    ValueError - the Windows arm never raised one before."""
+    assert S.split_for_tool(command, "PowerShell") == expected
+
+
+@pytest.mark.parametrize("token,tool,expected", [
+    ("/usr/bin/sed", "Bash", "sed"),
+    ("sed", "Bash", "sed"),
+    ("C:" + _B + "tools" + _B + "sed.exe", "PowerShell", "sed"),
+    ("C:" + _B + "tools" + _B + "sed", "PowerShell", "sed"),
+    ("sed.exe", "PowerShell", "sed"),
+    # The Bash arm reads a backslash as a separator too. An UNQUOTED one never reaches here -
+    # the Bash split eats it - so a token still carrying one was quoted, and bash keeps
+    # backslashes inside double quotes: `"C:\tools\sed"` is a path Git Bash runs.
+    ("C:" + _B + "tools" + _B + "sed", "Bash", "sed"),
+])
+def test_basename_for_tool_uses_the_tool_s_separator_rules(token, tool, expected):
+    """A guard asking "is this command sed?" must strip the path, and which characters separate a
+    path is the TOOL's question. `.exe` goes on the PowerShell arm because a Windows program is
+    spelled with it while every command allowlist in this plugin is spelled without."""
+    assert S.basename_for_tool(token, tool) == expected
+
+
+@pytest.mark.parametrize("tool", ["Bash", "PowerShell"])
+def test_basename_for_tool_strips_exe_on_both_arms(tool):
+    """Git Bash on Windows runs `sed.exe`, so the Bash arm needs this exactly as much.
+
+    The earlier PowerShell-only stripping was justified by separator handling, which has nothing
+    to do with it: `.exe` is about how a program is NAMED, and every command allowlist in this
+    plugin is spelled without it. The asymmetry left `sed.exe -i config.json` unblocked under the
+    tool that carries nearly all the traffic.
+    """
+    assert S.basename_for_tool("sed.exe", tool) == "sed"
+    assert S.basename_for_tool("SED.EXE", tool) == "SED"
+
+
+@pytest.mark.parametrize("tool", ["Bash", "PowerShell"])
+def test_basename_for_tool_leaves_a_non_exe_suffix_alone(tool):
+    """Only `.exe` goes. A dot in a program name is otherwise part of the name."""
+    assert S.basename_for_tool("my.tool", tool) == "my.tool"
+    assert S.basename_for_tool("sed.executable", tool) == "sed.executable"
+
+
+def test_a_heredoc_opener_inside_a_quoted_string_is_not_an_opener():
+    """`git commit -m "docs: explain <<EOF heredocs"` opens no heredoc - the `<<EOF` is inside a
+    quoted argument. Reading it as an opener made the strip swallow everything after it, so a real
+    `git push` on the next line vanished and every guard downstream went SILENT. A miss, which is
+    the worse direction, and the shape is ordinary: a commit message about heredocs."""
+    out = S.strip_heredoc_bodies('git commit -m "docs: explain <<EOF heredocs"\ngit push')
+    assert "git push" in out
+
+
+def test_a_real_heredoc_body_is_still_stripped():
+    """The direction where it must NOT apply."""
+    out = S.strip_heredoc_bodies("cat > f <<EOF\nsecret line\nEOF\ngit push")
+    assert "secret line" not in out
+    assert "git push" in out
+
+
+# ---- a data sink does not execute its argument -------------------------------------------------
+#
+# The three command-scanning nudges all fired on `echo '<the footgun>'` and on a commit message
+# describing it, because at the level of a quoted string the argument ssh EXECUTES and the one
+# echo PRINTS look identical. What tells them apart is the enclosing program, so these cases pin
+# the direction the allowlist must decide, in both directions.
+
+def test_an_echo_argument_is_blanked_because_echo_never_executes_it():
+    out = S.strip_data_sink_statements("echo 'never use sed 1,/^---$/d on a frame'")
+    assert "1,/^---$/d" not in out
+
+
+def test_a_commit_message_is_blanked_because_git_stores_it():
+    out = S.strip_data_sink_statements("git commit -m 'guard against pkill -f iperf3'")
+    assert "pkill -f iperf3" not in out
+
+
+def test_an_ssh_argument_survives_because_ssh_runs_it():
+    """The direction where the allowlist must NOT apply - an unknown program keeps its text."""
+    cmd = "ssh host 'pkill -f \"iperf3 -s\"'"
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_an_unknown_program_is_left_alone():
+    cmd = "some-wrapper 'pkill -f \"iperf3 -s\"'"
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_a_command_substitution_inside_a_sink_still_runs_so_it_is_kept():
+    """`echo "$(pkill -f x)"` PRINTS the output but RUNS the pkill - blanking it would be a miss."""
+    cmd = 'echo "$(pkill -f foo)"'
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_a_backtick_substitution_inside_a_sink_is_kept_too():
+    cmd = "echo `pkill -f foo`"
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_only_the_sink_statement_is_blanked_not_the_real_command_after_it():
+    out = S.strip_data_sink_statements("echo 'sed 1,/re/d is a trap' && sed -i '1,/^---$/d' f.md")
+    assert "is a trap" not in out
+    assert "sed -i '1,/^---$/d' f.md" in out
+
+
+def test_the_blank_preserves_length_so_raw_offsets_still_index_it():
+    cmd = "echo 'pkill -f x' && ls"
+    assert len(S.strip_data_sink_statements(cmd)) == len(cmd)
+
+
+def test_printf_is_a_sink_too():
+    assert "pkill -f x" not in S.strip_data_sink_statements("printf '%s\\n' 'pkill -f x'")
+
+
+def test_a_path_qualified_echo_is_still_recognised_as_a_sink():
+    assert "pkill -f x" not in S.strip_data_sink_statements("/bin/echo 'pkill -f x'")
+
+
+def test_commit_with_a_message_file_flag_is_a_sink():
+    out = S.strip_data_sink_statements("git commit -F 'notes about pkill -f x'")
+    assert "pkill -f x" not in out
+
+
+def test_a_git_subcommand_that_is_not_a_message_carrier_is_not_a_sink():
+    """`git commit` stores its -m text; `git bisect run` executes its argument."""
+    cmd = "git bisect run sh -c 'pkill -f x'"
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_empty_and_garbage_never_raise():
+    for raw in ("", "   ", "'", 'echo "unterminated', "&&", "|||"):
+        S.strip_data_sink_statements(raw)
+
+
+def test_a_pr_body_is_blanked_because_gh_stores_it():
+    out = S.strip_data_sink_statements("gh pr create --body 'fixes the pkill -f x self-match'")
+    assert "pkill -f x" not in out
+
+
+def test_an_unquoted_substitution_in_a_sink_is_kept():
+    """The balanced-quote twin of the case above.
+
+    `echo "$(...)"` is rejected before the substitution test even runs, because iter_segments cuts
+    the statement at the `$(` and `echo "` has an unbalanced quote. This spelling parses cleanly as
+    argv, so only the substitution test can save it.
+    """
+    cmd = "echo $(pkill -f foo)"
+    assert S.strip_data_sink_statements(cmd) == cmd
+
+
+def test_a_windows_path_qualified_sink_needs_the_powershell_reading():
+    r"""The tool decides the split, never the host - `C:\bin\echo.exe` is one token or three.
+
+    Under the PowerShell reading the backslash is a path separator and the basename is `echo`.
+    Under the Bash reading shlex eats it, the program reads as `C:binecho.exe`, and the statement
+    is left alone. Both are correct for their tool; passing the wrong one silently picks the other.
+    """
+    cmd = "C:\\bin\\echo.exe 'pkill -f x'"
+    assert "pkill -f x" not in S.strip_data_sink_statements(cmd, "PowerShell")
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+# ---- the program name is kept, only the operands go -----------------------------------------
+#
+# Blanking the whole statement hid the VERB as well as its text. No hook using this today cares,
+# but the helper is shared and the obvious next adopter is a commit-detecting guard - which would
+# adopt it and go blind to the very verb it gates, with nothing in the diff to show it.
+
+def test_the_commit_verb_survives_so_a_commit_detector_still_sees_it():
+    out = S.strip_data_sink_statements("git commit -m 'pkill -f x'")
+    assert "pkill -f x" not in out
+    assert "git commit" in out
+
+
+def test_echo_itself_survives_the_blank():
+    out = S.strip_data_sink_statements("echo 'pkill -f x'")
+    assert out.startswith("echo")
+    assert "pkill -f x" not in out
+
+
+def test_the_pr_create_verb_survives_but_its_body_does_not():
+    out = S.strip_data_sink_statements("gh pr create --body 'pkill -f x'")
+    assert "gh pr create" in out
+    assert "pkill -f x" not in out
+
+
+def test_a_flag_between_git_and_commit_does_not_hide_the_verb():
+    out = S.strip_data_sink_statements("git -q commit -m 'pkill -f x'")
+    assert "commit" in out
+    assert "pkill -f x" not in out
+
+
+def test_a_path_qualified_sink_keeps_its_whole_program_token():
+    out = S.strip_data_sink_statements("/bin/echo 'pkill -f x'")
+    assert out.startswith("/bin/echo")
+    assert "pkill -f x" not in out
+
+
+# ---- memory_engine.py add: a sink reached THROUGH a launcher ------------------------------------
+#
+# Measured 2026-08-30 over 66,213 corpus commands: the only real false positive left in the sed
+# nudge was `memory_engine.py add --hook "...<the footgun in prose>..."` - the tool that WRITES
+# memory facts tripping a guard while recording the very trap it guards. Two properties make it
+# unlike every existing entry: a leading `VAR=value` assignment sits in front of it, and the
+# script is not the program - an interpreter or `run-python.sh` is, with the script as an argument.
+
+def test_memory_engine_add_through_run_python_is_a_sink():
+    cmd = ('bash /p/hooks/run-python.sh /p/hooks/memory_engine.py add '
+           '--hook "a chained \'sed 1,/^---$/d\' eats the body"')
+    assert S.strip_data_sink_statements(cmd, "Bash").rstrip() == (
+        "bash /p/hooks/run-python.sh /p/hooks/memory_engine.py add")
+
+
+def test_memory_engine_add_survives_a_leading_env_assignment():
+    """The real corpus firing carried `BITRANOX_RUN_PYTHON_STRICT=1` in front of the launcher."""
+    cmd = ('BITRANOX_RUN_PYTHON_STRICT=1 bash /p/run-python.sh /p/memory_engine.py add '
+           '--hook "sed 1,/^---$/d"')
+    assert "--hook" not in S.strip_data_sink_statements(cmd, "Bash")
+
+
+def test_memory_engine_add_invoked_by_the_interpreter_directly_is_a_sink():
+    cmd = 'python3 /p/memory_engine.py add --hook "sed 1,/^---$/d"'
+    assert "--hook" not in S.strip_data_sink_statements(cmd, "Bash")
+
+
+def test_the_memory_engine_verb_survives_the_blanking():
+    """Same contract as `git commit`: a caller asking what ran must still see it."""
+    cmd = 'python3 /p/memory_engine.py add --hook "sed 1,/^---$/d"'
+    out = S.strip_data_sink_statements(cmd, "Bash")
+    assert "memory_engine.py" in out and " add" in out
+
+
+# ---- the directions where it must NOT apply ----------------------------------------------------
+
+def test_memory_engine_named_inside_an_ssh_argument_is_not_a_sink():
+    """ssh EXECUTES its argument. Resolving a sink by scanning for the script name anywhere in the
+    token list would blank this, which is the direction that DELETES a finding."""
+    cmd = 'ssh host \'python3 /p/memory_engine.py add --hook "sed 1,/^---$/d"\''
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+def test_memory_engine_named_inside_bash_c_is_not_a_sink():
+    """`bash -c` runs its argument, and the script name is INSIDE that single token."""
+    cmd = 'bash -c \'python3 /p/memory_engine.py add --hook "sed 1,/^---$/d"\''
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+def test_a_memory_engine_subcommand_other_than_add_is_not_a_sink():
+    """Only `add` carries prose. `reconcile`/`heal` take paths, and nothing proves them inert."""
+    cmd = 'python3 /p/memory_engine.py reconcile --check-tree /some/sed 1,/^---$/d'
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+def test_an_unknown_script_behind_a_launcher_is_not_a_sink():
+    """The launcher step must not make every scripted command inert."""
+    cmd = 'bash /p/run-python.sh /p/deploy.py add --hook "sed 1,/^---$/d"'
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+# ---- PowerShell's own printing cmdlets ------------------------------------------------------
+#
+# Under the PowerShell tool `Write-Host` and `Write-Output` are what `echo` is under Bash, and
+# PowerShell resolves a command name without regard to case. Leaving them out made every guard
+# using this helper fire on a line that only PRINTS the footgun.
+
+@pytest.mark.parametrize("cmd", [
+    "Write-Host 'pkill -f x'",
+    "Write-Output 'pkill -f x'",
+    "write-host 'pkill -f x'",
+    "WRITE-OUTPUT 'pkill -f x'",
+])
+def test_a_powershell_print_cmdlet_is_a_sink_under_powershell(cmd):
+    assert "pkill -f x" not in S.strip_data_sink_statements(cmd, "PowerShell")
+
+
+def test_a_powershell_print_cmdlet_is_not_a_sink_under_bash():
+    """Bash has no such program, so the name there is whatever script happens to carry it."""
+    cmd = "Write-Host 'pkill -f x'"
+    assert S.strip_data_sink_statements(cmd, "Bash") == cmd
+
+
+@pytest.mark.parametrize("cmd", [
+    "Write-Host (Stop-Process -Name x)",
+    "echo (Remove-Item -Recurse C:\\x)",
+    "Write-Output @(pkill -f x)",
+    "echo @(pkill -f x)",
+])
+def test_a_powershell_sink_with_a_parenthesised_expression_is_not_a_sink(cmd):
+    """In PowerShell's argument mode `(...)` and `@(...)` are EVALUATED, so the statement runs a
+    command. A bare `(` already ends the segment, but `@(` does not, so it has to be recognised
+    as the substitution it is. Bash has neither form (there `@(...)` is an extglob pattern).
+    """
+    assert S.strip_data_sink_statements(cmd, "PowerShell") == cmd
+
+
+def test_an_at_paren_under_bash_is_a_glob_not_a_substitution():
+    """`@(a|b)` is an extglob pattern in bash, so echo still only prints it."""
+    assert "pkill" not in S.strip_data_sink_statements("echo @(pkill|x)", "Bash")
+
+
+def test_a_parenthesis_inside_a_quoted_powershell_argument_does_not_run_anything():
+    out = S.strip_data_sink_statements("Write-Host 'pkill -f x (again)'", "PowerShell")
+    assert "pkill -f x" not in out
+
+
+# --------------------------------------------------------------------------
+# opens_a_pr: the PR half of is_gated_command on its own
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "cmd,expected",
+    [
+        ("gh pr create --fill", True),
+        ("git push -u origin x && gh pr create --fill", True),
+        ("FOO=bar gh pr create -t x", True),
+        ("(gh pr create --fill)", True),
+        # a commit or a push is the OTHER half of the gate, and this predicate must not see it
+        ("git commit -m x", False),
+        ("git push origin master", False),
+        ("git add -A && git commit -m x && git push", False),
+        # data, not a command: the same two shapes that fooled the gate before the heredoc strip
+        ('echo "then gh pr create --fill"', False),
+        ("cat > d.md <<'EOF'\nrun gh pr create afterwards\nEOF\nls", False),
+        ("cat > m <<'EOF'\nsubject\nEOF\ngh pr create -F m", True),
+        ("gh pr list", False),
+        ("gh pr view 12", False),
+    ],
+)
+def test_opens_a_pr(cmd, expected):
+    assert S.opens_a_pr(cmd) is expected
+
+
+# ---- heredoc bodies as AUTHORED text -----------------------------------------------------------
+# `strip_heredoc_bodies` removes a body because it is data rather than a command. But a body can
+# also be a PROGRAM being authored, and the toolbox nudge already treats authored text (Write and
+# Edit content) as a place a chore hides. `heredoc_bodies` is that same text, so the two readings
+# can be taken from one command without either one blinding the other.
+
+def test_heredoc_bodies_returns_what_strip_removes():
+    command = "python3 - <<'PY'\nimport os\nprint(os.getcwd())\nPY\nls -la"
+    assert S.heredoc_bodies(command) == "import os\nprint(os.getcwd())"
+    assert "import os" not in S.strip_heredoc_bodies(command)
+
+
+def test_heredoc_bodies_is_empty_when_there_is_no_heredoc():
+    assert S.heredoc_bodies("ls -la && echo done") == ""
+
+
+def test_heredoc_bodies_joins_several_bodies():
+    command = "cat <<'A'\nfirst\nA\ncat <<'B'\nsecond\nB"
+    assert S.heredoc_bodies(command) == "first\nsecond"
+
+
+def test_heredoc_bodies_ignores_a_quoted_opener_the_shell_would_not_open():
+    # the same shape that once made the strip swallow a whole command
+    command = 'git commit -m "docs: explain <<EOF heredocs"\ngit push'
+    assert S.heredoc_bodies(command) == ""
+
+
+def test_heredoc_bodies_takes_an_unterminated_body_to_the_end():
+    assert S.heredoc_bodies("cat <<'EOF'\nline one\nline two") == "line one\nline two"
+
+
+def test_heredoc_bodies_excludes_the_opener_and_the_terminator():
+    body = S.heredoc_bodies("cat > f <<'EOF'\npayload\nEOF")
+    assert body == "payload"
+
+
+# ---- strip_leading_cd: the `cd <dir> &&` preamble is not the command that matters ---------------
+
+def test_strip_leading_cd_drops_a_chain_of_leading_cds():
+    """Without this every `cd /scratch && ...` call names `cd` as what it runs."""
+    assert S.strip_leading_cd("cd /tmp/scratch && cd deeper && git commit -m x") == "git commit -m x"
+
+
+def test_strip_leading_cd_drops_a_cd_on_its_own_line():
+    """A multi-line command opens `cd /path` then a newline, with no `&&` to match."""
+    assert S.strip_leading_cd("cd /tmp/scratch\npytest -q") == "pytest -q"
+
+
+def test_strip_leading_cd_accepts_a_semicolon_and_a_quoted_path():
+    assert S.strip_leading_cd("cd '/path with space'; ls") == "ls"
+    assert S.strip_leading_cd('cd "/other dir" && qm rollback 4242 clean') == "qm rollback 4242 clean"
+
+
+def test_strip_leading_cd_keeps_a_cd_that_is_not_leading():
+    """Control: a cd AFTER the first command is part of the work and stays."""
+    command = "git status && cd /elsewhere && git push"
+    assert S.strip_leading_cd(command) == command
+
+
+def test_strip_leading_cd_keeps_a_bare_cd_with_nothing_after_it():
+    """Control: a lone `cd /x` has no following command to expose, so nothing is removed."""
+    assert S.strip_leading_cd("cd /x") == "cd /x"
+    assert S.strip_leading_cd("") == ""
+
+
+# ---- git_verb_dir: where a gated git command lands ----------------------------------------------
+
+
+def test_git_verb_dir_follows_cd_and_dash_c_to_the_first_matching_verb():
+    verbs = S.GATED_GIT_VERBS
+    moved = os.path.normpath("/r")        # a path the walk resolved is normalised: `\r` on Windows
+    assert S.git_verb_dir("git push", "/s", verbs) == "/s"
+    assert S.git_verb_dir("cd /r && git push origin master", "/s", verbs) == moved
+    assert S.git_verb_dir("git -C /r push", "/s", verbs) == moved
+    # only a cd BEFORE the verb moves it; a later one belongs to the next statement
+    assert S.git_verb_dir("git commit -m x && cd /r && git push", "/s", verbs) == "/s"
+    # a verb outside the set is not where the walk stops
+    assert S.git_verb_dir("git -C /a status; cd /r; git commit -m x", "/s", verbs) == moved
+
+
+def test_git_verb_dir_refuses_what_the_text_cannot_name():
+    verbs = S.GATED_GIT_VERBS
+    assert S.git_verb_dir('cd "$R" && git push', "/s", verbs) is None
+    assert S.git_verb_dir("popd; git commit -m x", "/s", verbs) is None
+    assert S.git_verb_dir("git --git-dir=/r/.git commit -m x", "/s", verbs) is None
+    assert S.git_verb_dir("GIT_DIR=/r/.git git push", "/s", verbs) is None
+    assert S.git_verb_dir("git status", "/s", verbs) is None
+
+
+def test_git_verb_dir_follows_a_variable_the_same_command_assigned_literally():
+    """Measured 2026-10-19: `W=<worktree>; cd "$W" && git commit` was read as unreadable, so the
+    commit gate judged the SESSION's repository and blocked a commit that repo was not making."""
+    verbs, moved = S.GATED_GIT_VERBS, os.path.normpath("/r")
+    assert S.git_verb_dir('W=/r; cd "$W" && git commit -m x', "/s", verbs) == moved
+    assert S.git_verb_dir("W=/r && cd $W && git push", "/s", verbs) == moved
+    assert S.git_verb_dir('export W=/r; cd "${W}" && git commit -m x', "/s", verbs) == moved
+    assert S.git_verb_dir('W=/r; git -C "$W" commit -m x', "/s", verbs) == moved
+    assert S.git_verb_dir('W=/r; cd "$W/sub" && git commit -m x', "/s", verbs) == os.path.normpath("/r/sub")
+    assert S.git_verb_dir('W="/a b"; cd "$W" && git commit -m x', "/s", verbs) == os.path.normpath("/a b")
+
+
+def test_git_verb_dir_keeps_a_leading_value_for_the_whole_command():
+    """The value is not forgotten after the first statement that uses it: `git -C "$R"` on two
+    statements, or behind an unrelated one, commits in /r."""
+    verbs, moved = S.GATED_GIT_VERBS, os.path.normpath("/r")
+    assert S.git_verb_dir('R=/r; git -C "$R" add x && git -C "$R" commit -m y', "/s", verbs) == moved
+    assert S.git_verb_dir('R=/r; echo hi; git -C "$R" commit -m y', "/s", verbs) == moved
+    assert S.git_verb_dir('R=/r\ngit -C "$R" status\ngit -C "$R" push', "/s", verbs) == moved
+    # the name inside another word is not a rebinding: `%B`, `-B`
+    assert S.git_verb_dir('B=/r; git -C $B commit -q && git -C $B log -1 --format=%B', "/s", verbs) == moved
+    assert S.git_verb_dir('B=/r; git -C $B status -B; git -C $B push', "/s", verbs) == moved
+
+
+@pytest.mark.parametrize("command", [
+    # a later statement could rebind the name without the text spelling it
+    'R=/r; source ./env; git -C "$R" commit -m y',
+    'R=/r; . ./env; git -C "$R" commit -m y',
+    'R=/r; eval "$X"; git -C "$R" commit -m y',
+    'R=/r; if true; then source ./env; fi; git -C "$R" commit -m y',
+    # the name appears as a bare word later: rebinding or not, it is dropped
+    'R=/r; f() { R=/a; }; f; git -C "$R" commit -m y',
+    'R=/r; echo R; git -C "$R" commit -m y',
+    'R=/r; x=`R=/a`; git -C "$R" commit -m y',
+    'R=/r; declare "R=/a"; git -C "$R" commit -m y',
+    'R=/r; read -r R < f; git -C "$R" commit -m y',
+    'R=/r; printf -v R %s /a; git -C "$R" commit -m y',
+])
+def test_git_verb_dir_drops_a_kept_value_the_rest_could_rebind(command):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+def test_git_verb_dir_does_not_trust_a_variable_it_cannot_know():
+    verbs = S.GATED_GIT_VERBS
+    # the value itself is not static
+    assert S.git_verb_dir('W=$(mktemp -d); cd "$W" && git commit -m x', "/s", verbs) is None
+    # a later assignment the text cannot read replaces the literal one
+    assert S.git_verb_dir('W=/r; W=$(pwd); cd "$W" && git commit -m x', "/s", verbs) is None
+    assert S.git_verb_dir('W=/r; W=`pwd`; cd "$W" && git commit -m x', "/s", verbs) is None
+    # the segmenter cuts `W=$(...)` at the substitution, leaving `W=` or `W="`; neither is the value
+    assert S.git_verb_dir('W=$(mktemp -d); cd "$W/sub" && git commit -m x', "/s", verbs) is None
+    assert S.git_verb_dir('W="$(pwd)"; cd "$W" && git commit -m x', "/s", verbs) is None
+    # a prefix assignment sets the variable for that one command, never for the shell after it
+    assert S.git_verb_dir('W=/r true; cd "$W" && git commit -m x', "/s", verbs) is None
+    # assigned AFTER the cd, so the cd still reads the inherited (unknown) value
+    assert S.git_verb_dir('cd "$W" && W=/r && git commit -m x', "/s", verbs) is None
+    # never assigned at all: an inherited variable stays unknown
+    assert S.git_verb_dir('cd "$HOME/r" && git commit -m x', "/s", verbs) is None
+
+
+@pytest.mark.parametrize("command", [
+    # the assignment may not run, or runs in another shell
+    'W=/b; false && W=/a; cd "$W"; git commit -m x',
+    'W=/b; true || W=/a; cd "$W"; git commit -m x',
+    'W=/b; ( W=/a ); cd "$W"; git commit -m x',
+    'W=/b; W=/a | true; cd "$W"; git commit -m x',
+    'W=/b; W=/a & cd "$W"; git commit -m x',
+    'W=/b; if false; then\n W=/a\nfi\ncd "$W"; git commit -m x',
+    'W=/b; x=$(W=/a); cd "$W"; git commit -m x',
+    # a later statement may reassign or unset the name in a form nothing here reads
+    'W=/b; declare W=/a; cd "$W"; git commit -m x',
+    'W=/b; read W <<< /a; cd "$W"; git commit -m x',
+    'W=/a; W+=/sub; cd "$W"; git commit -m x',
+    'W=/a; unset W; cd "$W"; git commit -m x',
+    # the shell would not expand it to exactly the value
+    "W=/a; cd '$W'; git commit -m x",
+    'W=/a; cd \\$W; git commit -m x',
+    "W='/a b'; cd $W; git commit -m x",
+    'W=/[a]; cd $W; git commit -m x',
+    'W=/x:~/y; cd "$W"; git commit -m x',
+    # a relative value, which CDPATH can redirect
+    'W=sub; cd "$W"; git commit -m x',
+    # a continued line makes the assignment a prefix of the cd
+    'W=/a\\\ncd "$W"; git commit -m x',
+])
+def test_git_verb_dir_never_reads_a_variable_it_cannot_be_sure_of(command):
+    """Adversarial review 2026-10-19 found ~40 commands where following any assignment anywhere
+    produced a WRONG directory, which is worse than None (None falls back). Each of these must stay
+    None, or land where bash does."""
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) in (None, "/s")
+
+
+def test_git_verb_dir_follows_variables_only_in_bash():
+    assert S.git_verb_dir('W=/r; cd "$W"; git commit -m x', "/s", S.GATED_GIT_VERBS, "PowerShell") is None
+
+
+def test_a_backgrounded_or_piped_cd_does_not_move_the_next_statement():
+    """`cd x & git commit` runs the cd in a subshell, so git runs where the command started."""
+    verbs = S.GATED_GIT_VERBS
+    assert S.git_verb_dir("cd /r & git commit -m x", "/s", verbs) == "/s"
+    assert S.git_verb_dir("cd /r | cat; git commit -m x", "/s", verbs) == "/s"
+    assert S.git_verb_dir('W=/r; cd "$W" & git commit -m x', "/s", verbs) == "/s"
+    assert S.git_verb_dir("cd /r || exit; git commit -m x", "/s", verbs) == os.path.normpath("/r")
+
+
+_AT_R, _AT_A = os.path.normpath("/r"), os.path.normpath("/a")
+
+
+@pytest.mark.parametrize("command, lands", [
+    # a cd inside a subshell is undone when the subshell closes (OPEN-WORK [650])
+    ("(cd /r); git commit -m x", "/s"),
+    ("( cd /r ) && git push", "/s"),
+    ("x=$(cd /r; pwd); git commit -m x", "/s"),
+    ("echo `cd /r`; git commit -m x", "/s"),
+    ("diff <(cd /r; ls) x; git commit -m x", "/s"),
+    ("(cd /a; (cd /b); git commit -m x)", _AT_A),
+    # inside the subshell the cd still holds, and a cd outside one still moves
+    ("(cd /r && git commit -m x)", _AT_R),
+    ("cd /r && (git commit -m x)", _AT_R),
+    ("(cd /a); cd /r; git commit -m x", _AT_R),
+    # arithmetic and quoted parentheses open no subshell that a cd could be in
+    ("echo $((1+2)); cd /r; git commit -m x", _AT_R),
+    ("cd /r; git commit -m 'fix (x)'", _AT_R),
+    # braces group in the SAME shell, so the cd persists
+    ("{ cd /r; }; git commit -m x", _AT_R),
+])
+def test_git_verb_dir_undoes_a_cd_made_inside_a_subshell(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+@pytest.mark.parametrize("command", [
+    "(cd /r && files=(a b) && git commit -m x)",
+    "(cd /r; a+=(z); git commit -m x)",
+    "x=$(cd /r; a=(x); git commit -m x)",
+    "(cd /r; f() { :; }; git commit -m x)",
+    "(cd /r; echo ${x:-(a)}; git commit -m x)",
+    "(cd /r; ls !(x) >/dev/null; git commit -m x)",
+    "(cd /r; [[ x == @(x|y) ]] && git commit -m x)",
+    "(cd /r; echo a\\); git commit -m x)",
+    "(cd /r; echo ')'; git commit -m x)",
+])
+def test_a_close_paren_that_ends_no_subshell_keeps_the_subshell_open(command):
+    """Adversarial review: an array, f(), ${x:-(a)} and extglob send only their `)` to the gap, and
+    a first version popped the subshell on it - the git after it then read as running OUTSIDE."""
+    for tool in (None, "Bash"):
+        assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, tool) == _AT_R
+
+
+@pytest.mark.parametrize("command", [
+    "(cd /r; case a in a) ;; esac; git commit -m x)",
+    "(case a in a) cd /r;; esac); git commit -m x",
+    "x=$(case a in a) cd /r;; esac); git commit -m x",
+    "(cd /r; : # )\ngit commit -m x)",
+    "(cd /r # )\n); git commit -m x",
+])
+def test_a_case_pattern_inside_or_around_a_subshell_gives_up(command):
+    """A case pattern's `)`, or one inside a comment, looks like a subshell closer: None, never a guess."""
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+@pytest.mark.parametrize("command", [
+    "case a in a) cd /r;; esac; git commit -m x",
+    "case a in a) cd /r ;; esac\ngit commit -m x",
+    "case a in\n  a)\n    cd /r\n    ;;\nesac\ngit commit -m x",
+    "case $x in a) echo;; b) pushd /r;; esac && git push",
+    "f() { cd /r; }; f; git commit -m x",
+    "f() { cd /r; }\nf\ngit commit -m x",
+    "f () {\n  cd /r\n}\nf && git push",
+    "function f { cd /r; }; f && git commit -m x",
+    "f() { cd /r; git commit -m x; }; f",
+    "f() { if true; then { cd /r; }; fi; }; f; git commit -m x",
+])
+def test_a_case_arm_or_a_called_function_holding_a_cd_is_unknown(command):
+    """Which case arm runs, and what a function body does when called, is not in the walk: None,
+    never the directory the command started in."""
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+@pytest.mark.parametrize("command", [
+    "if false; then cd /r; fi; git commit -m x",
+    "if false\nthen\n  cd /r\nfi\ngit commit -m x",
+    "if test -d x; then echo; else cd /r; fi && git push",
+    "if a; then echo; elif b; then pushd /r; fi; git commit -m x",
+    "if a; then if b; then cd /r; fi; fi; git commit -m x",
+    "while false; do cd /r; done; git commit -m x",
+    "while read d\ndo\n  cd /r\ndone < list\ngit commit -m x",
+    "until true; do cd /r; done; git commit -m x",
+    "for d in $(ls none); do cd /r; done; git commit -m x",
+    "while true; do git commit -m x; cd /r; done",
+    "if c; then cd /r; else git commit -m x; fi",
+    "if a; then :; elif cd /r; then :; fi; git commit -m x",
+    "while cd /r; do :; done; git commit -m x",
+    "if a; then if cd /r; then :; fi; fi; git commit -m x",
+])
+def test_a_cd_inside_an_if_or_loop_block_is_unknown(command):
+    """OPEN-WORK [810]: a branch may never run and a loop body may run zero or many times, so a cd in
+    one is not a cd at that point of the text - read like a case arm, never as the directory."""
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+@pytest.mark.parametrize("command, lands", [
+    # a block without a cd changes nothing, and neither does a cd before or after the block
+    ("if true; then echo x; fi; git commit -m x", "/s"),
+    ("cd /r; if a; then echo; fi; git commit -m x", _AT_R),
+    ("if a; then echo; fi; cd /r; git commit -m x", _AT_R),
+    ("while read l; do echo $l; done < f; cd /r && git push", _AT_R),
+    # `if` and `done` count only as keywords leading a statement, never as an argument
+    ("echo if; cd /r; git commit -m x", _AT_R),
+    ("echo done; cd /r; git commit -m x", _AT_R),
+    # an `if`'s own condition runs whenever the `if` is reached, like any unguarded cd
+    ("if cd /r; then :; fi; git commit -m x", _AT_R),
+    ("if ! cd /r; then exit 1; fi\ngit push", _AT_R),
+    # a verb in a loop holds its answer when no cd follows it inside the loop
+    ("cd /r; while read b; do git push origin $b; done < list", _AT_R),
+    ("for b in a c; do git push origin $b; done; cd /a", "/s"),
+])
+def test_control_an_if_or_loop_block_without_a_cd_keeps_the_walk(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+@pytest.mark.parametrize("command, lands", [
+    # a function body runs only when called, so its cd does not move a statement after the definition
+    ("f() {\n  cd /r\n}\ngit commit -m x", "/s"),
+    ("f() { cd /r; }; git commit -m x", "/s"),
+    ("f() { cd /r; }; git commit -m x; f", "/s"),
+    # a case or function without a cd changes nothing
+    ("case a in a) echo x;; esac; git commit -m x", "/s"),
+    ("f() { echo hi; }; f; git commit -m x", "/s"),
+    ("cd /r; case a in a) echo;; esac; git commit -m x", _AT_R),
+    ("f() { echo hi; }; cd /r; f; git commit -m x", _AT_R),
+    ("f() ( cd /a ); f; cd /r; git commit -m x", _AT_R),
+    # `case` and a function name count only as the PROGRAM, never as an argument
+    ("echo case; cd /r; git commit -m x", _AT_R),
+    ("f() { cd /a; }; echo f; git commit -m x", "/s"),
+])
+def test_control_a_case_or_function_without_a_reachable_cd_keeps_the_walk(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+@pytest.mark.parametrize("command, lands", [
+    ("(echo ${x:-(a)}; cd /r; true); git commit -m x", "/s"),
+    ("(ls @(x|y) >/dev/null; cd /r; true); git commit -m x", "/s"),
+    ("x=$(a=(1 2); cd /r; echo); git commit -m x", "/s"),
+])
+def test_a_subshell_holding_a_non_subshell_paren_still_closes(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+def test_a_relative_cd_after_the_command_sets_cdpath_is_unknown():
+    """bash resolves a relative cd against CDPATH first, so `CDPATH=/a; cd sub` lands in /a/sub
+    when that exists - which the text cannot tell. An absolute cd is unaffected."""
+    verbs = S.GATED_GIT_VERBS
+    assert S.git_verb_dir("CDPATH=/a; cd sub; git commit -m x", "/s", verbs) is None
+    assert S.git_verb_dir("export CDPATH=/a; cd sub && git push", "/s", verbs) is None
+    assert S.git_verb_dir("CDPATH=/a cd sub; git commit -m x", "/s", verbs) is None
+    assert S.git_verb_dir("CDPATH=/a; cd /r; git commit -m x", "/s", verbs) == _AT_R
+    assert S.git_verb_dir("cd sub; git commit -m x", "/s", verbs) == os.path.normpath("/s/sub")
+
+
+@pytest.mark.parametrize(("command", "below_home"), [
+    ("cd ~/proj && git commit -m x", "proj"),
+    ("cd ~/proj; git push", "proj"),
+    ("git -C ~/proj commit -m x", "proj"),
+    ("cd ~/a && git -C sub push", "a/sub"),
+    ("cd ~ && git push", ""),
+    ("CDPATH=/c; cd ~/proj && git commit -m x", "proj"),   # rooted once expanded: CDPATH is skipped
+])
+def test_git_verb_dir_expands_a_leading_tilde_against_this_home(monkeypatch, command, below_home):
+    """The hook and the Bash tool's shell are children of one Claude process and share its HOME,
+    so `cd ~/proj && git commit` commits in HOME/proj; read as unknown it fell back to the session's
+    repository and judged the wrong one."""
+    home = os.path.normpath("/home/someone")
+    monkeypatch.setenv("HOME", home)
+    monkeypatch.setenv("USERPROFILE", home)
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == os.path.normpath(
+        os.path.join(home, below_home))
+
+
+@pytest.mark.parametrize("command", [
+    "HOME=/x; cd ~/proj && git commit -m x",           # the shell's HOME is no longer this one
+    "export HOME=/x && cd ~ && git push",
+    "HOME=/x git -C ~/proj commit -m x",
+    'cd "~/proj" && git commit -m x',                  # quoted: a directory literally named ~
+    "cd '~'/proj; git push",
+    "cd \\~/proj && git commit -m x",                # escaped: the same literal name
+    "cd ~other/proj && git commit -m x",               # another account's home
+])
+def test_git_verb_dir_leaves_a_tilde_it_cannot_resolve_unknown(monkeypatch, command):
+    monkeypatch.setenv("HOME", os.path.normpath("/home/someone"))
+    monkeypatch.setenv("USERPROFILE", os.path.normpath("/home/someone"))
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+def test_powershell_parentheses_do_not_open_a_subshell():
+    """PowerShell's ( ) and $( ) run in the same runspace, so Set-Location inside them persists."""
+    assert S.git_verb_dir("(cd /r); git commit -m x", "/s", S.GATED_GIT_VERBS, "PowerShell") == _AT_R
+
+
+def test_git_verb_dir_reads_a_continued_line_with_a_quoted_dash_c_value():
+    # Each statement here ends in `\<newline>`; git_verb_dir strip()s the segment before tokenizing,
+    # which used to leave a lone backslash, split the quoted -c value and hide the push.
+    moved = os.path.normpath("/r")
+    cmd = ("S=/tmp/x\ncd /r \\\n && git add f \\\n"
+           " && git -c credential.helper='!gh auth git-credential' push origin main \\\n"
+           " && git status --porcelain")
+    for tool in ("Bash", None):
+        assert S.git_verb_dir(cmd, "/s", S.GATED_GIT_VERBS, tool) == moved
+
+
+@pytest.mark.parametrize("command", [
+    # OPEN-WORK [1050]: the cd runs only when the statement before it succeeds or fails, and the
+    # verb after the `;` runs either way
+    "false && cd /r; git commit -m x",
+    "test -d /r && cd /r; git commit -m x",
+    "true || cd /r; git commit -m x",
+    "x || cd /r\ngit push",
+    # the verb runs both where the cd landed and where it was skipped
+    "x || cd /r && git commit -m x",
+    "x && cd /r || true; git push",
+    "x && cd /r || git push",
+    "! cd /r && git commit -m x",
+])
+def test_a_cd_that_may_not_run_is_unknown(command):
+    """A cd that depends on another statement's exit status is not a cd at that point of the text;
+    reading it as one judged the repository the cd names when the commit ran where it started."""
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) is None
+
+
+@pytest.mark.parametrize("command, lands", [
+    # a cd guarded by `&&` still holds for a verb joined to it by `&&`: the verb runs only after it
+    ("x && cd /r && git commit -m x", _AT_R),
+    ("test -d /r && cd /r && git add f && git push", _AT_R),
+    ("cd /a && cd r && git commit -m x", os.path.normpath("/a/r")),
+    ("cd /a && cd r; git commit -m x", os.path.normpath("/a/r")),
+    ("x || mkdir y && cd /r && git push", _AT_R),
+    # a cd that is the first statement of its list is read as succeeding, as before
+    ("cd /r || exit 1; git commit -m x", _AT_R),
+    ("cd /r && x; git push", _AT_R),
+    # the guarded cd inside a subshell is undone when the subshell closes
+    ("x && (cd /r); git commit -m x", "/s"),
+    # a later cd that always runs makes the earlier one irrelevant
+    ("false && cd /a; cd /r; git commit -m x", _AT_R),
+    # a cd behind `||` after cds that are read as succeeding never runs
+    ("cd /a || cd /b && git commit -m x", _AT_A),
+    ("cd /a || cd /b; git commit -m x", _AT_A),
+    # an ordinary statement's `||` branch ends with the list: the cd before it holds after `;`
+    ("cd /r && x || echo failed; git push", _AT_R),
+    # a substitution inside a statement does not end the list the cd guards
+    ('mkdir -p /t && cd /r && test "$(git branch --show-current)" = m && git commit -m x', _AT_R),
+])
+def test_control_a_cd_the_verb_cannot_run_without_keeps_the_walk(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+@pytest.mark.parametrize("command, lands", [
+    # OPEN-WORK [1050] review: a subshell opened INSIDE the block closes inside it, so its cd
+    # cannot reach a statement after the block, or the next pass of the loop
+    ("while x; do (cd /r); git push; done", "/s"),
+    ("if a; then (cd /r); fi; git commit -m x", "/s"),
+    ("for b in a; do (cd /r && git push); done", _AT_R),
+])
+def test_a_subshell_cd_inside_a_block_stays_in_its_subshell(command, lands):
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+
+
+def test_control_a_block_inside_a_subshell_still_hides_its_cd():
+    """The subshell opened BEFORE the loop: the loop's cd reaches the verb inside it."""
+    assert S.git_verb_dir("(while x; do cd /r; done; git push)", "/s", S.GATED_GIT_VERBS) is None
+
+
+def test_a_verb_only_a_failed_cd_reaches_is_not_answered_with_the_cd():
+    """`cd /r || git commit` commits only when the cd FAILED, so never in /r."""
+    assert S.git_verb_dir("cd /r || git commit -m x", "/s", S.GATED_GIT_VERBS) != _AT_R
+
+
+def test_git_verb_dir_sees_a_cd_behind_an_env_prefix_or_a_keyword():
+    """The shared cd reader skips what stands in front of the program, as the git walk does."""
+    moved = os.path.normpath("/r")
+    assert S.git_verb_dir("X=1 cd /r && git push", "/s", S.GATED_GIT_VERBS) == moved
+    assert S.git_verb_dir("if cd /r; then git push; fi", "/s", S.GATED_GIT_VERBS) == moved
+
+
+# ---- directory_change: THE cd reader every cd-tracking hook shares ----------------------------
+#
+# Four nudges once carried a private `_CD` regex each; they disagreed on anchoring, env prefixes,
+# a bare `cd` and quoted paths with spaces. One reader, one answer.
+
+_HERE = os.path.normpath("/s")
+
+
+def _norm(path):
+    return os.path.normpath(path)
+
+
+@pytest.mark.parametrize("statement,expected", [
+    ("cd /r", "/r"),
+    ("cd r", "/s/r"),
+    ("cd ../r", "/r"),
+    ('cd "/a b"', "/a b"),                  # quoted with a space: ONE word, kept whole
+    ("cd '/a b'", "/a b"),
+    ("cd -P /r", "/r"),                     # cd's own options are not the target
+    ("cd -- /r", "/r"),
+    ("X=1 cd /r", "/r"),                    # behind an env assignment
+    ("  (cd /r", "/r"),                     # a subshell's opening paren
+    ("then cd /r", "/r"),                   # a branch body
+    ("cd /r  # go there", "/r"),            # a trailing comment is not an operand
+    ("pushd /r", "/r"),
+    ("/usr/bin/cd /r", "/r"),
+])
+def test_directory_change_reads_where_a_cd_lands(statement, expected):
+    assert S.directory_change(statement, _HERE) == (True, _norm(expected))
+
+
+@pytest.mark.parametrize("statement", [
+    "cd", "cd -", "cd ~", "cd ~/x", 'cd "$R"', "cd $R/x", "cd `pwd`", "cd *", "popd",
+    "pushd +1", "cd $(git rev-parse --show-toplevel)",
+])
+def test_directory_change_refuses_a_destination_no_static_read_can_name(statement):
+    """A change it cannot follow is still a CHANGE: (True, None), never (False, here)."""
+    assert S.directory_change(statement, _HERE) == (True, None)
+
+
+@pytest.mark.parametrize("statement", [
+    "echo cd /r", "git -C /r log", "cdx /r", "abcd /r", "ls", "", "   ",
+    "git commit -m 'cd /r'", "grep -rn 'cd /r' .",
+])
+def test_directory_change_leaves_a_non_cd_statement_alone(statement):
+    assert S.directory_change(statement, _HERE) == (False, _HERE)
+
+
+def test_directory_change_needs_a_base_for_a_relative_target():
+    assert S.directory_change("cd r", None) == (True, None)
+    assert S.directory_change("cd /r", None) == (True, _norm("/r"))
+
+
+def test_directory_change_expands_home_only_when_asked(monkeypatch):
+    home = os.path.normpath("/home/someone")
+    monkeypatch.setenv("HOME", home)
+    monkeypatch.setenv("USERPROFILE", home)
+    assert S.directory_change("cd ~/proj", _HERE) == (True, None)
+    assert S.directory_change("cd ~/proj", _HERE, expand_home=True) == (True, _norm(home + "/proj"))
+    assert S.directory_change("cd ~", _HERE, expand_home=True) == (True, home)
+    # `~user` is another account's home: not this process's to expand
+    assert S.directory_change("cd ~other/x", _HERE, expand_home=True) == (True, None)
+
+
+@pytest.mark.parametrize("statement", ["Set-Location r", "sl r", "cd r", "chdir r"])
+def test_directory_change_knows_the_powershell_spellings(statement):
+    changed, landing = S.directory_change(statement, _HERE, "PowerShell")
+    assert changed is True and landing == _norm("/s/r")
+
+
+# ---- past_command_prefix: the launcher walk, public -------------------------------------------
+#
+# A guard asking "which program does this statement really run?" had to read the private
+# `_COMMAND_PREFIXES` / `_PREFIX_SCAN_LIMIT` (the sed guard did, and added `command`/`exec` to its
+# own copy). One public function, one launcher set.
+
+
+@pytest.mark.parametrize("argv,programs,expected", [
+    (["sudo", "sed", "-i", "x.json"], {"sed"}, 1),
+    (["nice", "-n", "19", "ionice", "-c3", "git", "push"], {"git"}, 5),
+    (["timeout", "30", "/usr/bin/sed", "-i", "f"], {"sed"}, 2),
+    (["command", "git", "push"], {"git"}, 1),
+    (["exec", "sed", "-i", "f.json"], {"sed", "perl"}, 1),
+    (["ssh", "host", "git", "push"], {"git"}, None),           # not a launcher: never scanned
+    (["sudo", "apt-get", "install", "vim"], {"git"}, None),     # a launcher running something else
+    (["timeout", "30", "ssh", "host", "git push"], {"git"}, None),  # one quoted token, not `git`
+])
+def test_past_command_prefix_finds_the_program_a_launcher_runs(argv, programs, expected):
+    assert S.past_command_prefix(argv, 0, programs) == expected
+
+
+def test_past_command_prefix_is_bounded():
+    """Past the look-ahead the scan stops, so it stays a statement walk, not a bag of tokens."""
+    argv = ["sudo"] + ["-x"] * (S._PREFIX_SCAN_LIMIT + 1) + ["git", "push"]
+    assert S.past_command_prefix(argv, 0, {"git"}) is None
+
+
+def test_past_command_prefix_reads_a_windows_path_under_powershell():
+    argv = ["sudo", "C:" + _B + "Git" + _B + "bin" + _B + "git.exe", "push"]
+    assert S.past_command_prefix(argv, 0, {"git"}, "PowerShell") == 1
+
+
+@pytest.mark.parametrize("command", [
+    "command git commit -m x", "exec git push origin main", "command -p git push",
+])
+def test_command_and_exec_run_the_git_after_them(command):
+    """`command git push` and `exec git commit` run git exactly as `sudo git push` does, so a
+    gate that steps over sudo and not these could not see the commit at all."""
+    assert S.is_gated_command(command) is True
+
+
+@pytest.mark.parametrize("command", [
+    "command -v git", "type -a git && command -v git", "exec > log 2>&1",
+])
+def test_command_and_exec_without_a_gated_git_are_not_gated(command):
+    assert S.is_gated_command(command) is False
+
+
+# ---- drop_redirections: a redirection is the shell's, never an operand of the program ---------
+
+@pytest.mark.parametrize("tokens, kept", [
+    (["origin", "v1", "2>&1"], ["origin", "v1"]),
+    (["origin", "v1", ">", "push.log"], ["origin", "v1"]),
+    (["origin", "v1", ">/dev/null", "2>&1"], ["origin", "v1"]),
+    (["origin", "v1", "&>", "log"], ["origin", "v1"]),
+    (["origin", "v1", "&>>log"], ["origin", "v1"]),
+    (["origin", "v1", ">>", "log", "2>", "err"], ["origin", "v1"]),
+    (["<", "/dev/null", "origin", "v1"], ["origin", "v1"]),
+    (["origin", "v1", "*>", "log"], ["origin", "v1"]),           # PowerShell's all-streams form
+    (["origin", "v1", "<<<", "word"], ["origin", "v1"]),
+    (["origin", "a>b", "x<y"], ["origin", "a>b", "x<y"]),       # CONTAINS an operator: not one
+    (["origin", "v1"], ["origin", "v1"]),
+    ([], []),
+])
+def test_drop_redirections_removes_each_operator_with_its_target(tokens, kept):
+    assert S.drop_redirections(tokens) == kept
+
+
+def test_drop_redirections_on_a_trailing_bare_operator_drops_it_alone():
+    """A cut segment can end on `>`; there is no target word to consume, and nothing raises."""
+    assert S.drop_redirections(["origin", "v1", ">"]) == ["origin", "v1"]
+
+
+def test_git_verb_operands_keeps_redirections_so_callers_can_locate_the_verb():
+    """The suffix invariant callers rely on (`tokens[len(tokens) - len(operands) - 1]` is the verb)
+    is why redirections are dropped by the reader of the operands, not by the verb walk."""
+    tokens = ["git", "-C", "/r", "push", "origin", "v1", "2>&1"]
+    operands = S.git_verb_operands(tokens, {"push"})
+    assert tokens[len(tokens) - len(operands) - 1] == "push"
+    assert S.drop_redirections(operands) == ["origin", "v1"]
+
+
+def test_the_edge_of_a_substitution_before_an_and_does_not_end_the_list():
+    """`B=$(git hash-object f) && git commit` - the text between the two statements is `) &&`."""
+    command = 'printf x > /t/m && cd /r && B=$(git hash-object -w f) && git commit -q -F /t/m'
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == _AT_R
+
+
+@pytest.mark.parametrize("gap, joined", [
+    (" && ", "&&"), ("||\n ", "||"), ("$(", ""), (") && ", "&&"), ("`", ""),
+    ("; ", None), ("\n", None), (" & ", None), (" | ", None), ("&& (", None), (");", None),
+])
+def test_list_gap_reads_the_operator_between_two_statements(gap, joined):
+    assert S._list_gap(gap) == joined

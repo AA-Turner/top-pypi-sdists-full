@@ -1,0 +1,204 @@
+from typing import Annotated, Literal, TypedDict
+
+from fastapi import Header
+from pydantic import BaseModel, Field, field_validator
+
+from rock import env_vars
+from rock.actions import (
+    BashAction,
+    CloseBashSessionRequest,
+    Command,
+    CreateBashSessionRequest,
+    ReadFileRequest,
+    WriteFileRequest,
+)
+from rock.common.validation import NonBlankStr
+
+
+class SandboxStartRequest(BaseModel):
+    image: NonBlankStr
+    """image"""
+    image_os: str = "linux"
+    """The operating system of the image (e.g., 'linux', 'windows')."""
+    auto_clear_time_minutes: int = env_vars.ROCK_DEFAULT_AUTO_CLEAR_TIME_MINUTES
+    """The time for automatic container cleaning, with the unit being minutes"""
+    pull: Literal["never", "always", "missing"] = "missing"
+    """When to pull docker images."""
+    memory: str = "8g"
+    """The amount of memory to allocate for the container."""
+    cpus: float = 2
+    """The amount of CPUs to allocate for the container. Used as --cpu-shares (cpus * 1024)."""
+    limit_cpus: float | None = None
+    """Hard limit on the number of CPU cores the container can use. Used as --cpus."""
+    sandbox_id: str | None = Field(default=None)
+    """The id of the sandbox."""
+    registry_username: str | None = None
+    """Username for Docker registry authentication. When both username and password are provided, docker login will be performed before pulling the image."""
+    registry_password: str | None = None
+    """Password for Docker registry authentication. When both username and password are provided, docker login will be performed before pulling the image."""
+    startup_timeout: float | None = None
+    """Total time budget in seconds covering docker pull + runtime startup. Overrides YAML/Nacos defaults when set. Capped at max_startup_timeout."""
+    use_kata_runtime: bool = False
+    """Whether to use kata container runtime (io.containerd.kata.v2) instead of --privileged mode."""
+    auto_archive_seconds: int | None = None
+    """The time for automatic sandbox archive after stop, with the unit being seconds."""
+    auto_delete_seconds: int | None = None
+    """Automatic deletion delay in seconds; None inherits the cluster default when archive is not configured."""
+    disk: str | None = "50G"
+    """Disk quota for the sandbox (e.g. '50G'). Applied to rootfs (log dir shares the same quota via XFS prjid). Set None to fall back to cluster defaults."""
+    num_gpus: float | None = None
+    """Number of GPUs to allocate. Supports fractional values (e.g. 0.5 for GPU sharing)."""
+    accelerator_type: str | None = None
+    """GPU accelerator type (e.g. 'A100', 'V100'). If not specified, any available GPU will be used."""
+
+    @field_validator("auto_archive_seconds", "auto_delete_seconds")
+    @classmethod
+    def validate_auto_transition_seconds(cls, v, info):
+        if v is not None and v < 0:
+            raise ValueError(f"{info.field_name} must be >= 0")
+        return v
+
+
+class CommitRequest(BaseModel):
+    sandbox_id: NonBlankStr
+    image_tag: NonBlankStr
+    username: str
+    password: str
+
+    @field_validator("image_tag", mode="before")
+    @classmethod
+    def validate_image_tag_for_status_file(cls, value: object) -> object:
+        if isinstance(value, str) and any(
+            character in value
+            for character in ("\x00", "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
+        ):
+            raise ValueError("image_tag cannot contain NUL or line separators")
+        return value
+
+
+class SandboxCommand(Command):
+    timeout: float | None = 1200
+    """The timeout for the command. None means no timeout."""
+    shell: bool = False
+    """Same as the `subprocess.run()` `shell` argument."""
+    check: bool = False
+    """Whether to check for the exit code. If True, we will raise a
+    `CommandFailedError` if the command fails.
+    """
+    error_msg: str = ""
+    """This error message will be used in the `NonZeroExitCodeError` if the
+    command has a non-zero exit code and `check` is True.
+    """
+    env: dict[str, str] | None = None
+    """Environment variables to pass to the command."""
+    cwd: str | None = None
+    """The current working directory to run the command in."""
+    sandbox_id: NonBlankStr
+    """The id of the sandbox."""
+
+
+class SandboxCreateBashSessionRequest(CreateBashSessionRequest):
+    startup_timeout: float = 1.0
+    max_read_size: int = 2000
+    sandbox_id: NonBlankStr
+    remote_user: str | None = Field(default=None)
+
+
+SandboxCreateSessionRequest = Annotated[SandboxCreateBashSessionRequest, Field(discriminator="session_type")]
+
+
+class SandboxBashAction(BashAction):
+    sandbox_id: NonBlankStr
+    """The id of the sandbox."""
+    is_interactive_command: bool = False
+    """For a non-exiting command to an interactive program
+    (e.g., gdb), set this to True."""
+    is_interactive_quit: bool = False
+    """This will disable checking for exit codes, since the command won't terminate.
+    If the command is something like "quit" and should terminate the
+    interactive program, set this to False.
+    """
+    error_msg: str = ""
+    """This error message will be used in the `NonZeroExitCodeError` if the
+    command has a non-zero exit code and `check` is True.
+    """
+    expect: list[str] = []
+    """Outputs to expect in addition to the PS1"""
+
+
+SandboxAction = Annotated[SandboxBashAction, Field(discriminator="action_type")]
+
+
+class SandboxCloseBashSessionRequest(CloseBashSessionRequest):
+    sandbox_id: NonBlankStr
+
+
+SandboxCloseSessionRequest = Annotated[SandboxCloseBashSessionRequest, Field(discriminator="session_type")]
+
+
+class SandboxReadFileRequest(ReadFileRequest):
+    sandbox_id: NonBlankStr
+
+
+class SandboxWriteFileRequest(WriteFileRequest):
+    sandbox_id: NonBlankStr
+
+
+class WarmupRequest(BaseModel):
+    image: str = "python:3.11"
+
+
+class BatchSandboxStatusRequest(BaseModel):
+    sandbox_ids: list[str]
+
+
+class SandboxQueryParams(TypedDict, total=False):
+    """Query parameters for sandbox list."""
+
+    page: str
+    page_size: str
+    user_id: str
+    experiment_id: str
+    namespace: str
+    image: str
+    state: str
+
+
+class UserInfo(TypedDict, total=False):
+    user_id: str
+    experiment_id: str
+    namespace: str
+    rock_authorization: str
+
+
+class TaskSetSpec(BaseModel):
+    taskTypes: list[str] | None = Field(default=None)
+    targetWorkers: list[str] | None = Field(default=None)
+
+
+class CreateTaskSetRequest(BaseModel):
+    spec: TaskSetSpec = Field(default_factory=TaskSetSpec)
+
+
+class ClusterInfo(TypedDict, total=False):
+    cluster_name: str
+
+
+class StartHeaders:
+    def __init__(
+        self,
+        x_user_id: str | None = Header(default="default", alias="X-User-Id"),
+        x_experiment_id: str | None = Header(default="default", alias="X-Experiment-Id"),
+        rock_authorization: str | None = Header(default="default", alias="X-Key"),
+        x_namespace: str | None = Header(default="default", alias="X-Namespace"),
+        x_cluster: str | None = Header(default="default", alias="X-Cluster"),
+    ):
+        self.user_info: UserInfo = {
+            "user_id": x_user_id,
+            "experiment_id": x_experiment_id,
+            "namespace": x_namespace,
+            "rock_authorization": rock_authorization,
+        }
+        self.cluster_info: ClusterInfo = {
+            "cluster_name": x_cluster,
+        }

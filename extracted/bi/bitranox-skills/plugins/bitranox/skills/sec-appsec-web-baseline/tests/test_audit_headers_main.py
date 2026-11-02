@@ -1,0 +1,279 @@
+"""End-to-end tests for audit_headers.main()/fetch(): exit codes, redirects, the HEAD probe.
+
+No test reaches the internet. HTTPS sites are simulated with an httpx MockTransport (the
+network edge, injected through fetch's ``transport`` seam); the plain-HTTP tests use a real
+http.server on 127.0.0.1. Hosts are IP literals, so the internal-target check never asks DNS.
+"""
+
+import functools
+import http.server
+import json
+import os
+import socket
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import httpx2 as httpx
+import pytest
+
+import audit_headers as a
+
+SCRIPT = Path(a.__file__).resolve()
+SITE = "203.0.113.10"  # TEST-NET-3 literal: never resolved, never routed
+
+CLEAN_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Content-Type": "text/html; charset=utf-8",
+}
+
+
+class FakeSite:
+    """A MockTransport handler: plain HTTP 301s to https, https serves ``headers`` + ``html``."""
+
+    def __init__(self, headers, html="<p>hi</p>", cookies=()):
+        self.headers = headers
+        self.html = html
+        self.cookies = list(cookies)
+        self.requests = []
+
+    def __call__(self, request):
+        self.requests.append((request.method, str(request.url)))
+        if request.url.scheme == "http":
+            target = str(request.url.copy_with(scheme="https", port=None))
+            return httpx.Response(301, headers={"Location": target})
+        # a list of pairs can repeat a header, which a dict cannot
+        pairs = self.headers.items() if isinstance(self.headers, dict) else self.headers
+        headers = list(pairs) + [("Set-Cookie", c) for c in self.cookies]
+        return httpx.Response(200, headers=headers, text=self.html)
+
+
+def run_main(argv, site, capsys):
+    fetcher = functools.partial(a.fetch, transport=httpx.MockTransport(site))
+    rc = a.main(argv, fetcher=fetcher)
+    return rc, capsys.readouterr()
+
+
+def test_clean_https_site_exits_0(capsys):
+    rc, out = run_main([f"https://{SITE}/"], FakeSite(CLEAN_HEADERS), capsys)
+    assert rc == 0, out.out
+    assert "SEVERE=0 MEDIUM=0" in out.out
+
+
+def test_medium_finding_exits_1(capsys):
+    headers = dict(CLEAN_HEADERS)
+    del headers["X-Content-Type-Options"]
+    rc, out = run_main([f"https://{SITE}/"], FakeSite(headers), capsys)
+    assert rc == 1
+    assert "[MEDIUM] x-content-type-options" in out.out
+
+
+def test_json_output_keys(capsys):
+    rc, out = run_main([f"https://{SITE}/", "--json"], FakeSite(CLEAN_HEADERS), capsys)
+    doc = json.loads(out.out)
+    assert rc == 0
+    assert set(doc) == {"ok", "command", "data", "skipped"}
+    assert (doc["ok"], doc["command"], doc["skipped"]) == (True, "audit_headers", [])
+    data = doc["data"]
+    assert data["url"] == f"https://{SITE}/"
+    assert set(data["counts"]) == {"SEVERE", "MEDIUM", "MINOR", "OK"}
+    assert all({"check", "severity", "detail", "fix"} <= set(f) for f in data["findings"])
+
+
+def test_json_envelope_ok_is_true_on_a_gate_failure(capsys):
+    """ok means "ran without error", so a finding (exit 1) is still ok: the answer is in the
+    exit code and in data, never in ok."""
+    headers = dict(CLEAN_HEADERS)
+    del headers["X-Content-Type-Options"]
+    rc, out = run_main([f"https://{SITE}/", "--json"], FakeSite(headers), capsys)
+    doc = json.loads(out.out)
+    assert rc == 1
+    assert doc["ok"] is True
+    assert doc["data"]["counts"]["MEDIUM"] >= 1
+
+
+def test_json_envelope_is_printed_when_the_url_cannot_be_fetched(capsys):
+    """Exit 2 printed nothing on stdout, so a --json caller parsing stdout crashed on an empty
+    document instead of reading "could not run"."""
+    def refuse(request):
+        raise httpx.ConnectError("connection refused", request=request)
+
+    rc = a.main([f"https://{SITE}/", "--json"],
+                fetcher=functools.partial(a.fetch, transport=httpx.MockTransport(refuse)))
+    out = capsys.readouterr()
+    doc = json.loads(out.out)
+    assert rc == 2
+    assert doc["ok"] is False and doc["command"] == "audit_headers" and doc["data"] is None
+    assert "could not fetch" in doc["error"]
+    assert "could not fetch" in out.err
+
+
+def test_json_envelope_is_printed_on_a_usage_error(capsys):
+    with pytest.raises(SystemExit) as exc:
+        a.main(["--json", "--no-such-flag", f"https://{SITE}/"])
+    out = capsys.readouterr()
+    assert exc.value.code == 2
+    doc = json.loads(out.out)
+    assert doc["ok"] is False and doc["data"] is None
+    assert "--no-such-flag" in doc["error"]
+
+
+def test_a_usage_error_without_json_prints_no_envelope(capsys):
+    """The control: argparse's own usage error, on stderr only."""
+    with pytest.raises(SystemExit) as exc:
+        a.main(["--no-such-flag", f"https://{SITE}/"])
+    out = capsys.readouterr()
+    assert exc.value.code == 2
+    assert out.out == ""
+    assert "usage" in out.err
+
+
+def test_http_url_redirected_to_https_is_graded_as_https(capsys):
+    # the site behind the redirect has no HSTS, an insecure cookie and an http:// script
+    headers = {k: v for k, v in CLEAN_HEADERS.items() if k != "Strict-Transport-Security"}
+    site = FakeSite(headers, html='<script src="http://cdn.example/a.js"></script>',
+                    cookies=["sid=abc; HttpOnly; SameSite=Lax"])
+    rc, out = run_main([f"http://{SITE}/", "--json"], site, capsys)
+    by = {f["check"]: f["severity"] for f in json.loads(out.out)["data"]["findings"]}
+    assert rc == 1
+    assert by["hsts"] == "SEVERE"
+    assert by["cookie:sid"] == "SEVERE"
+    assert by["mixed-content"] == "SEVERE"
+    assert by["https-redirect"] == "OK"
+
+
+def test_https_url_with_port_probes_plain_http_on_the_default_port(capsys):
+    site = FakeSite(CLEAN_HEADERS)
+    run_main([f"https://{SITE}:8443/app?x=1"], site, capsys)
+    heads = [url for method, url in site.requests if method == "HEAD"]
+    assert heads == [f"http://{SITE}/app?x=1"]
+
+
+def test_http_url_with_port_probes_that_same_port(capsys):
+    site = FakeSite(CLEAN_HEADERS)
+    run_main([f"http://{SITE}:8080/"], site, capsys)
+    heads = [url for method, url in site.requests if method == "HEAD"]
+    assert heads == [f"http://{SITE}:8080/"]
+
+
+def test_fetch_failure_exits_2_not_the_gate_code(capsys):
+    def refuse(request):
+        raise httpx.ConnectError("connection refused", request=request)
+
+    rc = a.main([f"https://{SITE}/"], fetcher=functools.partial(a.fetch, transport=httpx.MockTransport(refuse)))
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "could not fetch" in err
+
+
+def _free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def test_refused_real_port_exits_2(capsys):
+    assert a.main([f"http://127.0.0.1:{_free_port()}/"]) == 2
+
+
+# Hosts the resolver refuses to even encode: the IDNA codec (a label over 63 characters, an empty
+# label) and a NUL. None of them touch DNS, and none of them can be fetched.
+@pytest.mark.parametrize("host", ["a" * 64, "a..b", "x\x00y"])
+def test_a_host_the_resolver_cannot_encode_exits_2_not_a_traceback(host, capsys):
+    calls = []
+
+    def fetcher(url, proxy=None):
+        calls.append(url)
+        return []
+
+    rc = a.main([f"https://{host}/"], fetcher=fetcher)
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "could not fetch" in err
+    assert calls == []
+
+
+def test_two_csp_headers_are_graded_as_two_policies(capsys):
+    # httpx joins the repeated header with ", "; the first policy lets any site frame the page
+    headers = [(k, v) for k, v in CLEAN_HEADERS.items() if k != "Content-Security-Policy"]
+    headers += [("Content-Security-Policy", "frame-ancestors *"),
+                ("Content-Security-Policy", "default-src 'self'; object-src 'none'")]
+    rc, out = run_main([f"https://{SITE}/", "--json"], FakeSite(headers), capsys)
+    by = {f["check"]: f["severity"] for f in json.loads(out.out)["data"]["findings"]}
+    assert by["clickjacking"] == "MEDIUM"
+    assert rc == 1
+
+
+def test_internal_target_warning():
+    assert "INTERNAL address (127.0.0.1)" in a.internal_target_warning("http://127.0.0.1:8080/x", None)
+    assert a.internal_target_warning("http://127.0.0.1/", "http://proxy:3128") is None
+    assert a.internal_target_warning("https://8.8.8.8/", None) is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://user:pw@127.0.0.1/",      # userinfo: a regex host read "user"
+    "https://user@127.0.0.1:8443/x",
+    "http://[::1]:8080/",              # an IPv6 literal: a regex host read "["
+    "HTTP://127.0.0.1/",               # the scheme is case-insensitive
+])
+def test_internal_target_warning_reads_the_host_the_url_names(url):
+    """The host is the URL's own, however it is spelled; a mis-read one resolved to nothing and
+    the warning was silently skipped."""
+    warning = a.internal_target_warning(url, None)
+    assert warning is not None and "INTERNAL address" in warning
+
+
+def test_internal_target_warning_names_no_credentials():
+    warning = a.internal_target_warning("https://user:s3cret@127.0.0.1/", None)
+    assert warning is not None and "s3cret" not in warning
+
+
+def test_internal_target_warning_public_ipv6_is_quiet():
+    """Control: a public IPv6 literal is not internal."""
+    assert a.internal_target_warning("https://[2001:4860:4860::8888]/", None) is None
+
+
+class _Handler(http.server.BaseHTTPRequestHandler):
+    def _reply(self, body=b""):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        return body
+
+    def do_GET(self):  # noqa: N802 - http.server naming
+        self.wfile.write(self._reply(b"<p>hi</p>"))
+
+    def do_HEAD(self):  # noqa: N802
+        self._reply()
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.fixture
+def local_server():
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()
+
+
+def test_cp1252_stdout_does_not_crash_on_a_non_cp1252_url(local_server):
+    env = dict(os.environ, PYTHONIOENCODING="cp1252")
+    env.pop("PYTHONUTF8", None)
+    url = local_server + "/π.html"
+    proc = subprocess.run([sys.executable, str(SCRIPT), url], capture_output=True, env=env,
+                          timeout=60)
+    stdout = proc.stdout.decode("cp1252")
+    assert b"UnicodeEncodeError" not in proc.stderr, proc.stderr
+    assert proc.returncode == 1  # the gate (plain HTTP, no CSP), not a crash
+    assert "SEVERE=" in stdout

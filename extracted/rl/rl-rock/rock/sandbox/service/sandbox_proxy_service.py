@@ -1,0 +1,1198 @@
+import asyncio  # noqa: I001
+import json
+import os
+from typing import NoReturn
+from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.datastructures import Headers
+
+import httpx
+import oss2
+import websockets
+from aliyunsdkcore import client
+from aliyunsdkcore.request import CommonRequest
+from fastapi import Response, UploadFile
+from starlette.status import HTTP_504_GATEWAY_TIMEOUT
+
+from rock import env_vars
+from rock.actions import (
+    BashObservation,
+    CloseBashSessionResponse,
+    CommandResponse,
+    CommitErrorCode,
+    CommitStatusResponse,
+    CreateBashSessionResponse,
+    IsAliveResponse,
+    ReadFileResponse,
+    UploadResponse,
+    WriteFileResponse,
+)
+from rock.actions.sandbox.response import State
+from rock.actions.sandbox.sandbox_info import SandboxInfo
+from rock.admin.metrics.decorator import monitor_sandbox_operation
+from rock.admin.metrics.monitor import MetricsMonitor
+from rock.admin.proto.request import SandboxBashAction as BashAction
+from rock.admin.proto.request import SandboxCloseBashSessionRequest as CloseBashSessionRequest
+from rock.admin.proto.request import SandboxCommand as Command
+from rock.admin.proto.request import CommitRequest
+from rock.admin.proto.request import SandboxCreateSessionRequest as CreateSessionRequest
+from rock.admin.proto.request import SandboxQueryParams
+from rock.admin.proto.request import SandboxReadFileRequest as ReadFileRequest
+from rock.admin.proto.request import SandboxWriteFileRequest as WriteFileRequest
+from rock.admin.proto.response import SandboxListResponse, SandboxListStatusResponse, SandboxStatusResponse
+from rock.config import OssConfig, ProxyServiceConfig, RockConfig
+from rock.deployments.constants import Port
+from rock.deployments.status import ServiceStatus
+from rock.common.port_validation import validate_port_forward_port
+from rock.logger import init_logger
+from rock.sandbox.sandbox_meta_store import SandboxMetaStore
+from rock.sandbox.service.commit_worker import CommitWorkerExecutor
+from rock.sandbox.utils.proxy import BLOCKED_WS_HEADER_NAMES, build_upstream_ws_headers
+from rock.sandbox.utils.rocklet_probe import check_alive_status, get_remote_status
+from rock.sandbox.utils.timeout import SandboxTimeoutHelper
+from rock.sdk.common.exceptions import BadRequestRockError, InternalServerRockError, WorkerCommitError
+from rock.rocklet import __version__ as swe_version
+from rock.sandbox import __version__ as gateway_version
+from rock.utils import EAGLE_EYE_TRACE_ID, trace_id_ctx_var
+
+logger = init_logger(__name__)
+
+
+class SandboxProxyService:
+    def __init__(
+        self,
+        rock_config: RockConfig,
+        meta_store: SandboxMetaStore,
+        commit_worker_executor: CommitWorkerExecutor | None = None,
+    ):
+        self._rock_config = rock_config
+        self._meta_store = meta_store
+        self._commit_worker_executor = commit_worker_executor or CommitWorkerExecutor()
+        self.metrics_monitor = MetricsMonitor.create(
+            export_interval_millis=20_000,
+            metrics_endpoint=rock_config.runtime.metrics_endpoint,
+            user_defined_tags={
+                **(rock_config.runtime.user_defined_tags or {}),
+                "worker_pid": str(os.getpid()),
+            },
+        )
+        self.oss_config: OssConfig = rock_config.oss
+        self.proxy_config: ProxyServiceConfig = rock_config.proxy_service
+        logger.info(f"proxy config: {self.proxy_config}")
+        # Control-plane RPC client: short JSON calls to rocklet.
+        self._rpc_client = rock_config.http_pool_manager.get("rpc")
+        # Data-plane proxy client: streaming/SSE/large bodies. No total timeout;
+        # per-request timeout is set via build_request(timeout=...). NEVER closed
+        # per-request — lives for the process lifetime, closed in aclose().
+        self._proxy_client = rock_config.http_pool_manager.get("proxy")
+
+        # Replace single self.sts_client with a dict keyed by account name,
+        # so /get_token?account=legacy|primary maps to the right credentials.
+        legacy_region = self.oss_config.region or env_vars.ROCK_OSS_BUCKET_REGION
+        self._sts_clients = {
+            "legacy": client.AcsClient(
+                self.oss_config.access_key_id,
+                self.oss_config.access_key_secret,
+                legacy_region,
+            ),
+        }
+        # Only create primary client when credentials are configured,
+        # avoiding an AcsClient with empty AK/SK that would fail at call time.
+        if self.oss_config.primary.access_key_id:
+            primary_region = self.oss_config.primary.region or env_vars.ROCK_OSS_BUCKET_REGION
+            self._sts_clients["primary"] = client.AcsClient(
+                self.oss_config.primary.access_key_id,
+                self.oss_config.primary.access_key_secret,
+                primary_region,
+            )
+
+        self._batch_get_status_max_count = rock_config.proxy_service.batch_get_status_max_count
+        self._validate_oss_config_or_warn()
+
+    async def _commit_worker_ip(self, sandbox_id: str) -> str:
+        sandbox = await self._meta_store.get(sandbox_id, check_db=True)
+        if sandbox is None:
+            raise BadRequestRockError(f"SANDBOX_NOT_FOUND: {sandbox_id}")
+        host_ip = sandbox.get("host_ip")
+        if not isinstance(host_ip, str) or not host_ip.strip():
+            raise BadRequestRockError(f"WORKER_NOT_FOUND: {sandbox_id}")
+        return host_ip
+
+    @staticmethod
+    def _raise_commit_error(exc: WorkerCommitError) -> NoReturn:
+        message = f"{exc.code.value}: {exc}"
+        if exc.code in {
+            CommitErrorCode.SANDBOX_CONTAINER_NOT_FOUND,
+            CommitErrorCode.COMMIT_CONFLICT,
+            CommitErrorCode.STATUS_NOT_FOUND,
+        }:
+            raise BadRequestRockError(message) from exc
+        raise InternalServerRockError(message) from exc
+
+    async def commit(self, request: CommitRequest) -> CommitStatusResponse:
+        host_ip = await self._commit_worker_ip(request.sandbox_id)
+        try:
+            state = await self._commit_worker_executor.start(host_ip, request)
+        except WorkerCommitError as exc:
+            self._raise_commit_error(exc)
+        return state.to_response(request.sandbox_id)
+
+    async def get_commit_status(self, sandbox_id: str) -> CommitStatusResponse:
+        host_ip = await self._commit_worker_ip(sandbox_id)
+        try:
+            state = await self._commit_worker_executor.get_status(host_ip, sandbox_id)
+        except WorkerCommitError as exc:
+            self._raise_commit_error(exc)
+        return state.to_response(sandbox_id)
+
+    async def aclose(self) -> None:
+        """No-op: clients are now managed by HttpPoolManager and closed in lifespan."""
+        pass
+
+    def _validate_oss_config_or_warn(self) -> None:
+        # Same resolution order as gen_oss_sts_token: env > YAML
+        endpoint = env_vars.ROCK_OSS_BUCKET_ENDPOINT or self.oss_config.endpoint
+        bucket = env_vars.ROCK_OSS_BUCKET_NAME or self.oss_config.bucket
+        region = env_vars.ROCK_OSS_BUCKET_REGION
+        fields = {
+            "endpoint": endpoint,
+            "bucket": bucket,
+            "region": region,
+            "access_key_id": self.oss_config.access_key_id,
+            "access_key_secret": self.oss_config.access_key_secret,
+            "role_arn": self.oss_config.role_arn,
+        }
+        set_count = sum(1 for v in fields.values() if v)
+        if 0 < set_count < len(fields):
+            missing = [k for k, v in fields.items() if not v]
+            logger.warning(
+                "OSS configuration is partially set. Missing fields: %s. "
+                "Server will return null for these in /get_token, clients fall back accordingly.",
+                ", ".join(missing),
+            )
+
+    @monitor_sandbox_operation()
+    async def create_session(self, request: CreateSessionRequest) -> CreateBashSessionResponse:
+        sandbox_id = request.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "create_session", None, request.model_dump(), None, "POST"
+        )
+        return CreateBashSessionResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def run_in_session(self, action: BashAction) -> BashObservation:
+        sandbox_id = action.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "run_in_session", None, action.model_dump(), None, "POST"
+        )
+        return BashObservation(**response)
+
+    @monitor_sandbox_operation()
+    async def close_session(self, request: CloseBashSessionRequest) -> CloseBashSessionResponse:
+        sandbox_id = request.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "close_session", None, request.model_dump(), None, "POST"
+        )
+        return CloseBashSessionResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def is_alive(self, sandbox_id: str) -> IsAliveResponse:
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        return await self._is_alive(sandbox_id, sandbox_status_dicts[0])
+
+    async def _is_alive(self, sandbox_id: str, sandbox_status_dict: dict) -> IsAliveResponse:
+        try:
+            response = await self._send_request(sandbox_id, sandbox_status_dict, "is_alive", None, None, None, "GET")
+            return IsAliveResponse(**response)
+        except Exception as e:
+            logger.error(f"sandbox not alive for {str(e)}")
+            return IsAliveResponse(is_alive=False)
+
+    @monitor_sandbox_operation()
+    async def read_file(self, request: ReadFileRequest) -> ReadFileResponse:
+        sandbox_id = request.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "read_file", None, request.model_dump(), None, "POST"
+        )
+        return ReadFileResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def write_file(self, request: WriteFileRequest) -> WriteFileResponse:
+        sandbox_id = request.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "write_file", None, request.model_dump(), None, "POST"
+        )
+        return WriteFileResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def upload(self, file: UploadFile, target_path: str, sandbox_id: str) -> UploadResponse:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        data = {"target_path": target_path, "unzip": "false"}
+        files = {"file": (file.filename, file.file, file.content_type)}
+        response = await self._send_request(sandbox_id, sandbox_status_dicts[0], "upload", data, None, files, "POST")
+        return UploadResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def execute(self, command: Command) -> CommandResponse:
+        sandbox_id = command.sandbox_id
+        await self._update_expire_time(sandbox_id)
+        sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        response = await self._send_request(
+            sandbox_id, sandbox_status_dicts[0], "execute", None, command.model_dump(), None, "POST"
+        )
+        return CommandResponse(**response)
+
+    @monitor_sandbox_operation()
+    async def batch_get_sandbox_status(self, sandbox_ids: list[str]) -> list[SandboxStatusResponse]:
+        if sandbox_ids is None:
+            raise BadRequestRockError(message="sandbox_ids is None")
+        if len(sandbox_ids) > self._batch_get_status_max_count:
+            raise BadRequestRockError(
+                message=f"sandbox_ids count too large, max count is {self._batch_get_status_max_count}"
+            )
+        logger.info(f"batch_get_sandbox_status, sandbox_ids count is {len(sandbox_ids)}")
+        results = []
+        sandbox_infos: list[SandboxInfo] = await self._meta_store.batch_get(sandbox_ids)
+        for sandbox_info in sandbox_infos:
+            state = sandbox_info.get("state")
+            if state not in (State.RUNNING, State.PENDING):
+                continue
+            results.append(SandboxStatusResponse.from_sandbox_info(sandbox_info))
+        logger.info(f"batch_get_sandbox_status succ, result count is {len(results)}")
+        return results
+
+    @monitor_sandbox_operation()
+    async def list_sandboxes(self, query_params: SandboxQueryParams) -> SandboxListResponse:
+        page = int(query_params.pop("page", "1"))
+        page_size = int(query_params.pop("page_size", "500"))
+        if page < 1 or page_size < 1:
+            raise BadRequestRockError(f"page parameter invalid, page is {page}, page_size is {page_size}")
+        if page_size > self._batch_get_status_max_count:
+            raise BadRequestRockError(f"page_size exceeds maximum {self._batch_get_status_max_count}")
+        logger.info(f"list sandboxes with filters: {query_params}, page: {page}, page_size: {page_size}")
+        try:
+            all_sandbox_data = await self.list_all_sandboxes_by_query_params(query_params)
+            total = len(all_sandbox_data)
+            start_index = (page - 1) * page_size
+            end_index = start_index + page_size
+            page_data = all_sandbox_data[start_index:end_index]
+            has_more = end_index < total
+            logger.info(f"Returning page {page} with {len(page_data)} items, total: {total}, has_more: {has_more}")
+            return SandboxListResponse(items=page_data, total=total, has_more=has_more)
+        except Exception as e:
+            logger.error(f"Error filtering sandboxes: {e}", exc_info=True)
+            raise
+
+    async def websocket_proxy(
+        self,
+        client_websocket,
+        sandbox_id: str,
+        target_path: str | None = None,
+        port: int | None = None,
+        forward_ws_headers: bool = True,
+    ):
+        target_url = await self.get_sandbox_websocket_url(sandbox_id, target_path, port=port)
+        return await SandboxProxyService._websocket_proxy_to_target(
+            self,
+            client_websocket,
+            target_url,
+            forward_ws_headers=forward_ws_headers,
+        )
+
+    async def _websocket_proxy_to_target(
+        self,
+        client_websocket,
+        target_url: str,
+        *,
+        endpoint_headers: dict[str, str] | None = None,
+        forward_ws_headers: bool = True,
+    ):
+        client_subprotocols = getattr(client_websocket, "subprotocols", []) or []
+        upstream_subprotocols = client_subprotocols if client_subprotocols else ["binary", "base64"]
+        if forward_ws_headers:
+            origin, additional_headers = build_upstream_ws_headers(client_websocket)
+            logger.info(f"origin for upstream WebSocket: {origin}, additional_headers: {additional_headers}")
+        else:
+            origin, additional_headers = None, None
+
+        additional_by_name = {key.lower(): (key, value) for key, value in (additional_headers or [])}
+        for key, value in (endpoint_headers or {}).items():
+            lower_key = key.lower()
+            if lower_key == "origin":
+                origin = value
+            elif lower_key not in BLOCKED_WS_HEADER_NAMES:
+                additional_by_name[lower_key] = (key, value)
+        additional_headers = list(additional_by_name.values()) or None
+
+        try:
+            async with websockets.connect(
+                target_url,
+                ping_interval=None,
+                ping_timeout=None,
+                origin=origin,
+                additional_headers=additional_headers,
+                subprotocols=upstream_subprotocols,
+            ) as target_websocket:
+                negotiated = getattr(target_websocket, "subprotocol", None)
+                response_subprotocol = negotiated if client_subprotocols else None
+                await client_websocket.accept(subprotocol=response_subprotocol)
+
+                client_to_target = asyncio.create_task(
+                    self._forward_messages(client_websocket, target_websocket, "client->target")
+                )
+                target_to_client = asyncio.create_task(
+                    self._forward_messages(target_websocket, client_websocket, "target->client")
+                )
+
+                done, pending = await asyncio.wait(
+                    [client_to_target, target_to_client], return_when=asyncio.FIRST_COMPLETED
+                )
+
+                for task in pending:
+                    task.cancel()
+
+        except websockets.ConnectionClosed as e:
+            logger.error(f"Upstream WebSocket connection closed: code={e.code}, reason={e.reason}")
+            await client_websocket.close(code=e.code, reason=e.reason or "")
+        except Exception as e:
+            logger.error(f"WebSocket proxy error: {type(e).__name__}: {e}", exc_info=True)
+            await client_websocket.close(code=1011, reason=f"Proxy error: {str(e)}")
+
+    async def websocket_to_tcp_proxy(
+        self,
+        client_websocket,
+        sandbox_id: str,
+        port: int,
+        tcp_connect_timeout: float = 10.0,
+        idle_timeout: float = 300.0,
+    ) -> None:
+        """
+        Proxy WebSocket connection to a TCP port inside the sandbox.
+
+        This method forwards the connection to rocklet's /portforward endpoint,
+        which then connects to the actual TCP port inside the container.
+
+        Args:
+            client_websocket: The WebSocket connection from the client.
+            sandbox_id: The sandbox identifier.
+            port: The target TCP port inside the sandbox.
+            tcp_connect_timeout: Timeout for establishing connection (default: 10s).
+            idle_timeout: Timeout for idle connection (default: 300s).
+
+        Raises:
+            ValueError: If port validation fails.
+            Exception: If sandbox is not found or connection fails.
+        """
+        logger.info(f"[Portforward] Starting proxy: sandbox={sandbox_id}, target_port={port}")
+
+        # Validate port
+        logger.debug(f"[Portforward] Validating port: sandbox={sandbox_id}, target_port={port}")
+        is_valid, error_msg = validate_port_forward_port(port)
+        if not is_valid:
+            logger.warning(
+                f"[Portforward] Port validation failed: sandbox={sandbox_id}, target_port={port}, reason={error_msg}"
+            )
+            raise ValueError(error_msg)
+        logger.info(f"[Portforward] Port validation passed: sandbox={sandbox_id}, target_port={port}")
+
+        # Get sandbox status and rocklet portforward URL
+        logger.info(f"[Portforward] Fetching sandbox status: sandbox={sandbox_id}, target_port={port}")
+        try:
+            status_dicts = await self.get_service_status(sandbox_id)
+            logger.info(
+                f"[Portforward] Sandbox status retrieved: sandbox={sandbox_id}, target_port={port}, "
+                f"host_ip={status_dicts[0].get('host_ip')}, status_keys={list(status_dicts[0].keys())}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[Portforward] Failed to get sandbox status: sandbox={sandbox_id}, target_port={port}, "
+                f"error_type={type(e).__name__}, error={e}"
+            )
+            raise
+
+        target_url = self._get_rocklet_portforward_url(status_dicts[0], port)
+        logger.info(f"[Portforward] Rocklet URL built: sandbox={sandbox_id}, target_port={port}, url={target_url}")
+
+        try:
+            # Connect to rocklet's portforward WebSocket endpoint
+            logger.info(
+                f"[Portforward] Connecting to rocklet: sandbox={sandbox_id}, target_port={port}, "
+                f"timeout={tcp_connect_timeout}s"
+            )
+            async with websockets.connect(
+                target_url,
+                ping_interval=None,
+                ping_timeout=None,
+                open_timeout=tcp_connect_timeout,
+            ) as target_websocket:
+                logger.info(f"[Portforward] Rocklet connection established: sandbox={sandbox_id}, target_port={port}")
+
+                # Create bidirectional forwarding tasks with close info tracking
+                logger.info(
+                    f"[Portforward] Starting bidirectional forwarding: sandbox={sandbox_id}, target_port={port}"
+                )
+
+                # Track close frame info from rocklet
+                rocklet_close_info = {}
+
+                client_to_target = asyncio.create_task(
+                    self._forward_portforward_messages(
+                        client_websocket, target_websocket, "client->rocklet", idle_timeout
+                    )
+                )
+                target_to_client = asyncio.create_task(
+                    self._forward_portforward_messages(
+                        target_websocket,
+                        client_websocket,
+                        "rocklet->client",
+                        idle_timeout,
+                        close_info=rocklet_close_info,
+                    )
+                )
+
+                # Wait for any task to complete
+                done, pending = await asyncio.wait(
+                    [client_to_target, target_to_client], return_when=asyncio.FIRST_COMPLETED
+                )
+
+                logger.info(
+                    f"[Portforward] Forwarding task completed: sandbox={sandbox_id}, target_port={port}, "
+                    f"completed={[t.get_name() for t in done]}"
+                )
+
+                # Cancel unfinished tasks
+                for task in pending:
+                    logger.debug(
+                        f"[Portforward] Cancelling pending task: sandbox={sandbox_id}, target_port={port}, "
+                        f"task={task.get_name()}"
+                    )
+                    task.cancel()
+                    try:
+                        await task  # Wait for cancellation to complete
+                    except asyncio.CancelledError:
+                        pass
+
+                # If rocklet closed the connection, forward close frame to client
+                if rocklet_close_info.get("direction") == "rocklet->client":
+                    close_code = rocklet_close_info.get("code", 1000)
+                    close_reason = rocklet_close_info.get("reason", "")
+                    logger.info(
+                        f"[Portforward] Forwarding close to client: sandbox={sandbox_id}, target_port={port}, "
+                        f"code={close_code}, reason={close_reason}"
+                    )
+                    try:
+                        await client_websocket.close(code=close_code, reason=close_reason)
+                    except Exception as e:
+                        logger.debug(f"[Portforward] Error closing client connection: {e}")
+
+        except asyncio.TimeoutError:
+            logger.error(
+                f"[Portforward] Connection timeout: sandbox={sandbox_id}, target_port={port}, "
+                f"url={target_url}, timeout={tcp_connect_timeout}s"
+            )
+            await client_websocket.close(code=1011, reason=f"Connection timeout to rocklet: {target_url}")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(
+                f"[Portforward] Rocklet connection closed: sandbox={sandbox_id}, target_port={port}, "
+                f"code={e.code}, reason={e.reason}"
+            )
+            await client_websocket.close(code=e.code, reason=e.reason or "")
+        except Exception as e:
+            logger.error(
+                f"[Portforward] Proxy error: sandbox={sandbox_id}, target_port={port}, "
+                f"error_type={type(e).__name__}, error={e}",
+                exc_info=True,
+            )
+            await client_websocket.close(code=1011, reason=f"Proxy error: {str(e)}")
+
+    async def _forward_portforward_messages(
+        self,
+        source,
+        destination,
+        direction: str,
+        idle_timeout: float,
+        close_info: dict | None = None,
+    ):
+        """Forward binary messages between WebSocket connections with idle timeout.
+
+        Handles both FastAPI WebSocket and websockets library ClientConnection objects:
+        - FastAPI WebSocket: receive_bytes(), send_bytes()
+        - websockets ClientConnection: recv(), send()
+
+        When source connection closes, captures close frame info for forwarding.
+
+        Args:
+            source: Source WebSocket connection
+            destination: Destination WebSocket connection
+            direction: Direction string for logging (e.g., "client->rocklet")
+            idle_timeout: Idle timeout in seconds
+            close_info: Optional dict to store close frame info (code, reason)
+        """
+        logger.debug(f"[Portforward] Starting message forwarder: direction={direction}, idle_timeout={idle_timeout}s")
+        bytes_transferred = 0
+        message_count = 0
+
+        # Detect the type of WebSocket objects
+        # FastAPI WebSocket has 'receive_bytes' method
+        # websockets ClientConnection has 'recv' method
+        source_is_fastapi = hasattr(source, "receive_bytes")
+        dest_is_fastapi = hasattr(destination, "send_bytes")
+
+        logger.debug(
+            f"[Portforward] Connection types: direction={direction}, "
+            f"source_is_fastapi={source_is_fastapi}, dest_is_fastapi={dest_is_fastapi}"
+        )
+
+        try:
+            while True:
+                try:
+                    # Receive data based on source type
+                    if source_is_fastapi:
+                        data = await asyncio.wait_for(
+                            source.receive_bytes(),
+                            timeout=idle_timeout,
+                        )
+                    else:
+                        # websockets library returns bytes or str
+                        data = await asyncio.wait_for(
+                            source.recv(),
+                            timeout=idle_timeout,
+                        )
+                        # Convert str to bytes if needed
+                        if isinstance(data, str):
+                            data = data.encode("utf-8")
+
+                    message_count += 1
+                    bytes_transferred += len(data)
+
+                    # Send data based on destination type
+                    if dest_is_fastapi:
+                        await destination.send_bytes(data)
+                    else:
+                        await destination.send(data)
+
+                    logger.debug(
+                        f"[Portforward] Forwarded message: direction={direction}, "
+                        f"msg_num={message_count}, bytes={len(data)}, total_bytes={bytes_transferred}"
+                    )
+                except asyncio.TimeoutError:
+                    logger.info(
+                        f"[Portforward] Idle timeout: direction={direction}, "
+                        f"total_messages={message_count}, total_bytes={bytes_transferred}"
+                    )
+                    break
+        except websockets.exceptions.ConnectionClosed as e:
+            # Capture close frame info for forwarding
+            close_code = e.code
+            close_reason = e.reason or ""
+            logger.info(
+                f"[Portforward] Source connection closed: direction={direction}, "
+                f"code={close_code}, reason={close_reason}, "
+                f"total_messages={message_count}, total_bytes={bytes_transferred}"
+            )
+            if close_info is not None:
+                close_info["code"] = close_code
+                close_info["reason"] = close_reason
+                close_info["direction"] = direction
+        except Exception as e:
+            logger.info(
+                f"[Portforward] Forwarder stopped: direction={direction}, "
+                f"error_type={type(e).__name__}, error={e}, "
+                f"total_messages={message_count}, total_bytes={bytes_transferred}"
+            )
+
+    def _get_tcp_target_address(self, sandbox_status_dict: dict, port: int) -> tuple[str, int]:
+        """
+        Get the target TCP address from sandbox status.
+
+        Args:
+            sandbox_status_dict: The sandbox status dictionary.
+            port: The target port inside the sandbox.
+
+        Returns:
+            A tuple of (host_ip, mapped_port).
+        """
+        host_ip = sandbox_status_dict.get("host_ip")
+        service_status = ServiceStatus.from_dict(sandbox_status_dict)
+        # Use SERVER port mapping to access the sandbox
+        # The port inside the container is mapped to a host port
+        _mapped_port = service_status.get_mapped_port(Port.SERVER)
+        # For now, we use the port as-is since we're connecting to the sandbox's network
+        # In a real scenario, we might need to use the mapped port or connect through the container network
+        return host_ip, port
+
+    def _get_rocklet_portforward_url(self, sandbox_status_dict: dict, port: int) -> str:
+        """
+        Get the WebSocket URL for rocklet's portforward endpoint.
+
+        Args:
+            sandbox_status_dict: The sandbox status dictionary.
+            port: The target TCP port inside the sandbox.
+
+        Returns:
+            WebSocket URL for rocklet's portforward endpoint.
+        """
+        host_ip = sandbox_status_dict.get("host_ip")
+        service_status = ServiceStatus.from_dict(sandbox_status_dict)
+        # Use PROXY port mapping to access the rocklet service
+        # rocklet listens on Port.PROXY (22555) inside the container
+        mapped_port = service_status.get_mapped_port(Port.PROXY)
+
+        logger.info(
+            f"[Portforward] Building rocklet URL: host_ip={host_ip}, "
+            f"container_port={Port.PROXY.value}, mapped_port={mapped_port}, target_port={port}"
+        )
+
+        if not host_ip:
+            logger.error(f"[Portforward] Missing host_ip in sandbox status: keys={list(sandbox_status_dict.keys())}")
+        if not mapped_port:
+            logger.error(
+                f"[Portforward] Missing mapped port for PROXY: "
+                f"available_ports={service_status.ports if hasattr(service_status, 'ports') else 'unknown'}"
+            )
+
+        url = f"ws://{host_ip}:{mapped_port}/portforward?port={port}"
+        logger.info(f"[Portforward] Generated rocklet URL: {url}")
+        return url
+
+    async def _forward_websocket_to_tcp(self, websocket, writer, direction: str, idle_timeout: float):
+        """Forward data from WebSocket to TCP connection."""
+        try:
+            while True:
+                try:
+                    # Wait for data with idle timeout
+                    data = await asyncio.wait_for(
+                        websocket.receive_bytes(),
+                        timeout=idle_timeout,
+                    )
+                    writer.write(data)
+                    await writer.drain()
+                    logger.debug(f"Forwarded {len(data)} bytes {direction}")
+                except asyncio.TimeoutError:
+                    logger.info(f"Idle timeout reached for {direction}")
+                    break
+        except Exception as e:
+            logger.info(f"Connection closed in {direction}: {e}")
+
+    async def _forward_tcp_to_websocket(self, reader, websocket, direction: str, idle_timeout: float):
+        """Forward data from TCP connection to WebSocket."""
+        try:
+            while True:
+                try:
+                    # Wait for data with idle timeout
+                    data = await asyncio.wait_for(
+                        reader.read(4096),
+                        timeout=idle_timeout,
+                    )
+                    if not data:
+                        logger.info(f"TCP connection closed for {direction}")
+                        break
+                    await websocket.send_bytes(data)
+                    logger.debug(f"Forwarded {len(data)} bytes {direction}")
+                except asyncio.TimeoutError:
+                    logger.info(f"Idle timeout reached for {direction}")
+                    break
+        except Exception as e:
+            logger.info(f"Connection closed in {direction}: {e}")
+
+    async def get_service_status(self, sandbox_id: str):
+        sandbox_info = await self._meta_store.get(sandbox_id)
+        if not sandbox_info or sandbox_info.get("host_ip") is None:
+            raise Exception(f"sandbox {sandbox_id} not started")
+        return [sandbox_info]
+
+    async def _send_request(
+        self,
+        sandbox_id: str,
+        sandbox_status_dict: dict,
+        path: str,
+        data: dict | None,
+        json_data: dict | None,
+        files: dict | None,
+        method: str,
+    ):
+        host_ip = sandbox_status_dict.get("host_ip")
+        service_status = ServiceStatus.from_dict(sandbox_status_dict)
+        api_url = self._api_url(host_ip, service_status)
+        headers = self._headers(sandbox_id)
+        logger.info(f"headers: {headers}")
+        full_request_url = f"{api_url}/{path}"
+        logger.info(f"full_request_url: {full_request_url}")
+        logger.info(f"data: {data}")
+        logger.info(f"json_data: {json_data}")
+
+        # Make request
+        try:
+            response = await self._rpc_client.request(
+                method=method,
+                url=full_request_url,
+                headers=headers,
+                json=json_data if json_data else None,
+                data=data if data else None,
+                files=files if files else None,
+            )
+            if response.status_code == 511:
+                return {"exit_code": -1, "failure_reason": response.json()["rockletexception"]["message"]}
+            if response.status_code == HTTP_504_GATEWAY_TIMEOUT:
+                return {"exit_code": -1, "failure_reason": response.json()["detail"]}
+            return response.json()
+        except httpx.RequestError as e:
+            # Handle network-level errors, such as DNS resolution failure, connection timeout, etc.
+            logger.error(f"Error forwarding request to full_request_url: {str(e)}", exc_info=True)
+            raise Exception("Service unavailable: Upstream server is not reachable.")
+
+    def _headers(self, sandbox_id: str) -> dict[str, str]:
+        headers = {"sandbox_id": sandbox_id, EAGLE_EYE_TRACE_ID: trace_id_ctx_var.get()}
+        return headers
+
+    def _api_url(self, host_ip: str, service_status: ServiceStatus) -> str:
+        port = service_status.get_mapped_port(Port.PROXY)
+        return f"http://{host_ip}:{port}"
+
+    def gen_oss_sts_token(
+        self, account: str = "legacy"
+    ) -> dict | None:  # CHANGED: account param, default "legacy" preserves BC
+        """Generate STS credentials and OSS config for the given account.
+
+        Returns ONLY OSS connectivity / account-scoped config. Sandbox-side
+        domain policy (e.g. archive prefix, retry counts) does NOT belong here
+        and must be fetched from a separate endpoint when a client needs it.
+
+        Args:
+            account: "legacy" (xrl-sandbox, BC for SDK < 1.8) or
+                     "primary" (chatos-rock, SDK >= 1.8).
+        Returns:
+            Dict with STS credentials (AccessKeyId, AccessKeySecret, SecurityToken, Expiration) PLUS account-scoped OSS config:
+            Endpoint, Bucket, Region, Prefix (transfer/upload prefix).
+            None on failure or when the requested account is unconfigured.
+        """
+        if account not in self._sts_clients:
+            logger.error(f"unknown OSS account: {account!r}")
+            return None
+
+        if account == "primary":
+            primary = self.oss_config.primary
+            role_arn = primary.role_arn
+            session_name = "rock-sandbox-primary"
+            endpoint = primary.endpoint or None
+            bucket = primary.bucket or None
+            region = primary.region or env_vars.ROCK_OSS_BUCKET_REGION or None
+            prefix = self._rock_config.sandbox_config.file_transfer.prefix or None
+        else:  # legacy
+            role_arn = self.oss_config.role_arn
+            session_name = "rock-sandbox-legacy"
+            endpoint = env_vars.ROCK_OSS_BUCKET_ENDPOINT or self.oss_config.endpoint or None
+            bucket = env_vars.ROCK_OSS_BUCKET_NAME or self.oss_config.bucket or None
+            region = env_vars.ROCK_OSS_BUCKET_REGION or None
+            prefix = env_vars.ROCK_OSS_TRANSFER_PREFIX or None
+
+        if not role_arn:
+            logger.warning(f"oss role_arn not configured for account={account!r}")
+            return None
+
+        request = CommonRequest(product="Sts", version="2015-04-01", action_name="AssumeRole")
+        request.set_method("POST")
+        request.set_protocol_type("https")
+        request.add_query_param("RoleArn", role_arn)
+        request.add_query_param("RoleSessionName", session_name)
+        # at least 900s
+        request.add_query_param("DurationSeconds", "900")
+        request.set_accept_format("JSON")
+        try:
+            body = self._sts_clients[account].do_action_with_exception(request)
+            credentials = json.loads(oss2.to_unicode(body))["Credentials"]
+        except Exception:
+            logger.error(f"generate oss sts token failed (account={account})", exc_info=True)
+            return None
+
+        return {
+            **credentials,
+            "Endpoint": endpoint,
+            "Bucket": bucket,
+            "Region": region,
+            "Prefix": prefix,  # transfer-object key prefix, scoped per account
+        }
+
+    async def get_sandbox_websocket_url(
+        self, sandbox_id: str, target_path: str | None = None, port: int | None = None
+    ) -> str:
+        # if sandbox_id == "iflow-local":   # Local debugging for iflow-cli
+        #     return "ws://127.0.0.1:8090/acp"
+        # if sandbox_id == "local":   # Local debugging for general ws service
+        #     return "ws://127.0.0.1:8090/ws"
+        # Get sandbox  address based on sandbox_id
+        status_dicts = await self.get_service_status(sandbox_id)
+        host_ip = status_dicts[0].get("host_ip")
+        if port is None:
+            service_status = ServiceStatus.from_dict(status_dicts[0])
+            port = service_status.get_mapped_port(Port.SERVER)
+
+        if target_path:
+            return f"ws://{host_ip}:{port}/{target_path}"
+        else:
+            return f"ws://{host_ip}:{port}"
+
+    async def _forward_messages(self, source_ws, target_ws, direction: str):
+        """Forward WebSocket messages bidirectionally.
+
+        Handles both FastAPI/Starlette WebSocket and websockets library objects.
+        Uses raw ASGI receive() for FastAPI WebSocket to avoid binary data loss
+        (receive_text() consumes the message from the queue before failing on
+        binary frames, making the data unrecoverable).
+        """
+        try:
+            while True:
+                data = None
+
+                if hasattr(source_ws, "receive_text"):
+                    # FastAPI/Starlette WebSocket — use raw receive() to read
+                    # from the ASGI queue exactly once per message.
+                    msg = await source_ws.receive()
+                    if msg["type"] == "websocket.disconnect":
+                        logger.info(f"FastAPI WebSocket disconnected in {direction}")
+                        break
+                    data = msg.get("bytes") or msg.get("text", "")
+                elif hasattr(source_ws, "recv"):
+                    data = await source_ws.recv()
+                else:
+                    raise ValueError(f"Unsupported WebSocket type: {type(source_ws)}")
+
+                if hasattr(target_ws, "send_text"):
+                    if isinstance(data, bytes):
+                        await target_ws.send_bytes(data)
+                    else:
+                        await target_ws.send_text(data)
+                elif hasattr(target_ws, "send"):
+                    await target_ws.send(data)
+                else:
+                    raise ValueError(f"Unsupported target WebSocket type: {type(target_ws)}")
+        except websockets.ConnectionClosed:
+            logger.info(f"WebSocket connection closed in {direction}")
+        except Exception as e:
+            logger.error(f"Error forwarding message {direction}: {e}")
+
+    async def _update_expire_time(self, sandbox_id):
+        timeout_info = await self._meta_store.get_timeout(sandbox_id)
+        if timeout_info is None:
+            return
+        new_timeout = SandboxTimeoutHelper.refresh_timeout(timeout_info)
+        if new_timeout is not None:
+            await self._meta_store.update_timeout(sandbox_id, new_timeout)
+
+    async def list_all_sandboxes_by_query_params(self, query_params: SandboxQueryParams):
+        all_ids = []
+        async for sandbox_id in self._meta_store.iter_alive_sandbox_ids():
+            all_ids.append(sandbox_id)
+        if not all_ids:
+            return []
+
+        all_sandbox_data = []
+        batch_size = self._batch_get_status_max_count
+        for i in range(0, len(all_ids), batch_size):
+            batch_ids = all_ids[i : i + batch_size]
+            sandbox_infos_list = await self._meta_store.batch_get(batch_ids)
+            for sandbox_info in sandbox_infos_list:
+                state = sandbox_info.get("state")
+                if state not in (State.RUNNING, State.PENDING):
+                    continue
+                if self._matches_query_params(sandbox_info, query_params):
+                    all_sandbox_data.append(SandboxListStatusResponse.from_sandbox_info(sandbox_info))
+        return all_sandbox_data
+
+    def _matches_query_params(self, sandbox_info: SandboxInfo, query_params: SandboxQueryParams) -> bool:
+        if not query_params:
+            return True
+        for filter_key, filter_value in query_params.items():
+            if filter_key not in sandbox_info or sandbox_info[filter_key] != filter_value:
+                return False
+        return True
+
+    async def host_proxy(
+        self,
+        host_ip: str,
+        target_path: str,
+        body: dict | None,
+        headers: Headers,
+    ) -> JSONResponse | Response:
+        """Forward a POST request directly to a Rocklet on a Ray Worker by host_ip.
+
+        Unlike post_proxy which resolves host_ip from sandbox_id via Redis,
+        this method accepts host_ip directly and forwards to the fixed Rocklet port (Port.PROXY).
+
+        Args:
+            host_ip: The Ray Worker IP address running a Rocklet process.
+            target_path: The target path to forward to on the Rocklet.
+            body: The request body.
+            headers: The original request headers.
+
+        Returns:
+            JSONResponse or Response depending on upstream content type.
+        """
+        EXCLUDED_HEADERS = {"host", "content-length", "transfer-encoding"}
+
+        def filter_headers(raw_headers: Headers) -> dict:
+            return {k: v for k, v in raw_headers.items() if k.lower() not in EXCLUDED_HEADERS}
+
+        target_url = f"http://{host_ip}:{Port.PROXY.value}/{target_path}"
+        request_headers = filter_headers(headers)
+        payload = body or {}
+
+        try:
+            resp = await self._proxy_client.post(
+                url=target_url,
+                json=payload,
+                headers=request_headers,
+                timeout=90,
+            )
+        except httpx.RequestError as exc:
+            logger.error(f"Error forwarding request to {target_url}: {exc}", exc_info=True)
+            raise Exception(f"Service unavailable: Rocklet at {host_ip}:{Port.PROXY.value} is not reachable.")
+
+        content_type = resp.headers.get("content-type", "")
+        response_headers = filter_headers(resp.headers)
+
+        if "application/json" in content_type:
+            return JSONResponse(
+                status_code=resp.status_code,
+                content=resp.json(),
+                headers=response_headers,
+            )
+
+        return Response(
+            status_code=resp.status_code,
+            content=resp.content,
+            media_type=content_type or "application/octet-stream",
+            headers=response_headers,
+        )
+
+    async def http_proxy(
+        self,
+        sandbox_id: str,
+        target_path: str,
+        body: bytes | None,
+        headers: Headers,
+        method: str = "POST",
+        port: int | None = None,
+        proxy_prefix: str | None = None,
+        query_string: str = "",
+    ) -> JSONResponse | StreamingResponse | Response:
+        """HTTP proxy that supports all methods and streaming (SSE) responses."""
+        await self._update_expire_time(sandbox_id)
+
+        status_list = await self.get_service_status(sandbox_id)
+        host_ip = status_list[0].get("host_ip")
+        if port is None:
+            service_status = ServiceStatus.from_dict(status_list[0])
+            port = service_status.get_mapped_port(Port.SERVER)
+        qs = f"?{query_string}" if query_string else ""
+        target_url = f"http://{host_ip}:{port}/{target_path}{qs}"
+        return await SandboxProxyService._http_proxy_to_target(
+            self,
+            target_url,
+            body,
+            headers,
+            method=method,
+            proxy_prefix=proxy_prefix,
+        )
+
+    async def _http_proxy_to_target(
+        self,
+        target_url: str,
+        body: bytes | None,
+        headers: Headers,
+        *,
+        method: str = "POST",
+        proxy_prefix: str | None = None,
+        endpoint_headers: dict[str, str] | None = None,
+    ) -> JSONResponse | StreamingResponse | Response:
+        # content-encoding is excluded because httpx decompresses the body automatically;
+        # forwarding it would cause ERR_CONTENT_DECODING_FAILED in the browser.
+        EXCLUDED_HEADERS = {"host", "content-length", "transfer-encoding", "content-encoding"}
+
+        def filter_headers(raw_headers: Headers) -> dict:
+            return {k: v for k, v in raw_headers.items() if k.lower() not in EXCLUDED_HEADERS}
+
+        def rewrite_location(location: str) -> str:
+            """Rewrite upstream Location header to include proxy prefix.
+
+            Always outputs a relative path (no scheme/host) so the browser
+            inherits the correct scheme (https) from the current page.
+            """
+            from urllib.parse import urlparse
+
+            parsed = urlparse(location)
+            # Absolute URL pointing to upstream → strip scheme+host, keep path+query
+            if parsed.scheme and parsed.netloc:
+                path = parsed.path or "/"
+                qs = f"?{parsed.query}" if parsed.query else ""
+                location = f"{path}{qs}"
+            # proxy_prefix is always a path (e.g. /sandboxes/sb1/proxy/port/8006)
+            return f"{proxy_prefix.rstrip('/')}{location}"
+
+        request_headers = filter_headers(headers)
+        request_headers_by_name = {key.lower(): (key, value) for key, value in request_headers.items()}
+        for key, value in (endpoint_headers or {}).items():
+            request_headers_by_name[key.lower()] = (key, value)
+        request_headers = dict(request_headers_by_name.values())
+        request_kwargs: dict = {"content": body} if body else {}
+
+        resp = await self._proxy_client.send(
+            self._proxy_client.build_request(
+                method=method,
+                url=target_url,
+                headers=request_headers,
+                timeout=120,
+                **request_kwargs,
+            ),
+            stream=True,
+        )
+
+        content_type = resp.headers.get("content-type", "")
+        is_sse = "text/event-stream" in content_type
+        response_headers = filter_headers(resp.headers)
+
+        # Rewrite Location header for 3xx responses when proxy_prefix is set
+        if proxy_prefix and resp.status_code in (301, 302, 303, 307, 308):
+            location = resp.headers.get("location")
+            if location:
+                response_headers["location"] = rewrite_location(location)
+
+        if is_sse:
+
+            async def event_stream():
+                """Forward upstream bytes to downstream as soon as they arrive."""
+                try:
+                    if resp.status_code >= 400:
+                        yield await resp.aread()
+                        return
+
+                    async for chunk in resp.aiter_bytes():
+                        if chunk:
+                            yield chunk
+                finally:
+                    await resp.aclose()
+
+            return StreamingResponse(
+                event_stream(),
+                status_code=resp.status_code,
+                media_type="text/event-stream",
+                headers=response_headers,
+            )
+
+        try:
+            raw_content = await resp.aread()
+
+            if "application/json" in content_type:
+                return JSONResponse(
+                    status_code=resp.status_code,
+                    content=resp.json(),
+                    headers=response_headers,
+                )
+
+            return Response(
+                status_code=resp.status_code,
+                content=raw_content,
+                media_type=content_type or "application/octet-stream",
+                headers=response_headers,
+            )
+        finally:
+            await resp.aclose()
+
+    @monitor_sandbox_operation()
+    async def get_status(self, sandbox_id: str, include_all_states: bool = False) -> SandboxStatusResponse:
+        """Get sandbox status via meta_store + rocklet RPC (reuses _rpc_client pool).
+
+        Mirrors SandboxManager.get_status structure but uses rocklet RPCs instead of
+        Ray operator for live status probing. is_alive reflects rocklet responsiveness
+        (can I send traffic?) rather than container-process existence.
+        PENDING→RUNNING transition via sm.send("alive"), timeout refresh via
+        _update_expire_time. No Ray dependency.
+
+        State machine is initialized lazily — only when a PENDING→RUNNING transition
+        is needed, avoiding the overhead of SandboxStateMachine.from_state_value()
+        for the common (already-running) path.
+        """
+        sandbox_info = await self._meta_store.get(sandbox_id, check_db=True)
+        if sandbox_info is None:
+            raise BadRequestRockError(f"Sandbox {sandbox_id} not found")
+
+        state = sandbox_info.get("state")
+        host_ip = sandbox_info.get("host_ip")
+
+        is_alive = False
+        operator_sandbox_info = None
+        if host_ip and state in (State.RUNNING, State.PENDING):
+            remote_status = await get_remote_status(sandbox_id, host_ip, http_client=self._rpc_client)
+            is_alive = await check_alive_status(sandbox_id, host_ip, remote_status, http_client=self._rpc_client)
+
+            await self._update_expire_time(sandbox_id)
+
+            if is_alive:
+                operator_sandbox_info = dict(sandbox_info)
+                operator_sandbox_info["state"] = State.RUNNING
+                operator_sandbox_info.update(remote_status.to_dict())
+
+            if state == State.PENDING and is_alive:
+                from rock.sandbox.sandbox_statemachine import SandboxStateMachine
+
+                sm = await SandboxStateMachine.from_state_value(state, sandbox_info=sandbox_info)
+                await sm.send(
+                    "alive",
+                    sandbox_id=sandbox_id,
+                    meta_store=self._meta_store,
+                    sandbox_info=operator_sandbox_info,
+                )
+                # on_alive callback updates state_history in sm.sandbox_info
+                sandbox_info = sm.sandbox_info
+
+        if not include_all_states and state not in (State.PENDING, State.RUNNING):
+            raise BadRequestRockError(f"Sandbox {sandbox_id} not found")
+
+        info = operator_sandbox_info if operator_sandbox_info is not None else sandbox_info
+        timeout_info = await self._meta_store.get_timeout(sandbox_id)
+        auto_stop_time, auto_archive_time, auto_delete_time = SandboxTimeoutHelper.auto_transition_times_for_status(
+            info.get("state"),
+            info,
+            timeout_info,
+        )
+
+        return SandboxStatusResponse(
+            sandbox_id=sandbox_id,
+            status=info.get("phases"),
+            port_mapping=info.get("port_mapping"),
+            state=info.get("state"),
+            host_name=info.get("host_name"),
+            host_ip=host_ip,
+            is_alive=is_alive,
+            image=info.get("image"),
+            swe_rex_version=swe_version,
+            gateway_version=gateway_version,
+            user_id=info.get("user_id"),
+            experiment_id=info.get("experiment_id"),
+            namespace=info.get("namespace"),
+            cpus=info.get("cpus"),
+            memory=info.get("memory"),
+            num_gpus=info.get("num_gpus"),
+            accelerator_type=info.get("accelerator_type"),
+            disk=info.get("disk"),
+            disk_limit_rootfs=info.get("disk"),
+            start_time=info.get("start_time"),
+            stop_time=info.get("stop_time"),
+            create_time=info.get("create_time"),
+            archive_time=info.get("archive_time"),
+            delete_time=info.get("delete_time"),
+            auto_stop_time=auto_stop_time,
+            auto_archive_time=auto_archive_time,
+            auto_delete_time=auto_delete_time,
+            state_history=sandbox_info.get("state_history", []),
+        )

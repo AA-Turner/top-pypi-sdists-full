@@ -1,0 +1,470 @@
+//! The locked payment state store — the `sdk/src/pins.rs` regime, reused
+//! for every piece of shared payment state (the engine's replay index and
+//! quote records now; the spend-policy counters in Workstream 3).
+//!
+//! The rules, copied verbatim from the pin store because each one closes
+//! a real failure mode:
+//!
+//! - **State is machine-shared**; every consumer resolves the same file
+//!   through one path resolver, or "approved anywhere is approved
+//!   everywhere" breaks.
+//! - **Every read-modify-write runs under a cross-process advisory lock**
+//!   on a sidecar `.lock` file — the lock is *not* on the store file
+//!   because the atomic-rename save replaces the store inode, which would
+//!   silently drop a lock held on it.
+//! - **Lock acquisition is a poll loop with async exponential backoff**
+//!   (1ms doubling, capped at 50ms), never a blocking acquire: a blocking
+//!   acquire parks a `spawn_blocking` thread for the whole wait, and
+//!   enough contending mutators starve the pool the holder's own tokio
+//!   I/O needs — deadlock. Async sleep parks no thread.
+//! - **Saves are atomic**: per-pid temp file, owner-only from creation
+//!   (`0600` on unix, an explicit owner-only DACL on Windows — see the
+//!   crate-private `policy::file_mode`), `fsync` before the rename, temp
+//!   removed on any failure. Readers see the whole old file or the whole
+//!   new file, never a tear.
+//! - **Missing file = empty state** (the first-run case); a
+//!   present-but-unparseable file is [`StoreError::Corrupt`], never a
+//!   silent reset.
+
+use std::path::{Path, PathBuf};
+
+use fs2::FileExt as _;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+
+/// Errors from the locked store.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum StoreError {
+    #[error("payment store I/O error at {path}: {reason}")]
+    Io { path: String, reason: String },
+    #[error("payment store at {path} is corrupt: {reason}")]
+    Corrupt { path: String, reason: String },
+}
+
+impl StoreError {
+    fn io(path: &Path, e: impl std::fmt::Display) -> Self {
+        Self::Io {
+            path: path.display().to_string(),
+            reason: e.to_string(),
+        }
+    }
+}
+
+/// The per-user default payment policy path:
+/// `<local data>/net-mesh/payment-policy.json` (Workstream 3's spend
+/// policy + counters).
+pub fn default_payment_policy_path() -> Option<PathBuf> {
+    default_store_file("payment-policy.json")
+}
+
+/// The per-user default payment engine state path:
+/// `<local data>/net-mesh/payment-engine.json` (provider-side quote
+/// records, replay index, verification chains).
+pub fn default_payment_engine_path() -> Option<PathBuf> {
+    default_store_file("payment-engine.json")
+}
+
+/// The per-user default A2A purchase-attempt path:
+/// `<local data>/net-mesh/a2a-purchases.json` — the caller-side durable
+/// record of one authoritative purchase attempt per intent key
+/// (`flow::a2a`). Beside `payment-policy.json` on purpose: the attempt
+/// and the spend reservation it holds are read together during recovery.
+pub fn default_a2a_purchase_path() -> Option<PathBuf> {
+    default_store_file("a2a-purchases.json")
+}
+
+fn default_store_file(name: &str) -> Option<PathBuf> {
+    dirs::data_local_dir()
+        .or_else(dirs::home_dir)
+        .map(|d| d.join("net-mesh").join(name))
+}
+
+/// Cross-process advisory lock on `<store>.lock`. Dropping the guard
+/// closes the fd and releases the OS lock.
+pub struct LockGuard {
+    _file: std::fs::File,
+}
+
+impl LockGuard {
+    /// Acquire the sidecar lock with async exponential backoff.
+    pub async fn acquire(store_path: &Path) -> Result<Self, StoreError> {
+        const MAX_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
+
+        // Sidecar path from the raw OS path bytes — not the lossy
+        // `display()` — so non-UTF-8 paths still lock the right file.
+        let mut lock_os = store_path.as_os_str().to_os_string();
+        lock_os.push(".lock");
+        let lock_path = PathBuf::from(lock_os);
+
+        if let Some(parent) = lock_path.parent() {
+            if !parent.as_os_str().is_empty() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .map_err(|e| StoreError::io(&lock_path, e))?;
+            }
+        }
+
+        // Open/create on the blocking pool. `truncate(false)`: the lock
+        // file's content is never written, only its lock matters — and a
+        // sibling's lock file must not be clobbered.
+        let path_for_open = lock_path.clone();
+        let file = tokio::task::spawn_blocking(move || {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(false)
+                .open(&path_for_open)
+        })
+        .await
+        .map_err(|e| StoreError::io(&lock_path, e))?
+        .map_err(|e| StoreError::io(&lock_path, e))?;
+
+        let mut backoff = std::time::Duration::from_millis(1);
+        loop {
+            match file.try_lock_exclusive() {
+                Ok(()) => return Ok(Self { _file: file }),
+                Err(e) if e.kind() == fs2::lock_contended_error().kind() => {
+                    tokio::time::sleep(backoff).await;
+                    backoff = (backoff * 2).min(MAX_BACKOFF);
+                }
+                Err(e) => return Err(StoreError::io(&lock_path, e)),
+            }
+        }
+    }
+}
+
+/// Lock-free read: missing file = `T::default()`; the atomic rename
+/// guarantees no torn read.
+pub async fn load_json<T>(path: &Path) -> Result<T, StoreError>
+where
+    T: DeserializeOwned + Default,
+{
+    let raw = match tokio::fs::read(path).await {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
+        Err(e) => return Err(StoreError::io(path, e)),
+    };
+    serde_json::from_slice(&raw).map_err(|e| StoreError::Corrupt {
+        path: path.display().to_string(),
+        reason: e.to_string(),
+    })
+}
+
+/// Atomic save: per-pid temp, 0600 from creation on unix, fsync, rename.
+async fn save_json<T: Serialize>(path: &Path, value: &T) -> Result<(), StoreError> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| StoreError::io(path, e))?;
+        }
+    }
+    // Compact, not pretty: the store is machine-shared state, never
+    // hand-authored config, and pretty-printing costs ~11% more bytes to
+    // serialize, write, and fsync on *every* dirty mutation — a tax paid
+    // on a path whose cost is already linear in file size. Both formats
+    // parse identically, so this is forward- and backward-compatible with
+    // stores written by an older build. (The canonical envelope encoding
+    // pinned by the cross-language golden vectors is
+    // `core::canonical` — a different encoder entirely, untouched here.)
+    let bytes = serde_json::to_vec(value).map_err(|e| StoreError::io(path, e))?;
+
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    let result: Result<(), StoreError> = async {
+        // Created with its permissions already in place — owner-only from
+        // the instant the name exists. This is why it is a create rather
+        // than an open-then-restrict: on Windows, access is evaluated when
+        // a handle is opened, so a reader that got in before a later DACL
+        // change keeps what it was granted for the life of that handle.
+        // There must be no window at all, not merely a short one.
+        //
+        // `create_new` also means a leftover temp from a crashed same-pid
+        // process cannot be silently reused with its old permissions.
+        // Off the reactor: `create_owner_only` is synchronous, and on
+        // Windows it is several blocking syscalls (token read, SDDL
+        // conversion, `CreateFileW`). A custom store path on a network or
+        // FUSE filesystem can make those slow, and every payment passes
+        // through here — a stalled worker would stall concurrent
+        // payments, not merely this one.
+        let tmp_for_create = tmp.clone();
+        let file = tokio::task::spawn_blocking(move || {
+            match super::file_mode::create_owner_only(&tmp_for_create) {
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // Stale temp from a dead same-pid process. Remove and
+                    // retry once, so recovery needs no manual cleanup
+                    // while a live conflict still surfaces.
+                    let _ = std::fs::remove_file(&tmp_for_create);
+                    super::file_mode::create_owner_only(&tmp_for_create)
+                }
+                other => other,
+            }
+        })
+        .await
+        .map_err(|e| StoreError::io(&tmp, e))?
+        .map_err(|e| StoreError::io(&tmp, e))?;
+        let mut file = tokio::fs::File::from_std(file);
+        use tokio::io::AsyncWriteExt as _;
+        file.write_all(&bytes)
+            .await
+            .map_err(|e| StoreError::io(&tmp, e))?;
+        file.flush().await.map_err(|e| StoreError::io(&tmp, e))?;
+        // fsync before the rename so a crash right after the rename can
+        // never surface a truncated store.
+        file.sync_all().await.map_err(|e| StoreError::io(&tmp, e))?;
+        drop(file);
+        tokio::fs::rename(&tmp, path)
+            .await
+            .map_err(|e| StoreError::io(path, e))
+    }
+    .await;
+
+    if result.is_err() {
+        let _ = tokio::fs::remove_file(&tmp).await;
+    }
+    result
+}
+
+/// The locked read-modify-write transaction. The load happens *inside*
+/// the lock — never a stale snapshot — which is exactly what makes a
+/// spend counter or replay-index check-and-claim safe across processes.
+/// The closure's verdict crosses back out as `R`.
+pub async fn mutate_json<T, R, F>(path: &Path, f: F) -> Result<R, StoreError>
+where
+    T: DeserializeOwned + Serialize + Default,
+    F: FnOnce(&mut T) -> R,
+{
+    let _guard = LockGuard::acquire(path).await?;
+    let mut state: T = load_json(path).await?;
+    let result = f(&mut state);
+    save_json(path, &state).await?;
+    Ok(result)
+}
+
+/// Like [`mutate_json`], but the closure returns `(R, dirty)`: the store is
+/// serialized + fsync'd + renamed **only when `dirty` is true**. A read-only
+/// outcome — e.g. a payment-redemption *denial*, which inspects a record but
+/// changes nothing — pays the lock + load, not a whole-file durable write.
+///
+/// This closes a write-amplification / denial-of-service surface: with plain
+/// `mutate_json`, an outcome that mutates nothing still re-serializes and
+/// `fsync`s the entire store, so a caller spraying (say) unknown quote ids
+/// could force one global-lock + fsync per attempt. See
+/// `docs/internal/performance/payments-redeem-write-amplification.md`.
+///
+/// **At-most-once is unchanged.** The load, decision, and conditional save
+/// all run under the *same* advisory lock, so a check-and-set
+/// (settled-and-not-yet-redeemed → mark redeemed → `dirty = true`) is still
+/// atomic across processes; we only skip the write when the closure reports
+/// there was nothing to persist. A closure that mutates state but returns
+/// `dirty = false` would silently drop that mutation — so the dirty flag
+/// must be derived from the same branch that did the mutating.
+pub async fn mutate_json_if_changed<T, R, F>(path: &Path, f: F) -> Result<R, StoreError>
+where
+    T: DeserializeOwned + Serialize + Default,
+    F: FnOnce(&mut T) -> (R, bool),
+{
+    let _guard = LockGuard::acquire(path).await?;
+    let mut state: T = load_json(path).await?;
+    let (result, dirty) = f(&mut state);
+    if dirty {
+        save_json(path, &state).await?;
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[derive(Default, serde::Serialize, serde::Deserialize)]
+    struct Counters {
+        #[serde(default)]
+        counts: BTreeMap<String, u64>,
+    }
+
+    #[test]
+    fn default_paths_land_in_the_net_mesh_dir() {
+        let p = default_payment_policy_path().expect("test hosts have a data dir");
+        assert!(p.ends_with(PathBuf::from("net-mesh").join("payment-policy.json")));
+        let p = default_payment_engine_path().expect("test hosts have a data dir");
+        assert!(p.ends_with(PathBuf::from("net-mesh").join("payment-engine.json")));
+    }
+
+    #[tokio::test]
+    async fn missing_file_is_empty_corrupt_file_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert!(loaded.counts.is_empty());
+
+        tokio::fs::write(&path, b"{not json").await.unwrap();
+        assert!(matches!(
+            load_json::<Counters>(&path).await,
+            Err(StoreError::Corrupt { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn mutate_round_trips_and_leaves_no_temp() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let verdict = mutate_json::<Counters, _, _>(&path, |s| {
+            *s.counts.entry("a".into()).or_default() += 1;
+            s.counts["a"]
+        })
+        .await
+        .unwrap();
+        assert_eq!(verdict, 1);
+
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts["a"], 1);
+
+        let mut entries = std::fs::read_dir(dir.path()).unwrap();
+        assert!(entries.all(|e| {
+            let name = e.unwrap().file_name();
+            let name = name.to_string_lossy();
+            name == "state.json" || name == "state.json.lock"
+        }));
+    }
+
+    /// Saves are compact, and a store written by an older (pretty-printing)
+    /// build still loads — the format change is a pure byte reduction, not a
+    /// schema change, so a rolling upgrade never sees a corrupt store.
+    #[tokio::test]
+    async fn saves_are_compact_and_pretty_stores_still_load() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+
+        // A store left behind by an older build: pretty-printed.
+        let mut legacy = Counters::default();
+        legacy.counts.insert("a".into(), 1);
+        tokio::fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap())
+            .await
+            .unwrap();
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts["a"], 1, "a pretty store must still parse");
+
+        // Rewriting it emits compact bytes. The assertion is the strongest
+        // one available: compact output contains no raw newline ANYWHERE,
+        // not merely no newline-plus-indent run. That holds even for
+        // newline-bearing data, because serde escapes a newline inside a
+        // string as the two bytes `\n` — which is why the second key here
+        // carries one.
+        mutate_json::<Counters, _, _>(&path, |s| {
+            s.counts.insert("b\nwith a newline in the key".into(), 2);
+        })
+        .await
+        .unwrap();
+        let raw = tokio::fs::read(&path).await.unwrap();
+        assert!(
+            !raw.contains(&b'\n'),
+            "saves must be compact, not pretty-printed"
+        );
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts.len(), 2, "the mutation still round-trips");
+        assert_eq!(
+            loaded.counts["b\nwith a newline in the key"], 2,
+            "escaping is what makes the no-raw-newline assertion safe"
+        );
+    }
+
+    /// `mutate_json_if_changed` writes on a dirty pass and skips the write
+    /// on a clean one. "Skips the write" is checked by the store inode: a
+    /// save renames a fresh temp over the file (new inode), so a clean pass
+    /// that leaves the inode is proof no serialize/fsync/rename happened.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn mutate_if_changed_writes_only_when_dirty() {
+        use std::os::unix::fs::MetadataExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+
+        // A dirty pass creates the file.
+        mutate_json_if_changed::<Counters, _, _>(&path, |s| {
+            s.counts.insert("a".into(), 1);
+            ((), true)
+        })
+        .await
+        .unwrap();
+        let ino0 = std::fs::metadata(&path).unwrap().ino();
+
+        // A clean pass reads and returns dirty=false → no rewrite.
+        let seen = mutate_json_if_changed::<Counters, _, _>(&path, |s| {
+            (s.counts.get("a").copied(), false)
+        })
+        .await
+        .unwrap();
+        assert_eq!(seen, Some(1));
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().ino(),
+            ino0,
+            "a clean (dirty=false) pass must not rewrite the store"
+        );
+
+        // A dirty pass persists (rename → new inode) and the mutation lands.
+        mutate_json_if_changed::<Counters, _, _>(&path, |s| {
+            s.counts.insert("b".into(), 2);
+            ((), true)
+        })
+        .await
+        .unwrap();
+        assert_ne!(
+            std::fs::metadata(&path).unwrap().ino(),
+            ino0,
+            "a dirty pass must persist the store"
+        );
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts.len(), 2);
+    }
+
+    /// The pin store's lost-update regression, on this machinery: two
+    /// concurrent mutators against one file must both land.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_mutations_do_not_lose_updates() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let a = mutate_json::<Counters, _, _>(&path, |s| {
+            s.counts.insert("a".into(), 1);
+        });
+        let b = mutate_json::<Counters, _, _>(&path, |s| {
+            s.counts.insert("b".into(), 1);
+        });
+        let (ra, rb) = tokio::join!(a, b);
+        ra.unwrap();
+        rb.unwrap();
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts.len(), 2, "one mutation was lost");
+    }
+
+    /// The pool-exhaustion regression: many contenders on a tiny runtime
+    /// must drain (async backoff parks no blocking thread).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn contended_mutations_make_progress_under_a_tiny_pool() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let tasks: Vec<_> = (0..24)
+            .map(|i| {
+                let path = path.clone();
+                tokio::spawn(async move {
+                    mutate_json::<Counters, _, _>(&path, move |s| {
+                        s.counts.insert(format!("k{i}"), 1);
+                    })
+                    .await
+                })
+            })
+            .collect();
+        let all = futures_join_all(tasks);
+        tokio::time::timeout(std::time::Duration::from_secs(20), all)
+            .await
+            .expect("contended mutators deadlocked");
+        let loaded: Counters = load_json(&path).await.unwrap();
+        assert_eq!(loaded.counts.len(), 24);
+    }
+
+    async fn futures_join_all(tasks: Vec<tokio::task::JoinHandle<Result<(), StoreError>>>) {
+        for t in tasks {
+            t.await.expect("join").expect("mutate");
+        }
+    }
+}

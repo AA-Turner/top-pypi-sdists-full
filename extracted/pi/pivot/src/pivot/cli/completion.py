@@ -1,0 +1,333 @@
+from __future__ import annotations
+
+import logging
+import pathlib
+import tempfile
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+import click
+from click.shell_completion import CompletionItem
+
+from pivot import state_dir as state_dir_mod
+from pivot.config.models import CONFIG_KEY_DESCRIPTIONS, VALID_REMOTE_NAME
+
+logger = logging.getLogger(__name__)
+
+CACHE_VERSION = "v1"
+
+
+def complete_config_keys(
+    _ctx: click.Context,
+    _param: click.Parameter,
+    incomplete: str,
+) -> list[CompletionItem]:
+    """Provide config key completions with descriptions."""
+    try:
+        keys = _get_config_keys()
+        return [
+            CompletionItem(k, help=desc) for k, desc in keys.items() if k.startswith(incomplete)
+        ]
+    except Exception:
+        logger.debug("Config key completion failed", exc_info=True)
+        return []
+
+
+def _get_config_keys() -> dict[str, str]:
+    """Get all valid config keys with descriptions, including dynamic remotes."""
+    import yaml
+
+    keys = dict(CONFIG_KEY_DESCRIPTIONS)
+
+    # Add remotes from config files
+    for path in _get_config_paths():
+        try:
+            if not path.exists():
+                continue
+            data: object = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
+            typed_data = cast("dict[str, Any]", data)
+            remotes: object = typed_data.get("remotes")
+            if isinstance(remotes, dict):
+                for remote_name in cast("dict[str, Any]", remotes):
+                    if isinstance(remote_name, str) and VALID_REMOTE_NAME.match(remote_name):  # pyright: ignore[reportUnnecessaryIsInstance] - YAML can parse non-string keys
+                        keys[f"remotes.{remote_name}"] = f"Remote '{remote_name}'"
+        except Exception:
+            logger.debug("Config completion: failed to load %s", path, exc_info=True)
+            continue
+
+    return keys
+
+
+def _get_config_paths() -> list[pathlib.Path]:
+    """Get config file paths without heavy imports."""
+    paths = [pathlib.Path.home() / ".config" / "pivot" / "config.yaml"]
+
+    # Use existing fast project root finder
+    if root := _find_project_root_fast():
+        paths.append(root / ".pivot" / "config.yaml")
+
+    return paths
+
+
+def _add_bare_completions(stages: list[str], completions: list[str], incomplete: str) -> None:
+    """Add bare (unprefixed) stage names when there's a single pipeline prefix."""
+    prefixes = {s.split("/", 1)[0] for s in stages if "/" in s}
+    if len(prefixes) != 1:
+        return
+    prefix = next(iter(prefixes))
+    existing = set(completions)
+    for s in stages:
+        if s.startswith(f"{prefix}/"):
+            bare = s[len(prefix) + 1 :]
+            if bare.startswith(incomplete) and bare not in existing:
+                completions.append(bare)
+
+
+def complete_stages(
+    _ctx: click.Context,
+    _param: click.Parameter,
+    incomplete: str,
+) -> list[str]:
+    """Provide stage name completions for CLI arguments."""
+    try:
+        stages = _get_stages_fast()
+        if stages is None:
+            stages = _get_stages_full()
+        completions = [s for s in stages if s.startswith(incomplete)]
+        _add_bare_completions(stages, completions, incomplete)
+        return completions
+    except Exception:
+        logger.debug("Completion failed", exc_info=True)
+        return []
+
+
+if TYPE_CHECKING:
+    from pivot.registry import PipelineLike
+
+
+def complete_targets(
+    _ctx: click.Context,
+    _param: click.Parameter,
+    incomplete: str,
+) -> list[str]:
+    try:
+        stages = _get_stages_fast()
+        discovered = stages is None
+        pipeline = _discover_pipeline() if discovered else None
+        if stages is None:
+            stages = [] if pipeline is None else _stage_names(pipeline)
+
+        completions = [stage for stage in stages if stage.startswith(incomplete)]
+        _add_bare_completions(stages, completions, incomplete)
+
+        # Only load full pipeline (expensive) when user is completing a stage:key target
+        if ":" not in incomplete:
+            return completions
+
+        if not discovered:
+            pipeline = _discover_pipeline()
+        if pipeline is None:
+            return completions
+
+        prefixes = {s.split("/", 1)[0] for s in stages if "/" in s}
+        single_prefix = next(iter(prefixes)) if len(prefixes) == 1 else None
+
+        for stage in stages:
+            info = pipeline.get_stage(stage)
+            keys = [ref.identity.key for ref in info["outs"] if ref.identity.key is not None]
+            if not keys:
+                continue
+            for key in keys:
+                target = f"{stage}:{key}"
+                if target.startswith(incomplete):
+                    completions.append(target)
+                # Also offer bare stage:key in single-pipeline mode
+                if single_prefix and stage.startswith(f"{single_prefix}/"):
+                    bare_target = f"{stage[len(single_prefix) + 1 :]}:{key}"
+                    if bare_target.startswith(incomplete) and bare_target not in completions:
+                        completions.append(bare_target)
+        return completions
+    except Exception:
+        logger.debug("Completion failed", exc_info=True)
+        return []
+
+
+def _detect_config_file(root: pathlib.Path) -> tuple[str, float] | None:
+    """Detect config file and capture its mtime.
+
+    Returns (relative_path, mtime) or None if no config found.
+    """
+    from pivot import discovery
+
+    for name in (discovery.PIPELINE_PY_NAME,):
+        path = root / name
+        if path.exists():
+            return (name, path.stat().st_mtime)
+    return None
+
+
+def _get_stages_from_cache(root: pathlib.Path) -> list[str] | None:
+    """Read stage names from cache if fresh.
+
+    Returns stage names if cache exists and is valid, None otherwise.
+    Cache is valid when version matches and config file mtime unchanged.
+    """
+    cache_path = state_dir_mod.state_dir_or_default(root) / "cache" / "stages.cache"
+    try:
+        lines = cache_path.read_text().splitlines()
+    except OSError:
+        return None
+
+    if len(lines) < 2 or lines[0] != CACHE_VERSION:
+        return None
+
+    header = lines[1]
+    sep_idx = header.rfind(":")
+    if sep_idx == -1:
+        return None
+
+    config_file, mtime_str = header[:sep_idx], header[sep_idx + 1 :]
+
+    try:
+        current_mtime = (root / config_file).stat().st_mtime
+    except OSError:
+        return None
+
+    if str(current_mtime) != mtime_str:
+        return None
+
+    return [line for line in lines[2:] if line]
+
+
+def _write_stages_cache(
+    root: pathlib.Path, config_file: str, mtime: float, stages: list[str]
+) -> None:
+    """Write stage names to cache (atomic).
+
+    Uses temp file + rename for atomic write on POSIX.
+    Cleans up temp file on failure before re-raising OSError.
+    Caller is responsible for handling write failures. While the project config cannot be read
+    or its state directory cannot be used, the cache stays in 0.5.2's ``.pivot/cache``. A
+    configured state directory that does not exist yet is left for a command that uses it to
+    create, so nothing is cached.
+    """
+    state_dir = state_dir_mod.state_dir_or_default(root)
+    if state_dir != root / ".pivot" and not state_dir.is_dir():
+        return
+    cache_dir = state_dir / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_path = cache_dir / "stages.cache"
+    content = f"{CACHE_VERSION}\n{config_file}:{mtime}\n" + "\n".join(stages) + "\n"
+
+    # Write to temp file in same directory, then rename atomically
+    fd, tmp_path_str = tempfile.mkstemp(dir=cache_dir, suffix=".tmp")
+    tmp_path = pathlib.Path(tmp_path_str)
+    try:
+        with open(fd, "w") as f:
+            f.write(content)
+        tmp_path.rename(cache_path)
+    except OSError:
+        # Clean up temp file on failure
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+def _get_stages_fast() -> list[str] | None:
+    """Fast path: get stage names without full Pivot imports (~10ms).
+
+    Returns None to trigger fallback when:
+    - No project root found
+    - Cache is missing or invalid
+    """
+    root = _find_project_root_fast()
+    if root is None:
+        return None
+    return _get_stages_from_cache(root)
+
+
+def _get_stages_full() -> list[str]:
+    """Fallback: get stage names via full discovery (~500ms), refreshing the cache."""
+    pipeline = _discover_pipeline()
+    return [] if pipeline is None else _stage_names(pipeline)
+
+
+def _stage_names(pipeline: PipelineLike) -> list[str]:
+    """The names a stage target completes to: each stage, and each stage mapped over a
+    directory output (``Pipeline.map``), whose instances a run adds."""
+    return [*pipeline.list_stages(), *pipeline.list_templates()]
+
+
+def _discover_pipeline() -> PipelineLike | None:
+    """Discover the pipeline and write its stage names to the cache for fast lookups.
+
+    Cache is only written if config file mtime is unchanged during discovery
+    (prevents race condition where config changes during slow discovery).
+    """
+    from pivot import discovery
+
+    # Capture config file and mtime BEFORE discovery (race condition prevention)
+    root = _find_project_root_fast()
+    pre_discovery = _detect_config_file(root) if root else None
+
+    pipeline = discovery.discover_pipeline()
+    if pipeline is None:
+        return None
+
+    # Write cache only if config file unchanged during discovery
+    if root and pre_discovery:
+        config_file, pre_mtime = pre_discovery
+        try:
+            post_mtime = (root / config_file).stat().st_mtime
+            if pre_mtime == post_mtime:
+                _write_stages_cache(root, config_file, pre_mtime, _stage_names(pipeline))
+        except OSError:
+            pass  # Cache write failure is non-fatal
+
+    return pipeline
+
+
+def _find_project_root_fast() -> pathlib.Path | None:
+    """Find project root without importing pivot.project.
+
+    Walks up from cwd looking for .pivot or .git markers.
+    """
+    current = pathlib.Path.cwd().resolve()
+    for parent in [current, *current.parents]:
+        if (parent / ".pivot").exists() or (parent / ".git").exists():
+            return parent
+    return None
+
+
+@click.command("completion")
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion_cmd(shell: Literal["bash", "zsh", "fish"]) -> None:
+    """Generate shell completion script.
+
+    To enable completions, add to your shell config:
+
+    \b
+    Bash (~/.bashrc):
+        eval "$(pivot completion bash)"
+
+    \b
+    Zsh (~/.zshrc):
+        eval "$(pivot completion zsh)"
+
+    \b
+    Fish (~/.config/fish/config.fish):
+        pivot completion fish | source
+    """
+    import contextlib
+    import os
+    import sys
+
+    from pivot.cli import cli
+
+    prog_name = os.path.basename(sys.argv[0]) if sys.argv else "pivot"
+    complete_var = f"_{prog_name.upper().replace('-', '_')}_COMPLETE"
+    os.environ[complete_var] = f"{shell}_source"
+
+    with contextlib.suppress(SystemExit):
+        cli.main(standalone_mode=False)

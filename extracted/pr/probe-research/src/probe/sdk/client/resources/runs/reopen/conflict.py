@@ -15,6 +15,7 @@ from ..... import errors
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
 from .....run.run import Run  # noqa: E402
+from probe.sdk.routes import WriteOp, path_for
 
 @dataclass(frozen=True)
 class Rewind:
@@ -164,19 +165,13 @@ class ReopenConflictMixin:
             existing_id = conflict.existing_id
         old = None
         if existing_id:
-            # The SERVER already resolved the incumbent, on the real key --
-            # `SELECT id FROM runs WHERE source = $1 AND external_id = $2`, which
-            # is the (customer_id, source, external_id) uniqueness the 409 came
-            # from. Ask it rather than re-deriving the answer from a listing.
+            # The SERVER resolved the incumbent on the real key: ask it, never re-derive it from a listing.
             try:
                 old = self.get_run(existing_id)
             except errors.NotFoundError:
                 old = None  # raced with a delete; fall through to the scan
         if old is None:
-            # Older backends send a bare 409. Match on BOTH halves of the key:
-            # external_id alone is not unique -- ingest and sdk runs share the
-            # namespace by design -- so this used to be able to hand back a
-            # different source's run and resume or supersede the wrong one.
+            # Older backends send a bare 409: match BOTH halves of the key, source and external_id.
             source = (run_kw.get("source") or "api").strip().lower()
             page = self.list_runs(experiment_id=experiment_id, project_id=project_id)
             old = next(
@@ -189,19 +184,14 @@ class ReopenConflictMixin:
                 None,
             )
         if old is None:
-            # The 409 is real but the incumbent is not on the first page (or
-            # belongs to another source). Acting on it blind would resume or
-            # supersede the wrong thing, so the original conflict stands.
+            # Incumbent not on the first page: acting blind could hit the wrong run, so the 409 stands.
             raise errors.ConflictError(
                 f"run {base!r} conflicts but its incumbent is not visible "
                 "here — resolve the collision by hand",
             )
         status = old.get("status")
         if isinstance(on_conflict, Rewind):
-            # Rewind = resume from an earlier checkpoint. `completed` is
-            # ALLOWED here — the deliberate stop-then-rewind flow ends cleanly
-            # first, and naming the destructive step is the consent the plain
-            # resume's 409 exists to demand. A live writer still refuses.
+            # Rewind: `completed` is ALLOWED (naming the step is the consent); a live writer still refuses.
             takeover = status == "running" and self._supports_takeover()
             if status not in self._DEAD_RUN_STATUSES and status != "completed" and not takeover:
                 raise errors.ConflictError(
@@ -209,10 +199,7 @@ class ReopenConflictMixin:
                     "alive — rewind refuses to hijack an open run. End it (or "
                     "let the reaper mark it crashed), then relaunch."
                 )
-            # Preflight BEFORE any state changes: a pre-0185 server silently
-            # drops the unknown body field, reopens the run, and deletes
-            # nothing — the worst failure shape a destructive request can
-            # have. One cheap GET turns that skew into a loud no-op error.
+            # Preflight BEFORE any state changes: a pre-0185 server would reopen and delete nothing, silently.
             self._require_feature(
                 "run_rewind",
                 "this server predates run rewind (0185): a reopen would "
@@ -226,9 +213,7 @@ class ReopenConflictMixin:
             if status in self._DEAD_RUN_STATUSES:
                 return self._resume_run(old, run_kw)
             if status == "running" and self._supports_takeover():
-                # 2.3: a requeued job whose previous pod is gone but not yet
-                # reaped. The server takes the run over only once it has been
-                # silent long enough to be dead, and says how long to wait.
+                # 2.3: a requeued job; the server takes the run over once it has been silent long enough.
                 return self._resume_run(old, run_kw, takeover=True)
             if status == "completed":
                 raise errors.ConflictError(
@@ -254,11 +239,7 @@ class ReopenConflictMixin:
                 parent_provenance="observed_call",
             )
             if name == base and retry_kw.get("authored_by") is None:
-                # `retry_id` below is a string the SDK composed (`<base>-r2`),
-                # so it declares itself -- same rule as `fork_run`, and only
-                # when the caller has not already said. Without it a nightly
-                # `on_conflict="supersede"` from a bare terminal locks
-                # `nightly-eval-r2` as human-chosen, forever.
+                # `retry_id` is SDK-composed (`<base>-r2`): it declares itself unless the caller did (DESIGN.md).
                 retry_kw["authored_by"] = agent_session.AUTHORSHIP_AGENT
             try:
                 run = create(retry_kw, retry_id if name == base else name)
@@ -276,13 +257,9 @@ class ReopenConflictMixin:
         run.link(retry_of=old["id"], retry_attempt=n)
         if old.get("status") in self._DEAD_RUN_STATUSES:
             tags = sorted({*(old.get("tags") or []), "superseded"})
-            # sync=True, for two reasons that compound. `tags` is a whole-list
-            # REPLACE built from a row read a moment ago, so a delayed replay
-            # would overwrite whatever the old run acquired in between. And the
-            # op would carry the OLD run's run_ref, which the NEW run's finish()
-            # barrier -- scoped to its own id -- never covers, so it could sit
-            # queued indefinitely while the run it marks looks merely dead.
-            self.write("PATCH", f"/v1/runs/{old['id']}", {"tags": tags}, sync=True)
+            # sync=True: `tags` REPLACEs a just-read list, and a queued op would sit outside the new run's
+            # finish barrier (it carries the OLD run's run_ref). DESIGN.md.
+            self.send("PATCH", path_for(WriteOp.RUN_PATCH, old['id']), {"tags": tags})
         return run
 
     @staticmethod

@@ -1,0 +1,314 @@
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from datetime import time as clock
+from typing import Any
+
+import anthropic
+import httpx2
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from myorb.activity.store import record
+from myorb.brief import spend
+from myorb.brief.compatible import ANTHROPIC, SERVICES, CompatibleClient
+from myorb.brief.models import Brief
+from myorb.brief.writer import (
+    DEFAULT_MODEL,
+    READ_LANGUAGES,
+    BriefError,
+    api_error,
+    translate,
+    write_brief,
+)
+from myorb.connections import store
+from myorb.crypto import SecretBox
+from myorb.plugins import BriefSection, Plugin, TimelineItem, WidgetContext
+from myorb.profile import load_profile
+
+logger = logging.getLogger(__name__)
+
+PROVIDER = "anthropic"
+DEFAULT_TIME = "06:30"
+# After a failed attempt, the scheduler waits this long before trying again.
+RETRY_AFTER = 30 * 60
+KICKERS = {"morning": "Morning report", "midday": "Midday update", "evening": "Evening wrap-up"}
+
+
+def kind_for(hour: int) -> str:
+    if 4 <= hour < 12:
+        return "morning"
+    if 12 <= hour < 18:
+        return "midday"
+    return "evening"
+
+
+@dataclass(frozen=True)
+class ClaudeSettings:
+    api_key: str
+    language: str = "en"
+    brief_time: str = DEFAULT_TIME
+    model: str = DEFAULT_MODEL
+    # Needed for API keys that are not scoped to a workspace (organization-wide keys).
+    workspace_id: str = ""
+    # Which AI writes: Claude, or a service with an OpenAI-compatible API (compatible.py) at
+    # base_url (empty: the service's usual address).
+    service: str = ANTHROPIC
+    base_url: str = ""
+
+    @property
+    def name(self) -> str:
+        """The AI's name for the user: "Claude", "OpenAI", "Ollama"…"""
+        if self.service == ANTHROPIC:
+            return "Claude"
+        return SERVICES.get(self.service, SERVICES["compatible"]).name
+
+    @property
+    def brief_clock(self) -> clock:
+        return clock.fromisoformat(self.brief_time)
+
+
+class BriefService:
+    """Writes the brief on schedule or on request, one at a time, and remembers the last error."""
+
+    def __init__(
+        self,
+        sessionmaker: async_sessionmaker[AsyncSession],
+        box: SecretBox,
+        plugins: Callable[[], list[Plugin]],
+        context: Callable[[], WidgetContext],
+        transport: httpx2.AsyncBaseTransport | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._sessionmaker = sessionmaker
+        self._box = box
+        self._plugins = plugins
+        self._context = context
+        self._transport = transport
+        self._clock = clock
+        self._lock = asyncio.Lock()
+        self._last_attempt: float | None = None
+        self.error: str | None = None
+        self._eur = spend.EurRate()
+        # Run after a brief is written, without holding it up (e.g. reading it in advance).
+        self.on_written: Callable[[Brief], Awaitable[None]] | None = None
+        self._after: set[asyncio.Task] = set()
+        self._http: httpx2.AsyncClient | None = None
+
+    @property
+    def generating(self) -> bool:
+        return self._lock.locked()
+
+    def client(self, settings: ClaudeSettings) -> Any:
+        """The AI's client: Anthropic's, or one that answers the same calls (compatible.py)."""
+        if settings.service != ANTHROPIC:
+            # Local models can take minutes for a brief.
+            self._http = self._http or httpx2.AsyncClient(
+                transport=self._transport, timeout=httpx2.Timeout(300, connect=10)
+            )
+            return CompatibleClient(
+                settings.service, settings.base_url, settings.api_key, settings.model, self._http
+            )
+        return self._claude(settings.api_key, settings.workspace_id)
+
+    def _claude(self, api_key: str, workspace_id: str = "") -> anthropic.AsyncAnthropic:
+        # Every answer that is not streamed is counted on its way in (see spend.py).
+        hooks = {"response": [spend.response_hook(self._sessionmaker)]}
+        http_client = (
+            anthropic.DefaultAsyncHttpxClient(transport=self._transport, event_hooks=hooks)
+            if self._transport is not None
+            else anthropic.DefaultAsyncHttpxClient(event_hooks=hooks)
+        )
+        headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+        return anthropic.AsyncAnthropic(
+            api_key=api_key, http_client=http_client, default_headers=headers
+        )
+
+    async def record_usage(self, model: str, usage: Any) -> None:
+        """Count a streamed answer, which the client's response hook leaves alone. Only
+        Claude's: the other services' prices are not known."""
+        if model.startswith("claude"):
+            await spend.record(self._sessionmaker, model, usage)
+
+    async def spent_eur(self, http: httpx2.AsyncClient, days: int = 30) -> tuple[float, str]:
+        """What myOrb spent on Claude in the last `days`: in euros, or in dollars when the
+        exchange rate cannot be read."""
+        async with self._sessionmaker() as db:
+            usd = await spend.last_days_usd(db, days)
+        rate = await self._eur.usd_to_eur(http)
+        return (usd * rate, "€") if rate else (usd, "$")
+
+    async def settings(self) -> ClaudeSettings | None:
+        async with self._sessionmaker() as db:
+            data = await store.get_provider_settings(db, self._box, PROVIDER)
+        return ClaudeSettings(**data) if data else None
+
+    async def save_settings(self, settings: ClaudeSettings) -> None:
+        async with self._sessionmaker() as db:
+            await store.save_provider_settings(db, self._box, PROVIDER, settings.__dict__)
+        self.error = None
+
+    async def remove_settings(self) -> None:
+        async with self._sessionmaker() as db:
+            await store.delete_provider_settings(db, PROVIDER)
+        self.error = None
+
+    async def check_key(self, settings: ClaudeSettings) -> str | None:
+        """Return why the settings do not work (the key, the address, the model), or None if
+        they do. Costs no tokens."""
+        if settings.service != ANTHROPIC:
+            try:
+                models = await self.client(settings).models()
+            except BriefError as error:
+                return str(error)
+            if models and settings.model not in models:
+                offered = ", ".join(models[:12]) + (" …" if len(models) > 12 else "")
+                return f"{settings.name} has no model {settings.model}. It offers: {offered}"
+            return None
+        api_key, model, workspace_id = settings.api_key, settings.model, settings.workspace_id
+        try:
+            await self._claude(api_key, workspace_id).models.retrieve(model)
+        except anthropic.AuthenticationError:
+            return "Claude rejected this API key."
+        except anthropic.PermissionDeniedError:
+            return "This API key has no access to the chosen model."
+        except anthropic.APIStatusError as error:
+            logger.warning("Checking the Claude API key failed: %s", error)
+            return api_error(error)
+        except anthropic.APIConnectionError:
+            return "Claude could not be reached."
+        return None
+
+    async def translation(self, brief_id: int, language: str) -> list[str]:
+        """The brief's summary in `language`, translated once and kept with the brief."""
+        if language not in READ_LANGUAGES:
+            raise BriefError("Choose a language.")
+        async with self._sessionmaker() as db:
+            brief = await db.get(Brief, brief_id)
+            if brief is None:
+                raise BriefError("This brief no longer exists.")
+            if language == brief.language:
+                return brief.content["summary"]
+            translations = brief.content.get("translations", {})
+            if language in translations:
+                return translations[language]
+            settings = await self.settings()
+            if settings is None:
+                raise BriefError("Connect an AI in Integrations to translate the brief.")
+            client = self.client(settings)
+            paragraphs = await translate(client, brief.content["summary"], language)
+            # A new dict, so SQLAlchemy sees the JSON column change.
+            brief.content = {
+                **brief.content,
+                "translations": {**translations, language: paragraphs},
+            }
+            await db.commit()
+            return paragraphs
+
+    async def _assistant(self) -> str:
+        async with self._sessionmaker() as db:
+            return (await load_profile(db, self._box))["assistant"]
+
+    async def latest(self) -> Brief | None:
+        async with self._sessionmaker() as db:
+            return await db.scalar(select(Brief).order_by(Brief.created_at.desc()).limit(1))
+
+    async def _sections(self, context: WidgetContext) -> list[BriefSection]:
+        async def collect(plugin: Plugin) -> BriefSection | None:
+            try:
+                return await plugin.brief(context)
+            except Exception:
+                # A failing source is left out; the brief is written from the others.
+                logger.exception("Brief facts from %s failed", plugin.id)
+                return None
+
+        results = await asyncio.gather(*(collect(p) for p in self._plugins()))
+        return [section for section in results if section and section.lines]
+
+    async def _timeline(self, context: WidgetContext) -> list[dict[str, str]]:
+        """The day's timed events as the brief saw them, kept with it for its report."""
+
+        async def collect(plugin: Plugin) -> list[TimelineItem]:
+            try:
+                return await plugin.timeline(context)
+            except Exception:
+                logger.exception("Timeline of %s failed", plugin.id)
+                return []
+
+        results = await asyncio.gather(*(collect(p) for p in self._plugins()))
+        return [
+            {"start": i.start.isoformat(), "end": i.end.isoformat(), "title": i.title}
+            for items in results
+            for i in items
+        ]
+
+    async def generate(self) -> Brief:
+        """Write a new brief now. Raises BriefError with a message for the user."""
+        async with self._lock:
+            self._last_attempt = self._clock()
+            settings = await self.settings()
+            if settings is None:
+                raise BriefError("Connect an AI in Integrations first.")
+            context = self._context()
+            sections, timeline = await asyncio.gather(
+                self._sections(context), self._timeline(context)
+            )
+            try:
+                written = await write_brief(
+                    self.client(settings),
+                    sections,
+                    context.now,
+                    settings.language,
+                    settings.model,
+                    await self._assistant(),
+                )
+            except BriefError as error:
+                self.error = str(error)
+                await record(self._sessionmaker, f"The brief could not be written: {error}", "fail")
+                raise
+            brief = Brief(
+                created_at=datetime.now(UTC),
+                kind=kind_for(context.now.hour),
+                content={**written.content, "timeline": timeline},
+                sources=[section.title for section in sections],
+                model=written.model,
+                language=settings.language,
+            )
+            async with self._sessionmaker() as db:
+                db.add(brief)
+                await db.commit()
+            self.error = None
+            kind = KICKERS.get(brief.kind, "Brief")
+            await record(self._sessionmaker, f"{kind} written: {brief.content['headline']}", "ok")
+            if self.on_written is not None:
+                task = asyncio.create_task(self.on_written(brief))
+                self._after.add(task)
+                task.add_done_callback(self._after.discard)
+            return brief
+
+    async def due(self) -> bool:
+        """Whether today's scheduled brief should be written now."""
+        settings = await self.settings()
+        if settings is None or self.generating:
+            return False
+        now = self._context().now
+        if now.time() < settings.brief_clock:
+            return False
+        if self._last_attempt and self._clock() - self._last_attempt < RETRY_AFTER:
+            return False
+        latest = await self.latest()
+        return latest is None or latest.created_at.astimezone(now.tzinfo).date() < now.date()
+
+    async def run_scheduler(self, interval: float = 60) -> None:
+        while True:
+            try:
+                if await self.due():
+                    await self.generate()
+            except BriefError as error:
+                logger.warning("Scheduled brief failed: %s", error)
+            except Exception:
+                logger.exception("Scheduled brief failed")
+            await asyncio.sleep(interval)

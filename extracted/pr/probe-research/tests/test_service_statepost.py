@@ -1,4 +1,4 @@
-"""The Probe service's state in PostHog (`probe.service.statepost`).
+"""The Probe service's state in PostHog (`probe.service.watch.statepost`).
 
 Three contracts, each with a test that fails when it is broken:
 
@@ -22,10 +22,10 @@ import re
 
 import pytest
 
-from probe.service import statepost
-from probe.service.registry import Registry
-from probe.service.statepost import StatePost, digest, read_outbox, snapshot
-from probe.service.watch import Live, decide_machine
+from probe.service.watch import statepost
+from probe.service.sessions.sessions import Registry
+from probe.service.watch.statepost import StatePost, digest, read_outbox, snapshot
+from probe.service.watch.consent import Live, decide_machine
 
 HOSTED = "https://api.research.prbe.ai"
 SELF_HOST = "https://research.internal.example.com"
@@ -135,7 +135,7 @@ def test_the_fake_status_is_shaped_like_the_real_one(tmp_path):
     """A field `snapshot` reads, renamed in the service, would read as 0 or
     None while `_stuffed_status` kept the old name: its keys must be the
     real `service.status`'s."""
-    from probe.service.server import Service
+    from probe.service.server.server import Service
 
     real = Service(registry=Registry(tmp_path / "sessions.json"), discovery_s=0)._status(None, {})
     fake = _stuffed_status()
@@ -148,7 +148,7 @@ def test_the_service_starts_reports_and_stops_its_state_post(tmp_path, monkeypat
     """The wiring, through the real Service: its consent (`Watch.machine_consent`,
     the login shell when no session runs), its status, and `stop`."""
     from probe.service import watch
-    from probe.service.server import Service
+    from probe.service.server.server import Service
 
     service = Service(registry=Registry(tmp_path / "sessions.json"), discovery_s=0)
     sent: list = []
@@ -175,7 +175,7 @@ def test_the_service_starts_reports_and_stops_its_state_post(tmp_path, monkeypat
 def test_the_real_services_status_snapshots(tmp_path):
     """The real `service.status` shape, not a hand-written one: a field
     renamed there must not silently drop out of the event."""
-    from probe.service.server import Service
+    from probe.service.server.server import Service
 
     service = Service(registry=Registry(tmp_path / "sessions.json"), discovery_s=0)
     props = snapshot(service._status(None, {}))

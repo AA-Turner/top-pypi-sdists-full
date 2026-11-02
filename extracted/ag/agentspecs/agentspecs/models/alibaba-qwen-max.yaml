@@ -1,0 +1,30 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Alibaba Qwen-Max (Model Studio)
+
+id: "alibaba:qwen-max"
+version: 0.0.1
+name: Alibaba Qwen-Max
+description: Qwen-Max via Alibaba Cloud Model Studio - highest capability Qwen model
+provider: alibaba
+provider_url: "https://www.alibabacloud.com/help/en/model-studio/models"
+default: false
+available: true
+tokens_limit: 32768
+
+# Hosted through datalayer-ai-inference, which holds the Model Studio
+# credentials. Nothing is required in the agent runtime environment.
+required_env_vars: []
+
+# https://www.alibabacloud.com/help/en/model-studio/model-pricing (read 2026-11-01).
+# The Singapore (International) region, which is the one called; implicit-cache
+# reads are $0.32, and the catalogue has no field for them.
+pricing:
+  input_usd_per_million: 1.6
+  output_usd_per_million: 6.4
+
+capabilities:
+  - chat
+  - tools
+  - codemode

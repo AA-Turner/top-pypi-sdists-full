@@ -255,7 +255,7 @@ class StunProtocol(asyncio.DatagramProtocol):
     def connection_lost(self, exc: Exception) -> None:
         self.__log_debug("connection_lost(%s)", exc)
         if not self.__closed.done():
-            self.receiver.data_received(None, None)
+            self.receiver.protocol_lost(self)
             self.__closed.set_result(True)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -478,7 +478,9 @@ class Connection:
         """
         Add a remote candidate or signal end-of-candidates.
 
-        To signal end-of-candidates, pass `None`.
+        To signal end-of-candidates, pass `None`. Until then, more candidates
+        may be added while :meth:`connect` is running, and :meth:`connect`
+        does not report an ICE negotiation failure.
 
         :param remote_candidate: A :class:`Candidate` instance or `None`.
         """
@@ -489,6 +491,11 @@ class Connection:
         if remote_candidate is None:
             self._prune_components()
             self._remote_candidates_end = True
+
+            # Removing components may leave all the remaining ones nominated, or
+            # the pairs may all have failed meanwhile (RFC 8838 section 14).
+            if self._early_checks_done and not self._check_list_maybe_complete():
+                self._check_list_maybe_fail()
             return
 
         # resolve mDNS candidate
@@ -563,7 +570,9 @@ class Connection:
         Perform ICE handshake.
 
         This coroutine returns if a candidate pair was successfuly nominated
-        and raises an exception otherwise.
+        and raises an exception otherwise. Failure is only reported once
+        end-of-candidates has been signalled with :meth:`add_remote_candidate`,
+        so until then this coroutine keeps waiting for more remote candidates.
         """
         if not self._local_candidates_end:
             raise ConnectionError("Local candidates gathering was not performed")
@@ -571,7 +580,7 @@ class Connection:
         if self.remote_username is None or self.remote_password is None:
             raise ConnectionError("Remote username or password is missing")
 
-        # 5.7.1. Forming Candidate Pairs
+        # Forming candidate pairs (RFC 8445 section 6.1.2.2).
         for remote_candidate in self._remote_candidates:
             for protocol in self._protocols:
                 if protocol.local_candidate.can_pair_with(
@@ -616,7 +625,7 @@ class Connection:
         """
         Close the connection.
         """
-        # stop consent freshness tests
+        # Stop consent freshness tests.
         if self._query_consent_task and not self._query_consent_task.done():
             self._query_consent_task.cancel()
             try:
@@ -624,11 +633,11 @@ class Connection:
             except asyncio.CancelledError:
                 pass
 
-        # stop check list
+        # Stop the check list.
         if self._check_list and not self._check_list_done:
             self._check_list_state.put_nowait(ICE_FAILED)
 
-        # unreference mDNS
+        # Unreference mDNS.
         await unref_mdns_protocol(self)
 
         self._nominated.clear()
@@ -637,7 +646,10 @@ class Connection:
         self._protocols.clear()
         self._local_candidates.clear()
 
-        # emit event
+        # Wake up any pending recv().
+        self.data_received(None, None)
+
+        # Emit an event.
         if not self._closed:
             self._emit_event(ConnectionClosed())
             self._closed = True
@@ -762,29 +774,26 @@ class Connection:
             if pair.nominated:
                 self._nominated[pair.component] = pair
 
-                # 8.1.2.  Updating States
-                #
-                # The agent MUST remove all Waiting and Frozen pairs in the check
-                # list and triggered check queue for the same component as the
-                # nominated pairs for that media stream.
-                for p in self._check_list:
-                    if p.component == pair.component and p.state in [
-                        CandidatePair.State.WAITING,
-                        CandidatePair.State.FROZEN,
-                    ]:
-                        self.check_state(p, CandidatePair.State.FAILED)
+                # Remove the component's pairs which have not been checked yet,
+                # cancelling any check already scheduled for them (RFC 8445
+                # section 8.1.2).
+                unchecked = [
+                    p
+                    for p in self._check_list
+                    if p.component == pair.component
+                    and p.state
+                    in [CandidatePair.State.WAITING, CandidatePair.State.FROZEN]
+                ]
+                for p in unchecked:
+                    self.__log_info("Check %s %s -> removed", p, p.state)
+                    if p.task is not None:
+                        p.task.cancel()
+                    self._check_list.remove(p)
 
-            # Once there is at least one nominated pair in the valid list for
-            # every component of at least one media stream and the state of the
-            # check list is Running:
-            if len(self._nominated) == len(self._components):
-                if not self._check_list_done:
-                    self.__log_info("ICE completed")
-                    self._check_list_state.put_nowait(ICE_COMPLETED)
-                    self._check_list_done = True
+            if self._check_list_maybe_complete():
                 return
 
-            # 7.1.3.2.3.  Updating Pair States
+            # Updating candidate pair states (RFC 8445 section 7.2.5.3.3).
             for p in self._check_list:
                 if (
                     p.local_candidate.foundation == pair.local_candidate.foundation
@@ -792,22 +801,7 @@ class Connection:
                 ):
                     self.check_state(p, CandidatePair.State.WAITING)
 
-        for p in self._check_list:
-            if p.state not in [
-                CandidatePair.State.SUCCEEDED,
-                CandidatePair.State.FAILED,
-            ]:
-                return
-
-        if not self.ice_controlling:
-            for p in self._check_list:
-                if p.state == CandidatePair.State.SUCCEEDED:
-                    return
-
-        if not self._check_list_done:
-            self.__log_info("ICE failed")
-            self._check_list_state.put_nowait(ICE_FAILED)
-            self._check_list_done = True
+        self._check_list_maybe_fail()
 
     def check_incoming(
         self, message: stun.Message, addr: tuple[str, int], protocol: StunProtocol
@@ -825,7 +819,7 @@ class Connection:
                 assert remote_candidate.component == component
                 break
         if remote_candidate is None:
-            # 7.2.1.3. Learning Peer Reflexive Candidates
+            # Learning peer-reflexive candidates (RFC 8445 section 7.3.1.3).
             remote_candidate = Candidate(
                 foundation=random_string(10),
                 component=component,
@@ -846,17 +840,59 @@ class Connection:
             self._check_list.append(pair)
             self.sort_check_list()
 
-        # triggered check
-        if pair.state in [CandidatePair.State.WAITING, CandidatePair.State.FAILED]:
+        # Triggered check (RFC 8445 section 7.3.1.4).
+        if pair.state in [CandidatePair.State.FROZEN, CandidatePair.State.FAILED]:
+            self.check_state(pair, CandidatePair.State.WAITING)
+        if pair.state == CandidatePair.State.WAITING:
             self.check_start_task(pair)
 
-        # 7.2.1.5. Updating the Nominated Flag
+        # Updating the nominated flag (RFC 8445 section 7.3.1.5).
         if "USE-CANDIDATE" in message.attributes and not self.ice_controlling:
             pair.remote_nominated = True
 
             if pair.state == CandidatePair.State.SUCCEEDED:
                 pair.nominated = True
                 self.check_complete(pair)
+
+    def _check_list_maybe_complete(self) -> bool:
+        """
+        Mark the check list as completed if every component has a nominated pair.
+        """
+        # Once there is at least one nominated pair in the valid list for
+        # every component of at least one media stream and the state of the
+        # check list is Running:
+        if self._nominated and len(self._nominated) == len(self._components):
+            if not self._check_list_done:
+                self.__log_info("ICE completed")
+                self._check_list_state.put_nowait(ICE_COMPLETED)
+                self._check_list_done = True
+            return True
+        return False
+
+    def _check_list_maybe_fail(self) -> None:
+        """
+        Mark the check list as failed if no further progress can be made.
+        """
+        # More remote candidates may still be trickled (RFC 8838 section 8).
+        if not self._remote_candidates_end:
+            return
+
+        for p in self._check_list:
+            if p.state not in [
+                CandidatePair.State.SUCCEEDED,
+                CandidatePair.State.FAILED,
+            ]:
+                return
+
+        if not self.ice_controlling:
+            for p in self._check_list:
+                if p.state == CandidatePair.State.SUCCEEDED:
+                    return
+
+        if not self._check_list_done:
+            self.__log_info("ICE failed")
+            self._check_list_state.put_nowait(ICE_FAILED)
+            self._check_list_done = True
 
     def check_periodic(self) -> bool:
         # find the highest-priority pair that is in the waiting state
@@ -892,7 +928,7 @@ class Connection:
                 integrity_key=self.remote_password.encode("utf8"),
             )
         except stun.TransactionError as exc:
-            # 7.1.3.1. Failure Cases
+            # Role conflict or failure (RFC 8445 sections 7.2.5.1 and 7.2.5.2).
             if (
                 exc.response
                 and exc.response.attributes.get("ERROR-CODE", (None, None))[0] == 487
@@ -1093,6 +1129,14 @@ class Connection:
     def data_received(self, data: Optional[bytes], component: Optional[int]) -> None:
         self._queue.put_nowait((data, component))
 
+    def protocol_lost(self, protocol: StunProtocol) -> None:
+        # Only a nominated pair carries data, so losing any other
+        # protocol must not abort a pending recv().
+        for pair in self._nominated.values():
+            if pair.protocol is protocol:
+                self.data_received(None, None)
+                return
+
     def request_received(
         self,
         message: stun.Message,
@@ -1117,7 +1161,7 @@ class Connection:
             self.respond_error(message, addr, protocol, (400, "Bad Request"))
             return
 
-        # 7.2.1.1. Detecting and Repairing Role Conflicts
+        # Detecting and repairing role conflicts (RFC 8445 section 7.3.1.1).
         if self.ice_controlling and "ICE-CONTROLLING" in message.attributes:
             self.__log_info("Role conflict, expected to be controlling")
             if self._tie_breaker >= message.attributes["ICE-CONTROLLING"]:

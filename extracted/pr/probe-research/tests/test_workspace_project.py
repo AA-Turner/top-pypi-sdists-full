@@ -56,7 +56,42 @@ def test_workspace_list_tolerates_a_legacy_null_owner_row(client, app, monkeypat
         "slug": "team",
         "projects": 0,
         "this_computer": False,
+        "home": False,
     }
+
+
+def test_workspace_list_marks_the_members_home(client, app, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Client", lambda **kw: client)
+    app.workspaces[_WS_OTHER]["is_default"] = True
+
+    assert cli.main(["workspace", "list"]) == 0
+
+    assert {r["id"]: r["home"] for r in _out(capsys)} == {_WS_MINE: False, _WS_OTHER: True}
+
+
+def test_workspace_use_moves_only_this_computers_pin_and_ends_a_clear(client, app, monkeypatch, capsys):
+    """D-d: the home is per person and `use` never changes it; a pick replaces `--clear`."""
+    monkeypatch.setattr(cli, "Client", lambda **kw: client)
+    app.workspaces[_WS_MINE].update(is_default=True, home_eligible=True)
+    save_context({"workspace_cleared": True, "workspace_handover": True})
+
+    assert cli.main(["workspace", "use", "teammate"]) == 0
+
+    context = load_context()
+    assert context["workspace"]["id"] == _WS_OTHER
+    assert "workspace_cleared" not in context and "workspace_handover" not in context
+    assert app.home_saves == [] and app.workspaces[_WS_MINE]["is_default"] is True
+
+
+def test_workspace_use_clear_writes_the_new_key_in_place_of_the_legacy_one(client, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Client", lambda **kw: client)
+    save_context({"workspace": {"id": _WS_MINE, "project": None}, "workspace_handover": True})
+
+    assert cli.main(["workspace", "use", "--clear"]) == 0
+
+    context = load_context()
+    assert context.get("workspace_cleared") is True
+    assert "workspace" not in context and "workspace_handover" not in context
 
 
 def test_workspace_rename_changes_only_the_name(client):
@@ -232,9 +267,9 @@ def test_an_unset_computer_on_a_team_with_several_workspaces_is_refused(app):
     assert not [p for p in app.projects.values() if p["slug"] == "nowhere"]
 
 
-def test_the_handover_pins_a_members_saved_workspace_once(app, monkeypatch, capsys):
-    """A member whose 0354 default moved their work to their own workspace gets it
-    pinned on this computer instead of the refusal, and the create goes through."""
+def test_a_fresh_computer_pins_the_members_home_and_files_there(app, monkeypatch, capsys):
+    """A training script on a computer that never ran the wizard: the member's home is
+    pinned on it instead of the refusal, and the create goes through."""
     app.workspaces[_WS_OTHER]["is_default"] = True
     unset = make_client(app, workspace=None)
 
@@ -242,21 +277,35 @@ def test_the_handover_pins_a_members_saved_workspace_once(app, monkeypatch, caps
 
     assert project["workspace_id"] == _WS_OTHER
     assert load_context()["workspace"]["id"] == _WS_OTHER
-    assert "this computer's work now goes into 'Teammate'" in capsys.readouterr().err
+    assert "this computer's work now goes into your home workspace 'Teammate'" in capsys.readouterr().err
     assert unset.settings.workspace == _WS_OTHER
+    assert "workspace_handover" not in load_context()  # never written again
 
 
-def test_the_handover_runs_once_per_computer(app, monkeypatch):
-    """Once it ran, a computer whose pin is gone again is refused, not re-pinned."""
-    from probe.sdk import errors
-
+def test_the_home_is_pinned_again_whenever_the_pin_is_gone(app, monkeypatch):
+    """A4: not once per computer. A pin removed later (a deleted workspace, a re-login)
+    is replaced by the home on the next create, not refused."""
     app.workspaces[_WS_OTHER]["is_default"] = True
     make_client(app, workspace=None).create_project("first", kind="general")
     save_context({"workspace": None})
+
+    project = make_client(app, workspace=None).create_project("second", kind="general")
+
+    assert project["workspace_id"] == _WS_OTHER
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+
+
+def test_a_legacy_clear_flag_still_stops_the_home_pin(app, monkeypatch):
+    """`workspace_handover: true` with no pin: an old `probe workspace use --clear`
+    (respect explicit choices) -- the refusal with its fix, never a re-pin."""
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    save_context({"workspace_handover": True})
     app.requests.clear()
 
     with pytest.raises(errors.WorkspaceRequired):
-        make_client(app, workspace=None).create_project("second", kind="general")
+        make_client(app, workspace=None).create_project("after-old-clear", kind="general")
 
     assert ("GET", "/v1/workspaces") not in [(r.method, r.url.path) for r in app.requests]
     assert "workspace" not in load_context()
@@ -308,6 +357,174 @@ def test_a_failed_listing_keeps_the_refusal(app, monkeypatch):
     monkeypatch.setattr(unset, "list_workspaces", down)
     with pytest.raises(errors.WorkspaceRequired):
         unset.create_project("no-list", kind="general")
+
+
+_DEAD = "00000000-0000-4000-8000-00000000dead"
+
+
+def _pinned_to_deleted(app, monkeypatch, *, env_workspace=None, explicit=None, **anchor):
+    """A computer whose saved pin names a workspace the team no longer has, with the
+    client a real process builds from it (`resolve()` says where its workspace came from)."""
+    from probe.sdk.settings.settings import resolve
+
+    monkeypatch.delenv("PROBE_WORKSPACE", raising=False)
+    if env_workspace:
+        monkeypatch.setenv("PROBE_WORKSPACE", env_workspace)
+    save_context({"workspace": {"id": _DEAD, "project": None, **anchor}})
+    settings = resolve(workspace=explicit)
+    client = make_client(app, workspace=settings.workspace)
+    client.settings.workspace_source = settings.workspace_source
+    return client
+
+
+def _creates(app) -> list:
+    return [json.loads(r.content).get("workspace_id") for r in app.requests if r.method == "POST"
+            and r.url.path == "/v1/projects"]
+
+
+def test_a_pin_to_a_deleted_workspace_is_dropped_and_the_create_lands_in_the_home(app, monkeypatch, capsys):
+    """A6: before, every create on this computer 422'd until someone ran `probe workspace use`."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    client = _pinned_to_deleted(app, monkeypatch)
+    app.requests.clear()
+
+    project = client.create_project("recovered", kind="general")
+
+    assert project["workspace_id"] == _WS_OTHER
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+    assert _creates(app) == [_DEAD, _WS_OTHER]  # retried once
+    assert "your home workspace 'Teammate'" in capsys.readouterr().err
+
+
+def test_a_dead_pin_takes_the_old_handover_flag_with_it(app, monkeypatch):
+    """The old handover wrote `workspace_handover` WITH its pin: once that pin is dead
+    the flag is no clear, so the home still takes its place."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    client = _pinned_to_deleted(app, monkeypatch)
+    save_context({"workspace_handover": True})
+
+    assert client.create_project("recovered", kind="general")["workspace_id"] == _WS_OTHER
+    assert "workspace_handover" not in load_context()
+
+
+def test_a_dead_pin_with_no_home_is_dropped_and_refused_with_the_fix(app, monkeypatch):
+    from probe.sdk import errors
+
+    client = _pinned_to_deleted(app, monkeypatch)
+    app.requests.clear()
+
+    with pytest.raises(errors.WorkspaceRequired, match="probe workspace use"):
+        client.create_project("nowhere", kind="general")
+
+    assert "workspace" not in load_context()
+    assert _creates(app) == [_DEAD, None]  # one retry, naming no workspace
+
+
+def test_a_dead_pin_on_a_one_workspace_team_files_into_that_one(app, monkeypatch):
+    del app.workspaces[_WS_OTHER]
+    client = _pinned_to_deleted(app, monkeypatch)
+
+    assert client.create_project("lone", kind="general")["workspace_id"] == _WS_MINE
+
+
+@pytest.mark.parametrize("how", ["workspace_id", "PROBE_WORKSPACE", "resolve", "limit"])
+def test_a_workspace_named_on_purpose_is_never_dropped_or_replaced(app, monkeypatch, how):
+    """Only this computer's own pin recovers: a gone `workspace=` (per call or to
+    `resolve`), PROBE_WORKSPACE or workspace limit is the caller's to fix, and the
+    create fails loudly -- even when it names the same id as the pin."""
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    client = _pinned_to_deleted(
+        app,
+        monkeypatch,
+        env_workspace=_DEAD if how == "PROBE_WORKSPACE" else None,
+        explicit=_DEAD if how == "resolve" else None,
+        **({"limit": True} if how == "limit" else {}),
+    )
+    kwargs = {"workspace_id": _DEAD} if how == "workspace_id" else {}
+    before = load_context()["workspace"]
+
+    with pytest.raises(errors.ValidationError, match="workspace_id not found"):
+        client.create_project("named", kind="general", **kwargs)
+
+    assert load_context()["workspace"] == before
+    assert not [p for p in app.projects.values() if p["slug"] == "named"]
+
+
+def test_a_sweep_sibling_that_already_replaced_the_dead_pin_is_followed(app, monkeypatch):
+    """N runs start together on a dead pin: the first replaces it with the home, and the
+    rest must file there too rather than fail on a pin that is no longer the pin."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    client = _pinned_to_deleted(app, monkeypatch)
+    save_context({"workspace": {"id": _WS_OTHER, "project": None}})  # the sibling's fix
+    app.requests.clear()
+
+    assert client.create_project("late-sibling", kind="general")["workspace_id"] == _WS_OTHER
+    assert _creates(app) == [_DEAD, _WS_OTHER]
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+
+
+def test_another_accounts_job_files_into_its_own_home_without_moving_the_stored_pin(
+    app, monkeypatch, capsys
+):
+    """A `PROBE_TOKEN` job of another account on a shared box: the stored login's
+    computer stays as it was, and the job's own home is used for that job only."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    save_context({"token": "ros_pat_the_stored_login"})
+    client = make_client(app, workspace=None)  # signs in as ros_pat_deadbeef
+
+    assert client.create_project("visitor", kind="general")["workspace_id"] == _WS_OTHER
+    assert "workspace" not in load_context()
+    assert "belongs to the account signed in here" in capsys.readouterr().err
+
+
+def test_another_accounts_job_never_drops_the_stored_logins_pin(app, monkeypatch):
+    """Another team's workspace answers the same 422: it is not this job's pin to drop."""
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    client = _pinned_to_deleted(app, monkeypatch)
+    save_context({"token": "ros_pat_the_stored_login"})
+
+    with pytest.raises(errors.ValidationError, match="workspace_id not found"):
+        client.create_project("visitor", kind="general")
+    assert load_context()["workspace"]["id"] == _DEAD
+
+
+def test_a_deleted_pinned_workspace_ends_an_earlier_clear(app, monkeypatch, capsys):
+    """`--clear`, then a pick (`create --use`), then that workspace deleted: the pick was
+    the later choice, so the next create falls back to the home instead of refusing."""
+    monkeypatch.setattr(cli, "Client", lambda **kw: make_client(app, workspace=None))
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    assert cli.main(["workspace", "use", "--clear"]) == 0
+    assert cli.main(["workspace", "create", "scratch", "--use"]) == 0
+    assert cli.main(["workspace", "delete", "scratch", "--yes"]) == 0
+
+    project = make_client(app, workspace=None).create_project("after-delete", kind="general")
+
+    assert project["workspace_id"] == _WS_OTHER
+    assert "workspace_cleared" not in load_context()
+
+
+@pytest.mark.parametrize(
+    "explicit, env, pinned, expected",
+    [
+        ("ws-a", {"PROBE_WORKSPACE": "ws-b"}, True, "explicit"),
+        (None, {"PROBE_WORKSPACE": "ws-b"}, True, "env"),
+        (None, {"PROBE_WORKSPACE_LIMIT": _WS_MINE}, True, "limit"),
+        (None, {}, True, "pin"),
+        (None, {}, False, None),
+    ],
+)
+def test_resolve_says_where_the_workspace_came_from(monkeypatch, explicit, env, pinned, expected):
+    from probe.sdk.settings.settings import resolve
+
+    if pinned:
+        save_context({"workspace": {"id": _WS_OTHER, "project": None}})
+    settings = resolve(workspace=explicit, env=env)
+
+    assert settings.workspace_source == expected
 
 
 def test_run_files_a_new_project_into_the_named_workspace(app):

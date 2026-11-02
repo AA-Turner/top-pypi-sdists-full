@@ -214,7 +214,7 @@ def iso_utc(epoch: "float | None") -> "str | None":
 
 def daemon_instance() -> str:
     """Which daemon this is, for the server's delivery lease: this machine's
-    device id (`sdk.device_identity`), so a worker restarted here still holds
+    device id (`sdk.settings.device_identity`), so a worker restarted here still holds
     what the one before it leased. A machine that cannot keep one gets an id
     for this process: its leases lapse, and are taken again, when it restarts."""
     global _PROCESS_INSTANCE
@@ -366,7 +366,7 @@ class SessionMessages:
             self.receipt_misses[server_id] = (misses, time.monotonic() + wait)
         return said
 
-    def _active_at(self) -> "str | None":
+    def _get_active_at(self) -> "str | None":
         """When this session's agent was last active here, for the poll's header."""
         try:
             return iso_utc(self.lane.w.agent_active_at())
@@ -384,7 +384,7 @@ class SessionMessages:
             # The copies still waiting here: Probe answers which another daemon
             # (or the agent, elsewhere) has had since, and they go.
             return await probe_api.session_messages(env, self.sid, self._instance(),
-                                                    mailbox.waiting_inbox_ids(self.sid), active_at=self._active_at())
+                                                    mailbox.waiting_inbox_ids(self.sid), active_at=self._get_active_at())
         except probe_api.KeyRefused as exc:
             self._refused(exc)
             return None
@@ -406,9 +406,9 @@ class SessionMessages:
             where = mailbox.where(self.sid, message_id)
             fresh = where is None
             if fresh:
-                msg = inbox_message(self.sid, row, now=self._now(), origin_turn=self._turn(),
+                message = inbox_message(self.sid, row, now=self._now(), origin_turn=self._turn(),
                                     daemon_instance=instance)
-                mailbox.publish(msg)  # BEFORE the ack: a crash between the two re-lists it here
+                mailbox.publish(message)  # BEFORE the ack: a crash between the two re-lists it here
                 published += 1
                 log.info("session messages: published %s", message_id)
                 where = mailbox.where(self.sid, message_id)

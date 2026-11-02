@@ -1,0 +1,66 @@
+- name: Only child receives higher amount
+  period: 2021
+  absolute_error_margin: 30
+  input:
+    people:
+      child:
+        age: 12
+    benunits:
+      benunit:
+        members: [child]
+  output:
+    child_benefit_respective_amount: 1099.80
+
+- name: Eldest child receives higher amount, younger child receives lower amount
+  period: 2021
+  absolute_error_margin: 30
+  input:
+    people:
+      eldest:
+        age: 12
+      younger:
+        age: 11
+    benunits:
+      benunit:
+        members: [eldest, younger]
+  output:
+    child_benefit_respective_amount: [1099.80, 728.00]
+
+- name: Eldest child receives higher amount, all younger children receive lower amount
+  period: 2022
+  absolute_error_margin: 5
+  input:
+    people:
+      eldest:
+        age: 12
+      younger:
+        age: 11
+      youngest:
+        age: 10
+    benunits:
+      benunit:
+        members: [eldest, younger, youngest]
+  output:
+    child_benefit_respective_amount: [1133.69, 751.40, 751.40]
+
+- name: Case 4, 2026 rates apply to one eldest child and four additional children.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 12
+      person2:
+        age: 11
+      person3:
+        age: 10
+      person4:
+        age: 9
+      person5:
+        age: 8
+    benunits:
+      benunit:
+        members: [person1, person2, person3, person4, person5]
+  output:
+    child_benefit_respective_amount:
+      [1_406.60, 930.80, 930.80, 930.80, 930.80]

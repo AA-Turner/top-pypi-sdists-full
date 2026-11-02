@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""Normalize typographic AI-writing tells to ASCII.
+
+Deterministic first pass for the humanize skills: replace em/en dashes, curly
+quotes, ellipsis, non-breaking and zero-width spaces, BOM, bidi controls, heavy
+verdict emoji (check/cross/warning -> OK/NO/WARN), and related non-ASCII
+punctuation with plain ASCII, so public-facing text carries no
+typographic "AI tell". The judgment rewrites (promotional language, rule of
+three, and the rest) are described in SKILL.md and stay with the model.
+
+An em dash becomes a spaced hyphen carrying one space per side, reusing the space
+already beside it, so a spaced em dash needs no hand tidy afterwards. Wider
+spacing beside the dash is column padding and stays as it is, as does whitespace
+at either end of the line, and a dash AT a line edge gets no space on that side.
+The other dashes become a bare hyphen and keep the text's spacing. A line or
+paragraph separator becomes a newline, or a space where a newline would start a
+code fence the original did not have.
+
+Stdin mode reads and writes UTF-8 whatever the console's locale, with line
+endings passed through as they arrived.
+
+This is the exact inverse of the tell-sweep detector: running it makes a file
+pass that check. Symbols that are intentionally allowed (arrow, multiply sign,
+>=, <=, !=, check mark, bullet) are left untouched, as is German quotation -
+the low-9 quotes, their closing partners and the guillemets - which is correct
+typography rather than a tell and is not in the detector's set either.
+
+Usage:
+  strip_typographic_tells.py FILE [FILE ...]   rewrite each file in place
+  strip_typographic_tells.py --check FILE ...  exit 1 if any tell remains (no write)
+  strip_typographic_tells.py -                 read stdin, write normalized stdout
+  strip_typographic_tells.py -- -FILE ...      a file whose name starts with '-' goes after --
+  strip_typographic_tells.py -h | --help       print this usage and exit 0
+
+Exit 0 done or clean, 1 (--check only) a tell remains, 2 could not run: an unknown option, a FILE
+missing, unreadable, not UTF-8 or not writable, or stdin not UTF-8. The other files are still
+processed, and 2 wins over 1.
+
+The replacement table is built from code points with chr()/ranges so this script
+is itself pure ASCII and passes the same check.
+"""
+
+import re
+import sys
+from pathlib import Path
+
+# The sweep hook and this script MUST agree about what counts as code, or a file that passes the
+# sweep still gets its deliberate examples rewritten. One implementation, in the shared module -
+# which is a sibling here, so this works whether the file is imported or run directly.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tell_chars  # noqa: E402
+
+
+def _build_table():
+    table = {}
+    # Spaces of various widths -> one ASCII space.
+    for cp in [0x00A0, 0x202F, 0x205F, 0x3000] + list(range(0x2000, 0x200B)):
+        table[cp] = " "
+    # Zero-width, bidi, and other invisibles -> removed.
+    removable = (
+        [0x00AD, 0x061C, 0x180E, 0xFEFF, 0xFFFC, 0xFFFD]
+        + list(range(0x200B, 0x2010))   # ZWSP, ZWNJ, ZWJ, LRM, RLM
+        + list(range(0x202A, 0x202F))   # bidi embeddings/overrides
+        + list(range(0x2060, 0x2065))   # word joiner, invisible operators
+        + list(range(0x2066, 0x206A))   # bidi isolates
+    )
+    for cp in removable:
+        table[cp] = ""
+    # Line/paragraph separators -> newline.
+    for cp in [0x0085, 0x2028, 0x2029]:
+        table[cp] = "\n"
+    # Dashes -> a plain hyphen, keeping whatever spacing the text already had. The em-dash family
+    # (U+2014, U+2E3A, U+2E3B) is deliberately absent: it reads as a spaced hyphen, which a fixed
+    # table entry cannot produce without doubling existing spaces, so `_EM_DASH_RUN` owns it.
+    for cp in [0x2010, 0x2011, 0x2012, 0x2013, 0x2015, 0x2212]:
+        table[cp] = "-"
+    # Quotation marks. The German ones are absent on purpose and must stay absent: U+201E, U+201C,
+    # U+201A, U+2018 and the guillemets U+00AB, U+00BB, U+2039, U+203A left RANGES in the 2026-09-18
+    # decision, and this script is the detector's inverse - an entry here would have the sanctioned
+    # repair tool flatten exactly the characters the hook permits, silently, on a German page.
+    for cp in [0x2019, 0x201B]:
+        table[cp] = "'"
+    for cp in [0x201D, 0x201F]:
+        table[cp] = '"'
+    # Dot leaders / ellipsis.
+    table[0x2024] = "."
+    table[0x2025] = ".."
+    table[0x2026] = "..."
+    # Heavy verdict emoji -> ASCII markers (house style); drop the variation selector.
+    table[0x2705] = "OK"
+    table[0x2714] = "OK"
+    table[0x2717] = "NO"
+    table[0x274C] = "NO"
+    table[0x26A0] = "WARN"
+    table[0xFE0F] = ""
+    return table
+
+
+TABLE = _build_table()
+
+# An em dash becomes a SPACED hyphen, so the replacement has to know what is already next to it.
+# A translate entry cannot: mapping U+2014 to " - " kept the original spaces and turned
+# "a <em dash> b" into "a  -  b", which every caller then tidied by hand. This pattern reuses the
+# space already beside the dash instead, so a spaced em dash comes out as " - ", and it is why the
+# em-dash family is not in TABLE.
+#
+# Exactly ONE space per side is taken ([ \t]? , not [ \t]*): a wider run is column padding, and
+# collapsing it corrupts what it aligned. Measured over the repo's own markdown - injecting a
+# spaced em dash at every spaced hyphen outside code, then running this script - the one-space
+# form round-trips byte-identical, while consuming the whole run rewrote a padded table cell and
+# an aligned trailing comment.
+#
+# The whitespace class is [ \t] and NEVER \s: \s matches a newline, and consuming one joins two
+# lines and silently destroys the structure of the file. Whitespace at a line edge is left alone
+# in both directions - a run reached from the line start is indentation (eating it re-nests a list
+# item) and a trailing run can be a markdown hard line break (two spaces), so a run against a
+# newline is neither consumed nor created.
+_EM_DASHES = "".join(chr(cp) for cp in (0x2014, 0x2E3A, 0x2E3B))
+_ON_THE_LINE = "[^ \t\r\n]"        # neither horizontal whitespace nor a line break
+_EM_DASH_RUN = re.compile(
+    "(?:(?<=%s)[ \t]?)?[%s](?:[ \t]?(?=%s))?" % (_ON_THE_LINE, _EM_DASHES, _ON_THE_LINE)
+)
+_SPACE_OR_BREAK = (" ", "\t", "\r", "\n")
+
+
+def _spaced_hyphen(match, starts_line, ends_line):
+    """Return the hyphen with a space only on the sides that face text on the same line.
+
+    A side with NO character at all is a stretch edge, and that is either a LINE edge or the edge
+    of an inline-code span: the caller splits each line at its spans, so "`x`<em dash>y" arrives
+    here as "<em dash>y". Beside a span a space is right (dropping it would weld the hyphen onto the
+    code). At a line edge it is wrong in both directions - a leading one is new indentation and a
+    trailing one is new trailing whitespace - so `starts_line` / `ends_line` say which edge it is."""
+    text = match.string
+    at_start, at_end = match.start() == 0, match.end() == len(text)
+    before = text[match.start() - 1] if not at_start else ""
+    after = text[match.end()] if not at_end else ""
+    left = "" if before in _SPACE_OR_BREAK or (at_start and starts_line) else " "
+    right = "" if after in _SPACE_OR_BREAK or (at_end and ends_line) else " "
+    # A hyphen that opens a line and has text after it is a Markdown LIST MARKER, so an aside that
+    # began with an em dash became a bullet item. A doubled hyphen is no marker, and it is the
+    # plain-text spelling of an em dash.
+    hyphen = "--" if _would_be_a_list_marker(match, starts_line) else "-"
+    return left + hyphen + right
+
+
+def _would_be_a_list_marker(match, starts_line):
+    """True when a hyphen in place of `match` would start a list item: at most three spaces of
+    indentation before it (four make an indented code line) and text after it on the same line.
+    A dash alone on its line is left a single hyphen - the old spelling, and no list item."""
+    text = match.string
+    head = text[:match.start()]
+    cut = max(head.rfind("\n"), head.rfind("\r"))
+    if cut == -1 and not starts_line:
+        return False
+    indent = head[cut + 1:]
+    tail = re.split(r"[\r\n]", text[match.end():], maxsplit=1)[0]
+    return indent.strip(" ") == "" and len(indent) <= 3 and tail.strip() != ""
+
+
+def _normalize_prose(text, starts_line, ends_line):
+    """Translate the tells in one non-code stretch, then fix the em-dash spacing.
+
+    The order matters: the table turns non-breaking spaces into plain ones and drops the
+    zero-width characters, so an em dash padded with either reaches the dash pass surrounded by
+    ordinary spaces and collapses like any other."""
+    return _EM_DASH_RUN.sub(lambda m: _spaced_hyphen(m, starts_line, ends_line),
+                            text.translate(TABLE))
+
+
+_SEPARATORS = "".join(chr(cp) for cp in (0x0085, 0x2028, 0x2029))
+_SEPARATOR_RUN = re.compile("[%s]" % _SEPARATORS)
+
+
+def _break_prose_separators(text):
+    """Turn every line/paragraph separator OUTSIDE code into a newline, before the code walk.
+
+    They are line breaks by meaning, and they have to become real ones FIRST: which lines are fence
+    lines decides what is code, and a rewrite that makes new lines after that decision leaves a
+    file whose structure differs from the one it was judged on. The one exception is a separator
+    whose new line would begin with a fence marker. A newline there OPENS a block the original never
+    had - its later fences then pair up differently, a second run rewrites the example the first run
+    kept as code, and the output is no longer a fixed point. That separator becomes a space.
+
+    Separators inside an inline-code span or a fenced block stay, like every other tell there."""
+    if not _SEPARATOR_RUN.search(text or ""):
+        return text
+    out = []
+    for line, is_code in tell_chars.lines_with_code_state(text, keepends=True):
+        if is_code:
+            out.append(line)
+            continue
+        parts = tell_chars.split_inline(line)
+        for i in range(0, len(parts), 2):          # prose stretches; the spans between stay
+            pieces = _SEPARATOR_RUN.split(parts[i])
+            rebuilt = pieces[0]
+            for j, piece in enumerate(pieces[1:], 1):
+                # The new line runs to the next separator, which for the last piece of a stretch
+                # may lie beyond the spans that follow it.
+                rest = piece if j < len(pieces) - 1 else piece + "".join(parts[i + 1:])
+                new_line = _SEPARATOR_RUN.split(rest, maxsplit=1)[0]
+                rebuilt += (" " if tell_chars.fence_opener(new_line) else "\n") + piece
+            parts[i] = rebuilt
+        out.append("".join(parts))
+    return "".join(out)
+
+
+def normalize(text):
+    """Return text with every typographic tell OUTSIDE code replaced by its ASCII form.
+
+    Inline-code spans and fenced blocks are left byte-identical: a tell inside them is usually a
+    deliberate example of the very character being documented, and rewriting it destroys the
+    example. This is the same code definition the tell-sweep hook uses."""
+    return tell_chars.transform_outside_code(
+        _break_prose_separators(text), _normalize_prose, edges=True)
+
+
+USAGE = __doc__[__doc__.index("Usage:"):__doc__.index("The replacement table")].rstrip() + "\n"
+
+
+class _UsageError(Exception):
+    """An argument this CLI does not accept; the message names it."""
+
+
+def _parse(args):
+    """(check, help, files) from the command-line arguments, or raise `_UsageError`.
+
+    Every argument starting with '-' before a `--` is an option, so an unknown one is refused
+    rather than opened as a file: `--help` used to come back as "could not process --help".
+    Everything after `--` is a file whatever it starts with. `files` is None for stdin mode: no
+    operand at all, or a lone '-' given before any `--`.
+    """
+    check = show_help = False
+    before, after = [], []
+    for at, arg in enumerate(args):
+        if arg == "--":
+            after = args[at + 1:]
+            break
+        if arg in ("-h", "--help"):
+            show_help = True
+        elif arg == "--check":
+            check = True
+        elif arg.startswith("-") and arg != "-":
+            raise _UsageError(f"unknown option: {arg}")
+        else:
+            before.append(arg)
+    stdin = not after and before in ([], ["-"])
+    return check, show_help, None if stdin else before + after
+
+
+def _main(argv):
+    try:
+        check, show_help, args = _parse(argv[1:])
+    except _UsageError as exc:
+        sys.stderr.write(f"{exc}\n{USAGE}")
+        return 2
+    if show_help:
+        sys.stdout.write(USAGE)
+        return 0
+
+    if args is None:
+        # The stream's encoding is the locale's unless something overrides it, and a cp1252
+        # console turns an em dash into three garbage bytes before this ever sees it. Same
+        # newline="" reasoning as the file branch below: line endings pass through untouched.
+        # An in-memory stream (a caller's StringIO) has no encoding to fix and no reconfigure.
+        for stream in (sys.stdin, sys.stdout):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", newline="")
+        try:
+            data = sys.stdin.read()
+        except UnicodeDecodeError as exc:
+            sys.stderr.write("cannot read stdin as UTF-8: %s\n" % exc)
+            return 2
+        out = normalize(data)
+        if check:
+            return 1 if out != data else 0
+        sys.stdout.write(out)
+        return 0
+
+    # 2 (could not read or write a file) wins over 1 (tells remain): a run that skipped a file
+    # has not answered for it, and the traceback this replaced exited 1, which --check callers
+    # read as "tells remain".
+    rc = 0
+    for path in args:
+        try:
+            if _process(path, check) and check:
+                rc = max(rc, 1)  # a rewrite that removed tells is done, not a finding
+        except (OSError, UnicodeDecodeError) as exc:
+            sys.stderr.write("could not process %s: %s\n" % (path, exc))
+            rc = 2
+    return rc
+
+
+def _process(path, check):
+    """Normalize one file in place, or under `check` report it; True when it carried tells."""
+    # newline="" on BOTH sides so line endings round-trip untouched. The defaults translate
+    # on read and rewrite as os.linesep, so this tool silently converted every file it
+    # rewrote to the platform ending - CRLF on Windows, in a repo whose gate requires LF.
+    with open(path, encoding="utf-8", newline="") as fh:
+        data = fh.read()
+    out = normalize(data)
+    if out == data:
+        return False
+    if check:
+        sys.stderr.write("typographic tells found: %s\n" % path)
+    else:
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(out)
+    return True
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv))

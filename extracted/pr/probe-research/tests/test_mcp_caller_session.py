@@ -6,7 +6,7 @@ THIS server process's own session there (it reads the pod's environment), so
 the MCP binds its caller's validated pair around the `/v1/search` call
 (`accounting.caller_session_scope`). The backend half -- the route reading
 these headers, else the body's `exclude_agent_session` -- is
-research-os `tests/unit/test_search_caller_identity.py`, which builds its
+research-os `tests/unit/knowledge/search/test_search_caller_identity.py`, which builds its
 requests from the same SDK constants.
 """
 

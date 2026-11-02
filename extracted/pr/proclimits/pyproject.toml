@@ -1,0 +1,158 @@
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "proclimits"
+version = "0.2.0"
+description = "Resource limits that actually apply to the running process, from cgroups or Windows job objects"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+keywords = [
+    "apify",
+    "cgroups",
+    "container",
+    "cpu",
+    "docker",
+    "kubernetes",
+    "limits",
+    "memory",
+    "windows",
+]
+dependencies = []
+
+[[project.authors]]
+name = "Apify Technologies s.r.o."
+email = "support@apify.com"
+
+[[project.authors]]
+name = "Max Bohomolov"
+
+[[project.authors]]
+name = "Josef Procházka"
+
+[project.urls]
+"Apify Homepage" = "https://apify.com"
+"Issue Tracker" = "https://github.com/apify/proclimits/issues"
+"Source Code" = "https://github.com/apify/proclimits"
+
+[dependency-groups]
+dev = [
+    "poethepoet<1.0.0",
+    "pytest<10.0.0",
+    "ruff~=0.16.0",
+    "ty>=0.0.77,<0.1.0",
+    "pre-commit<5.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+include = [
+    "**/*.py",
+    "**/*.md",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "CPY001",
+    "D100",
+    "D104",
+    "D203",
+    "D213",
+    "D413",
+    "EM102",
+    "ISC001",
+    "TRY003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "ANN401",
+    "D",
+    "PLR2004",
+    "S101",
+    "S603",
+    "S607",
+    "SLF001",
+    "T20",
+]
+"tests/e2e/scripts/*.py" = ["INP001"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+known-first-party = ["proclimits"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+addopts = "-r a --verbose --strict-markers --strict-config"
+filterwarnings = ["error"]
+markers = [
+    "unified: needs the resource controllers on the cgroup v2 unified hierarchy; cgroup v1 lanes exclude it",
+    "systemd_slices: needs the engine to place containers under systemd slices, not to drive cgroups itself",
+    "kubernetes: needs kind and kubectl; only the kubernetes lane runs these",
+    "podman: needs podman and a systemd user manager delegating cpu and memory; the lanes without it exclude it",
+]
+verbosity_assertions = 2
+
+[tool.ty.environment]
+python-version = "3.10"
+python-platform = "all"
+
+[tool.ty.src]
+include = [
+    "src",
+    "tests",
+]
+
+[tool.ty.rules]
+unused-ignore-comment = "error"
+
+[tool.poe.tasks]
+clean = "rm -rf .pytest_cache .ruff_cache build dist"
+build = "uv build --verbose"
+type-check = "uv run ty check"
+unit-tests = "uv run pytest tests/unit"
+e2e-tests = "uv run pytest tests/e2e"
+check-code = [
+    "lint",
+    "type-check",
+    "unit-tests",
+]
+
+[tool.poe.tasks.install-dev]
+shell = "uv sync --group dev --locked && if git rev-parse --git-dir > /dev/null 2>&1; then uv run pre-commit install; fi"
+
+[tool.poe.tasks.lint]
+shell = "uv run ruff format --check && uv run ruff check"
+
+[tool.poe.tasks.format]
+shell = "uv run ruff check --fix && uv run ruff format"
+
+[tool.uv.build-backend]
+source-include = [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+]

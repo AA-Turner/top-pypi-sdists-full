@@ -1,9 +1,13 @@
+import importlib
 import json
 from pathlib import Path
 from typing import get_args
 
 import pytest
 
+import trajectory
+import trajectory._exceptions
+import trajectory._resource
 from trajectory._testing import client_for
 from trajectory.types.trajectory_rollout_status import HarnessDiagnostic
 
@@ -70,3 +74,39 @@ def test_documented_harness_diagnostics_match_the_sdk_parser() -> None:
   assert set(categories) == set(get_args(HarnessDiagnostic.model_fields["category"].annotation))
   for category in categories:
     assert HarnessDiagnostic.model_validate({"category": category}).category == category
+
+
+def test_package_exports_every_status_error() -> None:
+  status_errors = {
+    name
+    for name, value in vars(trajectory._exceptions).items()
+    if isinstance(value, type) and issubclass(value, trajectory.APIStatusError)
+  }
+
+  assert status_errors <= set(trajectory.__all__)
+  for name in status_errors:
+    assert getattr(trajectory, name) is getattr(trajectory._exceptions, name)
+
+
+@pytest.mark.parametrize(
+  "package",
+  sorted(
+    path.parent.name
+    for path in Path(trajectory.__file__).parent.glob("resources/*/*.py")
+    if path.stem == path.parent.name
+  ),
+)
+def test_resource_package_exports_its_resource(package: str) -> None:
+  resource_module = importlib.import_module(f"trajectory.resources.{package}.{package}")
+  resource = next(
+    value
+    for value in vars(resource_module).values()
+    if isinstance(value, type)
+    and value.__module__ == resource_module.__name__
+    and issubclass(value, trajectory._resource.APIResource)
+  )
+
+  assert (
+    getattr(importlib.import_module(f"trajectory.resources.{package}"), resource.__name__)
+    is resource
+  )

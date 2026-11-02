@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 7.6.1
+Version: 7.7.0
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git
@@ -30,13 +30,13 @@ Requires-Dist: tomli>=2.5.0; python_version == '3.14'
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
-Requires-Dist: certifi>=2026.10.19; extra == 'dev'
+Requires-Dist: certifi>=2026.10.23; extra == 'dev'
 Requires-Dist: click>=8.5.0; extra == 'dev'
 Requires-Dist: coverage[toml]>=7.16.2; extra == 'dev'
 Requires-Dist: filelock>=4.2.4; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: httpx2>=2.14.0; extra == 'dev'
 Requires-Dist: hypothesis<6.169,>=6.168.5; (python_version < '3.11') and extra == 'dev'
-Requires-Dist: hypothesis>=6.170.8; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: hypothesis>=6.170.9; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
@@ -655,7 +655,7 @@ environment before running `make` is recommended.
 
 The GitHub Actions workflow executes three jobs:
 
-- **Test matrix** (Linux/macOS/Windows, Python 3.10-3.13 + latest 3.x) running the same pipeline as `make test`.
+- **Test matrix** (Linux/macOS/Windows, Python 3.10-3.15, plus the free-threaded builds 3.14t and 3.15t on Linux and Windows) running the same pipeline as `make test`.
 - **pipx / uv verification** to prove the built wheel installs cleanly with the common Python app launchers.
 - **Notebook smoke test** that executes `notebooks/Quickstart.ipynb` to keep the tutorial in sync using the native nbformat workflow (no compatibility shims required).
 - CLI jobs run through `lib_cli_exit_tools.cli_session`, ensuring the `--traceback` flag behaves the same locally and in automation.

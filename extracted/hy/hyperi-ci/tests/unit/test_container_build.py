@@ -1,0 +1,411 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_container_build.py
+# Purpose:   Tests for container tag resolution
+#
+# License:   BUSL-1.1
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+import json
+import subprocess
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from hyperi_ci.config import CIConfig, OrgConfig
+from hyperi_ci.container import stage
+from hyperi_ci.container.build import (
+    buildx_command,
+    imagetools_create_command,
+    push_by_digest_output,
+    pushed_digest,
+    resolve_tags,
+)
+from hyperi_ci.container.labels import build_oci_labels
+
+
+def _annotations(cmd: list[str]) -> list[str]:
+    return [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--annotation"]
+
+
+class TestIndexAnnotations:
+    """Issue #346: GHCR reads a multi-arch package's description off the index."""
+
+    _LABELS = build_oci_labels(
+        repo="hyperi-io/dfe-loader",
+        revision="abc1234",
+        version="1.13.5",
+        title="dfe-loader",
+        description="Loads events, into ClickHouse",
+    )
+
+    def _cmd(self, platforms: list[str]) -> list[str]:
+        return buildx_command(
+            dockerfile_path=Path("Dockerfile"),
+            context="ctx",
+            tags=["ghcr.io/hyperi-io/dfe-loader:v1.13.5"],
+            platforms=platforms,
+            labels=self._LABELS,
+        )
+
+    def test_multi_arch_build_annotates_the_index(self) -> None:
+        annotations = _annotations(self._cmd(["linux/amd64", "linux/arm64"]))
+        assert (
+            "index:org.opencontainers.image.description=Loads events, into ClickHouse"
+            in annotations
+        )
+        oci_keys = sorted(
+            k for k, v in self._LABELS.items() if k.startswith("org.opencontainers.")
+        )
+        assert annotations == [f"index:{k}={self._LABELS[k]}" for k in oci_keys]
+        # hyperi-specific keys stay labels only.
+        assert not any("io.hyperi." in a for a in annotations)
+
+    def test_empty_values_are_not_annotated(self) -> None:
+        labels = {**self._LABELS, "org.opencontainers.image.description": ""}
+        cmd = buildx_command(
+            dockerfile_path=Path("Dockerfile"),
+            tags=[],
+            platforms=["linux/amd64", "linux/arm64"],
+            labels=labels,
+            push=False,
+        )
+        assert not any("description" in a for a in _annotations(cmd))
+
+    def test_single_platform_build_carries_no_index_annotations(self) -> None:
+        # BuildKit rejects index annotations on a single-platform export.
+        assert _annotations(self._cmd(["linux/amd64"])) == []
+
+    def test_context_stays_last_and_labels_stay(self) -> None:
+        cmd = self._cmd(["linux/amd64", "linux/arm64"])
+        assert cmd[-1] == "ctx"
+        assert cmd[-2] == "--push"
+        assert "org.opencontainers.image.title=dfe-loader" in cmd
+
+
+class TestPushByDigest:
+    def test_a_by_digest_build_carries_the_output_and_no_tag_or_push(self) -> None:
+        output = push_by_digest_output("ghcr.io/hyperi-io/app")
+        cmd = buildx_command(
+            dockerfile_path=Path("Dockerfile"),
+            context="ctx",
+            tags=[],
+            platforms=["linux/arm64"],
+            labels={},
+            push=False,
+            metadata_file=Path("meta.json"),
+            output=output,
+        )
+        assert output == (
+            "type=image,name=ghcr.io/hyperi-io/app,push-by-digest=true,"
+            "name-canonical=true,push=true"
+        )
+        assert cmd[-5:] == [
+            "--metadata-file",
+            "meta.json",
+            "--output",
+            output,
+            "ctx",
+        ]
+        assert "--tag" not in cmd
+        assert "--push" not in cmd
+
+    @pytest.mark.parametrize(
+        ("annotations", "want"),
+        [
+            pytest.param(None, [], id="none"),
+            pytest.param(["--annotation", "index:k=v"], ["index:k=v"], id="index"),
+        ],
+    )
+    def test_imagetools_create_puts_the_sources_last(
+        self, annotations: list[str] | None, want: list[str]
+    ) -> None:
+        cmd = imagetools_create_command(
+            tags=["r:v1", "r:latest"],
+            sources=["r@sha256:a", "r@sha256:b"],
+            annotations=annotations,
+        )
+        assert cmd[:4] == ["docker", "buildx", "imagetools", "create"]
+        assert cmd[-2:] == ["r@sha256:a", "r@sha256:b"]
+        assert [cmd[i + 1] for i, a in enumerate(cmd) if a == "--annotation"] == want
+
+
+class TestPushedDigest:
+    DIGEST = "sha256:" + "a" * 64
+
+    def test_the_metadata_file_rides_before_push_and_context(self) -> None:
+        cmd = buildx_command(
+            dockerfile_path=Path("Dockerfile"),
+            context="ctx",
+            tags=["ghcr.io/hyperi-io/app:v1.0.0"],
+            platforms=["linux/amd64"],
+            labels={},
+            metadata_file=Path("meta.json"),
+        )
+        assert cmd[-4:] == ["--metadata-file", "meta.json", "--push", "ctx"]
+
+    def test_reads_the_digest_buildx_wrote(self, tmp_path: Path) -> None:
+        meta = tmp_path / "meta.json"
+        meta.write_text(
+            json.dumps({"containerimage.digest": self.DIGEST, "image.name": "x"}),
+            encoding="utf-8",
+        )
+        assert pushed_digest(meta) == self.DIGEST
+
+    @pytest.mark.parametrize(
+        "content", ["", "not json", "[]", '{"containerimage.digest": "md5:abc"}', "{}"]
+    )
+    def test_anything_else_is_no_digest(self, tmp_path: Path, content: str) -> None:
+        meta = tmp_path / "meta.json"
+        meta.write_text(content, encoding="utf-8")
+        assert pushed_digest(meta) is None
+
+    def test_a_missing_file_is_no_digest(self, tmp_path: Path) -> None:
+        assert pushed_digest(tmp_path / "absent.json") is None
+
+
+def test_resolve_tags_validate_mode_returns_no_tags():
+    """Validate mode (push-to-main / local) -- no tags land in any registry."""
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.13.5",
+        sha="abc1234",
+        mode="validate",
+    )
+    assert tags == []
+
+
+class TestDevModeTags:
+    """Branch-mode dev images (plan decision 3): mutable branch pointer +
+    immutable branch-scoped sha pin, and NEVER a version tag, latest, or a
+    bare sha-<short> -- those are the GA artifact class, published only
+    from main. The distinct branch-*/dev-sha-* prefixes are load-bearing:
+    the scheduled GHCR pruner globs them without touching GA pins."""
+
+    def test_dev_mode_branch_pointer_and_pin_tags(self):
+        tags = resolve_tags(
+            registry_bases=["ghcr.io/hyperi-io"],
+            image_name="dfe-loader",
+            version="1.13.5",
+            sha="abc1234",
+            mode="dev",
+            branch_slug="fix-plan-permissions",
+        )
+        assert tags == [
+            "ghcr.io/hyperi-io/dfe-loader:branch-fix-plan-permissions",
+            "ghcr.io/hyperi-io/dfe-loader:branch-fix-plan-permissions-sha-abc1234",
+        ]
+
+    def test_dev_mode_never_emits_ga_namespace(self):
+        tags = resolve_tags(
+            registry_bases=["ghcr.io/hyperi-io"],
+            image_name="dfe-loader",
+            version="1.13.5",
+            sha="abc1234",
+            channel="release",
+            mode="dev",
+            branch_slug="anything",
+        )
+        joined = " ".join(tags)
+        assert "v1.13.5" not in joined and "latest" not in joined
+        # The bare sha-<short> namespace belongs to GA publishes -- a dev
+        # image emitting it would make prune globs unsafe.
+        assert not any(t.endswith(":sha-abc1234") for t in tags)
+
+    def test_dev_mode_empty_slug_falls_back_to_dev_sha(self):
+        tags = resolve_tags(
+            registry_bases=["ghcr.io/hyperi-io"],
+            image_name="dfe-loader",
+            version="1.13.5",
+            sha="abc1234",
+            mode="dev",
+            branch_slug="",
+        )
+        assert tags == ["ghcr.io/hyperi-io/dfe-loader:dev-sha-abc1234"]
+
+
+def test_resolve_tags_release_channel_includes_sha():
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.13.5",
+        sha="abc1234",
+        channel="release",
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.13.5",
+        "ghcr.io/hyperi-io/dfe-loader:latest",
+        "ghcr.io/hyperi-io/dfe-loader:sha-abc1234",
+    ]
+
+
+def test_resolve_tags_prerelease_version_never_moves_latest():
+    # issue #144: a beta cut off a prerelease branch must not repoint `latest`
+    # at itself, and must not render `v1.14.0-beta.1-beta`.
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.14.0-beta.1",
+        sha="abc1234",
+        channel="beta",
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.14.0-beta.1",
+        "ghcr.io/hyperi-io/dfe-loader:sha-abc1234",
+    ]
+
+
+def test_resolve_tags_prerelease_version_beats_a_release_channel():
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.14.0-beta.1",
+        sha="abc1234",
+        channel="release",
+    )
+    assert "ghcr.io/hyperi-io/dfe-loader:latest" not in tags
+
+
+def test_resolve_tags_pre_ga_channel_includes_sha():
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.13.5",
+        sha="abc1234",
+        channel="alpha",
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.13.5-alpha",
+        "ghcr.io/hyperi-io/dfe-loader:sha-abc1234",
+    ]
+
+
+def test_resolve_tags_multi_registry_release():
+    tags = resolve_tags(
+        registry_bases=[
+            "ghcr.io/hyperi-io",
+            "registry.example.com/hyperi",
+        ],
+        image_name="dfe-loader",
+        version="1.13.5",
+        sha="abc1234",
+        channel="release",
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.13.5",
+        "ghcr.io/hyperi-io/dfe-loader:latest",
+        "ghcr.io/hyperi-io/dfe-loader:sha-abc1234",
+        "registry.example.com/hyperi/dfe-loader:v1.13.5",
+        "registry.example.com/hyperi/dfe-loader:latest",
+        "registry.example.com/hyperi/dfe-loader:sha-abc1234",
+    ]
+
+
+def test_resolve_tags_multi_registry_pre_ga():
+    tags = resolve_tags(
+        registry_bases=[
+            "ghcr.io/hyperi-io",
+            "registry.example.com/hyperi",
+        ],
+        image_name="dfe-receiver",
+        version="2.0.0",
+        sha="aaa1111",
+        channel="beta",
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-receiver:v2.0.0-beta",
+        "ghcr.io/hyperi-io/dfe-receiver:sha-aaa1111",
+        "registry.example.com/hyperi/dfe-receiver:v2.0.0-beta",
+        "registry.example.com/hyperi/dfe-receiver:sha-aaa1111",
+    ]
+
+
+def test_resolve_tags_alpha_and_beta_channels():
+    alpha = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.0.0",
+        sha="def5678",
+        channel="alpha",
+    )
+    assert alpha == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.0.0-alpha",
+        "ghcr.io/hyperi-io/dfe-loader:sha-def5678",
+    ]
+
+    beta = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-receiver",
+        version="2.0.0",
+        sha="aaa1111",
+        channel="beta",
+    )
+    assert beta == [
+        "ghcr.io/hyperi-io/dfe-receiver:v2.0.0-beta",
+        "ghcr.io/hyperi-io/dfe-receiver:sha-aaa1111",
+    ]
+
+
+def test_resolve_tags_release_without_latest():
+    tags = resolve_tags(
+        registry_bases=["ghcr.io/hyperi-io"],
+        image_name="dfe-loader",
+        version="1.13.5",
+        sha="abc1234",
+        channel="release",
+        move_latest=False,
+    )
+    assert tags == [
+        "ghcr.io/hyperi-io/dfe-loader:v1.13.5",
+        "ghcr.io/hyperi-io/dfe-loader:sha-abc1234",
+    ]
+
+
+class TestLatestStaysOnTheNewestRelease:
+    """A re-published older tag pushes its own tags but never `:latest`."""
+
+    @pytest.fixture
+    def repo(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        for args in (
+            ["init", "-q"],
+            ["commit", "--allow-empty", "-m", "chore: seed"],
+            ["tag", "v1.0.4"],
+            ["tag", "v1.0.5"],
+            ["tag", "v1.0.6-beta.1"],
+        ):
+            subprocess.run(
+                ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+                cwd=tmp_path,
+                check=True,
+                capture_output=True,
+            )
+        (tmp_path / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        return tmp_path
+
+    @staticmethod
+    def _pushed_tags(version: str) -> list[str]:
+        with patch.object(stage, "build_and_push", return_value=0) as pushed:
+            with patch.object(stage, "_read_version", return_value=version):
+                with patch.object(stage, "_read_sha", return_value="deadbee"):
+                    stage._dispatch_build(
+                        dockerfile_path=Path("Dockerfile"),
+                        config=CIConfig(_raw={"description": "demo"}),
+                        org=OrgConfig(),
+                        registry_bases=["ghcr.io/hyperi-io"],
+                        push_mode="release",
+                    )
+        return pushed.call_args.kwargs["tags"]
+
+    def test_an_older_tag_does_not_take_latest(self, repo: Path) -> None:
+        assert self._pushed_tags("1.0.4") == [
+            f"ghcr.io/hyperi-io/{repo.name}:v1.0.4",
+            f"ghcr.io/hyperi-io/{repo.name}:sha-deadbee",
+        ]
+
+    def test_the_newest_release_takes_latest(self, repo: Path) -> None:
+        assert f"ghcr.io/hyperi-io/{repo.name}:latest" in self._pushed_tags("1.0.5")
+
+    def test_a_new_release_takes_latest_before_its_tag_exists(self, repo: Path) -> None:
+        assert f"ghcr.io/hyperi-io/{repo.name}:latest" in self._pushed_tags("1.0.6")

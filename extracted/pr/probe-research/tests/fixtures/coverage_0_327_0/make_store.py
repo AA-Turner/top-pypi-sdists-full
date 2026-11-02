@@ -26,7 +26,8 @@ from pathlib import Path
 
 import probe
 from probe.cli import backfill_evidence as evidence
-from probe.cli.backfill_coverage import Coverage, Scope
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
 
 assert probe.__version__ == "0.327.0", probe.__version__
 

@@ -4,8 +4,9 @@ import time
 from dataclasses import dataclass
 from typing import Literal
 
-from flask import Flask, request
+from flask import Flask, jsonify, request
 
+from schemathesis.engine.run.probes import HEADER_NAME
 from test.apps.catalog.openapi.stateful import UserStore
 
 
@@ -164,7 +165,7 @@ class Slowdown:
         # Every API request, including the router's own 404 and 405 answers; capability probes stay fast.
         @app.before_request
         def delay_request() -> None:
-            if request.path != "/openapi.json" and "X-Schemathesis-Probe" not in request.headers:
+            if request.path != "/openapi.json" and HEADER_NAME not in request.headers:
                 time.sleep(seconds)
 
 
@@ -180,7 +181,7 @@ class FailAfterRequests:
 
         @app.before_request
         def fail_when_exhausted() -> tuple[str, int] | None:
-            if request.path == "/openapi.json" or "X-Schemathesis-Probe" in request.headers:
+            if request.path == "/openapi.json" or HEADER_NAME in request.headers:
                 return None
             served["count"] += 1
             if served["count"] > limit:
@@ -340,6 +341,40 @@ class RequireBearerAuth:
         store.config.enforce_auth = True
         spec = app.config["schema"]
         spec["components"]["securitySchemes"] = {"BearerAuth": {"type": "http", "scheme": "bearer"}}
+
+
+@dataclass(slots=True)
+class SingleUseBearerTokens:
+    # `POST /auth/token` issues tokens each accepted once; every later request with one is an expired-token use.
+    priority: int = 0
+
+    def apply(self, app: Flask, store: UserStore) -> None:
+        issued: set[str] = set()
+        used: set[str] = set()
+        expired_token_uses: list[str] = []
+        app.config["expired_token_uses"] = expired_token_uses
+
+        @app.route("/auth/token", methods=["POST"])
+        def issue_token():
+            token = f"token-{len(issued)}"
+            issued.add(token)
+            return jsonify({"token": token})
+
+        @app.before_request
+        def require_fresh_token():
+            if request.endpoint in ("issue_token", "openapi_spec"):
+                return None
+            token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+            if token in used:
+                expired_token_uses.append(token)
+            elif token in issued:
+                used.add(token)
+                return None
+            return jsonify({"detail": "Invalid or expired token"}), 401
+
+        spec = app.config["schema"]
+        spec["components"]["securitySchemes"] = {"BearerAuth": {"type": "http", "scheme": "bearer"}}
+        spec["security"] = [{"BearerAuth": []}]
 
 
 @dataclass(slots=True)

@@ -8,7 +8,7 @@ from urllib.parse import quote, unquote
 
 from schemathesis.core import Body
 from schemathesis.core.errors import UnboundPrefix
-from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
+from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference_with_uri
 from schemathesis.core.jsonschema.types import JsonSchema, JsonValue
 from schemathesis.core.parameters import DelimitedValue, EncodedPath
 from schemathesis.core.transforms import to_wire_string, to_wire_text, transform
@@ -178,7 +178,7 @@ def serialize_xml_with_schema(value: Any, schema: JsonSchema, resource_name: str
     definition: dict[str, Any] = schema if isinstance(schema, dict) else {}
     resolver = make_root_resolver(definition)
     if "$ref" in definition:
-        resolver, definition = resolve_reference(resolver, definition["$ref"])
+        resolver, definition = _resolve_xml_schema(resolver, definition)
     if isinstance(value, ((Binary, str))) and definition.get("format") in ("binary", "file"):
         # Opaque payloads are already the wire representation and carry no XML structure to wrap.
         return {"data": value.data if isinstance(value, Binary) else value}
@@ -189,6 +189,22 @@ def serialize_xml_with_schema(value: Any, schema: JsonSchema, resource_name: str
     _write_xml(buffer, value, tag, definition, namespace_stack, resolver)
     data = buffer.getvalue()
     return {"data": data.encode("utf8")}
+
+
+def _resolve_xml_schema(resolver: Resolver, schema: dict[str, Any]) -> tuple[Resolver, dict[str, Any]]:
+    """Follow a `$ref` chain to the schema it ends at, keeping the `xml` hints declared along the way."""
+    # A hint declared closer to the referencing schema overrides the same hint further down the chain
+    xml: dict[str, Any] = {}
+    seen: set[str] = set()
+    while "$ref" in schema:
+        xml = {**schema.get("xml", {}), **xml}
+        uri, target_resolver, target = resolve_reference_with_uri(resolver, schema["$ref"])
+        # A chain that loops back ends at the last schema before the loop
+        if uri in seen:
+            break
+        seen.add(uri)
+        resolver, schema = target_resolver, target
+    return resolver, {**schema, "xml": {**schema.get("xml", {}), **xml}}
 
 
 def _get_xml_tag(schema: dict[str, Any] | None, resource_name: str | None) -> str:
@@ -258,16 +274,20 @@ def _write_object(
     attributes = {}
     children_buffer = StringIO()
     properties = (schema or {}).get("properties", {})
+    # Attribute namespaces are declared on this element, so their prefixes stay bound only until it closes.
+    depth = len(stack)
+    # Elements go out after every attribute is read, so they can use any attribute's prefix regardless of order.
+    elements = []
     for child_name, value in obj.items():
         property_schema = properties.get(child_name, {})
         child_resolver = resolver
         if "$ref" in property_schema:
-            child_resolver, property_schema = resolve_reference(resolver, property_schema["$ref"])
+            child_resolver, property_schema = _resolve_xml_schema(resolver, property_schema)
         child_options = property_schema.get("xml", {})
-        push_namespace_if_any(stack, child_options)
         child_tag = child_options.get("name", child_name)
 
-        if child_options.get("attribute", False):
+        if child_options.get("attribute", False) or child_options.get("nodeType") == "attribute":
+            push_namespace_if_any(stack, child_options)
             if child_options.get("prefix") and child_options.get("namespace"):
                 _validate_prefix(child_options, stack)
                 prefix = child_options["prefix"]
@@ -281,6 +301,15 @@ def _write_object(
                 attributes[attr_name] = f'{attr_name}="{_escape_xml(value)}"'
             continue
 
+        elements.append((child_tag, value, property_schema, child_options, child_resolver))
+
+    for child_tag, value, property_schema, child_options, child_resolver in elements:
+        node_type = child_options.get("nodeType")
+        # Text and CDATA nodes carry a scalar as this element's content, with no tag of their own
+        if node_type in ("text", "cdata") and not isinstance(value, (dict, list)):
+            children_buffer.write(_escape_xml(value) if node_type == "text" else _cdata_section(value))
+            continue
+        push_namespace_if_any(stack, child_options)
         child_tag = _sanitize_xml_name(child_tag)
         _validate_prefix(child_options, stack)
         _write_xml(children_buffer, value, child_tag, property_schema, stack, child_resolver)
@@ -295,6 +324,7 @@ def _write_object(
     buffer.write(">")
     buffer.write(children_buffer.getvalue())
     buffer.write(f"</{tag}>")
+    del stack[depth:]
     pop_namespace_if_any(stack, options)
 
 
@@ -308,10 +338,11 @@ def _write_array(
 ) -> None:
     options = (schema or {}).get("xml", {})
     push_namespace_if_any(stack, options)
+    tag = _sanitize_xml_name(tag)
     child_tag = tag
     if options.get("prefix"):
         tag = f"{options['prefix']}:{tag}"
-    wrapped = options.get("wrapped", False)
+    wrapped = options.get("wrapped", False) or options.get("nodeType") == "element"
     is_namespace_specified = False
     if wrapped:
         buffer.write(f"<{tag}")
@@ -326,7 +357,7 @@ def _write_array(
         items = {}
     items_resolver = resolver
     if "$ref" in items:
-        items_resolver, items = resolve_reference(resolver, items["$ref"])
+        items_resolver, items = _resolve_xml_schema(resolver, items)
     # The array's namespace and prefix apply to its items only here, not to other arrays sharing the items schema.
     items = dict(items)
     child_options = dict(items.get("xml", {}))
@@ -355,6 +386,7 @@ def _write_primitive(
     # and this element don't have any children. Therefore, checking the prefix is enough, unless the element binds it
     if "namespace" not in xml_options:
         _validate_prefix(xml_options, namespace_stack)
+    tag = _sanitize_xml_name(tag)
     if "prefix" in xml_options:
         tag = f"{xml_options['prefix']}:{tag}"
     buffer.write(f"<{tag}")
@@ -370,15 +402,10 @@ def _write_namespace(buffer: StringIO, options: dict[str, Any]) -> None:
     buffer.write(f'="{options["namespace"]}"')
 
 
-def _escape_xml(value: JsonValue) -> str:
-    """Escape special characters in XML content."""
-    if value is None or isinstance(value, ((int, float, bool))):
-        return to_wire_string(value)
-
-    # Filter out invalid XML characters
-    cleaned = "".join(
+def _drop_invalid_xml_characters(text: str) -> str:
+    return "".join(
         char
-        for char in str(value)
+        for char in text
         if (
             char in "\t\n\r"
             or 0x20 <= ord(char) <= 0xD7FF
@@ -386,6 +413,20 @@ def _escape_xml(value: JsonValue) -> str:
             or 0x10000 <= ord(char) <= 0x10FFFF
         )
     )
+
+
+def _cdata_section(value: JsonValue) -> str:
+    # A CDATA section cannot contain its own terminator, so each `]]>` is split across two sections
+    text = _drop_invalid_xml_characters(to_wire_string(value)).replace("]]>", "]]]]><![CDATA[>")
+    return f"<![CDATA[{text}]]>"
+
+
+def _escape_xml(value: JsonValue) -> str:
+    """Escape special characters in XML content."""
+    if value is None or isinstance(value, ((int, float, bool))):
+        return to_wire_string(value)
+
+    cleaned = _drop_invalid_xml_characters(str(value))
 
     replacements = {
         "&": "&amp;",

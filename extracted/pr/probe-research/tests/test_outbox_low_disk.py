@@ -21,7 +21,7 @@ import pytest
 
 from probe._shared import oscompat
 from probe.sdk import client as client_mod
-from probe.sdk.delivery.sinks import journaled as journaled_sink
+from probe.sdk.delivery.sinks import queued as queued_sink
 from probe.sdk import errors
 from probe.sdk.delivery import journal as journal_mod
 from probe.sdk.client.client import Client
@@ -45,9 +45,8 @@ def _isolated(monkeypatch, tmp_path):
                 "PROBE_OUTBOX_MIN_FREE_BYTES", "KUBERNETES_SERVICE_HOST", "PROBE_ASYNC"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", None)  # scale with the volume
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", None)  # scale with the volume
-    monkeypatch.setattr(journaled_sink, "_FALLBACK_WARNED", set())
-    monkeypatch.setattr(journaled_sink, "_K8S_NOTICE_GIVEN", False)
+    monkeypatch.setattr(queued_sink, "_FALLBACK_WARNED", set())
+    monkeypatch.setattr(queued_sink, "_K8S_NOTICE_GIVEN", False)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     monkeypatch.setattr(journal_mod.paths, "_private_fallback", None, raising=False)
     (tmp_path / "tmp").mkdir()
@@ -91,7 +90,6 @@ def test_the_free_space_floor_scales_with_the_volume(monkeypatch, tmp_path, tota
 
 def test_an_explicit_floor_still_wins(monkeypatch, tmp_path):
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 12345)
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 12345)
     _disk(monkeypatch, free=1, total=1000 * GIB)
     assert journal_mod.free_floor(tmp_path) == 12345
 
@@ -284,7 +282,7 @@ def test_a_write_held_back_by_its_queued_run_wakes_the_drainer(app, tmp_path, mo
     monkeypatch.setattr(journal_mod.journal, "_STATVFS_EVERY", 1)
     _disk(monkeypatch, free=1024**2)
     client._default_transport, client._auto_drain = True, True
-    client._drainer_kicked_at = float("-inf")
+    client._drainer = outbox_worker.drainers.detached.DetachedDrainer(client.journal.dir)
     kicks: list = []
     monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda d=None: kicks.append(d) or False)
     monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda d=None: kicks.append(d) or False)
@@ -467,7 +465,7 @@ def test_a_filesystem_without_locks_is_unusable(tmp_path, monkeypatch):
 def test_on_kubernetes_the_default_outbox_says_so_once(tmp_path, monkeypatch, recwarn):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
-    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: True)
+    monkeypatch.setattr(queued_sink, "_on_container_root_disk", lambda path: True)
     _default_client().close()
     _default_client().close()
     warned = _warnings(recwarn)
@@ -554,7 +552,7 @@ def test_drain_all_carries_every_report_field():
     field folds now; one journal's report is printed as it came."""
     from dataclasses import dataclass, field
 
-    from probe.cli.main import _fold_drain_reports
+    from probe.cli.commands.machine.outbox import _fold_drain_reports
     from probe.sdk.delivery.outbox.drain.report import DrainReport, LaneStall
 
     @dataclass
@@ -749,13 +747,42 @@ def test_the_kubernetes_notice_is_quiet_for_a_home_on_its_own_volume(
     container's disk; and an explicit spool_dir is the caller's choice."""
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
-    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: False)
+    monkeypatch.setattr(queued_sink, "_on_container_root_disk", lambda path: False)
     _default_client().close()
     assert _warnings(recwarn) == []
-    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: True)
+    monkeypatch.setattr(queued_sink, "_on_container_root_disk", lambda path: True)
     settings = Settings(base_url="http://test", token="ros_pat_deadbeef", ingest_token=None,
                         hmac_secret=None)
     transport = Transport(settings, client=httpx.Client(base_url="http://test"))
     Client(settings=settings, transport=transport, spool_dir=str(tmp_path / "mine"),
            async_writes=True, auto_drain=False).close()
     assert _warnings(recwarn) == [], "an explicit spool_dir gets no notice"
+
+
+def test_below_the_floor_a_held_window_ends_so_later_writes_go_direct(app, tmp_path, monkeypatch):
+    """Review C6: under the default 5 s window a run's queue is rarely empty, and below the
+    floor a write goes around the queue only while its run has nothing queued: every write was
+    dropped. A drainer now ends a window as soon as the volume is short, so the run's queue
+    empties and the next writes go direct."""
+    import time
+
+    from tests.fake_delivery_server import wait_for
+
+    monkeypatch.setenv("PROBE_SEND_INTERVAL_SEC", "5")
+    monkeypatch.setattr(journal_mod.headroom, "_STATVFS_EVERY", 1)  # see the drop at once
+    # An interval past the window, so it does not cap it (review I18).
+    client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, drain_interval=10.0)
+    run = open_run(client, experiment="lowdisk")
+    try:
+        for step in range(3):
+            _metrics(client, run.id, step)  # queued while there was room, held by the window
+        time.sleep(0.5)
+        assert app.metric_points_posted.get(run.id, []) == [], "the window holds them"
+        _disk(monkeypatch, free=1024**2)
+        assert wait_for(lambda: not client.journal.pending(), 2.0), "the window ended on the short volume"
+        for step in range(3, 13):
+            _metrics(client, run.id, step)
+        assert client.dropped_writes == 0, "every later write went direct"
+        assert len(app.metric_points_posted.get(run.id, [])) == 13
+    finally:
+        client.close(timeout=1.0)

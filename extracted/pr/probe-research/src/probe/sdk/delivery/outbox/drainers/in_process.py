@@ -1,28 +1,19 @@
-"""In-process outbox exporter: fork-free delivery beside the training loop.
-
-Parity F2 (docs/2026-08-04-outbox-miles-parity.md): the detached worker is the default; this
-thread serves environments where forking is hostile (Ray actors) or delivery must ride THIS
-client's transport (custom transports, tests), which a detached process can never do.
-
-Coordination: the thread holds the same ``.worker.lock`` lease as the worker, for its whole
-life: one journal, one drainer. ``maybe_spawn`` sees the live lease and never forks beside an
-exporter; an exporter starting while a detached worker drains stays passive until it exits,
-then takes over at the next wake.
-
-Stops: ``close()``, and auth-block (never retry rejected credentials, worker exit-3 parity;
-ops stay queued, re-login + ``probe outbox retry`` resumes). A paused journal only idles the
-loop (``drain`` returns untouched); the thread lives.
-"""
+"""In-process outbox exporter: a thread draining beside the training loop where forking is hostile
+(Ray actors) or delivery must ride this client's transport. Holds the worker lease (DESIGN.md)."""
 
 from __future__ import annotations
 
 import threading
+import weakref
 
 from ....._shared import oscompat
 from .....foundation.durable import durable
+from ...transport.deadlines import without_patience
 from ..drain.lanes import LaneBackoff
 from ..drain.drain import drain
-from ..outbox import _BACKOFF_CAP_SECONDS
+from ..drain.window import CollectWindow
+from ..drainer import Drainer, DrainerKind
+from ..outbox import _BACKOFF_CAP_SECONDS, _queued_names
 from ..lease import _drop_caps, _lease_path, _write_caps
 
 #: Same floor as the Miles exporter honored for PROBE_EXPORT_INTERVAL_SEC.
@@ -85,10 +76,16 @@ class OutboxExporter:
         # Per-run waits (plan 1.6): a run whose head op keeps failing is
         # skipped until its own backoff ends; the other runs keep draining.
         lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
+        # Each writer's collect window (plan T2); after a pass, the thread sleeps until the
+        # soonest window or run backoff ends and a write wakes it only when it must go now.
+        window = CollectWindow()
+        pass_now = False
         try:
             while not self._stop.is_set():
-                self._wake.wait(self.interval)
-                self._wake.clear()
+                if not pass_now:
+                    self._wake.wait(self.interval)
+                    self._wake.clear()
+                pass_now = False
                 if self._stop.is_set():
                     # One LAST pass before exiting. The stop check returned here, so
                     # everything enqueued since the previous tick (up to an interval of a
@@ -105,6 +102,7 @@ class OutboxExporter:
                 if not self._try_lease():
                     continue
                 refused = getattr(self.client.settings, "token", None)
+                before = _queued_names(self.journal)
                 try:
                     report = drain(
                         self.journal,
@@ -113,6 +111,7 @@ class OutboxExporter:
                         # Like the root's worker: other credentials' queues
                         # have their own (#2041 round 3).
                         credential_queues=False,
+                        window=window,
                     )
                 except Exception:  # noqa: BLE001 -- keep the loop alive; drain
                     continue  # itself records last_error in status.json
@@ -143,14 +142,28 @@ class OutboxExporter:
                     ):
                         self._final_drain()
                         return
-                elif not (report.delivered or report.dead_lettered) and lanes.skip():
-                    # Nothing moved and what is left waits on runs backing off. The next tick or
-                    # `log()` wake runs a pass that skips them and delivers anything new of this
-                    # client's own (review of #2051: waiting on the stop event held a new write
-                    # up to 300 s behind another run's backoff).
                     continue
-                else:
+                if report.delivered or report.dead_lettered or not lanes.skip():
                     delays = durable.backoff_delays(None)
+                waits = [w for w in (report.send_in, lanes.next_wake()) if w is not None]
+                if waits and (report.deferred or not (report.delivered or report.dead_lettered)):
+                    # What is left waits for its window or its run's backoff (R4: a `log()`
+                    # per wake re-drained a stalled run's queue on every write, burning CPU
+                    # through a 503 outage). A write of a run NOT waiting still goes within
+                    # `LOOK_SECONDS` (review of #2051: never behind another run's backoff).
+                    window.wait(
+                        self.journal,
+                        seconds=max(min(waits), 0.05),
+                        seen=before,
+                        skip=lanes.skip(),
+                        loads=report.deferred_loads,
+                        stop=self._stop,
+                        woken=self._wake,
+                    )
+                    if self._stop.is_set():
+                        self._final_drain()
+                        return
+                    pass_now = True
         finally:
             self._release_lease()
 
@@ -200,3 +213,52 @@ class OutboxExporter:
         self._stop.set()
         self._wake.set()
         self._thread.join(timeout=timeout)
+
+
+class ThreadDrainer(Drainer):
+    """The in-process kind (parity F2): the client's `OutboxExporter`, started at its first
+    write and woken by every later one. A DEAD exporter is not respawned: the only thing
+    that kills one is an auth block, and respawning per write would retry rejected
+    credentials forever (the zombie-uploader pitfall). Re-login + `probe outbox retry`
+    resumes. Holds the client weakly: a dropped client is freed at once."""
+
+    kind = DrainerKind.THREAD
+
+    def __init__(self, client) -> None:
+        super().__init__(client.journal.dir, can_fork=client._default_transport)
+        self._client = weakref.ref(client)
+
+    def wake(self) -> None:
+        client = self._client()
+        if client is None:
+            return
+        exporter = client._exporter
+        if exporter is None:
+            with client._exporter_lock:
+                exporter = client._exporter
+                if exporter is None:
+                    # Its thread outlives any patience scope a write here happens inside
+                    # (init); see `_wrap_run`.
+                    with without_patience():
+                        exporter = OutboxExporter(client, client._drain_interval)
+                        client._learn_identity()
+                    client._exporter = exporter
+        exporter.wake()
+
+    def close(self, timeout: float | None = None) -> bool:
+        """Join the exporter (its own stop path makes a final pass), within ``timeout`` capped
+        at its own 5 s; one still running is abandoned with its ops on disk. A DEAD exporter
+        stays in place: it died of an auth block, and clearing it would let the next write
+        rebuild one against the same rejected credential (the zombie-uploader pitfall)."""
+        client = self._client()
+        exporter = client._exporter if client is not None else None
+        if exporter is None:
+            return False
+        was_alive = getattr(exporter, "alive", True)
+        if timeout is None:
+            exporter.close()
+        else:
+            exporter.close(timeout=max(0.0, min(5.0, timeout)))
+        if was_alive:
+            client._exporter = None
+        return True

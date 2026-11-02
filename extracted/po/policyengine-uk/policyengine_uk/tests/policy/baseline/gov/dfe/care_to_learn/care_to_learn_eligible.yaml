@@ -1,0 +1,233 @@
+- name: Care to Learn - Fully eligible person
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 19
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [true, false]
+
+- name: Care to Learn - Too old
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 21
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false, false]
+
+- name: Care to Learn - No children
+  period: 2024
+  input:
+    people:
+      person:
+        age: 19
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+    benunits:
+      benunit:
+        members: ["person"]
+    households:
+      household:
+        members: ["person"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false]
+
+- name: Care to Learn - Higher education
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 19
+        is_parent: true
+        current_education: TERTIARY
+        is_apprentice: false
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false, false]
+
+- name: Care to Learn - Is apprentice
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 19
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: true
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false, false]
+
+- name: Care to Learn - Not in England
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 19
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: SCOTLAND
+  output:
+    care_to_learn_eligible: [false, false]
+
+- name: Care to Learn - Multiple children still eligible
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 19
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      child1:
+        age: 2
+      child2:
+        age: 4
+    benunits:
+      benunit:
+        members: ["parent", "child1", "child2"]
+    households:
+      household:
+        members: ["parent", "child1", "child2"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [true, false, false]
+
+- name: Care to Learn - At age limit
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 20
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      child:
+        age: 2
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false, false]
+
+# The young parent must receive Child Benefit for the child they claim for
+# (ESFA conditions of grant), so the parent can never count as their own child.
+- name: Care to Learn - A 17-year-old parent with no child in the benefit unit
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 17
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+    benunits:
+      benunit:
+        members: ["parent"]
+    households:
+      household:
+        members: ["parent"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: false
+
+- name: Care to Learn - A 17-year-old parent with a baby
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 17
+        is_parent: true
+        current_education: UPPER_SECONDARY
+        is_apprentice: false
+      baby:
+        age: 0
+    benunits:
+      benunit:
+        members: ["parent", "baby"]
+    households:
+      household:
+        members: ["parent", "baby"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [true, false]
+
+# Care to Learn funds childcare while the young parent is on a publicly funded
+# study programme (ESFA conditions of grant, sections 1.2 and 2.3), so a young
+# parent who is not in education is not eligible.
+- name: Care to Learn - Not in education
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 18
+        is_parent: true
+        current_education: NOT_IN_EDUCATION
+        is_apprentice: false
+      child:
+        age: 1
+    benunits:
+      benunit:
+        members: ["parent", "child"]
+    households:
+      household:
+        members: ["parent", "child"]
+        country: ENGLAND
+  output:
+    care_to_learn_eligible: [false, false]

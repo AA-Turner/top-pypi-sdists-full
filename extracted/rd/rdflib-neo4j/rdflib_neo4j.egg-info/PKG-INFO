@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: rdflib-neo4j
+Version: 1.1
+Summary: RDFLib Store backed by neo4j
+Home-page: https://github.com/neo4j-labs/rdflib-neo4j
+Author: Jesús Barrasa, Aleksandar Simeunovic, Alfredo Rubin
+Author-email: jbarrasa@outlook.com, aleksandar.simeunovic@neo4j.com, alfredo.rubin@neo4j.com
+License: Apache 2
+Keywords: neo4j,rdflib,neosemantics,n10s
+Platform: All
+License-File: LICENSE
+Requires-Dist: rdflib>=7.0.0
+Requires-Dist: neo4j>=5.0.0
+
+RDFLib Store backed by neo4j

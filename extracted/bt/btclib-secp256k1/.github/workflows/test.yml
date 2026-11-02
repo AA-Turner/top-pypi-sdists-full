@@ -157,14 +157,13 @@ jobs:
   # unless the job reading it names `changes` in its own `needs`, which
   # every job below already does.
   #
-  # The event handling, the pagination and the decision are
-  # btclib-org/.github's own, called at @main so a fix there reaches
-  # this tree in one landing (section 10 of its README.md); what
-  # stays here is which of this tree's own files are prose, in
+  # The event handling, the pagination and the decision are btclib-org/.github's
+  # own, called at a tagged commit (section 10 of btclib-org/.github's
+  # README.md); what stays here is which of this tree's own files are prose, in
   # `with:` below (issue btclib-org/.github#35)
   changes:
     name: Decide whether the matrix has anything to check
-    uses: btclib-org/.github/.github/workflows/reusable-changes.yml@main
+    uses: btclib-org/.github/.github/workflows/reusable-changes.yml@72e0222ef466daf096e3ac8d07e2ba59c0544b1a # v2026.10.28
     # A job's permissions replace the workflow's map rather than adding
     # to it. This job held only pull-requests: read before the call --
     # it made no checkout of its own, so contents: read cost nothing to
@@ -221,12 +220,11 @@ jobs:
       # change to run everything is the cheap one, at the cost this
       # comment now records
       #
-      # a literal block scalar rather than a quoted one on the key's own
-      # line, for the reason .pre-commit-config.yaml's own
-      # local-link-prefix and no-downstream-name-in-package hooks give
-      # for their `entry:`: the pattern has no space in it, so yamllint
-      # reads it as one unbreakable word and its 100-column rule
-      # (allow-non-breakable-words) does not fire on it
+      # a literal block scalar rather than a quoted one on the key's own line,
+      # for the reason .pre-commit-config.yaml's own local-link-prefix and
+      # no-downstream-name-in-package hooks give for their `entry:`: the pattern
+      # has no space in it, so yamllint reads it as one unbreakable word and its
+      # line-length rule (allow-non-breakable-words) does not fire on it
       prose-pattern: |-
         ^(AGENTS|CHANGELOG|CONTRIBUTING|RELEASE_NOTES|RELEASING|REPOSITORY|REVIEWING|SECURITY)\.md$|^\.github/[^/]*\.md$|^\.github/mutation/[^/]*\.toml$|^\.secrets\..*baseline$
 
@@ -284,7 +282,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           # the wheels of the test group, not the extension: the root
           # project is installed editable, so its build hook (and the
@@ -417,7 +415,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
 
@@ -515,7 +513,7 @@ jobs:
       # needs none of its own: the interpreters it builds wheels for are
       # the ones it installs itself
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
           # section 1 of the organization standard counts a release
@@ -525,7 +523,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       # skipped on every trigger but a release rehearsal: the inputs
       # context is empty unless this workflow was called, and an empty
@@ -675,13 +673,13 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -778,14 +776,14 @@ jobs:
 
       - name: Set up Python
         if: ${{ !inputs.use-signed-dist }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
           allow-prereleases: true
 
       - name: Setup uv
         if: ${{ !inputs.use-signed-dist }}
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       # what the build below and the normalizer after it both read.
       # hatchling's sdist writer honours this when it is set and falls
@@ -920,7 +918,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
           allow-prereleases: true
@@ -1008,13 +1006,13 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -1023,8 +1021,24 @@ jobs:
         with:
           suffix: ${{ inputs.version-suffix }}
 
+      # the C compiler the vendored toolchain file names,
+      # x86_64-w64-mingw32-gcc, in the win32 thread model the published
+      # DLL is built with. The mingw-w64 metapackage adds the i686 and C++
+      # compilers and the posix model
+      #
+      # apt moves to the next mirror in /etc/apt/apt-mirrors.txt only on an
+      # error, and the runner's Azure mirror can be slow without failing
+      # (#1252), so a download it has not finished in two minutes is
+      # finished from the rest of the list
       - name: Install dependencies
-        run: sudo apt install -y mingw-w64
+        env:
+          PACKAGE: gcc-mingw-w64-x86-64-win32
+        run: |
+          timeout 2m sudo apt-get install -y --download-only "$PACKAGE" || {
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+            sudo apt-get install -y --download-only "$PACKAGE"
+          }
+          sudo apt-get install -y --no-download "$PACKAGE"
 
       # nothing repairs this wheel, so hatchling writes every member of
       # it and the constant it falls back to would be deterministic on
@@ -1072,7 +1086,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           # the wheels of the check group, the three tools below among
           # them, keyed on uv.lock

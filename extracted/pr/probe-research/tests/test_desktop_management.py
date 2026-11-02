@@ -6,7 +6,8 @@ from uuid import uuid4
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import desktop as d, backfill_transcripts as t, capabilities, import_jobs
+from probe.cli.imports import desktop as d, transcripts as t, jobs as import_jobs
+from probe.cli.wizard import state as capabilities
 from tests.test_import_jobs import queued as queued
 from tests.test_backfill_scoped_orchestration import make_harness
 
@@ -20,8 +21,9 @@ def reviewed(tmp_path, monkeypatch, queued):
     path.write_text(json.dumps({"sessionId": sid, "message": {"role": "user", "content": "Research"}})+"\n")
     row = t.Transcript(path, sid, "claude_code", "/research/model", path.stat().st_size, path.stat().st_mtime)
     monkeypatch.setattr(d, "_sources", lambda: t.Census(candidates=[row]))
-    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda source: ("capture-secret", "https://test.invalid"))
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda source: "device")
+    monkeypatch.setattr(capabilities.capture_credentials, "resolved_capture_credential", lambda source: ("capture-secret", "https://test.invalid"))
+    monkeypatch.setattr(capabilities.device_state, "resolved_capture_credential", lambda source: ("capture-secret", "https://test.invalid"))
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda source: "device")
     return h, row, queued
 
 
@@ -86,7 +88,7 @@ def test_closed_request_refuses_unknown_fields_and_unsafe_capture_scope():
 
 
 def test_registry_counts_are_live_processes_not_imported_history(monkeypatch):
-    from probe.service import client
+    from probe.foundation import service_api as client
     monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": [
         {"harness": "claude_code", "alive": True}, {"harness": "claude_code", "alive": False},
         {"harness": "codex", "alive": True}, {"harness": "codex", "alive": True},
@@ -101,8 +103,8 @@ def test_registry_counts_are_live_processes_not_imported_history(monkeypatch):
 
 def _service(monkeypatch, *, listing=None, status=None):
     """`client.call` answering per method: a value is returned, an exception raised."""
-    from probe.service import client
-    from probe.service.protocol import Method
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api.wire import Method
     asked = []
 
     def call(method, *args, **kwargs):
@@ -146,7 +148,7 @@ def test_the_overview_says_why_its_counts_are_missing_or_partial(monkeypatch, li
 
 
 def test_a_refusal_says_what_the_service_said(monkeypatch):
-    from probe.service import client
+    from probe.foundation import service_api as client
     _service(monkeypatch, listing=client.ServiceError(-32013, "unsupported_api"), status=client.ServiceError(-32013, "x"))
     result = d.snapshot_delivery()
     assert result["serviceState"] == d.ServiceState.REFUSED and "(unsupported_api)" in result["reason"]
@@ -174,7 +176,7 @@ def test_terminal_setup_lock_blocks_admission_before_account_or_worker_access(tm
     import subprocess
     import sys
     import time
-    from probe.cli import wizard_lock
+    from probe.cli.wizard.session import lock as wizard_lock
     marker = tmp_path / "held"
     proc = subprocess.Popen([sys.executable, "-c", "from probe.cli import wizard_lock; import sys,time; "
         "ctx=wizard_lock.held(); ctx.__enter__(); open(sys.argv[1],'w').close(); time.sleep(30)", str(marker)],
@@ -208,9 +210,10 @@ def test_repeated_json_fields_are_refused_before_admission():
 
 
 def test_folder_review_refuses_changed_workspace_or_replaced_folder_before_scanning(reviewed, monkeypatch):
-    from probe.cli import backfill
+    from probe.cli.imports import folder as backfill
     h, _, launches = reviewed
-    monkeypatch.setattr(backfill, "available_agents", lambda: [backfill.Agent.CLAUDE])
+    monkeypatch.setattr(backfill.agents.agents, "available_agents", lambda: [backfill.Agent.CLAUDE])
+    monkeypatch.setattr(backfill.flow.choices, "available_agents", lambda: [backfill.Agent.CLAUDE])
     p = d.preview_backfill({"folders": [str(h.folder)]})
     assert h.classified == h.created == h.manifested == []
     h.client.settings.workspace = "other-workspace"
@@ -238,8 +241,8 @@ def test_history_is_paginated_without_reports_and_partial_details_are_bounded(re
     identity = d._identity(h.client)
     jobs = [_history_job(index, identity, state="running" if index == 0 else "succeeded")
             for index in range(123)]
-    monkeypatch.setattr(import_jobs, "list_jobs", lambda: jobs)
-    monkeypatch.setattr(import_jobs, "get_job", lambda key: next(job for job in jobs if job["id"] == key))
+    monkeypatch.setattr(import_jobs.jobs, "list_jobs", lambda: jobs)
+    monkeypatch.setattr(import_jobs.jobs, "get_job", lambda key: next(job for job in jobs if job["id"] == key))
     first = d.dispatch({"op": "jobs"})
     assert first["total"] == 123 and len(first["jobs"]) == 50 and first["hasMore"]
     assert first["activeTotal"] == 1 and first["activeJobs"][0]["id"] == jobs[0]["id"]
@@ -293,8 +296,8 @@ def test_source_and_activity_metadata_never_cross_account_filter(reviewed, monke
     other = _history_job(2, {**identity, "user_id": "another-user"})
     other["payload"]["files"] = [{"agent": "private_agent"}]
     other["activity"] = [{"at": "now", "state": "running", "message": "Private progress"}]
-    monkeypatch.setattr(import_jobs, "list_jobs", lambda: [mine, other])
-    monkeypatch.setattr(import_jobs, "get_job", lambda key: other)
+    monkeypatch.setattr(import_jobs.jobs, "list_jobs", lambda: [mine, other])
+    monkeypatch.setattr(import_jobs.jobs, "get_job", lambda key: other)
     result = d.dispatch({"op": "jobs"})
     assert result["jobs"][0]["sources"] == ["codex"]
     assert "private_agent" not in json.dumps(result)
@@ -371,7 +374,7 @@ def test_scope_is_captured_once_and_old_cursor_cannot_cross_accounts(reviewed, m
     def listing():
         monkeypatch.setattr(h.client, "me", lambda: {"customer_id": "new-tenant", "user_id": "other"})
         return jobs
-    monkeypatch.setattr(import_jobs, "list_jobs", listing)
+    monkeypatch.setattr(import_jobs.jobs, "list_jobs", listing)
     result = d.dispatch({"op": "jobs"})
     assert len(calls) == 1
     assert result["scope"] == {"customerId": "tenant", "userId": "user"}
@@ -411,7 +414,7 @@ def test_backend_comparison_preserves_path_case_but_normalizes_host(reviewed):
 
 
 def test_delivery_scope_uses_the_same_authenticated_identity(reviewed, monkeypatch):
-    from probe.service import client
+    from probe.foundation import service_api as client
     monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": []})
     result = d.dispatch({"op": "delivery"})
     assert result["scope"] == {"customerId": "tenant", "userId": "user"}
@@ -499,7 +502,7 @@ def test_last_received_and_pending_are_the_live_sessions_journal(monkeypatch, tm
     import sqlite3
 
     from probe.foundation.harness_registry import get_registry
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     sid, journal = _journal_session(tmp_path, monkeypatch)
     # An old protocol-1 store with an outbox and a last post: never read again.
@@ -527,7 +530,8 @@ def test_last_received_and_pending_are_the_live_sessions_journal(monkeypatch, tm
 
 
 def test_receipts_the_service_lists_are_used_as_they_are(monkeypatch, tmp_path):
-    from probe.service import client, receipts
+    from probe.foundation import service_api as client
+    from probe.service.sessions import receipts
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(receipts, "read", lambda *a: (_ for _ in ()).throw(AssertionError("read again")))
@@ -565,7 +569,7 @@ def test_the_cli_command_and_the_service_child_share_one_responder():
 def test_delivery_counts_only_the_signed_in_accounts_receipts(monkeypatch, tmp_path):
     """Each receipt carries its journal's scope; the delivery op overlays only
     the ones of the account it answers for (`identity`)."""
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     def found(customer, lines):
         return {"last_line": 4, "received_bytes": 10, "received_at": 1761100000.0, "pending_bytes": 5,

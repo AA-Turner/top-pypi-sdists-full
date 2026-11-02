@@ -1,4 +1,0 @@
----
-upgrade:
-  - |
-    The minimum version of Qiskit is now 2.0.

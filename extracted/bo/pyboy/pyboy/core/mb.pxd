@@ -1,0 +1,137 @@
+#
+# License: See LICENSE.md file
+# GitHub: https://github.com/Baekalfen/PyBoy
+#
+
+from libc.stdint cimport int64_t, uint8_t, uint16_t, uint32_t, uint64_t
+from libc.string cimport memcpy
+
+import cython
+from cython cimport final
+
+cimport pyboy.core.bootrom
+cimport pyboy.core.cartridge.base_mbc
+cimport pyboy.core.cpu
+cimport pyboy.core.interaction
+cimport pyboy.core.lcd
+cimport pyboy.core.ram
+cimport pyboy.core.sgb
+cimport pyboy.core.sgb_border
+cimport pyboy.core.serial
+cimport pyboy.core.sound
+cimport pyboy.core.timer
+from pyboy.logging.logging cimport Logger
+from pyboy.utils cimport IntIOInterface, WindowEvent
+
+
+cdef Logger logger
+
+cdef inline void _copy_memory(uint8_t* destination, uint8_t* source, int size) noexcept nogil:
+    memcpy(destination, source, size)
+
+cdef int64_t MAX_CYCLES
+cdef uint16_t STAT, LY, LYC
+cdef int INTR_TIMER, INTR_SERIAL, INTR_HIGHTOLOW
+cdef uint16_t OPCODE_BRK
+cdef int STATE_VERSION
+
+@final
+cdef class Motherboard:
+    cdef pyboy.core.interaction.Interaction interaction
+    cdef pyboy.core.bootrom.BootROM bootrom
+    cdef pyboy.core.ram.RAM ram
+    cdef pyboy.core.lcd.LCD lcd
+    cdef pyboy.core.cpu.CPU cpu
+    cdef pyboy.core.timer.Timer timer
+    cdef pyboy.core.serial.Serial serial
+    cdef pyboy.core.sound.Sound sound
+    cdef pyboy.core.cartridge.base_mbc.BaseMBC cartridge
+    cdef readonly pyboy.core.sgb.SGB sgb
+    cdef readonly pyboy.core.sgb_border.SGBBorderRenderer sgb_border
+    cdef bint sgb_capable
+    cdef bint sgb_active_transfer
+    cdef bint sgb_multiplayer
+    cdef bint fast_mode
+    cdef bint bootrom_enabled
+    cdef char[1024] serialbuffer
+    cdef uint16_t serialbuffer_count
+    cdef bint oam_dma_active, oam_dma_reading
+    cdef bint in_tick
+    cdef uint8_t oam_dma_source, oam_dma_index
+    cdef int64_t oam_dma_start_cycle
+    cdef int64_t oam_dma_block_cycle
+
+    # CGB
+    cdef HDMA hdma
+    cdef uint8_t key0, key1, wram_select
+    cdef uint8_t[4] cgb_undocumented
+    cdef bint double_speed
+    cdef readonly bint cgb, cgb_mode
+
+    cdef dict breakpoints
+    cdef bint breakpoint_singlestep
+    cdef bint breakpoint_singlestep_latch
+    cdef int64_t breakpoint_waiting
+    cdef int64_t breakpoint_add(self, int64_t, int64_t) except -1 with gil
+    cdef int64_t breakpoint_remove(self, int64_t, int64_t) except -1 with gil
+    cdef inline tuple[int64_t, int64_t, int64_t] breakpoint_reached(self) noexcept with gil
+    cdef inline void breakpoint_reinject(self) noexcept nogil
+
+    cdef void buttonevent(self, WindowEvent) noexcept
+    cdef void stop(self, bint, object, object) noexcept
+    @cython.locals(
+        cycles=int64_t,
+        cycles_target=int64_t,
+        mode0_cycles=int64_t,
+        breakpoint_index=int64_t,
+    )
+    cdef bint tick(self) noexcept nogil
+
+    cdef void switch_speed(self) noexcept nogil
+
+    @cython.locals(bank_offset=uint16_t, bank=uint8_t, memory_access_offset=cython.int, dma_started=cython.bint)
+    cdef uint8_t getitem(self, uint16_t) noexcept nogil
+    @cython.locals(elapsed=int64_t, target=cython.int, value=uint8_t, changed=cython.bint)
+    cdef void sync_oam_dma(self, uint8_t) noexcept nogil
+    @cython.locals(elapsed=int64_t)
+    cdef int oam_dma_bus_conflict(self, uint16_t, uint8_t) noexcept nogil
+    @final
+    @cython.locals(bank_offset=uint16_t, bank=uint8_t, index=cython.int, changed=cython.bint)
+    cdef void setitem(self, uint16_t, uint8_t) noexcept nogil
+    cdef uint8_t getitem_io_ports(self, uint16_t) noexcept nogil
+    @cython.locals(p14=uint8_t, p15=uint8_t, old_p15=uint8_t,
+                   processed_value=uint8_t, div_period=cython.int,
+                   cycles_to_div_edge=cython.int)
+    cdef void setitem_io_ports(self, uint16_t, uint8_t) noexcept nogil
+
+    @cython.locals(offset=cython.int, dst=cython.int, n=cython.int, source=uint8_t,
+                   value=uint8_t, copied=cython.bint, changed=cython.bint)
+    cdef void transfer_DMA(self, uint8_t) noexcept nogil
+    @cython.locals(rom_bank=uint16_t, source_offset=uint16_t, vram_bank=uint8_t, changed=cython.bint)
+    cdef bint copy_hdma_rom_block(self, uint16_t, uint16_t) noexcept nogil
+    cdef int save_state(self, IntIOInterface) except -1
+    cdef int load_state(self, IntIOInterface) except -1
+
+@final
+cdef class HDMA:
+    cdef uint8_t hdma1
+    cdef uint8_t hdma2
+    cdef uint8_t hdma3
+    cdef uint8_t hdma4
+    cdef uint8_t hdma5
+    cdef uint8_t _hdma5
+
+    cdef bint transfer_active
+    cdef uint16_t curr_src
+    cdef uint16_t curr_dst
+    cdef bint block_done
+
+    @cython.locals(bytes_to_transfer=cython.int, transfer_type=cython.int,
+                   src=uint16_t, dst=uint16_t, i=cython.int, block=cython.int,
+                   block_src=uint16_t, block_dst=uint16_t)
+    cdef void set_hdma5(self, uint8_t, Motherboard) noexcept nogil
+    @cython.locals(src=uint16_t, dst=uint16_t, i=cython.int)
+    cdef int tick(self, Motherboard) noexcept nogil
+
+    cdef int save_state(self, IntIOInterface) except -1
+    cdef int load_state(self, IntIOInterface, int) except -1

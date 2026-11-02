@@ -1,0 +1,168 @@
+# Project:   HyperI CI
+# File:      pyproject.toml
+# Purpose:   Package configuration for hyperi-ci CLI tool
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+[project]
+name = "hyperi-ci"
+dynamic = ["version"]
+description = "HyperI CI/CD CLI tool - multi-language build, test, and publish automation"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "LicenseRef-BUSL-1.1-HyperI"
+authors = [{ name = "HyperI Team", email = "dev@hyperi.io" }]
+maintainers = [{ name = "HyperI Team", email = "dev@hyperi.io" }]
+# Python version policy (mirrors scalo): requires-python sets the
+# floor; the only version classifier is "Python :: 3 :: Only". Do NOT add
+# per-version classifiers (3.12, 3.13, ...) -- they churn on every release.
+# No OSI licence classifier -- BUSL-1.1 is declared via `license` above.
+keywords = [
+    "ci", "cd", "continuous-integration", "build", "test", "publish",
+    "release", "semantic-release", "github-actions", "monorepo",
+    "packaging", "rust", "python", "typescript", "golang",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Software Distribution",
+    "Environment :: Console",
+]
+dependencies = [
+    # Pin to >= so transitive resolution can pick up bug fixes / new
+    # features without a manifest edit. Only scalo.logger is imported, so
+    # bump the floor when a fix or API there is needed.
+    # No [metrics] extra: hyperi-ci is a CLI, not a long-running service,
+    # so it takes scalo's opt-out and skips the Prometheus + OTel SDK stack.
+    "scalo>=2.30.3",
+    "packaging>=26.0",
+    "pyyaml>=6.0",
+    "tomli-w>=1.2.0",
+    # typer is used directly by src/hyperi_ci/cli.py -- declare
+    # explicitly rather than relying on the transitive pull from
+    # scalo's CLI infra. If scalo ever drops typer, this
+    # keeps us pinned to a known surface.
+    "typer>=0.27",
+    "jsonschema>=4.26.0",
+]
+
+[project.scripts]
+hyperi-ci = "hyperi_ci.cli:main"
+
+[project.entry-points.pytest11]
+hyperi_ci = "hyperi_ci.pytest_plugin"
+
+[project.urls]
+Homepage = "https://github.com/hyperi-io/hyperi-ci"
+Repository = "https://github.com/hyperi-io/hyperi-ci"
+Documentation = "https://github.com/hyperi-io/hyperi-ci/blob/main/docs/README.md"
+"Bug Reports" = "https://github.com/hyperi-io/hyperi-ci/issues"
+Changelog = "https://github.com/hyperi-io/hyperi-ci/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling>=1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+# VERSION is a rendered artefact, so the back-end must not depend on the
+# committed copy being correct. build_version() resolves
+# HYPERCI_VERSION -> VERSION -> latest v* tag -> seed version.
+source = "code"
+path = "src/hyperi_ci/version_source.py"
+expression = "build_version()"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyperi_ci"]
+
+[tool.ruff]
+line-length = 88
+# Held below requires-python on purpose: at py314 the formatter strips the
+# parentheses from multi-exception `except` clauses (PEP 758), which would stop
+# version_source.py parsing on an older python3 -- and predict-version loads
+# that file by path before any install.
+target-version = "py312"
+
+[tool.ruff.lint]
+# D goes in blocking from the start rather than through the usual warn-first
+# ratchet: src/ already passes it with zero violations, so there is no backlog
+# to grandfather and nothing to gain by letting one accumulate.
+select = ["E", "F", "I", "N", "UP", "W", "D"]
+ignore = [
+    "E501",
+    "D203",  # conflicts with D211 -- ruff drops it and warns on every run
+    "D213",  # conflicts with D212, same
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.isort]
+force-single-line = false
+
+[tool.ty.environment]
+# scripts/ holds plain modules rather than a package, so `import fixture_fleet`
+# resolves only with that directory on the search path.
+extra-paths = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# Integration tests marked @pytest.mark.slow are opt-in (they compile real
+# Rust crates and take ~30-90s each). Default test runs skip them.
+#   uv run pytest                    # default: skips slow tests
+#   uv run pytest -m slow            # runs only slow tests
+#   uv run pytest -m ""              # runs everything (empty marker expression)
+addopts = "-m 'not slow'"
+markers = [
+    "slow: integration tests that compile real Rust crates (opt-in, ~30-90s each)",
+]
+
+[tool.vulture]
+# 60% confidence flags every typer-decorated command (typer registers them
+# at import time via @app.command() -- vulture can't see the call site).
+# 100% catches the genuine dead vars we care about without the noise.
+min_confidence = 100
+paths = ["src/"]
+
+[tool.coverage.run]
+source = ["hyperi_ci"]
+
+[tool.coverage.report]
+# Coverage is informational here -- ci.yml doesn't pass --cov-fail-under,
+# and unit-covering subprocess-driven CI orchestration is impractical.
+# Keep this low so `pytest --cov` reports without failing the run.
+fail_under = 30
+
+# NOTE: no [tool.uv.sources] block here on purpose.
+#
+# Tempting to point `scalo` at a local editable checkout
+# (/projects/scalo-py) so dev changes flow through `uv sync`,
+# but that breaks two things:
+#   - Dependabot's update_graph job can't resolve the path inside its
+#     container -- fails on every push to main, leaving the dep-graph
+#     stale and GitHub's vulnerability banner inaccurate.
+#   - Reproducibility for anyone whose checkout isn't at that exact
+#     path.
+#
+# For local scalo co-development, run from this repo:
+#   uv pip install -e /path/to/scalo-py
+# Manual install is per-developer scratch state; not in pyproject.
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    # Pulled transitively via pytest+rich+typer; pin minimum to dodge CVE-2026-4539.
+    "pygments>=2.20.0",
+    "ruff>=0.16.7",
+    "pytest-xdist>=3.8.0",
+]

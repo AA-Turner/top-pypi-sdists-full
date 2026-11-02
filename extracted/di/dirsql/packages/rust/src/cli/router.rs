@@ -1,0 +1,281 @@
+//! Axum router, request handlers, and shared context.
+//!
+//! Handlers are thin transport adapters: the whole query pipeline lives in
+//! [`super::execute`], and this module only maps its outcome onto HTTP —
+//! [`QueryFailure`] arms onto status codes, the success value onto a JSON
+//! body.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use axum::Router;
+use axum::extract::State;
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::{Json, response::Html};
+use futures::stream::StreamExt;
+use serde_json::json;
+use tokio::sync::{broadcast, watch};
+use tokio_stream::wrappers::BroadcastStream;
+
+use super::AppState;
+use super::execute::{QueryFailure, execute_query, require_ready};
+use crate::TableInfo;
+
+pub(super) struct AppContext {
+    pub state: AppState,
+    pub events: broadcast::Sender<String>,
+    pub watch_failure: Option<String>,
+    pub cancel: watch::Receiver<bool>,
+    pub query_timeout: Duration,
+}
+
+pub(super) type SharedCtx = Arc<AppContext>;
+
+pub(super) fn router(ctx: SharedCtx, frontend: bool) -> Router {
+    let mut app = Router::new()
+        .route(
+            "/query",
+            post(handle_query).on(axum::routing::MethodFilter::GET, method_not_allowed),
+        )
+        .route(
+            "/events",
+            get(handle_events).on(axum::routing::MethodFilter::POST, method_not_allowed),
+        );
+    if frontend {
+        app = app
+            .route("/", get(|| async { Html(include_str!("frontend.html")) }))
+            .route("/frontend.js", get(handle_frontend_script))
+            .route("/frontend/state", get(handle_frontend_state));
+    }
+    app.with_state(ctx)
+}
+
+async fn handle_frontend_script() -> Response {
+    (
+        [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+        include_str!("frontend.js"),
+    )
+        .into_response()
+}
+
+async fn handle_frontend_state(State(ctx): State<SharedCtx>) -> Response {
+    match &ctx.state {
+        AppState::Ready(db) => match db.tables() {
+            Ok(tables) => Json(json!({
+                "error": null,
+                "root": db.root().to_string_lossy(),
+                "tables": tables.iter().map(table_json).collect::<Vec<_>>(),
+            }))
+            .into_response(),
+            Err(err) => error_response(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+        },
+        AppState::Unavailable(reason) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": reason })),
+        )
+            .into_response(),
+    }
+}
+
+fn table_json(table: &TableInfo) -> serde_json::Value {
+    json!({
+        "name": table.name,
+        "columns": table
+            .columns
+            .iter()
+            .map(|c| json!({ "name": c.name, "type": c.sql_type }))
+            .collect::<Vec<_>>(),
+    })
+}
+
+async fn handle_query(State(ctx): State<SharedCtx>, body: String) -> Response {
+    match execute_query(&ctx.state, body, Some(ctx.query_timeout)).await {
+        Ok(value) => Json(value).into_response(),
+        Err(failure) => failure_response(&failure),
+    }
+}
+
+/// The HTTP status for each [`QueryFailure`] arm. This mapping — together
+/// with [`failure_response`]'s `{"error": …}` body — is the entirety of the
+/// HTTP adapter's own behavior; everything else is the shared pipeline.
+fn failure_status(failure: &QueryFailure) -> StatusCode {
+    match failure {
+        QueryFailure::BadRequest(_) => StatusCode::BAD_REQUEST,
+        QueryFailure::Timeout(_) => StatusCode::REQUEST_TIMEOUT,
+        QueryFailure::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        QueryFailure::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+    }
+}
+
+fn failure_response(failure: &QueryFailure) -> Response {
+    error_response(failure_status(failure), failure.message())
+}
+
+async fn handle_events(State(ctx): State<SharedCtx>) -> Response {
+    if let Err(failure) = require_ready(&ctx.state) {
+        return failure_response(&failure);
+    }
+    if let Some(reason) = &ctx.watch_failure {
+        return failure_response(&QueryFailure::Unavailable(reason.clone()));
+    }
+
+    // Subscribe BEFORE anything that might block so we don't drop events
+    // that fire between subscribing and the first poll.
+    let rx = ctx.events.subscribe();
+    let events = BroadcastStream::new(rx).filter_map(|res| async move {
+        match res {
+            Ok(data) => Some(Ok::<SseEvent, std::convert::Infallible>(
+                SseEvent::default().event("row").data(data),
+            )),
+            // Lagging subscriber: skip missed events rather than terminating.
+            Err(_) => None,
+        }
+    });
+
+    // Yield a ready event up front so clients have a reliable signal that
+    // the subscription is attached. Data is non-empty because SSE parsers
+    // skip events with no `data:` line.
+    let ready = futures::stream::once(async {
+        Ok::<SseEvent, std::convert::Infallible>(SseEvent::default().event("ready").data("{}"))
+    });
+    let combined = ready.chain(events);
+
+    // Close the stream when the server's cancellation signal fires so
+    // graceful shutdown actually completes (otherwise SSE streams hold
+    // axum's in-flight count at > 0 indefinitely).
+    let mut cancel = ctx.cancel.clone();
+    let stream = combined.take_until(async move {
+        let _ = cancel.wait_for(|v| *v).await;
+    });
+
+    Sse::new(stream)
+        .keep_alive(KeepAlive::default())
+        .into_response()
+}
+
+async fn method_not_allowed() -> Response {
+    (StatusCode::METHOD_NOT_ALLOWED, "method not allowed").into_response()
+}
+
+pub(super) fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
+    let body = json!({ "error": message.into() });
+    let mut resp = (status, Json(body)).into_response();
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    resp
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The pipeline itself (intake validation, timeout, execution,
+    // error classification) is unit-tested in `cli/execute.rs` and covered
+    // end-to-end by `tests/cli_integration.rs`. What remains here is the
+    // HTTP adapter's own behavior: the failure -> status mapping and the
+    // JSON error body.
+
+    #[test]
+    fn failure_status_maps_each_arm_to_its_http_status() {
+        assert_eq!(
+            failure_status(&QueryFailure::BadRequest("x".into())),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            failure_status(&QueryFailure::Timeout(Duration::from_secs(30))),
+            StatusCode::REQUEST_TIMEOUT
+        );
+        assert_eq!(
+            failure_status(&QueryFailure::Internal("x".into())),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(
+            failure_status(&QueryFailure::Unavailable("x".into())),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
+
+    #[test]
+    fn failure_response_carries_the_status_and_message() {
+        // The degraded arm renders as the 503 JSON error the server always
+        // returned; the message travels through `QueryFailure::message`.
+        let resp = failure_response(&QueryFailure::Unavailable("config failed to load".into()));
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            resp.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+    }
+
+    #[tokio::test]
+    async fn events_return_503_while_the_server_is_unavailable() {
+        let (events, _) = broadcast::channel::<String>(1);
+        let (_cancel_tx, cancel) = watch::channel(false);
+        let ctx = Arc::new(AppContext {
+            state: AppState::Unavailable("config failed to load".into()),
+            events,
+            watch_failure: None,
+            cancel,
+            query_timeout: Duration::from_secs(1),
+        });
+        let resp = handle_events(State(ctx)).await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn frontend_routes_and_state_report_a_config_failure() {
+        let (events, _) = broadcast::channel::<String>(1);
+        let (_cancel_tx, cancel) = watch::channel(false);
+        let ctx = Arc::new(AppContext {
+            state: AppState::Unavailable("failed to load config".into()),
+            events,
+            watch_failure: None,
+            cancel,
+            query_timeout: Duration::from_secs(1),
+        });
+
+        assert!(router(ctx.clone(), true).has_routes());
+        let resp = handle_frontend_state(State(ctx)).await;
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn frontend_script_is_served_as_javascript() {
+        let resp = handle_frontend_script().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers()[header::CONTENT_TYPE],
+            "text/javascript; charset=utf-8"
+        );
+    }
+
+    #[test]
+    fn table_json_names_each_column_with_its_type() {
+        let table = TableInfo {
+            name: "t".into(),
+            columns: vec![crate::ColumnInfo {
+                name: "a".into(),
+                sql_type: "TEXT".into(),
+            }],
+        };
+        assert_eq!(
+            table_json(&table),
+            json!({"name": "t", "columns": [{"name": "a", "type": "TEXT"}]})
+        );
+    }
+
+    #[test]
+    fn error_response_sets_json_content_type() {
+        let resp = error_response(StatusCode::BAD_REQUEST, "boom");
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            resp.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+    }
+}

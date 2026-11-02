@@ -25,7 +25,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 
 from test_backfill_transcripts_upload import FakeWire, _transcript  # noqa: F401
 
@@ -67,7 +67,8 @@ def _lane(census, wire, tmp_path, **overrides):
 def test_a_legacy_conversation_is_skipped_and_nothing_is_sent(tmp_path, monkeypatch):
     transcript = _transcript(tmp_path)
     wire = SelectiveWire([transcript.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     outcome, _, _ = _lane(bt.Census(candidates=[transcript]), wire, tmp_path)
 
@@ -95,7 +96,8 @@ def test_one_stage_message_per_session_and_it_says_what_happened(tmp_path, monke
     terminal `on_stage` per session; a skip that emitted two would double-count."""
     transcript = _transcript(tmp_path)
     wire = SelectiveWire([transcript.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     _, stages, _ = _lane(bt.Census(candidates=[transcript]), wire, tmp_path)
 
@@ -110,7 +112,8 @@ def test_a_skipped_session_still_counts_toward_completion(tmp_path, monkeypatch)
     history, which reads as an import that never finished."""
     transcript = _transcript(tmp_path)
     wire = SelectiveWire([transcript.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     _, _, completions = _lane(bt.Census(candidates=[transcript]), wire, tmp_path)
 
@@ -123,7 +126,8 @@ def test_new_conversations_in_the_same_census_still_upload(tmp_path, monkeypatch
     old = _transcript(tmp_path, sid=str(uuid4()))
     fresh = _transcript(tmp_path, sid=str(uuid4()))
     wire = SelectiveWire([old.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     outcome, _, _ = _lane(bt.Census(candidates=[old, fresh]), wire, tmp_path)
 
@@ -140,7 +144,8 @@ def test_the_identity_checks_still_run_before_the_skip(tmp_path, monkeypatch):
     """
     transcript = _transcript(tmp_path)
     wire = SelectiveWire([transcript.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     outcome, _, _ = _lane(
         bt.Census(candidates=[transcript]), wire, tmp_path,
@@ -157,7 +162,8 @@ def test_a_session_the_server_can_prove_is_not_treated_as_legacy(tmp_path, monke
     the skip must not shadow a resumable upload."""
     transcript = _transcript(tmp_path)
     wire = SelectiveWire([transcript.session_id])
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
 
     first, _, _ = _lane(bt.Census(candidates=[transcript]), wire, tmp_path)
     assert first.skipped_legacy == 1

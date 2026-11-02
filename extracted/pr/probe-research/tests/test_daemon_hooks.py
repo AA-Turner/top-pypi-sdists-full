@@ -336,7 +336,8 @@ def test_a_handover_during_a_held_update_is_not_stale(marker, hold):
     live while the hold is up, and its DAEMON_HANDOVER_STALE_S count from the
     later of the release and the hold's end (`barrier.release_workers` stamps
     it)."""
-    from probe.service import barrier, paths
+    from probe.service.updater.quiet import barrier
+    from probe.foundation.service_api import paths
 
     marker.set_session_state(SID, marker.STATE_DAEMON)
     _lease(marker, live=False, reason="handover", age=300)
@@ -358,7 +359,8 @@ def test_a_handover_during_a_held_update_is_not_stale(marker, hold):
 def test_the_marker_finds_the_services_hold_where_the_service_keeps_it():
     """The marker is stdlib-only, beside the hooks: it names the service's files
     and folder itself, and they are the service's own."""
-    from probe.service import barrier, paths
+    from probe.service.updater.quiet import barrier
+    from probe.foundation.service_api import paths
 
     marker = _load("_marker_hold_paths", HOOKS / "_session_marker.py")
     assert marker.UPDATE_HOLD_NAME == barrier.HOLD_NAME

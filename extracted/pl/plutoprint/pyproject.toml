@@ -1,0 +1,55 @@
+[project]
+name = 'plutoprint'
+description = 'Paged HTML rendering library'
+readme = 'README.rst'
+requires-python = '>=3.10'
+keywords = ['html', 'css', 'svg', 'pdf', 'png', 'html2pdf', 'html2png']
+dynamic = ['version']
+license = {file = 'LICENSE'}
+authors = [
+    {name = 'Samuel Ugochukwu', email = 'sammycageagle@gmail.com'},
+]
+
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Programming Language :: C',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Typing :: Typed',
+    'Topic :: Multimedia :: Graphics :: Graphics Conversion',
+    'Topic :: Multimedia :: Graphics :: Presentation',
+    'Topic :: Printing',
+    'Topic :: Text Processing :: Markup :: XML',
+    'Topic :: Text Processing :: Markup :: HTML'
+]
+
+[project.urls]
+Homepage = 'https://github.com/plutoprint'
+Documentation = 'https://plutoprint.readthedocs.io'
+Code = 'https://github.com/plutoprint/plutoprint'
+Issues = 'https://github.com/plutoprint/plutoprint/issues'
+Donation = 'https://github.com/sponsors/plutoprint'
+
+[project.scripts]
+plutoprint = 'plutoprint.__main__:main'
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python']
+
+[tool.meson-python.args]
+setup = ['--default-library=static']
+install = ['--skip-subprojects']

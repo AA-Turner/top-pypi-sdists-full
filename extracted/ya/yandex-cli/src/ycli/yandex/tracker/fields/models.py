@@ -1,0 +1,186 @@
+"""Pydantic models for Tracker global fields (CustomField + ItemList[CustomField]).
+
+The single-record class is named ``CustomField`` (not ``Field``) so it never shadows
+``pydantic.Field``, which every attribute in this module is declared with.
+"""
+
+from typing import Annotated
+
+from pydantic import Field
+
+from ycli.yandex.models import APIModel, RequestBody
+from ycli.yandex.sync.marks import Identity
+from ycli.yandex.tracker.models import (
+    FieldSchema,
+    LocalizedName,
+    OptionsProviderInput,
+    Reference,
+)
+
+
+class FieldProvider(APIModel):
+    """A provider descriptor (suggest / options / query provider) attached to a field.
+
+    Examples:
+        >>> FieldProvider.model_validate({"type": "FixedListOptionsProvider"}).type
+        'FixedListOptionsProvider'
+    """
+
+    type: str | None = Field(
+        default=None, description="Provider class name; cannot be changed via the API."
+    )
+    values: list[str | int] = Field(
+        default_factory=list,
+        description="Allowed field values; present only on an options provider.",
+    )
+    need_validation: bool | None = Field(
+        default=None,
+        alias="needValidation",
+        description="Whether a value of the list is checked for validity.",
+    )
+
+
+class CustomField(APIModel):
+    """A global (organisation-wide) issue field — one ``/fields`` item / ``/fields/{id}`` object.
+
+    Named ``CustomField`` rather than ``Field`` so it never shadows ``pydantic.Field``.
+
+    Examples:
+        >>> CustomField.model_validate({"id": "ruName", "key": "ruName", "type": "standard"}).id
+        'ruName'
+    """
+
+    self_url: str | None = Field(
+        default=None,
+        alias="self",
+        description="API resource URL that returns full information about the field.",
+    )
+    id: Annotated[str | None, Identity()] = Field(
+        default=None, description="Unique identifier of the field."
+    )
+    name: str | None = Field(default=None, description="Display name of the field.")
+    key: str | None = Field(default=None, description="Key of the field.")
+    description: str | None = Field(default=None, description="Description of the field.")
+    version: int | None = Field(
+        default=None, description="Version of the field; each change increments the version number."
+    )
+    field_schema: FieldSchema | None = Field(
+        default=None,
+        alias="schema",
+        description="Object describing the data type of the field's value.",
+    )
+    readonly: bool | None = Field(
+        default=None,
+        description="Whether the value can be edited: true if read-only, false if editable.",
+    )
+    options: bool | None = Field(
+        default=None,
+        description="Value constraint: true if any value is allowed, false if the list is limited.",
+    )
+    suggest: bool | None = Field(
+        default=None,
+        description="Whether a search suggestion appears while entering the field's value.",
+    )
+    suggest_provider: FieldProvider | None = Field(
+        default=None,
+        alias="suggestProvider",
+        description="Object describing the search-suggestion provider class.",
+    )
+    options_provider: FieldProvider | None = Field(
+        default=None,
+        alias="optionsProvider",
+        description="Object describing the allowed values of the field.",
+    )
+    query_provider: FieldProvider | None = Field(
+        default=None,
+        alias="queryProvider",
+        description="Object describing the query-language class of the field.",
+    )
+    order: int | None = Field(
+        default=None, description="Position of the field in the organisation's list of fields."
+    )
+    category: Reference | None = Field(
+        default=None, description="Object with information about the field's category."
+    )
+    type: str | None = Field(default=None, description="Type of the field.")
+    hidden: bool | None = Field(
+        default=None,
+        description="Whether the field is hidden in the interface even when it is filled in.",
+    )
+
+
+class FieldCategoryRecord(APIModel):
+    """A field category as returned by ``POST``/``PATCH /fields/categories`` (create/edit).
+
+    Examples:
+        >>> FieldCategoryRecord.model_validate({"id": "1", "name": "System", "version": 1}).name
+        'System'
+    """
+
+    self_url: str | None = Field(
+        default=None,
+        alias="self",
+        description="API resource URL that returns full information about the category.",
+    )
+    id: Annotated[str | None, Identity()] = Field(
+        default=None, description="Unique identifier of the field category."
+    )
+    name: str | None = Field(default=None, description="Display name of the category.")
+    version: int | None = Field(
+        default=None, description="Version of the category; each change increments it."
+    )
+
+
+class FieldUpdate(RequestBody):
+    """Typed request body for ``PATCH /fields/{id}?version=`` (rename and/or change options).
+
+    Rename and change-options share one PATCH, so this one body covers both ``name`` and
+    ``optionsProvider``; only the fields that are set are sent.
+
+    Examples:
+        >>> FieldUpdate(name=LocalizedName(ru="Поле")).model_dump(exclude_none=True)
+        {'name': {'ru': 'Поле'}}
+    """
+
+    name: LocalizedName | None = Field(
+        default=None, description="New localized display name of the field."
+    )
+    options_provider: OptionsProviderInput | None = Field(
+        default=None,
+        serialization_alias="optionsProvider",
+        description="Replacement fixed drop-down values for the field.",
+    )
+
+
+class FieldCategoryCreate(RequestBody):
+    """Typed request body for ``POST /fields/categories`` (create a field category).
+
+    Examples:
+        >>> FieldCategoryCreate(name=LocalizedName(ru="Своя"), order=400).model_dump(
+        ...     exclude_none=True
+        ... )
+        {'name': {'ru': 'Своя'}, 'order': 400}
+    """
+
+    name: LocalizedName = Field(description="Localized display name of the new category.")
+    order: int = Field(description="Weight controlling the category's display order (lower first).")
+    description: str | None = Field(default=None, description="Description of the category.")
+
+
+class FieldCategoryUpdate(RequestBody):
+    """Typed request body for ``PATCH /fields/categories/{id}?version=`` (edit a category).
+
+    Only the fields that are set are sent, so omitted fields stay unchanged.
+
+    Examples:
+        >>> FieldCategoryUpdate(order=400).model_dump(exclude_none=True)
+        {'order': 400}
+    """
+
+    name: LocalizedName | None = Field(
+        default=None, description="New localized display name of the category."
+    )
+    order: int | None = Field(
+        default=None, description="New weight controlling the category's display order."
+    )
+    description: str | None = Field(default=None, description="New description of the category.")

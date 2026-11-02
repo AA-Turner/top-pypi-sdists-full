@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = ["crates/wolfxl-core", "crates/wolfxl-writer", "crates/wolfxl-rels", "crates/wolfxl-reader", "crates/wolfxl-merger", "crates/wolfxl-formula", "crates/wolfxl-structural", "crates/wolfxl-classify", "crates/wolfxl-pivot", "crates/wolfxl-autofilter"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/SynthGL/wolfxl-oss"
+authors = ["Wolfgang Schoenberger"]
+
+[workspace.dependencies]
+base16ct = { version = "1", features = ["alloc"] }
+cfb = "0.15"
+indexmap = "2.2"
+zip = { version = "9", default-features = false, features = ["deflate", "unreserved"] }
+# Same versions and backend that zip's `deflate` feature already builds.
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
+crc32fast = "1.5"
+quick-xml = "0.42"
+# Already built for quick-xml; the streaming row scanner uses it directly.
+memchr = "2.7"
+chrono = "0.4"
+anyhow = "1.0.103"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+tempfile = "3"
+
+[package]
+name = "wolfxl"
+version = "2.0.36"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Fast, openpyxl-compatible Excel I/O backed by Rust"
+build = "build.rs"
+readme = "README.md"
+
+[lib]
+name = "wolfxl"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["multiple-pymethods"] }
+indexmap.workspace = true
+zip.workspace = true
+flate2.workspace = true
+crc32fast.workspace = true
+quick-xml.workspace = true
+memchr.workspace = true
+chrono.workspace = true
+wolfxl-core = { path = "crates/wolfxl-core", version = "0.8" }
+wolfxl-writer = { path = "crates/wolfxl-writer", version = "0.1" }
+wolfxl-rels = { path = "crates/wolfxl-rels", version = "0.1" }
+wolfxl-reader = { path = "crates/wolfxl-reader", version = "0.1" }
+wolfxl-merger = { path = "crates/wolfxl-merger", version = "0.1" }
+wolfxl-formula = { path = "crates/wolfxl-formula", version = "0.1" }
+wolfxl-structural = { path = "crates/wolfxl-structural", version = "0.1" }
+wolfxl-classify = { path = "crates/wolfxl-classify", version = "0.1" }
+wolfxl-pivot = { path = "crates/wolfxl-pivot", version = "2.0.0" }
+wolfxl-autofilter = { path = "crates/wolfxl-autofilter", version = "2.0.0" }
+tempfile.workspace = true
+
+[build-dependencies]
+pyo3-build-config = "0.29"
+
+# Release tuning for the shipped cdylib. `lto = "fat"` + `codegen-units = 1`
+# let the optimizer inline across crate boundaries (the 11 worker crates +
+# pyo3 binding) at the cost of slower compiles. `panic = "abort"` is
+# deliberately NOT set: pyo3 relies on `catch_unwind` to turn Rust panics into
+# catchable Python exceptions, and aborting would crash the host interpreter on
+# malformed input instead of raising.
+[profile.release]
+lto = "fat"
+codegen-units = 1

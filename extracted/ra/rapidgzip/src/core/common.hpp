@@ -44,16 +44,16 @@
     #define S_IFIFO _S_IFIFO
     #define S_IFMT _S_IFMT
 
-    namespace rapidgzip
-    {
-    template<typename FileMode, typename FileType>
-    [[nodiscard]] bool
-    testFileType( FileMode fileMode,
-                  FileType fileType )
-    {
-        return ( fileMode & S_IFMT ) == fileType;
-    }
-    }  // namespace rapidgzip;
+namespace rapidgzip
+{
+template<typename FileMode, typename FileType>
+[[nodiscard]] bool
+testFileType( FileMode fileMode,
+              FileType fileType )
+{
+    return ( fileMode & S_IFMT ) == fileType;
+}
+}      // namespace rapidgzip;
 
     #define S_ISFIFO( m ) testFileType( m, S_IFIFO )
 
@@ -69,7 +69,9 @@
     #define forceinline __forceinline
 #elif defined( __clang__ ) || defined( __GNUC__ )
 /* https://stackoverflow.com/questions/38499462/how-to-tell-clang-to-stop-pretending-to-be-other-compilers */
+/* *INDENT-OFF* */
     #define forceinline __attribute__(( always_inline )) inline
+/* *INDENT-ON* */
 #endif
 
 namespace rapidgzip
@@ -391,9 +393,21 @@ public:
         m_cleanup( std::move( cleanup ) )
     {}
 
-    ~Finally()
+    /**
+     * Runs the cleanup on both normal exit and stack unwinding. If the cleanup throws during unwinding,
+     * the original exception is preserved; on normal exit, cleanup errors propagate like a Python/Java
+     * finally block.
+     */
+    ~Finally() noexcept( false )
     {
-        if ( m_cleanup ) {
+        if ( !m_cleanup ) {
+            return;
+        }
+        if ( std::uncaught_exceptions() > 0 ) {
+            try {
+                m_cleanup();
+            } catch ( ... ) {}
+        } else {
             m_cleanup();
         }
     }
@@ -522,8 +536,8 @@ testFlags( const uint64_t value,
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #if defined( __GNUC__ )
-    #define LIKELY( x ) ( __builtin_expect( static_cast<bool>( x ), 1 ))
-    #define UNLIKELY( x ) ( __builtin_expect( static_cast<bool>( x ), 0 ))
+    #define LIKELY( x ) ( __builtin_expect( static_cast<bool>( x ), 1 ) )
+    #define UNLIKELY( x ) ( __builtin_expect( static_cast<bool>( x ), 0 ) )
 #else
     #define LIKELY( x ) ( x )
     #define UNLIKELY( x ) ( x )
@@ -578,7 +592,7 @@ loadUnaligned( const void* data )
 }
 
 
-[[nodiscard]] size_t
+[[nodiscard]] inline size_t
 countNewlines( const std::string_view& view )
 {
     return std::count( view.begin(), view.end(), '\n' );
@@ -639,21 +653,21 @@ findNthNewline( const std::string_view& view,
 
 
 [[nodiscard]] constexpr uint64_t
-operator "" _Ki( unsigned long long int value ) noexcept
+operator ""_Ki( unsigned long long int value ) noexcept
 {
     return value * 1024ULL;
 }
 
 
 [[nodiscard]] constexpr uint64_t
-operator "" _Mi( unsigned long long int value ) noexcept
+operator ""_Mi( unsigned long long int value ) noexcept
 {
     return value * 1024ULL * 1024ULL;
 }
 
 
 [[nodiscard]] constexpr uint64_t
-operator "" _Gi( unsigned long long int value ) noexcept
+operator ""_Gi( unsigned long long int value ) noexcept
 {
     return value * 1024ULL * 1024ULL * 1024ULL;
 }

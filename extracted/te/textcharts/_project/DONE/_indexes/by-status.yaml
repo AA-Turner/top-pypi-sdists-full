@@ -1,0 +1,131 @@
+generated_at: '2026-03-27T17:16:11.485514'
+total_items: 25
+statuses:
+  Completed:
+    count: 25
+    items:
+    - id: behavioral-tests-for-minimal-coverage-charts
+      file: DONE/main/active/behavioral-tests-for-minimal-coverage-charts.yaml
+      title: Add behavioral tests for 6 chart types with only golden-output coverage
+      priority: High
+      category: Testing and Quality Assurance
+    - id: configurable-outlier-cap
+      file: DONE/main/active/configurable-outlier-cap.yaml
+      title: Add configurable outlier_cap to ASCIIChartOptions
+      priority: Low
+      category: Core Functionality
+    - id: test-factory-functions
+      file: DONE/main/active/test-factory-functions.yaml
+      title: Add direct tests for all public factory functions
+      priority: High
+      category: Testing and Quality Assurance
+    - id: configurable-improvement-direction
+      file: DONE/main/active/configurable-improvement-direction.yaml
+      title: Add lower_is_better parameter for improvement direction
+      priority: Medium-High
+      category: Core Functionality
+    - id: add-subject-parameter-to-chart-titles
+      file: DONE/main/active/add-subject-parameter-to-chart-titles.yaml
+      title: Add subject parameter to compose domain context into chart titles
+      priority: High
+      category: Core Functionality
+    - id: test-line-chart-trend-and-rendering-paths
+      file: DONE/main/active/test-line-chart-trend-and-rendering-paths.yaml
+      title: Add tests for LineChart trend line computation and rendering branches
+      priority: Medium-High
+      category: Testing and Quality Assurance
+    - id: test-color-and-unicode-rendering-paths
+      file: DONE/main/active/test-color-and-unicode-rendering-paths.yaml
+      title: Add tests for color output and Unicode/ASCII fallback rendering paths
+      priority: Medium
+      category: Testing and Quality Assurance
+    - id: textual-typed-widgets
+      file: DONE/dev-013/active/textual-typed-widgets.yaml
+      title: Create typed per-chart Textual widgets with reactive data attributes (Phase 2)
+      priority: Medium-High
+      category: Integration
+    - id: de-benchbox-example-datasets-and-position-chart-specific-apis
+      file: DONE/main/planning/de-benchbox-example-datasets-and-position-chart-specific-apis.yaml
+      title: De-BenchBox example datasets and position chart-specific APIs clearly
+      priority: High
+      category: Documentation
+    - id: shared-command-layer
+      file: DONE/main/active/shared-command-layer.yaml
+      title: Design and implement shared command layer for CLI and MCP
+      priority: Critical
+      category: Core Functionality
+    - id: cli-mcp-docs
+      file: DONE/main/active/cli-mcp-docs.yaml
+      title: Documentation for CLI and MCP interfaces
+      priority: Medium-High
+      category: Documentation
+    - id: finalize-public-api-docs-and-release-tooling
+      file: DONE/main/planning/finalize-public-api-docs-and-release-tooling.yaml
+      title: Finalize public API, docs, and release tooling
+      priority: Medium-High
+      category: Documentation
+    - id: fix-gallery-chart-clarity-and-labeling
+      file: DONE/main/planning/fix-gallery-chart-clarity-and-labeling.yaml
+      title: Fix gallery chart clarity, labeling, and legend issues
+      priority: High
+      category: Documentation
+    - id: fix-terminal-capability-defaults-and-color-contract
+      file: DONE/main/planning/fix-terminal-capability-defaults-and-color-contract.yaml
+      title: Fix terminal capability defaults and color contract
+      priority: High
+      category: Core Functionality
+    - id: generalize-benchbox-field-names
+      file: DONE/dev-012/active/generalize-benchbox-field-names.yaml
+      title: Generalize BenchBox-specific field names across all chart types
+      priority: High
+      category: Core Functionality
+    - id: cli-interface
+      file: DONE/main/active/cli-interface.yaml
+      title: Implement CLI entry point wrapping the shared command layer
+      priority: High
+      category: Core Functionality
+    - id: mcp-server
+      file: DONE/main/active/mcp-server.yaml
+      title: Implement MCP server exposing textcharts as tools
+      priority: High
+      category: Core Functionality
+    - id: textual-widget-core
+      file: DONE/dev-013/active/textual-widget-core.yaml
+      title: Implement core Textual widget via ANSI wrapper (Phase 1)
+      priority: High
+      category: Integration
+    - id: make-heatmap-and-matrix-apis-explicit-and-safe
+      file: DONE/main/planning/make-heatmap-and-matrix-apis-explicit-and-safe.yaml
+      title: Make heatmap and matrix APIs explicit and safe
+      priority: High
+      category: Core Functionality
+    - id: caller-controlled-value-formatting
+      file: DONE/main/active/caller-controlled-value-formatting.yaml
+      title: Make time formatting caller-controlled via value_formatter callback
+      priority: Medium-High
+      category: Core Functionality
+    - id: neutralize-default-labels-and-titles
+      file: DONE/main/active/neutralize-default-labels-and-titles.yaml
+      title: Neutralize domain-specific default labels, titles, and comments
+      priority: High
+      category: Core Functionality
+    - id: remove-benchbox-compat-and-ascii-prefixes
+      file: DONE/main/active/remove-benchbox-compat-and-ascii-prefixes.yaml
+      title: Remove all BenchBox backward compatibility stubs and ASCII* class prefixes
+      priority: High
+      category: Core Functionality
+    - id: rename-benchmark-specific-identifiers
+      file: DONE/main/active/rename-benchmark-specific-identifiers.yaml
+      title: Rename benchmark-specific factory functions to generic names
+      priority: Medium
+      category: Core Functionality
+    - id: restore-standalone-renderer-regression-coverage
+      file: DONE/main/planning/restore-standalone-renderer-regression-coverage.yaml
+      title: Restore standalone renderer regression coverage
+      priority: High
+      category: Testing and Quality Assurance
+    - id: wrap-xaxis-labels
+      file: DONE/dev-012/planning/wrap-xaxis-labels.yaml
+      title: Wrap long horizontal axis labels onto 2 lines instead of truncating
+      priority: High
+      category: Core Functionality

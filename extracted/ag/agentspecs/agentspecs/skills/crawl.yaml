@@ -1,0 +1,27 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: crawl
+version: 0.0.1
+name: Web Crawl Skill
+description: Web crawling and content extraction capabilities
+
+module: agent_skills.skills.crawl
+
+envvars:
+  - TAVILY_API_KEY:0.0.1
+
+dependencies:
+  - requests>=2.31.0
+  - beautifulsoup4>=4.12.0
+
+# Not offered on the platform yet: the integrations page lists it as not available.
+enabled: true
+
+tags:
+  - web
+  - crawl
+  - scraping
+
+icon: "@primer/octicons-react:globe"
+emoji: 🌐

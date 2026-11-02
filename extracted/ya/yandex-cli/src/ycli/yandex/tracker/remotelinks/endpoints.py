@@ -1,0 +1,29 @@
+"""Tracker issue ``/remotelinks`` operations, declared once (sans-IO).
+
+Examples:
+    >>> create("JUNE-2", {"key": "TEST-17"}, True).params
+    {'backlink': True}
+"""
+
+from http import HTTPMethod
+
+from ycli.yandex.core.endpoint import Endpoint, segment
+from ycli.yandex.models import ItemList
+from ycli.yandex.tracker.remotelinks.models import RemoteLink, RemoteLinkCreate
+
+
+def list_(issue_key: str) -> Endpoint[ItemList[RemoteLink]]:
+    return Endpoint(
+        HTTPMethod.GET, f"issues/{segment(issue_key)}/remotelinks", ItemList[RemoteLink]
+    )
+
+
+def create(issue_key: str, body: RemoteLinkCreate, backlink: bool | None) -> Endpoint[RemoteLink]:
+    path = f"issues/{segment(issue_key)}/remotelinks"
+    return Endpoint(HTTPMethod.POST, path, RemoteLink, json=body, params={"backlink": backlink})
+
+
+def delete(issue_key: str, link_id: str) -> Endpoint[None]:
+    return Endpoint(
+        HTTPMethod.DELETE, f"issues/{segment(issue_key)}/remotelinks/{segment(link_id)}"
+    )

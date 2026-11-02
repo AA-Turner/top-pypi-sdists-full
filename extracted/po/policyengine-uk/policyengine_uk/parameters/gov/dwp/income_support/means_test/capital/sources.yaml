@@ -1,0 +1,35 @@
+description: >
+  Ordinary cash ISA balances are separate from savings and are included at
+  their accessible cash value, without a generic cash sale-cost deduction.
+  Capital sources included in the Income Support capital test.
+  `private_pension_wealth` is excluded because Schedule 10 paragraphs 23 and
+  23A disregard the value of the right to receive an occupational or personal
+  pension and the value of funds held under a personal pension scheme.
+  `share_like_capital` is `corporate_wealth` as supplied, or the sum of its
+  itemised components (`directly_held_shares`, `unit_and_investment_trusts`,
+  `stocks_and_shares_isa`) where they exceed it beyond float32 rounding (see
+  `share_like_capital`), so a household given only the components has them
+  counted and no holding counts twice.
+metadata:
+  label: Income Support capital sources
+  period: year
+  propagate_metadata_to_children: true
+  reference:
+    - title: Income Support (General) Regulations 1987 reg. 46(1)-(2)
+      href: https://www.legislation.gov.uk/uksi/1987/1967/data.pdf#page=70
+    - title: Income Support (General) Regulations 1987 reg. 48(4)
+      href: https://www.legislation.gov.uk/uksi/1987/1967/data.pdf#page=70
+    - title: Income Support (General) Regulations 1987 Sch. 10
+      href: https://www.legislation.gov.uk/uksi/1987/1967/data.pdf#page=188
+    - title: Income Support (General) Regulations 1987 Sch. 10 paras. 23-23A
+      href: https://www.legislation.gov.uk/uksi/1987/1967/schedule/10/paragraph/23
+  unit: list
+
+values:
+  2010-01-01:
+  - savings
+  - cash_isa
+  - owned_land
+  - share_like_capital
+  - other_residential_property_value
+  - non_residential_property_value

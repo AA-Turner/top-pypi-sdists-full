@@ -32,7 +32,9 @@ import sys
 import time
 from pathlib import Path
 
-from probe.service import barrier, client, paths
+from probe.service.updater.quiet import barrier
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
 
 _FAKE_PYTHON = r'''#!{real}
 import json, os, signal, sys, time
@@ -318,7 +320,7 @@ class FakeWorker:
         self.log = home / "fake-worker.log"
         # A worker PROCESS per session (the path the daemon host's off switch
         # keeps): this fake stands in for `probe daemon worker`, not the host.
-        from probe.service import daemonhost
+        from probe.service.sessions import daemon_host as daemonhost
 
         daemonhost.folder().mkdir(parents=True, exist_ok=True)
         (daemonhost.folder() / daemonhost.OFF_FILE).write_text("off for this fake\n", encoding="utf-8")

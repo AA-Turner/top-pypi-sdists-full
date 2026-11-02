@@ -929,7 +929,7 @@ def test_prices_are_known_for_the_two_route_models_only():
 def test_status_shows_tokens_cache_share_and_dollars_per_session(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     st = store_mod.Store(store_mod.store_path(SID))
     st.add_round(bite=1, model="gemini-3.8-flash", input_tokens=1_000_000, cached_tokens=800_000,

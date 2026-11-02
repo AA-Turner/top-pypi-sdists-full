@@ -1,0 +1,130 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2012-2017 Guillaume Ayoub
+# Copyright © 2017-2021 Unrud <unrud@outlook.com>
+# Copyright © 2026-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+The rights module used to determine if a user can read and/or write
+collections and entries.
+
+Permissions:
+
+  - R: read collections (excluding address books and calendars)
+  - r: read address book and calendar collections
+  - i: subset of **r** that only allows direct access via HTTP method GET
+       (CalDAV/CardDAV is susceptible to expensive search requests)
+  - f: read the free-busy time of a calendar, without event details
+       (**r** includes this)
+  - W: write collections (excluding address books and calendars)
+  - w: write address book and calendar collections
+  - D: allow deleting a collection in case permit_delete_collection=False (>= 3.3.0)
+  - d: deny deleting a collection in case permit_delete_collection=True (>= 3.3.0)
+  - O: allow overwriting a collection in case permit_overwrite_collection=False (>= 3.3.0)
+  - o: deny overwriting a collection in case permit_overwrite_collection=True (>= 3.3.0)
+  - T: permit create of token-based sharing of collection in case permit_create_token=False (>= 3.7.0)
+  - t: deny create of token-based sharing of collection in case permit_create_token=True (>= 3.7.0)
+  - M: permit create of map-based sharing of collection in case permit_create_map=False (>= 3.7.0)
+  - m: deny create of map-based sharing of collection in case permit_create_map=True (>= 3.7.0)
+  - P: permit properties overlay in case permit_properties_overlay=False (>= 3.7.0)
+  - p: deny properties overlay in case permit_properties_overlay=True (>= 3.7.0)
+  - E: enable enforce properties overlay in case enforce_properties_overlay=False (>= 3.7.0)
+  - e: disable enforce of properties overlay in case enforce_properties_overlay=True (>= 3.7.0)
+  - l: lock properties (disable write-properties) (>= 3.8.4)
+
+Permissions flags (automatically set by server):
+  - u: flag for group share with user placeholder (>= 3.8.0)
+  - U: flag for resolved group share with user (>= 3.8.0)
+
+Take a look at the class ``BaseRights`` if you want to implement your own.
+
+"""
+
+from typing import Sequence
+
+from radicale import config, utils
+
+INTERNAL_TYPES: Sequence[str] = ("authenticated", "owner_write", "owner_only",
+                                 "from_file")
+
+INTERNAL_PERMISSIONS: str = "RrifWwDdOoTtMmPpEel"
+INTERNAL_PERMISSIONS_ITEM: str = "rwdDoD"  # used in radicale/app/base.py
+
+
+def load(configuration: "config.Configuration") -> "BaseRights":
+    """Load the rights module chosen in configuration."""
+    return utils.load_plugin(INTERNAL_TYPES, "rights", "Rights", BaseRights,
+                             configuration)
+
+
+def intersect(a: str, b: str) -> str:
+    """Intersect two lists of rights.
+
+    Returns all rights that are both in ``a`` and ``b``.
+
+    """
+    return "".join(set(a).intersection(set(b)))
+
+
+def remove(a: str, b: str) -> str:
+    """Remove rights from a defined in b
+
+    Returns all rights of ``a`` not listed in ``b``.
+
+    """
+    result = set(a)
+    for entry in set(b):
+        if entry in a:
+            result.remove(entry)
+    return "".join(result)
+
+
+def add(a: str, b: str) -> str:
+    """Add rights to a defined in b
+
+    Returns all rights of ``a`` and ``b``.
+
+    """
+    result = set(a)
+    for entry in set(b):
+        if entry not in a:
+            result.add(entry)
+    return "".join(result)
+
+
+class BaseRights:
+
+    def __init__(self, configuration: "config.Configuration") -> None:
+        """Initialize BaseRights.
+
+        ``configuration`` see ``radicale.config`` module.
+        The ``configuration`` must not change during the lifetime of
+        this object, it is kept as an internal reference.
+
+        """
+        self.configuration = configuration
+
+    def authorization(self, user: str, user_groups: set, path: str) -> str:
+        """Get granted rights of ``user`` for the collection ``path``.
+
+        If ``user`` is empty, check for anonymous rights.
+        Honor ``user_groups`` if given.
+
+        ``path`` is sanitized.
+
+        Returns granted rights (e.g. ``"RW"``).
+
+        """
+        raise NotImplementedError

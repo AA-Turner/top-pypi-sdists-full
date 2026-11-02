@@ -1,0 +1,248 @@
+"""A collection of tools for estimating physical properties based on chemical composition."""
+
+from __future__ import annotations
+
+import logging
+from typing import cast
+
+import numpy as np
+
+import smact
+from smact.utils.composition import parse_formula
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "band_gap_Harrison",
+    "compound_electroneg",
+    "eneg_mulliken",
+    "valence_electron_count",
+]
+
+
+def eneg_mulliken(element: smact.Element | str) -> float:
+    """
+    Get Mulliken electronegativity from the IE and EA.
+
+    Arguments:
+        element (smact.Element or str): Element object or symbol
+
+    Returns:
+        mulliken (float): Mulliken electronegativity
+
+    """
+    if isinstance(element, str):
+        element = smact.Element(element)
+    elif not isinstance(element, smact.Element):
+        msg = f"Unexpected type: {type(element)}"
+        raise TypeError(msg)
+
+    if element.ionpot is None or element.e_affinity is None:
+        msg = f"Ionisation potential or electron affinity data missing for {element.symbol}"
+        raise ValueError(msg)
+    return (element.ionpot + element.e_affinity) / 2.0
+
+
+def band_gap_Harrison(
+    anion: str,
+    cation: str,
+    distance: float | str = 2.0,
+) -> float:
+    """
+    Estimates the band gap from elemental data.
+
+    The band gap is estimated using the principles outlined in
+    Harrison's 1980 work "Electronic Structure and the Properties of
+    Solids: The Physics of the Chemical Bond".
+
+    Args:
+        anion (str): Element symbol of the dominant anion in the system
+        cation (str): Element symbol of the the dominant cation in the system
+        distance (float or str): Nuclear separation between anion and cation,
+            i.e. sum of ionic radii (in Angstroms). Default: 2.0.
+
+    Returns:
+        Band_gap (float): Band gap in eV
+
+    """
+    # Set constants
+    hbarsq_over_m = 7.62
+
+    # Get anion and cation
+    an = anion
+    cat = cation
+    d = float(distance)
+    if d <= 0:
+        msg = f"distance must be positive, got {d}"
+        raise ValueError(msg)
+
+    # Get elemental data:
+    elements_dict = smact.element_dictionary((an, cat))
+    an_el, cat_el = elements_dict[an], elements_dict[cat]
+
+    # Calculate values of equation components
+    v1_cat = (cat_el.eig - cat_el.eig_s) / 4
+    v1_an = (an_el.eig - an_el.eig_s) / 4
+    v1_bar = (v1_an + v1_cat) / 2
+    v2 = 2.16 * hbarsq_over_m / (d**2)
+    v3 = (cat_el.eig - an_el.eig) / 2
+    alpha_m = (1.11 * v1_bar) / np.sqrt(v2**2 + v3**2)
+
+    # Calculate Band gap [(3-43) Harrison 1980 ]
+    band_gap = (3.60 / 3.0) * (np.sqrt(v2**2 + v3**2)) * (1 - alpha_m)
+    logger.debug("V1_bar = %s", v1_bar)
+    logger.debug("V2 = %s", v2)
+    logger.debug("alpha_m = %s", alpha_m)
+    logger.debug("V3 = %s", v3)
+
+    return band_gap
+
+
+def _get_eneg_values(
+    elementlist: list[smact.Element],
+    source: str,
+) -> list[float]:
+    """Return per-element electronegativity values for the requested source.
+
+    Args:
+        elementlist: SMACT Element objects.
+        source: ``'Mulliken'`` or ``'Pauling'``.
+
+    Returns:
+        List of electronegativity floats, one per element.
+
+    Raises:
+        ValueError: If *source* is unrecognised or a Pauling value is missing.
+
+    """
+    if source == "Mulliken":
+        return [(el.ionpot + el.e_affinity) / 2.0 for el in elementlist]
+
+    if source == "Pauling":
+        eneg_list = [(2.86 * el.pauling_eneg) for el in elementlist if el.pauling_eneg is not None]
+        if len(eneg_list) != len(elementlist):
+            msg = "Some elements have no Pauling electronegativity; cannot use Pauling source."
+            raise ValueError(msg)
+        return eneg_list
+
+    msg = f"Electronegativity type '{source}' is not recognised"
+    raise ValueError(msg)
+
+
+def compound_electroneg(
+    elements: list[str | smact.Element] | None = None,
+    stoichs: list[int | float] | None = None,
+    source: str = "Mulliken",
+) -> float:
+    """
+    Estimate electronegativity of compound from elemental data.
+
+    Uses Mulliken electronegativity by default, which uses elemental
+    ionisation potentials and electron affinities. Alternatively, can
+    use Pauling electronegativity, re-scaled by factor 2.86 to achieve
+    same scale as Mulliken method (Nethercot, 1974)
+    DOI:10.1103/PhysRevLett.33.1088 .
+
+    Geometric mean is used (n-th root of product of components), e.g.:
+
+    X_Cu2S = (X_Cu * X_Cu * C_S)^(1/3)
+
+    Args:
+        elements (list) : Elements given as standard elemental symbols.
+        stoichs (list) : Stoichiometries, given as integers or floats.
+        source: String 'Mulliken' or 'Pauling'; type of Electronegativity to
+            use. Note that in SMACT, Pauling electronegativities are
+            rescaled to a Mulliken-like scale.
+
+    Returns:
+        Electronegativity (float) : Estimated electronegativity (no units).
+
+    """
+    if elements is None:
+        msg = "Please supply a list of element symbols or SMACT Element objects"
+        raise TypeError(msg)
+    if stoichs is None:
+        msg = "Please supply stoichiometries"
+        raise TypeError(msg)
+    if not elements:
+        msg = "Please supply a non-empty list of elements"
+        raise TypeError(msg)
+
+    if all(isinstance(e, str) for e in elements):
+        elementlist: list[smact.Element] = [smact.Element(e) for e in cast("list[str]", elements)]
+    elif all(isinstance(e, smact.Element) for e in elements):
+        elementlist = cast("list[smact.Element]", elements)
+    else:
+        msg = "Please supply a list of element symbols or SMACT Element objects (no mixed types)"
+        raise TypeError(msg)
+
+    stoichslist: list[int | float] = list(stoichs)
+    # Convert stoichslist from string to float
+    stoichslist = list(map(float, stoichslist))
+    if len(elementlist) != len(stoichslist):
+        msg = "elements and stoichs must have the same length"
+        raise ValueError(msg)
+    if any(s <= 0 for s in stoichslist):
+        msg = "All stoichiometries must be positive"
+        raise ValueError(msg)
+
+    # Get electronegativity values for each element
+    eneg_list = _get_eneg_values(elementlist, source)
+
+    logger.debug("Electronegativities of elements= %s", eneg_list)
+
+    # Raise each electronegativity to its appropriate power
+    # to account for stoichiometry.
+    eneg_list = [eneg**stoich for eneg, stoich in zip(eneg_list, stoichslist, strict=True)]
+
+    # Calculate geometric mean (n-th root of product)
+    prod = np.prod(eneg_list)
+    compelectroneg = (prod) ** (1.0 / (sum(stoichslist)))
+
+    logger.debug("Geometric mean = Compound 'electronegativity'= %s", compelectroneg)
+
+    return float(compelectroneg)
+
+
+def valence_electron_count(compound: str) -> float:
+    """
+    Calculate the Valence Electron Count (VEC) for a given chemical compound.
+
+    This function parses the input compound, extracts the elements and their
+    stoichiometries, and calculates the VEC using the valence electron data
+    from SMACT's Element class.
+
+    Args:
+        compound (str): Chemical formula of the compound (e.g., "Fe2O3").
+
+    Returns:
+        float: Valence Electron Count (VEC) for the compound.
+
+    Raises:
+        ValueError: If an element in the compound is not found in the valence data.
+    """
+
+    def get_element_valence(element: str) -> int:
+        try:
+            val = smact.Element(element).num_valence_modified
+        except KeyError:
+            msg = f"Valence data not found for element: {element}"
+            raise ValueError(msg) from None
+        if val is None:
+            msg = f"Valence data not found for element: {element}"
+            raise ValueError(msg)
+        return val
+
+    element_stoich = parse_formula(compound)
+
+    total_valence = 0
+    total_stoich = 0
+    for element, stoich in element_stoich.items():
+        valence = get_element_valence(element)
+        total_valence += stoich * valence
+        total_stoich += stoich
+
+    if total_stoich == 0:
+        return 0.0
+
+    return total_valence / total_stoich

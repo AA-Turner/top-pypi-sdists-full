@@ -1,0 +1,528 @@
+"""Check a scenario's planned route against an ODD before it runs.
+
+Before a run, the ego's route can be planned on the Lanelet2 map alone: from
+its spawn pose, through its waypoints, to its goal, as the shortest path in
+the map's routing graph (the path Autoware plans too, give or take its own
+costs).  The ODD's attributes that the map decides are then read lanelet by
+lanelet along it, and the ODD's modules judge each lanelet:
+
+* **outside**: the ODD fails whatever the attributes the map cannot decide
+  turn out to be at run time;
+* **inside**: the ODD holds, whatever they turn out to be;
+* **undecided**: it depends on them (weather, traffic, speed) or on values
+  the map does not have (a lanelet with no ``location`` tag).  At run time a
+  missing value counts as inside, so this is "inside only by assumption".
+
+The map decides an attribute when its probe has an ``on_lanelet`` form
+(``probe.on_lanelet(lanelet, lanelet_map, routing_graph)``): the built-in
+Lanelet2 probes, ``in_junction`` and ``lane_count`` do (see
+:mod:`~autoware_carla_scenario.odd.probes`), and a custom probe opts in by
+having one.  Every other attribute is open: it could take any value.  An
+attribute derived from others (OpenODD) is worked out from their values on
+the lanelet, and is open when one of them is.
+
+The metres the route spends in each bucket of each attribute the map decides
+are the run's *expected* coverage, and summed over a batch of scenarios they
+say which buckets no planned route reaches at all.
+
+The metres on each lanelet are the ones a vehicle following the route's
+poses drives: a lane change crosses from one lanelet to the one beside it
+once, at their middle unless the route begins past it or ends before it, so
+the stretch they run side by side is counted once, split between them; and a
+goal behind the start on the same lanelet is reached round the block, as
+far as the routing graph has a way back to it.
+
+The planning itself (:class:`PlannedRoute`, :func:`plan_route` and
+:class:`RouteError`) lives in :mod:`~autoware_carla_scenario.odd.route_plan`
+and is re-exported here under the same names.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence, Union
+
+from ..coverage.items import value_label
+from .model import UNDECIDED as _OPEN
+from .model import OddAttribute, OddDefinition
+from .registry import resolve_odd
+from .route_plan import PlannedRoute, RouteError, _lanelet, plan_route
+
+if TYPE_CHECKING:
+    import lanelet2.core
+    import lanelet2.routing
+
+    from ..scenario_base import BaseScenario
+
+__all__ = [
+    "MISSING_BUCKET",
+    "UNDECIDED_BUCKET",
+    "PlannedRoute",
+    "RouteCoverage",
+    "RouteCoverageSummary",
+    "RouteError",
+    "RouteLanelet",
+    "combine_route_coverage",
+    "lanelet_buckets",
+    "lanelet_readings",
+    "plan_route",
+    "plan_route_coverage",
+]
+
+logger = logging.getLogger(__name__)
+
+#: Pseudo-bucket for metres on lanelets where the map says nothing (``None``).
+MISSING_BUCKET = "<missing>"
+#: Pseudo-bucket for metres on lanelets where only the run can tell the value.
+UNDECIDED_BUCKET = "<undecided>"
+
+INSIDE = "inside"
+OUTSIDE = "outside"
+UNDECIDED = "undecided"
+
+
+@dataclass
+class RouteLanelet:
+    """One lanelet of a planned route, and the ODD's verdict on it."""
+
+    lanelet_id: int
+    #: Metres of the route on this lanelet.
+    length_m: float
+    #: ``"inside"``, ``"outside"`` or ``"undecided"``.
+    verdict: str
+    #: Every attribute's value on it, by name: ``None`` when the map says
+    #: nothing, :data:`~autoware_carla_scenario.odd.model.UNDECIDED` when
+    #: only the run can tell.
+    values: dict[str, Any] = field(default_factory=dict)
+    #: The modules that do not hold on it (an outside lanelet's reasons).
+    failing_modules: list[str] = field(default_factory=list)
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "lanelet_id": self.lanelet_id,
+            "length_m": round(self.length_m, 3),
+            "verdict": self.verdict,
+            "values": {k: _describe_value(v) for k, v in self.values.items()},
+            "failing_modules": list(self.failing_modules),
+        }
+
+
+@dataclass
+class RouteCoverage:
+    """An ODD's verdict on one planned route, and the coverage it is expected to give."""
+
+    odd: str
+    name: str
+    lanelets: list[RouteLanelet]
+    #: Attribute name -> bucket label -> metres, for the attributes with
+    #: buckets.  :data:`UNDECIDED_BUCKET` and :data:`MISSING_BUCKET` hold the
+    #: metres where the map does not decide the value or has none.
+    expected_m: dict[str, dict[str, float]]
+    #: The attributes the map decides (their probe reads a lanelet).
+    map_attributes: list[str]
+
+    def _metres(self, verdict: str) -> float:
+        return sum(ll.length_m for ll in self.lanelets if ll.verdict == verdict)
+
+    @property
+    def length_m(self) -> float:
+        return sum(ll.length_m for ll in self.lanelets)
+
+    @property
+    def inside_m(self) -> float:
+        return self._metres(INSIDE)
+
+    @property
+    def outside_m(self) -> float:
+        return self._metres(OUTSIDE)
+
+    @property
+    def undecided_m(self) -> float:
+        return self._metres(UNDECIDED)
+
+    @property
+    def leaves_odd(self) -> bool:
+        """Whether the route drives on a lanelet outside the ODD whatever the run does."""
+        return bool(self.outside())
+
+    @property
+    def lanelet_ids(self) -> list[int]:
+        return [ll.lanelet_id for ll in self.lanelets]
+
+    def outside(self) -> list[RouteLanelet]:
+        """The lanelets the route drives on that are outside the ODD whatever the run does.
+
+        A lanelet the route only touches (a goal at its very start) is not
+        driven on, so it does not take the route outside.
+        """
+        return [
+            ll for ll in self.lanelets if ll.verdict == OUTSIDE and ll.length_m > 0.0
+        ]
+
+    def undecided(self) -> list[RouteLanelet]:
+        """The lanelets inside the ODD only if the run's values allow it."""
+        return [ll for ll in self.lanelets if ll.verdict == UNDECIDED]
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "odd": self.odd,
+            "lanelet_ids": self.lanelet_ids,
+            "length_m": round(self.length_m, 3),
+            "inside_m": round(self.inside_m, 3),
+            "undecided_m": round(self.undecided_m, 3),
+            "outside_m": round(self.outside_m, 3),
+            "leaves_odd": self.leaves_odd,
+            "map_attributes": list(self.map_attributes),
+            "expected_m": _round_buckets(self.expected_m),
+            "lanelets": [ll.describe() for ll in self.lanelets],
+        }
+
+
+@dataclass
+class RouteCoverageSummary:
+    """The routes of a batch of scenarios together."""
+
+    odd: str
+    routes: list[RouteCoverage]
+    #: Attribute name -> bucket label -> metres, summed over the routes.
+    expected_m: dict[str, dict[str, float]]
+    #: Attribute name -> the labels of its buckets inside the ODD (not ruled
+    #: out by it) that no route reaches, for the attributes the map decides.
+    unreached: dict[str, list[str]]
+    #: Attributes the map decides in general but not on every lanelet of
+    #: these routes (metres in :data:`UNDECIDED_BUCKET`): the run may reach
+    #: any of their buckets there, so none is called unreached.
+    undetermined: list[str] = field(default_factory=list)
+
+    @property
+    def leaving(self) -> list[str]:
+        """The routes that leave the ODD."""
+        return [r.name for r in self.routes if r.leaves_odd]
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "odd": self.odd,
+            "routes": [r.name for r in self.routes],
+            "leaving_odd": self.leaving,
+            "expected_m": _round_buckets(self.expected_m),
+            "unreached": {k: list(v) for k, v in self.unreached.items()},
+            "undetermined": list(self.undetermined),
+        }
+
+
+def _describe_value(value: Any) -> Any:
+    if value is _OPEN:
+        return UNDECIDED
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return value_label(value)
+
+
+def _round_buckets(buckets: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
+    return {a: {k: round(v, 3) for k, v in b.items()} for a, b in buckets.items()}
+
+
+# ---------------------------------------------------------------------------
+# Evaluating the route
+# ---------------------------------------------------------------------------
+
+
+def _on_lanelet(attribute: OddAttribute) -> Any:
+    return getattr(attribute.probe, "on_lanelet", None)
+
+
+def _map_attributes(odd: OddDefinition) -> list[str]:
+    """The attributes the map decides: their probe reads a lanelet.
+
+    A derived attribute is one when every attribute it derives from is.
+    """
+    decided = {a.name for a in odd.attributes if callable(_on_lanelet(a))}
+    for attribute in odd.attributes:
+        sources = attribute.derived_from
+        if attribute.derived and sources:
+            if all(s in decided for s in sources):
+                decided.add(attribute.name)
+    return [a.name for a in odd.attributes if a.name in decided]
+
+
+def _read_on_lanelet(read: Any, lanelet: Any, lanelet_map: Any, graph: Any) -> Any:
+    try:
+        return read(lanelet, lanelet_map, graph)
+    except Exception:  # noqa: BLE001 - a probe that raises reads nothing
+        logger.debug("on_lanelet failed on lanelet %s", lanelet.id, exc_info=True)
+        return None
+
+
+def _lanelet_values(
+    odd: OddDefinition, lanelet: Any, lanelet_map: Any, routing_graph: Any
+) -> dict[str, Any]:
+    """Every attribute's value on *lanelet*: open where the map cannot tell."""
+    values: dict[str, Any] = {}
+    derived: list[OddAttribute] = []
+    for attribute in odd.attributes:
+        if attribute.derived:
+            derived.append(attribute)
+            continue
+        read = _on_lanelet(attribute)
+        values[attribute.name] = (
+            _read_on_lanelet(read, lanelet, lanelet_map, routing_graph)
+            if callable(read)
+            else _OPEN
+        )
+    if not derived:
+        return values
+    worked_out = odd.complete(values)
+    for attribute in derived:
+        names = attribute.derived_from or list(values)
+        value = worked_out.get(attribute.name)
+        if value is None and any(values.get(n, _OPEN) is _OPEN for n in names):
+            value = _OPEN  # missing because a source is open: open too
+        values[attribute.name] = value
+    return values
+
+
+def _bucket(attribute: OddAttribute, value: Any) -> Optional[str]:
+    item = attribute.item
+    if item is None:
+        return None
+    if value is _OPEN:
+        return UNDECIDED_BUCKET
+    if value is None:
+        return MISSING_BUCKET
+    try:
+        return item.bucket_of(value)
+    except (TypeError, ValueError):
+        return value_label(value)
+
+
+def lanelet_readings(
+    odd: OddDefinition, lanelet: Any, lanelet_map: Any, routing_graph: Any
+) -> dict[str, tuple[str, Any]]:
+    """``(bucket, value)`` of every attribute the map decides on *lanelet*,
+    by name.
+
+    An attribute the map leaves open there (:data:`UNDECIDED_BUCKET`), or
+    says nothing of (:data:`MISSING_BUCKET`), is left out, as is one that is
+    not covered (no buckets).
+    """
+    decided = set(_map_attributes(odd))
+    values = _lanelet_values(odd, lanelet, lanelet_map, routing_graph)
+    found: dict[str, tuple[str, Any]] = {}
+    for attribute in odd.attributes:
+        if attribute.name not in decided:
+            continue
+        value = values.get(attribute.name, _OPEN)
+        bucket = _bucket(attribute, value)
+        if bucket is None or bucket in (UNDECIDED_BUCKET, MISSING_BUCKET):
+            continue
+        found[attribute.name] = (bucket, value)
+    return found
+
+
+def lanelet_buckets(
+    odd: OddDefinition, lanelet: Any, lanelet_map: Any, routing_graph: Any
+) -> dict[str, str]:
+    """The bucket of every attribute the map decides on *lanelet*, by name
+    (:func:`lanelet_readings` without the values)."""
+    readings = lanelet_readings(odd, lanelet, lanelet_map, routing_graph)
+    return {name: bucket for name, (bucket, _value) in readings.items()}
+
+
+def _route_of(scenario_or_route: Any) -> Union[PlannedRoute, list[int]]:
+    if isinstance(scenario_or_route, PlannedRoute):
+        return scenario_or_route
+    if hasattr(scenario_or_route, "ego_config") and hasattr(
+        scenario_or_route, "waypoint_poses"
+    ):
+        return PlannedRoute.of_scenario(scenario_or_route)
+    if isinstance(scenario_or_route, (str, bytes)):
+        raise TypeError("a route is a PlannedRoute, a scenario or lanelet ids")
+    try:
+        ids = [int(x) for x in scenario_or_route]
+    except (TypeError, ValueError) as exc:
+        raise TypeError(
+            "a route is a PlannedRoute, a scenario or lanelet ids, not "
+            f"{type(scenario_or_route).__name__}"
+        ) from exc
+    if not ids:
+        raise RouteError("an empty route")
+    return ids
+
+
+def _loaded_map(routing_graph: Any) -> tuple[Any, Any]:
+    """The map the ``MapManager`` has loaded, and its routing graph."""
+    from ..coordinate.map_manager import MapManager  # noqa: PLC0415
+
+    manager = MapManager.get_instance()
+    try:
+        lanelet_map = manager.lanelet_map
+    except RuntimeError as exc:
+        raise RouteError(
+            "no Lanelet2 map loaded: pass lanelet_map (and routing_graph)"
+        ) from exc
+    return (
+        lanelet_map,
+        manager.routing_graph if routing_graph is None else routing_graph,
+    )
+
+
+def plan_route_coverage(
+    odd: Union[OddDefinition, str, None],
+    scenario_or_route: Union["BaseScenario", PlannedRoute, Iterable[int]],
+    *,
+    lanelet_map: Optional[lanelet2.core.LaneletMap] = None,
+    routing_graph: Optional[lanelet2.routing.RoutingGraph] = None,
+    name: str = "",
+) -> RouteCoverage:
+    """The ODD's verdict on a planned route, lanelet by lanelet, and its expected coverage.
+
+    Args:
+        odd: The ODD, or what names it (as the ``odd`` config key does).
+        scenario_or_route: A scenario (its spawn pose, waypoints and goal), a
+            :class:`PlannedRoute`, or the route's lanelet ids in order (taken
+            whole, as they are).
+        lanelet_map: The Lanelet2 map.  ``None`` takes the one the
+            ``MapManager`` has loaded.
+        routing_graph: Its routing graph; built from *lanelet_map* (with the
+            framework's traffic rules) when ``None``.
+        name: What the report calls the route.
+
+    Raises:
+        RouteError: if the route cannot be planned, or there is no map.
+    """
+    odd = resolve_odd(odd)
+    route = _route_of(scenario_or_route)
+    if lanelet_map is None:
+        lanelet_map, routing_graph = _loaded_map(routing_graph)
+    if routing_graph is None:
+        from ..sweeper.constraints import create_routing_graph  # noqa: PLC0415
+
+        routing_graph = create_routing_graph(lanelet_map)
+
+    if isinstance(route, PlannedRoute):
+        name = name or route.name
+        planned = plan_route(route, lanelet_map, routing_graph)
+    else:
+        import lanelet2.geometry  # noqa: PLC0415
+
+        planned = [
+            (i, float(lanelet2.geometry.length2d(_lanelet(lanelet_map, i, "route"))))
+            for i in route
+        ]
+
+    map_attributes = _map_attributes(odd)
+    # Situations are what to drive: one that fails is no reason to be outside.
+    situations = {m.name for m in odd.situations()}
+    expected: dict[str, dict[str, float]] = {
+        a.name: {} for a in odd.attributes if a.item is not None
+    }
+    lanelets: list[RouteLanelet] = []
+    for lanelet_id, metres in planned:
+        lanelet = lanelet_map.laneletLayer[lanelet_id]
+        values = _lanelet_values(odd, lanelet, lanelet_map, routing_graph)
+        verdict = odd.evaluate(values)
+        lanelets.append(
+            RouteLanelet(
+                lanelet_id=lanelet_id,
+                length_m=metres,
+                verdict=(
+                    OUTSIDE
+                    if not verdict.inside
+                    else UNDECIDED
+                    if verdict.assumed
+                    else INSIDE
+                ),
+                values=values,
+                failing_modules=[
+                    m
+                    for m, v in verdict.modules.items()
+                    if v is False and m not in situations
+                ],
+            )
+        )
+        if metres <= 0.0:
+            continue  # touched, not driven on: no coverage
+        for attribute in odd.attributes:
+            label = _bucket(attribute, values[attribute.name])
+            if label is not None:
+                buckets = expected[attribute.name]
+                buckets[label] = buckets.get(label, 0.0) + metres
+    return RouteCoverage(
+        odd=odd.name,
+        name=name or "route",
+        lanelets=lanelets,
+        expected_m=_in_bucket_order(odd, expected),
+        map_attributes=map_attributes,
+    )
+
+
+def _in_bucket_order(
+    odd: OddDefinition, expected: dict[str, dict[str, float]]
+) -> dict[str, dict[str, float]]:
+    """*expected* with each attribute's buckets in its cover item's order, then the rest."""
+    out: dict[str, dict[str, float]] = {}
+    for attribute in odd.attributes:
+        if attribute.item is None or attribute.name not in expected:
+            continue
+        buckets = expected[attribute.name]
+        order = {label: i for i, label in enumerate(attribute.item.labels)}
+        out[attribute.name] = dict(
+            sorted(
+                buckets.items(), key=lambda kv: (order.get(kv[0], len(order)), kv[0])
+            )
+        )
+    for name, buckets in expected.items():
+        out.setdefault(name, buckets)
+    return out
+
+
+def combine_route_coverage(
+    odd: Union[OddDefinition, str, None], routes: Sequence[RouteCoverage]
+) -> RouteCoverageSummary:
+    """The expected coverage of *routes* together, and the buckets none reaches.
+
+    Only the attributes the map decides are said to leave buckets unreached:
+    the others are read at run time, which no route says anything about.  A
+    bucket the ODD rules out is not a target, so it is not unreached either.
+    An attribute the map leaves undecided on some lanelet of a route (a
+    ``speed_limit_kph`` lanelet with no tag) could reach any bucket there: it
+    is reported as undetermined rather than with unreached buckets.
+    """
+    odd = resolve_odd(odd)
+    expected: dict[str, dict[str, float]] = {
+        a.name: {} for a in odd.attributes if a.item is not None
+    }
+    for route in routes:
+        for attribute_name, buckets in route.expected_m.items():
+            total = expected.setdefault(attribute_name, {})
+            for label, metres in buckets.items():
+                total[label] = total.get(label, 0.0) + metres
+    expected = _in_bucket_order(odd, expected)
+    map_attributes = set(_map_attributes(odd))
+    unreached: dict[str, list[str]] = {}
+    undetermined: list[str] = []
+    for attribute in odd.attributes:
+        item = attribute.item
+        if item is None or attribute.name not in map_attributes:
+            continue
+        if expected.get(attribute.name, {}).get(UNDECIDED_BUCKET, 0.0) > 0.0:
+            undetermined.append(attribute.name)
+            continue
+        outside = set(odd.outside_buckets(attribute))
+        reached = expected.get(attribute.name, {})
+        missing = [
+            label
+            for label in item.labels
+            if label not in outside and reached.get(label, 0.0) <= 0.0
+        ]
+        if missing:
+            unreached[attribute.name] = missing
+    return RouteCoverageSummary(
+        odd=odd.name,
+        routes=list(routes),
+        expected_m=expected,
+        unreached=unreached,
+        undetermined=undetermined,
+    )

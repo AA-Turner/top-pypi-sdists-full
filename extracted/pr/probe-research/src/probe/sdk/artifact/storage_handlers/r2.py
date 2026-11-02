@@ -1,23 +1,5 @@
-"""Many uploads of one run in two requests plus their PUTs.
-
-`POST /v1/runs/{id}/artifacts/uploads/many` presigns up to 100 files, PUTs run in
-parallel, `POST /v1/artifacts/confirm/many` confirms: two round trips per window
-instead of two per file. The outbox drain's parallel window
-(`journal._prefetch_uploads`) sends a run's small queued uploads through here.
-
-Failures stay the per-row path's: a file whose check, presign, PUT or confirm
-was not clean is left out of the result and the drain sends that op alone, so it
-is classified, retried or dead-lettered as before. Nothing here decides an op's fate.
-
-The presign asks for direct-to-storage links (`X-Probe-Direct-Upload`). A PUT
-that cannot reach that host (connect, DNS, TLS) or is refused leaves the file to
-the per-op path (API relay); this process then stops asking that server for
-direct links, so a machine behind an egress allowlist pays for one miss.
-
-A server without the doors (route-miss 404 or 405), or a credential they are not
-open to, is remembered per server and credential for `MISSING_TTL_SECONDS`;
-uploads go one per op meanwhile.
-"""
+"""Many uploads of one run in two requests plus their PUTs: the drain's parallel window presigns,
+PUTs and confirms up to 100 files; anything not clean goes back to the per-op path (DESIGN.md)."""
 
 from __future__ import annotations
 

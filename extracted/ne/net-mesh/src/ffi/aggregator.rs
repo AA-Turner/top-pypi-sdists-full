@@ -1,0 +1,1267 @@
+//! C FFI bindings for the aggregator-registry RPC client +
+//! fold-query client + channel-visibility setter
+//! (`SDK_AGGREGATOR_SUBNET_PLAN.md` stages 5 + 4-fold-query).
+//!
+//! Boundary conventions mirror `ffi::mesh`: opaque handles
+//! freed via dedicated `_free`, scalar ids as `u64`, JSON
+//! strings via `CString::into_raw` freed by the caller via
+//! `net_free_string`. Caller safety contract is identical to
+//! `ffi::mesh` / `ffi::cortex`; `clippy::missing_safety_doc`
+//! suppressed at the module level for the same rationale.
+#![allow(clippy::missing_safety_doc)]
+#![expect(
+    clippy::undocumented_unsafe_blocks,
+    reason = "module-wide FFI safety contract documented in ffi::mod.rs preamble"
+)]
+
+use std::ffi::{c_char, c_int, CStr, CString};
+use std::mem::ManuallyDrop;
+use std::time::Duration;
+
+use parking_lot::{Mutex as ParkingMutex, RwLock as ParkingRwLock};
+
+use super::handle_guard::{BeginFree, HandleGuard, FFI_HANDLE_FREE_DEADLINE};
+
+use crate::adapter::net::behavior::aggregator::{
+    FoldQueryClient, FoldQueryClientError, FoldQueryErrorKind, FoldQueryV2ClientError,
+    RegistryClient, RegistryClientError, RegistryGroupSummary, RegistryRpcError,
+    SummaryAnnouncement, SummaryRecord, DEFAULT_QUERY_DEADLINE, DEFAULT_REGISTRY_DEADLINE,
+};
+use crate::adapter::net::{ChannelConfig, ChannelId, ChannelName, Visibility};
+
+use super::mesh::MeshNodeHandle;
+
+// ─── Error-kind discriminants (locked across SDKs) ───
+//
+// Declared for C in include/net.h. `.github/scripts/check-c-abi.py`
+// fails if a value here and its header differ.
+
+/// Server handler rejected: no summarizer registered under the
+/// requested fold kind. Only emitted by
+/// `net_fold_query_client_*` ops.
+pub const NET_REGISTRY_ERR_UNKNOWN_KIND: i32 = 7;
+
+/// `net_registry_client_*` op succeeded.
+pub const NET_REGISTRY_OK: i32 = 0;
+/// Transport-level failure (no route, timeout, server returned
+/// a non-Ok status before invoking the handler).
+pub const NET_REGISTRY_ERR_TRANSPORT: i32 = 1;
+/// Request serialization or response deserialization failed.
+pub const NET_REGISTRY_ERR_CODEC: i32 = 2;
+/// Server handler rejected: no template by that name.
+pub const NET_REGISTRY_ERR_UNKNOWN_TEMPLATE: i32 = 3;
+/// Server handler rejected: a group by that name is already
+/// registered.
+pub const NET_REGISTRY_ERR_DUPLICATE_GROUP_NAME: i32 = 4;
+/// Server handler rejected for a daemon-defined reason
+/// (config validation, replica spawn failed, etc.).
+pub const NET_REGISTRY_ERR_SPAWN_REJECTED: i32 = 5;
+/// Server doesn't accept dynamic spawn (read-only daemon).
+pub const NET_REGISTRY_ERR_SPAWN_NOT_SUPPORTED: i32 = 6;
+/// Server handler rejected `Scale`: no group by that name is
+/// registered on the target.
+pub const NET_REGISTRY_ERR_UNKNOWN_GROUP: i32 = 8;
+/// Server handler rejected `Scale` for a daemon-defined reason
+/// (template mismatch, replica spawn/stop failure, etc.).
+pub const NET_REGISTRY_ERR_SCALE_REJECTED: i32 = 9;
+/// Server doesn't accept dynamic scale (no scale handler
+/// installed).
+pub const NET_REGISTRY_ERR_SCALE_NOT_SUPPORTED: i32 = 10;
+/// Server refused: the caller is not an operator of the target
+/// daemon's aggregator registry (see `RegistryAdminPolicy`), or, from the
+/// fold-query calls, the caller is outside the daemon's summary visibility
+/// and not an operator.
+pub const NET_REGISTRY_ERR_UNAUTHORIZED: i32 = 11;
+/// The target does not serve `fold.query.v2`: it answered `NotFound` for
+/// the service. Only emitted by `net_fold_query_client_query_group_*`.
+///
+/// Only a node without a channel registry answers that way, typically an
+/// aggregator daemon from before v2. Such a daemon serves no v1
+/// `fold.query` either, so this is not a cue to retry the v1 calls. A node
+/// with a registry that lacks v2 fails as `NET_REGISTRY_ERR_TRANSPORT`
+/// instead, and so does one too old to answer at all (a timeout).
+pub const NET_REGISTRY_ERR_SERVER_TOO_OLD: i32 = 12;
+/// Caller-side error: a string argument wasn't valid UTF-8 or
+/// a pointer was null where one was required.
+pub const NET_REGISTRY_ERR_INVALID_ARGS: i32 = 99;
+
+// ─── Visibility discriminants ───
+
+/// Wire-equivalent of [`Visibility`]. Values are
+/// representation-stable across SDK releases — operator code
+/// referring to them by literal value (not just by name) stays
+/// correct. Mirrors every substrate variant 1-to-1; mirror order
+/// is sorted by tier-broadness for operator readability.
+#[repr(i32)]
+#[derive(Copy, Clone)]
+pub enum NetVisibility {
+    /// Mirrors [`Visibility::Global`] — visible everywhere.
+    Global = 0,
+    /// Mirrors [`Visibility::ParentVisible`].
+    ParentVisible = 1,
+    /// Mirrors [`Visibility::Exported`] — explicit per-subnet export list.
+    Exported = 2,
+    /// Mirrors [`Visibility::SubnetLocal`] — packets never leave the subnet.
+    SubnetLocal = 3,
+}
+
+impl NetVisibility {
+    fn from_raw(raw: i32) -> Option<Visibility> {
+        match raw {
+            0 => Some(Visibility::Global),
+            1 => Some(Visibility::ParentVisible),
+            2 => Some(Visibility::Exported),
+            3 => Some(Visibility::SubnetLocal),
+            _ => None,
+        }
+    }
+
+    /// Compile-time exhaustiveness check in the *opposite*
+    /// direction — every substrate [`Visibility`] variant must
+    /// have a wire-stable C ABI counterpart. If the substrate
+    /// gains a variant, this `match` stops compiling, forcing
+    /// the FFI maintainer to either add the discriminant + bump
+    /// the wire contract or explicitly accept the omission with
+    /// `_ => None`. Without this, [`from_raw`] would silently
+    /// reject the new variant and operator code referring to it
+    /// by literal value would see a NULL handle / ERR_INVALID
+    /// instead of a typed wire error.
+    #[allow(dead_code)] // existence is the check
+    fn to_raw(v: Visibility) -> NetVisibility {
+        match v {
+            Visibility::Global => NetVisibility::Global,
+            Visibility::ParentVisible => NetVisibility::ParentVisible,
+            Visibility::Exported => NetVisibility::Exported,
+            Visibility::SubnetLocal => NetVisibility::SubnetLocal,
+        }
+    }
+}
+
+// ─── Handle ───
+
+/// FFI handle for a [`RegistryClient`].
+///
+/// The inner client is wrapped in a `RwLock` so concurrent ops
+/// (entry points are called from many threads in async runtimes)
+/// can share read access while a `set_deadline` writer
+/// serializes. `last_error_detail` lives behind a separate
+/// `parking_lot::Mutex`; [`net_registry_last_error_detail`]
+/// returns an owned copy of its contents (freed with
+/// `net_free_string`), so the returned pointer never aliases this
+/// mutex-owned slot and can't dangle on overwrite/free.
+///
+/// Uses the same `HandleGuard` quiescing recipe as the
+/// cortex/mesh/redis-dedup handles (see [`super::handle_guard`]):
+/// the inner fields live in `ManuallyDrop`, every op gates on
+/// `guard.try_enter()`, and `_free` drains in-flight ops via
+/// `begin_free()` before dropping the inner — the box itself is
+/// leaked, never `Box::from_raw`'d, so a `_free` racing a
+/// concurrent op can't deallocate the lock out from under it.
+pub struct RegistryClientHandle {
+    client: ManuallyDrop<ParkingRwLock<RegistryClient>>,
+    last_error_detail: ManuallyDrop<ParkingMutex<Option<CString>>>,
+    guard: HandleGuard,
+}
+
+// ─── Constructor / free / builder ───
+
+/// Construct a `RegistryClient` against an existing
+/// [`MeshNodeHandle`]. Returns a handle the caller frees via
+/// [`net_registry_client_free`]. Returns NULL on null input.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_new(
+    mesh_handle: *mut MeshNodeHandle,
+) -> *mut RegistryClientHandle {
+    if mesh_handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    // Gated clone of the mesh node — `None` means the mesh handle is
+    // being freed concurrently; surface a null handle rather than
+    // racing the inner out of `ManuallyDrop`.
+    let Some(mesh_arc) = (unsafe { super::mesh::mesh_node_arc(&*mesh_handle) }) else {
+        return std::ptr::null_mut();
+    };
+    let boxed = Box::new(RegistryClientHandle {
+        client: ManuallyDrop::new(ParkingRwLock::new(RegistryClient::new(mesh_arc))),
+        last_error_detail: ManuallyDrop::new(ParkingMutex::new(None)),
+        guard: HandleGuard::new(),
+    });
+    Box::into_raw(boxed)
+}
+
+/// Free a `RegistryClient` handle produced by
+/// [`net_registry_client_new`]. Idempotent on NULL and on a
+/// second call (the `begin_free` single-winner contract gates the
+/// inner drop). Quiesces in-flight ops before dropping the inner;
+/// the box stays leaked so a concurrent op can't UAF the handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_free(handle: *mut RegistryClientHandle) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &RegistryClientHandle = unsafe { &*handle };
+    match h.guard.begin_free_detailed(FFI_HANDLE_FREE_DEADLINE) {
+        BeginFree::Drained => {
+            // SAFETY: drained; sole writable reference. Box leaked.
+            unsafe {
+                ManuallyDrop::drop(&mut (*handle).client);
+                ManuallyDrop::drop(&mut (*handle).last_error_detail);
+            }
+        }
+        // Benign repeat free — a prior call owns the inner; nothing
+        // to do and nothing leaked by this call.
+        BeginFree::AlreadyFreeing => {}
+        BeginFree::TimedOut => {
+            tracing::warn!(
+                "net_registry_client_free: in-flight ops did not drain within deadline; \
+                 leaking inner to avoid use-after-free"
+            );
+        }
+    }
+}
+
+/// Override the per-call deadline in milliseconds. `millis == 0`
+/// resets to the substrate default. Safe to call concurrently
+/// with in-flight ops; the writer takes the inner lock briefly
+/// and any concurrent reader either observes the old or the new
+/// deadline (no torn read).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_set_deadline(
+    handle: *mut RegistryClientHandle,
+    millis: u64,
+) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &RegistryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return,
+    };
+    let deadline = if millis == 0 {
+        DEFAULT_REGISTRY_DEADLINE
+    } else {
+        Duration::from_millis(millis)
+    };
+    h.client.write().set_deadline_mut(deadline);
+}
+
+// ─── Op-handler internals ───
+//
+// Every public `net_registry_client_*` op shares the same six
+// steps: null-check, parse CStr args, snapshot the client under
+// the read lock, await the substrate call, classify+store-detail
+// on error, write the out param. The `dispatch_*` + `write_*`
+// helpers below capture each step once.
+
+/// Set `*out` if non-null and return the JSON pointer + status.
+/// Op handlers funnel every success / failure path through this
+/// so the null-check on `out_error_kind` is centralized.
+#[inline]
+unsafe fn write_kind(out: *mut c_int, kind: c_int) {
+    if !out.is_null() {
+        unsafe { *out = kind };
+    }
+}
+
+/// Read a NUL-terminated UTF-8 string argument and return an
+/// owned `String`, or set the out-param to `INVALID_ARGS` +
+/// return `None` if the pointer is null or the bytes aren't
+/// valid UTF-8.
+#[inline]
+unsafe fn cstr_arg(ptr: *const c_char, out: *mut c_int) -> Option<String> {
+    if ptr.is_null() {
+        unsafe { write_kind(out, NET_REGISTRY_ERR_INVALID_ARGS) };
+        return None;
+    }
+    match unsafe { CStr::from_ptr(ptr).to_str() } {
+        Ok(s) => Some(s.to_owned()),
+        Err(_) => {
+            unsafe { write_kind(out, NET_REGISTRY_ERR_INVALID_ARGS) };
+            None
+        }
+    }
+}
+
+/// Convert a JSON string into a heap-allocated `*mut c_char` the
+/// caller frees with `net_free_string`. Returns NULL + sets the
+/// out-param to `CODEC` if the string contains an embedded NUL.
+#[inline]
+unsafe fn json_to_raw(json: String, out: *mut c_int) -> *mut c_char {
+    match CString::new(json) {
+        Ok(s) => {
+            unsafe { write_kind(out, NET_REGISTRY_OK) };
+            s.into_raw()
+        }
+        Err(_) => {
+            unsafe { write_kind(out, NET_REGISTRY_ERR_CODEC) };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Funnel for any registry op that returns a JSON string.
+/// Takes a closure that produces `Result<String, RegistryClientError>`
+/// (the JSON-encoding step is the caller's responsibility because
+/// the substrate type varies per op).
+unsafe fn registry_op_json<F>(
+    handle: *mut RegistryClientHandle,
+    out_error_kind: *mut c_int,
+    op: F,
+) -> *mut c_char
+where
+    F: FnOnce(RegistryClient) -> Result<String, RegistryClientError>,
+{
+    if handle.is_null() {
+        unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+        return std::ptr::null_mut();
+    }
+    let h: &RegistryClientHandle = unsafe { &*handle };
+    // Hold the guard ONLY long enough to clone the inner client (an
+    // Arc-backed handle that keeps the mesh node alive on its own).
+    // Bail with INVALID_ARGS (same shape as a NULL handle) if `_free`
+    // has begun. Dropping the guard before the blocking RPC means a
+    // concurrent `_free` never waits on the (caller-settable, possibly
+    // multi-second) op deadline — so it can't time out and leak the
+    // inner; the op simply completes against its own clone.
+    let client = match h.guard.try_enter() {
+        Some(_op) => h.client.read().clone(),
+        None => {
+            unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+            return std::ptr::null_mut();
+        }
+    };
+    match op(client) {
+        Ok(json) => unsafe { json_to_raw(json, out_error_kind) },
+        Err(e) => {
+            let (kind, detail) = classify(&e);
+            // Re-enter only to record the detail; if the handle is now
+            // being freed, drop it (a freed handle won't be queried).
+            if let Some(_op) = h.guard.try_enter() {
+                store_error_detail(h, detail);
+            }
+            unsafe { write_kind(out_error_kind, kind) };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+// ─── Operations ───
+
+/// Enumerate groups on `target_node_id`. Returns a JSON-encoded
+/// `[RegistryGroupSummaryJson]` string the caller frees via
+/// `net_free_string`. On error, writes the error kind to
+/// `*out_error_kind` and returns NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_list(
+    handle: *mut RegistryClientHandle,
+    target_node_id: u64,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    if out_error_kind.is_null() {
+        return std::ptr::null_mut();
+    }
+    unsafe {
+        registry_op_json(handle, out_error_kind, |client| {
+            block_on(client.list(target_node_id)).map(|groups| groups_to_json(&groups))
+        })
+    }
+}
+
+/// Spawn a new group by referencing a daemon-side template.
+/// `template_name` + `group_name` are NUL-terminated UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_spawn(
+    handle: *mut RegistryClientHandle,
+    target_node_id: u64,
+    template_name: *const c_char,
+    group_name: *const c_char,
+    replica_count: u8,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    let Some(template) = (unsafe { cstr_arg(template_name, out_error_kind) }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(group) = (unsafe { cstr_arg(group_name, out_error_kind) }) else {
+        return std::ptr::null_mut();
+    };
+    unsafe {
+        registry_op_json(handle, out_error_kind, |client| {
+            block_on(client.spawn(target_node_id, template, group, replica_count))
+                .map(|summary| group_to_json(&summary))
+        })
+    }
+}
+
+/// Tear down a registered group by name. Returns `1` when the
+/// group existed and was stopped, `0` when no such group was
+/// registered, `-1` on transport / codec / invalid-args
+/// failure (consult `out_error_kind`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_client_unregister(
+    handle: *mut RegistryClientHandle,
+    target_node_id: u64,
+    group_name: *const c_char,
+    out_error_kind: *mut c_int,
+) -> c_int {
+    if handle.is_null() {
+        unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+        return -1;
+    }
+    let Some(group) = (unsafe { cstr_arg(group_name, out_error_kind) }) else {
+        return -1;
+    };
+    let h: &RegistryClientHandle = unsafe { &*handle };
+    // Guard held only for the clone — see `registry_op_json` for why
+    // the blocking RPC runs unguarded.
+    let client = match h.guard.try_enter() {
+        Some(_op) => h.client.read().clone(),
+        None => {
+            unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+            return -1;
+        }
+    };
+    match block_on(client.unregister(target_node_id, group)) {
+        Ok(existed) => {
+            unsafe { write_kind(out_error_kind, NET_REGISTRY_OK) };
+            if existed {
+                1
+            } else {
+                0
+            }
+        }
+        Err(e) => {
+            let (kind, detail) = classify(&e);
+            if let Some(_op) = h.guard.try_enter() {
+                store_error_detail(h, detail);
+            }
+            unsafe { write_kind(out_error_kind, kind) };
+            -1
+        }
+    }
+}
+
+/// Get the operator-facing detail string for the most recent
+/// non-OK op on this handle. Returns a freshly-allocated,
+/// NUL-terminated C string that the **caller owns and must free
+/// with `net_free_string`**. Returns NULL when no error has been
+/// recorded.
+///
+/// An owned copy (rather than a borrow into the handle) is
+/// deliberate: a borrowed pointer into the handle's
+/// `Mutex`-owned `CString` would dangle the moment a concurrent
+/// op overwrote the slot or `_free` dropped the inner — a
+/// use-after-free under the multi-threaded usage this handle
+/// advertises. We snapshot under the lock and hand back an
+/// independent allocation, so the returned pointer's lifetime is
+/// the caller's alone.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_registry_last_error_detail(
+    handle: *mut RegistryClientHandle,
+) -> *mut c_char {
+    if handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    let h: &RegistryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let guard = h.last_error_detail.lock();
+    match guard.as_ref() {
+        // Clone the contents out from under the lock into a fresh
+        // allocation the caller frees with `net_free_string`.
+        Some(c) => c.clone().into_raw(),
+        None => std::ptr::null_mut(),
+    }
+}
+
+// ─── Visibility setter ───
+
+/// Register a channel with a specific [`Visibility`] tier.
+/// Mirrors `Mesh::register_channel` from the Rust SDK at the C
+/// boundary. `visibility` is an [`i32`] matching the
+/// [`NetVisibility`] discriminants.
+///
+/// Returns `NET_REGISTRY_OK` on success or a typed error code.
+/// Operator-facing detail (e.g. "invalid channel name") is
+/// written to a side-channel: the substrate logs via `tracing`
+/// — no per-call detail string is allocated at this layer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_register_channel(
+    mesh_handle: *mut MeshNodeHandle,
+    name: *const c_char,
+    visibility: c_int,
+) -> c_int {
+    if mesh_handle.is_null() || name.is_null() {
+        return NET_REGISTRY_ERR_INVALID_ARGS;
+    }
+    let vis = match NetVisibility::from_raw(visibility) {
+        Some(v) => v,
+        None => return NET_REGISTRY_ERR_INVALID_ARGS,
+    };
+    let name_str = match unsafe { CStr::from_ptr(name).to_str() } {
+        Ok(s) => s,
+        Err(_) => return NET_REGISTRY_ERR_INVALID_ARGS,
+    };
+    let channel = match ChannelName::new(name_str) {
+        Ok(c) => c,
+        Err(_) => return NET_REGISTRY_ERR_INVALID_ARGS,
+    };
+    // Use the mesh's installed ChannelConfigRegistry. The
+    // mesh-FFI's net_mesh_new always installs one, so this is
+    // safe; if it ever changes, the registry being `None` is
+    // surfaced as NET_REGISTRY_ERR_INVALID_ARGS.
+    let Some(mesh_arc) = (unsafe { super::mesh::mesh_node_arc(&*mesh_handle) }) else {
+        return NET_REGISTRY_ERR_INVALID_ARGS;
+    };
+    let Some(configs) = mesh_arc.channel_configs() else {
+        return NET_REGISTRY_ERR_INVALID_ARGS;
+    };
+    let cfg = ChannelConfig::new(ChannelId::new(channel)).with_visibility(vis);
+    configs.insert(cfg);
+    NET_REGISTRY_OK
+}
+
+// ─── FoldQueryClient handle ───
+
+/// FFI handle for a [`FoldQueryClient`]. Same sync model as
+/// [`RegistryClientHandle`]: the inner client lives behind a
+/// `RwLock` so `set_ttl` / `set_deadline` writers serialize with
+/// in-flight ops, and the cache (held by the inner client's
+/// `Arc<RwLock<HashMap<...>>>`) survives deadline / TTL changes.
+///
+/// Same `HandleGuard` quiescing recipe as
+/// [`RegistryClientHandle`].
+pub struct FoldQueryClientHandle {
+    client: ManuallyDrop<ParkingRwLock<FoldQueryClient>>,
+    last_error_detail: ManuallyDrop<ParkingMutex<Option<CString>>>,
+    guard: HandleGuard,
+}
+
+/// Construct a `FoldQueryClient` against an existing
+/// [`MeshNodeHandle`]. Returns a handle the caller frees via
+/// [`net_fold_query_client_free`]. Returns NULL on null input.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_new(
+    mesh_handle: *mut MeshNodeHandle,
+) -> *mut FoldQueryClientHandle {
+    if mesh_handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    let Some(mesh_arc) = (unsafe { super::mesh::mesh_node_arc(&*mesh_handle) }) else {
+        return std::ptr::null_mut();
+    };
+    let boxed = Box::new(FoldQueryClientHandle {
+        client: ManuallyDrop::new(ParkingRwLock::new(FoldQueryClient::new(mesh_arc))),
+        last_error_detail: ManuallyDrop::new(ParkingMutex::new(None)),
+        guard: HandleGuard::new(),
+    });
+    Box::into_raw(boxed)
+}
+
+/// Free a `FoldQueryClient` handle. Idempotent on NULL and on a
+/// second call. Quiesces in-flight ops before dropping the inner;
+/// the box stays leaked so a concurrent op can't UAF the handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_free(handle: *mut FoldQueryClientHandle) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    match h.guard.begin_free_detailed(FFI_HANDLE_FREE_DEADLINE) {
+        BeginFree::Drained => {
+            // SAFETY: drained; sole writable reference. Box leaked.
+            unsafe {
+                ManuallyDrop::drop(&mut (*handle).client);
+                ManuallyDrop::drop(&mut (*handle).last_error_detail);
+            }
+        }
+        // Benign repeat free — a prior call owns the inner; nothing
+        // to do and nothing leaked by this call.
+        BeginFree::AlreadyFreeing => {}
+        BeginFree::TimedOut => {
+            tracing::warn!(
+                "net_fold_query_client_free: in-flight ops did not drain within deadline; \
+                 leaking inner to avoid use-after-free"
+            );
+        }
+    }
+}
+
+/// Override the cache TTL in milliseconds. `millis == 0` disables
+/// the cache entirely. Mutates in place — the warmed cache
+/// survives the adjustment.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_set_ttl(
+    handle: *mut FoldQueryClientHandle,
+    millis: u64,
+) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return,
+    };
+    h.client.write().set_ttl_mut(Duration::from_millis(millis));
+}
+
+/// Override the per-call deadline in milliseconds. `millis == 0`
+/// resets to the substrate default. Mutates in place.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_set_deadline(
+    handle: *mut FoldQueryClientHandle,
+    millis: u64,
+) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return,
+    };
+    let deadline = if millis == 0 {
+        DEFAULT_QUERY_DEADLINE
+    } else {
+        Duration::from_millis(millis)
+    };
+    h.client.write().set_deadline_mut(deadline);
+}
+
+/// Query the aggregator's latest cached summaries. Cache hit
+/// returns immediately; miss issues a wire RPC, caches the
+/// response, and returns. Returns a JSON-encoded
+/// `[SummaryAnnouncementJson]` string the caller frees via
+/// `net_free_string`.
+///
+/// On failure returns NULL and writes `NET_REGISTRY_ERR_UNKNOWN_KIND`,
+/// `NET_REGISTRY_ERR_UNAUTHORIZED` (a daemon refused the caller: outside
+/// its summary visibility and not an operator), `TRANSPORT`, `CODEC` or
+/// `INVALID_ARGS`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_query_latest(
+    handle: *mut FoldQueryClientHandle,
+    target_node_id: u64,
+    kind: u16,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    if out_error_kind.is_null() {
+        return std::ptr::null_mut();
+    }
+    unsafe {
+        fold_query_op_json(handle, out_error_kind, |client| {
+            block_on(client.query_latest(target_node_id, kind))
+                .map(|summaries| summaries_to_json(&summaries))
+        })
+    }
+}
+
+/// Force a fresh `SummarizeNow` query — never cached. Same error kinds as
+/// [`net_fold_query_client_query_latest`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_query_summarize_now(
+    handle: *mut FoldQueryClientHandle,
+    target_node_id: u64,
+    kind: u16,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    if out_error_kind.is_null() {
+        return std::ptr::null_mut();
+    }
+    unsafe {
+        fold_query_op_json(handle, out_error_kind, |client| {
+            block_on(client.query_summarize_now(target_node_id, kind))
+                .map(|summaries| summaries_to_json(&summaries))
+        })
+    }
+}
+
+/// `fold.query.v2` latest summaries for `kind`, from the group named by
+/// `group` (a NUL-terminated UTF-8 string), or from every group on the
+/// target daemon aggregating `kind` when `group` is NULL. Cached like
+/// [`net_fold_query_client_query_latest`].
+///
+/// Returns a JSON array of records the caller frees with
+/// `net_free_string`: `[{"group", "summary", "refresh_ms", "boot_epoch",
+/// "stream_seq"}]`, where `summary` is the object
+/// [`net_fold_query_client_query_latest`] returns and the last three are
+/// `null` until the daemon fills them in. On failure returns NULL and
+/// writes the kind:
+/// - `NET_REGISTRY_ERR_SERVER_TOO_OLD`: the target answered `NotFound` for
+///   v2 (a registry-less node without v2; not a cue to retry v1, see the
+///   constant);
+/// - `NET_REGISTRY_ERR_UNKNOWN_GROUP`: `group` names no group there;
+/// - `NET_REGISTRY_ERR_UNKNOWN_KIND`: no queried group aggregates `kind`;
+/// - `NET_REGISTRY_ERR_UNAUTHORIZED`: the caller is outside the daemon's
+///   summary visibility and not an operator;
+/// - otherwise `TRANSPORT`, `CODEC` or `INVALID_ARGS`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_query_group_latest(
+    handle: *mut FoldQueryClientHandle,
+    target_node_id: u64,
+    kind: u16,
+    group: *const c_char,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    if out_error_kind.is_null() {
+        return std::ptr::null_mut();
+    }
+    let Some(group) = (unsafe { optional_cstr_arg(group, out_error_kind) }) else {
+        return std::ptr::null_mut();
+    };
+    unsafe {
+        fold_query_op_json_with(handle, out_error_kind, classify_fold_query_v2, |client| {
+            block_on(client.query_group_latest(target_node_id, kind, group.as_deref()))
+                .map(|records| records_to_json(&records))
+        })
+    }
+}
+
+/// `fold.query.v2` `SummarizeNow`. Never cached. Same arguments, result
+/// and error kinds as [`net_fold_query_client_query_group_latest`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_query_group_summarize_now(
+    handle: *mut FoldQueryClientHandle,
+    target_node_id: u64,
+    kind: u16,
+    group: *const c_char,
+    out_error_kind: *mut c_int,
+) -> *mut c_char {
+    if out_error_kind.is_null() {
+        return std::ptr::null_mut();
+    }
+    let Some(group) = (unsafe { optional_cstr_arg(group, out_error_kind) }) else {
+        return std::ptr::null_mut();
+    };
+    unsafe {
+        fold_query_op_json_with(handle, out_error_kind, classify_fold_query_v2, |client| {
+            block_on(client.query_group_summarize_now(target_node_id, kind, group.as_deref()))
+                .map(|records| records_to_json(&records))
+        })
+    }
+}
+
+/// Drop every cached entry.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_invalidate_cache(
+    handle: *mut FoldQueryClientHandle,
+) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return,
+    };
+    h.client.read().invalidate_cache();
+}
+
+/// Drop only cache entries matching `target_node_id`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_client_invalidate_target(
+    handle: *mut FoldQueryClientHandle,
+    target_node_id: u64,
+) {
+    if handle.is_null() {
+        return;
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return,
+    };
+    h.client.read().invalidate_target(target_node_id);
+}
+
+/// Operator-facing detail string for the most recent non-OK
+/// fold-query op. Returns a freshly-allocated, caller-owned C
+/// string to be freed with `net_free_string` (NULL if no error
+/// recorded). Same owned-copy rationale as
+/// [`net_registry_last_error_detail`] — never a borrow into the
+/// handle, which would dangle on a concurrent overwrite/free.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_fold_query_last_error_detail(
+    handle: *mut FoldQueryClientHandle,
+) -> *mut c_char {
+    if handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let guard = h.last_error_detail.lock();
+    match guard.as_ref() {
+        Some(c) => c.clone().into_raw(),
+        None => std::ptr::null_mut(),
+    }
+}
+
+// ─── Internals ───
+
+/// Run a future to completion on the shared mesh-FFI tokio
+/// runtime. Same as `ffi::mesh::block_on` — re-uses that
+/// runtime so we don't fragment scheduling.
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    super::mesh::block_on(future)
+}
+
+/// Funnel for any v1 fold-query op that returns a JSON string.
+/// Mirror of [`registry_op_json`].
+unsafe fn fold_query_op_json<F>(
+    handle: *mut FoldQueryClientHandle,
+    out_error_kind: *mut c_int,
+    op: F,
+) -> *mut c_char
+where
+    F: FnOnce(FoldQueryClient) -> Result<String, FoldQueryClientError>,
+{
+    unsafe { fold_query_op_json_with(handle, out_error_kind, classify_fold_query, op) }
+}
+
+/// The fold-query funnel, generic over the op's error type: v1 and v2
+/// report through their own classifiers.
+unsafe fn fold_query_op_json_with<E, F>(
+    handle: *mut FoldQueryClientHandle,
+    out_error_kind: *mut c_int,
+    classify: fn(&E) -> (i32, String),
+    op: F,
+) -> *mut c_char
+where
+    F: FnOnce(FoldQueryClient) -> Result<String, E>,
+{
+    if handle.is_null() {
+        unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+        return std::ptr::null_mut();
+    }
+    let h: &FoldQueryClientHandle = unsafe { &*handle };
+    // Guard held only for the clone — see `registry_op_json` for why
+    // the blocking RPC runs unguarded (so a long op deadline can't
+    // make a concurrent `_free` time out and leak the inner).
+    let client = match h.guard.try_enter() {
+        Some(_op) => h.client.read().clone(),
+        None => {
+            unsafe { write_kind(out_error_kind, NET_REGISTRY_ERR_INVALID_ARGS) };
+            return std::ptr::null_mut();
+        }
+    };
+    match op(client) {
+        Ok(json) => unsafe { json_to_raw(json, out_error_kind) },
+        Err(e) => {
+            let (kind, detail) = classify(&e);
+            if let Some(_op) = h.guard.try_enter() {
+                store_fold_query_error_detail(h, detail);
+            }
+            unsafe { write_kind(out_error_kind, kind) };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// The `NET_REGISTRY_ERR_*` code for a fold-query error kind. The kind and
+/// detail come from core (`error_kind` / `detail`), the same mapping Node,
+/// Python and Go use, so the bindings cannot drift apart.
+fn fold_query_code(kind: FoldQueryErrorKind) -> i32 {
+    match kind {
+        FoldQueryErrorKind::Transport => NET_REGISTRY_ERR_TRANSPORT,
+        FoldQueryErrorKind::Codec => NET_REGISTRY_ERR_CODEC,
+        FoldQueryErrorKind::UnknownKind => NET_REGISTRY_ERR_UNKNOWN_KIND,
+        FoldQueryErrorKind::UnknownGroup => NET_REGISTRY_ERR_UNKNOWN_GROUP,
+        FoldQueryErrorKind::Unauthorized => NET_REGISTRY_ERR_UNAUTHORIZED,
+        FoldQueryErrorKind::ServerTooOld => NET_REGISTRY_ERR_SERVER_TOO_OLD,
+    }
+}
+
+fn classify_fold_query(err: &FoldQueryClientError) -> (i32, String) {
+    (fold_query_code(err.error_kind()), err.detail())
+}
+
+fn classify_fold_query_v2(err: &FoldQueryV2ClientError) -> (i32, String) {
+    (fold_query_code(err.error_kind()), err.detail())
+}
+
+/// An optional string argument: NULL means `None`; a non-NULL pointer must
+/// be valid UTF-8, or the out-param is set to `INVALID_ARGS`.
+#[inline]
+unsafe fn optional_cstr_arg(ptr: *const c_char, out: *mut c_int) -> Option<Option<String>> {
+    if ptr.is_null() {
+        return Some(None);
+    }
+    unsafe { cstr_arg(ptr, out) }.map(Some)
+}
+
+fn store_fold_query_error_detail(h: &FoldQueryClientHandle, detail: String) {
+    let c = match CString::new(detail) {
+        Ok(c) => c,
+        Err(_) => CString::new("invalid utf-8 in error detail").unwrap_or_default(),
+    };
+    *h.last_error_detail.lock() = Some(c);
+}
+
+fn summaries_to_json(summaries: &[SummaryAnnouncement]) -> String {
+    let wire: Vec<SummaryWire<'_>> = summaries.iter().map(SummaryWire::from).collect();
+    // `to_string` only fails on serializer-side issues — none of
+    // our wire types have non-string map keys or Float NaN — so
+    // the unwrap is unreachable. Defensive `to_string`-on-error
+    // keeps the FFI surface infallible.
+    serde_json::to_string(&wire).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn records_to_json(records: &[SummaryRecord]) -> String {
+    let wire: Vec<RecordWire<'_>> = records
+        .iter()
+        .map(|r| RecordWire {
+            group: &r.group,
+            summary: SummaryWire::from(&r.summary),
+            refresh_ms: r.refresh_ms,
+            boot_epoch: r.boot_epoch,
+            stream_seq: r.stream_seq,
+        })
+        .collect();
+    serde_json::to_string(&wire).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// One `fold.query.v2` record in the C ABI's JSON.
+#[derive(serde::Serialize)]
+struct RecordWire<'a> {
+    group: &'a str,
+    summary: SummaryWire<'a>,
+    refresh_ms: Option<u32>,
+    boot_epoch: Option<u64>,
+    stream_seq: Option<u32>,
+}
+
+#[cfg(test)]
+fn summary_to_json(s: &SummaryAnnouncement) -> String {
+    serde_json::to_string(&SummaryWire::from(s)).unwrap_or_else(|_| "{}".to_string())
+}
+
+#[derive(serde::Serialize)]
+struct SummaryWire<'a> {
+    fold_kind: u16,
+    source_subnet: String,
+    generation: u64,
+    buckets: Vec<BucketWire<'a>>,
+}
+
+#[derive(serde::Serialize)]
+struct BucketWire<'a> {
+    name: &'a str,
+    count: u64,
+}
+
+impl<'a> From<&'a SummaryAnnouncement> for SummaryWire<'a> {
+    fn from(s: &'a SummaryAnnouncement) -> Self {
+        Self {
+            fold_kind: s.fold_kind,
+            source_subnet: format!("{}", s.source_subnet),
+            generation: s.generation,
+            buckets: s
+                .buckets
+                .iter()
+                .map(|(n, c)| BucketWire {
+                    name: n.as_str(),
+                    count: *c,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Map a `RegistryClientError` to `(error_kind, detail_string)`.
+fn classify(err: &RegistryClientError) -> (i32, String) {
+    match err {
+        RegistryClientError::Transport(e) => (NET_REGISTRY_ERR_TRANSPORT, format!("{e}")),
+        RegistryClientError::Codec(c) => (NET_REGISTRY_ERR_CODEC, c.clone()),
+        RegistryClientError::Server(RegistryRpcError::DecodeFailed(s)) => {
+            (NET_REGISTRY_ERR_CODEC, format!("server decode: {s}"))
+        }
+        RegistryClientError::Server(RegistryRpcError::UnknownTemplate(t)) => (
+            NET_REGISTRY_ERR_UNKNOWN_TEMPLATE,
+            format!("unknown template: {t}"),
+        ),
+        RegistryClientError::Server(RegistryRpcError::DuplicateGroupName(n)) => (
+            NET_REGISTRY_ERR_DUPLICATE_GROUP_NAME,
+            format!("duplicate group name: {n}"),
+        ),
+        RegistryClientError::Server(RegistryRpcError::SpawnRejected(d)) => (
+            NET_REGISTRY_ERR_SPAWN_REJECTED,
+            format!("spawn rejected: {d}"),
+        ),
+        RegistryClientError::Server(RegistryRpcError::SpawnNotSupported) => (
+            NET_REGISTRY_ERR_SPAWN_NOT_SUPPORTED,
+            "daemon is read-only (no spawn handler installed)".to_string(),
+        ),
+        RegistryClientError::Server(RegistryRpcError::UnknownGroup(g)) => (
+            NET_REGISTRY_ERR_UNKNOWN_GROUP,
+            format!("unknown group: {g}"),
+        ),
+        RegistryClientError::Server(RegistryRpcError::ScaleRejected(d)) => (
+            NET_REGISTRY_ERR_SCALE_REJECTED,
+            format!("scale rejected: {d}"),
+        ),
+        RegistryClientError::Server(RegistryRpcError::ScaleNotSupported) => (
+            NET_REGISTRY_ERR_SCALE_NOT_SUPPORTED,
+            "daemon doesn't accept dynamic scale (no scaler installed)".to_string(),
+        ),
+        RegistryClientError::Server(RegistryRpcError::Unauthorized) => (
+            NET_REGISTRY_ERR_UNAUTHORIZED,
+            "caller is not an operator of the target daemon's aggregator registry".to_string(),
+        ),
+    }
+}
+
+fn store_error_detail(h: &RegistryClientHandle, detail: String) {
+    let c = match CString::new(detail) {
+        Ok(c) => c,
+        Err(_) => CString::new("invalid utf-8 in error detail").unwrap_or_default(),
+    };
+    *h.last_error_detail.lock() = Some(c);
+}
+
+/// Encode the wire-contract JSON for a slice of registry-group
+/// summaries via `serde_json`. The substrate types serialize their
+/// byte arrays as arrays of u8; the proxy wire-types below render them
+/// as hex strings instead.
+///
+/// **Breaking:** `group_seed_hex` (64 chars, the raw seed) is replaced
+/// by `group_seed_fingerprint_hex` (16 chars). The seed
+/// deterministically derives every replica keypair, and a status API
+/// should not carry private key material — see
+/// `RegistryGroupSummary::group_seed_fingerprint`. Consumers using the
+/// old field to correlate groups should use the fingerprint;
+/// consumers using it to *derive replica keys* were relying on
+/// something that is not an authorization primitive and is often
+/// recomputable from the group name anyway.
+fn groups_to_json(groups: &[RegistryGroupSummary]) -> String {
+    let wire: Vec<GroupWire<'_>> = groups.iter().map(GroupWire::from).collect();
+    serde_json::to_string(&wire).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn group_to_json(g: &RegistryGroupSummary) -> String {
+    serde_json::to_string(&GroupWire::from(g)).unwrap_or_else(|_| "{}".to_string())
+}
+
+#[derive(serde::Serialize)]
+struct GroupWire<'a> {
+    name: &'a str,
+    group_seed_fingerprint_hex: String,
+    replicas: Vec<ReplicaWire<'a>>,
+}
+
+#[derive(serde::Serialize)]
+struct ReplicaWire<'a> {
+    generation: u64,
+    healthy: bool,
+    diagnostic: Option<&'a str>,
+    placement_node_id: Option<u64>,
+}
+
+impl<'a> From<&'a RegistryGroupSummary> for GroupWire<'a> {
+    fn from(g: &'a RegistryGroupSummary) -> Self {
+        Self {
+            name: g.name.as_str(),
+            group_seed_fingerprint_hex: g.group_seed_fingerprint.to_hex(),
+            replicas: g
+                .replicas
+                .iter()
+                .map(|r| ReplicaWire {
+                    generation: r.generation,
+                    healthy: r.healthy,
+                    diagnostic: r.diagnostic.as_deref(),
+                    placement_node_id: r.placement_node_id,
+                })
+                .collect(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::net::behavior::aggregator::FoldQueryError;
+
+    #[test]
+    fn visibility_round_trips_through_raw() {
+        for (raw, expected) in [
+            (0, Visibility::Global),
+            (1, Visibility::ParentVisible),
+            (2, Visibility::Exported),
+            (3, Visibility::SubnetLocal),
+        ] {
+            let back = NetVisibility::from_raw(raw).expect("known discriminant");
+            assert_eq!(format!("{back:?}"), format!("{expected:?}"));
+        }
+        assert!(NetVisibility::from_raw(99).is_none());
+        assert!(NetVisibility::from_raw(-1).is_none());
+    }
+
+    #[test]
+    fn group_to_json_includes_every_documented_field() {
+        let g = RegistryGroupSummary {
+            name: "alpha".into(),
+            group_seed_fingerprint: crate::adapter::net::behavior::aggregator::SeedFingerprint::of(
+                &[0xABu8; 32],
+            ),
+            source_subnet: crate::adapter::net::subnet::SubnetId::GLOBAL,
+            fold_kinds: vec![0x0001],
+            replicas: vec![
+                crate::adapter::net::behavior::aggregator::RegistryReplicaSummary {
+                    generation: 42,
+                    healthy: true,
+                    diagnostic: None,
+                    placement_node_id: Some(0xBEEF),
+                },
+                crate::adapter::net::behavior::aggregator::RegistryReplicaSummary {
+                    generation: 0,
+                    healthy: false,
+                    diagnostic: Some("stuck".into()),
+                    placement_node_id: None,
+                },
+            ],
+        };
+        let json = group_to_json(&g);
+        assert!(json.contains("\"name\":\"alpha\""));
+        // The seed itself must never appear: 32 bytes of 0xAB would
+        // render as 64 alternating "ab" chars.
+        let raw_seed_hex = "ab".repeat(32);
+        assert!(
+            !json.contains(&raw_seed_hex),
+            "the raw group seed was rendered into the wire JSON: {json}"
+        );
+        // The fingerprint is present, 16 hex chars, and is NOT a
+        // prefix of the seed rendering.
+        let fp =
+            crate::adapter::net::behavior::aggregator::SeedFingerprint::of(&[0xABu8; 32]).to_hex();
+        assert_eq!(fp.len(), 16);
+        assert!(
+            json.contains(&format!("\"group_seed_fingerprint_hex\":\"{fp}\"")),
+            "missing group_seed_fingerprint_hex in {json}"
+        );
+        assert!(json.contains("\"generation\":42"));
+        assert!(json.contains("\"healthy\":true"));
+        assert!(json.contains("\"diagnostic\":null"));
+        assert!(json.contains("\"placement_node_id\":48879"));
+        assert!(json.contains("\"healthy\":false"));
+        assert!(json.contains("\"diagnostic\":\"stuck\""));
+        assert!(json.contains("\"placement_node_id\":null"));
+    }
+
+    #[test]
+    fn summary_to_json_includes_every_documented_field() {
+        let s = SummaryAnnouncement {
+            fold_kind: 0x42,
+            source_subnet: crate::adapter::net::subnet::SubnetId::GLOBAL,
+            generation: 7,
+            buckets: vec![("alpha".into(), 1), ("beta".into(), 2)],
+        };
+        let json = summary_to_json(&s);
+        assert!(json.contains("\"fold_kind\":66"));
+        assert!(json.contains("\"source_subnet\":\"global\""));
+        assert!(json.contains("\"generation\":7"));
+        assert!(json.contains("\"name\":\"alpha\""));
+        assert!(json.contains("\"count\":1"));
+        assert!(json.contains("\"name\":\"beta\""));
+        assert!(json.contains("\"count\":2"));
+    }
+
+    #[test]
+    fn classify_fold_query_maps_every_variant() {
+        use crate::adapter::net::mesh_rpc::RpcError;
+        // Transport — anything carrying an RpcError lands on
+        // NET_REGISTRY_ERR_TRANSPORT regardless of the inner kind.
+        let transport = FoldQueryClientError::Transport(RpcError::NoRoute {
+            target: 0,
+            reason: String::new(),
+        });
+        assert_eq!(
+            classify_fold_query(&transport).0,
+            NET_REGISTRY_ERR_TRANSPORT
+        );
+
+        let codec = FoldQueryClientError::Codec("bad".into());
+        assert_eq!(classify_fold_query(&codec).0, NET_REGISTRY_ERR_CODEC);
+
+        let unknown_kind = FoldQueryClientError::Server(FoldQueryError::UnknownKind { kind: 0x42 });
+        let (kind_code, detail) = classify_fold_query(&unknown_kind);
+        assert_eq!(kind_code, NET_REGISTRY_ERR_UNKNOWN_KIND);
+        assert!(detail.contains("0x0042"));
+
+        let decode_failed =
+            FoldQueryClientError::Server(FoldQueryError::DecodeFailed("boom".into()));
+        assert_eq!(
+            classify_fold_query(&decode_failed).0,
+            NET_REGISTRY_ERR_CODEC,
+        );
+
+        // A daemon-level v1 refusal is its own kind, not transport.
+        let refused = FoldQueryClientError::from(RpcError::ServerError {
+            status: crate::adapter::net::behavior::aggregator::FOLD_QUERY_V1_NOT_AUTHORIZED,
+            message: String::new(),
+            headers: Vec::new(),
+        });
+        let (code, detail) = classify_fold_query(&refused);
+        assert_eq!(code, NET_REGISTRY_ERR_UNAUTHORIZED);
+        assert!(detail.contains("not an operator"), "{detail}");
+    }
+
+    /// v1 and v2 report the same detail text for the same failure, the
+    /// text Node and Python report too (they share `detail()`).
+    #[test]
+    fn classify_fold_query_v2_maps_every_variant_like_v1() {
+        use crate::adapter::net::behavior::aggregator::{FoldQueryV2Error, FOLD_QUERY_V2_SERVICE};
+        let cases = [
+            (
+                FoldQueryV2ClientError::ServerTooOld,
+                NET_REGISTRY_ERR_SERVER_TOO_OLD,
+                FOLD_QUERY_V2_SERVICE,
+            ),
+            (
+                FoldQueryV2ClientError::Codec("bad".into()),
+                NET_REGISTRY_ERR_CODEC,
+                "bad",
+            ),
+            (
+                FoldQueryV2ClientError::Server(FoldQueryV2Error::UnknownKind { kind: 0x42 }),
+                NET_REGISTRY_ERR_UNKNOWN_KIND,
+                "0x0042",
+            ),
+            (
+                FoldQueryV2ClientError::Server(FoldQueryV2Error::UnknownGroup("alpha".into())),
+                NET_REGISTRY_ERR_UNKNOWN_GROUP,
+                "alpha",
+            ),
+            (
+                FoldQueryV2ClientError::Server(FoldQueryV2Error::NotAuthorized),
+                NET_REGISTRY_ERR_UNAUTHORIZED,
+                "not an operator",
+            ),
+            (
+                FoldQueryV2ClientError::Server(FoldQueryV2Error::DecodeFailed("boom".into())),
+                NET_REGISTRY_ERR_CODEC,
+                "server-decode: boom",
+            ),
+        ];
+        for (err, want_code, want_detail) in cases {
+            let (code, detail) = classify_fold_query_v2(&err);
+            assert_eq!(code, want_code, "{err:?}");
+            assert!(detail.contains(want_detail), "{err:?}: {detail}");
+        }
+        // Same failure, same detail on v1 and v2.
+        assert_eq!(
+            classify_fold_query(&FoldQueryClientError::Server(FoldQueryError::UnknownKind {
+                kind: 0x42
+            }))
+            .1,
+            classify_fold_query_v2(&FoldQueryV2ClientError::Server(
+                FoldQueryV2Error::UnknownKind { kind: 0x42 }
+            ))
+            .1,
+        );
+    }
+}

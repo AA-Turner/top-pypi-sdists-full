@@ -1,0 +1,641 @@
+"""
+Hook Runner for PraisonAI Agents.
+
+Executes hooks registered in the registry, supporting both
+Python functions and shell commands.
+"""
+
+import os
+import json
+import time
+import asyncio
+from praisonaiagents._logging import get_logger
+import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional, Dict, Any
+
+from .types import (
+    HookEvent, HookDefinition, CommandHook, FunctionHook,
+    HookInput, HookResult, HookExecutionResult
+)
+from .registry import HookRegistry
+
+logger = get_logger(__name__)
+
+# Exit codes for command hooks
+EXIT_CODE_SUCCESS = 0
+EXIT_CODE_BLOCKING_ERROR = 2
+EXIT_CODE_NON_BLOCKING_ERROR = 1
+
+class HookRunner:
+    """
+    Executes hooks from a registry.
+    
+    Supports:
+    - Python function hooks (sync and async)
+    - Shell command hooks
+    - Sequential and parallel execution
+    - Timeout handling
+    - Result aggregation
+    
+    Example:
+        registry = HookRegistry()
+        runner = HookRunner(registry)
+        
+        # Execute hooks for an event
+        results = await runner.execute(
+            event=HookEvent.BEFORE_TOOL,
+            input_data=BeforeToolInput(
+                tool_name="write_file",
+                tool_input={"path": "/tmp/test.txt"}
+            )
+        )
+        
+        # Check if any hook blocked
+        if runner.is_blocked(results):
+            print("Tool execution blocked by hook")
+    """
+    
+    def __init__(
+        self,
+        registry: Optional[HookRegistry] = None,
+        default_timeout: float = 60.0,
+        cwd: Optional[str] = None
+    ):
+        """
+        Initialize the hook runner.
+        
+        Args:
+            registry: Hook registry to use
+            default_timeout: Default timeout for hooks
+            cwd: Working directory for command hooks
+        """
+        self._registry = registry if registry is not None else HookRegistry()
+        self._default_timeout = default_timeout
+        self._cwd = cwd or os.getcwd()
+        # Dedicated executor for sync hooks. A hook that times out cannot be
+        # cancelled and keeps its worker slot; isolating it here means a
+        # misbehaving hook can only exhaust hook capacity, never the loop's
+        # shared default executor that guardrails/tools/locks also rely on.
+        self._hook_pool: Optional[ThreadPoolExecutor] = None
+        # hook.id -> worker Future of a sync hook that ran past its timeout.
+        # It is cleared only when that worker finishes, so a stuck hook caps
+        # new launches at one leaked thread per hook. Healthy concurrent calls
+        # (e.g. parallel tool calls) are not tracked and never denied. A
+        # threading lock, because execute_sync() drives each call on its own
+        # event loop in the caller's thread.
+        self._stuck: Dict[str, Any] = {}
+        self._stuck_lock = threading.Lock()
+
+    def _release_stuck(self, hook_id: str, fut: Any) -> None:
+        """Clear the in-flight slot once the worker Future completes.
+
+        Only removes the entry if it still points at *this* Future, so a newer
+        reserved invocation is never clobbered by an older worker draining.
+        """
+        with self._stuck_lock:
+            if self._stuck.get(hook_id) is fut:
+                self._stuck.pop(hook_id, None)
+
+    def _get_hook_pool(self) -> ThreadPoolExecutor:
+        """Lazily create the dedicated sync-hook executor."""
+        if self._hook_pool is None:
+            self._hook_pool = ThreadPoolExecutor(
+                max_workers=8, thread_name_prefix="praison-hook"
+            )
+        return self._hook_pool
+    
+    @property
+    def registry(self) -> HookRegistry:
+        """Get the hook registry."""
+        return self._registry
+    
+    async def execute(
+        self,
+        event: HookEvent,
+        input_data: HookInput,
+        target: Optional[str] = None,
+        _hooks: Optional[List["HookDefinition"]] = None
+    ) -> List[HookExecutionResult]:
+        """
+        Execute all hooks for an event.
+        
+        Args:
+            event: The event to execute hooks for
+            input_data: Input data for the hooks
+            target: Optional target to filter hooks (e.g., tool name)
+            _hooks: Internal parameter to avoid duplicate get_hooks() calls
+            
+        Returns:
+            List of execution results
+        """
+        hooks = _hooks if _hooks is not None else self._registry.get_hooks(event, target)
+        
+        if not hooks:
+            return []
+        
+        # The registry hands us hooks already sorted by (priority, _seq), so the
+        # list is in the exact order the operator asked them to run. Preserve
+        # that global order across parallel/sequential boundaries: walk the list
+        # and run each *contiguous* run of same-mode hooks together. A redact
+        # (sequential, priority 10) that must precede a trace (parallel,
+        # priority 20) therefore still runs first — splitting all parallel hooks
+        # to the front would have leaked the unredacted input to the tracer.
+        # Adjacent parallel hooks are still gathered concurrently; only their
+        # position relative to a lower-priority sequential hook is respected.
+        results: List[HookExecutionResult] = []
+        current_input = input_data
+        i = 0
+        n = len(hooks)
+        while i < n:
+            j = i + 1
+            is_seq = hooks[i].sequential
+            while j < n and hooks[j].sequential == is_seq:
+                j += 1
+            run = hooks[i:j]
+            if is_seq:
+                run_results = await self._execute_sequential(run, event, current_input)
+                # A sequential run may have blocked; stop the whole chain so a
+                # later parallel group never runs after a denial (matches the
+                # sequential-hook break semantics).
+                results.extend(run_results)
+                if any(
+                    r.output and r.output.is_denied() for r in run_results
+                ):
+                    break
+            else:
+                run_results = await self._execute_parallel(
+                    run, event, current_input
+                )
+                results.extend(run_results)
+            i = j
+        
+        return results
+    
+    async def execute_async(
+        self,
+        event: HookEvent,
+        input_data: HookInput,
+        target: Optional[str] = None,
+        _hooks: Optional[List["HookDefinition"]] = None
+    ) -> List[HookExecutionResult]:
+        """Alias of execute() for call sites expecting an explicit async entry point."""
+        return await self.execute(event, input_data, target=target, _hooks=_hooks)
+    
+    def execute_sync(
+        self,
+        event: HookEvent,
+        input_data: HookInput,
+        target: Optional[str] = None
+    ) -> List[HookExecutionResult]:
+        """
+        Synchronous version of execute.
+        
+        Args:
+            event: The event to execute hooks for
+            input_data: Input data for the hooks
+            target: Optional target to filter hooks
+            
+        Returns:
+            List of execution results
+        """
+        # Fast path: no hooks → no loop creation needed
+        # This mirrors the same check in execute() but avoids event loop creation overhead
+        hooks = self._registry.get_hooks(event, target)
+        if not hooks:
+            return []
+
+        # Use the canonical sync-to-async bridge so blocking policy/guardrail
+        # hooks still run (and can deny) from a running event loop — e.g. a
+        # FastAPI/aiohttp handler, Jupyter, or a bot callback invoking
+        # agent.start()/agent.chat(). Raising here would turn documented sync
+        # entry points into hard failures whenever any hook is registered.
+        #
+        # Bound the bridge wait so a hook that ignores its own per-hook timeout
+        # (e.g. a blocking C call on the worker loop) can never pin the caller's
+        # thread forever. Each hook already enforces ``default_timeout``
+        # internally; we give the whole chain headroom of one timeout per hook
+        # so legitimately slow sequential chains are not cut short, while still
+        # providing a hard backstop instead of ``timeout=None``.
+        from ..utils.async_bridge import run_coroutine_from_any_context
+        bridge_timeout = max(self._default_timeout, 1.0) * (len(hooks) + 1)
+        return run_coroutine_from_any_context(
+            self.execute(event, input_data, target, _hooks=hooks),
+            timeout=bridge_timeout,
+        )
+    
+    async def _execute_parallel(
+        self,
+        hooks: List[HookDefinition],
+        event: HookEvent,
+        input_data: HookInput
+    ) -> List[HookExecutionResult]:
+        """Execute hooks in parallel."""
+        tasks = [
+            self._execute_single(hook, event, input_data)
+            for hook in hooks
+        ]
+        results = await asyncio.gather(*tasks)
+
+        # Parallel hooks cannot mutate input_data (only sequential hooks apply
+        # modified_input). Warn if a parallel hook returns modifications that
+        # will be silently discarded, so hook authors mark it sequential=True.
+        for hook, result in zip(hooks, results):
+            if result.success and result.output and result.output.modified_input:
+                logger.warning(
+                    "Parallel hook '%s' returned modified_input which is "
+                    "discarded; register it with sequential=True to apply it.",
+                    hook.name,
+                )
+        return results
+    
+    async def _execute_sequential(
+        self,
+        hooks: List[HookDefinition],
+        event: HookEvent,
+        input_data: HookInput
+    ) -> List[HookExecutionResult]:
+        """Execute hooks sequentially, passing modified input to next hook."""
+        results = []
+        current_input = input_data
+        
+        for hook in hooks:
+            result = await self._execute_single(hook, event, current_input)
+            results.append(result)
+            
+            # If hook modified the input, use it for next hook
+            if result.success and result.output and result.output.modified_input:
+                # Update input with modifications
+                for key, value in result.output.modified_input.items():
+                    if hasattr(current_input, key):
+                        setattr(current_input, key, value)
+            
+            # Stop if hook blocked
+            if result.output and result.output.is_denied():
+                break
+        
+        return results
+    
+    async def _execute_single(
+        self,
+        hook: HookDefinition,
+        event: HookEvent,
+        input_data: HookInput
+    ) -> HookExecutionResult:
+        """Execute a single hook."""
+        start_time = time.time()
+        
+        try:
+            if isinstance(hook, CommandHook):
+                return await self._execute_command_hook(hook, event, input_data, start_time)
+            elif isinstance(hook, FunctionHook):
+                return await self._execute_function_hook(hook, event, input_data, start_time)
+            else:
+                raise ValueError(f"Unknown hook type: {type(hook)}")
+        except Exception as e:
+            duration = (time.time() - start_time) * 1000
+            logger.warning(f"Hook '{hook.name}' failed: {e}")
+            # Fail closed: a hook that raises is treated as an explicit denial
+            # rather than a silent pass-through, so security gates (e.g.
+            # BEFORE_TOOL) correctly block instead of allowing the call. This
+            # matches the fail-closed posture used by GuardrailChain.
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=False,
+                error=str(e),
+                duration_ms=duration,
+                output=HookResult(decision="deny", reason=f"Hook '{hook.name}' raised: {e}")
+            )
+    
+    async def _execute_command_hook(
+        self,
+        hook: CommandHook,
+        event: HookEvent,
+        input_data: HookInput,
+        start_time: float
+    ) -> HookExecutionResult:
+        """Execute a command hook."""
+        timeout = hook.timeout or self._default_timeout
+        
+        # Prepare environment
+        env = os.environ.copy()
+        env.update(hook.env)
+        env["PRAISON_PROJECT_DIR"] = self._cwd
+        env["PRAISON_EVENT"] = event.value
+        
+        # Expand command variables
+        command = self._expand_command(hook.command, input_data)
+        
+        try:
+            # Create subprocess
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                cwd=self._cwd
+            )
+            
+            # Send input as JSON
+            input_json = json.dumps(input_data.to_dict()).encode()
+            
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(input=input_json),
+                    timeout=timeout
+                )
+            except asyncio.CancelledError:
+                # Caller cancelled (e.g. a shutdown deadline): don't orphan the child.
+                if process.returncode is None:
+                    process.kill()
+                raise
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                duration = (time.time() - start_time) * 1000
+                # Fail closed: a hook that times out is treated as a denial.
+                return HookExecutionResult(
+                    hook_id=hook.id,
+                    hook_name=hook.name or "unknown",
+                    event=event,
+                    success=False,
+                    error=f"Hook timed out after {timeout}s",
+                    duration_ms=duration,
+                    output=HookResult(decision="deny", reason=f"Hook '{hook.name}' timed out after {timeout}s")
+                )
+            
+            duration = (time.time() - start_time) * 1000
+            exit_code = process.returncode
+            stdout_str = stdout.decode() if stdout else ""
+            stderr_str = stderr.decode() if stderr else ""
+            
+            # Parse output
+            output = self._parse_command_output(stdout_str, stderr_str, exit_code)
+            
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=exit_code == EXIT_CODE_SUCCESS,
+                output=output,
+                stdout=stdout_str,
+                stderr=stderr_str,
+                exit_code=exit_code,
+                duration_ms=duration
+            )
+            
+        except Exception as e:
+            duration = (time.time() - start_time) * 1000
+            # Fail closed: a hook that raises is treated as a denial.
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=False,
+                error=str(e),
+                duration_ms=duration,
+                output=HookResult(decision="deny", reason=f"Hook '{hook.name}' raised: {e}")
+            )
+    
+    async def _execute_function_hook(
+        self,
+        hook: FunctionHook,
+        event: HookEvent,
+        input_data: HookInput,
+        start_time: float
+    ) -> HookExecutionResult:
+        """Execute a function hook."""
+        if hook.func is None:
+            duration = (time.time() - start_time) * 1000
+            # Fail closed: a hook with no callable cannot produce a verdict, so a
+            # gating event (BEFORE_TOOL) must block rather than silently allow.
+            # Without an ``output`` here ``is_blocked`` returned False and the tool
+            # ran — the same fail-open the exception/timeout paths already fix.
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=False,
+                error="Hook function is None",
+                duration_ms=duration,
+                output=HookResult(decision="deny", reason=f"Hook '{hook.name}' has no callable")
+            )
+        
+        timeout = hook.timeout or self._default_timeout
+        
+        try:
+            if hook.is_async:
+                # Execute async function with timeout
+                result = await asyncio.wait_for(
+                    hook.func(input_data),
+                    timeout=timeout
+                )
+            else:
+                # A previous invocation that timed out and is still running
+                # fails this one closed instead of leaking another thread.
+                with self._stuck_lock:
+                    prev = self._stuck.get(hook.id)
+                    if prev is not None and not prev.done():
+                        duration = (time.time() - start_time) * 1000
+                        return HookExecutionResult(
+                            hook_id=hook.id,
+                            hook_name=hook.name or "unknown",
+                            event=event,
+                            success=False,
+                            error="previous invocation still running past its timeout",
+                            duration_ms=duration,
+                            output=HookResult(
+                                decision="deny",
+                                reason=f"Hook '{hook.name}' is still running past its timeout",
+                            ),
+                        )
+
+                # Execute sync function in the dedicated hook pool with
+                # timeout. ``copy_context_to_callable`` preserves
+                # trace/session contextvars across the thread, matching
+                # other executor sites. A concurrent Future (not a loop-bound
+                # one) so the stuck-slot release works after the loop closes.
+                from ..trace.context_events import copy_context_to_callable
+                func = hook.func
+                data = input_data
+                fut = self._get_hook_pool().submit(
+                    copy_context_to_callable(lambda: func(data))
+                )
+                try:
+                    result = await asyncio.wait_for(
+                        asyncio.shield(asyncio.wrap_future(fut)), timeout=timeout
+                    )
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    # The worker cannot be cancelled; hold the slot until it
+                    # actually finishes.
+                    if not fut.done():
+                        with self._stuck_lock:
+                            self._stuck[hook.id] = fut
+                        fut.add_done_callback(
+                            lambda f, hid=hook.id: self._release_stuck(hid, f)
+                        )
+                    raise
+            
+            duration = (time.time() - start_time) * 1000
+            
+            # Normalize result - allow simple return values for easier hooks
+            # None, True, missing return → allow
+            # False → deny  
+            # str → deny with that reason
+            # dict with 'decision' → convert to HookResult
+            if result is None or result is True:
+                result = HookResult.allow()
+            elif result is False:
+                result = HookResult.deny("Denied by hook")
+            elif isinstance(result, str):
+                result = HookResult.deny(result)
+            elif isinstance(result, dict) and 'decision' in result:
+                result = HookResult(**result)
+            elif not isinstance(result, HookResult):
+                # Unknown type, treat as allow
+                result = HookResult.allow()
+            
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=True,
+                output=result,
+                duration_ms=duration
+            )
+            
+        except asyncio.TimeoutError:
+            duration = (time.time() - start_time) * 1000
+            # Fail closed: a hook that times out is treated as a denial so
+            # security gates (e.g. BEFORE_TOOL) block instead of allowing.
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=False,
+                error=f"Hook timed out after {timeout}s",
+                duration_ms=duration,
+                output=HookResult(decision="deny", reason=f"Hook '{hook.name}' timed out after {timeout}s")
+            )
+        except Exception as e:
+            duration = (time.time() - start_time) * 1000
+            # Fail closed: a hook that raises is treated as a denial rather than
+            # a silent pass-through, matching GuardrailChain's posture.
+            return HookExecutionResult(
+                hook_id=hook.id,
+                hook_name=hook.name or "unknown",
+                event=event,
+                success=False,
+                error=str(e),
+                duration_ms=duration,
+                output=HookResult(decision="deny", reason=f"Hook '{hook.name}' raised: {e}")
+            )
+    
+    def _expand_command(self, command: str, input_data: HookInput) -> str:
+        """Expand variables in command string."""
+        return command.replace(
+            "$PRAISON_PROJECT_DIR", self._cwd
+        ).replace(
+            "$PRAISON_CWD", input_data.cwd
+        )
+    
+    def _parse_command_output(
+        self,
+        stdout: str,
+        stderr: str,
+        exit_code: int
+    ) -> HookResult:
+        """Parse command output into HookResult."""
+        # Whether the process exited with a code we understand. Any other code
+        # (127 command-not-found, 126 not-executable, etc.) means the hook could
+        # not render a trustworthy verdict, so JSON stdout must not override it.
+        expected_exit = exit_code in (EXIT_CODE_SUCCESS, EXIT_CODE_BLOCKING_ERROR)
+
+        # Try to parse JSON from stdout
+        if stdout.strip():
+            try:
+                data = json.loads(stdout.strip())
+                
+                # Handle double-encoded JSON
+                if isinstance(data, str):
+                    data = json.loads(data)
+                
+                decision = data.get("decision", "allow")
+                # Fail closed: valid JSON with an ``allow`` decision must not
+                # bypass an unexpected exit code. A gating hook (BEFORE_TOOL)
+                # that prints allow-JSON but then crashes (e.g. exit 127) has
+                # not actually approved the call, so deny instead of allowing.
+                if decision == "allow" and not expected_exit:
+                    return HookResult(
+                        decision="deny",
+                        reason=(
+                            f"Hook exited with unexpected code {exit_code} "
+                            f"after emitting an allow decision: "
+                            f"{stderr.strip() or 'no stderr'}"
+                        )
+                    )
+                return HookResult(
+                    decision=decision,
+                    reason=data.get("reason"),
+                    modified_input=data.get("modified_input"),
+                    additional_context=data.get("additional_context"),
+                    suppress_output=data.get("suppress_output", False)
+                )
+            except json.JSONDecodeError:
+                pass
+        
+        # Convert exit code to decision
+        if exit_code == EXIT_CODE_SUCCESS:
+            return HookResult(
+                decision="allow",
+                additional_context=stdout.strip() if stdout.strip() else None
+            )
+        elif exit_code == EXIT_CODE_BLOCKING_ERROR:
+            return HookResult(
+                decision="deny",
+                reason=stderr.strip() or stdout.strip() or "Blocked by hook"
+            )
+        else:
+            # Fail closed: any *unexpected* exit code (e.g. 127 command-not-found,
+            # 126 not-executable, or any other non-zero, non-blocking code) means
+            # the hook could not render a verdict. Treating that as ``allow`` would
+            # silently bypass a gating hook (BEFORE_TOOL). Deny so the gate matches
+            # the fail-closed posture of the exception/timeout paths and
+            # GuardrailChain. Emitting a real HookResult (decision + reason) also
+            # keeps ``get_blocking_reason`` informative for the audit trail.
+            return HookResult(
+                decision="deny",
+                reason=(
+                    f"Hook exited with unexpected code {exit_code}: "
+                    f"{stderr.strip() or stdout.strip() or 'no output'}"
+                )
+            )
+    
+    @staticmethod
+    def is_blocked(results: List[HookExecutionResult]) -> bool:
+        """Check if any hook blocked execution."""
+        for result in results:
+            if result.output and result.output.is_denied():
+                return True
+        return False
+    
+    @staticmethod
+    def get_blocking_reason(results: List[HookExecutionResult]) -> Optional[str]:
+        """Get the reason for blocking from results."""
+        for result in results:
+            if result.output and result.output.is_denied():
+                return result.output.reason
+        return None
+    
+    @staticmethod
+    def aggregate_context(results: List[HookExecutionResult]) -> Optional[str]:
+        """Aggregate additional context from all results."""
+        contexts = []
+        for result in results:
+            if result.output and result.output.additional_context:
+                contexts.append(result.output.additional_context)
+        return "\n".join(contexts) if contexts else None

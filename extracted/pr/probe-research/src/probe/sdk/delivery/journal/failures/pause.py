@@ -1,10 +1,13 @@
 """pause and resume delivery with a marker file that expires, here or in a queue above."""
 
 from __future__ import annotations
+
 import json
 import os
-import time
 from pathlib import Path
+import time
+
+from probe.foundation.durable.durable import file_lock, write_text_atomic
 #: How long `probe outbox pause` holds delivery unless told otherwise. A pause had no end:
 #: nothing resumed it and every write the machine made afterwards (runs, files, metrics) queued
 #: silently behind it (Tokenless, 2026-10-26: a pause typed right after an aborted import held
@@ -28,20 +31,9 @@ def _parse_when(value):
 
 
 def _pause_marker(directory: Path) -> dict | None:
-    """The pause marker in ``directory`` while in effect, else None: ``{"at", "until"}`` in UTC,
-    ``until`` None holding until `probe outbox resume`.
-
-    - An older CLI's marker (a bare timestamp from when a pause never ended, or anything not a
-      JSON object) is over: an update releases what it held at once (Richard, 2026-10-26) and
-      `lift_stale_pause` deletes it. A pause an older CLI still on the machine types later is
-      over too, the price of that.
-    - A JSON object holds until its `until` (None: until resume). One whose `until` is missing
-      or unreadable (a newer release's shape) holds DEFAULT_PAUSE_HOURS from its `at`, else from
-      when it was written: never ended early here.
-    - One that cannot be read (permissions, I/O, a symlink, not a regular file) holds,
-      `{"at": None, "until": None}`: unknown is paused, and only `resume` deletes it.
-
-    Never raises: this runs on every append and before every CLI command (one open when none)."""
+    """The pause marker in ``directory`` while in effect (``{"at", "until"}`` UTC, ``until`` None until
+    `probe outbox resume`), else None. An older CLI's marker is over; an unreadable one holds.
+    Never raises."""
     import stat
     from datetime import datetime, timedelta, timezone
 
@@ -112,4 +104,58 @@ def _pause_in_effect(directory: Path) -> dict | None:
             path = path.parent.parent
         else:
             return None
+
+
+class PauseMixin:
+    """Part of Journal: its methods run with `self` the Journal; fold_parts() copies them into Journal."""
+
+    @property
+    def paused(self) -> bool:
+        """Paused here, or in any queue above this one (`probe outbox pause` pauses the root and
+        every namespace under it), by a pause that has not run out (`DEFAULT_PAUSE_HOURS`)."""
+        return _pause_in_effect(self.dir) is not None
+
+    def pause(self, hours: float | None = DEFAULT_PAUSE_HOURS) -> dict:
+        """Hold delivery for ``hours``, or until `resume` when None. Returns the marker. Written
+        under the append lock, so `lift_stale_pause` never removes a pause written while it looked."""
+        from datetime import datetime, timedelta, timezone
+
+        self._ensure()
+        at = datetime.now(timezone.utc)
+        until = None if hours is None else (at + timedelta(hours=hours)).isoformat()
+        marker = {"schema": PAUSE_SCHEMA, "at": at.isoformat(), "until": until}
+        with file_lock(self.append_lock):
+            write_text_atomic(self.paused_file, json.dumps(marker) + "\n", mode=0o600)
+            self._write_status_locked()
+        return marker
+
+    def lift_stale_pause(self, *, wait: bool = True) -> bool:
+        """Delete this queue's pause marker once it no longer holds: its end passed, or it is an
+        older CLI's endless one. An older release reads only whether the marker EXISTS (an SDK
+        pinned in a job's venv), so it stays paused until the file is gone. An older CLI's `pause`
+        writes outside the append lock, so one typed in the microseconds between this check and
+        the unlink is lost. ``wait`` False: when another process holds the append lock, lift
+        nothing now (for a caller that must never hang on a stopped writer's lock: the Probe
+        service). True when one was lifted."""
+        if not os.path.lexists(self.paused_file) or _pause_marker(self.dir) is not None:
+            return False
+        lock = file_lock(self.append_lock) if wait else _try_lock(self.append_lock)
+        with lock as held:
+            if held is False:
+                return False
+            if not os.path.lexists(self.paused_file) or _pause_marker(self.dir) is not None:
+                return False
+            _unlink_pause(self.paused_file)
+            self._write_status_locked()
+        return True
+
+    def resume(self) -> None:
+        for child in self.namespaces()[1:]:
+            child.resume()
+        _unlink_pause(self.paused_file)
+        if self.dir.exists():
+            with file_lock(self.append_lock):
+                self._write_status_locked()
+
 from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE, DELIVERY_NAMESPACE  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.item_locks import _try_lock  # noqa: E402 -- pieces need each other; the front door loads this one first

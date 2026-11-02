@@ -1,0 +1,241 @@
+name: Release PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      verification_run_id:
+        description: Successful Release verification run for this exact commit
+        required: true
+        type: string
+      version:
+        description: Version to publish. Must match pyproject.toml.
+        required: true
+        default: "3.3.1"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require complete same-SHA release verification before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_RUN: ${{ inputs.verification_run_id }}
+        run: python verification/ci/release_candidate.py --run-id "$VERIFICATION_RUN"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: truthound-mcp-canonical
+          run-id: ${{ inputs.verification_run_id }}
+          github-token: ${{ github.token }}
+          path: canonical
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Verify release version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          release_version = os.environ["RELEASE_VERSION"]
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          project_version = pyproject["project"]["version"]
+          if project_version != release_version:
+              raise SystemExit(
+                  f"pyproject.toml version {project_version!r} does not match "
+                  f"workflow input {release_version!r}"
+              )
+          print(f"Publishing truthound {project_version}")
+          PY
+
+      - name: Run CLI and SQL provider release contracts
+        run: |
+          uv sync --frozen --extra dev
+          uv run --frozen --extra dev python -m pytest -q \
+            tests/test_version_surface.py \
+            tests/schema_audit \
+            tests/cli_modules/test_benchmark_size_cli.py \
+            tests/test_validation_datadocs_locale.py \
+            tests/test_sql_datasource_provider_contract.py \
+            -p no:cacheprovider
+
+      - name: Install native Profile PDF verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libpango-1.0-0 libpangoft2-1.0-0 poppler-utils fonts-noto-cjk
+
+      - name: Run Profile report release contracts
+        env:
+          TRUTHOUND_DATADOCS_REQUIRE_PDF_SMOKE: "1"
+          TRUTHOUND_DATADOCS_REQUIRE_PDF_RENDER: "1"
+        run: |
+          uv run --frozen --extra dev --extra pdf --with "pypdf==6.18.0" \
+            python -m pytest -q \
+            tests/test_profile_json_finite.py \
+            tests/test_profile_report_type_fidelity.py \
+            tests/test_profile_report_text_safety.py \
+            tests/test_profile_pdf_layout.py \
+            tests/datadocs/test_report_visual_smoke.py \
+            tests/datadocs/test_report_theme_policy.py \
+            tests/datadocs/test_pdf_alert_fragmentation.py \
+            tests/datadocs/test_pdf_pattern_wrapping.py \
+            -p no:cacheprovider
+
+      - name: Verify and install the exact release candidate, without rebuilding
+        run: |
+          uv run --python 3.11 --frozen --extra dev --extra mcp python verification/mcp_release.py --expected-python 3.11 --from-artifacts canonical --output verified-candidate --smoke
+          mkdir -p dist
+          cp verified-candidate/*.whl verified-candidate/*.tar.gz dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: truthound-pypi-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+
+      - name: Verify local MCP distribution contracts
+        run: |
+          mkdir -p mcp-bundles
+          cp verified-candidate/*.mcpb verified-candidate/SHA256SUMS mcp-bundles/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: truthound-mcp-bundle
+          path: mcp-bundles/*.mcpb
+
+      - name: Check package metadata
+        run: uv tool run twine check dist/*
+
+      - name: Smoke install built wheel with AI and SQL provider extras
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python -m venv /tmp/truthound-release-smoke
+          /tmp/truthound-release-smoke/bin/python -m pip install --upgrade pip
+          wheel_path="$(python - <<'PY'
+          from pathlib import Path
+
+          wheels = sorted(Path("dist").glob("truthound-*-py3-none-any.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {wheels}")
+          print(wheels[0])
+          PY
+          )"
+          /tmp/truthound-release-smoke/bin/python -m pip install \
+            "${wheel_path}[ai,sql-connectors]"
+          /tmp/truthound-release-smoke/bin/python - <<'PY'
+          import importlib
+          import inspect
+          import os
+          import sqlite3
+          import tempfile
+          from pathlib import Path
+
+          import truthound
+          import truthound.ai
+          from truthound.datasources.sql.bigquery import BigQueryDataSource
+          from truthound.datasources.sql.databricks import DatabricksDataSource
+          from truthound.datasources.sql.duckdb import DuckDBDataSource
+          from truthound.datasources.sql.mysql import MySQLDataSource
+          from truthound.datasources.sql.oracle import OracleDataSource
+          from truthound.datasources.sql.postgresql import PostgreSQLDataSource
+          from truthound.datasources.sql.redshift import RedshiftDataSource
+          from truthound.datasources.sql.snowflake import SnowflakeDataSource
+          from truthound.datasources.sql import SQLiteDataSource
+          from truthound.datasources.sql.sqlserver import SQLServerDataSource
+
+          expected = os.environ["RELEASE_VERSION"]
+          if truthound.__version__ != expected:
+              raise SystemExit(
+                  f"installed truthound {truthound.__version__!r}, expected {expected!r}"
+              )
+
+          for module_name in (
+              "psycopg2",
+              "pymysql",
+              "duckdb",
+              "snowflake.connector",
+              "google.cloud.bigquery",
+              "redshift_connector",
+              "databricks.sql",
+              "oracledb",
+              "pymssql",
+          ):
+              importlib.import_module(module_name)
+
+          provider_classes = (
+              PostgreSQLDataSource,
+              MySQLDataSource,
+              SQLiteDataSource,
+              DuckDBDataSource,
+              SnowflakeDataSource,
+              BigQueryDataSource,
+              RedshiftDataSource,
+              DatabricksDataSource,
+              OracleDataSource,
+              SQLServerDataSource,
+          )
+          abstract_providers = {
+              provider_class.__name__: sorted(provider_class.__abstractmethods__)
+              for provider_class in provider_classes
+              if inspect.isabstract(provider_class)
+              or provider_class.__abstractmethods__
+          }
+          if abstract_providers:
+              raise SystemExit(
+                  f"advertised SQL provider classes are abstract: {abstract_providers}"
+              )
+
+          with tempfile.TemporaryDirectory() as temp_dir:
+              database = Path(temp_dir) / "release-contract.sqlite3"
+              connection = sqlite3.connect(database)
+              connection.execute("CREATE TABLE records (id INTEGER, name TEXT)")
+              connection.executemany(
+                  "INSERT INTO records VALUES (?, ?)",
+                  [(1, "alpha"), (2, "beta")],
+              )
+              connection.commit()
+              connection.close()
+
+              source = SQLiteDataSource(table="records", database=str(database))
+              result = truthound.check(source=source)
+              profile = truthound.profile(source=source)
+              if type(result).__name__ != "ValidationRunResult":
+                  raise SystemExit(f"unexpected check result: {type(result).__name__}")
+              if (profile.row_count, profile.column_count) != (2, 2):
+                  raise SystemExit("unexpected profile result")
+
+          print(f"Smoke import passed for truthound {truthound.__version__}")
+          PY
+
+      - name: Validate PyPI API token secret
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "${PYPI_API_TOKEN}" ]; then
+            echo "PYPI_API_TOKEN secret is required for Release PyPI."
+            exit 1
+          fi
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

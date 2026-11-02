@@ -843,9 +843,11 @@ def _post_orphan(client: Any, run_id: str, report: dict) -> bool:
     try:
         import uuid
 
+        from probe.sdk.routes import WriteOp, path_for
+
         client.journal.append_http(
             "POST",
-            f"/v1/runs/{run_id}/spans",
+            path_for(WriteOp.SPANS, run_id),
             {
                 "spans": [
                     {

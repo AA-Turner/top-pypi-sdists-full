@@ -53,6 +53,10 @@ public:
     setWindow( VectorView<uint8_t> const& window )
     {
         m_setWindowSize = window.size();
+        /* An empty window is valid at a gzip/zlib stream start and there is nothing to set. */
+        if ( window.empty() ) {
+            return;
+        }
         if ( isal_inflate_set_dict( &m_stream, window.data(), window.size() ) != COMP_OK ) {
             throw std::runtime_error( "Failed to set back-reference window in ISA-l!" );
         }
@@ -505,9 +509,8 @@ IsalInflateWrapper::readHeader()
 
     case FileType::ZLIB:
     {
-        const auto& [header, error] = zlib::readHeader( [this] () {
-            return static_cast<uint64_t>( readBytes<1U>().front() );
-        } );
+        const auto& [header, error] = zlib::readHeader(
+            [this] () { return static_cast<uint64_t>( readBytes<1U>().front() ); } );
         if ( error == Error::END_OF_FILE ) {
             return false;
         }

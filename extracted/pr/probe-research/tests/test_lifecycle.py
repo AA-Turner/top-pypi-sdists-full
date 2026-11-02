@@ -13,7 +13,7 @@ import pytest
 import typer
 
 from probe import cli, errors
-from probe.cli.main import TRASH_DAYS
+from probe.cli.commands.delete import TRASH_DAYS
 from tests.conftest import make_client
 from tests.conftest import open_run
 

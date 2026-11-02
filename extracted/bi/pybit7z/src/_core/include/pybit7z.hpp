@@ -1,0 +1,11 @@
+#pragma once
+
+#include <bit7z/bit7z.hpp>
+#include <bit7z/bit7zlibraryloader.hpp>
+#include <bit7z/bitformatinfo.hpp>
+
+namespace _core {
+
+const char* platform_lib7zip_name();
+
+} // namespace _core

@@ -50,7 +50,7 @@ _VERB_ATTRS = {
     "get_page": "GET",
 }
 # Calls shaped `x.<name>("METHOD", "/path", ...)` — Transport.request, Client.write.
-_METHOD_FIRST = {"request", "write"}
+_METHOD_FIRST = {"request", "write", "send"}
 _HTTP_METHODS = {"GET", "POST", "PATCH", "DELETE", "PUT"}
 
 # Both branches gate on the receiver, so a lookalike (`ROUTES.get("/v1/x")` on a plain
@@ -112,8 +112,31 @@ def _module_constants(tree: ast.Module) -> dict[str, str]:
     return out
 
 
+def _route_template(node: ast.expr) -> str | None:
+    """`path_for(WriteOp.X, ...)` / `batch_path(WriteOp.X, ...)` (`probe.sdk.routes`): the route
+    table's own template for X, so a built path counts at its call site like a literal."""
+    if not isinstance(node, ast.Call) or not node.args:
+        return None
+    name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+    op = node.args[0]
+    if name not in ("path_for", "batch_path") or not isinstance(op, ast.Attribute):
+        return None
+    owner = op.value
+    if not (isinstance(owner, ast.Name) and owner.id == "WriteOp") and not (
+        isinstance(owner, ast.Attribute) and owner.attr == "WriteOp"
+    ):
+        return None
+    from probe.sdk.routes import WriteOp, batch_path, path_for
+
+    write = WriteOp[op.attr]
+    built = path_for(write, "{}") if name == "path_for" else batch_path(write, f"/v1/runs/{{}}/{write.value}")
+    return built
+
+
 def _as_path(node: ast.expr, constants: dict[str, str]) -> str | None:
     """Resolve an argument to a path template, or None if it isn't a static path."""
+    if isinstance(node, ast.Call):
+        return _route_template(node)
     if isinstance(node, ast.Constant):
         return node.value if isinstance(node.value, str) else None
     if isinstance(node, ast.Name):
@@ -237,15 +260,14 @@ def schema_operations() -> dict[Op, str]:
 # Allowlist 1: PERMANENT. Not the SDK/CLI's job. Every entry states why.
 # --------------------------------------------------------------------------
 NOT_CLIENT_SURFACE: dict[Op, str] = {
-    # RETIRED 2026-10-14 with per-person default workspaces: a 410 that tells CLI
-    # 0.254.1's `probe workspace default` to use `probe workspace use`. No client
-    # calls it; it goes when 0.254.1 is gone.
-    ("PUT", "/v1/workspaces/{}/default"): "retired 410 for CLI 0.254.1 (per-computer workspaces)",
     # RETIRED with notes on files (plan notes-carriers P1): the PATCH survives
     # only to answer 410 to a notes write from an older CLI. The files' and sweep
     # groups' note-history and sub-note routes are out of the schema (410s from
     # `app/notes/retired_router.py`), so they need no entry here.
     ("PATCH", "/v1/artifacts/{}"): "retired: files carry no notes (410 for older CLIs)",
+    # RETIRED with unfiled runs: every run has a project, so no client opens one
+    # here; the server keeps it only to answer older CLIs (a 410, PR3).
+    ("POST", "/v1/runs"): "retired: every run has a project (unfiled creates are older CLIs')",
     # RETIRING, not unwired. An experiment IS a project now, and the client
     # reads this document at `/v1/projects/{}/notes/versions/{}` -- the same
     # rows, from the address that survives the route cut. The experiment path
@@ -626,12 +648,12 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "/.well-known/oauth-protected-resource",
     ): "OAuth protected-resource discovery; browser/agent surface",
     ("POST", "/oauth/revoke"): "OAuth token revocation; agent/MCP-client surface",
-    # The tenant digest's email links (app/digest/router.py): anonymous, by token.
+    # The tenant digest's email links (app/generation/digest/router.py): anonymous, by token.
     ("GET", "/digest/l/{}"): "digest email link; a person's browser",
     ("GET", "/digest/unsubscribe/{}"): "digest email unsubscribe link; a person's browser",
     ("POST", "/digest/unsubscribe/{}"): "digest one-click unsubscribe (RFC 8058); the mail client",
     # Direction writes are a person's, from a browser session: the route refuses
-    # a token (app/directions/router.py), so no client could call them.
+    # a token (app/generation/directions/router.py), so no client could call them.
     ("PATCH", "/v1/directions/{}"): "browser-session-only direction write (dashboard/digest)",
     ("POST", "/v1/directions/{}/feedback"): "browser-session-only direction write (dashboard/digest)",
     ("POST", "/v1/directions/operations/{}/undo"): "browser-session-only direction write (dashboard/digest)",

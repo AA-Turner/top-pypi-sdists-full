@@ -249,7 +249,7 @@ def test_the_count_stays_under_the_servers_message_cap():
     import re
     from pathlib import Path
 
-    router = Path(__file__).resolve().parents[2] / "app" / "companion" / "chat_router.py"
+    router = Path(__file__).resolve().parents[2] / "app" / "agents" / "companion" / "chat" / "router.py"
     if not router.is_file():
         pytest.skip("no server source beside the agent")
     cap = int(re.search(r"^MAX_CHAT_MESSAGES = ([\d_]+)", router.read_text(), re.M).group(1).replace("_", ""))

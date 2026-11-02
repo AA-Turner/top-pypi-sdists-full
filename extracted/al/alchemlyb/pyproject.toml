@@ -1,0 +1,127 @@
+# alchemlyb
+
+[build-system]
+requires = ["setuptools", "wheel", "versioningit"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alchemlyb"
+description = "the simple alchemistry library"
+authors = [
+    { name = "Zhiyi Wu", email = "william@zhiyiwu.me" },
+    { name = "David Dotson", email = "dotsdl@gmail.com" }
+]
+maintainers = [
+    { name = "Zhiyi Wu", email = "william@zhiyiwu.me" },
+    { name = "Oliver Beckstein", email = "orbeckst@gmail.com" }
+]
+dynamic = ["version"]
+
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "BSD-3-Clause"
+keywords = ["free energy", "MBAR", "thermodynamic integration",
+            "free energy perturbation", "FEP", "alchemistry", "analysis",
+	    "GROMACS", "NAMD", "AMBER", "molecular dynamics"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.11"
+
+dependencies = [
+	     "numpy!=2.3.0,!=2.3.1,!=2.3.2",
+	     "pandas>=2.1",
+	     "pymbar>=4",
+	     "scipy",
+	     "scikit-learn",
+	     "matplotlib>=3.7",
+	     "loguru",
+	     "pyarrow",
+         "joblib",
+]
+
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "alchemtest"
+]
+
+[project.urls]
+Homepage = "https://github.com/alchemistry/alchemlyb"
+Documentation = "https://alchemlyb.readthedocs.io/"
+Repository = "https://github.com/alchemistry/alchemlyb"
+Issues = "https://github.com/alchemistry/alchemlyb/issues"
+Changelog = "https://github.com/alchemistry/alchemlyb/blob/master/CHANGES"
+Discussions = "https://github.com/alchemistry/alchemlyb/discussions"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[tool.versioningit]
+
+[tool.versioningit.vcs]
+default-tag = "0.0.0"
+match = ["*"]
+
+[tool.versioningit.write]
+file = "src/alchemlyb/_version.py"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = false
+show_error_codes = true
+exclude = [
+    "src/alchemlyb/tests/.*",
+]
+
+# Ignore missing imports for external libraries that don't have type stubs
+[[tool.mypy.overrides]]
+module = [
+    "pymbar.*",
+    "alchemtest.*",
+    "matplotlib.*",
+    "scipy.*",
+    "sklearn.*",
+    "joblib.*",
+    "pyarrow.*",
+    "loguru.*",
+    "pytest.*",
+    "_pytest.*"
+]
+ignore_missing_imports = true
+
+# Ignore specific modules that don't need type checking
+[[tool.mypy.overrides]]
+module = [
+    "alchemlyb._version",
+]
+ignore_errors = true
+
+

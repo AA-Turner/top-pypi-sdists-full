@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyTmcStepper"
+version = "0.21.3"
+authors = [{ name = "Christian Köhlke", email = "christian@koehlke.de" }]
+description = "This is a Python libary to drive a stepper motor with a Trinamic stepper driver and a single board computer like a Raspberry Pi"
+readme = "README.md"
+license = "GPL-3.0"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: MicroPython",
+    "Operating System :: POSIX :: Linux",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+
+[project.urls]
+Homepage = "https://github.com/Chr157i4n/PyTmcStepper"
+"Bug Tracker" = "https://github.com/Chr157i4n/PyTmcStepper/issues"
+
+[project.optional-dependencies]
+uart = ["pyserial"]
+spi = ["spidev"]
+ftdi = ["pyftdi"]
+raspberry_pi = ["RPi.GPIO"]
+raspberry_pi5 = ["gpiozero"]
+nvidia_jetson = ["Jetson.GPIO"]
+luckfox_pico = ["python-periphery"]
+orange_pi = ["OPi.GPIO"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pylint."messages control"]
+disable = "C0103,W0511,W0012,R0801"
+
+[tool.pylint.main]
+ignored-modules = "machine"
+unsafe-load-any-extension = true
+
+[tool.pylint.format]
+max-line-length = 160
+
+[tool.coverage.run]
+relative_files = true
+source = ["src"]
+
+[tool.coverage.report]
+omit = [
+    "tests/*",
+    "*_micropython.py",
+    "*_circuitpython.py",
+    "*_ftdi.py",
+    "*_periphery.py",
+    "*_pio.py",
+    "*_pio*.py",
+]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG:",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:project.version"]
+build_command = "pip install build && python -m build"
+changelog_file = 'CHANGELOG.md'
+commit = true
+allow_zero_version = true

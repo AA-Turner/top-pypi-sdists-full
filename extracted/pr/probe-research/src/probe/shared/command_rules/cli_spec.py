@@ -148,8 +148,10 @@ def source_sha() -> str:
     found = [path for folder in COMMAND_FOLDERS for path in (package / folder).rglob("*")
              if path.name.endswith(suffixes)]
     paths = sorted(found) + [package / name for name in VOCABULARY]
+    prefix = len(str(package)) + 1  # every path is package / <relative>
     for path in paths:
-        digest.update(path.relative_to(package).as_posix().encode())
+        # A slice, not `relative_to(package).as_posix()` (same bytes): that cost ~20 ms over cli/'s 457 files.
+        digest.update(str(path)[prefix:].replace(os.sep, "/").encode())
         digest.update(b"\0")
         digest.update(path.read_bytes())
     return digest.hexdigest()

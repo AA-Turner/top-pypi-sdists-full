@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from schemathesis.core.output import (
     BINARY_PAYLOAD,
     EMPTY_PAYLOAD,
+    escape_nonprintable,
     escape_surrogates,
     format_response_payload,
 )
@@ -241,7 +242,7 @@ class ServerError(Failure):
     checks = ("not_a_server_error",)
     kind_title = "Server error"
 
-    __slots__ = ("status_code",)
+    __slots__ = ("status_code", "status_name")
 
     def __init__(
         self,
@@ -251,13 +252,51 @@ class ServerError(Failure):
         title: str | None = None,
         message: str = "",
         case_id: str | None = None,
+        status_name: str | None = None,
     ) -> None:
         super().__init__(operation=operation, title=title, message=message, case_id=case_id, severity=Severity.CRITICAL)
         self.status_code = status_code
+        self.status_name = status_name
 
     @property
     def _unique_key(self) -> str:
+        # Several protocol statuses share one HTTP status code; their names tell them apart.
+        if self.status_name is not None:
+            return f"{self.status_code}:{self.status_name}"
         return str(self.status_code)
+
+
+class AuthScenario(StrEnum):
+    NO_AUTH = "no_auth"
+    INVALID_AUTH = "invalid_auth"
+    GENERATED_AUTH = "generated_auth"
+
+
+class IgnoredAuth(Failure):
+    """The API operation does not check the specified authentication."""
+
+    code = "ST401"
+    checks = ("ignored_auth",)
+    kind_title = "Authentication not enforced"
+
+    __slots__ = ("scenario",)
+
+    def __init__(
+        self,
+        *,
+        operation: str,
+        message: str,
+        scenario: AuthScenario,
+        title: str = "API accepts requests without authentication",
+        case_id: str | None = None,
+    ) -> None:
+        super().__init__(operation=operation, title=title, message=message, case_id=case_id, severity=Severity.CRITICAL)
+        # Which credentials the request carried when the API still let it through.
+        self.scenario = scenario
+
+    @property
+    def _unique_key(self) -> str:
+        return ""
 
 
 class ContentTypeServerError(ServerError):
@@ -444,8 +483,12 @@ def format_failures(
 
     # Response status
     if isinstance(response, Response):
-        reason = reason_phrase(response.status_code)
-        output += formatter(MessageBlock.STATUS, f"\n[{response.status_code}] {reason}:\n")
+        # A transport-provided status line already carries its own message, so it ends without a colon.
+        if response.status_line is not None:
+            status_line = escape_nonprintable(response.status_line)
+        else:
+            status_line = f"[{response.status_code}] {reason_phrase(response.status_code)}:"
+        output += formatter(MessageBlock.STATUS, f"\n{status_line}\n")
         payload = format_response_payload(response, config=config)
         if payload in (EMPTY_PAYLOAD, BINARY_PAYLOAD):
             output += f"\n    {payload}"

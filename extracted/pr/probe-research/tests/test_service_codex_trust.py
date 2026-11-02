@@ -3,7 +3,7 @@
 Codex rebuilds its copies of Probe's plugins from the marketplace (main), and
 every rewrite switches all of their hooks off until approved; the approval came
 only with an update, which a live run defers up to a day. The service's healer
-(`probe.service.codextrust`) fingerprints the copies each tick and, on a
+(`probe.service.hooks.codex_trust`) fingerprints the copies each tick and, on a
 change, asks a `probe.core.run codex_trust` child to approve them
 (`codex_hooks.heal` -> `approve`), retrying with backoff until Codex trusts
 them. The critical path at the bottom runs the real child against a fake
@@ -21,12 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities
+from probe.cli.wizard import state as capabilities
 from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 from probe.core import requests as core_requests
 from probe.core import run as core_run
-from probe.service import codextrust
-from probe.service.codextrust import BACKOFF_S, MAX_ASKS_PER_HOUR, CodexTrust, Healing, Trust
+from probe.service.hooks import codex_trust as codextrust
+from probe.service.hooks.codex_trust import BACKOFF_S, MAX_ASKS_PER_HOUR, CodexTrust, Healing, Trust
 from tests.test_codex_hooks import FAKE_APP_SERVER, _hook
 
 MARKET = codextrust.MARKETPLACE
@@ -50,7 +50,7 @@ def test_the_child_is_a_read_the_service_can_ask():
     assert core_requests.parse(codextrust.READ, {}) is not None
     with pytest.raises(core_requests.RequestError):
         core_requests.parse(codextrust.READ, {"anything": True})
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     assert codextrust.READ not in protocol.ACTIONS, "never an `action.run` action: it takes no mutating slot"
 
@@ -469,8 +469,8 @@ def test_the_service_runs_one_holds_it_off_and_shows_it(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
     from probe.service import updater as service_updater
-    from probe.service.registry import Registry
-    from probe.service.server import Service
+    from probe.service.sessions.sessions import Registry
+    from probe.service.server.server import Service
 
     service = Service(registry=Registry(tmp_path / "sessions.json"), discovery_s=0)
     status = service._status(None, {})
@@ -500,7 +500,7 @@ def test_a_setup_is_seen_by_its_wizard_lock(tmp_path, monkeypatch):
     they run, in the default state folder or a session's own."""
     import fcntl
 
-    from probe.service import paths as service_paths
+    from probe.foundation.service_api import paths as service_paths
     from probe.service import updater as service_updater
 
     monkeypatch.setattr(service_paths, "state_dir", lambda: tmp_path / "state")

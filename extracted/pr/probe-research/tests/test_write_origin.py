@@ -133,7 +133,7 @@ def test_a_wandb_import_is_the_agents_own_command(monkeypatch, tmp_path, command
     """`probe wandb import-*` opens runs through the W&B connector's
     `client.run()`: its client is the CLI's, so the command never marks itself a
     run process and its writes stay the agent's."""
-    from probe.cli import wandb_import
+    from probe.cli.commands.data import wandb as wandb_import
     from probe.connectors import wandb as wb
 
     used = []
@@ -239,10 +239,9 @@ def test_an_upload_request_carries_one_origin(monkeypatch, tmp_path):
     from test_outbox_run_upload_window import Server, upload
 
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
-    monkeypatch.setattr(jm.journal, "queued_session", lambda: AS_SESSION)
+    monkeypatch.setattr(jm.append, "queued_session", lambda: AS_SESSION)
     queue = Journal(tmp_path / "outbox")
     for i in range(4):
         upload(queue, tmp_path, f"out/file{i}.txt")

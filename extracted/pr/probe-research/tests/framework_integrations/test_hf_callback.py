@@ -192,6 +192,8 @@ def wired(app, tmp_path, monkeypatch):
         fluent.run_openers.online, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
     )
     app.seed_experiment("e1")
+    # A job's project, as in real use: a bare callback's run opens there (every run has one).
+    monkeypatch.setenv("PROBE_PROJECT", "e1-home")
 
 
 def _points(app, run_id: str, key: str) -> list[int]:
@@ -281,7 +283,6 @@ def test_report_to_probe_resolves_only_after_the_import(tmp_path):
 
 def test_the_registry_entry_is_what_report_to_builds(app, wired, tmp_path, monkeypatch):
     assert integration_utils.INTEGRATION_TO_CALLBACK["probe"] is ProbeCallback
-    monkeypatch.setenv("PROBE_PROJECT", "e1")
     trainer = _trainer(tmp_path, report_to="probe", run_name="from-args")
     (callback,) = [c for c in trainer.callback_handler.callbacks if isinstance(c, ProbeCallback)]
     trainer.train()
@@ -425,6 +426,15 @@ def test_a_failed_init_is_a_no_op_callback(app, wired, tmp_path, monkeypatch):
     monkeypatch.setattr(probe, "init", refuse)
     with pytest.warns(UserWarning, match="could not open a run"):
         _trainer(tmp_path, callbacks=[ProbeCallback(experiment="e1")]).train()  # training finishes
+    assert app.runs == {}
+
+
+def test_a_run_with_no_project_stops_training_at_its_start(app, wired, tmp_path, monkeypatch):
+    """No project named and none set is a setup mistake, not an outage: it raises
+    before any step instead of training unrecorded (every run has a project)."""
+    monkeypatch.delenv("PROBE_PROJECT")
+    with pytest.raises(probe.errors.ProjectRequired):
+        _trainer(tmp_path, callbacks=[ProbeCallback()]).train()
     assert app.runs == {}
 
 
@@ -600,10 +610,9 @@ def test_upload_is_chosen_by_environment_for_report_to(app, wired, tmp_path, mon
     assert sorted(stored) == ["checkpoint-2@step2"] and stored["checkpoint-2@step2"]["meta"]["members"]
 
 
-def test_a_callback_given_only_checkpoints_wins_over_report_to(app, wired, tmp_path, monkeypatch):
+def test_a_callback_given_only_checkpoints_wins_over_report_to(app, wired, tmp_path):
     """`checkpoints=` counts as configuring the callback: it, not report_to's
     bare one, logs -- or upload mode would be dropped without a word."""
-    monkeypatch.setenv("PROBE_PROJECT", "e1")
     with pytest.warns(UserWarning, match="the one given arguments logs"):
         _trainer(tmp_path, report_to=["probe"], callbacks=[ProbeCallback(checkpoints="upload")], max_steps=2).train()
     run_id = _only_run(app)["id"]
@@ -758,10 +767,9 @@ def test_of_two_probe_callbacks_the_one_given_arguments_logs(app, wired, tmp_pat
     probe.finish()
 
 
-def test_two_probe_callbacks_on_one_trainer_log_once(app, wired, tmp_path, monkeypatch):
+def test_two_probe_callbacks_on_one_trainer_log_once(app, wired, tmp_path):
     """report_to="probe" plus callbacks=[ProbeCallback()]: the second one
     closed the first's run as a failed trial and opened a stray run."""
-    monkeypatch.setenv("PROBE_PROJECT", "e1")
     with pytest.warns(UserWarning, match="two ProbeCallbacks"):
         _trainer(tmp_path, report_to="probe", callbacks=[ProbeCallback()]).train()
     fluent._finish_at_exit()
@@ -1059,6 +1067,20 @@ _WORKER_SCRIPT = textwrap.dedent(
                               TrainerCallback, TrainingArguments)
     from probe.integrations.huggingface import ProbeCallback
 
+    if os.environ.get("FORWARD_LATE"):
+        # The launcher forwards its SIGINT 1 s late (it is 1-2 ms), and a worker pauses
+        # 4 s on its way out before its finalizers (the run's close): it lands there.
+        import multiprocessing.util as mp_util
+        from torch.distributed.elastic.multiprocessing import api as elastic_api
+        exit_function, close = mp_util._exit_function, elastic_api.PContext.close
+        def paused_exit_function(*args, **kwargs):
+            time.sleep(4)
+            return exit_function(*args, **kwargs)
+        def late_close(self, *args, **kwargs):
+            time.sleep(1)
+            return close(self, *args, **kwargs)
+        mp_util._exit_function, elastic_api.PContext.close = paused_exit_function, late_close
+
     class Data(torch.utils.data.Dataset):
         def __init__(self, n):
             g = torch.Generator().manual_seed(0)
@@ -1188,6 +1210,96 @@ def test_ctrl_c_in_a_forked_worker_closes_its_run_canceled(app, tmp_path):
     Ctrl-C (the parent still there), and the train() never ended."""
     _, stderr = _run_workers(app, tmp_path, "notebook_launcher", "slow", sig=signal.SIGINT)
     assert _only_run(app)["status"] == "canceled", stderr[-6000:]
+
+
+def test_ctrl_c_in_a_forked_worker_closes_canceled_when_the_launchers_sigint_lands_on_its_way_out(
+    app, tmp_path, monkeypatch
+):
+    """torch's launcher forwards the SIGINT it got to its workers as it shuts down, 1-2 ms
+    after the first. One landing in multiprocessing's exit before the close held signals
+    skipped the close and the run stayed `running` (1 run in 8, on main and before the
+    restructure). Here it always lands there (`FORWARD_LATE`)."""
+    monkeypatch.setenv("FORWARD_LATE", "1")
+    _, stderr = _run_workers(app, tmp_path, "notebook_launcher", "slow", sig=signal.SIGINT)
+    assert _only_run(app)["status"] == "canceled", stderr[-6000:]
+
+
+@pytest.fixture
+def worker_signals(monkeypatch):
+    """This process as a worker that closes its run on its way out; handlers put back after."""
+    from probe.integrations import _worker_exit
+
+    monkeypatch.setattr(_worker_exit, "_until_close", None)
+    monkeypatch.setattr(hf, "_WORKER_CLOSE_PID", os.getpid())
+    monkeypatch.setattr(hf, "_SIGNALS_SEEN", set())
+    before = {signum: signal.getsignal(signum) for signum in (signal.SIGINT, signal.SIGTERM)}
+    yield _worker_exit
+    _worker_exit.end_hold_until_the_close()
+    hf._unchain_signal_notes()
+    for signum, handler in before.items():
+        signal.signal(signum, handler)
+
+
+def _ending(seen: list):
+    """torch's worker handler: it raises (SignalException), which ends the worker."""
+
+    def handler(signum, _frame):
+        seen.append(signum)
+        raise RuntimeError(f"got signal {signum}")
+
+    return handler
+
+
+def test_a_signal_that_does_not_end_the_worker_holds_nothing(worker_signals):
+    """enable_jit_checkpoint's SIGTERM handler only stops training: the worker goes on, and
+    its signals are not held."""
+    seen: list = []
+    signal.signal(signal.SIGTERM, lambda signum, _frame: seen.append(signum))
+    hf._start_noting_signals()
+    signal.raise_signal(signal.SIGTERM)
+    assert seen == [signal.SIGTERM] and worker_signals._until_close is None
+
+
+def test_a_signal_handed_back_after_the_close_starts_no_new_hold(worker_signals, monkeypatch):
+    """Ctrl-C ends the worker (the hold starts); the launcher's SIGTERM is held over the close
+    and handed back after it, through SIGTERM's note: that starts no fresh 25 s hold, so the
+    exiting worker hears its signals again."""
+    monkeypatch.setattr(hf.fluent, "note_exit", lambda *_a, **_k: None)
+    monkeypatch.setattr(hf.fluent, "_finish_at_exit", lambda *_a, **_k: None)
+    monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "1")
+    seen: list = []
+    signal.signal(signal.SIGINT, _ending(seen))
+    signal.signal(signal.SIGTERM, _ending(seen))
+    hf._start_noting_signals()
+    with pytest.raises(RuntimeError):
+        signal.raise_signal(signal.SIGINT)
+    assert worker_signals._until_close is not None
+    signal.raise_signal(signal.SIGTERM)  # held
+    assert seen == [signal.SIGINT]
+    hf._close_at_worker_exit("run-closing")
+    assert seen == [signal.SIGINT, signal.SIGTERM]
+    assert worker_signals._until_close is None
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        assert getattr(signal.getsignal(signum), "__func__", None) is not worker_signals._signals_held._hold
+
+
+def test_after_a_spent_hold_a_later_trains_ctrl_c_reaches_its_handler_at_once(worker_signals, monkeypatch):
+    """Ctrl-C ended a trial but a sweep caught it and went on, and the hold ran out with no
+    close. The next train() chains its notes over the real handler, so its Ctrl-C is handed
+    on at once, never dropped by the spent hold."""
+    monkeypatch.setattr(worker_signals, "WORKER_HOLD_SECONDS", 0.2)
+    seen: list = []
+    signal.signal(signal.SIGINT, _ending(seen))
+    hf._start_noting_signals()
+    with pytest.raises(RuntimeError):
+        signal.raise_signal(signal.SIGINT)  # handed on, and the hold starts
+    give_up = time.monotonic() + 30
+    while not worker_signals._until_close[1]._expired and time.monotonic() < give_up:
+        time.sleep(0.01)
+    hf._start_noting_signals()  # the next trial's train()
+    with pytest.raises(RuntimeError):
+        signal.raise_signal(signal.SIGINT)
+    assert seen == [signal.SIGINT, signal.SIGINT]
 
 
 def test_a_killed_launcher_leaves_its_forked_worker_to_close_failed(app, tmp_path):
@@ -1326,6 +1438,11 @@ _LEASE_SCRIPT = textwrap.dedent(
     Trainer(model=model, args=args, train_dataset=Data(16), callbacks=callbacks).train()
     with open(os.path.join(out, f"rank{rank}.done"), "w") as f:
         f.write("trained")
+    # What a launched script does at its end. Left to interpreter exit, gloo's
+    # background threads are destroyed while joinable once the peer has gone:
+    # "terminate called without an active exception", rank 0 SIGABRT.
+    if torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
     """
 )
 

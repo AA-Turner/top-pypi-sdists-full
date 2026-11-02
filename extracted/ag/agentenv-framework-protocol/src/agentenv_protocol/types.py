@@ -1,0 +1,205 @@
+"""Wire types for the v1 data-plane protocol."""
+from __future__ import annotations
+
+from typing import Annotated, Any, Literal, Optional, Union
+
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+
+from .transfers import RelativePath
+
+
+def error_body(code: str, message: str, **fields: Any) -> dict:
+    return {"ok": False, "error": {"code": code, "message": message, **fields}}
+
+
+PROTOCOL_VERSION = "1.0"
+
+WELL_KNOWN_PATH = "/.well-known/agent-env.json"
+RPC_PATH = "/agentenv"
+#: The variable that hands an env the token its framework-only routes take as their bearer, everything it serves but
+#: its MCP endpoint and its card; agent-env sets it when it deploys the env, and without it those routes are open.
+CONTROL_TOKEN_ENV = "AGENTENV_CONTROL_TOKEN"
+
+# A card declares its MCP endpoint as an `additionalInterfaces` entry with this transport; a card
+# without one is reached at MCP_PATH by convention.
+MCP_TRANSPORT = "mcp"
+MCP_PATH = "/mcp"
+
+METHOD_RESET = "data/reset"
+METHOD_ADD = "data/add"
+METHOD_GET = "data/get"
+
+# The vehicle for the data-plane intake declaration: a declaration-only extension
+# whose `params` carry an `IntakeDeclaration`. No endpoint — it only describes what `data/add`
+# accepts and what `data/get` returns, for discoverability + pre-deploy fit checks. Absence of the
+# extension means "no claim" (skip fit-checks), matching the `supports_v1` 404->legacy precedent.
+INTAKE_EXTENSION_URI = "urn:agentenv:intake/v1"
+
+# A declaration-only extension: `data/get` takes a `write_namespace` param (a
+# `transfers.WriteNamespaceGrant`) and may upload its export under the grant instead of returning
+# it, answering with the part `uploaded_file_part` builds. A server that does not advertise it
+# is never sent one.
+DATA_OBJECTS_EXTENSION_URI = "urn:agentenv:data-objects/v1"
+
+# `get {name}` answers with the env's skill for agents, `{name, description, skill_md}` as
+# skill-config/v1 takes one: a SKILL.md an agent reads before it uses the env, written under the
+# name the caller gives. A server serves it through an `@agent_skill` handler.
+SKILL_EXTENSION_URI = "urn:agentenv:skill/v1"
+_RELATIVE_PATH = TypeAdapter(RelativePath)
+
+
+class FileWithBytes(BaseModel):
+    bytes: str
+    mimeType: Optional[str] = None
+    name: Optional[str] = None
+
+
+class FileWithUri(BaseModel):
+    uri: str
+    mimeType: Optional[str] = None
+    name: Optional[str] = None
+
+
+class TextPart(BaseModel):
+    kind: Literal["text"] = "text"
+    text: str
+    metadata: Optional[dict] = None
+
+
+class FilePart(BaseModel):
+    kind: Literal["file"] = "file"
+    file: Union[FileWithBytes, FileWithUri]
+    metadata: Optional[dict] = None
+
+
+class DataPart(BaseModel):
+    kind: Literal["data"] = "data"
+    data: dict
+    metadata: Optional[dict] = None
+
+
+Part = Annotated[Union[TextPart, FilePart, DataPart], Field(discriminator="kind")]
+
+
+def uploaded_file_part(path: str, *, name: Optional[str] = None, mime_type: Optional[str] = None) -> FilePart:
+    """The `data/get` answer naming an export uploaded through its `write_namespace` grant, at
+    `path` relative to the grant's `root_path`."""
+    path = _RELATIVE_PATH.validate_python(path)
+    return FilePart(
+        file=FileWithUri(uri=path, name=name, mimeType=mime_type),
+        metadata={DATA_OBJECTS_EXTENSION_URI: {"path": path}},
+    )
+
+
+def uploaded_object_path(part: Part) -> Optional[str]:
+    """Where, relative to the `write_namespace` grant's `root_path`, `part` says the export was
+    uploaded; None when it names no upload. Raises ValueError for a path outside the root."""
+    marker = (part.metadata or {}).get(DATA_OBJECTS_EXTENSION_URI) if isinstance(part, FilePart) else None
+    if marker is None:
+        return None
+    path = marker.get("path") if isinstance(marker, dict) else None
+    try:
+        return _RELATIVE_PATH.validate_python(path)
+    except ValidationError:
+        raise ValueError(f"the uploaded export's path {path!r} is not a normalized relative path") from None
+
+
+class AddDataRequest(BaseModel):
+    parts: list[Part] = Field(min_length=1)
+
+
+class ResetDataResponse(BaseModel):
+    pass
+
+
+class AddDataResponse(BaseModel):
+    pass
+
+
+class GetDataResponse(BaseModel):
+    parts: list[Part]
+
+
+class EnvironmentInterface(BaseModel):
+    url: str
+    transport: str
+
+
+class EnvironmentExtension(BaseModel):
+    uri: str
+    description: Optional[str] = None
+    params: Optional[dict] = None
+    required: Optional[bool] = None
+
+
+class IntakeFormat(BaseModel):
+    """One accepted (on `data/add`) or returned (on `data/get`) content shape.
+
+    Describes a single way data crosses the fixed `AddDataRequest` envelope: which `Part` `kind`
+    carries it (`data`/`file`/`text`), the content `format` (e.g. `"json"`, `"zip-bundle"`,
+    `"csv"`), the `mimeTypes` that select it, and whether loading `replace`s existing data or is
+    `additive`. `bundleLayout` names a non-schema-able file-tree convention (e.g.
+    `"data-json+root/v1"`); `tables` optionally carries per-table JSON-Schemas of the loadable
+    shape (layer 4 — populate only where derivable, e.g. from a server's SQLAlchemy models).
+    """
+
+    part: Literal["data", "file", "text"]
+    format: str
+    mimeTypes: Optional[list[str]] = None
+    load: Optional[Literal["additive", "replace"]] = None
+    bundleLayout: Optional[str] = None
+    tables: Optional[dict[str, dict]] = None
+
+
+class IntakeDeclaration(BaseModel):
+    """What a server's v1 data plane accepts on `data/add` and returns on `data/get`.
+
+    Advertised on the `EnvironmentCard` under `INTAKE_EXTENSION_URI`. Layers 1-3 (part
+    kind, format + mimeTypes, load semantics) are enough for fit-checks; layer 4 (`tables`) is
+    optional and highest value. Absence of the whole declaration = "no claim".
+    """
+
+    add: Optional[list[IntakeFormat]] = None
+    get: Optional[list[IntakeFormat]] = None
+
+
+def intake_extension(
+    declaration: IntakeDeclaration, description: Optional[str] = None
+) -> "EnvironmentExtension":
+    """Wrap an `IntakeDeclaration` as the declaration-only `INTAKE_EXTENSION_URI` extension.
+
+    `None` params are dropped so the advertised card stays terse; read it back with
+    `client.intake_declaration(card)`.
+    """
+    return EnvironmentExtension(
+        uri=INTAKE_EXTENSION_URI,
+        description=description
+        or "Declares what the v1 data plane accepts on data/add and returns on data/get.",
+        params=declaration.model_dump(exclude_none=True),
+    )
+
+
+class EnvironmentTool(BaseModel):
+    name: str
+    description: Optional[str] = None
+    inputSchema: Optional[dict] = None
+
+
+class EnvironmentCapabilities(BaseModel):
+    extensions: Optional[list[EnvironmentExtension]] = None
+    tools: Optional[list[EnvironmentTool]] = None
+    # Wire methods served at /agentenv. [] = none; absent = pre-advertisement card (full data trio).
+    operations: Optional[list[str]] = None
+
+
+class EnvironmentCard(BaseModel):
+    name: str
+    protocolVersion: str = PROTOCOL_VERSION
+    url: str = RPC_PATH
+    preferredTransport: str = "JSONRPC"
+    additionalInterfaces: list[EnvironmentInterface] = Field(default_factory=list)
+    capabilities: EnvironmentCapabilities = Field(default_factory=EnvironmentCapabilities)
+    children_environments: Optional[list[EnvironmentCard]] = None
+
+
+EnvironmentCard.model_rebuild()

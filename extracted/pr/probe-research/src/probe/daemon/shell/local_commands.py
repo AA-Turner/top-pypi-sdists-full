@@ -235,14 +235,14 @@ def _clock() -> float:
     return time.monotonic()
 
 
-def _stops(exc: BaseException) -> bool:
+def _is_stops(exc: BaseException) -> bool:
     """Is `exc` (or any exception an exception group holds) a cancel or an exit,
     which must go on, never be read as the MCP failing?"""
     import asyncio
 
     if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit, GeneratorExit)):
         return True
-    return any(_stops(inner) for inner in getattr(exc, "exceptions", None) or ())
+    return any(_is_stops(inner) for inner in getattr(exc, "exceptions", None) or ())
 #: The heading over them (the CLI's own, `cli.mcp_bridge.render_tools`).
 GUIDE_HEADING = "# How to read Probe (the Probe MCP's instructions)"
 
@@ -300,7 +300,7 @@ async def mcp_guide(deps: Any) -> str:
                 async with mcp_bridge._session(where) as (_session, init):
                     guide[cache] = ((init.instructions or "").strip(), now, True)
         except BaseException as exc:  # noqa: BLE001 -- task groups wrap the cause
-            if _stops(exc):
+            if _is_stops(exc):
                 # The run was cut short (a cancel, also inside a task group's
                 # exception group), not the MCP: ask again next time.
                 if hit is None:
@@ -379,9 +379,9 @@ def _reader_feedback(deps: Any, args: list[str]):
 
     text = " ".join(a for a in args if a != "--")
     try:  # an empty text is refused by the hold itself, in its own words (as the reader's tool was)
-        req = fb.hold(text, session_id=deps.session_id, source=fb.Source.DAEMON_READER, harness=deps.harness)
+        request = fb.hold(text, session_id=deps.session_id, source=fb.Source.DAEMON_READER, harness=deps.harness)
     except fb.Refused as exc:
         return _ok(f"not sent: {exc}", 1)
-    if req.state == appr.DENIED:
-        return _ok(f"not sent: the researcher already said no to this feedback ({req.question.header}).", 1)
-    return _ok(READER_FEEDBACK_HELD.format(header=req.question.header))
+    if request.state == appr.DENIED:
+        return _ok(f"not sent: the researcher already said no to this feedback ({request.question.header}).", 1)
+    return _ok(READER_FEEDBACK_HELD.format(header=request.question.header))

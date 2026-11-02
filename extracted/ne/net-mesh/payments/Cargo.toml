@@ -1,0 +1,243 @@
+[package]
+name = "net-payments"
+version.workspace = true
+edition = "2021"
+# Benches are registered explicitly with `[[bench]]` (see the bottom of
+# this file). `autobenches = false` keeps Cargo from auto-discovering
+# `benches/*.rs`, so the shared `benches/bench_common/` harness directory
+# is never mistaken for a bench target — the same regime as `sdk/Cargo.toml`.
+autobenches = false
+description = "x402-native payments layer for the Net mesh: signed envelopes around x402 v2, tiered verification, spend policy, billing events"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ai-2070/net"
+keywords = ["x402", "payments", "mesh", "caip"]
+categories = ["network-programming", "cryptography"]
+
+[lib]
+name = "net_payments"
+
+[lints.clippy]
+# Same panic-hygiene posture as the core crate (see the root
+# Cargo.toml for the warn-vs-deny rationale — CI enforces deny on
+# lib/bins, tests keep unwrap).
+unwrap_used                   = "warn"
+expect_used                   = "warn"
+undocumented_unsafe_blocks    = "warn"
+multiple_unsafe_ops_per_block = "warn"
+
+[dependencies]
+# Dependency direction is doctrine: net-payments depends on the core
+# and the SDK; the core and SDK NEVER depend on net-payments. The
+# substrate stays clean for apps that never touch money.
+#
+# `net` (feature "net") supplies the identity surface payment
+# envelopes sign with: `EntityKeypair` / `EntityId` (ed25519,
+# verify_strict). Provider identity on a quote IS the mesh entity
+# identity — x402 wallet identity is a payment credential, not a
+# participant identity.
+net = { package = "net-mesh", version = "0.46.0", path = "..", default-features = false, features = ["net"] }
+# The SDK supplies the consent/pins vocabulary the payment policy
+# store mirrors (`CapabilityId`, the locked-store pattern) and is the
+# surface WS4 composes against (gateway / publish options).
+net-sdk = { package = "net-mesh-sdk", version = "0.46.0", path = "../sdk", default-features = false }
+# The MCP demand-side gate seam (`net_mcp::serve::PaymentFlow`).
+# Optional, behind `mcp-gate`: only payment-aware gateway hosts (the
+# Python binding, agent runtimes) pull the adapter; the payments core
+# stays adapter-free. The adapter never depends back on this crate.
+net-mcp = { package = "net-mesh-mcp", version = "0.46.0", path = "../adapters/mcp", optional = true }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+thiserror = "2"
+# x402 carries are byte-preserved originals; envelopes transport them
+# base64-encoded so no binding can accidentally re-serialize JSON
+# through its own encoder (the envelope-drift bug class).
+base64 = "0.23"
+# terms_hash / verification-chain links / idempotency keys — blake3
+# is the established content hash in this workspace (dataforts,
+# delegation child-seed KDF).
+blake3 = "1"
+hex = "0.4"
+# exact-XRPL invoice binding: InvoiceID = SHA256(invoiceId) (pinned t54
+# scheme). Already in the workspace tree via ed25519-dalek — no new
+# supply chain; a named money-path dependency all the same.
+sha2 = "0.11"
+# Cross-process advisory lock + per-user path resolution for the
+# payment policy store — the exact `sdk/src/pins.rs` regime.
+fs2 = "0.4"
+dirs = "7"
+tokio = { version = "1", features = ["rt", "time", "sync", "fs"] }
+async-trait = "0.1"
+# Workspace lock discipline (clippy disallowed-methods bans
+# std::sync::Mutex::lock — poisoning is unhandled everywhere here).
+parking_lot = "0.13"
+# HTTP client for the real-facilitator boundary (`http-facilitator`).
+# rustls, no default features: no openssl, no cookies, no proxies from
+# env — the money path gets exactly the transport it needs. reqwest 0.13
+# folded the old `rustls-tls` feature into `rustls`; we take
+# `rustls-no-provider` instead and supply the crypto provider ourselves
+# (see the `rustls` dep below) to keep ring rather than 0.13's aws-lc-rs
+# default — no cmake / C toolchain in the money-path build.
+reqwest = { version = "0.13", optional = true, default-features = false, features = ["rustls-no-provider"] }
+# The rustls crypto provider for the money path: ring, explicitly, so the
+# build needs no C compiler (aws-lc-rs, 0.13's default, pulls aws-lc-sys +
+# cmake). `src/tls_roots.rs` builds an explicit `ClientConfig` with this
+# provider and hands it to reqwest's `use_preconfigured_tls` — so no
+# process-global provider is ever installed (which would leak into other
+# rustls users in the host process). Pinned to reqwest's rustls (0.23) so
+# the graph has a single rustls and the preconfigured-TLS downcast matches.
+rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12", "logging"] }
+# Compiled-in Mozilla trust roots. reqwest 0.13 dropped the bundled-roots
+# feature in favor of the OS platform verifier; we pin these explicitly
+# into the `ClientConfig` root store (see `src/tls_roots.rs`) so the money
+# path's trust anchors stay hermetic and deterministic across deploy targets.
+webpki-root-certs = { version = "1", optional = true }
+# secp256k1 ECDSA + keccak256, for the DEV signer only
+# (`unsafe-dev-signer`). Production signing is external; these never
+# compile into a default build.
+k256 = { version = "0.14", optional = true, default-features = false, features = ["ecdsa"] }
+sha3 = { version = "0.12", optional = true }
+tracing = "0.1"
+
+# Windows-only: the payment stores hold bearer material (preserved x402
+# payloads are signed EIP-3009 authorizations) and the signed billing
+# record. On unix they are created 0600; Windows has no mode, so the
+# equivalent is an explicit owner-only DACL, which needs these APIs.
+# Already in the workspace lock transitively — no new supply chain.
+
+# `O_NOFOLLOW` + `O_NONBLOCK` for the billing log's open. std exposes
+# `custom_flags` but not the flag values, and the alternative — checking
+# `symlink_metadata` and then opening — is a check the open does not share,
+# so a link can be swapped in between the two. Already in the workspace
+# lock via `net`.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    # `CreateFileW` + `CREATE_NEW` + `FILE_ATTRIBUTE_NORMAL`. It compiles
+    # today without this only because some other crate in the graph
+    # enables the module and Cargo unifies features — which is not a
+    # guarantee, and would break the moment that crate dropped it.
+    "Win32_Storage_FileSystem",
+    "Win32_System_Threading",
+] }
+
+[features]
+# Implements `net_mcp::serve::PaymentFlow` for the caller flow, so the
+# gated-invoke composition can clear paid capabilities through this
+# crate's spend engine + lifecycle. Off by default — payments users who
+# never touch the MCP gateway don't pay the adapter's build cost.
+mcp-gate = ["dep:net-mcp"]
+# The mesh wire for the payment lifecycle: `serve_payments` (provider
+# side, nRPC quote/pay services over PaymentEngine) +
+# `MeshPaymentChannel` (caller side, the ProviderChannel that crosses
+# machines). Off by default — pulls the SDK's mesh transport + typed
+# nRPC surface.
+mesh = ["net-sdk/net", "net-sdk/cortex"]
+# The real-facilitator HTTP client (P1): `HttpFacilitator` speaking
+# `POST /verify`, `POST /settle`, `GET /supported` per the pinned x402
+# v2 spec. The first (and only) HTTP dependency in the money path —
+# rustls only, feature-gated so mock-only consumers never build it.
+# sha3 also rides here: the eip155 checker computes the
+# AuthorizationUsed(address,bytes32) topic hash at runtime.
+http-facilitator = ["dep:reqwest", "dep:rustls", "dep:webpki-root-certs", "dep:sha3"]
+# DEV/TESTNET ONLY: a local-key EIP-712 signer for conformance runs.
+# The name is the warning — production settlement signing goes through
+# `ExternalSigner` (KMS/wallet/MPC; the key never enters Net memory).
+# Never in default features, never in release binding builds; doctrine
+# 4/7/8 (non-custodial, keys never cross boundaries, no signing
+# oracle) is why this is a feature and not a constructor.
+unsafe-dev-signer = ["dep:k256", "dep:sha3"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "test-util"] }
+tempfile = "3"
+# Benchmark harness. Every *public* payment result runs through the custom
+# `hdrhistogram` harness + `BenchMetadata::report` (per-op p50/p95/p99, three
+# throughputs, environment metadata) — a Criterion bootstrap confidence
+# interval is not a per-op percentile and cannot satisfy that contract.
+# `criterion` (async_tokio) stays for repeatable *diagnostic* microbenchmarks
+# only (the `admission` bars). Same criterion 0.8 as the core + sdk crates.
+criterion = { version = "0.8", features = ["async_tokio"] }
+hdrhistogram = "7"
+# The duplicate-storm bench wraps the mock facilitator to count verify/settle
+# calls (proving "settle once" under a concurrent storm); implementing the
+# async `Facilitator` trait needs the same async-trait the crate already uses.
+async-trait = "0.1"
+# The mesh e2e test builds real two-node meshes (MeshBuilder + typed
+# nRPC); tests can't reach transitive deps, so the SDK appears here
+# with the transport features on. `tool` powers the mega-e2e's
+# `serve_tool_paid` + `metadata_for` (the native paid-serve path,
+# driven against the real `EngineToolPaymentGate`) — dev-only, so the
+# shipped `mesh` feature keeps its narrower surface.
+net-sdk = { package = "net-mesh-sdk", version = "0.46.0", path = "../sdk", default-features = false, features = ["net", "cortex", "tool"] }
+# `JsonSchema` for the mega-e2e's tool request/response types (the
+# `serve_tool_paid` descriptor derives its schema from them).
+schemars = "1"
+# `Bytes` for the mega-e2e's `Mesh::call` tool invocation.
+bytes = "1"
+# A capturing `Layer` for the redeem-denial emit-site test — asserts the
+# structured `tracing` fields (`reason` / `stage` / `recovery_class`) by
+# key+value, so operators' grep contract is a test, not a hope.
+tracing-subscriber = "0.3"
+
+# ---------------------------------------------------------------------------
+# Benchmarks. All `harness = false` — each bench owns its `main` (criterion
+# or a custom hdrhistogram loop). The shared setup lives in the
+# `benches/bench_common/` directory (not a bench target; see `autobenches`).
+# See `docs/internal/plans/PAYMENTS_BENCHMARKS_PLAN.md`.
+# ---------------------------------------------------------------------------
+
+# B1 exact-proof admission + B2 ready-settled redemption gate (+ B4/B5
+# duplicate storms). Criterion diagnostics live here; the stateful public
+# rows (accept/redeem totals, rejection matrix, storms) run on the custom
+# harness. In-process, no mesh, no network — needs no extra features.
+[[bench]]
+name = "admission"
+harness = false
+
+# P2 — the published admission matrix (custom harness): boundary 2 (accept +
+# redeem, the 0→1/99→100/999→1000 transition), boundary 1 (ready-settled
+# redemption), and the accept_payment rejection matrix. Concurrency 1.
+[[bench]]
+name = "admission_matrix"
+harness = false
+
+# Redemption-gate matrix (before/after the read-only-denial write-
+# amplification fix): redeem outcomes × store cardinality × concurrency.
+# Custom harness (public reporter).
+[[bench]]
+name = "redeem_matrix"
+harness = false
+
+# P3 — duplicate acceptance + redemption storms (custom harness): the
+# money-path concurrency invariants (settle once / one billing; exactly one
+# Admitted / one handler run) measured and asserted at c16/c128.
+[[bench]]
+name = "duplicate_storm"
+harness = false
+
+# B7 — spend-policy contention: concurrent check_and_reserve against one
+# shared JSON store under the fs2 lock, across store history sizes.
+[[bench]]
+name = "spend_contention"
+harness = false
+
+# B3 — paid vs unpaid nRPC over a warm two-node mesh at c1/16/128, apples-
+# to-apples (serve_tool vs serve_tool_paid). The mesh wire (serve_payments /
+# MeshPaymentChannel / serve_tool_paid) is behind the `mesh` feature.
+[[bench]]
+name = "mesh_paid_invoke"
+harness = false
+required-features = ["mesh"]
+
+# B6 — full in-process mock lifecycle (software path, not x402/chain): one
+# lifecycle, two timer endpoints (quote→billing, quote→handler). In-process
+# composition — no mesh needed.
+[[bench]]
+name = "mock_lifecycle"
+harness = false

@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from .commands.references import (
+  run_assignments_list,
+  run_references_list,
+  run_references_register,
+  run_references_show,
+)
+from .config import load_operator_config
+from .errors import OperatorError
+from .help_text import TOP_LEVEL_HELP, print_group_help
+
+
+OPERATOR_COMMANDS = {
+  ("references", "list"),
+  ("references", "show"),
+  ("references", "register"),
+  ("assignments", "list"),
+}
+
+
+def is_operator_command(group: str, command: str | None) -> bool:
+  if command is None:
+    return group in {"references", "assignments", "knowledge"}
+  return (group, command) in OPERATOR_COMMANDS
+
+
+def dispatch_operator_command(group: str, command: str | None, flags: list[str]) -> int:
+  if command is None:
+    print_group_help(group)
+    return 0
+
+  config = load_operator_config(
+    backend_override=_flag_value(flags, "backend"),
+    corpus_key_override=_flag_value(flags, "corpus-key"),
+  )
+  if group == "references" and command == "list":
+    return run_references_list(config, flags)
+  if group == "references" and command == "show":
+    return run_references_show(config, flags)
+  if group == "references" and command == "register":
+    return run_references_register(config, flags)
+  if group == "assignments" and command == "list":
+    return run_assignments_list(config, flags)
+  raise OperatorError(f"Unsupported operator command: papyrus {group} {command}")
+
+
+def print_top_level_help() -> None:
+  print(TOP_LEVEL_HELP)
+
+
+def _flag_value(flags: list[str], name: str) -> str | None:
+  token = f"--{name}"
+  for index, value in enumerate(flags):
+    if value == token and index + 1 < len(flags):
+      return flags[index + 1]
+    if value.startswith(f"{token}="):
+      return value.split("=", 1)[1]
+  return None

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: niche-elf
+Version: 0.3.7
+Summary: A small library that optimizes some niche operations commonly used by debugger extensions.
+Author-email: k4lizen <k4lizen@proton.me>
+License: GPLv3
+Classifier: Topic :: Software Development :: Debuggers
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: System :: Operating System Kernels
+Requires-Python: <4,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# niche-elf
+
+**In development.**
+
+A small library that optimizes some niche ELF operations commonly used by debugger extensions.
+
+Main use-case currently is building an ELF from a list of symbols for the purposes of `add-symbol-file`ing it into the debbuger. This is useful for stuff like [`ks --apply`](https://pwndbg.re/dev/commands/kernel/klookup/#optional-arguments) and syncing symbols for [decompiler integration](https://pwndbg.re/dev/tutorials/decompiler-integration/).
+
+See `examples/simple.py` for usage. Install with `pip install niche-elf`.
+
+### TODO
++ Add an enable_prints and disable_prints() API so the library can choose to print helpful <pending\> messages? maybe not?
++ Make a re-entrant verison which optimizes for symbol updates.

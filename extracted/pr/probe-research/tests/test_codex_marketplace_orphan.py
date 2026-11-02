@@ -17,8 +17,8 @@ import subprocess
 import pytest
 
 from probe.shared.harness import plugins as plugin_cli
-from probe.cli import updater
-from probe.cli import setup as wizard
+from probe.cli.install import updater
+from probe.cli import wizard as wizard
 
 PUBLISHED = "prbe-ai/research-os-agent"
 NAME = "research-os-agent"

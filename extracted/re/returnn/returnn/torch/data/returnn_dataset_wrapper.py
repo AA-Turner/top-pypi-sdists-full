@@ -1,0 +1,265 @@
+"""
+Wrapper for RETURNN datasets.
+
+We make use of torch.utils.data.IterDataPipe.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable, Optional, Iterator, Dict
+import functools
+import multiprocessing
+import sys
+import numpy
+import torch.utils.data
+from returnn.datasets.basic import Dataset as ReturnnDataset
+from returnn.datasets.util.strings import str_to_numpy_array
+from returnn.util.basic import BehaviorVersion
+from returnn.util.better_exchook import better_exchook
+from returnn.util.multi_proc_non_daemonic_spawn import NonDaemonicSpawnProcess, register_exit_hook
+
+if TYPE_CHECKING:
+    import multiprocessing.sharedctypes
+
+ResetCallbackT = Callable[[], None]
+
+
+class ReturnnDatasetResetDefaultEpochCounterCallback:
+    """
+    Default for reset_callback.
+    Has an internal counter for the epoch, starting by default at epoch 1 (RETURNN convention).
+    """
+
+    def __init__(self, dataset: ReturnnDataset, *, epoch0: int = 0):
+        """
+        :param dataset: RETURNN dataset.
+        :param epoch0: Epoch from which the dataset sequence ordering should start.
+            It will actually be epoch0+1 for the first epoch, since :func:`__call__` will increment it.
+            By default 0 since next :func:`__call__` will increment, thus we start at epoch 1.
+        """
+        self.dataset = dataset
+        self.epoch = epoch0
+
+    def __call__(self):
+        # dataset is likely a copy of the original dataset, either in the main process or in a worker process
+        self.epoch += 1
+        self.dataset.init_seq_order(epoch=self.epoch)
+
+
+class ReturnnDatasetResetMpSharedEpochCallback:
+    """
+    Can be used as reset_callback.
+    """
+
+    def __init__(self, dataset: ReturnnDataset, epoch_mp_shared: multiprocessing.sharedctypes.Synchronized):
+        self.dataset = dataset
+        self.epoch_mp_shared = epoch_mp_shared
+
+    def __call__(self):
+        # dataset is likely a copy of the original dataset, either in the main process or in a worker process
+        # Use epoch_mp_shared to get the current epoch correctly in worked processes
+        epoch = self.epoch_mp_shared.value or None
+        self.dataset.init_seq_order(epoch=epoch)
+
+
+class ReturnnDatasetResetNoOpCallback:
+    """
+    Can be used as reset_callback.
+    """
+
+    def __call__(self):
+        pass
+
+
+class ReturnnDatasetIterDataPipe(torch.utils.data.IterDataPipe):
+    """
+    Converts a RETURNN dataset into a PyTorch IterableDataset.
+    """
+
+    def __init__(
+        self,
+        returnn_dataset: ReturnnDataset,
+        *,
+        reset_callback: Optional[ResetCallbackT] = None,
+        shard_workers: Optional[bool] = None,
+    ):
+        """
+        :param returnn_dataset: dataset to be wrapped
+        :param reset_callback: callback function to be called when the dataset is reset, e.g. to init the epoch.
+            ReturnnDatasetResetDefaultEpochCounterCallback(returnn_dataset) is the default.
+        :param shard_workers: with DataLoader ``num_workers > 1``,
+            whether every worker yields its own shard of the data, so the workers together yield every seq once.
+            Otherwise every worker yields all the data, so every seq comes ``num_workers`` times.
+            None (default): since behavior version 37.
+        """
+        self._dataset = returnn_dataset
+        if not reset_callback:
+            reset_callback = ReturnnDatasetResetDefaultEpochCounterCallback(returnn_dataset)
+        self._reset_callback = reset_callback
+        if shard_workers is None:
+            shard_workers = BehaviorVersion.get() >= 37
+        self._shard_workers = shard_workers
+        self._worker_exit_hook_registered = False
+        self._worker_sharding_set = False
+
+    def reset(self):
+        """
+        This is called by PyTorch DataLoader mechanism once we create a new iterator over the DataLoader.
+        This happens at the beginning of each epoch.
+
+        (Note: The mechanism where ``reset()`` is actually called is very obfuscated in PyTorch.
+        As I understand it, there is a IterDataPipe metaclass (_IterDataPipeMeta)
+        which automatically registers a hook on ``__iter__`` via ``hook_iterator``.
+        Deep inside the complex logic of this hook, it calls ``_set_datapipe_valid_iterator_id``
+        which then calls ``reset()``.)
+        """
+        if self._shard_workers and not self._worker_sharding_set:
+            worker_info = torch.utils.data.get_worker_info()
+            if worker_info is not None and worker_info.num_workers > 1:
+                # Every worker has its own copy of the dataset, so every worker yields its own shard of the data.
+                if not self._dataset.supports_sharding():
+                    raise ValueError(
+                        f"{self._dataset} does not support sharding,"
+                        f" needed for DataLoader num_workers {worker_info.num_workers} > 1"
+                    )
+                # noinspection PyProtectedMember
+                self._dataset.set_sharding(
+                    num_shards=self._dataset._num_shards * worker_info.num_workers,
+                    shard_index=self._dataset._shard_index * worker_info.num_workers + worker_info.id,
+                )
+            self._worker_sharding_set = True
+        self._reset_callback()
+
+    def __iter__(self) -> Iterator[Dict[str, numpy.ndarray]]:
+        """
+        :return: generator providing data samples in the form of a dict data_key -> data
+        """
+        if (
+            not self._worker_exit_hook_registered
+            and torch.utils.data.get_worker_info() is not None
+            and isinstance(multiprocessing.current_process(), NonDaemonicSpawnProcess)
+        ):
+            # the worker owns this copy (e.g. reader procs): free it before the exit cleanup signals them
+            register_exit_hook(functools.partial(self._dataset.finish_epoch, free_resources=True))
+            self._worker_exit_hook_registered = True
+        # noinspection PyBroadException
+        try:
+            num_seqs = self._dataset.num_seqs
+        except Exception:  # might not work for all datasets
+            num_seqs = -1
+        num_seqs = numpy.array(num_seqs)
+        assert self._dataset.epoch is not None
+        epoch = numpy.array(self._dataset.epoch)
+
+        try:
+            data_keys = self._dataset.get_data_keys()
+            last_complete_frac = -1
+
+            seq_index = 0
+            while self._dataset.is_less_than_num_seqs(seq_index):
+                self._dataset.load_seqs(seq_index, seq_index + 1)
+                data = {data_key: self._dataset.get_data(seq_index, data_key) for data_key in data_keys}
+                data["seq_tag"] = str_to_numpy_array(self._dataset.get_tag(seq_index))
+                data["seq_idx"] = numpy.array(seq_index)
+
+                # It's slightly redundant to have the following data in each entry,
+                # but it's difficult to pass this back to the main proc otherwise.
+                data["epoch"] = epoch
+                data["num_seqs"] = num_seqs
+
+                complete_frac = self._dataset.get_complete_frac(seq_index, allow_only_lr_suitable=True)
+                if complete_frac is not None:
+                    assert 0.0 <= complete_frac <= 1.0, f"complete_frac must be in [0, 1], but got {complete_frac}"
+                    assert complete_frac >= last_complete_frac, (
+                        "complete_frac must be monotonically increasing, "
+                        f"but got {complete_frac} after {last_complete_frac}"
+                    )
+                else:
+                    complete_frac = -1
+                data["complete_frac"] = numpy.array(complete_frac, dtype=numpy.float32)
+                last_complete_frac = complete_frac
+
+                yield data
+                seq_index += 1
+
+        except Exception:
+            # Report here as well, because the parent caller (PyTorch DataLoader) might first catch it
+            # and only report a stripped version.
+            better_exchook(*sys.exc_info(), autodebugshell=False)
+            raise
+
+    def __getitem__(self, index):
+        raise Exception(f"{self.__class__.__name__}.__getitem__ not supported")
+
+
+class ReturnnDatasetPerEpochMapDataPipe(torch.utils.data.MapDataPipe):
+    """
+    Converts a RETURNN dataset into a PyTorch map-style Dataset.
+    """
+
+    def __int__(self, returnn_dataset: ReturnnDataset, *, reset_callback: Optional[ResetCallbackT] = None):
+        """
+        :param returnn_dataset: dataset to be wrapped
+        :param reset_callback: callback function to be called when the dataset is reset, e.g. to init the epoch.
+            ReturnnDatasetResetDefaultEpochCounterCallback(returnn_dataset) is the default.
+        """
+        assert returnn_dataset.have_corpus_seq_idx() and returnn_dataset.have_get_corpus_seq()
+        self._dataset = returnn_dataset
+        if not reset_callback:
+            reset_callback = ReturnnDatasetResetDefaultEpochCounterCallback(returnn_dataset)
+        self._reset_callback = reset_callback
+
+    def reset(self):
+        """
+        :return:
+        """
+        self._reset_callback()
+
+    def __len__(self):
+        """
+        :return: number of data samples in the dataset
+        :rtype: int
+        """
+        return self._dataset.num_seqs
+
+    def __getitem__(self, index):
+        """
+        :param int index:
+        :return: data sample in the form of a dict data_key -> data
+        :rtype: dict[str, numpy.ndarray]
+        """
+        corpus_seq_idx = self._dataset.get_corpus_seq_idx(index)
+        seq = self._dataset.get_corpus_seq(corpus_seq_idx)
+        return seq.features
+
+
+class ReturnnDatasetFullMapDataPipe(torch.utils.data.MapDataPipe):
+    """
+    Converts a RETURNN dataset into a PyTorch map-style Dataset.
+    This is over the full dataset, using the default ordering.
+    RETURNN-dataset-side sorting/shuffling is not supported here.
+    Sorting/shuffling is intended to be done in the further PyTorch data pipeline.
+    """
+
+    def __int__(self, returnn_dataset: ReturnnDataset):
+        """
+        :param returnn_dataset: dataset to be wrapped
+        """
+        assert returnn_dataset.have_get_corpus_seq()
+        self._dataset = returnn_dataset
+
+    def __len__(self):
+        """
+        :return: number of data samples in the dataset
+        :rtype: int
+        """
+        return self._dataset.get_total_num_seqs()
+
+    def __getitem__(self, index):
+        """
+        :param int index:
+        :return: data sample in the form of a dict data_key -> data
+        :rtype: dict[str, numpy.ndarray]
+        """
+        seq = self._dataset.get_corpus_seq(index)
+        return seq.features

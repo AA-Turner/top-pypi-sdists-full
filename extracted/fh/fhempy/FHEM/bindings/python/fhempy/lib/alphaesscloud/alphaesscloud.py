@@ -1,0 +1,181 @@
+import asyncio
+
+from .. import fhem, generic, utils
+from alphaess.alphaess import alphaess
+from datetime import date, timedelta
+
+class alphaesscloud(generic.FhemModule):
+    def __init__(self, logger):
+        super().__init__(logger)
+        self.appID = None
+        self.appSecret = None
+        self.serial = None
+        self.ESSunit = None
+        self.client = None
+        self._errors = utils.ErrorLogger(logger)
+
+    # FHEM FUNCTION
+    async def Define(self, hash, args, argsh):
+        await super().Define(hash, args, argsh)
+        
+        attr_config = {
+            "interval": {
+                "default": 60,
+                "format": "int",
+                "help": "Change interval, default is 60.",
+            }
+        }
+        await self.set_attr_config(attr_config)
+
+        if len(args) !=6:
+            return "Usage: define myAlphaESSCloud fhempy alphaesscloud appID appSecret serial"
+        
+        self.appID = args[3]
+        self.appSecret = args[4]
+        self.serial = args[5]
+        
+        self.create_async_task(self.connect_loop())
+
+    async def Undefine(self, hash):
+        await super().Undefine(hash)
+        await self.close_client()
+
+    async def close_client(self):
+        # alphaessopenapi keeps one aiohttp session per client
+        if self.client is not None:
+            await self.client.close()
+            self.client = None
+
+    async def connect_loop(self):
+        while True:
+            try:
+                await self.setup_connection()
+                return
+            except Exception:
+                self._errors.failed(
+                    "Failed to connect to AlphaESS cloud, retry in 300s", key="connect"
+                )
+                await fhem.readingsSingleUpdateIfChanged(
+                    self.hash, "state", "connection failed", 1
+                )
+                await asyncio.sleep(300)
+
+    async def setup_connection(self):
+            """
+            Sets up the connection to the AlphaESS cloud and retrieves necessary information.
+
+            This method connects to the AlphaESS cloud using the provided app ID and app secret.
+            It retrieves the list of ESS units associated with the account and checks if the
+            specified serial number matches any of the units. If a match is found, it updates
+            the state to "connected" and updates the readings from the unit's item list.
+
+            If the serial number does not match any of the units, it updates the state to
+            "ESS unit not found please check serial number".
+
+            Additionally, it retrieves the discharging and charging configuration information
+            for the ESS unit and updates the readings accordingly.
+
+            Finally, it kicks off the routine to update the data from the cloud continuously.
+
+            Returns:
+                None
+            """
+               
+            await fhem.readingsSingleUpdateIfChanged(self.hash, "state", "connecting",1)
+
+            await self.close_client()
+            self.client: alphaess = alphaess(self.appID,self.appSecret)
+            ESSList = await self.client.getESSList()
+            if ESSList != None:
+                self._errors.success(key="connect")
+                self.logger.info(f"Retrieved: {len(ESSList)} ESS units")
+            else:
+                # wrong credentials or no network
+                await fhem.readingsSingleUpdateIfChanged(self.hash, "state", "no ESS units found ",1)
+                return
+
+            for unit in ESSList:
+                if "sysSn" in unit:
+                    if unit["sysSn"] == self.serial:
+                        self.ESSunit = unit
+                        
+                        await fhem.readingsSingleUpdateIfChanged(self.hash, "state", "connected",1)
+                        await self.update_readings_from_itemlist(unit)
+                        break
+
+            if self.ESSunit == None:
+                await fhem.readingsSingleUpdateIfChanged(self.hash, "state", "ESS unit not found please check serial number",1)
+                return
+            
+            dischargingInfo = await self.client.getDisChargeConfigInfo(self.serial)
+            if dischargingInfo != None:
+                await self.update_readings_from_itemlist(dischargingInfo)
+            else:
+                self.logger.warning("No discharging info found")
+
+            chargingInfo = await self.client.getChargeConfigInfo(self.serial)
+            if chargingInfo != None:
+                await self.update_readings_from_itemlist(chargingInfo)
+            else:
+                self.logger.warning("No charging info found")
+
+            await self.update_data_from_cloud()
+
+
+
+      
+
+    
+
+    async def update_data_from_cloud(self):
+            """
+            Updates the data from the cloud for the AlphaESS device.
+
+            This method continuously retrieves data from the cloud for the specified AlphaESS device.
+            It retrieves the sum data and last power data from the cloud and updates the readings in FHEM.
+            If an exception occurs during the update process, the state reading is updated to indicate the failure.
+
+            
+            Returns:
+            None
+            """
+            while True:
+                try:
+                    sumData = await self.client.getSumDataForCustomer(self.serial)
+                    if sumData != None:
+                        await self.update_readings_from_itemlist(sumData)
+
+                    lastPower = await self.client.getLastPowerData(self.serial)
+                    if lastPower != None:
+                        await self.update_readings_from_itemlist(lastPower)
+                    self._errors.success()
+                except Exception:
+                    self._errors.failed("Failed to update data from AlphaESS cloud")
+                    await fhem.readingsSingleUpdateIfChanged(self.hash, "state", "data update failed", 1)
+
+                if self._attr_interval > 10:
+                    await asyncio.sleep(self._attr_interval)
+                else:
+                    await asyncio.sleep(10)
+
+    async def update_readings_from_itemlist(self, itemlist):
+            """
+            Updates the readings from the given itemlist via a bluk update.
+
+            Args:
+                itemlist (dict): A dictionary containing the readings to be updated.
+
+            Returns:
+                None
+            """
+            await fhem.readingsBeginUpdate(self.hash)
+            for key, value in itemlist.items():
+                if isinstance(value, dict):
+                    for sub_key, sub_value in value.items():
+                        await fhem.readingsBulkUpdate(self.hash, sub_key, sub_value)
+                else:
+                        await fhem.readingsBulkUpdate(self.hash, key, value)
+            await fhem.readingsEndUpdate(self.hash, 1)
+
+
+    

@@ -1,0 +1,1131 @@
+import random
+
+import crackle
+import numpy as np
+
+import compresso
+
+import pytest
+
+DTYPE = [
+  np.uint8, np.uint16, np.uint32, np.uint64,
+  # np.int8,  np.int16,  np.int32,  np.int64
+]
+
+@pytest.mark.parametrize('dtype', DTYPE)
+@pytest.mark.parametrize('markov_model_order', [0,1,2,3])
+def test_compress_decompress_random(dtype, markov_model_order):
+  labels = np.random.randint(0,5,size=(4,4,1), dtype=dtype)
+  binary = crackle.compress(labels, markov_model_order=markov_model_order)
+
+  recovered = crackle.decompress(binary)
+  print(labels.T)
+  print(recovered.T)
+  assert np.all(labels == recovered)
+
+  labels = np.random.randint(0,40,size=(256,255,1), dtype=dtype)
+  binary = crackle.compress(labels, markov_model_order=markov_model_order)
+  recovered = crackle.decompress(binary)
+  assert np.all(labels == recovered)
+
+  labels = np.random.randint(0,40,size=(100,100,10), dtype=dtype)
+  binary = crackle.compress(labels, allow_pins=True, markov_model_order=markov_model_order)
+  recovered = crackle.decompress(binary)
+  assert np.all(labels == recovered)
+
+  labels = np.random.randint(0,40,size=(100,100,100), dtype=dtype)
+  binary = crackle.compress(labels, markov_model_order=markov_model_order)
+  recovered = crackle.decompress(binary)
+  assert np.all(labels == recovered)
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+@pytest.mark.parametrize('dtype', DTYPE)
+def test_compress_decompress(dtype, allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+
+  x,y,z = tuple(np.random.randint(128,384, size=(3,)))
+  print(x,y,z)
+  cutout = labels[x:x+128,y:y+128,z:z+16].astype(dtype)
+  
+  binary = crackle.compress(cutout, allow_pins=allow_pins)
+  recovered = crackle.decompress(binary)
+
+  assert np.all(cutout == recovered)
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_compress_decompress_z_range(allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+
+  x,y,z = tuple(np.random.randint(128,384, size=(3,)))
+  print(x,y,z)
+  cutout = labels[x:x+128,y:y+128,z:z+16]
+  
+  binary = crackle.compress(cutout, allow_pins=allow_pins)
+  arr = crackle.CrackleArray(binary)
+
+  recovered = arr[2:100,5:83,5:7]
+  assert np.all(cutout[2:100,5:83,5:7] == recovered)
+
+  recovered = arr[2:100,5:83,0]
+  assert np.all(cutout[2:100,5:83,0] == recovered)
+
+  recovered = arr[2:100,5:83,-1]
+  assert np.all(cutout[2:100,5:83,-1] == recovered)
+
+def test_labels_for_z_range():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+
+  binary = crackle.compress(labels)
+  arr = crackle.CrackleArray(binary)
+
+  uniq = arr.labels()
+  np_uniq = np.unique(labels)
+
+  assert np.all(uniq == np_uniq)
+
+  z0_np_uniq = np.unique(labels[:,:,0])
+  z0_uniq = arr.labels(z=0)
+
+  assert np.all(z0_np_uniq == z0_uniq)
+
+  z511_np_uniq = np.unique(labels[:,:,511])
+  z511_uniq = arr.labels(z=511)
+  assert np.all(z511_np_uniq == z511_uniq)
+
+  z_section_np = np.unique(labels[:,:,93:302])
+  z_section = arr.labels(z=slice(93,302))
+  assert np.all(z_section == z_section_np)
+
+@pytest.mark.parametrize('label', [9999999999, 63408621, 63408621, 28792756])
+def test_decompress_binary_label_flat(label):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels)
+
+  recovered = crackle.decompress(binary)
+  binimg1 = recovered == label
+  binimg2 = crackle.decompress(binary, label)
+
+  assert np.all(labels == recovered)
+  assert np.all(binimg1 == binimg2)
+
+@pytest.mark.parametrize('allow_pins', [True])
+def test_decompress_binary_label_random(allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+
+  x,y,z = tuple(np.random.randint(128,256, size=(3,)))
+  print(x,y,z)
+  labels = np.asfortranarray(labels[x:x+256,y:y+256,z:z+32])
+
+  binary = crackle.compress(labels, allow_pins=allow_pins)
+
+  label = random.choice(np.unique(labels))
+
+  recovered = crackle.decompress(binary)
+  binimg1 = recovered == label
+  binimg2 = crackle.decompress(binary, label)
+
+  assert np.all(labels == recovered)
+  assert np.all(binimg1 == binimg2)
+
+def test_connectomics_npy():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=False)
+  recovered = crackle.decompress(binary)
+  assert np.all(labels == recovered)
+
+def test_connected_components():
+  import cc3d
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=False)
+  cc_binary = crackle.connected_components(binary)
+  cc_labels, N = cc3d.connected_components(labels, return_N=True)
+  assert N == (crackle.num_labels(cc_binary) - 1) # num labels includes 0
+  assert np.all(cc_labels == crackle.decompress(cc_binary))
+
+def test_watershed():
+  labels = compresso.load("ws.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=False)
+  recovered = crackle.decompress(binary)
+  assert np.all(labels == recovered)
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_empty(allow_pins):
+  labels = np.zeros((0,0,0), dtype=np.uint32, order="F")
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_black(allow_pins):
+  labels = np.zeros((100,100,100), dtype=np.uint32, order="F")
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_uniform_field(allow_pins):
+  labels = np.zeros((100,100,100), dtype=np.uint32, order="F") + 1
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert len(compressed) < labels.nbytes
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+  labels = np.zeros((100,100,100), dtype=np.uint32, order="F") + np.iinfo(np.uint32).max
+  compressed2 = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed2)
+  assert len(compressed2) < labels.nbytes
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed2))
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_arange_field(allow_pins):
+  labels = np.arange(0,1024).reshape((16,16,4)).astype(np.uint32)
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+  labels = np.arange(1,1025).reshape((16,16,4)).astype(np.uint32)
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+  shape = [100,100,50]
+  labels = np.arange(100*100*50, dtype=np.uint32).reshape(shape, order="F")
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_2d_arange_field(allow_pins):
+  labels = np.arange(0,16*16).reshape((16,16,1)).astype(np.uint32)
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_2_field(allow_pins):
+  labels = np.arange(0,1024).reshape((16,16,4)).astype(np.uint32)
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+  
+  labels[2,2,1] = np.iinfo(np.uint32).max
+  compressed = crackle.compress(labels, allow_pins=allow_pins)
+  reconstituted = crackle.decompress(compressed)
+  assert np.all(labels == reconstituted)
+  assert np.all(np.unique(labels) == crackle.labels(compressed))
+
+def test_labels():
+  labels = np.random.randint(0,100, size=(100,100,10), dtype=np.uint32)
+  binary = crackle.compress(labels)
+  uniq = np.unique(labels)  
+  uniq2 = crackle.labels(binary)
+
+  assert np.all(uniq == uniq2)
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  x,y,z = tuple(np.random.randint(128,384, size=(3,)))
+  print(x,y,z)
+  labels = labels[x:x+128,y:y+128,z:z+16]
+  binary = crackle.compress(labels)
+  uniq = np.unique(labels)  
+  uniq2 = crackle.labels(binary)
+  assert np.all(uniq == uniq2)
+
+def test_num_labels():
+  labels = np.zeros([0,0,0], dtype=np.uint32)
+  binary = crackle.compress(labels, allow_pins=False)
+  num_labels_2 = crackle.num_labels(binary)
+  assert num_labels_2 == 0
+
+  labels = np.random.randint(0,100, size=(100,100,10), dtype=np.uint32)
+  binary = crackle.compress(labels, allow_pins=False)
+  num_labels_1 = np.unique(labels).size  
+  num_labels_2 = crackle.num_labels(binary)
+  assert num_labels_1 == num_labels_2
+
+  labels = np.ones((20,20,20), dtype=np.uint32)
+  labels[2,2,2:5] = 4
+  binary = crackle.compress(labels, allow_pins=True)
+  num_labels_1 = np.unique(labels).size  
+  num_labels_2 = crackle.num_labels(binary)
+  assert num_labels_1 == num_labels_2
+
+@pytest.mark.parametrize('sx', [0,17,31])
+@pytest.mark.parametrize('sy', [0,11,49])
+@pytest.mark.parametrize('sz', [0,17,31])
+@pytest.mark.parametrize('dtype', DTYPE)
+def test_nbytes(sx,sy,sz,dtype):
+  labels = np.random.randint(np.iinfo(dtype).min, np.iinfo(dtype).max, size=[sx,sy,sz], dtype=dtype)
+  binary = crackle.compress(labels)
+  nbytes = crackle.nbytes(binary)
+  assert nbytes == (sx*sy*sz*np.dtype(dtype).itemsize)
+
+def test_contains():
+  labels = np.random.randint(0,4, size=(100,100,10), dtype=np.uint32)
+  binary = crackle.compress(labels)
+
+  assert crackle.contains(binary, -1) == False
+  assert crackle.contains(binary, 0) == True
+  assert crackle.contains(binary, 1) == True
+  assert crackle.contains(binary, 2) == True
+  assert crackle.contains(binary, 3) == True
+  assert crackle.contains(binary, 4) == False
+  assert crackle.contains(binary, 21954124) == False
+  assert crackle.contains(binary, -12998124) == False
+
+def test_contains_range():
+  labels = np.random.randint(0,4, size=(100,100,10), dtype=np.uint32)
+  binary = crackle.compress(labels)
+
+  assert crackle.contains_range(binary, -2, -2).size == 0
+  assert crackle.contains_range(binary, -1, -2).size == 0
+  assert crackle.contains_range(binary, 0, 1).size == 1
+  assert crackle.contains_range(binary, 0, 2).size == 2
+  assert crackle.contains_range(binary, 0, 3).size == 3
+  assert crackle.contains_range(binary, 0, 4).size == 4
+  assert crackle.contains_range(binary, 0, 100).size == 4
+  assert crackle.contains_range(binary, 1, 4).size == 3
+  assert crackle.contains_range(binary, 2, 4).size == 2
+  assert crackle.contains_range(binary, 3, 4).size == 1
+  assert crackle.contains_range(binary, 5, 6).size == 0
+  assert crackle.contains_range(binary, 2, 1).size == 0
+
+  assert np.all(crackle.contains_range(binary, 0, 4) == np.array([0,1,2,3]))
+  
+def test_remap():
+  labels = np.arange(0,1000).reshape((10,10,10)).astype(np.uint32)
+  binary = crackle.compress(labels)
+
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(0,1000))
+
+  binary = crackle.remap(binary, { i:i+1 for i in range(1000) }, preserve_missing_labels=False)
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(1,1001))
+
+  crackle.decompress(binary) # validate crcs
+
+  binary = crackle.remap(binary, { i:i+1 for i in range(1002) }, preserve_missing_labels=True)
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(2,1002))
+
+  ans = np.arange(2,1002)
+  ans[:48] += 1
+
+  binary = crackle.remap(binary, { i:i+1 for i in range(50) }, preserve_missing_labels=True)
+  labels = crackle.labels(binary)
+  assert np.all(labels == ans)
+
+  labels = np.arange(0,1000).reshape((10,10,10)).astype(np.uint16)
+  binary = crackle.compress(labels)
+
+  binary = crackle.remap(binary, { i:i+70000 for i in range(1000) }, preserve_missing_labels=False)
+  
+  uniq_labels = crackle.labels(binary)
+  assert np.all(uniq_labels == np.arange(70000,71000))
+  head = crackle.header(binary)
+  assert head.stored_data_width == 4
+  assert head.data_width == 4
+
+  new_labels = crackle.decompress(binary)
+  labels = labels.astype(np.uint32) + 70000
+  assert np.all(labels == new_labels)
+
+
+def test_mask():
+  labels = np.arange(0,1000).reshape((10,10,10)).astype(np.uint32)
+  binary = crackle.compress(labels)
+
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(0,1000))
+
+  binary = crackle.mask(binary, list(range(500)))
+  labels = crackle.labels(binary)
+  gt = [0] + list(range(500,1000))
+  assert np.all(labels == gt)
+
+def test_mask_except():
+  labels = np.arange(0,1000).reshape((10,10,10)).astype(np.uint32)
+  binary = crackle.compress(labels)
+
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(0,1000))
+
+  binary = crackle.mask_except(binary, list(range(500)))
+  labels = crackle.labels(binary)
+  gt = list(range(0,500))
+  assert np.all(labels == gt)
+
+def test_big_remap():
+  import time
+  labels = np.arange(0,10000000).reshape((100,100,1000)).astype(np.uint32)
+  binary = crackle.compress(labels)
+  mapping = { i:i+1 for i in range(10000000) }
+  s = time.time()
+  crackle.remap(binary, mapping, preserve_missing_labels=False, in_place=True, parallel=0)  
+  print(f"{time.time() - s:.3f}")
+
+  labels = crackle.labels(binary)
+  assert np.all(labels == np.arange(1,10000001))
+
+def test_remap_sorted():
+  labels = np.random.randint(0,7, size=(10,10,10)).astype(np.uint32)
+
+  # in order
+
+  binary = crackle.compress(labels)
+
+  remap = {0:10, 1:20, 2:30, 3:30, 4:55, 5:60, 6:70}
+
+  binary = crackle.remap(binary, remap, preserve_missing_labels=True)
+  new_labels = list(remap.values())
+  new_labels.sort()
+  remapped_binary_labels = list(crackle.labels(binary))
+  print(remapped_binary_labels)
+  remapped_binary_labels.sort()
+
+  assert remapped_binary_labels == new_labels
+
+  for label in new_labels:
+    assert crackle.contains(binary, label)
+
+  head = crackle.header(binary)
+  assert head.is_sorted 
+
+  # with duplicate
+
+  remap = {10:11, 20:21, 30:31, 55:56, 60:61, 70:71}
+
+  binary = crackle.remap(binary, remap, preserve_missing_labels=True)
+  new_labels = list(remap.values())
+  new_labels.sort()
+  remapped_binary_labels = list(crackle.labels(binary))
+  print(remapped_binary_labels)
+  assert len(remapped_binary_labels) == len(new_labels) + 1
+  remapped_binary_labels = np.unique(remapped_binary_labels)
+
+  assert np.all(remapped_binary_labels == new_labels)
+  assert len(remapped_binary_labels) == len(new_labels)
+
+  for label in new_labels:
+    assert crackle.contains(binary, label)
+
+  head = crackle.header(binary)
+  assert head.is_sorted 
+
+  # out of order
+
+  binary = crackle.compress(labels)
+
+  remap = {0:10, 1:40, 2:20, 3:90, 4:25, 5:70, 6:90}
+
+  binary = crackle.remap(binary, remap, preserve_missing_labels=True)
+  new_labels = list(remap.values())
+  new_labels.sort()
+  remapped_binary_labels = list(crackle.labels(binary))
+  print(remapped_binary_labels)
+  remapped_binary_labels.sort()
+
+  assert remapped_binary_labels == new_labels
+
+  for label in new_labels:
+    assert crackle.contains(binary, label)
+
+  head = crackle.header(binary)
+  assert not head.is_sorted 
+
+
+@pytest.mark.parametrize("allow_pins", [False, True])
+def test_zstack_ones(allow_pins):
+
+  sz = 100
+
+  binary = crackle.zstack([
+    np.ones([512,512], dtype=np.uint32)
+    for z in range(sz)
+  ])
+
+  head = crackle.header(binary)
+  assert head.sx == 512
+  assert head.sy == 512
+  assert head.sz == sz
+
+  assert head.data_width == 4
+  assert head.stored_data_width == 1
+
+  assert crackle.labels(binary) == [1]
+
+  labels = np.ones([512,512,sz], dtype=np.uint32)
+  binary2 = crackle.compress(labels, allow_pins=allow_pins)
+
+  if not allow_pins:
+    assert binary == binary2
+
+  arr = crackle.decompress(binary)
+  assert np.all(arr == 1)
+
+  sz = 100
+
+  binary = crackle.zstack([
+    np.ones([512,512,2], dtype=np.uint32)
+    for z in range(sz // 2)
+  ])
+  labels = np.ones([512,512,sz], dtype=np.uint32)
+  binary2 = crackle.compress(labels, allow_pins=allow_pins)
+
+  if not allow_pins:
+    assert binary == binary2
+
+  sz = 10
+
+  image = np.random.randint(0,255, size=(64, 64, sz), dtype=np.uint8)
+  binary = crackle.zstack([
+    image[:,:,2*z:2*z+2]
+    for z in range(sz // 2)
+  ])
+
+  recovered = crackle.decompress(binary)
+  assert np.all(image == recovered)
+
+@pytest.mark.parametrize('allow_pins', [False,True])  
+def test_zstack_real_data(allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binaries = []
+  for z in range(0, 512 // 64):
+    slab = labels[:,:,z*64:(z+1)*64]
+    binary = crackle.compress(slab, allow_pins=allow_pins)
+    binaries.append(binary)
+
+  binary = crackle.zstack(binaries)
+  recovered = crackle.decompress(binary)
+
+  assert np.all(labels == recovered)
+
+@pytest.mark.parametrize('allow_pins', [False,True])  
+def test_zstack_heterogenous_data(allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binaries = []
+
+  empties = np.zeros([512,512,10], dtype=np.uint8, order="F")
+  binaries.append(
+    crackle.compress(empties, allow_pins=allow_pins)
+  )
+
+  for z in range(0, 512 // 64):
+    slab = labels[:,:,z*64:(z+1)*64]
+    binary = crackle.compress(slab, allow_pins=allow_pins)
+    binaries.append(binary)
+
+  binary = crackle.zstack(binaries)
+  recovered = crackle.decompress(binary)
+
+  ans = np.zeros([512,512,522], dtype=labels.dtype, order="F")
+  ans[:,:,10:] = labels
+
+  assert np.all(ans == recovered)
+
+
+
+def test_zsplit():
+  labels = np.ones([256,256,7], dtype=np.uint32)
+  binary = crackle.compress(labels)
+  (before, middle, after) = crackle.zsplit(binary, 3)
+
+  before = crackle.decompress(before)
+  assert np.all(before == labels[:,:,:3])
+
+  middle = crackle.decompress(middle)
+  assert np.all(middle == labels[:,:,3:4])
+
+  after = crackle.decompress(after)
+  assert np.all(after == labels[:,:,4:])
+
+def test_zshatter():
+  labels = np.ones([256,256,7], dtype=np.uint32)
+  binary = crackle.compress(labels)
+  levels = crackle.zshatter(binary)
+
+  for i in range(7):
+    arr = crackle.decompress(levels[i])
+    assert np.all(arr == 1)
+
+
+def test_edit_array():
+  labels = np.ones([256,256,10], dtype=np.uint32)
+  binary = crackle.compress(labels)
+  arr = crackle.CrackleArray(binary)
+
+  res = np.full(labels.shape, 2, dtype=np.uint32)
+  arr[:,:,:] = res
+  assert np.all(arr[:] == res)
+
+  labels = np.ones([256,256,10], dtype=np.uint32)
+  binary = crackle.compress(labels)
+  arr = crackle.CrackleArray(binary)
+
+  res = np.full([256, 256, 5], 2, dtype=np.uint32)
+  arr[:,:,3:8] = res
+
+  ans = np.ones(labels.shape, dtype=np.uint32)
+  ans[:,:,3:8] = 2
+
+  assert np.all(arr[:] == ans)
+
+def test_full():
+  shape = [100,200,50]
+  arr = crackle.full(shape, 0, dtype=np.uint16, order="F")
+  ans = np.full(shape, 0, dtype=np.uint16, order="F")
+
+  gt_compressed = crackle.compressa(ans)
+
+  assert gt_compressed.binary == arr.binary
+  assert np.all(gt_compressed.numpy() == ans)
+
+def test_zeros():
+  arr = crackle.zeros([10,10,10], dtype=np.uint64, order="F")
+  ans = np.zeros([10,10,10], dtype=np.uint64, order="F")
+  assert arr.labels() == [ 0 ]
+  assert np.all(arr.numpy() == ans)
+
+@pytest.mark.parametrize("scalar", [0, 1, 5, 255, 70000])
+def test_add(scalar):
+  arr = crackle.zeros([10,10,10], dtype=np.uint64, order="F")
+  
+  assert arr.labels() == [ 0 ]
+  arr = arr + scalar
+  assert arr.labels() == [ scalar ]
+
+  assert np.all(
+    arr.decompress() == np.full([10,10,10], scalar, dtype=np.uint64, order="F")
+  )
+
+
+def test_refit():
+  arr = crackle.zeros([10,10,10], dtype=np.uint64, order="F")
+  arr = arr.refit()
+  assert arr.dtype == np.uint8
+
+def test_astype():
+  arr = crackle.zeros([10,10,10], dtype=np.uint64, order="F")
+
+  assert arr.astype(np.uint8).dtype == np.uint8
+  assert arr.astype(np.uint16).dtype == np.uint16
+  assert arr.astype(np.uint32).dtype == np.uint32
+  assert arr.astype(np.uint64).dtype == np.uint64
+  arr += 500
+
+  assert arr.astype(np.uint8).dtype == np.uint8
+  assert arr.astype(np.uint16).dtype == np.uint16
+  assert arr.astype(np.uint32).dtype == np.uint32
+  assert arr.astype(np.uint64).dtype == np.uint64
+
+  try:
+    assert arr.astype(np.uint8, casting="safe").dtype == np.uint8
+    assert False
+  except TypeError:
+    pass
+  assert arr.astype(np.uint16, casting="safe").dtype == np.uint16
+  assert arr.astype(np.uint32, casting="safe").dtype == np.uint32
+  assert arr.astype(np.uint64, casting="safe").dtype == np.uint64
+
+  try:
+    arr.astype(np.uint32, casting="no")
+    assert False
+  except TypeError:
+    pass
+
+  assert arr.astype(arr.dtype, order="C").header().fortran_order == False
+  assert arr.astype(arr.dtype, order="F").header().fortran_order == True
+
+def test_contiguous_fortran():
+  arr = crackle.zeros([10,10,10], dtype=np.uint64, order="F")
+  
+  arr2 = arr.asfortranarray()
+  assert arr.binary == arr2.binary
+
+  arr2 = arr.ascontiguousarray()
+  assert arr.binary != arr2.binary
+
+  head = arr2.header()
+  assert head.fortran_order == False
+
+  binary = arr.binary
+  arr = arr2.decompress()
+  assert arr.flags.f_contiguous == False
+  assert arr.flags.c_contiguous == True
+
+  arr2 = arr2.asfortranarray()
+  assert np.all(arr2.binary == binary)
+
+def test_point_cloud():
+  input_arr = np.array([
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ], dtype=np.uint32, order="F")
+
+  binary = crackle.compress(input_arr)
+  ptc = crackle.point_cloud(binary, 0, skip_background=False)[:,:2]
+
+  sx, sy = input_arr.shape
+
+  result = []
+  for x in range(sx):
+    result.append([x,0])
+    result.append([x,sy-1])
+  for y in range(1, sy -1):
+    result.append([0,y])
+    result.append([sx-1,y])
+
+  result.append([0,0]) # extra copy of 0,0
+
+  result = np.array(result)
+  result = np.sort(result, axis=0)
+  ptc = np.sort(ptc, axis=0)
+
+  assert np.all(result == ptc)
+
+@pytest.mark.parametrize("allow_pins", [False, True])
+@pytest.mark.parametrize("dtype", [np.uint16, np.uint32])
+def test_min_max(allow_pins, dtype):
+  labels = np.random.randint(0,500,size=(20,20,20), dtype=dtype)
+  binary = crackle.compress(labels, allow_pins=allow_pins)
+
+  ans_min = np.min(labels)
+  ans_max = np.max(labels)
+
+  assert ans_min == crackle.min(binary)
+  assert ans_max == crackle.max(binary)
+
+  labels = np.ones((20,20,20), dtype=dtype)
+  binary = crackle.compress(labels, allow_pins=allow_pins)
+
+  ans_min = np.min(labels)
+  ans_max = np.max(labels)
+
+  assert ans_min == crackle.min(binary)
+  assert ans_max == crackle.max(binary)
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.uint32, np.uint64])
+def test_crc_check_one_bit_error(dtype):
+  arr = np.random.randint(0, 255, size=[11,23,37], dtype=dtype)
+  binary = bytearray(crackle.compress(arr))
+
+  head = crackle.header(binary) # crashes if bad
+  binary[0] = ord('z')
+
+  try:
+    head = crackle.header(binary) # crashes if bad
+    assert False
+  except:
+    pass
+
+  binary[0] = ord('c') # fixes
+  head = crackle.header(binary) # crashes if bad
+  binary[4] = 100
+  
+  try:
+    head = crackle.header(binary) # crashes if bad
+    assert False
+  except:
+    pass
+
+  binary[4] = 1
+  head = crackle.header(binary) # crashes if bad
+
+  # Hamming Distance 1
+  # now to see if crc actually works....
+  # tests 28, 29 are false positives btw
+  for i in range(5, 30):
+    for j in range(8):
+      val = binary[i]
+      binary[i] |= (0b1 << j)
+
+      try:
+        head = crackle.header(binary) # crashes if bad
+        assert False, i
+      except:
+        pass
+
+      binary[i] = val
+
+  for i in range(5, 30):
+    for j in range(8):
+      val = binary[i]
+      binary[i] = binary[i] & ~(0b1 << j)
+
+      try:
+        head = crackle.header(binary) # crashes if bad
+        assert False, i
+      except:
+        pass
+
+      binary[i] = val
+
+
+  # Hamming Distance 2
+  orig_binary = bytearray(binary)
+  N = 184
+
+  for i in range(N):
+    for j in range(i, N):
+      binary = bytearray(orig_binary)
+
+      ii = i // 8
+      jj = j // 8
+      iib = i - ii * 8
+      jjb = j - jj * 8
+
+      binary[ii] |= (0b1 << iib)
+      binary[jj] |= (0b1 << jjb)
+
+      try:
+        head = crackle.header(binary) # crashes if bad
+        assert False, i
+      except:
+        pass
+
+  for i in range(N):
+    for j in range(i, N):
+      binary = bytearray(orig_binary)
+
+      ii = i // 8
+      jj = j // 8
+      iib = i - ii * 8
+      jjb = j - jj * 8
+
+      binary[ii] = binary[ii] & ~(0b1 << iib)
+      binary[jj] = binary[jj] & ~(0b1 << jjb)
+
+      try:
+        head = crackle.header(binary) # crashes if bad
+        assert False, i
+      except:
+        pass
+
+def test_array_works_z():
+  labels = np.arange(0,64).reshape((4,4,4), order="F").astype(np.uint32)
+  compressed = crackle.compress(labels)
+  arr = crackle.CrackleArray(compressed)
+  assert np.all(arr[:,:,3] == labels[:,:,3])
+
+@pytest.mark.parametrize('allow_pins', [False,True])
+def test_reencode(allow_pins):
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=allow_pins)
+  
+  markov_binary = crackle.codec.reencode(binary, markov_model_order=5)
+  assert len(markov_binary) < len(binary)
+
+  recovered = crackle.decompress(binary)
+  assert np.all(recovered == labels)
+  del recovered
+
+  recovered = crackle.decompress(markov_binary)
+  assert np.all(labels == recovered)  
+
+def test_voxel_counts():
+  labels = np.zeros([1,1,1])
+  binary = crackle.compress(labels)
+  vc_cts = crackle.voxel_counts(binary)
+  assert vc_cts[0] == 1
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels)
+
+  vc_cts = crackle.voxel_counts(binary)
+
+  uniq, cts = np.unique(labels, return_counts=True)
+  cts_gt = { u:ct for u,ct in zip(uniq, cts) }
+  assert vc_cts == cts_gt
+
+  vc_ct = crackle.voxel_counts(binary, label=25024949)
+  assert vc_ct == cts_gt[25024949]
+
+  labels = np.zeros([100,101,103])
+  binary = crackle.compress(labels)
+
+  vc_cts = crackle.voxel_counts(binary)
+
+  uniq, cts = np.unique(labels, return_counts=True)
+  cts_gt = { u:ct for u,ct in zip(uniq, cts) }
+  assert vc_cts == cts_gt
+
+def test_centroids():
+  import scipy.ndimage
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels)
+
+  centroids = crackle.centroids(binary)
+
+  for i, (lbl, val) in enumerate(centroids.items()):
+    res = scipy.ndimage.center_of_mass(labels == lbl)
+    assert np.all(np.isclose(res, val))
+
+    if i > 20:
+      break
+
+def test_bounding_boxes():
+  import scipy.ndimage
+  import fastremap 
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+
+  labels, _ = fastremap.renumber(labels, in_place=True)
+
+  binary = crackle.compress(labels)
+
+  crackle_slices = crackle.bounding_boxes(binary)
+  scipy_slices = scipy.ndimage.find_objects(labels)
+
+  for i, scipy_slc in enumerate(scipy_slices):
+    ckl_slc = crackle_slices[i+1]
+    assert ckl_slc == scipy_slc
+
+def test_spurious_branch_elimination():
+  arr = np.array([
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,1,1,2,2,0,0,0,0],
+    [0,0,1,1,2,2,0,0,0,0],
+    [0,0,4,4,3,3,0,0,0,0],
+    [0,0,4,4,3,3,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+  ], dtype=np.uint8).T
+
+  binary = crackle.compress(arr)
+  recovered = crackle.decompress(binary)[:,:,0]
+
+  assert np.all(recovered == arr)
+
+  arr = np.array([
+    [  0, 139, 139, 139, 139],
+    [  0, 139,   0, 139, 139],
+    [  0, 161,   0,   0, 161],
+    [161, 161, 161, 161, 161],
+  ], dtype=np.uint8).T
+  binary = crackle.compress(arr)
+  recovered = crackle.decompress(binary)[:,:,0]
+
+  assert np.all(recovered == arr)
+
+def test_each_multi():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=False)
+
+  i = 0
+  for label, tmp_label, image in crackle.each(binary, multi=True):
+    if label == 0:
+      continue
+    binary_image = (image == tmp_label)
+    gt = (labels == label)
+    assert np.all(binary_image == gt)
+    if i > 10:
+      break
+
+    i += 1
+
+def test_each():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, allow_pins=False)
+
+  i = 0
+  for label, binimg in crackle.each(binary, crop=False):
+    assert np.all((labels == label) == binimg)
+    i += 1
+    if i > 30:
+      break
+
+  bbxes = crackle.bounding_boxes(binary)
+  
+  i = 0
+  for label, binimg in crackle.each(binary, crop=True):
+    slc = bbxes[label]
+    gt = labels[slc] == label
+    assert np.all(gt == binimg)
+
+    i += 1
+    if i > 30:
+      break
+
+def test_voxel_connectivity_graph():
+  import cc3d
+  import fastremap 
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  labels, _ = fastremap.renumber(labels, in_place=True)
+
+  gt_vcg = cc3d.voxel_connectivity_graph(labels, connectivity=6)
+
+  binary = crackle.compress(labels)
+
+  crackle_vcg = crackle.voxel_connectivity_graph(binary, connectivity=6)
+
+  assert np.all(gt_vcg == crackle_vcg)
+
+
+def test_contacts():
+  import cc3d
+  import fastremap 
+
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  
+  gt_contacts = cc3d.contacts(labels, connectivity=6)
+
+  binary = crackle.compress(labels)
+
+  crackle_contacts = crackle.contacts(binary)
+
+  assert np.all(gt_contacts == crackle_contacts)
+
+def test_array_equal_simple():
+  binary = crackle.compress(np.zeros([100,100,100]))
+  binary2 = crackle.compress(np.zeros([23,1,33]))
+  assert not crackle.array_equal(binary, binary2)
+
+  binary = crackle.compress(np.zeros([23,1,33]))
+  binary2 = crackle.compress(np.zeros([23,1,33]))
+  assert crackle.array_equal(binary, binary2)
+
+  arr = np.random.randint(0,500, size=[100,103,101]).astype(np.uint16)
+  arr2 = np.random.randint(0,500, size=[100,103,101]).astype(np.uint16)
+
+  binary = crackle.compress(arr)
+  binary2 = crackle.compress(arr2)
+
+  assert np.all(arr == arr2) == crackle.array_equal(binary, binary2)
+
+def test_array_equal_real_data():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  binary = crackle.compress(labels, markov_model_order=0)
+  markov_binary = crackle.codec.reencode(binary, markov_model_order=5)
+
+  assert crackle.array_equal(binary, binary)
+  assert crackle.array_equal(binary, markov_binary)
+
+  labels2 = labels.copy()
+  binary2 = crackle.compress(labels2)
+
+  assert crackle.array_equal(binary, binary2)
+
+  labels2[100,100,100] = labels2[400,400,400]
+  binary2 = crackle.compress(labels2)
+
+  assert not crackle.array_equal(binary, binary2)
+
+
+def test_edge_labels():  
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  arr = crackle.compressa(labels, markov_model_order=0)
+
+  ckl_uniq = arr.edge_labels()
+  slices = [
+    np.s_[:,:,0],
+    np.s_[:,:,-1],
+    np.s_[0,:,:],
+    np.s_[-1,:,:],
+    np.s_[:,0,:],
+    np.s_[:,-1,:],
+  ]
+
+  uniq = set()
+  for slc in slices:
+    slice_labels = labels[slc]
+    uniq.update(np.unique(slice_labels))
+
+  assert ckl_uniq == uniq
+
+def test_apply_binary_mask():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  mask = labels == 32068811
+  ckl_mask = crackle.compressa(mask, markov_model_order=0)
+
+  data = np.random.randint(0,10,size=labels.shape, dtype=np.uint8)
+  ckl_data = crackle.compressa(data, markov_model_order=0)
+
+  masked_data = ckl_data.apply_binary_mask(ckl_mask).numpy()
+  gt = np.where(mask, data, 0)
+
+  assert np.all(masked_data == gt)
+
+def test_array_equality():
+  labels = compresso.load("connectomics.npy.cpso.gz")
+  ckl_labels = crackle.compressa(labels, markov_model_order=0)
+  result = ckl_labels == ckl_labels.copy()
+
+  assert np.all(result[:] == 1)
+  assert np.all(result == 1)
+  result = ckl_labels != ckl_labels.copy()
+  assert np.all(result[:] == 0)
+  assert np.all(result == 0)
+  
+
+def test_binary_operations():
+  arr_a = np.random.randint(5,16, size=[107,101,103], dtype=np.uint32)
+  arr_b = np.random.randint(5,16, size=[107,101,103], dtype=np.uint32)
+
+  ckl_a = crackle.compressa(arr_a)
+  ckl_b = crackle.compressa(arr_b)
+
+  assert (ckl_a < ckl_b).dtype == np.uint8
+  assert (ckl_a <= ckl_b).dtype == np.uint8
+  assert (ckl_a > ckl_b).dtype == np.uint8
+  assert (ckl_a >= ckl_b).dtype == np.uint8
+  assert (ckl_a == ckl_b).dtype == np.uint8
+  assert (ckl_a != ckl_b).dtype == np.uint8
+
+  assert np.all((arr_a + arr_b) == (ckl_a + ckl_b).numpy())
+  assert np.all((arr_a - arr_b) == (ckl_a - ckl_b).numpy())
+  assert np.all((arr_a * arr_b) == (ckl_a * ckl_b).numpy())
+  assert np.all((arr_a // arr_b) == (ckl_a // ckl_b).numpy())
+  assert np.all((arr_a % arr_b) == (ckl_a % ckl_b).numpy())
+  assert np.all((arr_a | arr_b) == (ckl_a | ckl_b).numpy())
+  assert np.all((arr_a & arr_b) == (ckl_a & ckl_b).numpy())
+  assert np.all((arr_a ^ arr_b) == (ckl_a ^ ckl_b).numpy())
+  assert np.all((arr_a << arr_b) == (ckl_a << ckl_b).numpy())
+  assert np.all((arr_a >> arr_b) == (ckl_a >> ckl_b).numpy())
+
+  assert np.all((arr_a + 3) == (ckl_a + 3).numpy())
+  assert np.all((arr_a - 3) == (ckl_a - 3).numpy())
+  assert np.all((arr_a * 3) == (ckl_a * 3).numpy())
+  assert np.all((arr_a // 3) == (ckl_a // 3).numpy())
+  assert np.all((arr_a % 3) == (ckl_a % 3).numpy())
+  assert np.all((arr_a | 3) == (ckl_a | 3).numpy())
+  assert np.all((arr_a & 3) == (ckl_a & 3).numpy())
+  assert np.all((arr_a ^ 3) == (ckl_a ^ 3).numpy())
+  assert np.all((arr_a << 3) == (ckl_a << 3).numpy())
+  assert np.all((arr_a >> 3) == (ckl_a >> 3).numpy())
+
+@pytest.mark.parametrize('dtype', DTYPE)
+def test_unary_operations(dtype):
+  arr = np.random.randint(5,16, size=[107,101,103], dtype=dtype)
+  ckl = crackle.compressa(arr)
+
+  assert ckl.array_equal(+ckl)
+  assert ckl.array_equal(+ckl)
+
+  inverted = crackle.compressa(~arr)
+  assert np.all(inverted == (~ckl))
+
+  negated = crackle.compressa(-arr)
+  assert np.all(negated == (-ckl))
+
+

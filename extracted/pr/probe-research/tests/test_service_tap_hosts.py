@@ -40,8 +40,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import paths, procid
-from probe.service.protocol import Method
+from probe.foundation.service_api import paths, procid
+from probe.foundation.service_api.wire import Method
 from tests.service_harness import kill_agent, pid_running, service_home, spawn_agent, wait_for  # noqa: F401
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the service is POSIX-only until R3")

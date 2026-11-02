@@ -1,0 +1,340 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Greedy overlap assembly of VariantSequence objects.
+
+This module assembles short cDNA sequences (centered on a variant locus) into
+longer contiguous sequences by iteratively merging pairs with the largest
+overlaps.
+
+Assumptions / limitations:
+
+- **Exact sequence match**: overlap detection requires exact prefix/suffix
+  containment (str.endswith / str.startswith). A single sequencing error in
+  the flanking sequence prevents a merge. This is suitable for Illumina
+  short reads (~0.1% error rate) but will produce fragmented assemblies
+  with long-read technologies (PacBio/ONT, ~5-10% indel error rate).
+
+- **Shared alt allele**: all input VariantSequence objects must carry the
+  same alt allele string. Reads with different alleles at the variant locus
+  should be separated before assembly.
+"""
+
+from collections import defaultdict
+from itertools import groupby
+
+from .default_parameters import MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE
+from .logging import get_logger
+from .read_identity import compatible_alignments, observation_groups, read_sort_key
+
+logger = get_logger(__name__)
+
+DEFAULT_ASSEMBLY_KMER_SIZE = 15
+
+
+def _sequence_key(sequence):
+    """Canonical identity, including variant position and transcript path."""
+    compatible_ids = sequence.compatible_transcript_ids
+    transcript_key = (
+        (0, ())
+        if compatible_ids is None
+        else (1, tuple(sorted(compatible_ids))))
+    return sequence.prefix, sequence.alt, sequence.suffix, transcript_key
+
+
+def _candidate_sort_key(sequence):
+    return _sequence_key(sequence), tuple(sorted(read_sort_key(r) for r in sequence.reads))
+
+
+def _sequence_kmers(sequence, k):
+    return {
+        sequence[i:i + k]
+        for i in range(len(sequence) - k + 1)
+    }
+
+
+def _greedy_merge_candidate_pairs(
+        variant_sequences,
+        min_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+        max_kmer_size=DEFAULT_ASSEMBLY_KMER_SIZE):
+    """
+    Use an exact k-mer index to skip obviously impossible pairwise comparisons.
+
+    Any truly mergeable pair must share at least one exact k-mer whose length
+    is no greater than the overlap threshold and no greater than the shortest
+    eligible sequence. Final merge eligibility is still decided by
+    VariantSequence.combine.
+    """
+    if len(variant_sequences) < 2:
+        return []
+
+    eligible_lengths = [
+        len(variant_sequence)
+        for variant_sequence in variant_sequences
+        if len(variant_sequence) >= min_overlap_size
+    ]
+    if not eligible_lengths:
+        return []
+
+    k = max(1, min(max_kmer_size, min_overlap_size, min(eligible_lengths)))
+    kmer_to_indices = defaultdict(set)
+    sequence_kmers = []
+
+    for i, variant_sequence in enumerate(variant_sequences):
+        if len(variant_sequence) < min_overlap_size:
+            kmers = ()
+        else:
+            kmers = tuple(_sequence_kmers(variant_sequence.sequence, k))
+            for kmer in kmers:
+                kmer_to_indices[kmer].add(i)
+        sequence_kmers.append(kmers)
+
+    candidate_pairs = set()
+    for i, kmers in enumerate(sequence_kmers):
+        candidate_indices = set()
+        for kmer in kmers:
+            candidate_indices.update(kmer_to_indices[kmer])
+        for j in candidate_indices:
+            if j > i:
+                candidate_pairs.add((i, j))
+    return sorted(candidate_pairs)
+
+
+def greedy_merge_helper(
+        variant_sequences,
+        min_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE):
+    """
+    Score all valid pairwise merges by overlap size and greedily accept
+    the best non-conflicting merges (each sequence participates in at most
+    one merge per round). This makes the output deterministic regardless
+    of input order.
+
+    Returns a list of merged VariantSequence objects, and True if any
+    were successfully merged.
+    """
+    # Canonical indices make equal-score tie breaks independent of read/input
+    # order. Merge identical candidates first so splitting their read sets
+    # between duplicate entries cannot change their support score.
+    variant_sequences = sorted(
+        merge_identical_sequences(variant_sequences), key=_candidate_sort_key)
+    candidates = []
+    for i, j in _greedy_merge_candidate_pairs(
+            variant_sequences,
+            min_overlap_size=min_overlap_size):
+        combined = variant_sequences[i].combine(
+            variant_sequences[j], min_overlap_size=min_overlap_size)
+        if combined is not None:
+            overlap = (
+                len(variant_sequences[i])
+                + len(variant_sequences[j])
+                - len(combined))
+            candidates.append((overlap, len(observation_groups(combined.reads)), i, j, combined))
+
+    if not candidates:
+        return list(variant_sequences), False
+
+    # Largest overlap first, then most reads, then canonical sequence indices.
+    candidates.sort(key=lambda c: (-c[0], -c[1], c[2], c[3]))
+
+    used = set()
+    merged_variant_sequences = []
+    for overlap, n_reads, i, j, combined in candidates:
+        if i in used or j in used:
+            continue
+        used.add(i)
+        used.add(j)
+        merged_variant_sequences.append(combined)
+
+    unmerged = [
+        variant_sequences[k]
+        for k in range(len(variant_sequences))
+        if k not in used
+    ]
+    result = merge_identical_sequences(merged_variant_sequences) + unmerged
+    return result, True
+
+
+def greedy_merge(
+        variant_sequences,
+        min_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+        preserve_intermediate_candidates=False):
+    """
+    Greedily merge overlapping sequences into longer sequences.
+
+    Accepts a collection of VariantSequence objects and returns another
+    collection of elongated variant sequences. The reads field of the
+    returned VariantSequence object will contain reads which
+    only partially overlap the full sequence. When
+    ``preserve_intermediate_candidates`` is true, the result also contains
+    the input and every intermediate assembly candidate, with reads from
+    exact duplicates combined.
+    """
+    variant_sequences = list(variant_sequences)
+    intermediate_candidates = []
+
+    def preserve_candidates(candidates):
+        intermediate_candidates[:] = merge_identical_sequences(
+            intermediate_candidates + list(candidates))
+
+    if preserve_intermediate_candidates:
+        preserve_candidates(variant_sequences)
+    merged_any = True
+    while merged_any:
+        variant_sequences, merged_any = greedy_merge_helper(
+            variant_sequences,
+            min_overlap_size=min_overlap_size)
+        if preserve_intermediate_candidates and merged_any:
+            preserve_candidates(variant_sequences)
+    if preserve_intermediate_candidates:
+        return sorted(intermediate_candidates, key=_candidate_sort_key)
+    return variant_sequences
+
+
+def collapse_substrings(variant_sequences):
+    """
+    Combine shorter sequences which are fully contained in longer sequences.
+
+    Parameters
+    ----------
+    variant_sequences : list
+       List of VariantSequence objects
+
+    Returns a (potentially shorter) list without any contained subsequences.
+    """
+    variant_sequences = merge_identical_sequences(variant_sequences)
+    if len(variant_sequences) <= 1:
+        # if we don't have at least two VariantSequences then just
+        # return your input
+        return variant_sequences
+
+    result_list = []
+    # Longest first, with content-based ties so an ambiguous contained read
+    # is always assigned to the same parent regardless of input order.
+    for short_variant_sequence in sorted(
+            variant_sequences,
+            key=lambda seq: (-len(seq), _candidate_sort_key(seq))):
+        found_superstring = False
+        for i, long_variant_sequence in enumerate(result_list):
+            if (
+                long_variant_sequence.contains(short_variant_sequence)
+                and long_variant_sequence.can_add_reads_without_narrowing(
+                    short_variant_sequence.reads)
+            ):
+                result_list[i] = long_variant_sequence.add_reads(
+                    short_variant_sequence.reads)
+                found_superstring = True
+                break
+        if not found_superstring:
+            result_list.append(short_variant_sequence)
+    return result_list
+
+
+def merge_identical_sequences(variant_sequences):
+    """Union reads for exact candidates on the same transcript path.
+
+    Distinct prefix/alt/suffix triples must remain distinct until transcript
+    compatibility is known. Exact duplicates, including duplicates created by
+    coverage trimming or retained assembly history, carry no extra sequence
+    information and can be combined safely. Identical cDNA on disjoint
+    transcript paths remains separate rather than manufacturing support for a
+    path no read group shares. Competing placements of the same segment also
+    remain separate, even when their local cDNA strings happen to be identical.
+    """
+    result = []
+    for _, group in groupby(sorted(variant_sequences, key=_sequence_key), key=_sequence_key):
+        group = list(group)
+        # Detailed read ordering only breaks ties between identical candidates.
+        if len(group) > 1:
+            group.sort(key=_candidate_sort_key)
+        alternatives = []
+        for variant_sequence in group:
+            for i, existing in enumerate(alternatives):
+                if compatible_alignments(existing._source_alignments, variant_sequence.reads):
+                    alternatives[i] = existing.add_reads(variant_sequence.reads)
+                    break
+            else:
+                alternatives.append(variant_sequence)
+        result.extend(alternatives)
+    return result
+
+
+DEFAULT_MAX_ASSEMBLY_SEQUENCES = 1000
+
+
+def iterative_overlap_assembly(
+        variant_sequences,
+        min_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+        max_assembly_sequences=DEFAULT_MAX_ASSEMBLY_SEQUENCES,
+        preserve_candidate_sequences=False):
+    """
+    Assembles longer sequences from reads centered on a variant by
+    merging all pairs of overlapping sequences and collapsing
+    shorter sequences onto every longer sequence which contains them.
+
+    Parameters
+    ----------
+    variant_sequences : list of VariantSequence
+
+    min_overlap_size : int
+
+    max_assembly_sequences : int or None
+        If the number of input sequences exceeds this threshold after
+        substring collapse, skip the O(n^2)-per-round greedy merge and
+        return sequences sorted by read support. Set to None to disable.
+
+    preserve_candidate_sequences : bool
+        Return the input and intermediate sequences as well as final assembled
+        sequences. Translation pipelines must enable this: a contained or
+        intermediate candidate can match a reference transcript even when its
+        longer assembly cannot. Exact duplicate candidates are still merged.
+
+    Returns a list of variant sequences, sorted by decreasing read support.
+    """
+    variant_sequences = list(variant_sequences)
+    if len(variant_sequences) <= 1:
+        return variant_sequences
+
+    input_variant_sequences = variant_sequences
+    n_before_collapse = len(variant_sequences)
+    variant_sequences = collapse_substrings(variant_sequences)
+    n_after_collapse = len(variant_sequences)
+    logger.debug(
+        "Collapsed %d -> %d sequences",
+        n_before_collapse,
+        n_after_collapse)
+
+    if (max_assembly_sequences is not None
+            and n_after_collapse > max_assembly_sequences):
+        logger.warning(
+            "Too many variant sequences (%d > %d) for greedy assembly; "
+            "skipping merge and returning sequences sorted by read support",
+            n_after_collapse,
+            max_assembly_sequences)
+    else:
+        variant_sequences = greedy_merge(
+            variant_sequences,
+            min_overlap_size,
+            preserve_intermediate_candidates=preserve_candidate_sequences)
+
+    if preserve_candidate_sequences:
+        variant_sequences = merge_identical_sequences(
+            input_variant_sequences + variant_sequences)
+
+    return list(sorted(
+        variant_sequences,
+        key=lambda seq: (
+            -len(observation_groups(seq.reads)),
+            seq.prefix,
+            seq.alt,
+            seq.suffix,
+        )))

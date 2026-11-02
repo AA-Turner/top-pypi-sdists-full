@@ -1,0 +1,276 @@
+import os
+import unittest
+import zipfile
+from unittest.mock import patch
+from io import BytesIO
+from pathlib import Path
+
+from tests.mock_tabpfn_server import with_mock_server
+from tabpfn_client.service_wrapper import UserAuthenticationClient, UserDataClient
+from tabpfn_client.client import ServiceClient
+from tabpfn_client.options import get_opts
+
+
+class TestUserAuthClient(unittest.TestCase):
+    """
+    These test cases are meant to validate the interface between the client and the server.
+    They do not guarantee if the response from the server is correct.
+    """
+
+    def setUp(self):
+        ServiceClient.reset_authorization()
+
+    def tearDown(self):
+        UserAuthenticationClient.CACHED_TOKEN_FILE.unlink(missing_ok=True)
+
+    def test_set_token_does_not_touch_the_cache(self):
+        UserAuthenticationClient.set_token("in_process_only")
+        self.assertEqual("in_process_only", ServiceClient.get_access_token())
+        self.assertFalse(UserAuthenticationClient.CACHED_TOKEN_FILE.exists())
+
+    def test_persist_token_writes_the_cache(self):
+        UserAuthenticationClient.persist_token("remembered")
+        self.assertEqual(
+            "remembered", UserAuthenticationClient.CACHED_TOKEN_FILE.read_text()
+        )
+
+    def test_resolve_token_reads_env_after_import(self):
+        # The environment must be consulted at resolution time, not at import
+        # time, so that setting TABPFN_TOKEN after `import tabpfn_client` works.
+        with patch.dict(os.environ, {"TABPFN_TOKEN": "late_env_token"}):
+            self.assertEqual("late_env_token", UserAuthenticationClient.resolve_token())
+
+    def test_resolve_token_prefers_set_token_over_env(self):
+        ServiceClient.authorize("explicit_token")
+        with patch.dict(os.environ, {"TABPFN_TOKEN": "env_token"}):
+            self.assertEqual("explicit_token", UserAuthenticationClient.resolve_token())
+
+    def test_resolve_token_falls_back_to_cache(self):
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text("cached_token")
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TABPFN_TOKEN", None)
+            self.assertEqual("cached_token", UserAuthenticationClient.resolve_token())
+
+    def test_resolve_token_returns_none_when_absent(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TABPFN_TOKEN", None)
+            self.assertIsNone(UserAuthenticationClient.resolve_token())
+
+    @with_mock_server()
+    def test_try_reusing_existing_token(self, mock_server):
+        # create dummy token file
+        dummy_token = "dummy_token"
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(dummy_token)
+
+        # mock authentication
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+
+        # assert no exception is raised
+        UserAuthenticationClient.try_reuse_existing_token()
+
+        # assert token is set
+        self.assertEqual(dummy_token, ServiceClient.get_access_token())
+
+    def test_try_reusing_non_existing_token(self):
+        # assert no exception is raised
+        UserAuthenticationClient.try_reuse_existing_token()
+
+        # assert token is not set
+        self.assertIsNone(ServiceClient.get_access_token())
+
+    @with_mock_server()
+    def test_reset_cache_after_token_set(self, mock_server):
+        # set token from a dummy file
+        dummy_token = "dummy_token"
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(dummy_token)
+
+        # mock authentication
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+        self.assertTrue(UserAuthenticationClient.try_reuse_existing_token()[0])
+
+        # assert token is set
+        self.assertEqual(dummy_token, ServiceClient.get_access_token())
+
+        # reset cache
+        UserAuthenticationClient.reset_cache()
+
+        # assert token is not set
+        self.assertIsNone(ServiceClient.get_access_token())
+
+    @with_mock_server()
+    def test_reset_cache_unsets_tabpfn_token_constant(self, mock_server):
+        # Ensure we take the env-token path (no cached token file).
+        with patch.dict(os.environ, {"TABPFN_TOKEN": "dummy_env_token"}):
+            # Make the token invalid so that the reset path is triggered.
+            mock_server.router.get(mock_server.endpoints.protected_root.path).respond(
+                401
+            )
+
+            is_valid_token, access_token = (
+                UserAuthenticationClient.try_reuse_existing_token()
+            )
+
+            self.assertFalse(is_valid_token)
+            self.assertIsNone(access_token)
+            self.assertIsNone(get_opts().TABPFN_TOKEN)
+
+    def test_reset_cache_without_token_set(self):
+        # assert no exception is raised
+        UserAuthenticationClient.reset_cache()
+
+        # assert token is not set
+        self.assertIsNone(ServiceClient.get_access_token())
+
+
+class TestUserDataClient(unittest.TestCase):
+    """
+    These test cases are meant to validate the interface between the client and the server.
+    They do not guarantee if the response from the server is correct.
+    """
+
+    @staticmethod
+    def _is_zip_file_empty(zip_file_path: Path):
+        return not zipfile.ZipFile(zip_file_path, "r").namelist()
+
+    @with_mock_server()
+    def test_get_data_summary_accepts_dict(self, mock_server):
+        # mock get_data_summary response
+        mock_summary = {
+            "content": "does not matter as long as this is returned by the server"
+        }
+        mock_server.router.get(mock_server.endpoints.get_data_summary.path).respond(
+            200, json=mock_summary
+        )
+
+        self.assertEqual(mock_summary, UserDataClient.get_data_summary())
+
+    @with_mock_server()
+    def test_download_all_data_accepts_empty_zip(self, mock_server):
+        # mock download_all_data response (with empty zip file)
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w"):
+            pass
+        zip_buffer.seek(0)
+
+        mock_server.router.get(mock_server.endpoints.download_all_data.path).respond(
+            200,
+            stream=zip_buffer,
+            headers={"Content-Disposition": "attachment; filename=all_data.zip"},
+        )
+
+        # assert no exception is raised, and zip file is empty
+        zip_file_path = UserDataClient.download_all_data(Path("."))
+        self.assertTrue(self._is_zip_file_empty(zip_file_path))
+
+        # delete the zip file
+        zip_file_path.unlink()
+
+    @with_mock_server()
+    def test_download_all_data_accepts_non_empty_zip(self, mock_server):
+        # mock download_all_data response (with non-empty zip file)
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            zip_file.writestr("dummy_file.txt", "dummy content")
+        zip_buffer.seek(0)
+
+        mock_server.router.get(mock_server.endpoints.download_all_data.path).respond(
+            200,
+            stream=zip_buffer,
+            headers={"Content-Disposition": "attachment; filename=all_data.zip"},
+        )
+
+        # assert no exception is raised, and zip file is not empty
+        zip_file_path = UserDataClient.download_all_data(Path("."))
+        self.assertFalse(self._is_zip_file_empty(zip_file_path))
+
+        # delete the zip file
+        zip_file_path.unlink()
+
+    @with_mock_server()
+    def test_delete_datasets_accepts_empty_uid_list(self, mock_server):
+        # mock delete_dataset response (with empty list)
+        mock_server.router.delete(mock_server.endpoints.delete_dataset.path).respond(
+            200, json={"deleted_dataset_uids": []}
+        )
+
+        # assert no exception is raised
+        self.assertEqual([], UserDataClient.delete_dataset("dummy_uid"))
+
+    @with_mock_server()
+    def test_delete_datasets_accepts_uid_list(self, mock_server):
+        # mock delete_dataset response (with non-empty list)
+        mock_server.router.delete(mock_server.endpoints.delete_dataset.path).respond(
+            200, json={"deleted_dataset_uids": ["dummy_uid"]}
+        )
+
+        # assert no exception is raised
+        self.assertEqual(["dummy_uid"], UserDataClient.delete_dataset("dummy_uid"))
+
+    @with_mock_server()
+    def test_delete_all_datasets_accepts_empty_uid_list(self, mock_server):
+        # mock delete_all_datasets response (with empty list)
+        mock_server.router.delete(
+            mock_server.endpoints.delete_all_datasets.path
+        ).respond(200, json={"deleted_dataset_uids": []})
+
+        # assert no exception is raised
+        self.assertEqual([], UserDataClient.delete_all_datasets())
+
+    @with_mock_server()
+    def test_delete_all_datasets_accepts_uid_list(self, mock_server):
+        # mock delete_all_datasets response (with non-empty list)
+        mock_server.router.delete(
+            mock_server.endpoints.delete_all_datasets.path
+        ).respond(200, json={"deleted_dataset_uids": ["dummy_uid"]})
+
+        # assert no exception is raised
+        self.assertEqual(["dummy_uid"], UserDataClient.delete_all_datasets())
+
+    @with_mock_server()
+    @patch("tabpfn_client.prompt_agent.PromptAgent.confirm_user_account_deletion")
+    def test_delete_user_account_when_confirmed(
+        self, mock_server, mock_confirm_deletion
+    ):
+        delete_route = mock_server.router.delete(
+            mock_server.endpoints.delete_user_account.path
+        ).respond(200)
+        mock_confirm_deletion.return_value = True
+
+        UserDataClient.delete_user_account()
+
+        # The wire call must NOT include confirm_password — the param is gone
+        # from the SDK as of this PR. That's the whole point of the change.
+        self.assertEqual(1, delete_route.call_count)
+        self.assertNotIn(b"confirm_password", delete_route.calls.last.request.url.query)
+
+    @with_mock_server()
+    @patch("tabpfn_client.prompt_agent.PromptAgent.confirm_user_account_deletion")
+    def test_delete_user_account_when_cancelled(
+        self, mock_server, mock_confirm_deletion
+    ):
+        # Deliberately do NOT register a delete route. If the SDK calls the
+        # endpoint despite a declined confirmation, respx will raise on the
+        # unmocked request.
+        mock_confirm_deletion.return_value = False
+
+        UserDataClient.delete_user_account()
+
+        self.assertEqual(0, mock_server.router.calls.call_count)
+
+    @with_mock_server()
+    @patch("tabpfn_client.prompt_agent.PromptAgent.confirm_user_account_deletion")
+    def test_delete_user_account_propagates_server_error(
+        self, mock_server, mock_confirm_deletion
+    ):
+        mock_server.router.delete(
+            mock_server.endpoints.delete_user_account.path
+        ).respond(500)
+        mock_confirm_deletion.return_value = True
+
+        self.assertRaises(RuntimeError, UserDataClient.delete_user_account)

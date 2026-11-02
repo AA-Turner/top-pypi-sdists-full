@@ -1,5 +1,6 @@
 """ExperimentsResource (client.experiments, typed reads) and ExperimentsMixin, Client's methods:
-create, fork, resolve, ensure and read experiments and their documents (twin: app/experiments)."""
+create, fork, resolve, ensure and read experiments and their documents
+(twin: app/projects/experiments)."""
 
 from __future__ import annotations
 import builtins

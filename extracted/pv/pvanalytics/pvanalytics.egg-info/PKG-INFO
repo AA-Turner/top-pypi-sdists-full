@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: pvanalytics
+Version: 0.2.2
+Summary: PVAnalytics is a python library for the analysis of photovoltaic system-level data.
+Home-page: https://github.com/pvlib/pvanalytics
+Author: pvanalytics Contributors
+Maintainer-email: pvlib-admin@googlegroups.com
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE
+Requires-Dist: numpy>=1.17.0
+Requires-Dist: pandas!=1.1.*,>=1.0.0
+Requires-Dist: pvlib>=0.9.4
+Requires-Dist: scipy>=1.6.0
+Requires-Dist: statsmodels>=0.10.0
+Requires-Dist: scikit-image>=0.16.0
+Requires-Dist: importlib-metadata; python_version < "3.8"
+Provides-Extra: optional
+Requires-Dist: ruptures; extra == "optional"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: packaging; extra == "test"
+Provides-Extra: doc
+Requires-Dist: sphinx==4.5.0; extra == "doc"
+Requires-Dist: pydata-sphinx-theme==0.8.1; extra == "doc"
+Requires-Dist: sphinx-gallery; extra == "doc"
+Requires-Dist: matplotlib; extra == "doc"
+Requires-Dist: pyarrow; extra == "doc"
+Provides-Extra: all
+Requires-Dist: matplotlib; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: pyarrow; extra == "all"
+Requires-Dist: pydata-sphinx-theme==0.8.1; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-cov; extra == "all"
+Requires-Dist: ruptures; extra == "all"
+Requires-Dist: sphinx==4.5.0; extra == "all"
+Requires-Dist: sphinx-gallery; extra == "all"
+
+
+PVAnalytics is a collection of functions for working with data
+from photovoltaic power systems. The library includes functions for
+general data quality tests such as outlier detection, validation that
+data is physically plausible, filtering data for specific conditions,
+and labeling specific features in the data.
+
+Documentation: https://pvanalytics.readthedocs.io
+
+Source code: https://github.com/pvlib/pvanalytics

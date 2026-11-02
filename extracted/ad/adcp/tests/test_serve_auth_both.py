@@ -1,0 +1,998 @@
+"""Cross-transport auth coverage for ``serve(auth=BearerTokenAuth(...))``.
+
+Closes the regression filed in #558: bearer-token auth applied via the
+existing ``BearerTokenAuthMiddleware`` to ``serve(transport="both")``
+left the A2A leg unauthenticated. The fix wires ``auth=`` into both
+the MCP middleware and an A2A
+:class:`~adcp.server.auth.A2ABearerAuthMiddleware`, with the agent
+card publicly accessible per A2A spec §4.1.
+
+Three layers of coverage:
+
+1. **Unit** — :class:`A2ABearerAuthMiddleware` accepts/rejects via
+   the same shapes as :class:`BearerTokenAuthMiddleware`.
+2. **A2A through ASGI** — full route-level test with
+   ``httpx.AsyncClient`` against the a2a-sdk-built Starlette app
+   wrapped in our auth middleware.
+3. **transport="both"** — the regression case: hit MCP and A2A on
+   the same binary; both legs require auth, agent-card and MCP
+   discovery are exempt.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+from unittest.mock import MagicMock
+
+import httpx
+import pytest
+from asgi_lifespan import LifespanManager
+
+from adcp.server import ADCPHandler
+from adcp.server.auth import (
+    A2ABearerAuthMiddleware,
+    BearerTokenAuth,
+    Principal,
+    current_principal,
+    current_principal_metadata,
+    current_tenant,
+    validator_from_token_map,
+)
+
+# ---------------------------------------------------------------------------
+# Handlers
+# ---------------------------------------------------------------------------
+
+
+class _OkHandler(ADCPHandler):
+    """Minimal handler returning structured success on get_products."""
+
+    async def get_adcp_capabilities(self, params: Any, context: Any = None) -> dict[str, Any]:
+        return {"adcp": {"major_versions": [3]}, "supported_protocols": ["media_buy"]}
+
+    async def get_products(self, params: Any, context: Any = None) -> dict[str, Any]:
+        return {"products": [{"id": "p1", "name": "Display"}], "sandbox": True}
+
+
+def _auth() -> BearerTokenAuth:
+    return BearerTokenAuth(
+        validate_token=validator_from_token_map(
+            {"good-token": Principal(caller_identity="p-acme", tenant_id="acme")}
+        )
+    )
+
+
+def _a2a_message_body(skill: str, *, text_part: bool = False) -> dict[str, Any]:
+    invocation = {"skill": skill, "parameters": {}}
+    part = (
+        {"kind": "text", "text": json.dumps(invocation)}
+        if text_part
+        else {"kind": "data", "data": invocation}
+    )
+    return {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [part],
+            }
+        },
+    }
+
+
+# ===========================================================================
+# Unit: A2ABearerAuthMiddleware against raw ASGI scope
+# ===========================================================================
+
+
+class TestA2ABearerAuthMiddlewareUnit:
+    """Middleware logic verified against raw ASGI scope dicts."""
+
+    def _scope(self, path: str = "/", headers: list[tuple[bytes, bytes]] | None = None) -> dict:
+        return {
+            "type": "http",
+            "method": "POST",
+            "path": path,
+            "headers": list(headers or []),
+        }
+
+    @pytest.mark.asyncio
+    async def test_valid_token_passes_through_and_populates_scope_user(self):
+        inner_calls: list[dict] = []
+
+        async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+            inner_calls.append(scope)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        scope = self._scope(headers=[(b"authorization", b"Bearer good-token")])
+        await mw(scope, lambda: None, lambda _: None)
+
+        assert len(inner_calls) == 1
+        passed_scope = inner_calls[0]
+        assert "user" in passed_scope
+        assert passed_scope["user"].is_authenticated is True
+        assert passed_scope["user"].display_name == "p-acme"
+        assert "auth" in passed_scope
+        assert passed_scope["auth"].caller_identity == "p-acme"
+
+    @pytest.mark.asyncio
+    async def test_valid_token_populates_contextvars(self):
+        """Issue #590: A2A path must populate ``current_principal``,
+        ``current_tenant``, and ``current_principal_metadata`` for the
+        duration of the downstream call — symmetric with MCP's
+        ``BearerTokenAuthMiddleware``. Adopters reading
+        ``current_principal.get()`` from a platform method previously
+        saw ``None`` on A2A while MCP worked, breaking tenant policies
+        that require principal-bound calls.
+        """
+        observed: dict[str, Any] = {}
+
+        async def inner(_scope: Any, _receive: Any, _send: Any) -> None:
+            observed["principal"] = current_principal.get()
+            observed["tenant"] = current_tenant.get()
+            observed["metadata"] = current_principal_metadata.get()
+
+        mw = A2ABearerAuthMiddleware(
+            inner,
+            BearerTokenAuth(
+                validate_token=validator_from_token_map(
+                    {
+                        "good-token": Principal(
+                            caller_identity="alice",
+                            tenant_id="t1",
+                            metadata={"role": "buyer"},
+                        )
+                    }
+                )
+            ),
+        )
+        await mw(
+            self._scope(headers=[(b"authorization", b"Bearer good-token")]),
+            lambda: None,
+            lambda _: None,
+        )
+
+        assert observed["principal"] == "alice"
+        assert observed["tenant"] == "t1"
+        assert observed["metadata"] == {"role": "buyer"}
+
+    @pytest.mark.asyncio
+    async def test_contextvars_reset_after_call(self):
+        """The middleware must reset the ContextVars after the downstream
+        call returns, so a later request on a shared task doesn't read
+        a stale principal. Mirrors ``BearerTokenAuthMiddleware``'s
+        unconditional-reset contract."""
+
+        async def inner(_scope: Any, _receive: Any, _send: Any) -> None:
+            # Inside the call the contextvars are populated.
+            assert current_principal.get() == "p-acme"
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        # Pre-call: the contextvars hold their default (None).
+        assert current_principal.get() is None
+        await mw(
+            self._scope(headers=[(b"authorization", b"Bearer good-token")]),
+            lambda: None,
+            lambda _: None,
+        )
+        # Post-call: reset back to default — no leakage.
+        assert current_principal.get() is None
+        assert current_tenant.get() is None
+        assert current_principal_metadata.get() is None
+
+    @pytest.mark.asyncio
+    async def test_contextvars_reset_even_on_inner_exception(self):
+        """If the downstream app raises, the ContextVars must still
+        reset — otherwise a buggy handler poisons the contextvars for
+        every subsequent request that shares this task."""
+
+        async def boom(_scope: Any, _receive: Any, _send: Any) -> None:
+            raise RuntimeError("inner blew up")
+
+        mw = A2ABearerAuthMiddleware(boom, _auth())
+        with pytest.raises(RuntimeError, match="inner blew up"):
+            await mw(
+                self._scope(headers=[(b"authorization", b"Bearer good-token")]),
+                lambda: None,
+                lambda _: None,
+            )
+        assert current_principal.get() is None
+        assert current_tenant.get() is None
+        assert current_principal_metadata.get() is None
+
+    @pytest.mark.asyncio
+    async def test_missing_header_returns_401(self):
+        sent: list[dict] = []
+        inner_called = False
+
+        async def inner(_scope: Any, _receive: Any, _send: Any) -> None:
+            nonlocal inner_called
+            inner_called = True
+
+        async def send(msg: dict) -> None:
+            sent.append(msg)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        await mw(self._scope(), lambda: None, send)
+
+        assert not inner_called  # Auth failure short-circuits.
+        assert sent[0]["type"] == "http.response.start"
+        assert sent[0]["status"] == 401
+        # RFC 6750 default body shape — error code is ``invalid_token``.
+        assert b"invalid_token" in sent[1]["body"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_token_returns_401(self):
+        sent: list[dict] = []
+
+        async def inner(_scope: Any, _receive: Any, _send: Any) -> None: ...
+
+        async def send(msg: dict) -> None:
+            sent.append(msg)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        await mw(
+            self._scope(headers=[(b"authorization", b"Bearer bad")]),
+            lambda: None,
+            send,
+        )
+        assert sent[0]["status"] == 401
+
+    @pytest.mark.asyncio
+    async def test_validator_exception_projects_to_401_not_500(self):
+        """A buggy validator must not leak 500 stacks. We log + 401."""
+
+        def boom(_token: str) -> Principal | None:
+            raise RuntimeError("token store down")
+
+        sent: list[dict] = []
+
+        async def inner(_scope: Any, _receive: Any, _send: Any) -> None: ...
+
+        async def send(msg: dict) -> None:
+            sent.append(msg)
+
+        mw = A2ABearerAuthMiddleware(inner, BearerTokenAuth(validate_token=boom))
+        await mw(
+            self._scope(headers=[(b"authorization", b"Bearer x")]),
+            lambda: None,
+            send,
+        )
+        assert sent[0]["status"] == 401
+
+    @pytest.mark.asyncio
+    async def test_agent_card_path_publicly_accessible(self):
+        """A2A spec §4.1 — ``/.well-known/agent-card.json`` MUST be
+        public regardless of auth config."""
+        inner_calls: list[dict] = []
+
+        async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+            inner_calls.append(scope)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        # No Authorization header — MUST still pass through.
+        await mw(self._scope(path="/.well-known/agent-card.json"), lambda: None, lambda _: None)
+        assert len(inner_calls) == 1
+        assert "user" not in inner_calls[0]  # No principal injected on public route.
+
+    @pytest.mark.asyncio
+    async def test_legacy_agent_json_path_also_exempt(self):
+        """``/.well-known/agent.json`` is the 0.3 alias retained by the
+        compat shim — exempt for the same spec reason."""
+        inner_calls: list[dict] = []
+
+        async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+            inner_calls.append(scope)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        await mw(self._scope(path="/.well-known/agent.json"), lambda: None, lambda _: None)
+        assert len(inner_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_lifespan_scope_passes_through(self):
+        """Lifespan events bypass auth entirely — they're not HTTP."""
+        inner_calls: list[Any] = []
+
+        async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+            inner_calls.append(scope)
+
+        mw = A2ABearerAuthMiddleware(inner, _auth())
+        await mw({"type": "lifespan"}, lambda: None, lambda _: None)
+        assert len(inner_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_custom_header_name(self):
+        cfg = BearerTokenAuth(
+            validate_token=validator_from_token_map({"raw-key": Principal(caller_identity="p1")}),
+            header_name="x-adcp-auth",
+            bearer_prefix_required=False,
+        )
+        inner_calls: list[dict] = []
+
+        async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+            inner_calls.append(scope)
+
+        mw = A2ABearerAuthMiddleware(inner, cfg)
+        await mw(
+            self._scope(headers=[(b"x-adcp-auth", b"raw-key")]),
+            lambda: None,
+            lambda _: None,
+        )
+        assert inner_calls[0]["user"].display_name == "p1"
+
+
+# ===========================================================================
+# A2A through ASGI: full Starlette stack
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_a2a_agent_card_publicly_accessible_with_auth() -> None:
+    """End-to-end: ``/.well-known/agent-card.json`` MUST be public
+    even when auth is configured. Path-based exemption inside
+    :class:`A2ABearerAuthMiddleware` lets the request through to the
+    a2a-sdk's agent-card route."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, _auth())
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.get("/.well-known/agent-card.json")
+    assert response.status_code == 200
+    body = response.json()
+    assert "name" in body  # Full agent card came back, not a 401 body.
+
+
+@pytest.mark.asyncio
+async def test_a2a_jsonrpc_unauthenticated_returns_http_401() -> None:
+    """No Authorization header on a JSON-RPC request → middleware
+    short-circuits with HTTP 401. Critical for spec compliance:
+    earlier designs that raised HTTPException from inside the
+    a2a-sdk dispatcher were swallowed by the v0.3 compat adapter
+    and projected to HTTP 200 with a JSON-RPC error body."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, _auth())
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [{"kind": "data", "data": {"skill": "get_products", "parameters": {}}}],
+            }
+        },
+    }
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+    assert response.status_code == 401
+    body = response.json()
+    assert body["error"] == "invalid_token"
+
+
+@pytest.mark.asyncio
+async def test_a2a_jsonrpc_authenticated_passes_through() -> None:
+    """Valid bearer header → request reaches the handler."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, _auth())
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [{"kind": "data", "data": {"skill": "get_products", "parameters": {}}}],
+            }
+        },
+    }
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/", json=body, headers={"Authorization": "Bearer good-token"}
+            )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text_part", [False, True])
+async def test_a2a_discovery_skill_passes_without_token(text_part: bool) -> None:
+    from adcp.server.a2a_server import create_a2a_server
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, config)
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/", json=_a2a_message_body("get_products", text_part=text_part)
+            )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_a2a_native_v1_discovery_skill_passes_without_token() -> None:
+    from adcp.server.a2a_server import create_a2a_server
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, config)
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "SendMessage",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "ROLE_USER",
+                "parts": [
+                    {
+                        "data": {
+                            "skill": "get_products",
+                            "parameters": {},
+                        }
+                    }
+                ],
+            }
+        },
+    }
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_a2a_non_discovery_and_mixed_messages_require_token() -> None:
+    from adcp.server.a2a_server import create_a2a_server
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, config)
+    mixed = _a2a_message_body("get_products")
+    mixed["params"]["message"]["parts"].append(
+        {
+            "kind": "data",
+            "data": {"skill": "create_media_buy", "parameters": {}},
+        }
+    )
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            mutation = await client.post("/", json=_a2a_message_body("create_media_buy"))
+            ambiguous = await client.post("/", json=mixed)
+
+    assert mutation.status_code == 401
+    assert ambiguous.status_code == 401
+    assert mutation.json()["code"] == "AUTH_REQUIRED"
+    assert "create_media_buy" not in mutation.text
+
+
+@pytest.mark.asyncio
+async def test_a2a_discovery_with_invalid_token_is_rejected() -> None:
+    from adcp.server.a2a_server import create_a2a_server
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, config)
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/",
+                json=_a2a_message_body("get_products"),
+                headers={"Authorization": "Bearer invalid"},
+            )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_a2a_discovery_parser_result_is_reused_by_dispatch() -> None:
+    from google.protobuf.json_format import MessageToDict
+
+    from adcp.server.serve import _build_a2a_app
+
+    calls = 0
+
+    def parser(context):
+        nonlocal calls
+        calls += 1
+        assert context.message is not None
+        data = MessageToDict(context.message.parts[0].data)
+        return data.get("operation"), data.get("body", {})
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    app = _build_a2a_app(
+        _OkHandler(),
+        name="test-agent",
+        port=0,
+        test_controller=None,
+        validation=None,
+        message_parser=parser,
+        auth=config,
+    )
+    body = _a2a_message_body("get_products")
+    body["params"]["message"]["parts"] = [
+        {"kind": "data", "data": {"operation": "get_products", "body": {}}}
+    ]
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+
+    assert response.status_code == 200
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a2a_discovery_body_replay_preserves_chunks_then_disconnects() -> None:
+    observed: list[dict[str, Any]] = []
+
+    async def inner(_scope, receive, _send):
+        observed.append(await receive())
+        observed.append(await receive())
+        observed.append(await receive())
+
+    config = BearerTokenAuth(
+        validate_token=lambda _token: None,
+        a2a_discovery_skills={"get_products"},
+    )
+    middleware = A2ABearerAuthMiddleware(inner, config)
+    body = _a2a_message_body("get_products")
+    body["params"]["message"]["parts"][0]["data"]["parameters"] = {"padding": "x" * (256 * 1024)}
+    raw = json.dumps(body).encode()
+    incoming = iter(
+        [
+            {"type": "http.request", "body": raw[:17], "more_body": True},
+            {"type": "http.request", "body": raw[17:], "more_body": False},
+        ]
+    )
+
+    async def receive():
+        return next(incoming)
+
+    await middleware(
+        {"type": "http", "method": "POST", "path": "/", "headers": []},
+        receive,
+        lambda _message: None,
+    )
+
+    assert observed[0]["body"] + observed[1]["body"] == raw
+    assert observed[0]["more_body"] is True
+    assert observed[1]["more_body"] is False
+    assert observed[2] == {"type": "http.disconnect"}
+
+
+# ===========================================================================
+# transport="both": the regression case from #558
+# ===========================================================================
+
+
+def _build_both_app(auth: Any | None = None) -> Any:
+    """Build the unified MCP+A2A ASGI app via the same path
+    ``serve(transport="both")`` uses, but without uvicorn so we can
+    drive it through ``httpx.AsyncClient``."""
+    from adcp.server.serve import _build_mcp_and_a2a_app
+
+    return _build_mcp_and_a2a_app(
+        _OkHandler(),
+        name="test-agent",
+        port=0,
+        host="127.0.0.1",
+        instructions=None,
+        test_controller=None,
+        validation=None,
+        auth=auth,
+    )
+
+
+@pytest.mark.asyncio
+async def test_both_transport_a2a_leg_requires_auth_when_configured() -> None:
+    """The original bug: ``serve(transport="both", auth=...)`` was
+    expected to gate both legs but didn't. This test asserts the A2A
+    leg now rejects unauthenticated JSON-RPC under the unified
+    binary."""
+    app = _build_both_app(_auth())
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [{"kind": "data", "data": {"skill": "get_products", "parameters": {}}}],
+            }
+        },
+    }
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_both_transport_a2a_leg_accepts_valid_token() -> None:
+    """Auth is configured AND token is valid → A2A leg succeeds."""
+    app = _build_both_app(_auth())
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [{"kind": "data", "data": {"skill": "get_products", "parameters": {}}}],
+            }
+        },
+    }
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/", json=body, headers={"Authorization": "Bearer good-token"}
+            )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_both_transport_agent_card_publicly_accessible() -> None:
+    """A2A discovery (``/.well-known/agent-card.json``) MUST be public
+    even with ``auth=`` configured."""
+    app = _build_both_app(_auth())
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.get("/.well-known/agent-card.json")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_both_transport_mcp_leg_requires_auth_when_configured() -> None:
+    """MCP leg under the unified binary still gates non-discovery
+    requests on a bearer token. Discovery methods (``initialize`` /
+    ``tools/list`` / ``get_adcp_capabilities``) bypass per
+    :class:`BearerTokenAuthMiddleware`'s body-peek logic."""
+    app = _build_both_app(_auth())
+    # tools/call without a token → 401 from the MCP middleware.
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "tools/call",
+        "params": {"name": "get_products", "arguments": {}},
+    }
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://localhost:3001",
+            follow_redirects=True,
+        ) as client:
+            response = await client.post(
+                "/mcp",
+                json=body,
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json",
+                },
+            )
+    assert response.status_code == 401
+    assert "unauthenticated" in response.text
+
+
+@pytest.mark.asyncio
+async def test_both_transport_no_auth_runs_unauthenticated() -> None:
+    """Without ``auth=``, both legs accept everything (preserves the
+    pre-fix unauthenticated default — turning auth on is opt-in)."""
+    app = _build_both_app(auth=None)
+    body = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "m1",
+                "role": "user",
+                "parts": [{"kind": "data", "data": {"skill": "get_products", "parameters": {}}}],
+            }
+        },
+    }
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+    # No auth configured → A2A serves the request without checking.
+    assert response.status_code == 200
+
+
+# ===========================================================================
+# Type-guard: serve(auth=...) rejects non-BearerTokenAuth
+# ===========================================================================
+
+
+def test_serve_auth_rejects_wrong_type_mcp() -> None:
+    from adcp.server.serve import _wrap_mcp_with_auth
+
+    with pytest.raises(TypeError, match="BearerTokenAuth"):
+        _wrap_mcp_with_auth(MagicMock(), {"validate_token": lambda t: None})
+
+
+def test_serve_auth_rejects_wrong_type_a2a() -> None:
+    from adcp.server.serve import _wrap_a2a_with_auth
+
+    with pytest.raises(TypeError, match="BearerTokenAuth"):
+        _wrap_a2a_with_auth(MagicMock(), "not-a-config")
+
+
+def test_serve_auth_none_is_noop() -> None:
+    from adcp.server.serve import _wrap_a2a_with_auth, _wrap_mcp_with_auth
+
+    sentinel = MagicMock()
+    assert _wrap_mcp_with_auth(sentinel, None) is sentinel
+    assert _wrap_a2a_with_auth(sentinel, None) is sentinel
+
+
+def test_public_exports_include_new_symbols() -> None:
+    import adcp.server as srv
+
+    assert hasattr(srv, "BearerTokenAuth")
+    assert hasattr(srv, "A2ABearerAuthMiddleware")
+    assert "BearerTokenAuth" in srv.__all__
+    assert "A2ABearerAuthMiddleware" in srv.__all__
+
+
+# ===========================================================================
+# Structural drift guard: a2a-sdk well-known route renames break loud
+# ===========================================================================
+
+
+def test_discovery_paths_match_a2a_sdk_routes() -> None:
+    """Catch silent drift between :data:`_A2A_DISCOVERY_PATHS` and
+    a2a-sdk's actual agent-card routes. If a future a2a-sdk release
+    renames ``/.well-known/agent-card.json`` (or removes the v0.3
+    alias), the frozenset would leave the renamed route
+    unauthenticated until someone noticed. This test fails first.
+
+    Walks ``create_agent_card_routes`` against a real ``AgentCard``
+    and asserts every registered path is in the frozenset.
+    """
+    from a2a.server.routes import create_agent_card_routes
+
+    from adcp.server.a2a_server import _build_agent_card
+    from adcp.server.auth import _A2A_DISCOVERY_PATHS
+
+    handler = _OkHandler()
+    agent_card = _build_agent_card(
+        handler,
+        name="drift-guard",
+        port=0,
+        description=None,
+        version="1.0.0",
+        extra_skills=None,
+        advertise_all=False,
+        push_notifications_supported=False,
+    )
+    routes = create_agent_card_routes(agent_card=agent_card)
+
+    registered_paths = [r.path for r in routes]
+    assert registered_paths, "a2a-sdk returned no agent-card routes"
+
+    missing = [p for p in registered_paths if p not in _A2A_DISCOVERY_PATHS]
+    assert not missing, (
+        f"a2a-sdk registers agent-card route(s) {missing!r} that are NOT in "
+        f"_A2A_DISCOVERY_PATHS={_A2A_DISCOVERY_PATHS!r}. Update the frozenset "
+        f"in adcp.server.auth to include the new path(s) — otherwise A2A "
+        f"discovery silently 401s on the renamed/added route."
+    )
+
+
+def test_all_discovery_paths_are_registered_routes() -> None:
+    """Inverse of test_discovery_paths_match_a2a_sdk_routes: every path in
+    _A2A_DISCOVERY_PATHS must actually be registered in the Starlette app
+    produced by create_a2a_server. A path in the frozenset but missing from
+    the routing table is auth-exempted but unserviceable — a 404 dressed up
+    as a bypass. This test would have caught the missing /.well-known/agent.json
+    route (issue #612)."""
+    from adcp.server.a2a_server import create_a2a_server
+    from adcp.server.auth import _A2A_DISCOVERY_PATHS
+
+    app = create_a2a_server(_OkHandler(), name="inverse-drift-guard", validation=None)
+    # Structural check only (r.path membership). Live dispatch is validated by
+    # test_a2a_agent_card_served_on_root_path in test_unified_mcp_a2a.py.
+    app_paths = {r.path for r in app.routes}
+
+    not_routed = [p for p in _A2A_DISCOVERY_PATHS if p not in app_paths]
+    assert not not_routed, (
+        f"_A2A_DISCOVERY_PATHS contains path(s) {not_routed!r} that are NOT "
+        f"registered in the Starlette app. Auth middleware exempts them but "
+        f"they 404 — add matching routes in create_a2a_server."
+    )
+
+
+def test_a2a_agent_card_constant_referenced_directly() -> None:
+    """The 1.0 path uses ``a2a.utils.constants.AGENT_CARD_WELL_KNOWN_PATH``
+    rather than a string literal. If a2a-sdk changes the constant,
+    our frozenset rebases without code changes. This test pins the
+    indirection so a future maintainer doesn't accidentally inline
+    the string."""
+    from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
+
+    from adcp.server.auth import _A2A_DISCOVERY_PATHS
+
+    assert AGENT_CARD_WELL_KNOWN_PATH in _A2A_DISCOVERY_PATHS
+
+
+# ===========================================================================
+# RFC 6750 / RFC 7235 compliance: 401 must carry WWW-Authenticate
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_401_includes_www_authenticate_header() -> None:
+    """RFC 7235 §3.1 + RFC 6750 §3 mandate ``WWW-Authenticate: Bearer``
+    on 401 responses. Without it RFC-compliant clients (including
+    browsers) won't surface the auth challenge to the user."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, _auth())
+    body = {"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": {}}
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post("/", json=body)
+    assert response.status_code == 401
+    challenge = response.headers.get("www-authenticate", "")
+    assert challenge.lower().startswith("bearer")
+    assert "realm" in challenge.lower()
+
+
+@pytest.mark.asyncio
+async def test_401_body_uses_rfc6750_error_codes() -> None:
+    """RFC 6750 §3.1 defines ``invalid_token`` / ``invalid_request`` /
+    ``insufficient_scope``. Default body uses ``invalid_token`` so
+    OAuth-aware tooling parses it correctly."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, _auth())
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/", json={"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": {}}
+            )
+    assert response.status_code == 401
+    body = response.json()
+    assert body.get("error") == "invalid_token"
+
+
+# ===========================================================================
+# CORS preflight: OPTIONS must bypass auth
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_options_preflight_bypasses_auth() -> None:
+    """Browser-origin clients send ``OPTIONS`` before any authenticated
+    POST. Returning 401 on the preflight breaks CORS — the buyer
+    never gets a chance to retry with a token. The middleware must
+    pass OPTIONS through unauthenticated."""
+    inner_calls: list[dict] = []
+
+    async def inner(scope: Any, _receive: Any, _send: Any) -> None:
+        inner_calls.append(scope)
+
+    mw = A2ABearerAuthMiddleware(inner, _auth())
+    scope = {
+        "type": "http",
+        "method": "OPTIONS",
+        "path": "/",
+        "headers": [],
+    }
+    await mw(scope, lambda: None, lambda _: None)
+    assert len(inner_calls) == 1  # Inner reached.
+    assert "user" not in inner_calls[0]  # No principal injected on preflight.
+
+
+# ===========================================================================
+# Async-validator support at the ASGI auth boundary
+# ===========================================================================
+
+
+def test_async_validator_accepted_at_serve_boot_time() -> None:
+    """The async ASGI auth boundary supports async validation on both legs."""
+    from adcp.server.serve import _wrap_a2a_with_auth
+
+    async def async_validator(_token: str) -> Principal | None:
+        return Principal(caller_identity="p1")
+
+    cfg = BearerTokenAuth(validate_token=async_validator)
+    assert isinstance(_wrap_a2a_with_auth(MagicMock(), cfg), A2ABearerAuthMiddleware)
+
+
+def test_sync_lambda_validator_passes_boot_check() -> None:
+    """Sync lambda / function validators are accepted unchanged."""
+    from adcp.server.serve import _wrap_a2a_with_auth
+
+    cfg = BearerTokenAuth(validate_token=lambda t: None)
+    # No exception — the wrap returns an A2ABearerAuthMiddleware instance.
+    wrapped = _wrap_a2a_with_auth(MagicMock(), cfg)
+    assert isinstance(wrapped, A2ABearerAuthMiddleware)
+
+
+# ===========================================================================
+# Validator-exception suppression survives the full ASGI stack
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_validator_exception_returns_401_through_full_stack() -> None:
+    """The unit-level test asserts the middleware short-circuits with
+    401 when the validator raises. This test asserts the same shape
+    survives the full Starlette / a2a-sdk stack — i.e., the 500
+    suppression isn't an artifact of the unit harness."""
+    from adcp.server.a2a_server import create_a2a_server
+
+    def boom(_token: str) -> Principal | None:
+        raise RuntimeError("token store down")
+
+    inner = create_a2a_server(_OkHandler(), name="test-agent", validation=None)
+    app = A2ABearerAuthMiddleware(inner, BearerTokenAuth(validate_token=boom))
+    async with LifespanManager(inner):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost:3001"
+        ) as client:
+            response = await client.post(
+                "/",
+                json={"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": {}},
+                headers={"Authorization": "Bearer x"},
+            )
+    assert response.status_code == 401  # Not 500.

@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matrx-connect"
+version = "0.1.257"
+description = "FastAPI middleware, auth, streaming infrastructure, and context management for the Matrx ecosystem"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+maintainers = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+keywords = [
+    "fastapi",
+    "middleware",
+    "streaming",
+    "auth",
+    "sse",
+    "matrx",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typing-extensions>=4.14.1",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.0",
+    "fastapi>=0.115",
+    "sse-starlette>=1.8",
+    "PyJWT[crypto]>=2.8",
+    "orjson>=3.10",
+    "httpx>=0.28.1",
+    # middleware/auth.py imports AsyncSingleFlight (first exported by matrx-utils
+    # 2.0.1) and context/media_block.py imports LEGACY_VISIBILITY_MAP /
+    # VisibilityLiteral (first exported by 2.0.7). The old >=1.0.20 floor let
+    # matrx-utils 2.0.0 resolve, and that combination ImportErrors on import —
+    # which is how `import matrx_scraper.server` broke for PyPI installs.
+    # context/app_context.py registers the AppContext var as a detached-task
+    # carrier (register_detached_context_carrier, first exported by 2.0.47); that
+    # import is ImportError-guarded with a loud warning, because the floor test
+    # reads published tags and 2.0.47 ships in the same change as its first use.
+    "matrx-utils>=2.0.101",
+]
+
+# The ambient-AppContext leak guard. An entry-point plugin (not a conftest) so
+# pytest auto-loads it whatever the rootdir is — several sibling packages define
+# their own [tool.pytest.ini_options], which shifts rootdir onto the package and
+# hides the repo-root conftest. matrx-connect owns the _app_context ContextVar,
+# so it owns the guard; where matrx-connect isn't installed there is no
+# ContextVar to leak. Opt out with `-p no:matrx_app_context_guard`.
+[project.entry-points.pytest11]
+matrx_app_context_guard = "matrx_connect.pytest_plugin"
+
+[project.urls]
+Homepage = "https://github.com/AI-Matrix-Engine/aidream-current"
+Repository = "https://github.com/AI-Matrix-Engine/aidream-current"
+Issues = "https://github.com/AI-Matrix-Engine/aidream-current/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "python-dotenv>=1.0",
+]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+# This package supports Python 3.12, whose typing.TypeVar has no default=.
+target-version = "py312"
+
+[tool.uv.sources]
+matrx-utils = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_connect"]

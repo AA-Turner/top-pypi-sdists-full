@@ -1,0 +1,1 @@
+"""Approval entry guard tests."""

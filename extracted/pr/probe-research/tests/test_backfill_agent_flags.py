@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 
 FULL_HELP = """Usage: claude [options] [command] [prompt]
   -p, --print                  Print response and exit
@@ -186,7 +186,10 @@ def test_the_argv_keeps_everything_on_a_current_binary(tmp_path):
 
 def test_a_dropped_flag_is_said_out_loud(tmp_path, monkeypatch):
     binary = _binary(tmp_path, OLD_HELP)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     note = bf.degraded_note(bf.Agent.CLAUDE)
     assert note is not None
     assert "--autocompact" in note
@@ -196,7 +199,10 @@ def test_a_dropped_flag_is_said_out_loud(tmp_path, monkeypatch):
 def test_nothing_is_said_when_nothing_was_dropped(tmp_path, monkeypatch):
     """A note on every import is a note nobody reads."""
     binary = _binary(tmp_path, FULL_HELP)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     assert bf.degraded_note(bf.Agent.CLAUDE) is None
 
 
@@ -209,7 +215,10 @@ def test_an_unusable_agent_is_refused_before_the_folder_is_walked(tmp_path, monk
     33 times, once per slice."""
     help_text = "\n".join(ln for ln in FULL_HELP.splitlines() if "--add-dir" not in ln)
     binary = _binary(tmp_path, help_text)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
 
     chosen, error = bf.resolve_agent(bf.Agent.CLAUDE, interactive=False)
     assert chosen is None
@@ -218,7 +227,10 @@ def test_an_unusable_agent_is_refused_before_the_folder_is_walked(tmp_path, monk
 
 def test_a_usable_agent_still_resolves(tmp_path, monkeypatch):
     binary = _binary(tmp_path, FULL_HELP)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     chosen, error = bf.resolve_agent(bf.Agent.CLAUDE, interactive=False)
     assert chosen is bf.Agent.CLAUDE and error is None
 
@@ -228,8 +240,12 @@ def test_an_unusable_agent_is_not_offered_as_a_choice(tmp_path, monkeypatch):
     install what is already sitting on their PATH."""
     help_text = "\n".join(ln for ln in FULL_HELP.splitlines() if "--add-dir" not in ln)
     binary = _binary(tmp_path, help_text)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
-    monkeypatch.setattr(bf, "available_agents", lambda: [bf.Agent.CLAUDE])
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "available_agents", lambda: [bf.Agent.CLAUDE])
+    monkeypatch.setattr(bf.flow.choices, "available_agents", lambda: [bf.Agent.CLAUDE])
 
     chosen, error = bf.resolve_agent(None, interactive=False)
     assert chosen is None
@@ -242,18 +258,27 @@ def test_an_unusable_agent_is_not_offered_as_a_choice(tmp_path, monkeypatch):
 
 def test_the_agent_version_is_recorded_not_just_a_boolean(tmp_path, monkeypatch):
     binary = _binary(tmp_path, FULL_HELP, version="2.1.231 (Claude Code)")
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     assert bf.agent_version(bf.Agent.CLAUDE) == "2.1.231"
 
 
 def test_a_version_with_no_number_still_returns_something(tmp_path, monkeypatch):
     binary = _binary(tmp_path, FULL_HELP, version="nightly-build")
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     assert bf.agent_version(bf.Agent.CLAUDE) == "nightly-build"
 
 
 def test_an_absent_binary_has_no_version(monkeypatch):
-    monkeypatch.setattr(bf, "which_agent", lambda a: None)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: None)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: None)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: None)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: None)
     assert bf.agent_version(bf.Agent.CLAUDE) is None
 
 
@@ -285,26 +310,29 @@ def test_doctor_maps_its_own_agent_spelling_to_the_enum(tmp_path, monkeypatch):
     that reports nothing while looking like it works. Caught by running
     `doctor` for real, not by any unit test of `agent_version`.
     """
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     binary = _binary(tmp_path, FULL_HELP, version="2.1.231 (Claude Code)")
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
 
     assert doctor._agent_version("claude_code") == "2.1.231"
     assert doctor._agent_version("codex") == "2.1.231"  # same stub binary
 
 
 def test_doctor_shows_the_version_beside_the_tick(tmp_path):
-    from probe.cli import doctor
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard import doctor
+    from probe.cli.wizard.state.state import Capabilities
 
     caps = Capabilities(agent_source="claude_code", claude_available=True, agent_version="2.1.231")
     assert "ok (2.1.231)" in doctor.render(caps)
 
 
 def test_doctor_says_nothing_extra_when_the_version_is_unknown(tmp_path):
-    from probe.cli import doctor
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard import doctor
+    from probe.cli.wizard.state.state import Capabilities
 
     caps = Capabilities(agent_source="claude_code", claude_available=True)
     line = next(ln for ln in doctor.render(caps).splitlines() if "Claude Code CLI" in ln)
@@ -362,8 +390,12 @@ def test_a_codex_only_machine_can_still_run_a_backfill(tmp_path, monkeypatch):
     """The consequence of getting the subcommand wrong: `usable` is empty and
     backfill stops working on every Codex-only box."""
     binary = _codex(tmp_path)
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary if a is bf.Agent.CODEX else None)
-    monkeypatch.setattr(bf, "available_agents", lambda: [bf.Agent.CODEX])
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary if a is bf.Agent.CODEX else None)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary if a is bf.Agent.CODEX else None)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary if a is bf.Agent.CODEX else None)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary if a is bf.Agent.CODEX else None)
+    monkeypatch.setattr(bf.agents.agents, "available_agents", lambda: [bf.Agent.CODEX])
+    monkeypatch.setattr(bf.flow.choices, "available_agents", lambda: [bf.Agent.CODEX])
 
     chosen, error = bf.resolve_agent(None, interactive=False)
     assert error is None
@@ -378,13 +410,19 @@ def test_both_agents_installed_still_reaches_the_picker(tmp_path, monkeypatch):
     codex_dir = tmp_path / "cx"
     codex_dir.mkdir()
     codex = _codex(codex_dir)
-    monkeypatch.setattr(bf, "which_agent", lambda a: claude if a is bf.Agent.CLAUDE else codex)
-    monkeypatch.setattr(bf, "available_agents", lambda: [bf.Agent.CLAUDE, bf.Agent.CODEX])
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: claude if a is bf.Agent.CLAUDE else codex)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: claude if a is bf.Agent.CLAUDE else codex)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: claude if a is bf.Agent.CLAUDE else codex)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: claude if a is bf.Agent.CLAUDE else codex)
+    monkeypatch.setattr(bf.agents.agents, "available_agents", lambda: [bf.Agent.CLAUDE, bf.Agent.CODEX])
+    monkeypatch.setattr(bf.flow.choices, "available_agents", lambda: [bf.Agent.CLAUDE, bf.Agent.CODEX])
     asked = []
-    monkeypatch.setattr(bf, "choose_agent", lambda avail: asked.append(avail) or avail[0])
-    from probe.cli import tui
+    monkeypatch.setattr(bf.flow.choices, "choose_agent", lambda avail: asked.append(avail) or avail[0])
+    monkeypatch.setattr(bf.folder, "choose_agent", lambda avail: asked.append(avail) or avail[0])
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     bf.resolve_agent(None, interactive=True)
     assert asked == [[bf.Agent.CLAUDE, bf.Agent.CODEX]], "the picker must still offer both"
@@ -443,7 +481,10 @@ def test_the_refusal_names_the_version_it_found(tmp_path):
 
 def test_the_degraded_note_names_it_too(tmp_path, monkeypatch):
     binary = _binary(tmp_path, OLD_HELP, version="2.0.9 (Claude Code)")
-    monkeypatch.setattr(bf, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: binary)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: binary)
     note = bf.degraded_note(bf.Agent.CLAUDE)
     assert note.startswith("This Claude Code (2.0.9) does not accept")
 
@@ -453,7 +494,7 @@ def test_an_unreadable_version_is_omitted_not_guessed(tmp_path, monkeypatch):
     old one, which is a second problem the reader does not have."""
     help_text = "\n".join(ln for ln in FULL_HELP.splitlines() if "--settings" not in ln)
     binary = _binary(tmp_path, help_text)
-    monkeypatch.setattr(bf, "_agent_version_cached", lambda b: None)
+    monkeypatch.setattr(bf.agents.flags, "_agent_version_cached", lambda b: None)
     message = bf.too_old(bf.Agent.CLAUDE, binary)
     assert message.startswith("This Claude Code is too old")
     assert "(" not in message.split(":")[0], "no empty or placeholder parens"

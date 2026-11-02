@@ -1,0 +1,111 @@
+id: behavioral-tests-for-minimal-coverage-charts
+title: "Add behavioral tests for 6 chart types with only golden-output coverage"
+worktree: main
+priority: High
+status: Completed
+completed_date: "2026-03-07"
+category: "Testing and Quality Assurance"
+description: |
+  Six chart types currently have NO behavioral tests beyond golden-output snapshots:
+  ComparisonBar (83%), DivergingBar (78%), PercentileLadder (72%), StackedBar (83%),
+  RankTable (89%), and SparklineTable (85%). Golden tests catch visual regressions
+  but don't verify specific computation logic. Each chart has unique internal behavior
+  that should be tested independently.
+
+  Target: raise each module to >=90% line coverage with meaningful behavioral tests
+  that verify chart-specific logic, not just "renders without crashing".
+
+work:
+  - id: w1
+    summary: "Add ComparisonBar behavioral tests — percentage delta calculation, best/worst flagging, baseline vs comparison rendering"
+    status: done
+    notes: |
+      Key logic to test in comparison_bar.py:
+      - Percentage change annotation (lines 197-200, 221, 226-227)
+      - is_best/is_worst visual indicators (lines 240-241, 250)
+      - Paired bar alignment (lines 259, 266, 275, 281)
+      - Sorting behavior (lines 124-125, 134)
+
+  - id: w2
+    summary: "Add DivergingBar behavioral tests — center-aligned rendering, negative/positive bar direction, regression data handling"
+    status: done
+    notes: |
+      Key logic to test in diverging_bar.py:
+      - Center axis placement and bar direction (lines 186-191, 199)
+      - Negative vs positive value rendering (lines 213-214, 219-221)
+      - is_best/is_worst markers (lines 225-227)
+      - from_regression_data() factory (lines 243-259)
+
+  - id: w3
+    summary: "Add PercentileLadder behavioral tests — p50/p95/p99/p99.9 rung rendering, from_query_results factory, label formatting"
+    status: done
+    notes: |
+      Key logic to test in percentile_ladder.py:
+      - Percentile rung proportional widths (lines 138-144)
+      - Step labels and formatting (lines 156-157, 167)
+      - from_query_results() factory (lines 313-329)
+      - Multi-query rendering (lines 60-72)
+
+  - id: w4
+    summary: "Add StackedBar behavioral tests — multi-segment rendering, phase label legend, segment proportions"
+    status: done
+    notes: |
+      Key logic to test in stacked_bar.py:
+      - Segment proportional widths (lines 116-121)
+      - Phase/segment legend rendering (lines 177, 183, 188-189)
+      - from_phase_data() factory (lines 232, 235, 253)
+      - Sorting behavior (lines 105, 110)
+
+  - id: w5
+    summary: "Add RankTable behavioral tests — per-query ranking logic, winner highlighting, from_heatmap_data factory happy path"
+    status: done
+    notes: |
+      Key logic to test in rank_table.py:
+      - Rank calculation and sorting (lines 106, 116, 133)
+      - Winner/best highlighting (lines 174, 183)
+      - from_heatmap_data() factory happy path (lines 215, 224-234)
+
+  - id: w6
+    summary: "Add SparklineTable behavioral tests — inline sparkline character selection, column alignment, from_metrics factory"
+    status: done
+    notes: |
+      Key logic to test in sparkline_table.py:
+      - Sparkline character mapping to values (lines 147-150, 166-167)
+      - Column width and alignment (lines 237-241, 249, 251, 253)
+      - from_metrics() factory (lines 260-262, 282-284)
+
+must_preserve:
+  - "All 72 existing tests continue to pass"
+  - "Golden output fixtures remain unchanged"
+
+approach: |
+  Follow the pattern established in test_histogram_behavior.py and
+  test_normalized_speedup_behavior.py — focused behavioral tests that verify
+  specific computation logic rather than full rendered output. Use use_color=False
+  and fixed width to make assertions stable. Each work unit creates one test file
+  or adds tests to an existing behavioral test file.
+
+anti_patterns:
+  - "DO NOT duplicate golden-output testing — because golden tests already cover full rendering — test specific behavioral logic instead"
+  - "DO NOT assert on exact rendered strings for full charts — because these are fragile and duplicate golden tests — assert on specific computed values or substring presence"
+
+verification:
+  - description: "All tests pass including new behavioral tests"
+    command: "uv run python -m pytest -q"
+    expected_output: "all tests pass, 0 failures"
+  - description: "Coverage for each module reaches >=90%"
+    command: "uv run python -m pytest --cov=textcharts --cov-report=term-missing -q"
+    expected_output: "comparison_bar >=90%, diverging_bar >=90%, percentile_ladder >=90%, stacked_bar >=90%, rank_table >=90%, sparkline_table >=90%"
+
+scope_limit:
+  only_modify:
+    - "tests/"
+  do_not_modify:
+    - "src/"
+
+metadata:
+  tags:
+    - testing
+    - coverage
+  estimated_effort: "2-3 days"
+  created_date: "2026-03-07"

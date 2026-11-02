@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "channel-advisor-api-python"
+version = "0.2.3"
+description = ""
+authors = ["Brian Peterson <brian.peterson@cloudshift.cc>"]
+readme = "README.md"
+packages = [{ include = "channel_advisor_api" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.10.6"
+requests = "^2.32.3"
+aws-lambda-powertools = "^3.5.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+black = "^25.1.0"
+flake8 = "^7.1.1"
+pytest-cov = "^6.0.0"
+instructor = "^1.7.2"
+boto3 = "^1.36.14"
+anthropic = "^0.45.2"
+python-dotenv = "^1.0.1"
+jupyter = "^1.1.1"
+pandas = "^2.2.3"
+autoflake = "^2.3.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+
+[tool.semantic_release]
+branch = "main"
+version_toml = [ "pyproject.toml:tool.poetry.version" ]
+version_variables = [ "channel_advisor_api/__init__.py:__version__" ]
+commit_message = "chore(release): bump version to {version}"

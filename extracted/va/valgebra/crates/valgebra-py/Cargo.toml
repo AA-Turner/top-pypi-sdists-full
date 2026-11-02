@@ -1,0 +1,91 @@
+[package]
+name = "valgebra-py"
+description = "The PyO3 extension module of valgebra."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "_valgebra"
+crate-type = ["cdylib", "rlib"]
+
+[build-dependencies]
+# Re-emits the interpreter's `Py_3_x` and `Py_GIL_DISABLED` flags for this
+# crate; see `build.rs`. Already in the tree as `pyo3`'s own build dependency.
+pyo3-build-config = "0.29"
+
+[dependencies]
+# The pyo3 `extension-module` feature is intentionally not set here. maturin
+# (>= 1.9.4) injects it at wheel-build time via PYO3_BUILD_EXTENSION_MODULE.
+# Setting it unconditionally leaves libpython symbols undefined, which links on
+# Linux but breaks `cargo test`/`cargo build` on macOS and Windows, whose
+# linkers reject undefined symbols. Omitting it lets non-maturin builds link
+# libpython normally.
+pyo3 = { workspace = true }
+valgebra-core = { workspace = true }
+# JSON ingestion on the Rust path: jiter parses straight into Python objects,
+# faster than the stdlib json module, and the parsed value runs the same
+# validation walk as a native object so the two paths agree by construction.
+jiter = { version = "0.17", features = ["python"] }
+# The validation walk's maps and the recursion guard are keyed by trusted
+# internal data (declared field names, value/definition ids), so they do not
+# need a keyed hash. FxHash is faster to build and probe, and its zero-sized
+# build hasher drops the per-call random-seed setup the default hasher pays on
+# every walk. This is the hasher ty uses for the same reason. Pinned once in the
+# workspace so the core crate shares the version.
+rustc-hash = { workspace = true }
+# The one table a document's own keys fill -- each undeclared key's last entry
+# in a wide parsed object -- needs a hash keyed per process instead: FxHash is
+# unseeded, so a document can carry keys computed offline to collide. ahash's
+# `RandomState` is keyed by the OS's randomness at its first use and costs a
+# fraction of std's SipHash; jiter already depends on it with these features,
+# so it adds no crate to the build.
+ahash = "0.8"
+# Native string-pattern refinements: the `regex` crate compiles a `Pattern(...)`
+# marker once and matches on the Rust path, off the Python-predicate slow path.
+# Its linear-time guarantee (no catastrophic backtracking) matches valgebra's
+# stance that constructed sequence regexes are linear, and pydantic-core uses it
+# for the same `pattern` constraint.
+regex = "1.13"
+# The parser `regex` itself uses, to read a pattern on its own before the
+# anchors wrap it: a pattern that parses only once wrapped would match another
+# language than the one written. `regex` depends on it, so the version is the
+# one it already resolves.
+regex-syntax = "0.8"
+
+[dev-dependencies]
+# A test that needs a process of its own runs in one: an interpreter keeps a
+# module it imported for the process, so a reading that depends on a module
+# being absent cannot be asked after another test loaded it. The core's
+# property tests depend on it already, through proptest, so the lockfile gains
+# no crate.
+rusty-fork = "0.3"
+
+[features]
+# Enables an embedded interpreter (pyo3 `auto-initialize`) so the binding-internal
+# unit tests can acquire the GIL under `cargo test`. Off by default: without it
+# the test binary initializes no interpreter, so the tests that need one are not
+# built and the cross-OS lanes stay Python-free.
+#
+# The binary links libpython either way -- this crate does not set pyo3's
+# `extension-module`, so a non-maturin build links it as any other library --
+# and a shared-libpython interpreter must therefore be on the loader path for
+# `cargo test` to start at all. `scripts/gate.py` puts it there; a run by hand
+# needs the two lines CONTRIBUTING.md carries.
+#
+# The feature never reaches the shipped wheel, which maturin builds as an
+# extension module with no embedded interpreter.
+interpreter-tests = ["pyo3/auto-initialize"]
+
+# Builds the extension and runs the Python suite from `cargo test`, so a
+# mutation sweep can observe a suite it otherwise cannot: seven files of this
+# crate are reached only through the shipped extension, and `cargo test` never
+# loads one. Off by default, because the cost is a rebuild and a suite run per
+# test binary. `crates/valgebra-py/tests/pytest_sweep.rs` says what it needs.
+pytest-sweep = []
+
+[lints]
+workspace = true

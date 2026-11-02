@@ -1,0 +1,184 @@
+## Here's my code:
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+authors = [{ name = "chatos@alibaba" }]
+requires-python = "<4.0,>=3.10"
+name = "rl-rock"
+version = "1.11.0"
+description = "ROCK-Reinforcement Open Construction Kit"
+readme = "README.md"
+dependencies = [
+    # Core dependencies needed by all modules
+    "httpx",
+    "anyio",
+    "build",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp",
+    "opentelemetry-exporter-prometheus",
+    "requests",
+    "pydantic",
+    "python-multipart",
+    "rich",
+    "oss2",
+    "pyyaml",
+    "jinja2",
+    "tzdata",
+    "python-statemachine>=3.1.1",
+]
+
+[project.optional-dependencies]
+admin = [
+    # Include SDK and Rocklet dependencies
+    "rl-rock[rocklet]",
+    # Admin specific dependencies
+    "ray[default]==2.43.0",
+    "nacos-sdk-python>=0.1.14",
+    "redis==7.2.0",
+    "apscheduler",
+    "websockets>=15.0.1",
+    "aiohttp>=3.12.15",
+    "alibabacloud_cr20181201==2.0.5",
+    "sqlmodel",
+    "aiosqlite",
+    "asyncpg",
+    "psycopg2-binary",
+    "boto3",
+    "ray[default]==2.43.0",
+    "pip",
+    "cryptography==39.0.1",
+    "fakeredis[json]",
+    "kubernetes>=35.0.0",  # For K8S operator support
+    "opensandbox>=0.1.13",  # For opensandbox operator backend
+    "aiolimiter>=1.2.1",  # For rate limiting
+    "httptools",
+    "uvloop",
+]
+
+rocklet = [
+    # Rocklet execution environment dependencies
+    "fastapi",
+    "uvicorn",
+    "pexpect; sys_platform != 'win32'",
+    "bashlex; sys_platform != 'win32'",
+    "psutil",
+    "twisted; sys_platform != 'win32'",
+    "gem-llm>=0.1.0; sys_platform != 'win32'",
+    "numpy<=2.2.6",
+]
+
+sandbox-actor = [
+    "apscheduler>=3.11.0",
+    "gem-llm>=0.1.0",
+    "sqlmodel",
+    "nacos-sdk-python>=0.1.14",
+    "redis",
+    "boto3",
+]
+
+# Legacy optional dependencies for backward compatibility
+builder = [
+    "swebench",
+    "gem-llm>=0.1.0",
+    "docker"
+]
+
+model-service = [
+    "fastapi",
+    "uvicorn",
+    "psutil",
+    "swebench",
+    "alibabacloud_cr20181201==2.0.5",
+    "openai>=1.50.0",
+    "httpx",
+]
+
+
+all = [
+    "rl-rock[admin]",
+    "rl-rock[rocklet]",
+    "rl-rock[builder]",
+]
+
+[project.scripts]
+rocklet = "rock.rocklet.server:main"
+admin = "rock.admin.main:main"
+envhub = "rock.envhub.server:main"
+rock = "rock.cli.main:main"
+
+[dependency-groups]
+test = [
+    "pre-commit>=4.3.0",
+    "ruff>=0.14.0",
+    "iflow-cli-sdk>=0.1.1",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-split>=0.10.0",
+    "pytest-rerunfailures>=16.0.1",
+    "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-tornasync",
+    "pytest-trio",
+    "pytest-twisted",
+    "pytest-env",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+rock = ["rocklet/local_files/*"]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+exclude = [
+    "**/third_party/**",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings,
+    "UP",
+]
+ignore = [
+    "E501", # Line length exceeds limit
+    "F811", # Redefinition
+    "E741", # Ambiguous variable name (e.g., single letter variables)
+]
+
+# Import sorting configuration
+[tool.ruff.lint.isort]
+split-on-trailing-comma = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = [
+    "-v",               # Verbose output
+    "-p",
+    "no:warnings",      # Disable warnings
+    "-p",
+    "no:tornasync",
+    "--color=yes",      # Color output
+    "--capture=no",     # Do not capture output
+    "--tb=short",       # Short traceback
+    "--strict-markers", # Strict marker checking
+]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "need_ray: need ray start",
+    "need_docker: need docker daemon running",
+    "need_admin: need admin start",
+    "need_admin_and_network: need install from network",
+]

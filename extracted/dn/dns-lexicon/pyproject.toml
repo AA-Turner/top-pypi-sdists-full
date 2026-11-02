@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dns-lexicon"
-version = "3.25.2"
+version = "3.26.0"
 description = "Manipulate DNS records on various DNS providers in a standardized/agnostic way"
 license = "MIT"
 keywords = ["dns", "lexicon", "dns-lexicon", "dehydrated", "letsencrypt"]
@@ -18,11 +18,11 @@ classifiers = [
     "Topic :: Utilities",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 authors = [
     { name = "Jason Kulatunga", email = "jason@thesparktree.com" },
@@ -30,7 +30,7 @@ authors = [
 ]
 readme = "pypi_readme.rst"
 
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 dependencies = [
     "tldextract >= 2",
     "cryptography >= 2",
@@ -40,7 +40,6 @@ dependencies = [
     "beautifulsoup4 >= 4",
     "pyotp >= 2",
     "dnspython >= 2",
-    "importlib-metadata >= 4.6; python_version < '3.10'",
 ]
 
 [project.urls]
@@ -68,21 +67,18 @@ full = [
 
 [dependency-groups]
 dev = [
-    "esbonio",
     "packaging",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
     "vcrpy",
-    "flake8",
-    "flake8-pyproject",
-    "isort",
-    "black",
     "mypy[reports]",
     "toml",
     "types-PyYAML",
     "types-requests",
     "types-toml",
+    "ruff",
+    "towncrier",
 ]
 doc = ["sphinx", "sphinx-mdinclude", "piccolo-theme"]
 
@@ -94,6 +90,40 @@ include = ["/src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lexicon"]
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## {version} - {project_date}"
+issue_format = "(#{issue})"
+template = "changelog.d/_template.md.jinja"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "modified"
+name = "Modified"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
 
 [tool.pytest.ini_options]
 junit_family = "xunit2"
@@ -117,7 +147,7 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 show_error_codes = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -125,13 +155,6 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = ["requests_unixsocket.*"]
 follow_untyped_imports = true
-
-[tool.isort]
-profile = "black"
-
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "E501"]
 
 [tool.tox]
 envlist = ["cover", "lint", "mypy"]
@@ -180,7 +203,7 @@ commands = [
 
 # Lint env will check for code quality and errors, and fails if it does not match the minimal requirements.
 [tool.tox.env.lint]
-commands = [["flake8", "src", "tests"]]
+commands = [["ruff", "check", "src", "tests"]]
 
 # Mypy env will check for types in the Lexicon codebase.
 [tool.tox.env.mypy]

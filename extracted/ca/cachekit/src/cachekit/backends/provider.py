@@ -1,0 +1,312 @@
+"""Backend provider interfaces and default implementations.
+
+This module defines abstract interfaces for backend providers and concrete
+implementations for dependency injection. Follows protocol-based design
+for maximum flexibility and testing capability.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional
+
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from cachekit.hash_utils import redact_key_for_log
+
+if TYPE_CHECKING:
+    import redis
+    import redis.asyncio as redis_async
+
+    from cachekit.backends.redis.config import RedisBackendConfig
+
+
+class CacheClientProvider:
+    """Abstract interface for Redis client providers."""
+
+    def get_sync_client(self):
+        """Get synchronous Redis client."""
+        raise NotImplementedError
+
+    async def get_async_client(self):
+        """Get asynchronous Redis client."""
+        raise NotImplementedError
+
+
+class LoggerProvider:
+    """Abstract interface for logger providers."""
+
+    def get_logger(self, name: str):
+        """Get logger instance."""
+        raise NotImplementedError
+
+
+class SimpleLogger:
+    """Simple logger wrapper that adds cache-specific logging methods."""
+
+    def __init__(self, logger):
+        self._logger = logger
+
+    def debug(self, message: str):
+        """Log a debug message."""
+        self._logger.debug(message)
+
+    def info(self, message: str, extra=None):
+        """Log an info message with optional structured data."""
+        self._logger.info(message)
+
+    def warning(self, message: str):
+        """Log a warning message."""
+        self._logger.warning(message)
+
+    def error(self, message: str):
+        """Log an error message."""
+        self._logger.error(message)
+
+    def cache_hit(self, key: str, source: str = "Redis"):
+        """Log cache hits. Keys are redacted — they embed caller identifiers (CWE-532)."""
+        if self._logger.isEnabledFor(logging.DEBUG):  # redacting and formatting cost ~1 us per call
+            self._logger.debug(f"{source} cache hit for key: {redact_key_for_log(key)}")
+
+    def cache_miss(self, key: str):
+        """Log cache misses. Keys are redacted — they embed caller identifiers (CWE-532)."""
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug(f"Cache miss for key: {redact_key_for_log(key)}")
+
+    def cache_stored(self, key: str, ttl=None):
+        """Log cache storage operations. Keys are redacted — they embed caller identifiers (CWE-532)."""
+        if self._logger.isEnabledFor(logging.DEBUG):
+            ttl_info = f" with TTL {ttl}" if ttl else ""
+            self._logger.debug(f"Cached result for key: {redact_key_for_log(key)}{ttl_info}")
+
+
+class DefaultLoggerProvider(LoggerProvider):
+    """Default logger provider using standard Python logging."""
+
+    def get_logger(self, name: str):
+        import logging
+
+        return SimpleLogger(logging.getLogger(name))
+
+
+class BackendProviderInterface:
+    """Abstract interface for backend providers."""
+
+    def get_backend(self):
+        """Get backend instance."""
+        raise NotImplementedError
+
+
+class DefaultCacheClientProvider(CacheClientProvider):
+    """Default Redis client provider with thread-local caching for performance.
+
+    Uses get_cached_redis_client() to provide thread affinity optimization.
+    """
+
+    def get_sync_client(self):
+        from cachekit.backends.redis.client import get_cached_redis_client
+
+        return get_cached_redis_client()
+
+    async def get_async_client(self):
+        from cachekit.backends.redis.client import get_cached_async_redis_client
+
+        return await get_cached_async_redis_client()
+
+
+class PooledClientProvider(CacheClientProvider):
+    """Redis client provider with per-instance pools bound to an explicit URL.
+
+    Unlike DefaultCacheClientProvider (process-global pool configured from the
+    environment), each instance owns its own connection pools built from the
+    URL it was given — the URL a caller passes is the URL that gets used.
+    This is what makes RedisBackend(redis_url=...) honour its argument instead
+    of silently connecting wherever CACHEKIT_REDIS_URL/REDIS_URL point (#222).
+
+    No connection is made at construction time; pools connect lazily on first use.
+    """
+
+    def __init__(self, redis_url: str | SecretStr, config: Optional[RedisBackendConfig] = None) -> None:
+        # cachekit's redis package first: loading it runs the hiredis decision before redis-py loads.
+        from cachekit.backends.redis.client import create_connection_pool
+        from cachekit.backends.redis.config import RedisBackendConfig
+        from cachekit.config.validation import hide_secret
+
+        # isort: split
+        import redis
+
+        # The URL may carry a password: kept wrapped and unwrapped only inside the pool builders (CWE-532)
+        redis_url = hide_secret(redis_url)
+        self._redis_url = redis_url
+        self._config = config or RedisBackendConfig.from_env()
+        self._pool = create_connection_pool(redis_url, self._config)
+        # One client per provider, not per operation: redis-py's constructor costs
+        # ~40 us (callback table, event dispatcher) and a pooled, non
+        # single-connection client is thread-safe, checking out a connection per
+        # command. A client over a caller-supplied pool never closes that pool.
+        self._client = redis.Redis(connection_pool=self._pool)
+        self._async_client: Optional[redis_async.Redis] = None
+
+    def get_sync_client(self) -> redis.Redis:
+        return self._client
+
+    async def get_async_client(self) -> redis_async.Redis:
+        # cachekit's redis package first, as in __init__.
+        from cachekit.backends.redis.client import create_async_connection_pool
+
+        # isort: split
+        import redis.asyncio as redis_async
+
+        if self._async_client is None:
+            # Created lazily inside a running loop. No await between the check
+            # and the assignment, so single-loop use is race-free.
+            pool = create_async_connection_pool(self._redis_url, self._config)
+            self._async_client = redis_async.Redis(connection_pool=pool)
+        return self._async_client
+
+
+class _BackendEnv(BaseSettings):
+    """The backend env vars as pydantic-settings reads them, for DefaultBackendProvider._is_configured():
+    its four _SELECTORS plus REDIS_URL."""
+
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore", hide_input_in_errors=True)
+
+    # SecretStr: an API key, or a URL that may carry a password (CWE-532)
+    cachekit_api_key: Optional[SecretStr] = None
+    cachekit_redis_url: Optional[SecretStr] = None
+    cachekit_memcached_servers: Optional[SecretStr] = None
+    cachekit_file_cache_dir: Optional[SecretStr] = None
+    redis_url: Optional[SecretStr] = None
+
+
+class DefaultBackendProvider(BackendProviderInterface):
+    """Default backend provider with env-based auto-detection.
+
+    Selection is by a single, unambiguous environment signal. The prefixed selectors
+    are mutually exclusive, not a precedence chain — set exactly one:
+        - CACHEKIT_API_KEY            → CachekitIOBackend (SaaS)
+        - CACHEKIT_REDIS_URL          → Redis (tenant-scoped PerRequestRedisBackend)
+        - CACHEKIT_MEMCACHED_SERVERS  → MemcachedBackend
+        - CACHEKIT_FILE_CACHE_DIR     → FileBackend
+    With none of them set, ``REDIS_URL`` → Redis, as above (12-factor).
+
+    With nothing set at all, ``_is_configured()`` is False and a plaintext decorator
+    never calls ``get_backend()``: it caches in L1 only, in process.
+    Only the decorators that cannot run L1-only (encryption, ``interop=``) still call
+    it then, and get Redis at ``RedisBackendConfig``'s localhost default.
+
+    Setting more than one of the four prefixed selectors raises
+    ``ConfigurationError`` — auto-detection must be unambiguous; pass
+    ``backend=`` explicitly to override. The non-prefixed ``REDIS_URL`` is only a
+    fallback and never counts as a conflict (12-factor convention).
+
+    Every backend is a singleton (cached) — the decorator holds whatever this returns
+    for the life of the process. The Redis one is tenant-scoped per OPERATION: it reads
+    the tenant_context ContextVar each time it touches Redis, so each Redis operation is
+    scoped to the calling context's tenant, and a context with no tenant set
+    (single-tenant mode) is scoped to "default".
+    """
+
+    # Prefixed selectors. Tuple order is not precedence: two or more set raises, so
+    # order never picks a winner. REDIS_URL is the implicit fallback and intentionally
+    # excluded so it never triggers a conflict.
+    _SELECTORS = (
+        ("CACHEKIT_API_KEY", "cachekitio"),
+        ("CACHEKIT_REDIS_URL", "redis"),
+        ("CACHEKIT_MEMCACHED_SERVERS", "memcached"),
+        ("CACHEKIT_FILE_CACHE_DIR", "file"),
+    )
+
+    def __init__(self):
+        self._cachekitio_backend = None
+        self._redis_backend = None
+        self._memcached_backend = None
+        self._file_backend = None
+
+    def _matched(self) -> list[tuple[str, str]]:
+        """The prefixed selectors set to a non-empty value, matched by exact name."""
+        import os
+
+        return [(env_var, key) for env_var, key in self._SELECTORS if os.environ.get(env_var)]
+
+    def _detect(self):
+        """Return the chosen backend key, or None for Redis from REDIS_URL or ``RedisBackendConfig``'s default.
+
+        Raises ConfigurationError if more than one prefixed selector is set.
+        """
+        matched = self._matched()
+        if len(matched) > 1:
+            from cachekit.config.validation import ConfigurationError
+
+            names = ", ".join(env_var for env_var, _ in matched)
+            raise ConfigurationError(
+                f"Ambiguous backend auto-detection: multiple selectors set ({names}). "
+                "Set exactly one of CACHEKIT_API_KEY / CACHEKIT_REDIS_URL / "
+                "CACHEKIT_MEMCACHED_SERVERS / CACHEKIT_FILE_CACHE_DIR, or pass backend= explicitly."
+            )
+        return matched[0][1] if matched else None
+
+    def _is_configured(self) -> bool:
+        """Whether the environment names a backend: any prefixed selector, or ``REDIS_URL``.
+
+        A selector ``_matched()`` finds counts first, because ``_detect()`` routes on it: with two
+        spellings of one set, pydantic keeps one (an empty one can win), while ``_detect()`` still routes
+        on the exact-case one. Then ``_BackendEnv`` reads every name through pydantic-settings with
+        ``case_sensitive=False``, exactly as ``RedisBackendConfig`` reads them: a lowercase ``redis_url``
+        always reached that Redis through ``get_backend()``'s fallback. ``_detect()`` stays case-sensitive
+        on purpose: a lowercase prefixed selector counts as configured here and still resolves Redis
+        there, as before; aligning either method changes routing.
+        Never raises: two selectors count as configured, so ``get_backend()`` raises the ambiguity
+        error where the decorator already handles a backend that fails to build.
+        """
+        if self._matched():
+            return True
+        return any(value is not None and value.get_secret_value() for value in vars(_BackendEnv()).values())
+
+    def get_backend(self):
+        """Get backend instance, auto-detected from environment on first call."""
+        choice = self._detect()
+
+        if choice == "cachekitio":
+            if self._cachekitio_backend is None:
+                from cachekit.backends.cachekitio import CachekitIOBackend
+
+                self._cachekitio_backend = CachekitIOBackend()
+            return self._cachekitio_backend
+
+        if choice == "memcached":
+            if self._memcached_backend is None:
+                from cachekit.backends.memcached import MemcachedBackend, MemcachedBackendConfig
+
+                self._memcached_backend = MemcachedBackend(MemcachedBackendConfig.from_env())
+            return self._memcached_backend
+
+        if choice == "file":
+            if self._file_backend is None:
+                from cachekit.backends.file import FileBackend, FileBackendConfig
+
+                self._file_backend = FileBackend(FileBackendConfig.from_env())
+            return self._file_backend
+
+        # choice == "redis" (explicit CACHEKIT_REDIS_URL) or None: REDIS_URL, else RedisBackendConfig's default.
+        # Shared backend: it resolves the tenant per operation, so caching it cannot pin a tenant.
+        if self._redis_backend is None:
+            from cachekit.backends.redis.config import RedisBackendConfig
+            from cachekit.backends.redis.provider import RedisBackendProvider
+
+            redis_config = RedisBackendConfig.from_env()
+            self._redis_backend = RedisBackendProvider(redis_config.redis_url, config=redis_config).get_shared_backend()
+        return self._redis_backend
+
+
+__all__ = [
+    "CacheClientProvider",
+    "LoggerProvider",
+    "SimpleLogger",
+    "DefaultLoggerProvider",
+    "BackendProviderInterface",
+    "DefaultCacheClientProvider",
+    "DefaultBackendProvider",
+    "PooledClientProvider",
+]

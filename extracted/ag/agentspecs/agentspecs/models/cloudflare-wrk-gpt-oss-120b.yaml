@@ -1,0 +1,41 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Cloudflare Workers AI gpt-oss-120b
+
+id: "cloudflare:wrk/openai/gpt-oss-120b"
+version: 0.0.1
+# The id this model had before 0.0.9 named its route; kept so it still resolves.
+aliases:
+  - "cloudflare:openai/gpt-oss-120b"
+name: Cloudflare gpt-oss-120b
+description: OpenAI gpt-oss-120b on Cloudflare Workers AI - 128k context, tool calling, standard billing
+provider: cloudflare
+provider_url: "https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/"
+default: false
+available: false
+tokens_limit: 32768
+billing: standard
+route: workers-ai
+context_window: 128000
+
+# Cloudflare's per-token price, from
+# https://developers.cloudflare.com/workers-ai/platform/pricing/ (read
+# 2026-10-08). Workers AI bills neurons ($0.011 per thousand), which
+# ai-inference meters when the answer reports them; this is the same price per
+# token, for a call that reports none.
+pricing:
+  input_usd_per_million: 0.35
+  output_usd_per_million: 0.75
+
+# Hosted through datalayer-ai-inference, which holds the Cloudflare account
+# and token and routes the call through the account's AI Gateway. Nothing is
+# required in the agent runtime environment; a runtime calling Cloudflare
+# directly needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.
+required_env_vars: []
+
+capabilities:
+  - chat
+  - tools
+  - codemode
+  - decider

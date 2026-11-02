@@ -1,0 +1,695 @@
+"""`lemonaid watch pr`: events, the state kept between waiters, and the CLI."""
+
+import hashlib
+import json
+import os
+import pathlib
+import stat
+import subprocess
+import sys
+
+import pytest
+
+from lemonaid.watch import (
+    cursors,
+    delivery,
+    github_api,
+    lemon_signature,
+    merge_health,
+    pr_activity,
+    pr_comments,
+    pr_wait,
+    wait_state,
+    waiter_lock,
+)
+
+_HEAD = "a" * 40
+
+
+def _snap(
+    head=_HEAD,
+    state="OPEN",
+    draft=True,
+    decision="",
+    comments=(),
+    mergeable="MERGEABLE",
+    checks=(),
+):
+    return pr_activity.Snapshot(
+        head, state, draft, decision, list(comments), "main", mergeable, list(checks), "PRIVATE"
+    )
+
+
+def _check(name="test", required=False, outcome="passed"):
+    return pr_activity.Check(name, required, outcome)
+
+
+def _comment(i: str, body="please fix"):
+    return pr_comments.Comment(i, "src/x.py:3", "sam", body)
+
+
+@pytest.fixture
+def stem(tmp_path):
+    return pr_wait.state_stem(tmp_path / "state", "o/r", 90, "Author (X)")
+
+
+def _seen_nothing(stem):
+    """Cursors for a lemon that has been shown no comment and no CI result yet.
+
+    Without them, a waiter takes the PR as it is now as already seen.
+    """
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    for suffix, value in (
+        (".reported.json", []),
+        (".merge.json", merge_health.Seen("", "")._asdict()),
+    ):
+        if not stem.with_suffix(suffix).exists():
+            stem.with_suffix(suffix).write_text(json.dumps(value))
+
+
+def _run_once(stem, snaps, head=_HEAD, comments=True):
+    _seen_nothing(stem)
+    feed, sent = iter(snaps), []
+    pr_wait.wait(lambda: next(feed), 90, 0, head, comments, sent.append, True, stem)
+    return sent
+
+
+def test_state_files_keep_their_names(tmp_path):
+    """Renaming them would make the next waiter for the same PR re-report what earlier ones did."""
+    expected = hashlib.sha1(b"o/r#90\0Author (X)").hexdigest()[:16]
+
+    assert pr_wait.state_stem(tmp_path, "o/r", 90, "Author (X)") == tmp_path / expected
+    assert (
+        pr_wait.state_stem(tmp_path, "o/r", 90, "").name == hashlib.sha1(b"o/r#90").hexdigest()[:16]
+    )
+
+
+def test_a_push_is_reported_against_the_head_already_handled(stem):
+    sent = _run_once(stem, [_snap(), _snap(head="b" * 40)])
+
+    assert sent == [f"PR #90 head moved {'a' * 10} -> {'b' * 10}"]
+
+
+def test_an_abbreviated_head_matches_the_full_one(stem):
+    sent = _run_once(stem, [_snap(), _snap(head="b" * 40)], head="a" * 10)
+
+    assert sent == [f"PR #90 head moved {'a' * 10} -> {'b' * 10}"]
+
+
+def test_a_merge_and_a_decision_are_reported(stem):
+    sent = _run_once(stem, [_snap(), _snap(state="MERGED", decision="APPROVED")])
+
+    assert sent == ["PR #90 is now MERGED; PR #90 review decision: APPROVED"]
+
+
+def test_a_comment_handled_but_left_open_is_not_reported_after_a_rearm(stem):
+    assert _run_once(stem, [_snap(comments=[_comment("c1")])])[0].startswith(
+        'PR #90: 1 new comment(s) on a private repo - sam (src/x.py:3): "please fix"'
+    )
+    sent = _run_once(
+        stem,
+        [
+            _snap(comments=[_comment("c1")]),
+            _snap(comments=[_comment("c1"), _comment("c2", "and this")]),
+        ],
+    )
+
+    assert sent == ['PR #90: 1 new comment(s) on a private repo - sam (src/x.py:3): "and this"']
+
+
+def test_a_draft_change_between_waiters_is_reported(stem):
+    _run_once(stem, [_snap(comments=[_comment("c1")])])
+
+    assert _run_once(stem, [_snap(draft=False, comments=[_comment("c1")])]) == [
+        "PR #90 is now ready for review"
+    ]
+
+
+def test_reported_comments_survive_a_wait_that_skips_their_threads(stem):
+    _run_once(stem, [_snap(comments=[_comment("c1")])])
+    _run_once(stem, [_snap(draft=False)])
+
+    assert _run_once(
+        stem,
+        [
+            _snap(draft=False, comments=[_comment("c1")]),
+            _snap(draft=False, head="b" * 40, comments=[_comment("c1")]),
+        ],
+    ) == [f"PR #90 head moved {'a' * 10} -> {'b' * 10}"]
+
+
+def test_a_failed_delivery_records_nothing(stem):
+    _seen_nothing(stem)
+
+    def fail(message: str) -> None:
+        raise delivery.Failed("codex queue failed (exit 1)")
+
+    with pytest.raises(delivery.Failed):
+        pr_wait.wait(lambda: _snap(comments=[_comment("c1")]), 90, 0, _HEAD, True, fail, True, stem)
+    assert _run_once(stem, [_snap(comments=[_comment("c1")])])[0].startswith(
+        "PR #90: 1 new comment(s)"
+    )
+
+
+def test_a_conflict_is_reported_once_per_head(stem):
+    assert _run_once(stem, [_snap(mergeable="CONFLICTING")])[0].startswith(
+        f"PR #90 conflicts with main at {'a' * 10}"
+    )
+    rearmed = _run_once(
+        stem, [_snap(mergeable="CONFLICTING"), _snap(head="b" * 40, mergeable="CONFLICTING")]
+    )
+
+    assert rearmed[0].startswith(f"PR #90 head moved {'a' * 10} -> {'b' * 10}; PR #90 conflicts")
+
+
+def test_an_unknown_mergeable_state_is_not_a_conflict():
+    messages, seen = merge_health.events(90, _snap(mergeable="UNKNOWN"), merge_health.Seen("", ""))
+
+    assert (messages, seen.conflict_head) == ([], "")
+
+
+def test_ci_is_reported_once_every_check_has_finished(stem):
+    running = [_check("lint", outcome="failed"), _check("test", outcome="pending")]
+    done = [_check("lint", outcome="failed"), _check("test")]
+
+    sent = _run_once(stem, [_snap(checks=running), _snap(checks=done)], head="")
+
+    assert len(sent) == 1
+    assert sent[0].endswith(
+        f"PR #90 CI failed at {'a' * 10}: lint: clear a `merge` status,"
+        " read `gh pr checks 90`, fix it and push (or rerun a flaky job),"
+        " then tell your reviewer"
+    )
+    assert (
+        merge_health.events(
+            90, _snap(checks=done), merge_health.load(stem.with_suffix(".merge.json"))
+        )[0]
+        == []
+    )
+
+
+def test_optional_failure_counts_even_when_required_checks_pass():
+    checks = [_check("allow-merge", required=True), _check("flaky", outcome="failed")]
+
+    messages, _ = merge_health.events(90, _snap(checks=checks), merge_health.Seen("", ""))
+    assert len(messages) == 1
+    assert messages[0].kind == "ci-failed"
+    assert "flaky" in messages[0].text
+
+
+def test_a_reviewer_is_not_woken_for_conflicts_or_ci(stem):
+    blocked = _snap(mergeable="CONFLICTING", checks=[_check(outcome="failed")])
+
+    assert _run_once(stem, [blocked, _snap(head="b" * 40)], comments=False) == [
+        f"PR #90 head moved {'a' * 10} -> {'b' * 10}"
+    ]
+
+
+def test_check_runs_and_status_contexts_are_read():
+    nodes = [
+        {
+            "__typename": "CheckRun",
+            "name": "a",
+            "status": "IN_PROGRESS",
+            "conclusion": None,
+            "isRequired": False,
+        },
+        {
+            "__typename": "CheckRun",
+            "name": "b",
+            "status": "COMPLETED",
+            "conclusion": "TIMED_OUT",
+            "isRequired": True,
+        },
+        {"__typename": "StatusContext", "context": "c", "state": "EXPECTED", "isRequired": False},
+        {"__typename": "StatusContext", "context": "d", "state": "SUCCESS", "isRequired": False},
+    ]
+
+    assert [pr_activity._check(n) for n in nodes] == [
+        _check("a", outcome="pending"),
+        _check("b", required=True, outcome="failed"),
+        _check("c", outcome="pending"),
+        _check("d"),
+    ]
+
+
+_SIGNED_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "watch_pr_signed_comments.json"
+
+
+def _fixture_ids(*signatures):
+    pr = json.loads(_SIGNED_FIXTURE.read_text())["data"]["repository"]["pullRequest"]
+    return [c.id for c in pr_comments.others(pr, signatures)]
+
+
+def test_only_comments_signed_by_me_or_a_legacy_signature_are_mine():
+    assert _fixture_ids("Author (MotorHoe)", "Claude") == [
+        "PRRC_teammate_signed",
+        "PRRC_teammate_unsigned",
+        "PRRC_human",
+        "PRRC_resolved",
+        "IC_prefix",
+    ]
+
+
+def test_without_a_legacy_signature_its_comments_are_reported():
+    assert "PRRC_mine_legacy" in _fixture_ids("Author (MotorHoe)")
+
+
+def test_a_bare_name_that_no_comment_is_signed_with_owns_nothing():
+    assert _fixture_ids("support-katamari") == [
+        "PRRC_mine",
+        "PRRC_mine_legacy",
+        "PRRC_teammate_signed",
+        "PRRC_teammate_unsigned",
+        "PRRC_human",
+        "PRRC_resolved",
+        "PRR_mine",
+        "IC_prefix",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "signed"),
+    [
+        ("\N{LEMON} Author (X): ok", True),
+        ("  \N{LEMON}Author (X): ok", True),
+        ("\N{LEMON}\N{VARIATION SELECTOR-16} Author (X): ok", True),
+        ("\N{LEMON}: ok", False),
+        ("\N{LEMON} Author (X) ok", False),
+        ("Author (X): ok", False),
+        ("\N{LEMON} Author (Y): ok", False),
+    ],
+)
+def test_a_signature_follows_the_marker_and_ends_with_a_colon(body, signed):
+    assert lemon_signature.is_signed(body, ["Author (X)"]) is signed
+
+
+_FAKE_GH = """#!/bin/sh
+if [ "$1" = repo ]; then echo o/r; exit 0; fi
+cat "$FAKE_GH_SNAPSHOT"
+"""
+
+
+@pytest.fixture
+def fake_gh(tmp_path, monkeypatch):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh = bin_dir / "gh"
+    gh.write_text(_FAKE_GH)
+    gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    snapshot = tmp_path / "snapshot.json"
+    monkeypatch.setenv("FAKE_GH_SNAPSHOT", str(snapshot))
+    return snapshot
+
+
+def _write_snapshot(path, head):
+    path.write_text(
+        json.dumps(
+            {
+                "data": {
+                    "repository": {
+                        "visibility": "PRIVATE",
+                        "pullRequest": {
+                            "headRefOid": head,
+                            "baseRefName": "main",
+                            "state": "OPEN",
+                            "isDraft": True,
+                            "reviewDecision": None,
+                            "mergeable": "MERGEABLE",
+                            "commits": {
+                                "nodes": [{"commit": {"oid": head, "statusCheckRollup": None}}]
+                            },
+                            "reviewThreads": {"nodes": []},
+                            "reviews": {"nodes": []},
+                            "comments": {"nodes": []},
+                        },
+                    }
+                }
+            }
+        )
+    )
+
+
+def _cli(tmp_path, *args):
+    me = args[args.index("--me") + 1] if "--me" in args else ""
+    _seen_nothing(pr_wait.state_stem(tmp_path / "state", "o/r", 90, me))
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lemonaid",
+            "watch",
+            "pr",
+            *args,
+            "--interval",
+            "0.05",
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+
+
+def test_a_gh_timeout_is_retried_on_the_next_poll(stem, fake_gh, monkeypatch):
+    _write_snapshot(fake_gh, "b" * 40)
+    run, calls = subprocess.run, []
+
+    def slow_once(argv, **kwargs):
+        calls.append(argv)
+        if len(calls) == 1:
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        return run(argv, **kwargs)
+
+    monkeypatch.setattr(github_api.subprocess, "run", slow_once)
+    _seen_nothing(stem)
+    sent = []
+    pr_wait.wait(
+        lambda: pr_activity.fetch("o/r", 90, ()), 90, 0, _HEAD, False, sent.append, True, stem
+    )
+
+    assert len(calls) == 2
+    assert sent == [f"PR #90 head moved {'a' * 10} -> {'b' * 10}"]
+
+
+def test_a_missing_gh_still_ends_the_wait(monkeypatch):
+    def missing(argv, **kwargs):
+        raise FileNotFoundError(argv[0])
+
+    monkeypatch.setattr(github_api.subprocess, "run", missing)
+
+    with pytest.raises(FileNotFoundError):
+        pr_activity.fetch("o/r", 90, ())
+
+
+def test_cli_once_reports_a_push_and_exits(tmp_path, fake_gh):
+    _write_snapshot(fake_gh, "b" * 40)
+
+    result = _cli(tmp_path, "--wait", "90", "--head", _HEAD, "--once")
+
+    assert result.returncode == 0
+    assert result.stdout == f"PR #90 head moved {'a' * 10} -> {'b' * 10}\n"
+
+
+@pytest.mark.parametrize("comments", [False, True])
+@pytest.mark.parametrize("codex", [False, True])
+@pytest.mark.parametrize("conclusion,expected", [("SUCCESS", "passed"), ("FAILURE", "failed")])
+def test_cli_ci_reports_completion(
+    tmp_path, fake_gh, monkeypatch, comments, codex, conclusion, expected
+):
+    _write_snapshot(fake_gh, _HEAD)
+    data = json.loads(fake_gh.read_text())
+    commit = data["data"]["repository"]["pullRequest"]["commits"]["nodes"][0]["commit"]
+    commit["statusCheckRollup"] = {
+        "contexts": {
+            "pageInfo": {"hasNextPage": False},
+            "nodes": [
+                {
+                    "__typename": "CheckRun",
+                    "name": "test",
+                    "status": "COMPLETED",
+                    "conclusion": conclusion,
+                    "isRequired": False,
+                }
+            ],
+        }
+    }
+    fake_gh.write_text(json.dumps(data))
+    queued = tmp_path / "queued"
+    if codex:
+        executable = tmp_path / "bin" / "codex"
+        executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$FAKE_CODEX_ARGS"\n')
+        executable.chmod(executable.stat().st_mode | stat.S_IEXEC)
+        home = tmp_path / "codex-home"
+        home.mkdir()
+        monkeypatch.setenv("CODEX_HOME", str(home))
+        monkeypatch.setenv("FAKE_CODEX_ARGS", str(queued))
+    result = _cli(
+        tmp_path,
+        "--wait",
+        "90",
+        "--head",
+        _HEAD,
+        "--ci",
+        *(["--codex-thread", "test-thread"] if codex else ["--once"]),
+        *(["--comments", "--me", "Author (X)"] if comments else []),
+    )
+    assert result.returncode == 0
+    if codex:
+        args = queued.read_text().splitlines()
+        assert args[:4] == ["queue", "--thread", "test-thread", "--message"]
+        message = args[4].removeprefix("watch-pr event: ")
+    else:
+        message = result.stdout
+    assert message.startswith(f"PR #90 CI {expected} at {_HEAD[:10]}")
+    assert message.count("CI ") == 1
+
+
+def test_cli_accepts_an_abbreviated_head_in_either_case(tmp_path, fake_gh):
+    _write_snapshot(fake_gh, "b" * 40)
+
+    result = _cli(tmp_path, "--wait", "90", "--head", "ABABABA", "--once")
+
+    assert result.returncode == 0
+    assert result.stdout == f"PR #90 head moved abababa -> {'b' * 10}\n"
+
+
+@pytest.mark.parametrize("head", ["abcdef", "<head SHA>", "a" * 41])
+def test_cli_refuses_a_head_that_is_not_a_sha_of_7_or_more_digits(tmp_path, fake_gh, head):
+    refused = _cli(tmp_path, "--wait", "90", "--head", head, "--once")
+
+    assert refused.returncode == 2
+    assert "not a commit SHA" in refused.stderr
+
+
+def test_cli_status_and_comments_needs_me(tmp_path, fake_gh):
+    assert _cli(tmp_path, "--status", "90").stdout == "no waiter running\n"
+    refused = _cli(tmp_path, "--wait", "90", "--comments")
+    assert refused.returncode == 2
+    assert "--comments needs --me" in refused.stderr
+
+
+def test_cli_reports_others_comments_but_not_mine(tmp_path, fake_gh):
+    fake_gh.write_text(_SIGNED_FIXTURE.read_text())
+
+    result = _cli(
+        tmp_path,
+        "--wait",
+        "90",
+        "--head",
+        "b" * 40,
+        "--comments",
+        "--me",
+        "Author (MotorHoe)",
+        "--legacy",
+        "Claude",
+        "--once",
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.startswith(
+        "PR #90: 5 new comment(s) on a private repo - harrison (src/x.py:3): "
+    )
+    assert "Reviewer (StateJob)" in result.stdout
+
+
+def _thread_snapshot(path, *, outdated=False, resolved=False):
+    data = json.loads(_SIGNED_FIXTURE.read_text())
+    pr = data["data"]["repository"]["pullRequest"]
+    thread = pr["reviewThreads"]["nodes"][0]
+    thread.update(isOutdated=outdated, isResolved=resolved, line=None if outdated else 3)
+    pr["reviewThreads"]["nodes"] = [thread]
+    pr["reviews"]["nodes"] = []
+    pr["comments"]["nodes"] = []
+    path.write_text(json.dumps(data))
+    return data
+
+
+@pytest.mark.parametrize("outdated,resolved", [(True, False), (False, True), (True, True)])
+def test_new_reply_in_outdated_or_resolved_thread_wakes_once(stem, fake_gh, outdated, resolved):
+    data = _thread_snapshot(fake_gh, outdated=outdated, resolved=resolved)
+    before = pr_activity.fetch("o/r", 90, ("Author (MotorHoe)", "Claude"))
+    assert before is not None
+    assert "3 new comment(s)" in _run_once(stem, [before], head="b" * 40)[0]
+
+    thread = data["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"][0]
+    thread["comments"]["nodes"].append(
+        {
+            "id": "new_reply",
+            "body": "please fix this too",
+            "state": "SUBMITTED",
+            "author": {"login": "sam", "__typename": "User"},
+        }
+    )
+    fake_gh.write_text(json.dumps(data))
+    after = pr_activity.fetch("o/r", 90, ("Author (MotorHoe)", "Claude"))
+    assert after is not None
+
+    sent = _run_once(stem, [before, after], head="b" * 40)
+    assert sent == [
+        f'PR #90: 1 new comment(s) on a private repo - sam (src/x.py:{None if outdated else 3}): "please fix this too"'
+    ]
+    assert _run_once(stem, [after, after._replace(head="c" * 40)], head="b" * 40) == [
+        f"PR #90 head moved {'b' * 10} -> {'c' * 10}"
+    ]
+
+
+@pytest.mark.parametrize("outdated", [False, True])
+@pytest.mark.parametrize("resolved", [False, True])
+@pytest.mark.parametrize("skip_outdated", [False, True])
+@pytest.mark.parametrize("skip_resolved", [False, True])
+def test_thread_filters_are_independent(fake_gh, outdated, resolved, skip_outdated, skip_resolved):
+    _thread_snapshot(fake_gh, outdated=outdated, resolved=resolved)
+
+    snap = pr_activity.fetch(
+        "o/r",
+        90,
+        ("Author (MotorHoe)", "Claude"),
+        skip_outdated=skip_outdated,
+        skip_resolved=skip_resolved,
+    )
+
+    assert snap is not None
+    expected = (
+        []
+        if (outdated and skip_outdated) or (resolved and skip_resolved)
+        else ["PRRC_teammate_signed", "PRRC_teammate_unsigned", "PRRC_human"]
+    )
+    assert [c.id for c in snap.comments] == expected
+
+
+@pytest.mark.parametrize("kind", ["outdated", "resolved"])
+@pytest.mark.parametrize(
+    "configured,flag,expected",
+    [
+        (False, (), True),
+        (True, (), False),
+        (False, ("--skip",), False),
+        (True, ("--no-skip",), True),
+    ],
+)
+def test_cli_thread_filter_overrides_config(tmp_path, fake_gh, kind, configured, flag, expected):
+    _thread_snapshot(fake_gh, **{kind: True})
+    pathlib.Path(os.environ["LEMONAID_CONFIG"]).write_text(
+        f"[watch.pr]\nskip_{kind} = {str(configured).lower()}\n"
+    )
+
+    result = _cli(
+        tmp_path,
+        "--wait",
+        "90",
+        "--head",
+        _HEAD,
+        "--comments",
+        "--me",
+        "Author (MotorHoe)",
+        "--legacy",
+        "Claude",
+        "--once",
+        *(f"{f}-{kind}" for f in flag),
+    )
+
+    assert result.returncode == 0
+    assert ("3 new comment(s)" in result.stdout) is expected
+    assert "head moved" in result.stdout
+
+
+def _wait_once(stem, snaps, head=""):
+    """A waiter with whatever cursors `stem` has, none seeded."""
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    feed, sent = iter(snaps), []
+    pr_wait.wait(lambda: next(feed), 90, 0, head, True, sent.append, True, stem)
+    return sent
+
+
+def test_a_first_waiter_takes_existing_comments_and_ci_as_seen(stem):
+    old = _snap(
+        comments=[_comment("c1")], mergeable="CONFLICTING", checks=[_check(outcome="failed")]
+    )
+    newer = old._replace(comments=[_comment("c1"), _comment("c2", "and this")])
+
+    assert _wait_once(stem, [old, newer]) == [
+        'PR #90: 1 new comment(s) on a private repo - sam (src/x.py:3): "and this"'
+    ]
+
+
+def test_a_push_while_no_waiter_ran_is_reported_without_head(stem):
+    with pytest.raises(StopIteration):
+        _wait_once(stem, [_snap()])
+
+    assert _wait_once(stem, [_snap(head="b" * 40)]) == [
+        f"PR #90 head moved {'a' * 10} -> {'b' * 10}"
+    ]
+
+
+def test_a_merge_while_no_waiter_ran_is_reported(stem):
+    with pytest.raises(StopIteration):
+        _wait_once(stem, [_snap()])
+
+    assert _wait_once(stem, [_snap(state="MERGED")]) == ["PR #90 is now MERGED"]
+
+
+def test_head_overrides_the_saved_head(stem):
+    with pytest.raises(StopIteration):
+        _wait_once(stem, [_snap()])
+
+    assert _wait_once(stem, [_snap(head="b" * 40), _snap(head="c" * 40)], head="b" * 40) == [
+        f"PR #90 head moved {'b' * 10} -> {'c' * 10}"
+    ]
+
+
+def test_cursors_are_written_whole(stem):
+    with pytest.raises(StopIteration):
+        _wait_once(stem, [_snap(comments=[_comment("c1")])])
+
+    assert json.loads(stem.with_suffix(".head.json").read_text()) == {
+        "head": _HEAD,
+        "state": "OPEN",
+    }
+    assert json.loads(stem.with_suffix(".reported.json").read_text()) == ["c1"]
+    assert not list(stem.parent.glob(".*"))
+
+
+def test_a_push_the_lemon_made_itself_is_not_reported(stem):
+    with pytest.raises(StopIteration):
+        _wait_once(stem, [_snap()])
+
+    feed, sent = iter([_snap(head="b" * 40), _snap(head="c" * 40)]), []
+    pr_wait.wait(
+        lambda: next(feed),
+        90,
+        0,
+        "",
+        True,
+        sent.append,
+        True,
+        stem,
+        own_head=lambda head: head.startswith("bbbbbbb"),
+    )
+
+    assert sent == [f"PR #90 head moved {'b' * 10} -> {'c' * 10}"]
+
+
+def test_cli_refuses_to_wait_beside_the_unified_watcher_sharing_its_cursors(tmp_path, fake_gh):
+    _write_snapshot(fake_gh, _HEAD)
+    unified = wait_state.lock_path(cursors.owner("Author (X)"))
+    unified.parent.mkdir(parents=True)
+    lock = waiter_lock.acquire(unified)
+
+    result = subprocess.run(
+        [
+            *(sys.executable, "-m", "lemonaid", "watch", "pr", "--wait", "90", "--repo", "o/r"),
+            *("--comments", "--ci", "--once", "--me", "Author (X)", "--interval", "0.05"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    lock.close()
+
+    assert result.returncode == 3
+    assert result.stdout.startswith("not started: your unified watcher (pid ")

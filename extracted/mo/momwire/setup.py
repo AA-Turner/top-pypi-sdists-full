@@ -322,6 +322,9 @@ _ACCEL_HEADERS = [
     "src/momwire/_bspline_ek_moments_inline.h",
     "src/momwire/_contour_engine_inline.h",
     "src/momwire/_somm_below_six_inline.h",
+    # momwire#1718 S12: the transmitted family's integrand, node and pair
+    # kernel, shared by `_accel_mw568.cpp` and `_somm_transmitted_core.cpp`.
+    "src/momwire/_somm_transmitted_six_inline.h",
     # The shared preamble of the split TUs (momwire#687): includes, the OpenMP
     # simd declarations and the cancellation machinery. Every accelerator TU
     # includes it, so an edit here must rebuild all of them -- the momwire#568
@@ -358,6 +361,8 @@ _ACCEL_HEADERS = [
     # The point-matched kernels' Python-free core and the series helpers it
     # shares with the Galerkin far fill (momwire#1607 B1).
     "src/momwire/_sinusoidal_core.h",
+    # The Sinusoidal-Galerkin far fill's Python-free core (momwire#1718 S1).
+    "src/momwire/_sinusoidal_galerkin_core.h",
     "src/momwire/_sinusoidal_nec4_core.h",
     "src/momwire/_sinusoidal_series_inline.h",
     # The SIMD lane layer (momwire#1372), included by the lane kernels'
@@ -386,6 +391,7 @@ _ACCEL_HEADERS = [
     "src/momwire/_somm_below_proj_core.h",
     "src/momwire/_somm_below_grid_core.h",
     "src/momwire/_somm_below_fill_core.h",
+    "src/momwire/_somm_transmitted_core.h",
     # The below/below remainder's batch projection, shared by razor's buried
     # fill and bs2's (momwire#1517 step 4).
     "src/momwire/_somm_below_remainder_inline.h",
@@ -402,6 +408,7 @@ _ACCEL_HEADERS = [
     "src/momwire/_razor_crossing_core.h",
     # The crossing fill's shared pieces, razor's and bs2's (momwire#1517 step 4).
     "src/momwire/_crossing_shared_inline.h",
+    "src/momwire/_crossing_split_inline.h",
     "src/momwire/_razor_wire_loading_core.h",
     # The exact ring kernel's point moments, Python-free (momwire#1479): the
     # text `_accel_exact_kernel_point.cpp` and its core twin both compile,
@@ -428,6 +435,15 @@ _ACCEL_HEADERS = [
     "src/momwire/_nec4_printout_core.h",
     "src/momwire/_sinusoidal_front_core.h",
     "src/momwire/_sinusoidal_fill_core.h",
+    "src/momwire/_sinusoidal_transmitted_core.h",
+    # numpy's complex sin / cos / log as the C library's (momwire#1607 B6a).
+    "src/momwire/_libm_complex_inline.h",
+    "src/momwire/_sinusoidal_galerkin_fill_core.h",
+    "src/momwire/_sinusoidal_galerkin_crossing_core.h",
+    "src/momwire/_sinusoidal_galerkin_direct_core.h",
+    "src/momwire/_sinusoidal_galerkin_run_core.h",
+    "src/momwire/_bspline_nec4_run_core.h",
+    "src/momwire/_sinusoidal_crossing_core.h",
     "src/momwire/_nec4_run_core.h",
     "src/momwire/_sinusoidal_run_core.h",
     "src/momwire/_nec5_seam_core.h",
@@ -435,14 +451,17 @@ _ACCEL_HEADERS = [
     "src/momwire/_nec5_bspline_seam_core.h",
     "src/momwire/_bspline_front_core.h",
     "src/momwire/_bspline_fill_core.h",
+    "src/momwire/_bspline_transmitted_core.h",
     "src/momwire/_bspline_crossing_core.h",
     "src/momwire/_nec5_bspline_printout_core.h",
+    "src/momwire/_nec5_sinusoidal_galerkin_core.h",
     "src/momwire/_nec5_printout_core.h",
     "src/momwire/_nec5_razor_printout_core.h",
     "src/momwire/_somm_kernel_core.h",
     "src/momwire/_somm_proj_core.h",
     "src/momwire/_somm_remainder_core.h",
     "src/momwire/_somm_pairs_core.h",
+    "src/momwire/_somm_pairs_owned_core.h",
     "src/momwire/_somm_grid_core.h",
     "src/momwire/_accel_somm_proj_py.h",
 ]
@@ -460,8 +479,11 @@ _ACCEL_SOURCES = [
     # extension TU's kernel text, moved verbatim, over `_mw_nd.h`'s arrays.
     "src/momwire/_bspline_core.cpp",
     # The point-matched sinusoidal kernels, Python-free (momwire#1607 B1);
-    # `_accel_sinusoidal.cpp` binds them beside the Galerkin far fill.
+    # `_accel_sinusoidal.cpp` binds them.
     "src/momwire/_sinusoidal_core.cpp",
+    # The Sinusoidal-Galerkin far fills, Python-free (momwire#1718 S1): the
+    # extension TU's text, moved verbatim; `_accel_sinusoidal.cpp` binds them.
+    "src/momwire/_sinusoidal_galerkin_core.cpp",
     "src/momwire/_accel_sinusoidal.cpp",
     # momwire#1644: the NEC-4 dialect's radius-step junction (its kernel, the
     # end-cap field, the junction-charge solve) and their binding. Their own
@@ -487,6 +509,9 @@ _ACCEL_SOURCES = [
     # The graded rule's inner integral and the pair-order scan (momwire#1517
     # step 3); `_accel_somm_pairs.cpp` / `_accel_qp_pairs.cpp` bind them.
     "src/momwire/_somm_pairs_core.cpp",
+    # The owned-pair projection, its own TU for `proj_one`'s inlining
+    # (momwire#1718 S5b); `_accel_somm_pairs.cpp` binds it.
+    "src/momwire/_somm_pairs_owned_core.cpp",
     # The below/below remainder's projection, Python-free (momwire#1512 B2):
     # the kernel `remainder_field_proj_batch_below` binds, moved verbatim.
     "src/momwire/_somm_below_proj_core.cpp",
@@ -497,6 +522,11 @@ _ACCEL_SOURCES = [
     # one-node contour are `_somm_below_six_inline.h`, which
     # `_accel_mw568.cpp` includes too: one code, one set of bits).
     "src/momwire/_somm_below_fill_core.cpp",
+    # momwire#1718 S12: the transmitted table and projection with no Python
+    # (the integrand, node and pair kernel are `_somm_transmitted_six_
+    # inline.h`, which `_accel_mw568.cpp` includes too); `_accel_near_
+    # buried.cpp` binds it for the unit gates.
+    "src/momwire/_somm_transmitted_core.cpp",
     # S3: the grid itself, which the C++ front half builds for the composing
     # ground (`_razor_front_core.cpp`, linked here as well).
     "src/momwire/_somm_grid_core.cpp",
@@ -613,10 +643,26 @@ _ACCEL_SOURCES = [
     "src/momwire/_sinusoidal_front_core.cpp",
     # The sinusoidal free-space fill and port solve over it (momwire#1607 B3).
     "src/momwire/_sinusoidal_fill_core.cpp",
+    # momwire#1718 S12: its transmitted pair classes on a mixed deck, its own
+    # TU so the fill core's kernels keep their codegen.
+    "src/momwire/_sinusoidal_transmitted_core.cpp",
+    # The Sinusoidal-Galerkin mixed-potential fill and port solve over the
+    # same front (momwire#1718 S2), on the B-spline core's sinusoidal kernels.
+    "src/momwire/_sinusoidal_galerkin_fill_core.cpp",
+    "src/momwire/_sinusoidal_galerkin_crossing_core.cpp",
+    # Its direct-field fill (momwire#1718 S7): a wire end on the ground
+    # plane, over the S1 far fill core.
+    "src/momwire/_sinusoidal_galerkin_direct_core.cpp",
+    "src/momwire/_sinusoidal_crossing_core.cpp",
     # The NEC-4.2 run half and the sinusoidal basis' answers to it
     # (momwire#1607 B4a).
     "src/momwire/_nec4_run_core.cpp",
     "src/momwire/_sinusoidal_run_core.cpp",
+    # The Sinusoidal-Galerkin basis' answers to it (momwire#1718 S3).
+    "src/momwire/_sinusoidal_galerkin_run_core.cpp",
+    # The B-spline basis' answers to it (momwire#1607 Phase C1): bs2's own
+    # front, fill and readouts on the slot's build.
+    "src/momwire/_bspline_nec4_run_core.cpp",
     "src/momwire/_accel_nec4_printout.cpp",
     "src/momwire/_accel_nec5_deck.cpp",
     # The NEC-5 seam's structure half (unit 2b): the scope ladder, the mesh
@@ -631,8 +677,14 @@ _ACCEL_SOURCES = [
     "src/momwire/_nec5_bspline_seam_core.cpp",
     "src/momwire/_bspline_front_core.cpp",
     "src/momwire/_bspline_fill_core.cpp",
+    # momwire#1718 S12: bs2's transmitted blocks, its own TU so the fill core's
+    # kernels keep their codegen.
+    "src/momwire/_bspline_transmitted_core.cpp",
     "src/momwire/_bspline_crossing_core.cpp",
     "src/momwire/_nec5_bspline_printout_core.cpp",
+    # The Sinusoidal-Galerkin basis on the NEC-5 seam and run half
+    # (momwire#1718 S8). Nothing binds it; built so every toolchain compiles it.
+    "src/momwire/_nec5_sinusoidal_galerkin_core.cpp",
     # The run half and the printout writer (unit 3a): deck text to the
     # printout's bytes, Python-free, for any basis (`_nec5_printout_core.cpp`),
     # and razor-2p's answers to what the solver is asked

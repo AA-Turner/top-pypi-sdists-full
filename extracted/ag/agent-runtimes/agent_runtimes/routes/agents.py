@@ -1,0 +1,5969 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+Agent management routes for dynamic agent creation and registration.
+
+Provides REST API endpoints for:
+- Creating new agents
+- Listing agents
+- Getting agent details
+- Deleting agents
+"""
+
+import asyncio
+import importlib.metadata
+import logging
+import os
+import re
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Literal, cast
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field, model_validator
+from pydantic_ai import Agent as PydanticAgent
+from pydantic_ai import DeferredToolRequests
+
+from ..adapters.pydantic_ai_adapter import PydanticAIAdapter
+from ..apps.today import today_instruction
+from ..capabilities import (
+    LLMContextUsageCapability,
+    ToolApprovalConfig,
+    ToolsGuardrailCapability,
+    apply_model_output_tokens_limit,
+    build_capabilities_from_agent_spec,
+    build_default_choice_guardrails,
+    build_usage_limits_from_agent_spec,
+)
+from ..events import create_event
+from ..guardrails.credentials import release
+from ..guardrails.declared_secrets import (
+    DeclaredSecrets,
+    declared_secrets,
+    forget_given,
+    given_names,
+    keep_declared,
+    launched,
+    note_given,
+    note_launched,
+    server_env_names,
+)
+from ..mcp import get_mcp_manager, initialize_config_mcp_servers
+from ..mcp.catalog_mcp_servers import MCP_SERVER_CATALOG
+from ..mcp.lifecycle import get_mcp_lifecycle_manager
+from ..models.models import (
+    remember_app_instance,
+    resolve_model_for_inference_provider,
+)
+from ..services import (
+    SandboxVariant,
+    create_codemode_toolset,
+    create_shared_sandbox,
+    create_skills_toolset,
+    initialize_codemode_toolset,
+    register_agent_tools,
+    stop_runtime_prefer_core,
+    tools_requiring_approval_ids,
+    wire_skills_into_codemode,
+)
+from ..specs.agents import AGENTSPECS
+from ..specs.agents import get_agent_spec as _get_agent_spec
+from ..specs.agents import list_agentspecs as list_library_agents
+
+try:
+    from ..specs.events import EVENT_KIND_AGENT_ASSIGNED
+except Exception:  # pragma: no cover - compatibility fallback during regen drift
+    EVENT_KIND_AGENT_ASSIGNED = "agent-assigned"
+from ..node_mode import is_node_enabled
+from ..specs.models import DEFAULT_MODEL
+from ..transports import AGUITransport, MCPUITransport, VercelAITransport
+from ..types import (
+    BUILTIN_HARNESSES,
+    Agentspec,
+    AgentSuggestion,
+    MCPServer,
+    SubAgentsConfig,
+)
+from .a2a import A2AAgentCard, register_a2a_agent, unregister_a2a_agent
+from .acp import AgentCapabilities, AgentInfo, _agents, register_agent, unregister_agent
+from .agui import get_agui_app, register_agui_agent, unregister_agui_agent
+from .mcp_ui import register_mcp_ui_agent, unregister_mcp_ui_agent
+from .vercel_ai import register_vercel_agent, unregister_vercel_agent
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/agents", tags=["agents"])
+
+# Store the API prefix for dynamic mount paths
+_api_prefix = "/api/v1"
+
+# Store the original creation request (spec) for each agent, keyed by agent_id.
+# This preserves the separated system_prompt and system_prompt_codemode_addons
+# which are merged at agent creation time and lost in the running agent.
+_agentspecs: dict[str, dict[str, Any]] = {}
+
+#: Why an agent's configure was refused, by agent name, until one succeeds:
+#: answered with its creation spec, so a launch waiting for it says why (R-19).
+_SET_UP_REFUSED: dict[str, str] = {}
+
+_PARAM_TOKEN_PATTERNS = [
+    re.compile(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}"),
+    re.compile(r"\$\{([a-zA-Z0-9_.-]+)\}"),
+]
+
+
+def _agent_node_inference_provider_override() -> str | None:
+    """The inference provider every agent of this runtime is created with, or ``None``.
+
+    The runtime's own override — set at runtime (``PUT
+    /configure/inference/provider``) or by
+    ``AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE``, which a Datalayer runtime
+    is started with — wins over what an agentspec says; in Agent Node mode,
+    a node routes through Datalayer.
+    """
+    from .configure import configured_inference_provider_override
+
+    override = configured_inference_provider_override()
+    if override is not None:
+        return override
+
+    if not is_node_enabled():
+        return None
+
+    if (os.getenv("AGENT_NODE_ID") or "").strip():
+        return "datalayer"
+
+    mode = (os.getenv("AGENT_NODE_MODE") or "").strip().lower()
+    if mode in {"private", "shared", "sleep"}:
+        return "datalayer"
+
+    return None
+
+
+_APPROVAL_CAPABILITY_NAMES = frozenset(
+    {
+        "ToolsGuardrailCapability",
+        "MCPToolsGuardrailCapability",
+        "SkillsGuardrailCapability",
+    }
+)
+
+
+def get_library_agent_spec(agent_id: str) -> Any:
+    """An agent of the library by id — or a Cog's, which is an agent equipped with Frames.
+
+    A Cog carries its whole agent spec, its Frames' context in its system
+    prompt; an application may name a Cog where it names an agent.
+    """
+    spec = _get_agent_spec(agent_id)
+    if spec is not None:
+        return spec
+    from ..specs.cogs import get_cog
+
+    cog = get_cog(agent_id)
+    return cog.spec if cog is not None else None
+
+
+def _without_approval_capabilities(capabilities: list[Any]) -> list[Any]:
+    """The capabilities minus every one that would ask a person to approve a tool."""
+    return [
+        cap
+        for cap in capabilities
+        if (
+            not isinstance(cap, ToolsGuardrailCapability)
+            and cap.__class__.__name__ not in _APPROVAL_CAPABILITY_NAMES
+        )
+    ]
+
+
+def _with_subagents(
+    spec: Agentspec | None, request: "CreateAgentRequest", agent_id: str
+) -> Agentspec | None:
+    """
+    The spec an agent's capabilities are built from, with the subagents the request names.
+
+    A request's subagents replace the spec's rather than add to them: a team's
+    supervisor is given exactly its members (O2-09). An agent created with no
+    spec at all is given one holding only its name and those subagents.
+
+    Parameters
+    ----------
+    spec : Agentspec | None
+        The spec the agent was created from, if any.
+    request : CreateAgentRequest
+        The creation request.
+    agent_id : str
+        The agent being created.
+
+    Returns
+    -------
+    Agentspec | None
+        The spec to build capabilities from.
+    """
+    if request.subagents is None:
+        return spec
+    base = spec or Agentspec(
+        id=agent_id, name=request.name, description=request.description
+    )
+    return base.model_copy(update={"subagents": request.subagents})
+
+
+def _catalogue_tools_deferred(approvals_disabled: bool, running_app: Any) -> bool:
+    """Whether a catalogue tool marked for approval is deferred to the
+    websocket approval flow (its run's output takes ``DeferredToolRequests``).
+
+    Never for an application's agent: its Rules decide every tool call, and
+    *Ask me first* asks the person through the tool-approvals service before
+    the call runs (`apps.enforcement`). Deferred, the call ended its run
+    with pydantic-ai's error instead, since an application's agent takes no
+    ``DeferredToolRequests`` (seen 16 October 2026 with ``runtime-send-mail``
+    on a hosted application).
+    """
+    return not approvals_disabled and running_app is None
+
+
+def _is_tool_approvals_disabled(request_value: bool | None = None) -> bool:
+    """Resolve tool-approvals disable state from request override or runtime config."""
+    if isinstance(request_value, bool):
+        return request_value
+    try:
+        from .configure import get_tool_approvals_disabled
+
+        return bool(get_tool_approvals_disabled())
+    except Exception:
+        return (
+            os.environ.get("AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS", "").lower()
+            == "true"
+        )
+
+
+def _get_parameter_value(parameters: dict[str, Any], key: str) -> Any:
+    """Resolve a dot-delimited parameter key from launch parameters."""
+    current: Any = parameters
+    for part in key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def _render_value_with_parameters(value: Any, parameters: dict[str, Any]) -> Any:
+    """Recursively render string templates in values with launch parameters."""
+    if not parameters:
+        return value
+
+    if isinstance(value, str):
+        import json
+
+        rendered = value
+        for pattern in _PARAM_TOKEN_PATTERNS:
+
+            def _replace(match: re.Match[str]) -> str:
+                key = match.group(1)
+                param_value = _get_parameter_value(parameters, key)
+                if param_value is None:
+                    return match.group(0)
+                if isinstance(param_value, (dict, list)):
+                    return json.dumps(param_value)
+                # JSON-encode strings to prevent quote/newline injection into
+                # contexts such as hook scripts that execute the substituted value.
+                if isinstance(param_value, str):
+                    return json.dumps(param_value)[1:-1]  # strip surrounding quotes
+                return str(param_value)
+
+            rendered = pattern.sub(_replace, rendered)
+        return rendered
+
+    if isinstance(value, list):
+        return [_render_value_with_parameters(v, parameters) for v in value]
+
+    if isinstance(value, dict):
+        return {
+            k: _render_value_with_parameters(v, parameters) for k, v in value.items()
+        }
+
+    return value
+
+
+def _apply_parameter_defaults(
+    schema: dict[str, Any], launch_parameters: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply top-level JSON schema defaults to launch parameter values."""
+    if not isinstance(schema, dict):
+        return launch_parameters
+    if schema.get("type", "object") != "object":
+        return launch_parameters
+
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return launch_parameters
+
+    merged = dict(launch_parameters)
+    for key, prop in properties.items():
+        if key in merged:
+            continue
+        if isinstance(prop, dict) and "default" in prop:
+            merged[key] = prop["default"]
+    return merged
+
+
+def _validate_parameters_against_schema(
+    schema: dict[str, Any],
+    value: Any,
+    path: str = "parameters",
+) -> None:
+    """Validate a subset of JSON schema keywords for launch parameters."""
+    if not isinstance(schema, dict):
+        return
+
+    expected_type = schema.get("type")
+    if isinstance(expected_type, list):
+        valid = False
+        last_error: Exception | None = None
+        for candidate in expected_type:
+            try:
+                _validate_parameters_against_schema(
+                    {**schema, "type": candidate}, value, path
+                )
+                valid = True
+                break
+            except ValueError as e:
+                last_error = e
+        if not valid and last_error is not None:
+            raise last_error
+        return
+
+    if expected_type == "object":
+        if not isinstance(value, dict):
+            raise ValueError(f"{path} must be an object")
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        if isinstance(required, list):
+            for key in required:
+                if key not in value:
+                    raise ValueError(f"{path}.{key} is required")
+        if isinstance(properties, dict):
+            for key, prop_schema in properties.items():
+                if key in value and isinstance(prop_schema, dict):
+                    _validate_parameters_against_schema(
+                        prop_schema,
+                        value[key],
+                        f"{path}.{key}",
+                    )
+
+    elif expected_type == "array":
+        if not isinstance(value, list):
+            raise ValueError(f"{path} must be an array")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for i, item in enumerate(value):
+                _validate_parameters_against_schema(
+                    item_schema,
+                    item,
+                    f"{path}[{i}]",
+                )
+
+    elif expected_type == "string":
+        if not isinstance(value, str):
+            raise ValueError(f"{path} must be a string")
+
+    elif expected_type == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(f"{path} must be a boolean")
+
+    elif expected_type == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError(f"{path} must be an integer")
+
+    elif expected_type == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{path} must be a number")
+
+    enum_values = schema.get("enum")
+    if isinstance(enum_values, list) and enum_values and value not in enum_values:
+        raise ValueError(f"{path} must be one of: {enum_values}")
+
+
+def _normalize_hook_scripts(raw: Any) -> list[str]:
+    """Normalize hook script payloads to a list of Python code strings."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [raw]
+    if isinstance(raw, list):
+        return [str(item) for item in raw if str(item).strip()]
+    return []
+
+
+def _normalize_hook_packages(raw: Any) -> list[str]:
+    """Normalize hook package payloads to a list of pip package names."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [raw]
+    if isinstance(raw, list):
+        return [str(item) for item in raw if str(item).strip()]
+    return []
+
+
+def _parse_requirement_name(requirement: str) -> tuple[str, str | None]:
+    """Parse package requirement into distribution name and optional specifier.
+
+    Returns a tuple of (name, specifier_text).  Best effort parsing is used to
+    avoid making package pre-hooks fail on unusual requirement syntax.
+    """
+    req = requirement.strip()
+    if not req:
+        return "", None
+
+    try:
+        from packaging.requirements import Requirement
+
+        parsed = Requirement(req)
+        spec = str(parsed.specifier) if str(parsed.specifier) else None
+        return parsed.name, spec
+    except Exception:
+        # Fallback parser for environments where packaging is unavailable.
+        name = req.split(";", 1)[0].strip()
+        name = name.split("[", 1)[0].strip()
+        for op in ["===", "==", "~=", ">=", "<=", "!=", ">", "<"]:
+            if op in name:
+                name = name.split(op, 1)[0].strip()
+                break
+        return name, None
+
+
+def _is_requirement_satisfied(requirement: str) -> bool:
+    """Return True if a pip requirement is already satisfied."""
+    dist_name, specifier = _parse_requirement_name(requirement)
+    if not dist_name:
+        return False
+
+    try:
+        version = importlib.metadata.version(dist_name)
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    except Exception:
+        return False
+
+    if not specifier:
+        return True
+
+    try:
+        from packaging.specifiers import SpecifierSet
+
+        return version in SpecifierSet(specifier)
+    except Exception:
+        # If specifier parsing fails, be conservative and install.
+        return False
+
+
+def _guard_hook_packages(packages: list[str]) -> tuple[list[str], list[str]]:
+    """Split packages into missing and already-satisfied lists."""
+    missing: list[str] = []
+    satisfied: list[str] = []
+
+    for package in packages:
+        if _is_requirement_satisfied(package):
+            satisfied.append(package)
+        else:
+            missing.append(package)
+
+    return missing, satisfied
+
+
+async def _run_agent_hooks(
+    *,
+    agent_id: str,
+    phase: Literal["pre", "post"],
+    hooks: dict[str, Any] | None,
+    effective_variant: str,
+    preferred_sandbox: Any | None = None,
+    fail_on_error: bool,
+) -> None:
+    """Execute lifecycle hooks for an agent in its configured sandbox."""
+    if not isinstance(hooks, dict):
+        return
+
+    packages = _normalize_hook_packages(hooks.get("packages"))
+    sandbox_scripts = _normalize_hook_scripts(hooks.get("sandbox"))
+    if not packages and not sandbox_scripts:
+        return
+
+    try:
+        sandbox = preferred_sandbox
+        if sandbox is None:
+            from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+            sandbox_manager = get_code_sandbox_manager()
+            if hasattr(sandbox_manager, "get_agent_sandbox"):
+                sandbox = sandbox_manager.get_agent_sandbox(agent_id)
+            if sandbox is None:
+                if effective_variant:
+                    # Whatever the agent asked for, not only the two variants
+                    # this branch used to admit. A hook installs packages and
+                    # sets variables the agent's code then reads, so it has to
+                    # run where that code runs; for a Kaggle, Modal, Daytona,
+                    # E2B, CoreWeave or Cloudflare agent it ran in whatever
+                    # sandbox the manager happened to be holding instead.
+                    sandbox_manager.configure(
+                        variant=cast(SandboxVariant, effective_variant)
+                    )
+                sandbox = sandbox_manager.get_sandbox()
+
+        loop = asyncio.get_running_loop()
+
+        if packages:
+            packages_to_install, satisfied_packages = _guard_hook_packages(packages)
+            if satisfied_packages:
+                logger.info(
+                    "Skipping %s-hooks package install for '%s'; already satisfied: %s",
+                    phase,
+                    agent_id,
+                    satisfied_packages,
+                )
+
+            if packages_to_install:
+                logger.info(
+                    "Running %s-hooks package install for '%s': %s",
+                    phase,
+                    agent_id,
+                    packages_to_install,
+                )
+                await loop.run_in_executor(
+                    None,
+                    lambda: sandbox.install_packages(packages_to_install),
+                )
+
+        for script in sandbox_scripts:
+            logger.info("Running %s-hooks sandbox code for '%s'", phase, agent_id)
+
+            def _run_script(script_code: str) -> Any:
+                return sandbox.run_code(script_code)
+
+            result = await loop.run_in_executor(
+                None,
+                _run_script,
+                script,
+            )
+            execution_ok = getattr(result, "execution_ok", True)
+            if not execution_ok:
+                execution_error = getattr(result, "execution_error", "Unknown error")
+                raise RuntimeError(str(execution_error))
+
+    except Exception as e:
+        message = f"Failed to run {phase}-hooks for agent '{agent_id}': {e}"
+        if fail_on_error:
+            raise HTTPException(status_code=500, detail=message) from e
+        logger.warning(message)
+
+
+def _resolve_writable_generated_path(path: str) -> str:
+    """Return a writable generated folder for codemode bindings."""
+    candidate = Path(path).resolve()
+    fallbacks = [
+        candidate,
+        Path("/mnt/shared-agent/generated"),
+        Path(tempfile.gettempdir()) / "agent-runtimes-generated",
+    ]
+
+    for folder in fallbacks:
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            probe = folder / ".write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            if folder != candidate:
+                logger.warning(
+                    "Codemode generated path '%s' is not writable; using '%s'",
+                    str(candidate),
+                    str(folder),
+                )
+            return str(folder)
+        except Exception:
+            pass
+
+    raise PermissionError(
+        f"No writable codemode generated path found (tried: {[str(f) for f in fallbacks]})"
+    )
+
+
+def get_stored_agent_spec(agent_id: str) -> dict[str, Any] | None:
+    """Get the original creation spec for an agent."""
+    return _agentspecs.get(agent_id)
+
+
+def _application_code_of(code: dict[str, Any], app: Any) -> Any:
+    """The `Application` a deployment's ``app.py`` defines (R-14), loaded
+    from the text the request carries: refused (422) when it is not an
+    ``app.py``, does not load, defines another application than the
+    Appspec the agent runs, or says itself another version. A code that
+    says no version takes the deployed one: the stored version is the
+    authority (P-24).
+    """
+    from agent_runtimes.apps.application import load_application_source
+    from agent_runtimes.apps.deployments import DeployRefused, code_carried
+
+    try:
+        carried = code_carried(code)
+    except DeployRefused as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from None
+    assert carried is not None
+    try:
+        application = load_application_source(carried["text"], carried["file"])
+    except ValueError as wrong:
+        raise HTTPException(
+            status_code=422, detail=f"The application's code does not load: {wrong}"
+        ) from None
+    except Exception as wrong:  # noqa: BLE001 - said to the caller, never run
+        raise HTTPException(
+            status_code=422,
+            detail=f"The application's code does not load: {type(wrong).__name__}: {wrong}",
+        ) from None
+    if application.id != app.id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"The code defines {application.id}, not {app.id} the agent "
+                "runs: its code is another application's."
+            ),
+        )
+    # The deployment's stored version is the authority (P-24): a code
+    # that says no version of its own (an ejected ``app.py``) is of the
+    # version deployed; one that says another is refused.
+    declared = application.declared_version
+    if declared is not None and declared != app.version:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"The code says it is {app.id} {declared}, not {app.version} the "
+                "agent runs: its code and its Appspec are of different versions."
+            ),
+        )
+    application.at_version(app.version)
+    return application
+
+
+def set_api_prefix(prefix: str) -> None:
+    """Set the API prefix for dynamic mount paths."""
+    global _api_prefix
+    _api_prefix = prefix
+
+
+def _extract_trigger_config(spec_obj: Any) -> dict[str, Any]:
+    """Extract a trigger config dict from a spec-like object."""
+    trigger_raw: Any | None = None
+    if isinstance(spec_obj, dict):
+        trigger_raw = spec_obj.get("trigger")
+    elif hasattr(spec_obj, "model_dump"):
+        try:
+            trigger_raw = spec_obj.model_dump(by_alias=True).get("trigger")
+        except Exception:
+            trigger_raw = None
+    if trigger_raw is None:
+        trigger_raw = getattr(spec_obj, "trigger", None)
+    return trigger_raw if isinstance(trigger_raw, dict) else {}
+
+
+# ============================================================================
+# Agent Spec Library Routes
+# ============================================================================
+
+
+@router.get("/library", response_model=list[Agentspec])
+async def get_agent_spec_library() -> list[dict[str, Any]]:
+    """
+    Get all available agent specifications from the library.
+
+    Returns predefined agent templates that can be used to create new agents.
+    """
+    try:
+        agents = list_library_agents()
+        return [agent.model_dump(by_alias=True) for agent in agents]
+
+    except Exception as e:
+        logger.error(f"Error getting agent library: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/library/{agent_id:path}", response_model=Agentspec)
+async def get_agent_spec(agent_id: str) -> dict[str, Any]:
+    """
+    Get a specific agent specification from the library.
+
+    Args:
+        agent_id: The ID of the agent spec (e.g., 'data-acquisition', 'crawler')
+    """
+    try:
+        agent = get_library_agent_spec(agent_id)
+        if not agent:
+            available = list(AGENTSPECS.keys())
+            raise HTTPException(
+                status_code=404,
+                detail=f"Agent '{agent_id}' not found in library. Available: {available}",
+            )
+        return agent.model_dump(by_alias=True)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting agent spec: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Agent Creation and Management
+# ============================================================================
+
+
+def _test_jupyter_sandbox(jupyter_sandbox_url: str) -> tuple[bool, str | None]:
+    """
+    Test connection to a Jupyter sandbox by pinging the server.
+
+    Args:
+        jupyter_sandbox_url: The Jupyter server URL with optional token
+
+    Returns:
+        Tuple of (connected: bool, error_message: str | None)
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    import httpx
+
+    try:
+        # Parse URL to extract base URL and token
+        parsed = urlparse(jupyter_sandbox_url)
+        query_params = parse_qs(parsed.query)
+        token = query_params.get("token", [None])[0]
+
+        # Reconstruct base URL without query params
+        path = parsed.path
+        if path.endswith("/"):
+            path = path[:-1]
+
+        base_url = f"{parsed.scheme}://{parsed.netloc}{path}"
+
+        # Build headers with token
+        headers = {}
+        if token:
+            headers["Authorization"] = f"token {token}"
+
+        # Test connection by hitting the Jupyter server extension API endpoint
+        # For jupyter-server extension at /api/jupyter-server, the API is at /api/jupyter-server/api
+        status_url = f"{base_url}/api"
+        logger.info(f"Testing Jupyter connection at: {status_url}")
+
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(status_url, headers=headers, follow_redirects=True)
+
+            if response.status_code == 200:
+                logger.info(f"Jupyter sandbox ping successful: {base_url}")
+                return True, None
+            elif response.status_code == 401 or response.status_code == 403:
+                return (
+                    False,
+                    f"Authentication failed (HTTP {response.status_code}) - check your token",
+                )
+            else:
+                return False, f"Jupyter server returned HTTP {response.status_code}"
+
+    except httpx.ConnectError:
+        return False, f"Connection refused - is Jupyter running at {base_url}?"
+    except httpx.TimeoutException:
+        return False, "Connection timeout - Jupyter server not responding"
+    except Exception as e:
+        return False, f"Connection error: {str(e)}"
+
+
+#: What the sandbox of each variant actually is, told to the model that will
+#: use it.
+#:
+#: This was a coin toss — a Jupyter kernel, or Python in this very process —
+#: and every variant that is neither came out as the second. An agent on
+#: Cloudflare was told its variables would still be there on the next call,
+#: when a Cloudflare snippet gets a process of its own and nothing survives
+#: it at all; a model that believes that writes code that cannot work. Where
+#: the provider is not known well enough to promise anything, the note
+#: promises nothing.
+_SANDBOX_VARIANT_NOTES: dict[str, str] = {
+    "jupyter-server": (
+        "The sandbox is a full Jupyter kernel — variables, imports, and "
+        "installed packages persist across calls."
+    ),
+    "eval": (
+        "The sandbox executes Python in-process — state persists within the "
+        "same session."
+    ),
+    "monty": (
+        "The sandbox executes Python in-process — state persists within the "
+        "same session."
+    ),
+    "e2b": (
+        "The sandbox is a Firecracker microVM on E2B running a Python "
+        "kernel — variables, imports, and installed packages persist across "
+        "calls, and results come back with their rich outputs."
+    ),
+    "coreweave": (
+        "The sandbox is a container on CoreWeave running a Python session — "
+        "variables, imports, and installed packages persist across calls."
+    ),
+    "daytona": (
+        "The sandbox is a Daytona sandbox running a Python interpreter — "
+        "variables, imports, and installed packages persist across calls."
+    ),
+    "cloudflare": (
+        "The sandbox is a container on Cloudflare's edge and it is "
+        "STATELESS: every snippet runs in a process of its own, so nothing "
+        "carries over between calls. Send each snippet whole, imports "
+        "included, and pass anything it needs through files or its own text."
+    ),
+}
+
+#: For a provider whose sandbox is not described above: say where it runs and
+#: claim nothing else.
+_DEFAULT_SANDBOX_VARIANT_NOTE = (
+    "The sandbox runs Python at its provider. Do not assume that state "
+    "carries over between calls unless a call proves that it does."
+)
+
+
+#: The sandbox that runs in the page (Pyodide), never on a runtime.
+BROWSER_SANDBOX = "browser"
+
+
+def browser_sandbox_refusal(agent: str) -> str:
+    """Why an agent whose sandbox is the page's is not started on a runtime."""
+    return (
+        f"{agent} runs its code in the browser: it is not started on a runtime. "
+        "Give it a sandbox a runtime has (eval, jupyter-server), or run it in the page."
+    )
+
+
+def _sandbox_variant_note(variant: str) -> str:
+    """What to tell the model about the sandbox it has been given.
+
+    Args:
+        variant: The effective sandbox variant.
+    """
+    return _SANDBOX_VARIANT_NOTES.get(variant, _DEFAULT_SANDBOX_VARIANT_NOTE)
+
+
+def _build_sandbox_only_system_prompt(
+    variant: str, skills_enabled: bool = False
+) -> str:
+    """
+    Build a system-prompt section that tells the LLM it has a sandbox available
+    with ``execute_code`` but without MCP discovery tools (list_servers,
+    search_tools, get_tool_details).
+
+    Injected automatically when ``sandbox_variant`` is set but ``enable_codemode``
+    is not.  The agent can call ``execute_code`` directly; MCP server discovery
+    tools are disabled.
+
+    Skills are mentioned only when the agent has them. The line used to be
+    unconditional, and an agent with no skills read it as a promise: asked for
+    a surface, it ran ``await list_skills()`` in the sandbox to find one, and
+    the sandbox answered ``NameError: name 'list_skills' is not defined`` —
+    the bindings that define it are generated only for an agent with skills.
+
+    Args:
+        variant: The effective sandbox variant.
+        skills_enabled: Whether the agent has skills to run from the sandbox.
+
+    Returns:
+        A Markdown string suitable for appending to the system prompt.
+    """
+    variant_note = _sandbox_variant_note(variant)
+    skills_line = (
+        "- Skills can read, transform, and return results from sandbox state.\n"
+        if skills_enabled
+        else "- There are no skills and no skill helpers here: write the Python "
+        "yourself, and nothing else runs in the sandbox but execute_code.\n"
+    )
+    return (
+        "## Sandbox\n"
+        "\n"
+        f"A persistent code sandbox ({variant!r} variant) is available. "
+        f"{variant_note}\n"
+        "\n"
+        "Use **execute_code** to run Python directly in the sandbox. Key points:\n"
+        "- Variables set by pre-launch hooks are already defined — read them directly.\n"
+        + skills_line
+        + "- MCP server discovery tools (list_servers, search_tools) are not available "
+        "in this mode.\n"
+    )
+
+
+def _build_codemode_system_prompt(variant: str) -> str:
+    """
+    Build a system-prompt section that tells the LLM it has codemode tools
+    including ``execute_code``.
+
+    Injected automatically when ``enable_codemode`` is set but no explicit
+    ``system_prompt_codemode_addons`` was provided in the spec.
+
+    Args:
+        variant: The effective sandbox variant.
+
+    Returns:
+        A Markdown string suitable for appending to the system prompt.
+    """
+    variant_note = _sandbox_variant_note(variant)
+    return (
+        "## Sandbox Access (Codemode)\n"
+        "\n"
+        f"You have a persistent code sandbox ({variant!r} variant). "
+        f"{variant_note}\n"
+        "\n"
+        "Use **execute_code** to run Python directly in the sandbox. Key points:\n"
+        "- Variables set by pre-launch hooks are already defined — read them directly.\n"
+        "- Use `import os; print(dict(os.environ))` to inspect environment variables.\n"
+        "- Chain multiple operations in a single `execute_code` call to reduce round-trips.\n"
+        "- Print subsets/previews of large values rather than dumping everything.\n"
+        "\n"
+        "Available codemode tools: **list_servers**, **search_tools**, "
+        "**get_tool_details**, **execute_code**."
+    )
+
+
+def _binding_function_name(tool_name: str) -> str:
+    """The Python name a generated binding goes by: ``server__tool-name`` → ``tool_name``."""
+    return tool_name.split("__")[-1].replace("-", "_")
+
+
+def _binding_signature(tool: Any, limit: int = 6) -> str:
+    """``query, max_results?, …``: required parameters first, optional ones marked."""
+    schema = getattr(tool, "input_schema", None) or {}
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(properties, dict) or not properties:
+        return ""
+    required = set(schema.get("required") or [])
+    names = [name for name in properties if name in required] + [
+        f"{name}?" for name in properties if name not in required
+    ]
+    shown = names[:limit]
+    if len(names) > limit:
+        shown.append("…")
+    return ", ".join(shown)
+
+
+def _first_sentence(text: str | None, limit: int = 140) -> str:
+    """The first sentence of a description, on one line, no longer than *limit*."""
+    flat = " ".join((text or "").split())
+    cut = flat.find(". ")
+    sentence = flat if cut < 0 else flat[: cut + 1]
+    return sentence if len(sentence) <= limit else sentence[: limit - 1].rstrip() + "…"
+
+
+def _build_codemode_bindings_prompt(codemode_toolset: Any) -> str:
+    """The generated bindings, named for the model: import line, signatures, meaning.
+
+    What a codemode agent used to discover by trial — a wrong import, then a
+    module listing, then a result it took for JSON — is written down once, at
+    creation, from the tools the registry discovered. Empty when there is no
+    registry or nothing in it.
+    """
+    registry = getattr(codemode_toolset, "registry", None)
+    if registry is None:
+        return ""
+    try:
+        tools = list(registry.list_tools(include_deferred=True))
+    except Exception:  # noqa: BLE001 - a prompt section is never worth a failed creation
+        logger.debug("Could not list codemode tools for the prompt", exc_info=True)
+        return ""
+    by_server: dict[str, list[Any]] = {}
+    for tool in tools:
+        server = getattr(tool, "server_name", "") or "unknown"
+        by_server.setdefault(server, []).append(tool)
+    if not by_server:
+        return ""
+    lines = [
+        "## Codemode bindings",
+        "",
+        "The MCP tools are Python functions in the sandbox: import them and call "
+        "them from **execute_code**. Every binding is async — `await` it — and "
+        "returns the tool's result as text (a string): keep it in a variable, "
+        "parse or slice it in the sandbox, and print only what the person needs. "
+        "Call bindings one after another, never concurrently (no "
+        "`asyncio.gather`): they share one connection, and a concurrent call "
+        "comes back as a dict with an `error` key instead of text. A failed "
+        "call raises; catch it and go on.",
+        "",
+    ]
+    for server, entries in sorted(by_server.items()):
+        names = [_binding_function_name(getattr(tool, "name", "")) for tool in entries]
+        lines.append(f"`from generated.mcp.{server} import {', '.join(names)}`")
+        lines.append("")
+        for tool, name in zip(entries, names):
+            signature = _binding_signature(tool)
+            meaning = _first_sentence(getattr(tool, "description", ""))
+            lines.append(
+                f"- `await {name}({signature})`" + (f" — {meaning}" if meaning else "")
+            )
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def _build_codemode_toolset(
+    request: "CreateAgentRequest",
+    http_request: Request,
+    agent_id: str,
+    sandbox: Any | None = None,
+    disable_mcp_servers: bool = False,
+    sandbox_variant: str | None = None,
+    enable_discovery_tools: bool = True,
+) -> Any:
+    """
+    Create a CodemodeToolset based on request flags and app configuration.
+
+    When ``enable_discovery_tools=False`` the toolset exposes only
+    ``execute_code`` (sandbox-direct access) without the MCP discovery tools
+    (``list_servers``, ``search_tools``, ``get_tool_details``).  This is the
+    correct mode when a sandbox is configured but codemode is not enabled.
+
+    Args:
+        request: The CreateAgentRequest with configuration options.
+        http_request: The FastAPI request object for accessing app state.
+        sandbox: Optional pre-configured sandbox to share with other toolsets.
+        sandbox_variant: Sandbox variant to pass to CodeModeConfig.
+        enable_discovery_tools: If False, only execute_code is exposed (no MCP tools).
+    """
+    # Configure paths for codemode environment
+    repo_root = Path(__file__).resolve().parents[2]
+    workspace_path = getattr(
+        http_request.app.state,
+        "codemode_workspace_path",
+        str((repo_root / "workspace").resolve()),
+    )
+    generated_path = getattr(
+        http_request.app.state,
+        "codemode_generated_path",
+        str((repo_root / "generated").resolve()),
+    )
+    generated_path = _resolve_writable_generated_path(generated_path)
+    skills_folder_env = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+    if skills_folder_env:
+        skills_path = str(Path(skills_folder_env).resolve())
+    else:
+        skills_path = getattr(
+            http_request.app.state,
+            "codemode_skills_path",
+            str((repo_root / "skills").resolve()),
+        )
+
+    # Get MCP proxy URL from environment or sandbox manager
+    mcp_proxy_url = os.getenv("AGENT_RUNTIMES_MCP_PROXY_URL")
+    if not mcp_proxy_url:
+        try:
+            from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+            manager_status = get_code_sandbox_manager().get_status()
+            mcp_proxy_url = manager_status.get("mcp_proxy_url")
+            logger.info(
+                f"Got mcp_proxy_url from sandbox manager: {mcp_proxy_url} (status={manager_status})"
+            )
+        except Exception as e:
+            logger.warning(f"Could not get mcp_proxy_url from sandbox manager: {e}")
+
+    if mcp_proxy_url:
+        logger.info(f"Using MCP proxy URL for codemode: {mcp_proxy_url}")
+    else:
+        logger.warning("No MCP proxy URL configured - HTTP proxy mode disabled")
+
+    allow_direct = (
+        request.allow_direct_tool_calls
+        if request.allow_direct_tool_calls is not None
+        else False
+    )
+
+    # Get MCP servers from manager
+    if disable_mcp_servers:
+        servers = []
+        logger.info("Building codemode registry with MCP disabled (0 servers)")
+    else:
+        mcp_manager = get_mcp_manager()
+        servers = mcp_manager.get_servers()
+        logger.info(f"Building codemode registry from {len(servers)} available servers")
+
+    if request.selected_mcp_servers:
+        # Extract server IDs from McpServerSelection objects
+        selected_ids = {
+            s.id if hasattr(s, "id") else s for s in request.selected_mcp_servers
+        }
+        servers = [server for server in servers if server.id in selected_ids]
+        logger.info(f"Filtered to {len(servers)} selected servers: {selected_ids}")
+
+    # Use factory to create codemode toolset
+    async def _notify_status_change(_is_executing: bool) -> None:
+        try:
+            from .configure import notify_sandbox_status_change
+
+            await notify_sandbox_status_change(agent_id=agent_id)
+        except Exception as exc:
+            logger.debug(
+                "Failed to notify sandbox status change for agent %s: %s",
+                agent_id,
+                exc,
+            )
+
+    return create_codemode_toolset(
+        mcp_servers=servers,
+        workspace_path=workspace_path,
+        generated_path=generated_path,
+        skills_path=skills_path,
+        allow_direct_tool_calls=allow_direct,
+        shared_sandbox=sandbox,
+        mcp_proxy_url=mcp_proxy_url,
+        enable_discovery_tools=enable_discovery_tools,
+        status_change_callback=_notify_status_change,
+        sandbox_variant=sandbox_variant,
+    )
+
+
+# Type alias for MCP server identifier
+McpId = str
+
+# Type alias for MCP server origin
+McpOrigin = Literal["config", "catalog", "contents"]
+
+
+class McpServerSelection(BaseModel):
+    """
+    Selection of an MCP server with its origin.
+
+    Attributes:
+        id: Unique identifier of the MCP server (McpId). For a ``contents``
+            origin this is the Contents source uid — a label, not a server the
+            runtime starts.
+        origin: Origin of the server - 'config' (from mcp.json), 'catalog'
+            (built-in) or 'contents' (an MCP source of Datalayer Contents,
+            reached through a session; the runtime never holds the credential).
+        session_uid: The Contents MCP session the calls go through. Required
+            for, and meaningful only to, the ``contents`` origin: the session's
+            ``allowed_tools`` is the whole toolset, and every call carries the
+            caller's own token.
+    """
+
+    id: McpId = Field(..., description="The server identifier", alias="id")
+    origin: McpOrigin = Field(
+        default="config",
+        description="Origin of the server (config from mcp.json, catalog from built-in, contents from a Contents MCP source)",
+    )
+    session_uid: str | None = Field(
+        default=None,
+        description="The Contents MCP session uid; required when origin is 'contents'",
+    )
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def _contents_needs_a_session(self) -> "McpServerSelection":
+        if self.origin == "contents" and not self.session_uid:
+            raise ValueError(
+                "an MCP server selection of origin 'contents' needs a session_uid"
+            )
+        if self.origin != "contents" and self.session_uid:
+            raise ValueError("session_uid is only meaningful for origin 'contents'")
+        return self
+
+    @property
+    def is_contents(self) -> bool:
+        return self.origin == "contents"
+
+
+#: Why a request that makes an agent carries no code (R-14).
+APP_CODE_REFUSED = (
+    "A deployment's code is read from the deployment: a request that makes "
+    "its agent carries none (app_code is refused)."
+)
+
+
+class CreateAgentRequest(BaseModel):
+    """Request body for creating a new agent."""
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _says_backend_tools(cls, data: Any) -> Any:
+        """Refuse `tools`: the field is `backend_tools` (`backendTools`)."""
+        if isinstance(data, dict) and "tools" in data:
+            raise ValueError(
+                "`tools` is now `backend_tools` (`backendTools`): the tools that run "
+                "on the runtime, as `frontend_tools` are those that run on the page"
+            )
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def _carries_no_code(cls, data: Any) -> Any:
+        """Refuse `app_code`: a deployment's code is read from the deployment
+        by the runtime (R-14), never taken from the request that makes
+        its agent and run in its principal's name.
+        """
+        if isinstance(data, dict) and ("app_code" in data or "appCode" in data):
+            raise ValueError(APP_CODE_REFUSED)
+        return data
+
+    name: str = Field(..., description="Agent name")
+    description: str = Field(default="", description="Agent description")
+    goal: str | None = Field(
+        default=None,
+        description="User-facing objective for the agent. Used as system prompt if system_prompt is not provided.",
+    )
+    agent_library: Literal["pydantic-ai", "langchain", "openai"] = Field(
+        default="pydantic-ai", description="Agent library to use"
+    )
+    transport: Literal["ag-ui", "vercel-ai", "acp", "a2a"] = Field(
+        default="vercel-ai", description="Transport protocol to use"
+    )
+    model: str = Field(
+        default=DEFAULT_MODEL.value,
+        description="Model to use",
+    )
+    inference_provider: Literal["local", "datalayer"] = Field(
+        default="local",
+        alias="inferenceProvider",
+        description=(
+            "Inference provider routing strategy. Use 'local' for direct model "
+            "calls or 'datalayer' to route through datalayer-ai-inference."
+        ),
+    )
+    system_prompt: str = Field(
+        default="You are a helpful AI assistant.",
+        description="System prompt for the agent",
+    )
+    system_prompt_codemode_addons: str | None = Field(
+        default=None,
+        description="Additional system prompt for codemode (appended when enable_codemode=True)",
+    )
+    enable_skills: bool = Field(
+        default=False,
+        description="Enable agent-skills toolset for reusable skill compositions",
+    )
+    skills: list[str] = Field(
+        default_factory=list,
+        description="Selected skill names to enable for this agent",
+    )
+    backend_tools: list[str] = Field(
+        default_factory=list,
+        description="Selected backend tool IDs (agentspecs/backend-tools) to enable for this agent",
+        alias="backendTools",
+    )
+    enable_codemode: bool = Field(
+        default=False,
+        description="Enable agent-codemode toolset for code-based tool composition",
+    )
+    allow_direct_tool_calls: bool | None = Field(
+        default=None,
+        description="Override direct tool call policy for codemode (None uses defaults)",
+    )
+    disable_tool_approvals: bool | None = Field(
+        default=None,
+        alias="disableToolApprovals",
+        description="Disable tool approvals for this agent launch (overrides runtime default when set)",
+    )
+    enable_tool_reranker: bool = Field(
+        default=False,
+        description="Enable optional tool reranker hook for codemode discovery",
+    )
+    selected_mcp_servers: list[McpServerSelection] = Field(
+        default_factory=list, description="List of MCP server selections to include."
+    )
+    jupyter_sandbox: str | None = Field(
+        default=None,
+        description="Jupyter server URL with token for code sandbox (e.g., http://localhost:8888?token=xxx). If provided, codemode will use Jupyter kernel instead of eval sandbox.",
+    )
+    sandbox_variant: str | None = Field(
+        default=None,
+        description=(
+            "Sandbox variant to use for this agent.  "
+            "Accepted values: 'eval' (in-process Python exec, default), "
+            "'jupyter-server' (starts a Jupyter server per agent via "
+            "code_sandboxes, or connects to an existing one when "
+            "jupyter_sandbox names it), or a provider reached with its own "
+            "credentials — 'docker', 'datalayer', 'google-colab', 'kaggle', "
+            "'monty', 'modal', 'daytona', 'cloudflare', 'coreweave', 'e2b'."
+        ),
+    )
+    agent_spec_id: str | None = Field(
+        default=None,
+        description="ID of a library agent spec to use as base configuration. When provided, the spec's system_prompt, system_prompt_codemode_addons, skills, and MCP servers are used as defaults (request fields can override).",
+    )
+    agent_spec: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional complete agent spec payload forwarded by the UI. Used to prefill fields when creating from a library spec.",
+    )
+    app_spec: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "An application's Appspec (`loop.app/v1`), when the agent is the one "
+            "an application runs: it reaches only the MCP servers the application "
+            "connects to, its instructions are added, and its rules are enforced "
+            "before every tool call in place of the default approvals (R-03, R-05)."
+        ),
+    )
+    app_instance: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Which instance of the application this agent runs, as the platform "
+            "knows it: `app_uid` (its Spacer item), `deployment_uid`, `version`, "
+            "and `purpose` `test` with its `launch_uid` when the session tests it "
+            "(the Evals engine's runs), and `woken_by` when nobody opened the "
+            "session — `{kind: schedule, ...}` (R-14). What its record is "
+            "kept under (R-07). `organization_uid`, the organization it "
+            "belongs to: its agent keeps to that organization's contexts, read "
+            "from IAM with the caller's token (U-31)."
+        ),
+    )
+    subagents: SubAgentsConfig | None = Field(
+        default=None,
+        description=(
+            "Subagents for this agent, in place of its agentspec's: how a team's "
+            "supervisor is given its members, each a seat it asks the "
+            "orchestration control plane for (O2-09)."
+        ),
+    )
+    memory: str | None = Field(
+        default=None,
+        description="Optional memory backend override (for example: 'ephemeral', 'sqlite', or 'mem0').",
+    )
+    memory_config: dict[str, Any] | None = Field(
+        default=None,
+        alias="memoryConfig",
+        description="Optional memory backend configuration override.",
+    )
+    pre_hooks: dict[str, Any] | None = Field(
+        default=None,
+        alias="preHooks",
+        description="Optional pre-launch hooks override.",
+    )
+    post_hooks: dict[str, Any] | None = Field(
+        default=None,
+        alias="postHooks",
+        description="Optional post-stop hooks override.",
+    )
+    tool_hooks: dict[str, Any] | None = Field(
+        default=None,
+        alias="toolHooks",
+        description="Optional per-tool-call hooks override.",
+    )
+    parameters: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional JSON schema for launch parameters.",
+    )
+    agent_parameters: dict[str, Any] = Field(
+        default_factory=dict,
+        alias="agentParameters",
+        description="Launch-time parameter values validated against parameters JSON schema.",
+    )
+    compaction_max_tokens: int | None = Field(
+        default=None,
+        alias="compactionMaxTokens",
+        description=(
+            "Optional history-compaction token ceiling. Caps the compaction "
+            "budget below the model's tokens_limit so a smaller context window "
+            "can be exercised on demand (never raised above the model limit)."
+        ),
+    )
+
+
+class CreateAgentResponse(BaseModel):
+    """Response after creating an agent."""
+
+    id: str
+    name: str
+    description: str
+    transport: str
+    status: str = "running"
+
+
+class AgentListResponse(BaseModel):
+    """Response for listing agents."""
+
+    agents: list[dict[str, Any]]
+
+
+def _keep_app_recorder(
+    agent_id: str, running_app: Any, request: "CreateAgentRequest"
+) -> Any:
+    """The record of the application this agent runs (R-07), kept for it."""
+    from agent_runtimes.apps.record import AppRecorder, keep_agent_recorder
+    from agent_runtimes.routes.apps import keep_running
+
+    serving = request.app_instance or {}
+    # What it did, session by session, kept by ai-agents (R-07).
+    recorder = AppRecorder(
+        app=running_app,
+        app_uid=str(serving.get("app_uid") or ""),
+        deployment_uid=str(serving.get("deployment_uid") or ""),
+        version=int(serving.get("version") or 0),
+        purpose=str(serving.get("purpose") or ""),
+        launch_uid=str(serving.get("launch_uid") or ""),
+        # What woke it, when nobody opened it (R-14).
+        woken_by=dict(serving.get("woken_by") or {}),
+        # Only visitors without an account talk to it (R-30).
+        visitors=bool(serving.get("visitor_app")),
+    )
+    # The session API writes a session's start to it (R-04).
+    keep_agent_recorder(agent_id, recorder)
+    # The runtime knows the application this agent runs: what is asked of
+    # "the runtime's application" — its feedback, its rules — is answered on
+    # a kept runtime too (P-24).
+    keep_running(agent_id, running_app)
+    return recorder
+
+
+#: What of the instance a caller sends is theirs to say on a runtime launched
+#: for a deployment: what its record is kept under, and nothing it runs.
+_INSTANCE_THE_CALLER_SAYS = ("woken_by", "purpose", "launch_uid")
+
+
+async def _as_deployed(
+    request: "CreateAgentRequest", http_request: Request
+) -> tuple["CreateAgentRequest", dict[str, Any]]:
+    """The agent a runtime launched for a deployment makes, as ai-agents says it.
+
+    Whoever launched the runtime makes its agent, and it acts as the
+    deployment's principal, so nothing they send makes it: not its Appspec, and
+    no other field either, each of which would change what runs as the
+    principal. It is made as the keeper makes a kept deployment's
+    (`kept_payload`), from the version ai-agents answers, which it answers to
+    whoever would be let open a session of the deployment.
+
+    Returns
+    -------
+    tuple
+        The request it is made from, and what ai-agents answered.
+    """
+    from agent_runtimes.apps.callers import bearer_of
+    from agent_runtimes.apps.deployments import DeployRefused, kept_payload
+    from agent_runtimes.apps.loading import AppNotRunnable
+    from agent_runtimes.apps.principal import (
+        DeploymentCodeUnread,
+        launched_for,
+        read_deployment,
+    )
+
+    deployment = launched_for()
+    instance = request.app_instance or {}
+    said = instance.get("version")
+    try:
+        answer = await read_deployment(
+            deployment,
+            said if isinstance(said, int) and said > 0 else None,
+            bearer_of(http_request.headers.get("Authorization")) or None,
+        )
+    except DeploymentCodeUnread as unread:
+        raise HTTPException(status_code=422, detail=str(unread)) from None
+    try:
+        payload = kept_payload(
+            answer["spec"],
+            app_uid=str(answer["app_uid"]),
+            deployment_uid=deployment,
+            version=int(answer["version"]),
+            organization_uid=str(answer.get("organization_uid") or ""),
+            spend_limit=float(answer.get("spend_limit") or 0.0),
+            runs="launched for it",
+        )
+    except AppNotRunnable as refused:
+        raise HTTPException(
+            status_code=422, detail={"problems": refused.problems}
+        ) from None
+    except DeployRefused as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from None
+    payload["app_instance"].update(
+        {key: instance[key] for key in _INSTANCE_THE_CALLER_SAYS if key in instance}
+    )
+    return CreateAgentRequest(**payload), answer
+
+
+async def _harness_agent_of(
+    agent_id: str,
+    harness_id: str,
+    request: "CreateAgentRequest",
+    running_app: Any,
+    http_request: Request,
+) -> Any:
+    """An agent on a catalogue harness, launched and negotiated (SH-10).
+
+    Its permissions are raised through the runtime's tool approvals with the
+    caller's token (SH-12); its record is the application's (SH-18); its
+    sessions are kept in the protocol state store so a restarted runtime
+    loads them. What refuses it — an adapter not installed, a
+    declared secret missing, no workspace, an agent that lacks what its spec
+    asked — is a 422 in a sentence.
+    """
+    from ..adapters.acp_agent import HarnessRefused, harness_agent
+    from ..guardrails.tool_approvals import ToolApprovalManager
+    from ..protocol_state.store import protocol_state_store
+
+    recorder = (
+        _keep_app_recorder(agent_id, running_app, request)
+        if running_app is not None
+        else None
+    )
+    approval_config = ToolApprovalConfig.from_env()
+    approval_config.agent_id = agent_id
+    _auth_hdr = http_request.headers.get("Authorization", "")
+    if _auth_hdr.lower().startswith("bearer "):
+        _request_jwt = _auth_hdr[7:].strip()
+        if _request_jwt:
+            approval_config.user_jwt_token = _request_jwt
+    try:
+        agent = harness_agent(
+            agent_id,
+            harness_id,
+            app=running_app,
+            recorder=recorder,
+            approvals=ToolApprovalManager(approval_config),
+            # The caller's token: what a run carrying none of its own reaches
+            # the lent gateway toolsets with (SH-14).
+            credential=approval_config.user_jwt_token or "",
+            name=request.name,
+            description=request.description or "",
+            state_store=protocol_state_store(),
+            # An organization's own harness is read for the organization the
+            # application belongs to (SH-46).
+            organization_uid=str(
+                (request.app_instance or {}).get("organization_uid") or ""
+            ).strip(),
+            # The agentspec bound: the harness row's key, per (session, agent).
+            spec_id=str(request.agent_spec_id or "").strip(),
+        )
+        await agent.initialize()
+    except HarnessRefused as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from None
+    remember_app_instance(
+        agent_id, request.app_instance if running_app is not None else None
+    )
+    logger.info("Agent '%s' runs on the harness %s", agent_id, harness_id)
+    return agent
+
+
+@router.post("", response_model=CreateAgentResponse)
+async def create_agent(
+    request: CreateAgentRequest, http_request: Request
+) -> CreateAgentResponse:
+    """
+    Create and register a new agent.
+
+    This endpoint dynamically creates an agent based on the specified
+    configuration and registers it with the appropriate transport protocols.
+
+    Args:
+        request: Agent creation parameters.
+        http_request: The HTTP request object (to access the FastAPI app).
+
+    Returns:
+        Information about the created agent.
+
+    Raises:
+        HTTPException: If agent creation fails.
+    """
+    # A runtime launched for a deployment makes that deployment's agent and
+    # nothing else (`principal.agent_refused_here`), as ai-agents says it
+    # (`_as_deployed`), whoever asks: its sandbox shares the pod's loopback.
+    from agent_runtimes.apps.principal import (
+        agent_refused_here,
+        deployment_of,
+        launched_for,
+    )
+
+    deployed: dict[str, Any] | None = None
+    if launched_for():
+        refused = agent_refused_here(
+            deployment_of(request.app_instance), request.sandbox_variant
+        )
+        if refused:
+            raise HTTPException(status_code=403, detail=refused)
+        request, deployed = await _as_deployed(request, http_request)
+
+    # Generate agent ID from name (lowercase, replace spaces with hyphens)
+    agent_id = request.name.lower().replace(" ", "-")
+
+    # Check if agent already exists
+    if agent_id in _agents:
+        raise HTTPException(
+            status_code=409, detail=f"Agent with ID '{agent_id}' already exists"
+        )
+
+    try:
+        library_spec: Agentspec | None = None
+        selected_mcp_servers_explicit = (
+            "selected_mcp_servers" in request.model_fields_set
+        )
+        # Detect when the caller explicitly passed enable_skills=false so spec
+        # skills are not auto-applied (e.g. sandbox demo that wants codemode only).
+        caller_disabled_skills = (
+            "enable_skills" in request.model_fields_set and not request.enable_skills
+        )
+        # Detect when the caller explicitly passed tools=[] so spec tools are
+        # not auto-applied (e.g. sandbox demo that wants no pre-built tools).
+        caller_disabled_tools = (
+            "backend_tools" in request.model_fields_set
+            and len(request.backend_tools) == 0
+        )
+
+        # Normalize optional UI-forwarded spec payload to make applying defaults easier.
+        # This accepts both camelCase and snake_case keys.
+        forwarded_spec = request.agent_spec or {}
+
+        def _spec_value(*keys: str) -> Any:
+            for key in keys:
+                if key in forwarded_spec and forwarded_spec[key] is not None:
+                    return forwarded_spec[key]
+            return None
+
+        # If an agent_spec_id is provided, load the library spec and apply
+        # its fields as defaults (request fields take precedence for overrides).
+        if request.agent_spec_id:
+            library_spec = get_library_agent_spec(request.agent_spec_id)
+            if not library_spec:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Agent spec '{request.agent_spec_id}' not found in library.",
+                )
+            logger.info(
+                f"Using library spec '{request.agent_spec_id}' for agent '{agent_id}'"
+            )
+            # Apply spec defaults — only override fields the caller did not set.
+            if (
+                request.system_prompt == "You are a helpful AI assistant."
+                and library_spec.system_prompt
+            ):
+                request.system_prompt = library_spec.system_prompt
+            # Goal/system_prompt consolidation: if no explicit system_prompt
+            # was set and the spec has a goal, use goal as system_prompt.
+            if (
+                request.system_prompt == "You are a helpful AI assistant."
+                and not library_spec.system_prompt
+                and library_spec.goal
+            ):
+                request.system_prompt = library_spec.goal
+            if request.goal is None and library_spec.goal:
+                request.goal = library_spec.goal
+            if (
+                request.system_prompt_codemode_addons is None
+                and library_spec.system_prompt_codemode_addons
+            ):
+                request.system_prompt_codemode_addons = (
+                    library_spec.system_prompt_codemode_addons
+                )
+            if (
+                not request.skills
+                and library_spec.skills
+                and not caller_disabled_skills
+            ):
+                request.skills = library_spec.skills
+            if (
+                not request.backend_tools
+                and library_spec.backend_tools
+                and not caller_disabled_tools
+            ):
+                request.backend_tools = library_spec.backend_tools
+            if (
+                library_spec.system_prompt_codemode_addons
+                and not request.enable_codemode
+            ):
+                request.enable_codemode = True
+            if (
+                library_spec.skills
+                and not request.enable_skills
+                and not caller_disabled_skills
+            ):
+                request.enable_skills = True
+            if not request.description and library_spec.description:
+                request.description = library_spec.description
+            # Use the model from the spec if the request still has the default,
+            # or none at all: a caller that sends `model: ''` means the spec's
+            # model, not a model named ''. The spec forwarded with the request
+            # names it before the library's: a switch (loop's `/models`, the
+            # chat's menu) is the library spec with another model.
+            forwarded_model = _spec_value("model")
+            spec_model = (
+                forwarded_model
+                if isinstance(forwarded_model, str) and forwarded_model
+                else library_spec.model
+            )
+            if (
+                not request.model or request.model == DEFAULT_MODEL.value
+            ) and spec_model:
+                request.model = spec_model
+            if request.inference_provider == "local" and getattr(
+                library_spec, "inference_provider", None
+            ):
+                request.inference_provider = library_spec.inference_provider
+            if request.disable_tool_approvals is None:
+                request.disable_tool_approvals = bool(
+                    getattr(library_spec, "disable_tool_approvals", False)
+                )
+            if request.memory is None and getattr(library_spec, "memory", None):
+                request.memory = library_spec.memory
+            if request.memory_config is None and getattr(
+                library_spec, "memory_config", None
+            ):
+                request.memory_config = library_spec.memory_config
+            # Use the sandbox_variant from the spec if not set in the request
+            if not request.sandbox_variant and library_spec.sandbox_variant:
+                request.sandbox_variant = library_spec.sandbox_variant
+            # Apply protocol/transport from spec when request keeps default
+            if request.transport == "vercel-ai" and library_spec.protocol in {
+                "ag-ui",
+                "vercel-ai",
+                "acp",
+                "a2a",
+            }:
+                request.transport = library_spec.protocol  # type: ignore[assignment]
+            # Apply MCP servers from spec when not explicitly selected
+            if (
+                not selected_mcp_servers_explicit
+                and not request.selected_mcp_servers
+                and library_spec.mcp_servers
+            ):
+                request.selected_mcp_servers = [
+                    McpServerSelection(id=server.id, origin="config")
+                    for server in library_spec.mcp_servers
+                ]
+                # Register the full MCPServer configs from the spec so
+                # they are available for mcp_manager lookups (used by
+                # _build_codemode_toolset) and server startup resolution.
+                _mcp_mgr = get_mcp_manager()
+                for _srv in library_spec.mcp_servers:
+                    if not _mcp_mgr.get_server(_srv.id):
+                        _mcp_mgr.add_server(_srv)
+            # Apply codemode defaults from spec codemode block
+            if isinstance(library_spec.codemode, dict):
+                codemode_cfg = library_spec.codemode
+                if not request.enable_codemode and bool(codemode_cfg.get("enabled")):
+                    request.enable_codemode = True
+                if request.allow_direct_tool_calls is None:
+                    direct_calls = codemode_cfg.get(
+                        "allow_direct_tool_calls",
+                        codemode_cfg.get("allowDirectToolCalls"),
+                    )
+                    if isinstance(direct_calls, bool):
+                        request.allow_direct_tool_calls = direct_calls
+                if not request.enable_tool_reranker:
+                    reranker = codemode_cfg.get(
+                        "enable_tool_reranker",
+                        codemode_cfg.get("enableToolReranker"),
+                    )
+                    if isinstance(reranker, bool):
+                        request.enable_tool_reranker = reranker
+
+        resolved_pre_hooks = None
+        resolved_post_hooks = None
+        resolved_tool_hooks = None
+        parameter_schema: dict[str, Any] | None = None
+        if library_spec is not None:
+            resolved_pre_hooks = getattr(library_spec, "pre_hooks", None)
+            resolved_post_hooks = getattr(library_spec, "post_hooks", None)
+            resolved_tool_hooks = getattr(library_spec, "tool_hooks", None)
+            parameter_schema = getattr(library_spec, "parameters", None)
+
+        # Apply defaults from forwarded full spec payload when request fields
+        # are still unset/defaulted.
+        if forwarded_spec:
+            if not request.description:
+                request.description = _spec_value("description") or request.description
+            if request.goal is None:
+                request.goal = _spec_value("goal")
+            if not request.model or request.model == DEFAULT_MODEL.value:
+                request.model = _spec_value("model") or request.model
+            if request.inference_provider == "local":
+                inferred_provider = _spec_value(
+                    "inferenceProvider", "inference_provider"
+                )
+                if inferred_provider in {"local", "datalayer"}:
+                    request.inference_provider = inferred_provider
+            if request.disable_tool_approvals is None:
+                disable_from_spec = _spec_value(
+                    "disableToolApprovals", "disable_tool_approvals"
+                )
+                if isinstance(disable_from_spec, bool):
+                    request.disable_tool_approvals = disable_from_spec
+            if request.system_prompt == "You are a helpful AI assistant.":
+                request.system_prompt = (
+                    _spec_value("systemPrompt", "system_prompt")
+                    or request.system_prompt
+                )
+            if request.system_prompt_codemode_addons is None:
+                request.system_prompt_codemode_addons = _spec_value(
+                    "systemPromptCodemodeAddons", "system_prompt_codemode_addons"
+                )
+            if not request.skills:
+                raw_skills = _spec_value("skills")
+                if isinstance(raw_skills, list):
+                    request.skills = [str(s) for s in raw_skills]
+            if not request.backend_tools:
+                raw_tools = _spec_value("backendTools", "backend_tools")
+                if isinstance(raw_tools, list):
+                    request.backend_tools = [str(t) for t in raw_tools]
+            if not request.sandbox_variant:
+                request.sandbox_variant = _spec_value(
+                    "sandboxVariant", "sandbox_variant"
+                )
+            if request.memory is None:
+                memory_from_spec = _spec_value("memory")
+                if isinstance(memory_from_spec, str):
+                    request.memory = memory_from_spec
+            if request.memory_config is None:
+                memory_cfg_from_spec = _spec_value("memoryConfig", "memory_config")
+                if isinstance(memory_cfg_from_spec, dict):
+                    request.memory_config = memory_cfg_from_spec
+            if request.transport == "ag-ui":
+                protocol = _spec_value("protocol")
+                if protocol in {"ag-ui", "vercel-ai", "acp", "a2a"}:
+                    request.transport = protocol
+            if not selected_mcp_servers_explicit and not request.selected_mcp_servers:
+                raw_servers = _spec_value("mcpServers", "mcp_servers")
+                if isinstance(raw_servers, list):
+                    selected_servers: list[McpServerSelection] = []
+                    _mcp_mgr = get_mcp_manager()
+                    for server in raw_servers:
+                        if isinstance(server, dict) and server.get("id"):
+                            raw_origin = str(server.get("origin", "config"))
+                            origin: McpOrigin = (
+                                "catalog"
+                                if raw_origin == "catalog"
+                                else "contents"
+                                if raw_origin == "contents"
+                                else "config"
+                            )
+                            session_uid = server.get("session_uid") or server.get(
+                                "sessionUid"
+                            )
+                            selected_servers.append(
+                                McpServerSelection(
+                                    id=str(server.get("id")),
+                                    origin=origin,
+                                    session_uid=(
+                                        str(session_uid)
+                                        if origin == "contents" and session_uid
+                                        else None
+                                    ),
+                                )
+                            )
+                            if origin == "contents":
+                                # Nothing to start: Contents holds the server.
+                                continue
+                            # Register full config with mcp_manager if
+                            # the dict contains enough info to start the
+                            # server (command or url).
+                            srv_id = str(server["id"])
+                            if not _mcp_mgr.get_server(srv_id) and (
+                                server.get("command") or server.get("url")
+                            ):
+                                try:
+                                    _mcp_mgr.add_server(MCPServer(**server))
+                                except Exception:
+                                    pass
+                    request.selected_mcp_servers = selected_servers
+            codemode_cfg = _spec_value("codemode")
+            if isinstance(codemode_cfg, dict):
+                if not request.enable_codemode and bool(codemode_cfg.get("enabled")):
+                    request.enable_codemode = True
+                if request.allow_direct_tool_calls is None:
+                    direct_calls = codemode_cfg.get(
+                        "allow_direct_tool_calls",
+                        codemode_cfg.get("allowDirectToolCalls"),
+                    )
+                    if isinstance(direct_calls, bool):
+                        request.allow_direct_tool_calls = direct_calls
+                if not request.enable_tool_reranker:
+                    reranker = codemode_cfg.get(
+                        "enable_tool_reranker",
+                        codemode_cfg.get("enableToolReranker"),
+                    )
+                    if isinstance(reranker, bool):
+                        request.enable_tool_reranker = reranker
+
+            forwarded_pre_hooks = _spec_value("preHooks", "pre_hooks")
+            if isinstance(forwarded_pre_hooks, dict):
+                resolved_pre_hooks = forwarded_pre_hooks
+
+            forwarded_post_hooks = _spec_value("postHooks", "post_hooks")
+            if isinstance(forwarded_post_hooks, dict):
+                resolved_post_hooks = forwarded_post_hooks
+
+            forwarded_tool_hooks = _spec_value("toolHooks", "tool_hooks")
+            if isinstance(forwarded_tool_hooks, dict):
+                resolved_tool_hooks = forwarded_tool_hooks
+
+            forwarded_parameters = _spec_value("parameters")
+            if isinstance(forwarded_parameters, dict):
+                parameter_schema = forwarded_parameters
+
+        if isinstance(request.pre_hooks, dict):
+            resolved_pre_hooks = request.pre_hooks
+        if isinstance(request.post_hooks, dict):
+            resolved_post_hooks = request.post_hooks
+        if isinstance(request.tool_hooks, dict):
+            resolved_tool_hooks = request.tool_hooks
+        if isinstance(request.parameters, dict):
+            parameter_schema = request.parameters
+
+        launch_parameters = dict(request.agent_parameters or {})
+        if parameter_schema:
+            launch_parameters = _apply_parameter_defaults(
+                parameter_schema, launch_parameters
+            )
+            try:
+                _validate_parameters_against_schema(parameter_schema, launch_parameters)
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
+
+        if launch_parameters:
+            request.description = _render_value_with_parameters(
+                request.description, launch_parameters
+            )
+            request.system_prompt = _render_value_with_parameters(
+                request.system_prompt, launch_parameters
+            )
+            request.system_prompt_codemode_addons = _render_value_with_parameters(
+                request.system_prompt_codemode_addons,
+                launch_parameters,
+            )
+            request.goal = _render_value_with_parameters(
+                request.goal,
+                launch_parameters,
+            )
+            resolved_pre_hooks = _render_value_with_parameters(
+                resolved_pre_hooks,
+                launch_parameters,
+            )
+            resolved_post_hooks = _render_value_with_parameters(
+                resolved_post_hooks,
+                launch_parameters,
+            )
+            resolved_tool_hooks = _render_value_with_parameters(
+                resolved_tool_hooks,
+                launch_parameters,
+            )
+
+        override_provider = _agent_node_inference_provider_override()
+        if override_provider in {"local", "datalayer"}:
+            if request.inference_provider != override_provider:
+                logger.info(
+                    "Overriding inference provider for agent '%s': %s -> %s",
+                    agent_id,
+                    request.inference_provider,
+                    override_provider,
+                )
+            request.inference_provider = cast(
+                Literal["local", "datalayer"], override_provider
+            )
+
+        # Build list of non-MCP toolsets (skills, codemode, etc.)
+        # MCP toolsets will be dynamically fetched at run time by the adapter
+        non_mcp_toolsets = []
+
+        # Determine which MCP servers to use and ensure they are running
+        # These will be dynamically fetched at run time, not stored at creation time
+        selected_mcp_servers = request.selected_mcp_servers or []
+        # An application reaches nothing it does not name: its connections,
+        # in place of the servers its agent would bring.
+        running_app = None
+        app_frames_section = ""
+        if request.app_spec is not None:
+            from agent_runtimes.apps.loading import (
+                AppNotRunnable,
+                connected_server_ids,
+                load_app,
+            )
+            from agent_runtimes.apps.plugins import register_app
+
+            try:
+                running_app = load_app(request.app_spec)
+            except AppNotRunnable as refused:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"problems": refused.problems},
+                ) from None
+            # The runtime was launched for it and a secret it declares was not
+            # given (R-19): refused in the sentence its launch was.
+            launch_refused = _SET_UP_REFUSED.get(running_app.id)
+            if launch_refused:
+                raise HTTPException(
+                    status_code=422, detail={"problems": [launch_refused]}
+                )
+            # A deployment's agent acts as its application's principal, with
+            # the token ai-agents mints for it from the caller's: it is not
+            # made without one (I-03).
+            from agent_runtimes.apps.principal import (
+                DeploymentCodeUnread,
+                PrincipalTokenMissing,
+                deployment_of,
+                ensure_principal_token,
+                read_deployment_code,
+            )
+            from agent_runtimes.apps.visitors import visitors_runtime
+
+            serving_deployment = deployment_of(request.app_instance)
+            # The version's own code is the deployment's, read from it (R-14): a request never brings code of its own (`app_code` is
+            # refused by the request's model).
+            served_code = None
+            # On the visitors' runtime nobody's principal acts: a visitor's
+            # own token calls its models, and it reaches nothing of its
+            # owner's (R-30).
+            if serving_deployment and not visitors_runtime():
+                creator = http_request.headers.get("Authorization", "")
+                bearer = (
+                    creator[7:].strip()
+                    if creator.lower().startswith("bearer ")
+                    else None
+                )
+                try:
+                    await ensure_principal_token(serving_deployment, bearer)
+                except PrincipalTokenMissing as missing:
+                    raise HTTPException(status_code=422, detail=str(missing)) from None
+                # The code of the version it runs, read from the deployment
+                # with the same caller's token: run for this agent's
+                # sessions, in its principal's name only.
+                if deployed is not None:
+                    code = deployed["code"]
+                else:
+                    try:
+                        deployed_version = int(
+                            (request.app_instance or {}).get("version") or 0
+                        )
+                    except (TypeError, ValueError):
+                        deployed_version = 0
+                    if deployed_version < 1:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=(
+                                "A deployment's agent names the version it runs "
+                                "(app_instance.version): its code is that version's."
+                            ),
+                        )
+                    try:
+                        code = await read_deployment_code(
+                            serving_deployment, deployed_version, bearer
+                        )
+                    except DeploymentCodeUnread as unread:
+                        raise HTTPException(
+                            status_code=422, detail=str(unread)
+                        ) from None
+                if code is not None:
+                    served_code = _application_code_of(code, running_app)
+            # The contexts it works under, as the organization it belongs
+            # to reads them: its version in place of the catalogue's, and
+            # its own (U-31, U-32), read from IAM with the caller's
+            # token; what cannot be read stops it, and what it disabled is
+            # left out and said. Kept for the Required Frame Guard at each
+            # session's start (R-06).
+            organization_frames = None
+            if running_app.context:
+                from datalayer_core.utils.urls import DatalayerURLs
+
+                from agent_runtimes.apps.callers import bearer_of
+                from agent_runtimes.apps.frames import (
+                    FramesUnread,
+                    frames_instructions,
+                    read_organization_frames,
+                )
+
+                organization_uid = str(
+                    (request.app_instance or {}).get("organization_uid") or ""
+                ).strip()
+                try:
+                    organization_frames = await asyncio.to_thread(
+                        read_organization_frames,
+                        organization_uid or None,
+                        iam_url=DatalayerURLs.from_environment().iam_url,
+                        token=bearer_of(http_request.headers.get("authorization"))
+                        or os.environ.get("DATALAYER_USER_TOKEN"),
+                    )
+                    app_frames_section = frames_instructions(
+                        running_app.context, organization_frames
+                    )
+                except FramesUnread as unread:
+                    raise HTTPException(
+                        status_code=422, detail={"problems": [str(unread)]}
+                    ) from None
+                except AppNotRunnable as refused:
+                    raise HTTPException(
+                        status_code=422, detail={"problems": refused.problems}
+                    ) from None
+            # The application runs as a Reactor plugin of its own (F-13).
+            register_app(running_app)
+            # Codemode calls every tool through `execute_code`, which an
+            # application without a shell is refused (rules.py): its tools are
+            # called one by one instead, each decided by its rules.
+            if not running_app.permissions.computer.shell:
+                request.enable_codemode = False
+            selected_mcp_servers = [
+                McpServerSelection(id=server, origin="catalog")
+                for server in connected_server_ids(running_app)
+            ]
+            request.selected_mcp_servers = selected_mcp_servers
+            # It remembers what its Appspec says, never what its agent's spec
+            # does: per person and application, its Preview and its
+            # deployments together (R-18).
+            from agent_runtimes.apps.memory import agent_memory
+
+            request.memory, request.memory_config = agent_memory(
+                running_app, request.app_instance
+            )
+
+        # When codemode is NOT enabled, we start the servers explicitly here
+        # When codemode IS enabled, the servers are started via _build_codemode_toolset
+        if not request.enable_codemode and selected_mcp_servers:
+            logger.info(
+                f"Agent {agent_id} will use MCP servers: {selected_mcp_servers}"
+            )
+
+            # Start any MCP servers that aren't already running
+            lifecycle_manager = get_mcp_lifecycle_manager()
+
+            for item in selected_mcp_servers:
+                server_id = item.id
+                is_config = item.origin == "config"
+                if not server_id or item.origin == "contents":
+                    continue
+
+                if not lifecycle_manager.is_server_running(
+                    server_id, is_config=is_config
+                ):
+                    # Start matching server type
+                    started = False
+
+                    # 1. Try Config Server (mcp.json)
+                    if (is_config is None or is_config is True) and not started:
+                        config_server = lifecycle_manager.get_server_config_from_file(
+                            server_id
+                        )
+                        if config_server:
+                            logger.info(
+                                f"Starting Config MCP server '{server_id}' for agent {agent_id}"
+                            )
+                            instance = await lifecycle_manager.start_server(
+                                server_id, config_server
+                            )
+                            if instance:
+                                started = True
+                                logger.info(f"Started Config MCP server '{server_id}'")
+
+                    # 2. Try Catalog Server (always as fallback)
+                    if not started:
+                        catalog_server = MCP_SERVER_CATALOG.get(server_id)
+                        if catalog_server:
+                            logger.info(
+                                f"Starting Catalog MCP server '{server_id}' for agent {agent_id}"
+                            )
+                            instance = await lifecycle_manager.start_server(
+                                server_id, catalog_server
+                            )
+                            if instance:
+                                started = True
+                                logger.info(f"Started Catalog MCP server '{server_id}'")
+
+                    if not started:
+                        failed = lifecycle_manager.get_failed_servers()
+                        error = failed.get(server_id, "Unknown error")
+                        logger.warning(f"Failed to start MCP server '{item}': {error}")
+                else:
+                    logger.info(f"MCP server '{server_id}' already running")
+
+        # Configure sandbox manager if jupyter_sandbox is provided
+        # This must happen BEFORE creating any sandboxes
+        if request.jupyter_sandbox:
+            try:
+                from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+                # Env vars from the request body are not available here;
+                # they are injected later by the companion via /mcp-servers/start
+                sandbox_manager.configure_from_url(request.jupyter_sandbox)
+                logger.info(
+                    f"Configured sandbox manager for Jupyter: {request.jupyter_sandbox.split('?')[0]}"
+                )
+
+                # Validate the Jupyter connection by running a ping execution
+                jupyter_connected, jupyter_error = _test_jupyter_sandbox(
+                    request.jupyter_sandbox
+                )
+                if not jupyter_connected:
+                    logger.error(
+                        f"JUPYTER SANDBOX CONNECTION FAILED for agent '{agent_id}': {jupyter_error}. "
+                        f"URL: {request.jupyter_sandbox.split('?')[0]}. "
+                        f"Please ensure Jupyter server is running and accessible."
+                    )
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Failed to connect to Jupyter sandbox: {jupyter_error}. Please ensure Jupyter server is running.",
+                    )
+                else:
+                    logger.info(
+                        f"Successfully validated Jupyter sandbox connection for agent '{agent_id}'"
+                    )
+
+            except HTTPException:
+                raise  # Re-raise HTTP exceptions
+            except ImportError as e:
+                logger.warning(
+                    f"code_sandboxes not installed, cannot configure Jupyter sandbox: {e}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to configure Jupyter sandbox: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to configure Jupyter sandbox: {str(e)}",
+                )
+
+        # Determine the effective sandbox variant
+        effective_variant = request.sandbox_variant or (
+            "jupyter-server" if request.jupyter_sandbox else "eval"
+        )
+        # The `browser` sandbox is Pyodide in the page: no sandbox of a
+        # runtime is it, and none stands in for it (F-15, 2026-10-08).
+        if effective_variant == BROWSER_SANDBOX:
+            raise HTTPException(
+                status_code=422,
+                detail=browser_sandbox_refusal(
+                    getattr(library_spec, "id", "") or agent_id
+                ),
+            )
+
+        # In K8s sidecar mode, a Jupyter container already runs in the pod.
+        # "jupyter-server" variant means "start your own" — remap to "jupyter-server"
+        # (connect to existing sidecar).  Never fallback to eval.
+        jupyter_sidecar = (
+            os.getenv("DATALAYER_RUNTIME_JUPYTER_SIDECAR", "").lower() == "true"
+        )
+        if jupyter_sidecar:
+            if effective_variant == "jupyter-server":
+                effective_variant = "jupyter-server"
+                logger.info(
+                    "Jupyter sidecar detected, remapped sandbox variant "
+                    "jupyter → jupyter for agent '%s'",
+                    agent_id,
+                )
+            elif effective_variant == "eval":
+                effective_variant = "jupyter-server"
+                logger.info(
+                    "Jupyter sidecar detected, overriding eval → jupyter "
+                    "for agent '%s' (companion will provide jupyter URL)",
+                    agent_id,
+                )
+
+        # When codemode is enabled but no custom addons were provided, inject a
+        # standard system-prompt section so the LLM knows about execute_code and
+        # the other codemode tools.
+        if request.enable_codemode and request.system_prompt_codemode_addons is None:
+            request.system_prompt_codemode_addons = _build_codemode_system_prompt(
+                effective_variant
+            )
+            logger.info(
+                "Auto-injected codemode system prompt for agent '%s' (variant=%s)",
+                agent_id,
+                effective_variant,
+            )
+
+        # When a sandbox variant is explicitly requested, eagerly ensure a sandbox
+        # is configured and started for that variant even if no MCP servers are
+        # selected. This guarantees that sandbox status/WS reflects availability.
+        if request.sandbox_variant:
+            try:
+                from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+
+                if (
+                    effective_variant == "jupyter-server"
+                    and not request.jupyter_sandbox
+                    and jupyter_sidecar
+                ):
+                    # Sidecar mode, Phase 1: companion will configure URL later.
+                    sandbox_manager.configure(variant="jupyter-server")
+                    logger.info(
+                        "Deferred jupyter sandbox for '%s': "
+                        "waiting for companion to provide jupyter URL",
+                        agent_id,
+                    )
+                elif effective_variant == "jupyter-server":
+                    # Prefer per-agent sandbox creation when available.
+                    if hasattr(sandbox_manager, "create_agent_sandbox"):
+                        sandbox_manager.create_agent_sandbox(
+                            agent_id=agent_id,
+                            variant="jupyter-server",
+                        )
+                        logger.info(
+                            "Eager-started per-agent jupyter sandbox for '%s'",
+                            agent_id,
+                        )
+                    else:
+                        # Backward-compatible fallback for simple/dummy managers
+                        # used in tests that only expose configure/get_sandbox.
+                        # jupyter_sandbox URL is already applied above when provided;
+                        # without URL, manager may start local jupyter (standalone).
+                        sandbox_manager.get_sandbox()
+                        logger.info("Eager-started jupyter sandbox")
+                else:
+                    # Every other variant, eval included, is one the
+                    # code_sandboxes factory knows how to reach. Hard-coding
+                    # `eval` here gave an agent that asked for Kaggle, Modal,
+                    # Daytona, E2B, CoreWeave or Cloudflare a sandbox in this
+                    # very process — no isolation, none of the machine it
+                    # asked for, and no error to say that it had not got it.
+                    sandbox_manager.configure(
+                        variant=cast(SandboxVariant, effective_variant)
+                    )
+                    sandbox_manager.get_sandbox()
+                    logger.info("Eager-started %s sandbox", effective_variant)
+            except HTTPException:
+                raise
+            except ImportError as e:
+                logger.warning(
+                    "code_sandboxes not installed, cannot eager-start sandbox: %s",
+                    e,
+                )
+            except Exception as e:
+                if "already has a sandbox" in str(e):
+                    logger.info("Sandbox already exists for '%s', reusing it", agent_id)
+                else:
+                    logger.error(
+                        "Failed to eager-start sandbox for '%s': %s", agent_id, e
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to initialize sandbox variant '{effective_variant}': {str(e)}",
+                    )
+
+        # Create shared sandbox for codemode and/or skills toolsets.
+        # This ensures state persistence between execute_code and skill script executions.
+        #
+        # RULE: Sandbox, Codemode, and Skills are three distinct concepts:
+        #   - A sandbox is an isolated code-execution environment (eval or jupyter).
+        #     It can exist independently of codemode and skills (e.g. for pre-hooks,
+        #     WebSocket status monitoring, or standalone code runs).
+        #   - Codemode composes MCP tools as programmatic Python in a sandbox.
+        #     It REQUIRES a sandbox — without one, execute_code cannot run.
+        #   - Skills run reusable workflow scripts in a sandbox.
+        #     They REQUIRE a sandbox — without one, run_skill_script cannot execute.
+        #
+        # Therefore a shared sandbox must be created whenever codemode OR skills
+        # is enabled, defaulting to eval when no explicit sandbox_variant was given.
+        shared_sandbox = None
+        skills_enabled = request.enable_skills or len(request.skills) > 0
+        # A shared sandbox is needed whenever:
+        # - codemode is enabled (execute_code + MCP discovery)
+        # - skills are enabled (run_skill_script)
+        # - sandbox_variant is set without codemode (execute_code only)
+        need_shared_sandbox = (
+            request.enable_codemode or skills_enabled or bool(request.sandbox_variant)
+        )
+        if need_shared_sandbox:
+            if (
+                effective_variant == "jupyter-server"
+                and not request.jupyter_sandbox
+                and jupyter_sidecar
+            ):
+                # Sidecar mode, Phase 1: no URL yet, companion will provide
+                # it later. Return a deferred ManagedSandbox proxy.
+                from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+                sandbox_manager.configure(variant="jupyter-server")
+                shared_sandbox = sandbox_manager.get_managed_sandbox()
+                logger.info(
+                    f"Deferred sandbox for agent '{agent_id}': variant=jupyter-server, "
+                    f"waiting for companion to provide jupyter URL"
+                )
+            elif effective_variant == "jupyter-server":
+                # Use the per-agent Jupyter sandbox for codemode/skills execution.
+                # The eager-start block above may have already created it (when
+                # sandbox_variant is explicitly set), so always check before creating
+                # to avoid a duplicate-sandbox error.
+                try:
+                    from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                    sandbox_manager = get_code_sandbox_manager()
+
+                    # Reuse sandbox already created by the eager-start block.
+                    if hasattr(sandbox_manager, "get_agent_sandbox"):
+                        shared_sandbox = sandbox_manager.get_agent_sandbox(agent_id)
+
+                    if shared_sandbox is None:
+                        if hasattr(sandbox_manager, "create_agent_sandbox"):
+                            shared_sandbox = sandbox_manager.create_agent_sandbox(
+                                agent_id=agent_id,
+                                variant="jupyter-server",
+                            )
+                            logger.info(
+                                f"Created per-agent Jupyter sandbox for '{agent_id}'"
+                            )
+                        else:
+                            # Backward-compatible fallback for simple managers used
+                            # in tests that expose only get_sandbox().
+                            shared_sandbox = sandbox_manager.get_sandbox()
+                            logger.info(
+                                f"Using shared Jupyter sandbox for '{agent_id}'"
+                            )
+                    else:
+                        logger.info(
+                            f"Reusing existing Jupyter sandbox for '{agent_id}'"
+                        )
+                    # The toolset holds a proxy to the agent's sandbox, not the
+                    # sandbox itself: switched to another variant or restarted,
+                    # the agent keeps executing in whatever it has now.
+                    if hasattr(sandbox_manager, "get_agent_managed_sandbox"):
+                        shared_sandbox = sandbox_manager.get_agent_managed_sandbox(
+                            agent_id
+                        )
+                except ImportError as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=(
+                            f"code_sandboxes not installed, cannot create Jupyter sandbox: {e}"
+                        ),
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create Jupyter sandbox for agent '{agent_id}': {e}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to create Jupyter sandbox: {str(e)}",
+                    )
+            else:
+                shared_sandbox = create_shared_sandbox(
+                    request.jupyter_sandbox, effective_variant
+                )
+
+        await _run_agent_hooks(
+            agent_id=agent_id,
+            phase="pre",
+            hooks=resolved_pre_hooks,
+            effective_variant=effective_variant,
+            preferred_sandbox=shared_sandbox,
+            fail_on_error=True,
+        )
+
+        # Add skills toolset if enabled
+        if skills_enabled:
+            repo_root = Path(__file__).resolve().parents[2]
+            skills_folder_env = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+            if skills_folder_env:
+                skills_path = str(Path(skills_folder_env).resolve())
+            else:
+                skills_path = getattr(
+                    http_request.app.state,
+                    "codemode_skills_path",
+                    str((repo_root / "skills").resolve()),
+                )
+
+            skills_toolset = create_skills_toolset(
+                skills=request.skills,
+                skills_path=skills_path,
+                shared_sandbox=shared_sandbox,
+            )
+            if skills_toolset:
+                non_mcp_toolsets.append(skills_toolset)
+                logger.info(f"Added AgentSkillsToolset for agent {agent_id}")
+
+            # Initialize per-agent skills state in stream layer (single source of truth).
+            from ..streams.loop import (
+                get_agent_enabled_skill_ids,
+                get_agent_skills_snapshot,
+                set_agent_enabled_skills,
+            )
+
+            set_agent_enabled_skills(agent_id, request.skills)
+            logger.info(
+                "Agent skills state initialized for '%s': %d tracked, %d enabled",
+                agent_id,
+                len(get_agent_skills_snapshot(agent_id)),
+                len(get_agent_enabled_skill_ids(agent_id)),
+            )
+
+        # Attach codemode toolset in two modes:
+        # - Full codemode (enable_codemode=True): MCP server conversion +
+        #   discovery tools + execute_code.
+        # - Sandbox-only mode (sandbox_variant set, codemode disabled):
+        #   execute_code only, with MCP conversion/discovery disabled.
+        if request.enable_codemode:
+            disable_mcp_for_codemode = (
+                selected_mcp_servers_explicit and len(request.selected_mcp_servers) == 0
+            )
+            mcp_manager = get_mcp_manager()
+            if not disable_mcp_for_codemode and not mcp_manager.get_servers():
+                mcp_servers = await initialize_config_mcp_servers(discover_tools=True)
+                mcp_manager.load_servers(mcp_servers)
+                logger.info(
+                    f"Loaded {len(mcp_servers)} MCP servers for codemode agent {agent_id}"
+                )
+            codemode_toolset = _build_codemode_toolset(
+                request,
+                http_request,
+                agent_id=agent_id,
+                sandbox=shared_sandbox,
+                disable_mcp_servers=disable_mcp_for_codemode,
+                sandbox_variant=effective_variant,
+                enable_discovery_tools=True,
+            )
+            if codemode_toolset is not None:
+                await initialize_codemode_toolset(codemode_toolset)
+
+                try:
+                    generated_root = Path(codemode_toolset.config.generated_path)
+                    mcp_dir = generated_root / "mcp"
+                    if mcp_dir.exists():
+                        server_modules = sorted(
+                            p.name
+                            for p in mcp_dir.iterdir()
+                            if p.is_dir() and not p.name.startswith("__")
+                        )
+                        logger.info(
+                            "Codemode bindings generated for MCP servers: %s",
+                            server_modules or "(none)",
+                        )
+                    else:
+                        logger.warning(
+                            "Codemode generated MCP directory not found: %s",
+                            mcp_dir,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to list generated codemode bindings: %s",
+                        exc,
+                    )
+                non_mcp_toolsets.append(codemode_toolset)
+                logger.info(
+                    f"Added and initialized CodemodeToolset for agent {agent_id}"
+                )
+        elif request.sandbox_variant:
+            sandbox_only_toolset = _build_codemode_toolset(
+                request,
+                http_request,
+                agent_id=agent_id,
+                sandbox=shared_sandbox,
+                disable_mcp_servers=True,
+                sandbox_variant=effective_variant,
+                enable_discovery_tools=False,
+            )
+            if sandbox_only_toolset is not None:
+                await initialize_codemode_toolset(sandbox_only_toolset)
+                non_mcp_toolsets.append(sandbox_only_toolset)
+                logger.info(
+                    "Added sandbox-only CodemodeToolset (execute_code only) "
+                    "for agent %s",
+                    agent_id,
+                )
+
+        # Wire skill bindings into codemode so execute_code can import
+        # from generated.skills and compose skills programmatically
+        skills_prompt_section = ""
+        if request.enable_codemode and skills_enabled:
+            _skills_ts = next(
+                (
+                    t
+                    for t in non_mcp_toolsets
+                    if type(t).__name__ == "AgentSkillsToolset"
+                ),
+                None,
+            )
+            _codemode_ts = next(
+                (t for t in non_mcp_toolsets if type(t).__name__ == "CodemodeToolset"),
+                None,
+            )
+            if _skills_ts and _codemode_ts:
+                skills_prompt_section = wire_skills_into_codemode(
+                    _codemode_ts, _skills_ts
+                )
+
+        logger.info(
+            f"Creating agent '{agent_id}' with selected_mcp_servers={selected_mcp_servers}"
+        )
+
+        # Build the system prompt
+        final_system_prompt = request.system_prompt
+        # Sandbox without codemode: let the LLM know a sandbox exists for skills.
+        if request.sandbox_variant and not request.enable_codemode:
+            final_system_prompt = (
+                final_system_prompt
+                + "\n\n"
+                + _build_sandbox_only_system_prompt(effective_variant, skills_enabled)
+            )
+        # Codemode: append execute_code / codemode tool instructions.
+        if request.enable_codemode and request.system_prompt_codemode_addons:
+            final_system_prompt = (
+                request.system_prompt + "\n\n" + request.system_prompt_codemode_addons
+            )
+        # Codemode: the bindings by name, so the model does not have to guess
+        # the import line, the signatures, or what comes back.
+        if request.enable_codemode:
+            bindings_section = _build_codemode_bindings_prompt(
+                next(
+                    (
+                        t
+                        for t in non_mcp_toolsets
+                        if type(t).__name__ == "CodemodeToolset"
+                    ),
+                    None,
+                )
+            )
+            if bindings_section:
+                final_system_prompt = final_system_prompt + "\n\n" + bindings_section
+                logger.info(
+                    "Codemode bindings described in the system prompt for '%s' (%d chars)",
+                    agent_id,
+                    len(bindings_section),
+                )
+        # Append dynamic skills section so the LLM has visibility into
+        # installed skills, their scripts, parameters, and usage.
+        if skills_prompt_section:
+            final_system_prompt = final_system_prompt + "\n\n" + skills_prompt_section
+        # The contexts the application works under, then what it tells its
+        # agent, on top of the agent's own.
+        if app_frames_section:
+            final_system_prompt = final_system_prompt + "\n\n" + app_frames_section
+        if running_app is not None and running_app.instructions.strip():
+            final_system_prompt = (
+                final_system_prompt + "\n\n" + running_app.instructions.strip()
+            )
+
+        # Create the agent based on the library — or the harness (SH-10):
+        # an agent whose spec names a catalogue harness is launched over ACP
+        # in this runtime, the Shield deciding its actions by the
+        # application's Rules and the platform's default; nothing of pydantic-ai
+        # runs in its place.
+        harness_id = str(
+            _spec_value("harness")
+            or (getattr(library_spec, "harness", "") if library_spec else "")
+            or "pydantic-ai"
+        )
+        if harness_id not in BUILTIN_HARNESSES:
+            if request.transport == "vercel-ai":
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"The harness {harness_id!r} is served over ag-ui, acp and a2a; "
+                        "the vercel-ai transport reads a pydantic-ai agent (SH-16)."
+                    ),
+                )
+            usage_limits = None
+            approval_tool_ids: list[str] = []
+            agent = await _harness_agent_of(
+                agent_id, harness_id, request, running_app, http_request
+            )
+        elif request.agent_library == "pydantic-ai":
+            # First create the underlying Pydantic AI Agent
+            # NOTE: We don't pass MCP toolsets here. They will be dynamically
+            # fetched at run time by the adapter to reflect current server state.
+            # Only non-MCP toolsets (codemode, skills) are passed at construction.
+            tool_ids = list(request.backend_tools or [])
+            capabilities = None
+            usage_limits = None
+
+            spec_for_runtime_controls: Agentspec | None = None
+            if request.agent_spec_id:
+                spec_for_runtime_controls = get_library_agent_spec(
+                    request.agent_spec_id
+                )
+                if spec_for_runtime_controls is not None:
+                    try:
+                        merged_payload = spec_for_runtime_controls.model_dump(
+                            by_alias=True
+                        )
+                        if request.memory is not None:
+                            merged_payload["memory"] = request.memory
+                        if request.memory_config is not None:
+                            merged_payload["memoryConfig"] = request.memory_config
+                        spec_for_runtime_controls = Agentspec.model_validate(
+                            merged_payload
+                        )
+                    except Exception as exc:
+                        logger.debug(
+                            "Failed to merge request memory overrides into runtime controls spec: %s",
+                            exc,
+                        )
+
+            # Fallback: UI may send a full spec payload without a library ID.
+            if spec_for_runtime_controls is None and request.agent_spec:
+                try:
+                    merged_payload = dict(request.agent_spec)
+                    if request.memory is not None:
+                        merged_payload["memory"] = request.memory
+                    if request.memory_config is not None:
+                        merged_payload["memoryConfig"] = request.memory_config
+                    spec_for_runtime_controls = Agentspec.model_validate(merged_payload)
+                except Exception as exc:
+                    logger.debug(
+                        "Could not parse forwarded agent_spec for runtime controls: %s",
+                        exc,
+                    )
+
+            # The subagents a caller names replace the spec's: how a team's
+            # supervisor is given its members (O2-09).
+            spec_for_runtime_controls = _with_subagents(
+                spec_for_runtime_controls, request, agent_id
+            )
+            if spec_for_runtime_controls is not None:
+                capabilities = build_capabilities_from_agent_spec(
+                    spec_for_runtime_controls,
+                    agent_id=agent_id,
+                    model=request.model,
+                    compaction_max_tokens=request.compaction_max_tokens,
+                )
+                usage_limits = build_usage_limits_from_agent_spec(
+                    spec_for_runtime_controls
+                )
+
+            tool_approvals_disabled = _is_tool_approvals_disabled(
+                request.disable_tool_approvals
+            )
+
+            # Always apply runtime selection guardrails, even when no spec is provided.
+            if capabilities is None:
+                capabilities = []
+            capabilities.extend(build_default_choice_guardrails(agent_id=agent_id))
+            # After the defaults, not before: they carry the MCP and skills
+            # approval guardrails too, and an agent that asked for no
+            # approvals used to get them back from here.
+            if tool_approvals_disabled:
+                capabilities = _without_approval_capabilities(capabilities)
+            # An application's rules decide every tool call, in place of the
+            # default approvals: asking twice for one call is not a rule.
+            if running_app is not None:
+                from agent_runtimes.apps.agent import app_capabilities
+                from agent_runtimes.notifications import NotificationsCapability
+
+                capabilities = _without_approval_capabilities(capabilities)
+                # Its channels are the application's, not its agent's: the
+                # agent's own `notifications` give it no tools (R-37).
+                capabilities = [
+                    capability
+                    for capability in capabilities
+                    if not isinstance(capability, NotificationsCapability)
+                ]
+                recorder = _keep_app_recorder(agent_id, running_app, request)
+                # And runs its sessions with the deployment's code (R-14).
+                from agent_runtimes.apps.sessions import serve_agent_code
+
+                serve_agent_code(agent_id, served_code)
+                # Exactly what the terminal's agent of the application runs
+                # with — its rules, checks and record first, what its agent's
+                # spec gave it, then its documents, saving and learning tools
+                # (R-25): one builder, so a cloud runtime's agent lacks
+                # nothing an in-process one has.
+                capabilities = app_capabilities(
+                    running_app,
+                    recorder=recorder,
+                    agent_id=agent_id,
+                    given=capabilities,
+                    organization=organization_frames,
+                )
+                logger.info(
+                    "Application %s on agent %s: its rules, checks and record attached.",
+                    running_app.id,
+                    agent_id,
+                )
+
+            # And always count what the runs cost.
+            #
+            # Everything above is built from a forwarded `agent_spec`, so an
+            # agent created without one — which is most of them; a create call
+            # naming an `agent_spec_id` and a library does not forward the spec
+            # itself — got no capabilities at all. That included the one that
+            # records token usage, so the tracker stayed empty for those agents
+            # and every context figure downstream read zero: the bar beside the
+            # prompt, the session and turn counts, the cost.
+            #
+            # It is added here rather than in `build_capabilities_from_agent_spec`
+            # because it needs no spec to do its job — an agent id is the whole
+            # of its configuration.
+            if not any(
+                isinstance(cap, LLMContextUsageCapability) for cap in capabilities
+            ):
+                capabilities.append(
+                    LLMContextUsageCapability(agent_id=agent_id, enabled=True)
+                )
+
+            # Raise the output-token ceiling to the selected model's capability
+            # (also enforced across delegated subagent runs).
+            usage_limits = apply_model_output_tokens_limit(usage_limits, request.model)
+
+            agent_kwargs: dict[str, Any] = {
+                # The date per run: a kept runtime outlives the day it started.
+                "instructions": [final_system_prompt, today_instruction],
+                # Don't pass toolsets here - they'll be dynamically provided at run time
+            }
+            if capabilities:
+                agent_kwargs["capabilities"] = capabilities
+            if usage_limits is not None:
+                agent_kwargs["usage_limits"] = usage_limits
+            approval_tool_ids = []
+            if _catalogue_tools_deferred(tool_approvals_disabled, running_app):
+                approval_tool_ids = tools_requiring_approval_ids(tool_ids)
+            if approval_tool_ids:
+                approval_patterns = [
+                    tool_id.split(":", 1)[0] for tool_id in approval_tool_ids
+                ]
+                # Keep DeferredToolRequests in output_type for our websocket-
+                # driven stop-the-world approval flow (UI/SaaS per-tool
+                # decisions continue the run with DeferredToolResults).
+                agent_kwargs["output_type"] = [str, DeferredToolRequests]
+                has_tool_approval_capability = bool(
+                    capabilities
+                    and any(
+                        isinstance(cap, ToolsGuardrailCapability)
+                        for cap in capabilities
+                    )
+                )
+                if has_tool_approval_capability and isinstance(
+                    resolved_tool_hooks, dict
+                ):
+                    for cap in capabilities or []:
+                        if isinstance(cap, ToolsGuardrailCapability):
+                            cap.config.tool_hooks = resolved_tool_hooks
+                if not has_tool_approval_capability:
+                    approval_config = ToolApprovalConfig.from_env()
+                    approval_config.agent_id = agent_id
+                    approval_config.tools_requiring_approval = approval_patterns
+                    if isinstance(resolved_tool_hooks, dict):
+                        approval_config.tool_hooks = resolved_tool_hooks
+                    # Override/supplement env-var token with the per-request Bearer
+                    # token so the approval manager can authenticate against the
+                    # datalayer-ai-agents backend when forwarding pending approvals.
+                    _auth_hdr = http_request.headers.get("Authorization", "")
+                    if _auth_hdr.lower().startswith("bearer "):
+                        _request_jwt = _auth_hdr[7:].strip()
+                        if _request_jwt:
+                            approval_config.user_jwt_token = _request_jwt
+                    if capabilities is None:
+                        capabilities = []
+                    capabilities.append(
+                        ToolsGuardrailCapability(config=approval_config)
+                    )
+                    agent_kwargs["capabilities"] = capabilities
+                    logger.info(
+                        "Auto-enabled ToolsGuardrailCapability for agent '%s' with approval tools: %s",
+                        agent_id,
+                        approval_patterns,
+                    )
+            elif tool_approvals_disabled:
+                logger.info(
+                    "Tool approvals disabled for agent '%s'; skipping approval capability wiring",
+                    agent_id,
+                )
+
+            # The application instance it serves names every model call it
+            # makes through ai-inference, so its owner reads what each
+            # application and deployment spent (R-09).
+            serving_app = request.app_instance if running_app is not None else None
+            # A typed-decision model, or a model ai-inference said it does
+            # not serve, is refused here, in a sentence, rather than at the
+            # first message.
+            from ..models.offered import decision_refusal, inference_refusal
+
+            decision = decision_refusal(request.model, switch=False)
+            if decision:
+                raise HTTPException(status_code=400, detail=decision)
+            refusal = inference_refusal(request.model, request.inference_provider)
+            if refusal:
+                raise HTTPException(status_code=400, detail=f"{refusal}.")
+            remember_app_instance(agent_id, serving_app)
+            # Which of its gateway's servers it reaches in each user's name,
+            # with the token of who talks to it (I-04).
+            from agent_runtimes.apps.acting import remember_servers_in_users_name
+
+            remember_servers_in_users_name(
+                agent_id, running_app.connections if running_app is not None else None
+            )
+            # The companies it works with as a personal agent, each the
+            # gateway's `pap` toolset for it (ADR-1).
+            from agent_runtimes.apps.pap_connections import remember_agent
+
+            remember_agent(agent_id, running_app)
+            # In whose name it reaches Gmail, with a token IAM mints per run
+            # for them (W-02).
+            from agent_runtimes.mcp.google_workspace import remember_gmail_connection
+
+            remember_gmail_connection(
+                agent_id, running_app.connections if running_app is not None else None
+            )
+            # Credentials are never shown to the model (R-19): last, so
+            # it wraps every tool call innermost and reads every request last.
+            from agent_runtimes.guardrails.credentials import credentials_withheld
+
+            agent_kwargs["capabilities"] = credentials_withheld(
+                list(agent_kwargs.get("capabilities") or [])
+            )
+            try:
+                resolved_model = resolve_model_for_inference_provider(
+                    request.model,
+                    request.inference_provider,
+                    app_instance=serving_app,
+                )
+                pydantic_agent = PydanticAgent(resolved_model, **agent_kwargs)
+            except Exception as exc:
+                # Newer/older pydantic-ai builds can reject constructor kwargs
+                # like `usage_limits`; retry without it for compatibility.
+                if "usage_limits" in agent_kwargs and "usage_limits" in str(exc):
+                    logger.warning(
+                        "PydanticAgent constructor rejected usage_limits for agent '%s'; retrying without usage_limits.",
+                        agent_id,
+                    )
+                    agent_kwargs.pop("usage_limits", None)
+                    resolved_model = resolve_model_for_inference_provider(
+                        request.model,
+                        request.inference_provider,
+                        app_instance=serving_app,
+                    )
+                    pydantic_agent = PydanticAgent(resolved_model, **agent_kwargs)
+                else:
+                    raise
+
+            # Register runtime tools declared in the request/spec.
+            register_agent_tools(
+                pydantic_agent,
+                tool_ids,
+                agent_id=agent_id,
+                disable_tool_approvals=not _catalogue_tools_deferred(
+                    tool_approvals_disabled, running_app
+                ),
+            )
+
+            # Wrap with DBOS durable execution if enabled
+            durable_lifecycle = getattr(
+                http_request.app.state, "durable_lifecycle", None
+            )
+            if durable_lifecycle and durable_lifecycle.is_healthy():
+                try:
+                    from ..durable import DurableConfig, wrap_agent_durable
+
+                    # Check if the agent spec requests durable execution
+                    spec = (
+                        get_library_agent_spec(request.agent_spec_id)
+                        if request.agent_spec_id
+                        else None
+                    )
+                    spec_advanced = getattr(spec, "advanced", None) if spec else None
+                    durable_cfg = DurableConfig.from_agent_spec(spec_advanced)
+                    if durable_cfg.enabled:
+                        pydantic_agent = wrap_agent_durable(
+                            pydantic_agent, agent_id=agent_id
+                        )
+                        logger.info(
+                            f"Agent '{agent_id}' wrapped with DBOS durable execution"
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        f"Failed to wrap agent '{agent_id}' with DBOS — continuing without durability: {exc}"
+                    )
+
+            # Then wrap it with our adapter (pass agent_id for usage tracking)
+            # The adapter will dynamically fetch MCP toolsets at run time
+            logger.info(
+                f"Creating PydanticAIAdapter for '{agent_id}' with MCP servers: {selected_mcp_servers}"
+            )
+
+            # Create a codemode builder function when codemode or sandbox mode
+            # is configured. This supports live toggle between full codemode
+            # and execute_code-only sandbox mode.
+            codemode_builder = None
+            if request.enable_codemode or request.sandbox_variant:
+                disable_mcp_for_codemode = (
+                    selected_mcp_servers_explicit
+                    and len(request.selected_mcp_servers) == 0
+                )
+
+                def rebuild_codemode(
+                    new_servers: list[str | dict[str, str]],
+                    enable_discovery_tools: bool = True,
+                ) -> Any:
+                    """Rebuild codemode toolset with new MCP server selection.
+
+                    Uses a ManagedSandbox proxy so the rebuilt toolset
+                    automatically tracks any sandbox reconfiguration.
+                    """
+                    # Create a temporary request object with new servers
+                    import copy
+
+                    temp_request = copy.copy(request)
+                    temp_request.selected_mcp_servers = new_servers  # type: ignore[assignment]
+
+                    # Use a managed sandbox proxy so the rebuilt toolset
+                    # always delegates to the manager's current sandbox
+                    fresh_sandbox = None
+                    try:
+                        from ..services.code_sandbox_manager import (
+                            get_code_sandbox_manager,
+                        )
+
+                        sandbox_manager = get_code_sandbox_manager()
+                        fresh_sandbox = sandbox_manager.get_managed_sandbox()
+                        logger.info(
+                            f"Rebuild codemode using managed sandbox proxy (variant={sandbox_manager.variant})"
+                        )
+                    except ImportError as e:
+                        logger.warning(f"code_sandboxes not available: {e}")
+
+                    return _build_codemode_toolset(
+                        temp_request,
+                        http_request,
+                        agent_id=agent_id,
+                        sandbox=fresh_sandbox,
+                        disable_mcp_servers=(
+                            disable_mcp_for_codemode if enable_discovery_tools else True
+                        ),
+                        sandbox_variant=effective_variant,
+                        enable_discovery_tools=enable_discovery_tools,
+                    )
+
+                # Wrap to register a post-init callback for skill re-wiring
+                _original_rebuild = rebuild_codemode
+
+                def rebuild_codemode_with_skills(
+                    new_servers: list[str | dict[str, str]],
+                ) -> Any:
+                    new_ts = _original_rebuild(new_servers)
+                    if new_ts is not None and skills_enabled:
+                        _sk = next(
+                            (
+                                t
+                                for t in non_mcp_toolsets
+                                if type(t).__name__ == "AgentSkillsToolset"
+                            ),
+                            None,
+                        )
+                        if _sk is not None:
+                            new_ts.add_post_init_callback(
+                                lambda ts, st=_sk: wire_skills_into_codemode(ts, st)
+                            )
+                    return new_ts
+
+                codemode_builder = rebuild_codemode_with_skills
+
+            agent = PydanticAIAdapter(
+                agent=pydantic_agent,
+                name=request.name,
+                description=request.description,
+                agent_id=agent_id,
+                selected_mcp_servers=selected_mcp_servers,
+                non_mcp_toolsets=non_mcp_toolsets,
+                codemode_builder=codemode_builder,
+            )
+        elif request.agent_library == "langchain":
+            # TODO: Implement LangChain agent creation
+            raise HTTPException(
+                status_code=501, detail="LangChain agent creation not yet implemented"
+            )
+        elif request.agent_library == "openai":
+            # TODO: Implement OpenAI agent creation
+            raise HTTPException(
+                status_code=501, detail="OpenAI agent creation not yet implemented"
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown agent library: {request.agent_library}",
+            )
+
+        # Create agent info
+        info = AgentInfo(
+            id=agent_id,
+            name=request.name,
+            description=request.description,
+            # The transport the agent is registered on, so a listing says
+            # `a2a` for an A2A agent rather than the model's default.
+            protocol=request.transport,
+            capabilities=AgentCapabilities(
+                streaming=True,
+                tool_calling=True,
+                code_execution=False,
+            ),
+        )
+
+        # Register with ACP (base registration)
+        register_agent(agent, info)
+        logger.info(
+            f"POST /agents: Registered agent '{agent_id}' in _agents. All registered: {list(_agents.keys())}"
+        )
+
+        # Store the original creation spec (preserves separated system prompts)
+        # Strip jupyter_sandbox — the sandbox lifecycle is independent of
+        # the agent spec and should not cause a spec-diff restart.
+        stored = request.model_dump()
+        stored.pop("jupyter_sandbox", None)
+        if isinstance(resolved_pre_hooks, dict):
+            stored["pre_hooks"] = resolved_pre_hooks
+        if isinstance(resolved_post_hooks, dict):
+            stored["post_hooks"] = resolved_post_hooks
+        if isinstance(resolved_tool_hooks, dict):
+            stored["tool_hooks"] = resolved_tool_hooks
+        if isinstance(parameter_schema, dict):
+            stored["parameters"] = parameter_schema
+        stored["agent_parameters"] = launch_parameters
+        # What the agentspec suggests, served with the creation spec
+        # (`/configure/agents/{id}/spec`, `/configure`): the forwarded spec's
+        # when it names them — a switch forwards the stored spec — else the
+        # library spec's. The pod companion forwards the platform's spec as it
+        # is, and the request itself has no field for them.
+        forwarded_suggestions = _spec_value("suggestions")
+        stored["suggestions"] = [
+            AgentSuggestion.model_validate(item).model_dump()
+            for item in (
+                forwarded_suggestions
+                if forwarded_suggestions is not None
+                else (library_spec.suggestions if library_spec else [])
+            )
+        ]
+        _agentspecs[agent_id] = stored
+        logger.info(f"Stored creation spec for agent '{agent_id}'")
+
+        # Register with context session for snapshot lookups (enables usage tracking)
+        from ..context.session import register_agent as register_agent_for_context
+
+        register_agent_for_context(
+            agent_id, agent, {"name": request.name, "description": request.description}
+        )
+        logger.info(f"Registered agent '{agent_id}' for context snapshots")
+
+        # Determine whether the agent spec declares frontend tools
+        _lib_spec = library_spec
+        has_spec_frontend_tools = bool(
+            (_lib_spec and getattr(_lib_spec, "frontend_tools", None))
+            or _spec_value("frontendTools", "frontend_tools")
+        )
+
+        # Register with the specified transport
+        if request.transport == "ag-ui":
+            try:
+                agui_adapter = AGUITransport(
+                    agent,
+                    agent_id=agent_id,
+                    approval_tool_ids=approval_tool_ids or [],
+                )
+                register_agui_agent(agent_id, agui_adapter)
+                logger.info(f"Registered agent with AG-UI: {agent_id}")
+
+                # Dynamically add the AG-UI mount to the FastAPI app
+                agui_app = get_agui_app(agent_id)
+                if agui_app and http_request.app:
+                    from .agui import ensure_agui_dispatch
+
+                    # Mount path should NOT have trailing slash - Starlette Mount handles that
+                    mount_path = f"{_api_prefix}/ag-ui/{agent_id}"
+                    # One mount per id, the dispatch: it answers with the
+                    # agent registered now, so a recreated agent is reached.
+                    ensure_agui_dispatch(http_request.app, mount_path, agent_id)
+                    logger.info(f"Dynamically mounted AG-UI route: {mount_path}/")
+            except Exception as e:
+                logger.warning(f"Could not register with AG-UI: {e}")
+
+        elif request.transport == "vercel-ai":
+            try:
+                vercel_adapter = VercelAITransport(
+                    agent,
+                    usage_limits=usage_limits,
+                    agent_id=agent_id,
+                    has_spec_frontend_tools=has_spec_frontend_tools,
+                    approval_tool_ids=approval_tool_ids or [],
+                    is_triggered=bool(
+                        _lib_spec and getattr(_lib_spec, "trigger", None)
+                    ),
+                )
+                register_vercel_agent(agent_id, vercel_adapter)
+                logger.info(f"Registered agent with Vercel AI: {agent_id}")
+            except Exception as e:
+                logger.warning(f"Could not register with Vercel AI: {e}")
+
+        elif request.transport == "a2a":
+            try:
+                # Use the request's base URL to construct the A2A endpoint
+                base_url = str(http_request.base_url).rstrip("/")
+                a2a_card = A2AAgentCard(
+                    id=agent_id,
+                    name=request.name,
+                    description=request.description or "Dynamic agent",
+                    url=f"{base_url}{_api_prefix}/a2a/agents/{agent_id}",
+                    version="1.0.0",
+                )
+                register_a2a_agent(agent, a2a_card)
+                logger.info(f"Registered agent with A2A: {agent_id}")
+            except Exception as e:
+                logger.warning(f"Could not register with A2A: {e}")
+
+        # ACP is already registered above
+
+        # Also register with MCP-UI for tools
+        try:
+            mcp_ui_adapter = MCPUITransport(agent)
+            register_mcp_ui_agent(agent_id, mcp_ui_adapter)
+            logger.info(f"Registered agent with MCP-UI: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not register with MCP-UI: {e}")
+
+        logger.info(f"Created agent: {agent_id} ({request.name})")
+
+        # Emit initial 0-value OTEL data points so timeseries charts show the
+        # full history starting from agent creation time.
+        _emit_initial_otel_baseline(agent_id, http_request)
+
+        # Start selected MCP servers via the lifecycle manager as a
+        # background task. The adapter's _get_runtime_toolsets() will wait
+        # for them to become ready when the first user prompt arrives.
+        #
+        # We also do this when codemode is enabled. Codemode launches its
+        # own internal copies of the MCP servers for sandbox execution, but
+        # the rest of the system (status snapshots, the tools dropdown,
+        # default-enabled state, and the MCP guardrail) reads from the
+        # lifecycle manager. Starting them here keeps that surface in sync
+        # for codemode agents too. ``start_server`` is idempotent, so this
+        # is safe.
+        if selected_mcp_servers:
+            _in_background(_start_mcp_servers_background(agent_id, http_request))
+
+        return CreateAgentResponse(
+            id=agent_id,
+            name=request.name,
+            description=request.description,
+            transport=request.transport,
+            status="running",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create agent: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
+
+
+def _emit_initial_otel_baseline(agent_id: str, http_request: Request) -> None:
+    """Emit 0-value OTEL metrics and cost trace so charts start at zero.
+
+    This is fire-and-forget — failures are logged but never propagated.
+    """
+    try:
+        from ..otel.prompt_turn_metrics import (
+            decode_user_uid,
+            extract_bearer_token,
+            record_prompt_turn_completion,
+        )
+
+        # Test doubles and some custom request wrappers may not expose
+        # FastAPI's full `headers` interface.
+        request_headers = getattr(http_request, "headers", None)
+        auth_header = ""
+        if request_headers is not None:
+            auth_header = request_headers.get("Authorization", "")
+        user_jwt = extract_bearer_token(auth_header)
+        user_uid = decode_user_uid(user_jwt)
+
+        # 0-value prompt-turn metrics (establishes the baseline for token chart)
+        record_prompt_turn_completion(
+            prompt="",
+            response="",
+            duration_ms=0.0,
+            protocol="baseline",
+            stop_reason="agent_created",
+            success=True,
+            model=None,
+            tool_call_count=0,
+            input_tokens=0,
+            output_tokens=0,
+            total_tokens=0,
+            user_jwt_token=user_jwt,
+            agent_id=agent_id,
+        )
+
+        # 0-value cost trace (establishes the baseline for cost chart)
+        try:
+            from datalayer_core.otel.emitter import OTelEmitter
+        except Exception:
+            OTelEmitter = None
+
+        if OTelEmitter is not None:
+            if not user_uid:
+                logger.debug(
+                    "Skipping initial OTEL baseline cost emission for '%s': missing user_uid",
+                    agent_id,
+                )
+            else:
+                emitter = OTelEmitter(
+                    service_name="agent-runtimes",
+                    user_uid=user_uid,
+                    token=user_jwt,
+                )
+                if emitter.enabled:
+                    attrs = {
+                        "agent.id": agent_id,
+                        "agent.model": "none",
+                        "gen_ai.usage.input_tokens": 0,
+                        "gen_ai.usage.output_tokens": 0,
+                        "gen_ai.usage.total_tokens": 0,
+                        "gen_ai.usage.cost_usd": 0.0,
+                        "agent.cost.cumulative_usd": 0.0,
+                    }
+                    emitter.add_counter(
+                        "agent_runtimes.capability.cost.run.count", 0, attrs
+                    )
+                    emitter.add_counter(
+                        "agent_runtimes.capability.cost.run.usd", 0.0, attrs
+                    )
+                    with emitter.span(
+                        "agent_runtimes.capability.cost.run", attributes=attrs
+                    ):
+                        pass
+
+        logger.info(f"Emitted initial OTEL baseline for agent '{agent_id}'")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"Failed to emit initial OTEL baseline for '{agent_id}': {exc}")
+
+
+def _get_agent_toolsets_info(agent: Any) -> dict[str, Any]:
+    """
+    Extract toolset information from an agent adapter.
+
+    Args:
+        agent: The agent adapter (e.g., PydanticAIAdapter)
+
+    Returns:
+        Dictionary with toolset details including:
+        - mcp_servers: List of selected MCP server IDs
+        - codemode: Whether codemode is enabled
+        - skills: List of skill names if available
+        - toolset_count: Total number of toolsets
+        - tools: List of tool definitions
+        - tools_count: Number of tools available
+    """
+    toolsets_info: dict[str, Any] = {
+        "mcp_servers": [],
+        "codemode": False,
+        "skills": [],
+        "toolset_count": 0,
+        "tools": [],
+        "tools_count": 0,
+    }
+
+    try:
+        # Get selected MCP servers
+        if hasattr(agent, "selected_mcp_server_ids"):
+            toolsets_info["mcp_servers"] = agent.selected_mcp_server_ids
+        elif hasattr(agent, "_selected_mcp_servers"):
+            toolsets_info["mcp_servers"] = [
+                getattr(s, "id", str(s)) for s in agent._selected_mcp_servers
+            ]
+
+        # Check for non-MCP toolsets
+        non_mcp_toolsets = getattr(agent, "_non_mcp_toolsets", [])
+        for toolset in non_mcp_toolsets:
+            toolset_class = type(toolset).__name__
+
+            # Check for CodemodeToolset
+            if "Codemode" in toolset_class:
+                toolsets_info["codemode"] = True
+
+            # Check for AgentSkillsToolset
+            if "Skills" in toolset_class:
+                # Try to get skill names
+                skills = getattr(toolset, "skills", [])
+                if skills:
+                    toolsets_info["skills"] = [
+                        {
+                            "name": getattr(s, "name", str(s)),
+                            "description": getattr(s, "description", ""),
+                        }
+                        for s in skills
+                    ]
+
+        # Get tools from the agent
+        if hasattr(agent, "agent") and hasattr(agent.agent, "_function_tools"):
+            tools = agent.agent._function_tools
+            tool_list = []
+            for tool_name, tool_def in tools.items():
+                tool_info = {
+                    "name": tool_name,
+                    "description": getattr(tool_def, "description", ""),
+                }
+                tool_list.append(tool_info)
+            toolsets_info["tools"] = tool_list
+            toolsets_info["tools_count"] = len(tool_list)
+
+        # Calculate total toolset count
+        mcp_count = len(toolsets_info["mcp_servers"])
+        non_mcp_count = len(non_mcp_toolsets)
+        toolsets_info["toolset_count"] = mcp_count + non_mcp_count
+
+    except Exception as e:
+        logger.warning(f"Error extracting toolset info: {e}")
+
+    return toolsets_info
+
+
+def _get_agent_details(agent: Any, agent_id: str, info: Any) -> dict[str, Any]:
+    """
+    Get detailed agent information for display.
+
+    Args:
+        agent: The agent adapter
+        agent_id: The agent ID
+        info: The AgentInfo object
+
+    Returns:
+        Dictionary with comprehensive agent details
+    """
+    toolsets_info = _get_agent_toolsets_info(agent)
+
+    # Get model name - try multiple access patterns
+    model_name = "unknown"
+
+    # Try _agent (PydanticAIAdapter pattern)
+    if hasattr(agent, "_agent") and hasattr(agent._agent, "model"):
+        model = agent._agent.model
+        if hasattr(model, "model_name"):
+            model_name = model.model_name
+        elif hasattr(model, "name"):
+            model_name = model.name
+        elif model:
+            model_str = str(model)
+            # Handle Pydantic AI model strings like "openai:gpt-4o"
+            if ":" in model_str:
+                model_name = model_str
+            else:
+                model_name = model_str
+    # Fallback: try agent (other adapter patterns)
+    elif hasattr(agent, "agent") and hasattr(agent.agent, "model"):
+        model = agent.agent.model
+        if hasattr(model, "model_name"):
+            model_name = model.model_name
+        elif hasattr(model, "name"):
+            model_name = model.name
+        elif model:
+            model_str = str(model)
+            if ":" in model_str:
+                model_name = model_str
+            else:
+                model_name = model_str
+
+    # Get system prompt (truncated) - try multiple access patterns
+    system_prompt = ""
+    # Try _agent (PydanticAIAdapter pattern)
+    if hasattr(agent, "_agent") and hasattr(agent._agent, "_system_prompts"):
+        prompts = agent._agent._system_prompts
+        if prompts:
+            system_prompt = str(prompts[0])
+            if len(system_prompt) > 100:
+                system_prompt = system_prompt[:97] + "..."
+    # Fallback: try agent (other adapter patterns)
+    elif hasattr(agent, "agent") and hasattr(agent.agent, "_system_prompts"):
+        prompts = agent.agent._system_prompts
+        if prompts:
+            system_prompt = str(prompts[0])
+            if len(system_prompt) > 100:
+                system_prompt = system_prompt[:97] + "..."
+
+    return {
+        "id": agent_id,
+        "name": info.name,
+        "description": info.description,
+        "status": "running",
+        # The transport the agent answers on. `protocol` is the older name for
+        # the same thing; both are given, and neither is guessed as ag-ui when
+        # the agent was created on another transport.
+        "protocol": getattr(info, "protocol", None)
+        or getattr(info, "transport", None)
+        or "ag-ui",
+        "transport": getattr(info, "transport", None)
+        or getattr(info, "protocol", None)
+        or "ag-ui",
+        "model": model_name,
+        "system_prompt": system_prompt,
+        "capabilities": info.capabilities.model_dump() if info.capabilities else {},
+        "toolsets": toolsets_info,
+    }
+
+
+@router.get("", response_model=AgentListResponse)
+async def list_agents() -> AgentListResponse:
+    """
+    List all registered agents.
+
+    Returns:
+        List of agent information including toolset details.
+    """
+    agents = []
+    for agent_id, (agent, info) in list(_agents.items()):
+        # Get detailed agent information
+        agent_details = _get_agent_details(agent, agent_id, info)
+        agents.append(agent_details)
+
+    return AgentListResponse(agents=agents)
+
+
+@router.get("/{agent_id}/memory")
+async def list_agent_memory(agent_id: str) -> dict[str, Any]:
+    """List durable memories stored for an agent.
+
+    Returns an empty list when the agent has no durable memory backend, so the
+    UI can degrade gracefully.
+    """
+    from ..memory import get_memory_backend
+
+    backend = get_memory_backend(agent_id)
+    if backend is None:
+        return {"memories": []}
+    try:
+        memories = await backend.list_all()
+    except Exception as exc:
+        logger.warning("Failed to list memory for %s: %s", agent_id, exc)
+        memories = []
+    return {"memories": memories}
+
+
+@router.post("/{agent_id}/memory/search")
+async def search_agent_memory(agent_id: str, request: Request) -> dict[str, Any]:
+    """Search an agent's durable memory for a query string."""
+    from ..memory import get_memory_backend
+
+    backend = get_memory_backend(agent_id)
+    if backend is None:
+        return {"results": []}
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    query = str(payload.get("query", "")).strip() if isinstance(payload, dict) else ""
+    if not query:
+        return {"results": []}
+    try:
+        memories = await backend.search(query)
+    except Exception as exc:
+        logger.warning("Failed to search memory for %s: %s", agent_id, exc)
+        memories = []
+    return {"results": memories}
+
+
+@router.get("/{agent_id:path}")
+async def get_agent(agent_id: str) -> dict[str, Any]:
+    """
+    Get information about a specific agent.
+
+    Args:
+        agent_id: The agent identifier.
+
+    Returns:
+        Agent information with full details.
+
+    Raises:
+        HTTPException: If agent not found.
+    """
+    if agent_id not in _agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    agent, info = _agents[agent_id]
+    return _get_agent_details(agent, agent_id, info)
+
+
+@router.delete("/{agent_id:path}")
+async def delete_agent(
+    agent_id: str,
+    stop_runtime: bool = Query(
+        default=False,
+        description="When true, also stop the runtime via the shared lifecycle helper.",
+    ),
+    runtime_id: str | None = Query(
+        default=None,
+        description="Runtime identifier override for stopping the runtime.",
+    ),
+) -> dict[str, str]:
+    """
+    Delete an agent.
+
+    Args:
+        agent_id: The agent identifier.
+
+    Returns:
+        Success message.
+
+    Raises:
+        HTTPException: If agent not found.
+    """
+    if agent_id not in _agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    stored_spec = _agentspecs.get(agent_id) or {}
+    await _run_agent_hooks(
+        agent_id=agent_id,
+        phase="post",
+        hooks=stored_spec.get("post_hooks") or stored_spec.get("postHooks"),
+        effective_variant=str(stored_spec.get("sandbox_variant") or "eval"),
+        fail_on_error=False,
+    )
+
+    # Remove the stored creation spec
+    _agentspecs.pop(agent_id, None)
+    # And what the session API knew of it (R-04), and the code it ran (R-14).
+    from agent_runtimes.apps.record import keep_agent_recorder
+    from agent_runtimes.apps.sessions import serve_agent_code
+    from agent_runtimes.routes.apps import keep_running
+
+    keep_agent_recorder(agent_id, None)
+    serve_agent_code(agent_id, None)
+    keep_running(agent_id, None)
+    # The browser of its computer, when it opened one (R-23).
+    from agent_runtimes.apps.browser import close_browser
+
+    await close_browser(agent_id)
+
+    # Note: MCP servers are managed at server level (started on server startup,
+    # stopped on server shutdown), so no cleanup needed per-agent.
+
+    # What the agent holds — a harness's process — ends with it.
+    try:
+        await _agents[agent_id][0].cleanup()
+    except Exception as e:
+        logger.warning(f"Could not clean up agent {agent_id}: {e}")
+
+    # Unregister from all protocols
+    try:
+        unregister_agent(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from ACP: {e}")
+
+    try:
+        unregister_agui_agent(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from AG-UI: {e}")
+
+    try:
+        from ..checkpoints import unregister_checkpoints
+
+        unregister_checkpoints(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not drop conversation checkpoints: {e}")
+
+    try:
+        from ..notifications import drop_notification_store
+
+        drop_notification_store(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not drop notifications: {e}")
+
+    try:
+        unregister_vercel_agent(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from Vercel AI: {e}")
+
+    try:
+        unregister_a2a_agent(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from A2A: {e}")
+
+    try:
+        unregister_mcp_ui_agent(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from MCP-UI: {e}")
+
+    # Unregister from context session
+    try:
+        from ..context.session import unregister_agent as unregister_agent_for_context
+
+        unregister_agent_for_context(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not unregister from context session: {e}")
+
+    # Fallback cleanup in case any protocol-specific unregister step failed.
+    try:
+        from ..streams.loop import purge_agent_stream_state
+
+        purge_agent_stream_state(agent_id)
+    except Exception as e:
+        logger.warning(f"Could not purge stream state: {e}")
+
+    logger.info(f"Deleted agent: {agent_id}")
+
+    if stop_runtime:
+        token = (os.environ.get("DATALAYER_API_KEY") or "").strip() or None
+        runtimes_base_url = (
+            os.environ.get("DATALAYER_RUNTIMES_URL")
+            or os.environ.get("RUNTIMES_URL")
+            or "https://r1.datalayer.run"
+        )
+        # The runtime's uid, which the Operator sets on the pod: what the
+        # platform knows this runtime by. The pod's own name is not it.
+        resolved_runtime_id = runtime_id or os.environ.get("DATALAYER_RUNTIME_ID")
+        if resolved_runtime_id:
+            await stop_runtime_prefer_core(
+                runtime_id=resolved_runtime_id,
+                runtime_base_url=runtimes_base_url,
+                token=token,
+            )
+        else:
+            logger.warning(
+                "delete_agent called with stop_runtime=true but no runtime_id provided and DATALAYER_RUNTIME_ID not set"
+            )
+
+    return {"message": f"Agent {agent_id} deleted successfully"}
+
+
+class UpdateAgentTransportRequest(BaseModel):
+    """Request to update an agent's transport protocol."""
+
+    transport: Literal["ag-ui", "vercel-ai"] = Field(
+        ..., description="New transport protocol"
+    )
+
+
+@router.patch("/{agent_id:path}/transport")
+async def update_agent_transport(
+    agent_id: str,
+    request: UpdateAgentTransportRequest,
+    http_request: Request,
+) -> dict[str, Any]:
+    """
+    Update an agent's transport protocol (ag-ui or vercel-ai).
+
+    This re-registers the agent with the new transport while keeping
+    the same underlying agent instance.
+
+    Args:
+        agent_id: The agent identifier.
+        request: The transport update request.
+        http_request: The FastAPI request.
+
+    Returns:
+        Updated agent information.
+    """
+    if agent_id not in _agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    agent, info = _agents[agent_id]
+    current_transport = getattr(info, "transport", None) or getattr(
+        info, "protocol", None
+    )
+    new_transport = request.transport
+
+    if current_transport == new_transport:
+        return {
+            "id": agent_id,
+            "transport": new_transport,
+            "message": f"Agent already using {new_transport} transport",
+        }
+
+    # Unregister from old transport
+    if current_transport == "ag-ui":
+        try:
+            unregister_agui_agent(agent_id)
+            # Remove the dynamic mount
+            if http_request.app:
+                mount_path = f"{_api_prefix}/ag-ui/{agent_id}"
+                http_request.app.routes[:] = [
+                    r
+                    for r in http_request.app.routes
+                    if not (
+                        hasattr(r, "path") and getattr(r, "path", None) == mount_path
+                    )
+                ]
+            logger.info(f"Unregistered agent from AG-UI: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not unregister from AG-UI: {e}")
+    elif current_transport == "vercel-ai":
+        try:
+            unregister_vercel_agent(agent_id)
+            logger.info(f"Unregistered agent from Vercel AI: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not unregister from Vercel AI: {e}")
+
+    # Register with new transport
+    if new_transport == "ag-ui":
+        try:
+            _switch_spec = _agentspecs.get(agent_id, {})
+            _switch_tools = _switch_spec.get("backend_tools") or []
+            _switch_disable = _switch_spec.get("disable_tool_approvals")
+            _switch_approval_ids = (
+                tools_requiring_approval_ids(_switch_tools)
+                if not _is_tool_approvals_disabled(_switch_disable)
+                else []
+            )
+            agui_adapter = AGUITransport(
+                agent,
+                agent_id=agent_id,
+                approval_tool_ids=_switch_approval_ids or [],
+            )
+            register_agui_agent(agent_id, agui_adapter)
+            # Dynamically add the AG-UI mount
+            agui_app = get_agui_app(agent_id)
+            if agui_app and http_request.app:
+                mount_path = f"{_api_prefix}/ag-ui/{agent_id}"
+                http_request.app.mount(mount_path, agui_app, name=f"agui-{agent_id}")
+                logger.info(f"Dynamically mounted AG-UI route: {mount_path}/")
+            logger.info(f"Registered agent with AG-UI: {agent_id}")
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to register with AG-UI: {e}"
+            )
+    elif new_transport == "vercel-ai":
+        try:
+            stored_spec = _agentspecs.get(agent_id, {})
+            stored_agent_spec = stored_spec.get("agent_spec") or {}
+            _has_ft = bool(
+                stored_agent_spec.get("frontendTools")
+                or stored_agent_spec.get("frontend_tools")
+            )
+            if not _has_ft and stored_spec.get("agent_spec_id"):
+                _lib = get_library_agent_spec(stored_spec["agent_spec_id"])
+                _has_ft = bool(_lib and getattr(_lib, "frontend_tools", None))
+            _stored_tools = stored_spec.get("backend_tools") or []
+            # Respect the per-agent tool-approvals override captured at creation
+            # time. Agents launched with disableToolApprovals must never be
+            # reported as having approval tools, regardless of the runtime
+            # default.
+            _stored_disable_approvals = stored_spec.get("disable_tool_approvals")
+            _has_approval = bool(tools_requiring_approval_ids(_stored_tools)) and (
+                not _is_tool_approvals_disabled(_stored_disable_approvals)
+            )
+            # Raise the output-token ceiling to the stored model's capability so
+            # the transport does not fall back to its low default cap.
+            _switch_usage_limits = apply_model_output_tokens_limit(
+                None, stored_spec.get("model")
+            )
+            vercel_adapter = VercelAITransport(
+                agent,
+                usage_limits=_switch_usage_limits,
+                agent_id=agent_id,
+                has_spec_frontend_tools=_has_ft,
+                has_approval_tools=_has_approval,
+                is_triggered=bool(stored_spec.get("trigger")),
+            )
+            register_vercel_agent(agent_id, vercel_adapter)
+            logger.info(f"Registered agent with Vercel AI: {agent_id}")
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to register with Vercel AI: {e}"
+            )
+
+    # Update the stored info transport field
+    info.protocol = new_transport
+    if hasattr(info, "transport"):
+        info.transport = new_transport
+
+    logger.info(
+        f"Updated agent {agent_id} transport: {current_transport} -> {new_transport}"
+    )
+
+    return {
+        "id": agent_id,
+        "transport": new_transport,
+        "previous_transport": current_transport,
+        "message": f"Agent transport updated to {new_transport}",
+    }
+
+
+class UpdateAgentMcpServersRequest(BaseModel):
+    """Request to update an agent's MCP servers."""
+
+    selected_mcp_servers: list[McpServerSelection] = Field(
+        default_factory=list,
+        description="New list of MCP server selections to use",
+    )
+
+
+@router.patch("/{agent_id:path}/mcp-servers")
+async def update_agent_mcp_servers(
+    agent_id: str,
+    request: UpdateAgentMcpServersRequest,
+) -> dict[str, Any]:
+    """
+    Update an agent's selected MCP servers at runtime.
+
+    This allows dynamically adding or removing MCP servers from a running agent
+    without recreating the agent.
+
+    Args:
+        agent_id: The agent identifier.
+        request: The new list of MCP server IDs.
+
+    Returns:
+        Updated agent info.
+
+    Raises:
+        HTTPException: If agent not found or update fails.
+    """
+    if agent_id not in _agents:
+        logger.error(
+            f"PATCH /agents/{agent_id}/mcp-servers: Agent not found. Registered agents: {list(_agents.keys())}"
+        )
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    try:
+        adapter, info = _agents[agent_id]
+
+        logger.info(
+            f"PATCH /agents/{agent_id}/mcp-servers: Adapter type={type(adapter).__name__}, request={request.selected_mcp_servers}"
+        )
+
+        # Check if adapter supports updating MCP servers
+        # Renamed method consistent with new interface
+        if hasattr(adapter, "update_mcp_servers"):
+            # Log current state
+            if hasattr(adapter, "_selected_mcp_servers"):
+                logger.info(
+                    f"PATCH /agents/{agent_id}/mcp-servers: Current servers before update: {adapter._selected_mcp_servers}"
+                )
+
+            # Ensure new servers are running (similar logic to create_agent)
+            lifecycle_manager = get_mcp_lifecycle_manager()
+
+            for item in request.selected_mcp_servers:
+                server_id = item.id
+                is_config = item.origin == "config"
+                if not server_id or item.origin == "contents":
+                    continue
+
+                # Start logical check/start...
+                started = False
+                # Check if running first
+                if not lifecycle_manager.is_server_running(
+                    server_id, is_config=is_config
+                ):
+                    # 1. Try Config
+                    if (is_config is None or is_config is True) and not started:
+                        config_server = lifecycle_manager.get_server_config_from_file(
+                            server_id
+                        )
+                        if config_server:
+                            await lifecycle_manager.start_server(
+                                server_id, config_server
+                            )
+                            started = True
+
+                    # 2. Try Catalog
+                    if (is_config is None or is_config is False) and not started:
+                        catalog_server = MCP_SERVER_CATALOG.get(server_id)
+                        if catalog_server:
+                            await lifecycle_manager.start_server(
+                                server_id, catalog_server
+                            )
+                            started = True
+
+            # Update the adapter
+            adapter.update_mcp_servers(request.selected_mcp_servers)
+
+        elif hasattr(adapter, "update_selected_mcp_servers"):
+            # Legacy fallback if needed (but we changed the adapter)
+            logger.warning("Using legacy update_selected_mcp_servers method")
+            adapter.update_selected_mcp_servers(request.selected_mcp_servers)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Agent adapter does not support updating MCP servers",
+            )
+
+        logger.info(
+            f"Updated agent '{agent_id}' MCP servers to: {request.selected_mcp_servers}"
+        )
+
+        return {
+            "agent_id": agent_id,
+            "selected_mcp_servers": request.selected_mcp_servers,
+            "message": "MCP servers updated successfully",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update MCP servers for agent '{agent_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update MCP servers: {str(e)}",
+        )
+
+
+# ============================================================================
+# Code Sandbox Configuration
+# ============================================================================
+
+
+class ConfigureSandboxRequest(BaseModel):
+    """Request to configure the code sandbox manager."""
+
+    # Every variant the manager can create, not the two this literal used to
+    # spell: the endpoint exists to switch the sandbox at runtime, and a
+    # request for a provider it can perfectly well reach — Kaggle, Modal,
+    # Daytona, E2B, CoreWeave, Cloudflare — was rejected before it arrived.
+    variant: SandboxVariant = Field(
+        default="eval",
+        description=(
+            "Sandbox variant to use: 'eval' (Python exec), 'jupyter-server' "
+            "(Jupyter sandbox: managed local or existing URL), or a provider "
+            "code_sandboxes reaches with its own credentials — 'docker', "
+            "'datalayer', 'google-colab', 'kaggle', 'monty', 'modal', "
+            "'daytona', 'cloudflare', 'coreweave', 'e2b'."
+        ),
+    )
+    jupyter_url: str | None = Field(
+        default=None,
+        description=(
+            "Optional Jupyter server URL for existing server mode. "
+            "If omitted with variant='jupyter-server', a managed local Jupyter sandbox is used. "
+            "Can include token as query param: http://localhost:8888?token=xxx"
+        ),
+    )
+    jupyter_token: str | None = Field(
+        default=None,
+        description="Jupyter server token (optional, overrides token in URL if provided)",
+    )
+
+
+class SandboxStatusResponse(BaseModel):
+    """Response with current sandbox status."""
+
+    variant: str = Field(..., description="Current sandbox variant")
+    jupyter_url: str | None = Field(
+        default=None, description="Jupyter URL if configured"
+    )
+    jupyter_token_set: bool = Field(
+        default=False, description="Whether a Jupyter token is configured"
+    )
+    sandbox_running: bool = Field(
+        default=False, description="Whether a sandbox instance is active"
+    )
+
+
+@router.get("/sandbox/status")
+async def get_sandbox_status() -> SandboxStatusResponse:
+    """
+    Get the current status of the code sandbox manager.
+
+    Returns:
+        Current sandbox configuration and status.
+    """
+    try:
+        from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+        manager = get_code_sandbox_manager()
+        status = manager.get_status()
+        return SandboxStatusResponse(**status)
+    except ImportError:
+        return SandboxStatusResponse(
+            variant="eval",
+            sandbox_running=False,
+        )
+
+
+class EnsureAgentSandboxRequest(BaseModel):
+    """What an agent's sandbox should be, when the caller has a say."""
+
+    variant: Literal["eval", "jupyter-server"] | None = Field(
+        default=None,
+        description=(
+            "The variant the agent's sandbox should run. A sandbox of another "
+            "variant is stopped and one of this variant started in its place."
+        ),
+    )
+    restart: bool = Field(
+        default=False,
+        description="Stop the agent's sandbox and start a fresh one even if the variant matches.",
+    )
+
+
+def _agent_sandbox_variant(sandbox: Any) -> str | None:
+    """The variant a per-agent sandbox runs, as the sandbox itself reports it."""
+    variant = getattr(sandbox, "variant", None)
+    return str(variant) if variant else None
+
+
+@router.post("/{agent_id}/sandbox/ensure")
+async def ensure_agent_sandbox(
+    agent_id: str, body: EnsureAgentSandboxRequest | None = None
+) -> SandboxStatusResponse:
+    """
+    Guarantee this agent has a running sandbox, creating one if it does not.
+
+    Creating an agent with ``sandbox_variant="jupyter-server"`` already starts
+    its sandbox eagerly, so this exists for the case where the agent outlives
+    it: reconfiguring or restarting the manager stops the per-agent sandboxes,
+    because they were built under the previous configuration. Without a way to
+    ask for one back, a caller that selects an existing agent gets an agent
+    with nowhere to run — no kernel, no Jupyter URL, and a workspace that looks
+    dead for no visible reason.
+
+    Idempotent without a body: an agent that already has a sandbox is left
+    alone. With a ``variant``, the agent's sandbox is switched to it — the one
+    it has is stopped and one of the asked variant started — which is how a
+    page moves *this agent's* code between eval and a Jupyter kernel without
+    touching the server's global sandbox.
+
+    Args:
+        agent_id: The agent whose sandbox to guarantee.
+        body: The variant wanted, or a restart, when the caller has a say.
+
+    Returns:
+        The sandbox status after the call.
+    """
+    try:
+        from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+        manager = get_code_sandbox_manager()
+        wanted = (body.variant if body else None) or "jupyter-server"
+        existing = manager.get_agent_sandbox(agent_id)
+        if existing is not None and body is not None:
+            current = _agent_sandbox_variant(existing)
+            if body.restart or (body.variant and current != body.variant):
+                manager.stop_agent_sandbox(agent_id)
+                logger.info(
+                    "Stopped the %s sandbox of agent '%s' to start a %s one",
+                    current or "?",
+                    agent_id,
+                    wanted,
+                )
+                existing = None
+        if existing is None:
+            manager.create_agent_sandbox(agent_id=agent_id, variant=wanted)
+            logger.info(
+                "Started the %s sandbox for agent '%s' on request", wanted, agent_id
+            )
+
+        try:
+            from .configure import notify_sandbox_status_change
+
+            await notify_sandbox_status_change(agent_id)
+        except Exception as exc:
+            logger.debug("Failed to notify agent sandbox change: %s", exc)
+
+        return SandboxStatusResponse(**manager.get_status())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to ensure the sandbox for agent %s: %s", agent_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to ensure the sandbox for agent {agent_id}: {str(e)}",
+        )
+
+
+@router.post("/sandbox/configure")
+async def configure_sandbox(request: ConfigureSandboxRequest) -> SandboxStatusResponse:
+    """
+    Configure the code sandbox manager.
+
+    This endpoint allows runtime configuration of the sandbox variant.
+    Use 'eval' for simple Python exec-based execution, 'jupyter-server' for a
+    managed Jupyter sandbox or an existing server named by ``jupyter_url``,
+    and the name of a provider — 'kaggle', 'modal', 'daytona', 'e2b',
+    'coreweave', 'cloudflare', … — for a sandbox that provider runs under the
+    credentials this process holds for it.
+
+    Note: If a sandbox is currently running with a different configuration,
+    it will be stopped and recreated on next use.
+
+    Args:
+        request: Sandbox configuration including variant and Jupyter details.
+
+    Returns:
+        Updated sandbox status.
+
+    Raises:
+        HTTPException: If configuration fails.
+    """
+    from agent_runtimes.apps.principal import (
+        NO_SANDBOX_IN_THIS_PROCESS,
+        launched_for,
+    )
+
+    # Asked from the pod too: its sandbox shares its loopback, and code run
+    # in this process would read what acts as the deployment.
+    if launched_for() and (request.variant != "jupyter-server" or request.jupyter_url):
+        raise HTTPException(status_code=403, detail=NO_SANDBOX_IN_THIS_PROCESS)
+    try:
+        from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+        manager = get_code_sandbox_manager()
+
+        manager.configure(
+            variant=request.variant,
+            jupyter_url=request.jupyter_url,
+            jupyter_token=request.jupyter_token,
+        )
+
+        try:
+            from .configure import notify_sandbox_status_change
+
+            await notify_sandbox_status_change()
+        except Exception as exc:
+            logger.debug("Failed to notify sandbox configure change: %s", exc)
+
+        logger.info(f"Sandbox configured: variant={request.variant}")
+
+        status = manager.get_status()
+        return SandboxStatusResponse(**status)
+
+    except HTTPException:
+        raise
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"code_sandboxes package not installed: {e}",
+        )
+    except Exception as e:
+        logger.error(f"Failed to configure sandbox: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to configure sandbox: {str(e)}",
+        )
+
+
+@router.post("/sandbox/restart")
+async def restart_sandbox() -> SandboxStatusResponse:
+    """
+    Restart the code sandbox with current configuration.
+
+    This stops any running sandbox and creates a new instance
+    with the current configuration.
+
+    Returns:
+        Updated sandbox status.
+    """
+    try:
+        from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+        manager = get_code_sandbox_manager()
+        manager.restart()
+
+        try:
+            from .configure import notify_sandbox_status_change
+
+            await notify_sandbox_status_change()
+        except Exception as exc:
+            logger.debug("Failed to notify sandbox restart change: %s", exc)
+
+        logger.info(f"Sandbox restarted: variant={manager.variant}")
+
+        status = manager.get_status()
+        return SandboxStatusResponse(**status)
+
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"code_sandboxes package not installed: {e}",
+        )
+    except Exception as e:
+        logger.error(f"Failed to restart sandbox: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restart sandbox: {str(e)}",
+        )
+
+
+# ============================================================================
+# Agent MCP Server Lifecycle Management
+# ============================================================================
+
+
+class EnvVar(BaseModel):
+    """Environment variable name-value pair."""
+
+    name: str = Field(..., description="Environment variable name")
+    value: str = Field(..., description="Environment variable value")
+
+
+class StartAgentMcpServersRequest(BaseModel):
+    """
+    Request to start MCP servers for a running agent.
+
+    For two-container Kubernetes deployments, both jupyter_sandbox and
+    mcp_proxy_url should be provided to enable the full codemode flow:
+    - jupyter_sandbox: URL of the Jupyter server for code execution
+    - mcp_proxy_url: URL of the MCP proxy endpoint for tool calls
+
+    In Kubernetes pods, containers communicate via localhost (127.0.0.1).
+    """
+
+    env_vars: list[EnvVar] = Field(
+        default_factory=list,
+        description="Environment variables to set before starting MCP servers",
+    )
+    jupyter_sandbox: str | None = Field(
+        default=None,
+        description="Jupyter sandbox URL with token (e.g., http://127.0.0.1:8888?token=xxx). "
+        "If provided, configures the code sandbox manager to use Jupyter for code execution.",
+    )
+    mcp_proxy_url: str | None = Field(
+        default=None,
+        description="MCP tool proxy URL (e.g., http://127.0.0.1:8765/api/v1/mcp/proxy). "
+        "If provided, the Jupyter kernel will call tools via HTTP to this URL "
+        "instead of requiring direct stdio access to MCP servers.",
+    )
+    launch_app_spec: dict[str, Any] | None = Field(
+        default=None,
+        description="The Appspec of the application the runtime was launched "
+        "for, passed by the Operator: its connections' secrets are declared "
+        "before its agent is made (R-19).",
+    )
+    launch_app_instance: dict[str, Any] | None = Field(
+        default=None,
+        description="Where that application runs: its app_uid and deployment_uid.",
+    )
+
+
+class AgentMcpServersResponse(BaseModel):
+    """Response for agent MCP server operations."""
+
+    agent_id: str | None = Field(
+        default=None, description="Agent ID (None if operating on all agents)"
+    )
+    agents_processed: list[str] = Field(
+        default_factory=list, description="List of agent IDs processed"
+    )
+    started_servers: list[str] = Field(default_factory=list)
+    stopped_servers: list[str] = Field(default_factory=list)
+    already_running: list[str] = Field(default_factory=list)
+    already_stopped: list[str] = Field(default_factory=list)
+    failed_servers: list[dict[str, str]] = Field(default_factory=list)
+    codemode_rebuilt: bool = False
+    sandbox_configured: bool = Field(
+        default=False, description="Whether the code sandbox was (re)configured"
+    )
+    sandbox_variant: str | None = Field(
+        default=None,
+        description="The sandbox variant after configuration (eval or jupyter)",
+    )
+    mcp_proxy_url: str | None = Field(
+        default=None, description="The MCP proxy URL configured for tool calls (if any)"
+    )
+    env_vars_set: int = Field(
+        default=0,
+        description="Number of env vars set on the process environment (and forwarded to MCP subprocesses). "
+        "For jupyter sandboxes they are also injected into the kernel when it is first used.",
+    )
+    message: str
+
+
+#: The MCP starts asked for in the background, held until they end: a task
+#: nothing holds may be collected before it ends, its start ending without a
+#: word (the loop keeps only weak references to its tasks).
+_BACKGROUND: set["asyncio.Task[Any]"] = set()
+
+
+def _in_background(coroutine: Any) -> "asyncio.Task[Any]":
+    """Run a start in the background, its task held until it ends."""
+    task = asyncio.create_task(coroutine)
+    _BACKGROUND.add(task)
+    task.add_done_callback(_BACKGROUND.discard)
+    return task
+
+
+async def _start_mcp_servers_background(
+    agent_id: str,
+    request: Request | None = None,
+) -> None:
+    """
+    Fire-and-forget background task that starts MCP servers for *agent_id*
+    and then broadcasts a monitoring snapshot so the frontend sees the updated
+    MCP status (tools discovered, indicator turns green).
+
+    The adapter's ``_get_runtime_toolsets_async()`` will wait for these servers
+    to become ready via ``MCPLifecycleManager.wait_until_ready()`` before
+    including them in a model run.
+    """
+    try:
+        (
+            started,
+            already_running,
+            failed,
+            _codemode_rebuilt,
+        ) = await _start_mcp_servers_for_agent(agent_id, [], request)
+        logger.info(
+            "Background MCP startup for '%s': started=%s already_running=%s failed=%s",
+            agent_id,
+            started,
+            already_running,
+            failed,
+        )
+    except asyncio.CancelledError:
+        # Said: the lifecycle records each server's start as cancelled, and
+        # the next turn that needs one starts it again.
+        logger.warning("Background MCP startup for '%s' was cancelled", agent_id)
+        raise
+    except Exception as exc:
+        logger.warning(
+            "Background MCP startup failed for '%s': %s",
+            agent_id,
+            exc,
+        )
+    finally:
+        # Always broadcast a snapshot so the frontend MCP indicator updates.
+        try:
+            from ..streams.loop import publish_stream_event
+
+            await publish_stream_event(
+                event_type="agent.mcp.ready",
+                payload={"agentId": agent_id},
+                agent_id=agent_id,
+            )
+        except Exception as broadcast_exc:
+            logger.debug(
+                "Could not broadcast MCP-ready snapshot for '%s': %s",
+                agent_id,
+                broadcast_exc,
+            )
+
+
+async def _start_mcp_servers_for_agent(
+    agent_id: str,
+    env_vars: list[EnvVar],
+    request: Request | None = None,
+) -> tuple[list[str], list[str], list[dict[str, str]], bool]:
+    """
+    Internal helper to start MCP servers for a single agent.
+
+    Args:
+        agent_id: The agent ID to start servers for
+        env_vars: Environment variables to set before starting
+        request: Optional FastAPI request (used to access app.state.pending_mcp_servers)
+
+    Returns:
+        Tuple of (started_servers, already_running, failed_servers, codemode_rebuilt)
+    """
+    adapter, info = _agents[agent_id]
+
+    logger.info(f"_start_mcp_servers_for_agent: Starting for agent '{agent_id}'")
+    logger.info(f"_start_mcp_servers_for_agent: Adapter type: {type(adapter).__name__}")
+    if env_vars:
+        # Names only: never any part of a value.
+        logger.info(
+            "_start_mcp_servers_for_agent: env vars: %s",
+            sorted(ev.name for ev in env_vars),
+        )
+    else:
+        logger.info("_start_mcp_servers_for_agent: no env vars provided")
+
+    # Get the agent's selected MCP servers
+    selected_servers: list[Any] = []
+    if hasattr(adapter, "_selected_mcp_servers"):
+        selected_servers = adapter._selected_mcp_servers
+        logger.info(
+            f"_start_mcp_servers_for_agent: Found {len(selected_servers)} servers in adapter._selected_mcp_servers"
+        )
+    elif hasattr(adapter, "selected_mcp_server_ids"):
+        selected_servers = [
+            McpServerSelection(id=s, origin="catalog")
+            for s in adapter.selected_mcp_server_ids
+        ]
+        logger.info(
+            f"_start_mcp_servers_for_agent: Found {len(selected_servers)} servers in adapter.selected_mcp_server_ids"
+        )
+    else:
+        logger.warning(
+            "_start_mcp_servers_for_agent: Adapter has no selected MCP servers attribute"
+        )
+
+    # If no selected servers, check for pending servers in app.state
+    # (set when --no-catalog-mcp-servers flag was used at startup)
+    if not selected_servers and request is not None:
+        try:
+            pending_mcp_servers = getattr(request.app.state, "pending_mcp_servers", [])
+            if pending_mcp_servers:
+                logger.info(
+                    f"_start_mcp_servers_for_agent: Using {len(pending_mcp_servers)} pending MCP servers from app.state"
+                )
+                selected_servers = [
+                    McpServerSelection(id=s.id, origin="catalog")
+                    for s in pending_mcp_servers
+                ]
+                # Also update the adapter's selected servers so subsequent calls work
+                if hasattr(adapter, "_selected_mcp_servers"):
+                    adapter._selected_mcp_servers = selected_servers
+                    logger.info(
+                        "_start_mcp_servers_for_agent: Updated adapter._selected_mcp_servers"
+                    )
+        except Exception as e:
+            logger.warning(
+                f"_start_mcp_servers_for_agent: Failed to get pending_mcp_servers: {e}"
+            )
+
+    if not selected_servers:
+        logger.info(
+            f"_start_mcp_servers_for_agent: No MCP servers selected for agent '{agent_id}', nothing to start"
+        )
+        return [], [], [], False
+
+    logger.info(
+        f"_start_mcp_servers_for_agent: Will try to start {len(selected_servers)} servers: {[getattr(s, 'id', str(s)) for s in selected_servers]}"
+    )
+
+    lifecycle_manager = get_mcp_lifecycle_manager()
+
+    started: list[str] = []
+    already_running: list[str] = []
+    failed: list[dict[str, str]] = []
+
+    for selection in selected_servers:
+        server_id = selection.id if hasattr(selection, "id") else str(selection)
+        if getattr(selection, "origin", None) == "contents":
+            # Reached through a Contents session; there is no process to start.
+            already_running.append(server_id)
+            continue
+        is_config = getattr(selection, "origin", "catalog") == "config"
+
+        # Check if already running
+        if lifecycle_manager.is_server_running(server_id, is_config=is_config):
+            logger.info(
+                f"_start_mcp_servers_for_agent: Server '{server_id}' is already running"
+            )
+            already_running.append(server_id)
+            continue
+
+        # Get server config from appropriate source.
+        # Try all sources in order: config file → catalog → mcp_manager.
+        # Spec-originated servers (origin="config") may not exist in
+        # mcp.json but their MCPServer configs are registered in the
+        # mcp_manager by create_agent.
+        config = None
+        if is_config:
+            config = lifecycle_manager.get_server_config_from_file(server_id)
+            logger.info(
+                f"_start_mcp_servers_for_agent: Got config for '{server_id}' from config file: {config is not None}"
+            )
+        if config is None:
+            config = MCP_SERVER_CATALOG.get(server_id)
+            if config is not None:
+                logger.info(
+                    f"_start_mcp_servers_for_agent: Got config for '{server_id}' from catalog"
+                )
+        if config is None:
+            _mgr = get_mcp_manager()
+            config = _mgr.get_server(server_id)
+            if config is not None:
+                logger.info(
+                    f"_start_mcp_servers_for_agent: Got config for '{server_id}' from mcp_manager"
+                )
+
+        if config is None:
+            logger.warning(
+                f"_start_mcp_servers_for_agent: Server config not found for '{server_id}'"
+            )
+            failed.append(
+                {
+                    "server_id": server_id,
+                    "error": f"Server config not found (origin={getattr(selection, 'origin', 'unknown')})",
+                }
+            )
+            continue
+
+        # Start the server
+        try:
+            logger.info(
+                f"_start_mcp_servers_for_agent: Starting server '{server_id}'..."
+            )
+            # Pass env vars explicitly so MCP subprocess gets them even if
+            # os.environ was not populated (robust, order-independent).
+            # Its own secrets alone: another server's are not its (R-19).
+            own = server_env_names(config)
+            extra_env = {ev.name: ev.value for ev in env_vars if ev.name in own} or None
+            instance = await lifecycle_manager.start_server(
+                server_id, config, extra_env=extra_env
+            )
+            if instance is not None:
+                logger.info(
+                    f"_start_mcp_servers_for_agent: ✓ Successfully started server '{server_id}'"
+                )
+                started.append(server_id)
+                # Add the server to mcp_manager so it's available for codemode rebuild
+                mcp_manager = get_mcp_manager()
+                if not mcp_manager.get_server(server_id):
+                    mcp_manager.add_server(config)
+                    logger.info(
+                        f"_start_mcp_servers_for_agent: Added server '{server_id}' to mcp_manager"
+                    )
+            else:
+                error = lifecycle_manager._failed_servers.get(
+                    server_id, "Unknown error"
+                )
+                logger.warning(
+                    f"_start_mcp_servers_for_agent: ✗ Failed to start server '{server_id}': {error}"
+                )
+                failed.append({"server_id": server_id, "error": str(error)})
+        except Exception as e:
+            logger.error(
+                f"_start_mcp_servers_for_agent: ✗ Exception starting server '{server_id}': {e}"
+            )
+            failed.append({"server_id": server_id, "error": str(e)})
+
+    # Rebuild Codemode toolset if enabled
+    codemode_rebuilt = False
+    if hasattr(adapter, "_codemode_builder") and adapter._codemode_builder is not None:
+        try:
+            # Log sandbox configuration before rebuild
+            try:
+                from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+                logger.info(
+                    f"Rebuilding Codemode toolset for agent '{agent_id}' "
+                    f"(sandbox={sandbox_manager.variant}, url={sandbox_manager.config.jupyter_url})..."
+                )
+            except ImportError:
+                logger.info(f"Rebuilding Codemode toolset for agent '{agent_id}'...")
+
+            new_codemode = adapter._codemode_builder(selected_servers)
+            if new_codemode is not None:
+                # Log which sandbox the new toolset is using
+                if getattr(new_codemode, "sandbox_client", None) is not None:
+                    logger.info("New codemode toolset has a code sandbox client")
+                else:
+                    logger.info("New codemode toolset has no sandbox attached")
+
+                # Try to initialize the new toolset
+                # If start() fails (e.g., pickle error with Jupyter sandbox),
+                # we still want to use the new toolset since it has the correct sandbox
+                start_succeeded = False
+                try:
+                    await new_codemode.start()
+                    start_succeeded = True
+                    logger.info("Codemode toolset start() completed successfully")
+                except Exception as start_error:
+                    # Log the error but continue - the toolset may still work for execution
+                    logger.warning(
+                        f"Codemode toolset start() had an error (will still use toolset): {start_error}"
+                    )
+
+                # Update the adapter's non-MCP toolsets regardless of start() result
+                # The sandbox is already configured and should work for code execution
+                if hasattr(adapter, "_non_mcp_toolsets"):
+                    # Remove old codemode toolset
+                    old_toolsets = adapter._non_mcp_toolsets
+                    adapter._non_mcp_toolsets = [
+                        t
+                        for t in adapter._non_mcp_toolsets
+                        if "Codemode" not in type(t).__name__
+                    ]
+                    removed_count = len(old_toolsets) - len(adapter._non_mcp_toolsets)
+                    logger.info(f"Removed {removed_count} old codemode toolset(s)")
+
+                    adapter._non_mcp_toolsets.append(new_codemode)
+                    logger.info("Added new codemode toolset to adapter")
+
+                codemode_rebuilt = True
+                logger.info(
+                    f"Codemode toolset rebuilt for agent '{agent_id}' "
+                    f"(start_succeeded={start_succeeded}, tools={len(new_codemode.registry.list_tools()) if new_codemode.registry else 0})"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to rebuild Codemode toolset: {e}")
+
+    return started, already_running, failed, codemode_rebuilt
+
+
+def _declared_for_agents(agent_ids: list[str]) -> DeclaredSecrets:
+    """What the specs of these running agents declare, read off their creation records."""
+    consumers: dict[str, frozenset[str]] = {}
+    servers: dict[str, frozenset[str]] = {}
+    kernel: set[str] = set()
+    held: set[str] = set()
+    for name in agent_ids:
+        record = _agentspecs.get(name)
+        if not isinstance(record, dict):
+            continue
+        library = (
+            get_library_agent_spec(str(record["agent_spec_id"]))
+            if record.get("agent_spec_id")
+            else None
+        )
+        found = declared_secrets(
+            library,
+            forwarded_spec=record.get("agent_spec") or record,
+            app_spec=record.get("app_spec"),
+            app_instance=record.get("app_instance"),
+            resolve_agent=get_library_agent_spec,
+        )
+        for key, value in found.consumers.items():
+            consumers[key] = consumers.get(key, frozenset()) | value
+        for key, value in found.servers.items():
+            servers[key] = servers.get(key, frozenset()) | value
+        kernel |= found.kernel
+        held |= found.held
+    return DeclaredSecrets(
+        consumers=consumers,
+        servers=servers,
+        kernel=frozenset(kernel),
+        held=frozenset(held),
+    ).merged(launched())
+
+
+def _declared_for_app(
+    app_spec: dict[str, Any], app_instance: dict[str, Any] | None = None
+) -> DeclaredSecrets:
+    """What an application declares as its agent will be made from it: its
+    agent's agentspec, its connections, its signed user's secret (R-19).
+
+    422 when the runtime's own loader refuses the Appspec.
+    """
+    from agent_runtimes.apps.loading import AppNotRunnable, agent_id_of, load_app
+
+    try:
+        app = load_app(app_spec)
+    except AppNotRunnable as refused:
+        raise HTTPException(
+            status_code=422, detail={"problems": refused.problems}
+        ) from None
+    agent_id = agent_id_of(app) if app.agent else ""
+    return declared_secrets(
+        get_library_agent_spec(agent_id) if agent_id else None,
+        app_spec=app_spec,
+        app_instance=app_instance,
+        resolve_agent=get_library_agent_spec,
+    )
+
+
+def _launch_of(
+    app_spec: dict[str, Any] | None, app_instance: dict[str, Any] | None
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """The application the runtime was launched for: the one sent, except on a
+    runtime launched for a deployment, where it is the deployment's, as
+    ai-agents said it (`principal.read_launched_app`), and what was sent is not
+    read."""
+    from agent_runtimes.apps.principal import launched_app, launched_for
+
+    return launched_app() if launched_for() else (app_spec, app_instance)
+
+
+def _note_launched_app(
+    app_spec: dict[str, Any] | None, app_instance: dict[str, Any] | None
+) -> DeclaredSecrets | None:
+    """Remember the application the runtime was launched for, when the
+    companion names it: its secrets are declared from then on (R-19).
+    """
+    if not app_spec:
+        return None
+    declared = _declared_for_app(app_spec, app_instance)
+    note_launched(declared)
+    return declared
+
+
+async def _setup_env_and_sandbox(
+    body: StartAgentMcpServersRequest,
+    request: Request,
+    agent_id: str | None = None,
+    declared: DeclaredSecrets | None = None,
+) -> tuple[bool, str | None, str | None]:
+    """
+    Shared helper: set process env vars and configure sandbox from request body.
+
+    Environment variables are propagated to:
+      1. MCP server subprocesses (npx, uvx, docker) via extra_env
+         passed explicitly to lifecycle_manager.start_server()
+      2. The Jupyter kernel via _inject_env_vars() in the sandbox
+         manager (runs ``import os; os.environ[k] = v`` in the kernel)
+
+    Returns:
+        (sandbox_configured, sandbox_variant, mcp_proxy_url)
+    """
+    label = f"mcp-servers/start/{agent_id}" if agent_id else "mcp-servers/start"
+    if declared is None:
+        # Started without a spec: what the running agents' specs declare (R-19).
+        declared = _declared_for_agents([agent_id] if agent_id else list(_agents))
+        kept, dropped = keep_declared(
+            {ev.name: ev.value for ev in body.env_vars if ev.name}, declared.runtime
+        )
+        if dropped:
+            # Names only: never any part of a value.
+            logger.info("[%s] not declared, not set: %s", label, dropped)
+        note_given(kept)
+        body = body.model_copy(
+            update={
+                "env_vars": [
+                    EnvVar(name=name, value=value) for name, value in kept.items()
+                ]
+            }
+        )
+    env_var_names = [ev.name for ev in body.env_vars]
+    for env_var in body.env_vars:
+        # Names only: never any part of a value.
+        logger.info("[%s] setting env var: %s", label, env_var.name)
+        os.environ[env_var.name] = env_var.value
+    if env_var_names:
+        logger.info(
+            f"Set {len(env_var_names)} env var(s)"
+            f"{f' for agent {agent_id!r}' if agent_id else ' on process'}"
+            f" + will pass to MCP subprocesses and sandbox kernel: {env_var_names}"
+        )
+
+    sandbox_configured = False
+    sandbox_variant: str | None = None
+    mcp_proxy_url: str | None = None
+    if body.jupyter_sandbox:
+        try:
+            from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+            sandbox_manager = get_code_sandbox_manager()
+            # The skills' secrets alone: a server's stays with the server (R-19).
+            env_dict = {
+                ev.name: ev.value for ev in body.env_vars if ev.name in declared.kernel
+            } or None
+            sandbox_manager.configure_from_url(
+                body.jupyter_sandbox,
+                mcp_proxy_url=body.mcp_proxy_url,
+                env_vars=env_dict,
+            )
+            sandbox_configured = True
+            sandbox_variant = sandbox_manager.variant
+            mcp_proxy_url = sandbox_manager.config.mcp_proxy_url
+            logger.info(
+                f"Configured sandbox manager for Jupyter: {body.jupyter_sandbox.split('?')[0]}"
+            )
+            logger.info(f"MCP proxy URL configured: {mcp_proxy_url}")
+
+            # Update startup_info on app.state so /health/startup
+            # reflects the reconfigured sandbox (e.g. after the
+            # runtimes-companion calls this endpoint).
+            existing_info: dict[str, Any] = (
+                getattr(request.app.state, "startup_info", None) or {}
+            )
+            sandbox_block = existing_info.get("sandbox", {})
+            sandbox_block["variant"] = sandbox_variant
+            sandbox_block["jupyter_url"] = body.jupyter_sandbox.split("?")[0]
+            if mcp_proxy_url:
+                sandbox_block["mcp_proxy_url"] = mcp_proxy_url
+            existing_info["sandbox"] = sandbox_block
+            request.app.state.startup_info = existing_info
+        except Exception as e:
+            logger.warning(f"Failed to configure Jupyter sandbox: {e}")
+
+    return sandbox_configured, sandbox_variant, mcp_proxy_url
+
+
+def _build_mcp_response_message(
+    *,
+    agents_processed: list[str],
+    started: list[str],
+    already_running: list[str],
+    failed: list[dict[str, str]],
+    sandbox_configured: bool,
+    sandbox_variant: str | None,
+    mcp_proxy_url: str | None,
+    env_count: int,
+) -> str:
+    """Build a human-readable summary message for MCP server start responses."""
+    parts: list[str] = []
+    if len(agents_processed) > 1:
+        parts.append(f"Processed {len(agents_processed)} agent(s)")
+    if started:
+        parts.append(f"Started {len(started)} server(s)")
+    if already_running:
+        parts.append(f"{len(already_running)} already running")
+    if failed:
+        parts.append(f"{len(failed)} failed")
+    if sandbox_configured:
+        parts.append(f"sandbox={sandbox_variant}")
+    if mcp_proxy_url:
+        parts.append(f"mcp_proxy={mcp_proxy_url}")
+    if env_count:
+        parts.append(f"env_vars={env_count}")
+    return ", ".join(parts) if parts else "No servers to start"
+
+
+def _emit_agent_assigned_event(
+    *,
+    user_token: str | None,
+    agent_name: str,
+    sandbox_variant: str | None,
+    mcp_proxy_url: str | None,
+    env_count: int,
+    assignment_source: str = "companion",
+) -> None:
+    """Emit agent-assigned lifecycle event for companion runtime assignment."""
+    token = (user_token or "").strip()
+    runtime_id = (os.environ.get("DATALAYER_RUNTIME_ID") or "").strip()
+    if not token:
+        logger.debug(
+            "[mcp-servers/start] Skipping agent-assigned event for '%s': no auth token",
+            agent_name,
+        )
+        return
+    if not runtime_id:
+        logger.debug(
+            "[mcp-servers/start] Skipping agent-assigned event for '%s': DATALAYER_RUNTIME_ID not set",
+            agent_name,
+        )
+        return
+
+    base_url = (
+        os.environ.get("DATALAYER_AI_AGENTS_URL")
+        or os.environ.get("AI_AGENTS_URL")
+        or "https://r1.datalayer.run"
+    )
+    assigned_at = datetime.now(timezone.utc).isoformat()
+    try:
+        logger.info(
+            "[mcp-servers/start] Emitting agent-assigned event runtime_id=%s agent_name=%s source=%s",
+            runtime_id,
+            agent_name,
+            assignment_source,
+        )
+        create_event(
+            token=token,
+            agent_id=runtime_id,
+            title="Agent Assigned",
+            kind=EVENT_KIND_AGENT_ASSIGNED,
+            status="running",
+            payload={
+                "agent_runtime_id": runtime_id,
+                "agent_name": agent_name,
+                "assignment_source": assignment_source,
+                "assigned_at": assigned_at,
+                "sandbox_variant": sandbox_variant,
+                "mcp_proxy_url": mcp_proxy_url,
+                "env_vars_set": env_count,
+            },
+            metadata={"origin": "agent-runtime", "source": "agent-runtime"},
+            base_url=base_url,
+        )
+    except Exception as e:
+        logger.warning(
+            "[mcp-servers/start] Failed to emit agent-assigned event for '%s': %s",
+            agent_name,
+            e,
+        )
+
+
+@router.post("/mcp-servers/start")
+async def start_all_agents_mcp_servers(
+    body: StartAgentMcpServersRequest,
+    request: Request,
+) -> AgentMcpServersResponse:
+    """
+    Start catalog MCP servers for all running agents.
+
+    This endpoint starts the MCP servers that are configured in each agent's
+    selected_mcp_servers list. Environment variables can be provided to
+    configure the servers (e.g., API keys).
+
+    If an agent has Codemode enabled, the Codemode toolset will be rebuilt
+    to include the newly started servers as programmatic tools.
+
+    If jupyter_sandbox is provided, the code sandbox manager will be configured
+    to use the Jupyter kernel for code execution instead of local eval.
+
+    Args:
+        body: Environment variables and optional jupyter_sandbox URL.
+        request: FastAPI request object (provides access to app.state).
+
+    Returns:
+        Aggregated status of server start operations across all agents.
+    """
+    # The application the runtime was launched for (R-19): its secrets are
+    # set now, before its agent is made, and a missing one is refused here.
+    launch_spec, launch_instance = _launch_of(
+        body.launch_app_spec, body.launch_app_instance
+    )
+    launch = _note_launched_app(launch_spec, launch_instance)
+    if not _agents and launch is None:
+        return AgentMcpServersResponse(
+            agent_id=None,
+            agents_processed=[],
+            message="No agents registered",
+        )
+    if launch is not None:
+        given = {ev.name: ev.value for ev in body.env_vars if ev.name}
+        app_id = str((launch_spec or {}).get("id") or "")
+        problems = launch.missing(
+            lambda name: bool(
+                (given.get(name) or "").strip() or (os.environ.get(name) or "").strip()
+            ),
+            who=str((launch_spec or {}).get("name") or app_id),
+        )
+        if problems:
+            if app_id:
+                _SET_UP_REFUSED[app_id] = " ".join(problems)
+            raise HTTPException(status_code=422, detail={"problems": problems})
+        if app_id:
+            _SET_UP_REFUSED.pop(app_id, None)
+
+    try:
+        (
+            sandbox_configured,
+            sandbox_variant,
+            mcp_proxy_url,
+        ) = await _setup_env_and_sandbox(body, request)
+
+        agents_processed: list[str] = list(_agents.keys())
+        env_count = len(body.env_vars) if body.env_vars else 0
+        auth_header = request.headers.get("Authorization", "")
+        user_token = auth_header.removeprefix("Bearer ").strip() if auth_header else ""
+
+        for current_agent_id in agents_processed:
+            _emit_agent_assigned_event(
+                user_token=user_token,
+                agent_name=current_agent_id,
+                sandbox_variant=sandbox_variant,
+                mcp_proxy_url=mcp_proxy_url,
+                env_count=env_count,
+            )
+
+        # Start MCP servers in a background task so this endpoint
+        # returns immediately.  The UI polls mcp-toolsets-status to
+        # reflect progress via the indicator dot.
+        async def _background_start() -> None:
+            for agent_id in agents_processed:
+                try:
+                    (
+                        started,
+                        already_running,
+                        failed,
+                        codemode_rebuilt,
+                    ) = await _start_mcp_servers_for_agent(
+                        agent_id, body.env_vars, request
+                    )
+                    logger.info(
+                        "[mcp-servers/start] agent '%s': started=%s, "
+                        "already_running=%s, failed=%s, codemode_rebuilt=%s",
+                        agent_id,
+                        started,
+                        already_running,
+                        failed,
+                        codemode_rebuilt,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[mcp-servers/start] Failed for agent '%s': %s",
+                        agent_id,
+                        e,
+                    )
+
+        _in_background(_background_start())
+
+        return AgentMcpServersResponse(
+            agent_id=None,
+            agents_processed=agents_processed,
+            started_servers=[],
+            already_running=[],
+            failed_servers=[],
+            codemode_rebuilt=False,
+            sandbox_configured=sandbox_configured,
+            sandbox_variant=sandbox_variant,
+            mcp_proxy_url=mcp_proxy_url,
+            env_vars_set=env_count,
+            message=f"Sandbox configured ({sandbox_variant}), "
+            f"MCP servers starting in background for {len(agents_processed)} agent(s)",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to start MCP servers for all agents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start MCP servers: {str(e)}",
+        )
+
+
+@router.post("/{agent_id:path}/mcp-servers/start")
+async def start_agent_mcp_servers(
+    agent_id: str,
+    body: StartAgentMcpServersRequest,
+    request: Request,
+) -> AgentMcpServersResponse:
+    """
+    Start catalog MCP servers defined for a specific running agent.
+
+    This endpoint starts the MCP servers that are configured in the agent's
+    selected_mcp_servers list. Environment variables can be provided to
+    configure the servers (e.g., API keys).
+
+    If the agent has Codemode enabled, the Codemode toolset will be rebuilt
+    to include the newly started servers as programmatic tools.
+
+    If jupyter_sandbox is provided, the code sandbox manager will be configured
+    to use the Jupyter kernel for code execution instead of local eval.
+
+    Args:
+        agent_id: The agent identifier.
+        body: Environment variables and optional jupyter_sandbox URL.
+        request: FastAPI request object (provides access to app.state).
+
+    Returns:
+        Status of each server start operation.
+
+    Raises:
+        HTTPException: If agent not found or operation fails.
+    """
+    if agent_id not in _agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    try:
+        (
+            sandbox_configured,
+            sandbox_variant,
+            mcp_proxy_url,
+        ) = await _setup_env_and_sandbox(body, request, agent_id)
+
+        (
+            started,
+            already_running,
+            failed,
+            codemode_rebuilt,
+        ) = await _start_mcp_servers_for_agent(agent_id, body.env_vars, request)
+
+        if (
+            not started
+            and not already_running
+            and not failed
+            and not sandbox_configured
+        ):
+            return AgentMcpServersResponse(
+                agent_id=agent_id,
+                agents_processed=[agent_id],
+                message="No MCP servers configured for this agent",
+            )
+
+        env_count = len(body.env_vars) if body.env_vars else 0
+        auth_header = request.headers.get("Authorization", "")
+        user_token = auth_header.removeprefix("Bearer ").strip() if auth_header else ""
+
+        _emit_agent_assigned_event(
+            user_token=user_token,
+            agent_name=agent_id,
+            sandbox_variant=sandbox_variant,
+            mcp_proxy_url=mcp_proxy_url,
+            env_count=env_count,
+        )
+
+        return AgentMcpServersResponse(
+            agent_id=agent_id,
+            agents_processed=[agent_id],
+            started_servers=started,
+            already_running=already_running,
+            failed_servers=failed,
+            codemode_rebuilt=codemode_rebuilt,
+            sandbox_configured=sandbox_configured,
+            sandbox_variant=sandbox_variant,
+            mcp_proxy_url=mcp_proxy_url,
+            env_vars_set=env_count,
+            message=_build_mcp_response_message(
+                agents_processed=[agent_id],
+                started=started,
+                already_running=already_running,
+                failed=failed,
+                sandbox_configured=sandbox_configured,
+                sandbox_variant=sandbox_variant,
+                mcp_proxy_url=mcp_proxy_url,
+                env_count=env_count,
+            ),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to start MCP servers for agent '{agent_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start MCP servers: {str(e)}",
+        )
+
+
+async def _stop_mcp_servers_for_agent(
+    agent_id: str,
+) -> tuple[list[str], list[str], list[dict[str, str]]]:
+    """
+    Internal helper to stop MCP servers for a single agent.
+
+    Returns:
+        Tuple of (stopped_servers, already_stopped, failed_servers)
+    """
+    adapter, info = _agents[agent_id]
+
+    # Get the agent's selected MCP servers
+    selected_servers: list[Any] = []
+    if hasattr(adapter, "_selected_mcp_servers"):
+        selected_servers = adapter._selected_mcp_servers
+    elif hasattr(adapter, "selected_mcp_server_ids"):
+        selected_servers = [
+            McpServerSelection(id=s, origin="catalog")
+            for s in adapter.selected_mcp_server_ids
+        ]
+
+    if not selected_servers:
+        return [], [], []
+
+    lifecycle_manager = get_mcp_lifecycle_manager()
+
+    stopped: list[str] = []
+    already_stopped: list[str] = []
+    failed: list[dict[str, str]] = []
+
+    for selection in selected_servers:
+        server_id = selection.id if hasattr(selection, "id") else str(selection)
+        if getattr(selection, "origin", None) == "contents":
+            # Reached through a Contents session: there is no process to stop.
+            already_stopped.append(server_id)
+            continue
+        is_config = getattr(selection, "origin", "catalog") == "config"
+
+        # Check if already stopped
+        if not lifecycle_manager.is_server_running(server_id, is_config=is_config):
+            already_stopped.append(server_id)
+            continue
+
+        # Stop the server
+        try:
+            success = await lifecycle_manager.stop_server(
+                server_id, is_config=is_config
+            )
+            if success:
+                stopped.append(server_id)
+            else:
+                failed.append({"server_id": server_id, "error": "Stop returned False"})
+        except Exception as e:
+            failed.append({"server_id": server_id, "error": str(e)})
+
+    return stopped, already_stopped, failed
+
+
+@router.post("/mcp-servers/stop")
+async def stop_all_agents_mcp_servers() -> AgentMcpServersResponse:
+    """
+    Stop catalog MCP servers for all running agents.
+
+    This endpoint stops the MCP servers that are configured in each agent's
+    selected_mcp_servers list.
+
+    Returns:
+        Aggregated status of server stop operations across all agents.
+    """
+    if not _agents:
+        return AgentMcpServersResponse(
+            agent_id=None,
+            agents_processed=[],
+            message="No agents registered",
+        )
+
+    try:
+        all_stopped: list[str] = []
+        all_already_stopped: list[str] = []
+        all_failed: list[dict[str, str]] = []
+        agents_processed: list[str] = []
+
+        for agent_id in list(_agents.keys()):
+            stopped, already_stopped, failed = await _stop_mcp_servers_for_agent(
+                agent_id
+            )
+            all_stopped.extend(stopped)
+            all_already_stopped.extend(already_stopped)
+            all_failed.extend(failed)
+            agents_processed.append(agent_id)
+
+        message_parts = [f"Processed {len(agents_processed)} agent(s)"]
+        if all_stopped:
+            message_parts.append(f"stopped {len(all_stopped)} server(s)")
+        if all_already_stopped:
+            message_parts.append(f"{len(all_already_stopped)} already stopped")
+        if all_failed:
+            message_parts.append(f"{len(all_failed)} failed")
+
+        return AgentMcpServersResponse(
+            agent_id=None,
+            agents_processed=agents_processed,
+            stopped_servers=all_stopped,
+            already_stopped=all_already_stopped,
+            failed_servers=all_failed,
+            message=", ".join(message_parts),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stop MCP servers for all agents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to stop MCP servers: {str(e)}",
+        )
+
+
+@router.post("/{agent_id:path}/mcp-servers/stop")
+async def stop_agent_mcp_servers(
+    agent_id: str,
+) -> AgentMcpServersResponse:
+    """
+    Stop catalog MCP servers for a specific running agent.
+
+    This endpoint stops the MCP servers that are configured in the agent's
+    selected_mcp_servers list.
+
+    Args:
+        agent_id: The agent identifier.
+
+    Returns:
+        Status of each server stop operation.
+
+    Raises:
+        HTTPException: If agent not found or operation fails.
+    """
+    if agent_id not in _agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+
+    try:
+        stopped, already_stopped, failed = await _stop_mcp_servers_for_agent(agent_id)
+
+        if not stopped and not already_stopped and not failed:
+            return AgentMcpServersResponse(
+                agent_id=agent_id,
+                agents_processed=[agent_id],
+                message="No MCP servers configured for this agent",
+            )
+
+        message_parts = []
+        if stopped:
+            message_parts.append(f"Stopped {len(stopped)} server(s)")
+        if already_stopped:
+            message_parts.append(f"{len(already_stopped)} already stopped")
+        if failed:
+            message_parts.append(f"{len(failed)} failed")
+
+        return AgentMcpServersResponse(
+            agent_id=agent_id,
+            agents_processed=[agent_id],
+            stopped_servers=stopped,
+            already_stopped=already_stopped,
+            failed_servers=failed,
+            message=", ".join(message_parts) if message_parts else "No servers to stop",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stop MCP servers for agent '{agent_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to stop MCP servers: {str(e)}",
+        )
+
+
+# ============================================================================
+# Durable Agent Lifecycle Endpoints
+# ============================================================================
+
+
+@router.post("/prepare-checkpoint")
+async def prepare_checkpoint_endpoint(http_request: Request) -> dict[str, Any]:
+    """Prepare the agent-runtimes service for a CRIU checkpoint.
+
+    Flushes DBOS state and closes connections to allow clean container freeze.
+    Called by the companion before ``criu dump``.
+    """
+    logger.info("Preparing for CRIU checkpoint...")
+    lifecycle = getattr(http_request.app.state, "durable_lifecycle", None)
+    if lifecycle is not None:
+        try:
+            await lifecycle.prepare_checkpoint()
+            logger.info("DBOS state flushed for checkpoint")
+        except Exception as e:
+            logger.warning("Error preparing DBOS for checkpoint: %s", e)
+    return {"success": True, "message": "Ready for checkpoint."}
+
+
+@router.post("/post-restore")
+async def post_restore_endpoint(http_request: Request) -> dict[str, Any]:
+    """Re-initialize after a CRIU restore.
+
+    Re-launches DBOS and re-establishes connections after container thaw.
+    Called by the companion after ``criu restore``.
+    """
+    logger.info("Post-restore re-initialization...")
+    lifecycle = getattr(http_request.app.state, "durable_lifecycle", None)
+    if lifecycle is not None:
+        try:
+            await lifecycle.post_restore()
+            logger.info("DBOS re-launched after restore")
+        except Exception as e:
+            logger.warning("Error re-launching DBOS after restore: %s", e)
+    return {"success": True, "message": "Post-restore complete."}
+
+
+class ConfigureFromSpecRequest(BaseModel):
+    """Request body for the configure-from-spec endpoint."""
+
+    agent_spec_id: str
+    agent_spec: dict[str, Any] | None = None
+    env_vars: list[dict[str, str]] = Field(default_factory=list)
+    user_token: str | None = None
+    jupyter_sandbox: str | None = None
+    mcp_proxy_url: str | None = None
+    evals_mode: str | None = None
+    emit_live_events: bool | None = None
+    app_spec: dict[str, Any] | None = None
+    app_instance: dict[str, Any] | None = None
+    transport: Literal["ag-ui", "vercel-ai", "acp", "a2a"] | None = None
+    """An application's Appspec, when the agent is the one it runs."""
+    model: str | None = None
+    """The model, when it is not the agent spec's own."""
+    agent_id: str = "default"
+    """The agent to (re)create: ``default``, or the one ``loop`` talks to."""
+    launch_app_spec: dict[str, Any] | None = None
+    """The Appspec of the application the runtime was launched for, passed by
+    the Operator: declared with this spec, so its agent made later finds its
+    connections' secrets (R-19). Not the agent's own ``app_spec``."""
+    launch_app_instance: dict[str, Any] | None = None
+    """Where that application runs: its app_uid and deployment_uid."""
+
+
+class DeclaredSecretsRequest(BaseModel):
+    """What the companion asks before it gives a runtime any secret (R-19)."""
+
+    agent_spec_id: str | None = None
+    """The agentspec it will configure; none: the agents running now."""
+    agent_spec: dict[str, Any] | None = None
+    app_spec: dict[str, Any] | None = None
+    """The application the runtime is launched for: its agent's agentspec and
+    its connections are declared too (R-19)."""
+    app_instance: dict[str, Any] | None = None
+
+
+@router.post("/declared-secrets")
+async def declared_secrets_endpoint(body: DeclaredSecretsRequest) -> dict[str, Any]:
+    """The names of the secrets a spec declares — the only ones a runtime is given.
+
+    Names only, never a value: ``runtime`` (what the process may hold),
+    ``kernel`` (what the code sandbox gets: the skills'), ``consumers`` (who
+    needs which). The companion gives the runtime those of the account's
+    secrets and no other (R-19, decided 2026-10-07).
+
+    A runtime launched for a deployment answers what that deployment declares,
+    whatever it is asked about (`_launch_of`).
+    """
+    from agent_runtimes.apps.principal import launched_for
+
+    if launched_for():
+        return _declared_for_agents(list(_agents)).as_names()
+    if body.agent_spec_id:
+        spec = get_library_agent_spec(body.agent_spec_id)
+        if spec is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Agentspec '{body.agent_spec_id}' not found in library.",
+            )
+        declared = declared_secrets(
+            spec,
+            forwarded_spec=body.agent_spec,
+            resolve_agent=get_library_agent_spec,
+        ).merged(launched())
+    else:
+        declared = _declared_for_agents(list(_agents))
+    if body.app_spec:
+        declared = declared.merged(_declared_for_app(body.app_spec, body.app_instance))
+    return declared.as_names()
+
+
+def set_up_refused(agent_id: str) -> str | None:
+    """Why the agent's last configure was refused, or None."""
+    return _SET_UP_REFUSED.get(agent_id)
+
+
+@router.post("/configure-from-spec")
+async def configure_from_spec_endpoint(
+    http_request: Request,
+    body: ConfigureFromSpecRequest,
+) -> dict[str, Any]:
+    """Configure the running default agent from an Agentspec ID.
+
+    Called by the companion during run-start-hooks when the operator
+    provides an ``agent_spec_id``.
+
+    The stored agentspec is kept in memory. When an update is triggered,
+    the incoming spec is compared with the stored one.  If they differ
+    the PydanticAI agent is deleted and recreated with the new spec.
+    The running sandbox is **not** restarted — ``CodeSandboxManager``
+    is a singleton whose lifecycle is independent of the agent.
+
+    When ``jupyter_sandbox`` / ``mcp_proxy_url`` are provided the
+    sandbox is configured in the same request, removing the need for
+    a separate ``mcp-servers/start`` call from the companion.
+
+    Tool Approval Flow (k8s)
+    The companion injects the user JWT via ``body.user_token``.  This
+    endpoint stores it in ``DATALAYER_USER_TOKEN`` *before* calling
+    ``create_agent``.  Inside ``create_agent``:
+
+    1. ``spec.backend_tools`` is forwarded to ``CreateAgentRequest.backend_tools``.
+    2. ``tools_requiring_approval_ids(tool_ids)`` detects tools whose
+       BackendToolSpec has ``requires_approval=True`` or ``approval='manual'``.
+    3. When approval tools are found, a ``ToolsGuardrailCapability`` is
+       auto-added; ``ToolApprovalConfig.from_env()`` reads
+       ``DATALAYER_USER_TOKEN`` to populate ``user_jwt_token``.
+    4. On first tool call ``request_and_wait()``:
+       a. Creates a local approval record and forwards it to the
+          datalayer-ai-agents backend (POST /api/ai-agents/v1/tool-approvals)
+          using ``user_jwt_token`` — making the request visible in the SaaS UI.
+       b. Starts a bridge coroutine that connects to the ai-agents WebSocket
+          and waits for a ``tool_approval_approved/rejected`` broadcast.
+    5. When the user approves/rejects in the SaaS UI the decision is sent
+       as a ``tool_approval_decision`` WS message to ai-agents, which
+       broadcasts ``tool_approval_approved/rejected``.
+    6. The bridge receives the broadcast, calls
+       ``update_local_approval_status()``, which signals the asyncio.Event
+       that unblocks ``request_and_wait()`` — resuming or rejecting the
+       tool call.
+    """
+    from agent_runtimes.apps.principal import DEPLOYMENT_RUNS_ITS_OWN, launched_for
+
+    if launched_for():
+        raise HTTPException(status_code=403, detail=DEPLOYMENT_RUNS_ITS_OWN)
+    logger.info("Configuring agent from spec: %s", body.agent_spec_id)
+
+    # ── 1. The library spec, and the secrets its specs declare (R-19) ──
+    spec = get_library_agent_spec(body.agent_spec_id)
+    if spec is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agentspec '{body.agent_spec_id}' not found in library.",
+        )
+    target_agent_name = body.agent_id
+    _note_launched_app(body.launch_app_spec, body.launch_app_instance)
+    declared = declared_secrets(
+        spec,
+        forwarded_spec=body.agent_spec,
+        app_spec=body.app_spec,
+        app_instance=body.app_instance,
+        resolve_agent=get_library_agent_spec,
+    ).merged(launched())
+
+    # ── 2. Only the declared secrets are set; none other is kept ─────
+    given = {
+        str(ev.get("name") or ""): str(ev.get("value") or "")
+        for ev in body.env_vars
+        if ev.get("name")
+    }
+    kept, dropped = keep_declared(given, declared.runtime)
+    if dropped:
+        # Names only: never any part of a value.
+        logger.info(
+            "[configure-from-spec] not declared by '%s', not set: %s",
+            body.agent_spec_id,
+            dropped,
+        )
+    taken_back = sorted(given_names() - declared.runtime)
+    for name in taken_back:
+        # Given for a spec configured before, declared by none now.
+        release(os.environ.pop(name, None))
+    forget_given(taken_back)
+    if taken_back:
+        logger.info("[configure-from-spec] no longer declared, unset: %s", taken_back)
+    # A live kernel keeps what it was given until it is unset there: what this
+    # configure no longer gives the sandbox is taken back from it too.
+    from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+    in_kernel = set(get_code_sandbox_manager().config.env_vars or {})
+    no_longer_in_kernel = sorted((in_kernel | set(taken_back)) - declared.kernel)
+    if no_longer_in_kernel:
+        await asyncio.to_thread(
+            get_code_sandbox_manager().withdraw_env_vars, no_longer_in_kernel
+        )
+    problems = declared.missing(
+        lambda name: bool(
+            (kept.get(name) or "").strip() or (os.environ.get(name) or "").strip()
+        ),
+        who=str(
+            (body.app_spec or {}).get("name")
+            or (body.launch_app_spec or {}).get("name")
+            or body.agent_spec_id
+        ),
+    )
+    if problems:
+        _SET_UP_REFUSED[target_agent_name] = " ".join(problems)
+        raise HTTPException(status_code=422, detail={"problems": problems})
+    _SET_UP_REFUSED.pop(target_agent_name, None)
+    for name, value in kept.items():
+        logger.info("[configure-from-spec] setting env var: %s", name)
+        os.environ[name] = value
+    note_given(kept)
+    kernel_env = [
+        EnvVar(name=name, value=value)
+        for name, value in kept.items()
+        if name in declared.kernel
+    ]
+    server_env = [EnvVar(name=name, value=value) for name, value in kept.items()]
+
+    # Store the user JWT so that ToolApprovalConfig.from_env() can later
+    # populate user_jwt_token — used by ToolsGuardrailCapability to:
+    #   • forward pending approval records to the ai-agents backend
+    #   • authenticate the bridge WS connection that mirrors remote decisions
+    # Must be set before create_agent() is called (step 4 below).
+    if body.user_token:
+        os.environ["DATALAYER_USER_TOKEN"] = body.user_token
+
+    if body.evals_mode:
+        os.environ["DATALAYER_EVALS_MODE"] = body.evals_mode
+    if body.emit_live_events is not None:
+        os.environ["DATALAYER_EVALS_EMIT_LIVE_EVENTS"] = (
+            "true" if body.emit_live_events else "false"
+        )
+
+    # ── 3. Configure sandbox if jupyter_sandbox is provided ──────────
+    #    The sandbox is managed independently of the agent — it survives
+    #    agent deletion/recreation. It gets the skills' secrets alone.
+    sandbox_variant: str | None = None
+    mcp_proxy_url: str | None = body.mcp_proxy_url
+    if body.jupyter_sandbox:
+        sandbox_body = StartAgentMcpServersRequest(
+            env_vars=kernel_env,
+            jupyter_sandbox=body.jupyter_sandbox,
+            mcp_proxy_url=body.mcp_proxy_url,
+        )
+        _, sandbox_variant, mcp_proxy_url = await _setup_env_and_sandbox(
+            sandbox_body,
+            http_request,
+            agent_id=target_agent_name,
+            declared=declared,
+        )
+
+    # ── 4. Build the CreateAgentRequest that represents this spec ────
+    server_codemode = os.environ.get("AGENT_RUNTIMES_CODEMODE", "").lower() == "true"
+
+    # Recreated on the transport it is served on: an agent served over AG-UI
+    # and recreated on the default transport was never registered for AG-UI
+    # again, and its clients went on talking to the agent it replaced.
+    from .agui import get_agui_adapter
+
+    served_on = body.transport or (
+        "ag-ui" if get_agui_adapter(target_agent_name) is not None else None
+    )
+    create_request = CreateAgentRequest(
+        name=target_agent_name,
+        **({"transport": served_on} if served_on else {}),
+        agent_spec_id=body.agent_spec_id,
+        agent_spec=body.agent_spec,
+        enable_codemode=server_codemode,
+        disable_tool_approvals=bool(getattr(spec, "disable_tool_approvals", False)),
+        jupyter_sandbox=body.jupyter_sandbox,
+        # Forward spec tools so create_agent can identify tools that require
+        # manual approval (requires_approval=True / approval='manual' in
+        # BackendToolSpec) and auto-add ToolsGuardrailCapability.  Without this field
+        # tool_ids would be empty, no approval capability would be registered,
+        # and tools would execute without waiting for human sign-off.
+        backend_tools=list(spec.backend_tools or []),
+        app_spec=body.app_spec,
+        app_instance=body.app_instance,
+        **({"model": body.model} if body.model else {}),
+    )
+    # Serialise to a dict for comparison (env_vars are excluded since
+    # they don't affect agent identity — only secrets/keys).
+    # jupyter_sandbox and mcp_proxy_url are also excluded: the sandbox
+    # is managed independently and should not trigger an agent restart.
+    new_spec_dict = create_request.model_dump()
+    new_spec_dict.pop("jupyter_sandbox", None)
+
+    # ── 5. Compare with stored spec — restart only if changed ────────
+    stored_spec = _agentspecs.get(target_agent_name)
+    specs_changed = stored_spec != new_spec_dict
+
+    if specs_changed:
+        # A typed-decision model, or a model ai-inference does not serve, is
+        # refused before the agent in place is deleted: a refused switch
+        # leaves it as it was.
+        from ..models.offered import (
+            agent_inference_provider,
+            decision_refusal,
+            inference_refusal,
+        )
+
+        wanted_model = body.model or (body.agent_spec or {}).get("model") or spec.model
+        decision = (
+            decision_refusal(str(wanted_model), switch=True) if wanted_model else None
+        )
+        if decision:
+            raise HTTPException(status_code=400, detail=decision)
+        refusal = (
+            inference_refusal(
+                str(wanted_model), agent_inference_provider(target_agent_name)
+            )
+            if wanted_model
+            else None
+        )
+        if refusal:
+            raise HTTPException(
+                status_code=400, detail=f"{refusal}: nothing was switched."
+            )
+        if stored_spec is not None:
+            logger.info(
+                "[configure-from-spec] Spec changed for '%s' — "
+                "deleting and recreating agent (sandbox preserved)",
+                target_agent_name,
+            )
+        else:
+            logger.info(
+                "[configure-from-spec] No stored spec for '%s' — "
+                "creating agent from spec '%s'",
+                target_agent_name,
+                body.agent_spec_id,
+            )
+
+        # Delete the existing agent if it is registered.
+        # The sandbox is NOT affected — it is managed by the singleton
+        # CodeSandboxManager independently of the agent lifecycle.
+        if target_agent_name in _agents:
+            try:
+                # Said in full: called directly, delete_agent's Query
+                # defaults are FieldInfo objects, truthy, and asked it to stop
+                # the runtime under a runtime id made of a FieldInfo's repr.
+                await delete_agent(
+                    target_agent_name, stop_runtime=False, runtime_id=None
+                )
+            except Exception as e:
+                logger.warning("Failed to delete existing default agent: %s", e)
+
+        # (Re)create the agent from the spec via the canonical flow.
+        try:
+            await create_agent(create_request, http_request)
+            logger.info(
+                "Agent '%s' (re)created from spec '%s'",
+                target_agent_name,
+                body.agent_spec_id,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                "Failed to create agent from spec '%s': %s",
+                body.agent_spec_id,
+                e,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create agent from spec: {str(e)}",
+            )
+    else:
+        logger.info(
+            "[configure-from-spec] Spec unchanged for '%s' — skipping restart",
+            target_agent_name,
+        )
+
+    # ── 6. Emit companion assignment event + start MCP servers/env setup ─────
+    _emit_agent_assigned_event(
+        user_token=body.user_token,
+        agent_name=target_agent_name,
+        sandbox_variant=sandbox_variant,
+        mcp_proxy_url=mcp_proxy_url,
+        env_count=len(kept),
+        assignment_source="companion-configure-from-spec",
+    )
+
+    # ── 7. Start MCP servers + inject sandbox env vars (async) ───────
+    #    Each server is started with its own secrets; the sandbox gets the
+    #    skills' alone (R-19).
+    sandbox_env_vars: dict[str, str] = {
+        ev.name: ev.value for ev in kernel_env if ev.value
+    }
+
+    async def _background_mcp_and_sandbox() -> None:
+        """Fire-and-forget: start MCP servers + inject sandbox env vars."""
+        # ── MCP servers ──────────────────────────────────────
+        if target_agent_name in _agents:
+            env_var_objects = server_env
+            try:
+                (
+                    started,
+                    already_running,
+                    failed,
+                    codemode_rebuilt,
+                ) = await _start_mcp_servers_for_agent(
+                    target_agent_name,
+                    env_var_objects,
+                    request=http_request,
+                )
+                logger.info(
+                    "[configure-from-spec] MCP server start results for '%s': "
+                    "started=%s, already_running=%s, failed=%s, codemode_rebuilt=%s",
+                    target_agent_name,
+                    started,
+                    already_running,
+                    failed,
+                    codemode_rebuilt,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[configure-from-spec] Failed to start MCP servers for '%s': %s",
+                    target_agent_name,
+                    e,
+                )
+
+        # ── Sandbox env-var injection ────────────────────────
+        if sandbox_env_vars:
+            try:
+                from ..services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+                agent_sandbox = sandbox_manager.get_agent_sandbox(target_agent_name)
+                if agent_sandbox is not None:
+                    sandbox_manager._inject_env_vars_into(
+                        agent_sandbox,
+                        "jupyter-server",
+                        sandbox_env_vars,
+                    )
+                else:
+                    logger.debug(
+                        "[configure-from-spec] No per-agent sandbox found for '%s', "
+                        "env vars already in os.environ",
+                        target_agent_name,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "[configure-from-spec] Failed to inject env vars into sandbox: %s",
+                    e,
+                )
+
+    _in_background(_background_mcp_and_sandbox())
+
+    # The model the agent runs on now: a switch's, not the library spec's.
+    effective_model = (
+        (_agentspecs.get(target_agent_name) or {}).get("model")
+        or spec.model
+        or DEFAULT_MODEL
+    )
+    return {
+        "success": True,
+        "agent_id": target_agent_name,
+        "model": effective_model
+        if isinstance(effective_model, str)
+        else str(effective_model),
+        "specs_changed": specs_changed,
+        "evals_mode": body.evals_mode,
+        "emit_live_events": body.emit_live_events,
+        "message": (
+            f"Agent '{target_agent_name}' "
+            f"{'(re)created' if specs_changed else 'unchanged'} "
+            f"from spec '{body.agent_spec_id}'."
+        ),
+    }
+
+
+# ── Trigger / Run ────────────────────────────────────────────────────────
+
+
+class OAuthIdentity(BaseModel):
+    """Validated OAuth identity payload for trigger run scoping."""
+
+    provider: str = Field(min_length=1)
+    accessToken: str = Field(min_length=1)
+
+
+class TriggerRunRequest(BaseModel):
+    """Body for POST /{agent_id}/trigger/run."""
+
+    source: str = "once"
+    identities: list[OAuthIdentity] = Field(
+        default_factory=list,
+        description=(
+            "Optional OAuth identities to scope this trigger run. "
+            "Each entry should include provider and accessToken."
+        ),
+    )
+
+
+@router.post("/{agent_id}/trigger/run")
+async def trigger_run(
+    agent_id: str, body: TriggerRunRequest, request: Request
+) -> dict[str, Any]:
+    """Manually trigger an agent run (e.g. the *once* trigger).
+
+    The endpoint looks up the agent, retrieves its spec trigger config,
+    creates the appropriate invoker, and fires it in the background.
+    """
+    from .acp import _agents as _registered_agents
+
+    pair = _registered_agents.get(agent_id)
+    if pair is None:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    # Resolve trigger config from agent spec
+    _agent_adapter, agent_info = pair
+    trigger_config: dict[str, Any] = {}
+    agent_spec_id: str = agent_id  # fallback
+
+    # Preferred source: stored creation spec for this concrete agent.
+    stored_spec = get_stored_agent_spec(agent_id) or {}
+    if stored_spec:
+        trigger_config = _extract_trigger_config(stored_spec)
+        agent_spec_id = str(
+            stored_spec.get("agent_spec_id")
+            or stored_spec.get("agentSpecId")
+            or agent_spec_id
+        )
+
+    # If stored spec has only an agent_spec_id (common in SaaS), load library spec.
+    if not trigger_config and agent_spec_id and agent_spec_id != agent_id:
+        lib_spec = get_library_agent_spec(agent_spec_id)
+        if lib_spec is not None:
+            trigger_config = _extract_trigger_config(lib_spec)
+
+    # Legacy fallback: derive by fuzzy-matching spec id from runtime-generated agent_id.
+    if not trigger_config:
+        for spec_id, spec in AGENTSPECS.items():
+            if agent_id.endswith(spec_id.replace("_", "-")) or spec_id in agent_id:
+                agent_spec_id = spec_id
+                trigger_config = _extract_trigger_config(spec)
+                break
+
+    # Extract user token from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip() if auth_header else ""
+
+    events_base_url = (
+        os.environ.get("DATALAYER_AI_AGENTS_URL")
+        or os.environ.get("AI_AGENTS_URL")
+        or "https://r1.datalayer.run"
+    )
+    runtimes_base_url = (
+        os.environ.get("DATALAYER_RUNTIMES_URL")
+        or os.environ.get("RUNTIMES_URL")
+        or "https://r1.datalayer.run"
+    )
+    runtime_id = os.environ.get("DATALAYER_RUNTIME_ID")
+
+    import asyncio
+
+    from agent_runtimes.context.identities import IdentityContextManager
+    from agent_runtimes.invoker import get_invoker
+
+    trigger_type = body.source or "once"
+    invoker = get_invoker(
+        trigger_type=trigger_type,
+        agent_id=agent_id,
+        agent_spec_id=agent_spec_id,
+        token=token,
+        base_url=events_base_url,
+        runtime_base_url=runtimes_base_url,
+        runtime_id=runtime_id,
+    )
+
+    if invoker is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No invoker registered for trigger type '{trigger_type}'",
+        )
+
+    logger.info(
+        "Trigger/run: scheduling '%s' invoker for agent '%s'", trigger_type, agent_id
+    )
+
+    identities = [identity.model_dump() for identity in (body.identities or [])]
+
+    async def _invoke_with_identity_context() -> None:
+        async with IdentityContextManager(identities):
+            await invoker.invoke(trigger_config)
+
+    def _log_invoke_task_result(task: asyncio.Task[None]) -> None:
+        try:
+            task.result()
+        except Exception:
+            logger.exception(
+                "Trigger/run: '%s' invoker failed for agent '%s'",
+                trigger_type,
+                agent_id,
+            )
+
+    task = asyncio.create_task(_invoke_with_identity_context())
+    task.add_done_callback(_log_invoke_task_result)
+
+    return {
+        "success": True,
+        "agent_id": agent_id,
+        "trigger_type": trigger_type,
+        "message": f"Trigger '{trigger_type}' launched for agent '{agent_id}'.",
+    }

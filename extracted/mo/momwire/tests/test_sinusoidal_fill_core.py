@@ -77,6 +77,12 @@ def _one_blas_thread():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _below_anchors_off(monkeypatch):
+    # the below grid's anchors follow process history; the gate is the exact grid
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
+
+
 def _decks(root):
     return [
         p
@@ -280,10 +286,118 @@ CASES = [
         ),
         "fills",
     ),
+    # momwire#1042: a parasite listed twice leaves a (segment, basis) pair
+    # repeated; the dense M keeps the last value, scipy's CSC sums the two,
+    # and the loading's `G[rows, cols] -= v` keeps the last difference
+    (
+        "duplicate_dense_ld5",
+        deck(
+            dipole(11)
+            + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 9 .2 0 -.23 .2 0 .23 .001\n",
+            "LD 5 0 0 0 3.5e7\n" + FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "fills",
+    ),
+    # momwire#1607 B6a: a wholly-buried deck at k_m, dense and sparse
+    (
+        "buried_dense",
+        deck(
+            dipole(21, 5.0).replace("0 0 -5.0 0 0 5.0", "-5 0 -.5 5 0 -.5"),
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 7.15\nEX 0 1 11 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    (
+        "buried_sparse_ld5",
+        deck(
+            "GW 1 71 -5 0 -.5 5 0 -.5 .001\n",
+            "GN 3 0 0 0 20 .01\nLD 5 0 0 0 5.8e7\nFR 0 1 0 0 7.15\nEX 0 1 36 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    # momwire#1718 S12: wires on both sides with no crossing junction, the
+    # two transmitted pair classes, dense and sparse
+    (
+        "mixed_dense",
+        deck(
+            "GW 1 10 0 0 .5 0 0 10 .001\nGW 2 10 -5 1 -.1 5 1 -.1 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 7.15\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    (
+        "mixed_sparse_ld5",
+        deck(
+            "GW 1 40 0 0 .5 0 0 10 .001\nGW 2 30 -5 1 -.1 5 1 -.1 .001\n",
+            "GN 3 0 0 0 20 .01\nLD 5 0 0 0 5.8e7\nFR 0 1 0 0 7.15\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    # momwire#1607 B6b: a crossing node's class blocks and point rows
+    (
+        "crossing_dense",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 5 0 0 0 0 0 -1 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 7.15\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    # momwire#1607: the folded cos-1 shape on a crossing deck (kΔ under
+    # `_WELL_SCALED_KD`), dense and sparse
+    (
+        "crossing_folded_dense",
+        deck(
+            "GW 1 10 0 0 0 0 0 1 .001\nGW 2 5 0 0 0 0 0 -.5 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 0.5\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    (
+        "crossing_folded_sparse",
+        deck(
+            "GW 1 40 0 0 0 0 0 4 .001\nGW 2 10 0 0 0 0 0 -.5 .001\nGW 3 30 0 0 -.5 8 0 -.5 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 0.5\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    (
+        "crossing_sparse_ld5",
+        deck(
+            "GW 1 30 0 0 0 0 0 10 .001\nGW 2 10 0 0 0 0 0 -.5 .001\nGW 3 30 0 0 -.5 8 0 -.5 .001\n",
+            "GN 3 0 0 0 20 .01\nLD 5 0 0 0 5.8e7\nFR 0 1 0 0 7.15\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "fills",
+    ),
+    (
+        "duplicate_sparse_ld5",
+        deck(
+            dipole(41)
+            + "GW 2 31 .2 0 -.23 .2 0 .23 .001\nGW 3 31 .2 0 .23 .2 0 -.23 .001\n",
+            "LD 5 0 0 0 3.5e7\n" + FR + "EX 0 1 21 0 1\nXQ\n",
+        ),
+        "fills",
+    ),
 ]
 
 
-@pytest.mark.parametrize("name, text, expect", CASES, ids=[c[0] for c in CASES])
+# Default-lane budget is 5 s; CI median 7.1 s Linux for crossing_folded_dense
+# (momwire 0.85.0 release prep). The other cases stay as the PR guard.
+_SLOW = {"crossing_folded_dense"}
+
+
+@pytest.mark.parametrize(
+    "name, text, expect",
+    [pytest.param(*c, marks=pytest.mark.slow) if c[0] in _SLOW else c for c in CASES],
+    ids=[c[0] for c in CASES],
+)
 def test_a_hand_written_deck_has_the_same_fill(name, text, expect, acc):
     cxx = nc.cxx_fill(text, acc)
     assert nc.classify(cxx) == expect, cxx[:500]
@@ -293,6 +407,9 @@ def test_a_hand_written_deck_has_the_same_fill(name, text, expect, acc):
     assert diff is None, diff
 
 
+# Default-lane budget is 5 s; CI median 8.1 s Linux (momwire 0.85.0 release prep). The per-deck
+# test_a_hand_written_deck_has_the_same_fill cases stay as the PR guard.
+@pytest.mark.slow
 def test_the_routes_are_reached(acc):
     """Not vacuous: whole dumps below the threshold, row digests above it,
     several ports and several points."""

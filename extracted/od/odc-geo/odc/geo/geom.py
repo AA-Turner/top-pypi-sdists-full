@@ -185,7 +185,7 @@ class BoundingBox(Sequence[float]):
         Apply linear transform on four points of the bounding box and compute bounding box of these
         four points.
         """
-        pts = [transform * pt for pt in self.points]
+        pts = [transform @ pt for pt in self.points]
         xx = [x for x, _ in pts]
         yy = [y for _, y in pts]
         return BoundingBox(min(xx), min(yy), max(xx), max(yy), self._crs)
@@ -289,9 +289,9 @@ class BoundingBox(Sequence[float]):
         :param transform: Affine mapping from pixel to world
         :param crs: CRS
         """
-        nx, ny = shape_(shape).xy
-        pts = [(0, 0), (nx, 0), (nx, ny), (0, ny)]
-        transform.itransform(pts)
+        nx, ny = map(float, shape_(shape).xy)
+        pts = [(0.0, 0.0), (nx, 0.0), (nx, ny), (0.0, ny)]
+        transform.itransform(pts)  # type: ignore
         xx, yy = list(zip(*pts))
         return BoundingBox.from_xy((min(xx), max(xx)), (min(yy), max(yy)), crs)
 
@@ -458,10 +458,20 @@ def densify(
     """
     Adds points so they are at most `resolution` units apart.
     """
+    if len(coords) == 0:
+        return []
+    if resolution <= 0:
+        # A degenerate (zero-extent) geometry legitimately produces resolution=0
+        # via callers that auto-derive it from a bounding-box span (e.g. a single
+        # point or an empty GeoBox slice). There is nothing to subdivide by, and
+        # looping with a non-positive step would never terminate, so leave the
+        # coordinates as-is instead.
+        return [cast(Tuple[float, float], p) for p in coords]
+
     d2 = resolution**2
 
     def short_enough(p1, p2):
-        return (p1[0] ** 2 + p2[0] ** 2) < d2
+        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) < d2
 
     new_coords: List[Tuple[float, float]] = [cast(Tuple[float, float], coords[0])]
     for p1, p2 in zip(coords[:-1], coords[1:]):
@@ -692,12 +702,14 @@ class Geometry(SupportsCoords[float]):
         if isinstance(func, Affine):
 
             def _tr(A, x, y):
-                _xy = [A * xy for xy in zip(x, y)]
+                _xy = [A @ xy for xy in zip(x, y)]
                 return [x for x, _ in _xy], [y for _, y in _xy]
 
-            _geom = ops.transform(functools.partial(_tr, func), self.geom)
+            _geom = shapely.transform(
+                self.geom, functools.partial(_tr, func), interleaved=False
+            )
         else:
-            _geom = ops.transform(func, self.geom)
+            _geom = shapely.transform(self.geom, func, interleaved=False)
 
         if isinstance(crs, Unset):
             crs = self.crs
@@ -706,7 +718,7 @@ class Geometry(SupportsCoords[float]):
 
     def _to_crs(self, crs: CRS) -> "Geometry":
         assert self.crs is not None
-        return Geometry(ops.transform(self.crs.transformer_to_crs(crs), self.geom), crs)  # type: ignore
+        return self.transform(self.crs.transformer_to_crs(crs), crs=crs)
 
     def to_crs(
         self,
@@ -972,6 +984,12 @@ class Geometry(SupportsCoords[float]):
         """True for multi-geometry types."""
         t = self.geom_type
         return t.startswith("Multi") or t == "GeometryCollection"
+
+    def __rmatmul__(self, A: Affine) -> "Geometry":
+        """
+        Map geometry points through linear transform ``A*g``.
+        """
+        return self.transform(A)
 
     def __rmul__(self, A: Affine) -> "Geometry":
         """
@@ -1286,7 +1304,7 @@ def polygon_from_transform(
     """
     x1, y1 = shape_(shape).xy
     points = [(0.0, 0.0), (0.0, y1), (x1, y1), (x1, 0.0), (0.0, 0.0)]
-    transform.itransform(points)
+    transform.itransform(points)  # type: ignore
     return polygon(points, crs=crs)
 
 
@@ -1531,5 +1549,13 @@ def count_coordinates(g: Geometry | Iterable[Geometry] | BoundingBox) -> int:
 
 
 def _auto_resolution(g: Geometry) -> float:
-    # aim for ~100 points per side of a square
-    return math.sqrt(g.area) * 4 / 100
+    # aim for ~100 points per side of a square. Not a precision guard: area is
+    # never negative, this just tells apart a genuinely 2D geometry from a
+    # degenerate one (line, point, sliver polygon) where sqrt(area) is a poor
+    # resolution estimate (0 for a point/line, near-0 for a thin polygon).
+    if g.area > 0:
+        return math.sqrt(g.area) * 4 / 100
+    # fall back to the bounding-box extent; can still be 0 for a single point,
+    # which densify() now tolerates instead of asserting.
+    bbox = g.boundingbox
+    return max(bbox.span_x, bbox.span_y) / 25

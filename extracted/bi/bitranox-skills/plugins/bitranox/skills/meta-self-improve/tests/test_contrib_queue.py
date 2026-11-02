@@ -1,0 +1,763 @@
+"""Tests for contrib_queue.py (the durable pending-upstream-contribution queue CLI). ASCII only."""
+import pytest
+
+import contrib_queue as Q
+import self_improve_signals as S
+
+
+@pytest.fixture(autouse=True)
+def home(tmp_path, monkeypatch):
+    h = tmp_path / "home"
+    (h / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(h))
+    monkeypatch.setenv("USERPROFILE", str(h))
+    return h
+
+
+def test_add_queues_a_durable_intent(capsys):
+    rc = Q.main(["add", "--what", "check-tree misses sideways refs",
+                 "--target", "skill:meta-self-improve", "--why", "found in a real dream", "/p/x"])
+    assert rc == 0 and "queued" in capsys.readouterr().out
+    recs = S.read_contributions("/p/x")
+    assert len(recs) == 1
+    assert recs[0]["target"] == "skill:meta-self-improve" and recs[0]["why"] == "found in a real dream"
+
+
+def test_list_shows_pending_without_consuming(capsys):
+    Q.main(["add", "--what", "a gap", "--target", "skill:foo", "/p/x"])
+    capsys.readouterr()
+    assert Q.main(["list", "/p/x"]) == 0
+    assert "a gap" in capsys.readouterr().out
+    assert len(S.read_contributions("/p/x")) == 1        # listing is not shipping
+    Q.main(["list", "/p/x"])
+    assert "a gap" in capsys.readouterr().out            # still there
+
+
+def test_list_is_quiet_when_empty(capsys):
+    assert Q.main(["list", "/p/empty"]) == 0
+    assert "no pending" in capsys.readouterr().out
+
+
+def test_drain_clears_only_when_asked(capsys):
+    Q.main(["add", "--what", "x", "/p/x"])
+    capsys.readouterr()
+    assert Q.main(["drain", "/p/x"]) == 0
+    assert "drained" in capsys.readouterr().out
+    assert S.read_contributions("/p/x") == []
+
+
+def test_same_intent_twice_is_one_todo(capsys):
+    Q.main(["add", "--what", "same", "--target", "skill:foo", "/p/x"])
+    Q.main(["add", "--what", "same", "--target", "skill:foo", "/p/x"])
+    assert len(S.read_contributions("/p/x")) == 1
+
+
+def test_no_subcommand_is_usage_error():
+    assert Q.main([]) == 2
+
+
+# ---- drop: a disproven or stale intent must LEAVE the queue and not come back -----------------
+
+def test_drop_removes_one_entry_and_leaves_the_rest(capsys):
+    Q.main(["add", "--what", "keeper one", "--target", "skill:a", "/p/d"])
+    Q.main(["add", "--what", "disproven", "--target", "skill:b", "/p/d"])
+    Q.main(["add", "--what", "keeper two", "--target", "skill:c", "/p/d"])
+    capsys.readouterr()
+    assert Q.main(["drop", "--index", "2", "--reason", "verified false", "/p/d"]) == 0
+    left = [r["what"] for r in S.read_contributions("/p/d")]
+    assert left == ["keeper one", "keeper two"]
+
+
+def test_dropped_intent_cannot_be_requeued(capsys):
+    """The whole point: a disproven contribution must not be re-evaluated by every later dream."""
+    Q.main(["add", "--what", "codes.OK is a tuple", "--target", "skill:libs", "/p/d2"])
+    Q.main(["drop", "--index", "1", "--reason", "empirically false", "/p/d2"])
+    capsys.readouterr()
+    Q.main(["add", "--what", "codes.OK is a tuple", "--target", "skill:libs", "/p/d2"])
+    assert S.read_contributions("/p/d2") == []          # refused, not silently re-queued
+    assert "rejected" in capsys.readouterr().out.lower()
+
+
+def test_drop_records_the_reason_for_later_readers():
+    Q.main(["add", "--what", "stale thing", "--target", "skill:x", "/p/d3"])
+    Q.main(["drop", "--index", "1", "--reason", "superseded by 5.104.0", "/p/d3"])
+    rej = S.read_rejected("/p/d3")
+    assert len(rej) == 1
+    assert rej[0]["reason"] == "superseded by 5.104.0"
+    assert rej[0]["what"] == "stale thing"
+
+
+def test_drop_rejects_an_out_of_range_index(capsys):
+    Q.main(["add", "--what", "only one", "--target", "skill:x", "/p/d4"])
+    capsys.readouterr()
+    assert Q.main(["drop", "--index", "7", "--reason", "nope", "/p/d4"]) != 0
+    assert len(S.read_contributions("/p/d4")) == 1      # nothing removed on a bad index
+
+
+def test_list_numbers_entries_so_drop_can_target_them(capsys):
+    Q.main(["add", "--what", "first", "--target", "skill:x", "/p/d5"])
+    Q.main(["add", "--what", "second", "--target", "skill:y", "/p/d5"])
+    capsys.readouterr()
+    Q.main(["list", "/p/d5"])
+    out = capsys.readouterr().out
+    assert "1." in out and "2." in out
+
+
+# ---- ship: a DELIVERED intent leaves the queue as shipped, not as rejected ----------------------
+
+def test_ship_removes_one_entry_and_records_it_as_shipped(capsys):
+    Q.main(["add", "--what", "first", "--target", "skill:x", "/p/s1"])
+    Q.main(["add", "--what", "second", "--target", "skill:y", "/p/s1"])
+    capsys.readouterr()
+    assert Q.main(["ship", "--index", "1", "--note", "meta-skill-writer 5.123.0", "/p/s1"]) == 0
+    assert "shipped" in capsys.readouterr().out
+    left = S.read_contributions("/p/s1")
+    assert [r["what"] for r in left] == ["second"]
+    shipped = S.read_shipped("/p/s1")
+    assert len(shipped) == 1
+    assert shipped[0]["what"] == "first" and shipped[0]["note"] == "meta-skill-writer 5.123.0"
+
+
+def test_a_shipped_intent_is_not_reported_as_rejected(capsys):
+    Q.main(["add", "--what", "delivered thing", "--target", "skill:x", "/p/s2"])
+    Q.main(["ship", "--index", "1", "--note", "v1.2.3", "/p/s2"])
+    capsys.readouterr()
+    assert S.read_rejected("/p/s2") == []                # the whole point: not a rejection
+    assert Q.main(["rejected", "/p/s2"]) == 0
+    assert "no dropped" in capsys.readouterr().out
+    assert Q.main(["shipped", "/p/s2"]) == 0
+    assert "delivered thing" in capsys.readouterr().out
+
+
+def test_a_shipped_intent_is_never_requeued(capsys):
+    Q.main(["add", "--what", "done gap", "--target", "skill:x", "/p/s3"])
+    Q.main(["ship", "--index", "1", "/p/s3"])
+    capsys.readouterr()
+    Q.main(["add", "--what", "done gap", "--target", "skill:x", "/p/s3"])   # a later dream re-notices
+    assert "not queued" in capsys.readouterr().out
+    assert S.read_contributions("/p/s3") == []
+
+
+def test_ship_and_drop_are_reported_separately(capsys):
+    Q.main(["add", "--what", "shipped one", "--target", "skill:x", "/p/s4"])
+    Q.main(["add", "--what", "wrong one", "--target", "skill:y", "/p/s4"])
+    Q.main(["ship", "--index", "1", "--note", "v2", "/p/s4"])
+    Q.main(["drop", "--index", "1", "--reason", "disproven", "/p/s4"])
+    capsys.readouterr()
+    Q.main(["rejected", "/p/s4"])
+    out = capsys.readouterr().out
+    assert "wrong one" in out and "shipped one" not in out
+    Q.main(["shipped", "/p/s4"])
+    out = capsys.readouterr().out
+    assert "shipped one" in out and "wrong one" not in out
+
+
+def test_ship_rejects_an_out_of_range_index(capsys):
+    Q.main(["add", "--what", "only one", "--target", "skill:x", "/p/s5"])
+    capsys.readouterr()
+    assert Q.main(["ship", "--index", "9", "/p/s5"]) != 0
+    assert len(S.read_contributions("/p/s5")) == 1      # nothing removed on a bad index
+
+
+def test_a_closed_record_without_an_outcome_reads_as_rejected(capsys):
+    """Records written before the outcome field existed carry no outcome and were all drops."""
+    Q.main(["add", "--what", "old drop", "--target", "skill:x", "/p/s6"])
+    Q.main(["drop", "--index", "1", "--reason", "stale", "/p/s6"])
+    import json
+    f = S.rejected_file("/p/s6")
+    recs = [json.loads(ln) for ln in f.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    for r in recs:
+        r.pop("outcome", None)
+    f.write_text("\n".join(json.dumps(r, sort_keys=True) for r in recs) + "\n", encoding="utf-8")
+    assert [r["what"] for r in S.read_rejected("/p/s6")] == ["old drop"]
+    assert S.read_shipped("/p/s6") == []
+
+
+# ---- --match: a STABLE selector, because an index shifts under the previous close ---------------
+
+def test_match_selects_by_text_so_order_does_not_matter(capsys):
+    Q.main(["add", "--what", "wrong idea", "--target", "skill:a", "/p/m1"])
+    Q.main(["add", "--what", "delivered idea", "--target", "skill:b", "/p/m1"])
+    Q.main(["add", "--what", "keep me", "--target", "skill:c", "/p/m1"])
+    capsys.readouterr()
+    # close the EARLIER entry first: with --index this shifts the rest, with --match it cannot
+    assert Q.main(["drop", "--match", "wrong", "--reason", "disproven", "/p/m1"]) == 0
+    assert Q.main(["ship", "--match", "delivered", "--note", "5.122.0", "/p/m1"]) == 0
+    assert [r["what"] for r in S.read_contributions("/p/m1")] == ["keep me"]
+    assert [r["what"] for r in S.read_shipped("/p/m1")] == ["delivered idea"]
+    assert [r["what"] for r in S.read_rejected("/p/m1")] == ["wrong idea"]
+
+
+def test_match_refuses_an_ambiguous_selector(capsys):
+    Q.main(["add", "--what", "cache the gate", "--target", "skill:a", "/p/m2"])
+    Q.main(["add", "--what", "cache the store", "--target", "skill:b", "/p/m2"])
+    capsys.readouterr()
+    assert Q.main(["ship", "--match", "cache", "--note", "v1", "/p/m2"]) != 0
+    assert len(S.read_contributions("/p/m2")) == 2      # nothing closed on an ambiguous match
+    assert S.read_shipped("/p/m2") == []
+
+
+def test_match_refuses_when_nothing_matches(capsys):
+    Q.main(["add", "--what", "only entry", "--target", "skill:a", "/p/m3"])
+    capsys.readouterr()
+    assert Q.main(["drop", "--match", "absent", "--reason", "x", "/p/m3"]) != 0
+    assert len(S.read_contributions("/p/m3")) == 1
+
+
+def test_match_is_case_insensitive_and_matches_the_target_too(capsys):
+    Q.main(["add", "--what", "some gap", "--target", "skill:meta-dream-tree", "/p/m4"])
+    capsys.readouterr()
+    assert Q.main(["ship", "--match", "DREAM-TREE", "--note", "v9", "/p/m4"]) == 0
+    assert [r["what"] for r in S.read_shipped("/p/m4")] == ["some gap"]
+
+
+def test_ship_needs_exactly_one_selector(capsys):
+    Q.main(["add", "--what", "an entry", "--target", "skill:a", "/p/m5"])
+    capsys.readouterr()
+    assert Q.main(["ship", "/p/m5"]) != 0                                   # neither
+    assert Q.main(["ship", "--index", "1", "--match", "entry", "/p/m5"]) != 0  # both
+    assert len(S.read_contributions("/p/m5")) == 1
+
+
+def test_requeue_of_a_shipped_intent_says_shipped_not_rejected(capsys):
+    Q.main(["add", "--what", "already done", "--target", "skill:x", "/p/r1"])
+    Q.main(["ship", "--match", "already done", "--note", "5.123.0", "/p/r1"])
+    capsys.readouterr()
+    Q.main(["add", "--what", "already done", "--target", "skill:x", "/p/r1"])
+    out = capsys.readouterr().out
+    assert "shipped" in out and "rejected" not in out    # it was delivered, not disproven
+
+
+def test_add_records_the_project_path_in_the_record(tmp_path):
+    # The queue file is named by a sha1 of the project path, which is one-way: answering "which
+    # projects have pending contributions?" otherwise means brute-forcing sha1 over the filesystem.
+    # Recording the path at add time makes the file self-describing.
+    p = tmp_path / "proj"
+    p.mkdir()
+    Q.main(["add", "--what", "a gap", "--target", "skill:foo", str(p)])
+    recs = S.read_contributions(str(p))
+    assert recs[0]["proj"] == str(p)
+
+
+def test_queues_enumerates_every_queue_with_hash_count_and_path(tmp_path, capsys):
+    live = tmp_path / "live"
+    live.mkdir()
+    Q.main(["add", "--what", "one", str(live)])
+    Q.main(["add", "--what", "two", str(live)])
+    Q.main(["add", "--what", "three", str(tmp_path / "vanished")])
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 0
+    out = capsys.readouterr().out
+    assert S.proj_key(str(live))[:8] in out
+    assert str(live) in out
+    assert "2 open" in out                      # the live queue's open count
+    assert "cwd gone" in out                    # the vanished project is reported, not hidden
+
+
+def test_queues_addresses_a_vanished_queue_by_key(tmp_path, capsys):
+    gone = tmp_path / "vanished"
+    Q.main(["add", "--what", "unreachable intent", str(gone)])
+    key = S.proj_key(str(gone))
+    capsys.readouterr()
+    # a queue whose cwd no longer exists must still be listable and closable, by its hash
+    assert Q.main(["list", "queue_key:" + key]) == 0
+    assert "unreachable intent" in capsys.readouterr().out
+    assert Q.main(["ship", "--match", "unreachable", "--note", "landed", "queue_key:" + key]) == 0
+    assert S.read_contributions("queue_key:" + key) == []
+
+
+def _fake_session(home, key, cwd, sid="s1"):
+    """Plant the SessionStart record + transcript pair that names `cwd` for `key`."""
+    import json
+    tdir = home / ".claude" / "projects" / "enc"
+    tdir.mkdir(parents=True, exist_ok=True)
+    tp = tdir / (sid + ".jsonl")
+    tp.write_text(json.dumps({"type": "user", "cwd": cwd}) + "\n", encoding="utf-8")
+    adir = S._audit_dir()      # the DIRECTORY, asked for directly - not a fake key via contrib_file
+    adir.mkdir(parents=True, exist_ok=True)
+    (adir / (key + ".session.json")).write_text(
+        json.dumps({"session_id": sid, "transcript_path": str(tp)}), encoding="utf-8")
+
+
+def test_queues_resolves_a_legacy_queue_from_its_session_record(tmp_path, home, capsys):
+    # Entries queued BEFORE the proj stamp carry no path. The sibling session record names the
+    # transcript, whose records carry cwd - so a legacy queue is still resolvable.
+    proj = tmp_path / "legacy"
+    proj.mkdir()
+    S.add_contribution("queue_key:" + S.proj_key(str(proj)), {"what": "legacy intent"})  # no proj stamp
+    _fake_session(home, S.proj_key(str(proj)), str(proj))
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 0
+    assert str(proj) in capsys.readouterr().out
+
+
+def test_queues_rejects_a_session_record_whose_cwd_hashes_elsewhere(tmp_path, home, capsys):
+    # The direction where it must NOT apply: a mismatched pairing is rejected, never displayed as
+    # this queue's project - a confident wrong path is worse than "unknown".
+    proj = tmp_path / "legacy2"
+    proj.mkdir()
+    key = S.proj_key(str(proj))
+    S.add_contribution("queue_key:" + key, {"what": "legacy intent 2"})
+    _fake_session(home, key, str(tmp_path / "some-other-project"), sid="s2")
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 0
+    out = capsys.readouterr().out
+    assert "some-other-project" not in out
+    assert "project unknown" in out
+
+
+def test_the_bare_key_prefix_is_not_honored(tmp_path):
+    # The prefix names its own scope (`queue_key:`) precisely so it cannot read as a facility every
+    # per-project state function understands - only contrib_file honors it. A bare `key:` must
+    # therefore be treated as an ordinary path and hashed, never as a queue key.
+    gone = tmp_path / "vanished"
+    Q.main(["add", "--what", "scoped intent", str(gone)])
+    key = S.proj_key(str(gone))
+    assert S.read_contributions("queue_key:" + key)          # the real prefix reaches it
+    assert S.read_contributions("key:" + key) == []          # the bare one does not
+    assert S.contrib_file("key:" + key) != S.contrib_file("queue_key:" + key)
+
+
+def test_queues_prints_the_key_the_verbs_actually_accept(capsys):
+    """`queues` told you to use `queue_key:<full-key>` while printing only the first 8 characters.
+
+    Copying what it printed selected nothing, and the verbs answered "no pending upstream
+    contributions" - the same words an empty queue produces - so the operator concluded the work
+    was already shipped. The listing must print the key that works.
+    """
+    Q.main(["add", "--what", "w", "--target", "skill:x", "--why", "y", "/p/deep"])
+    key = S.proj_key("/p/deep")
+
+    Q.main(["queues"])
+    out = capsys.readouterr().out
+
+    assert key in out, "queues printed a key that no verb accepts"
+    assert Q.main(["list", S.QUEUE_KEY_PREFIX + key]) == 0
+
+
+def test_an_unknown_queue_key_is_refused_not_reported_as_empty(capsys):
+    """A no-match must not wear the same words as an empty queue."""
+    rc = Q.main(["list", S.QUEUE_KEY_PREFIX + "0123456789abcdef"])
+    out = capsys.readouterr().out
+
+    assert rc == 2, "an unknown queue key exited 0 as though the queue were merely empty"
+    assert "no such queue" in out.lower()
+
+
+def test_a_malformed_queue_key_is_refused_with_a_message_not_a_traceback(capsys):
+    """A key that is not `proj_key` output is refused by `contrib_file`. The CLI must turn that
+    into a diagnosis and exit 2, the way an unknown-but-well-formed key already does - a traceback
+    is not a machine-readable failure, and it is what an operator sees for a plain typo."""
+    for bad in ("../../etc/passwd", "/tmp/absolute", "b76cc15ac35f308"):
+        rc = Q.main(["list", S.QUEUE_KEY_PREFIX + bad])
+        out = capsys.readouterr().out
+        assert rc == 2, "malformed key %r did not exit 2" % bad
+        assert "queue key" in out.lower(), "malformed key %r printed no diagnosis: %r" % (bad, out)
+
+
+def test_a_bad_queue_key_degrades_inside_the_module_rather_than_escaping(home):
+    """`contrib_file` refuses a bad key, and that refusal must not escape the module's BEST-EFFORT
+    functions. They guard with `except OSError`, which does not catch ValueError.
+
+    Unreachable from a hook today - a hook's `proj` is always a cwd path, never a queue key - but
+    fail-open is the property the whole plugin rests on, and "unreachable today" is not a guarantee.
+    The CLI keeps its hard refusal because its own check runs before any of these.
+    """
+    bad = S.QUEUE_KEY_PREFIX + "../../etc/passwd"
+    assert S.read_contributions(bad) == []
+    assert S.add_contribution(bad, {"what": "x"}) is False
+    S.drain_contributions(bad)          # must not raise
+
+
+# ---- a close that cannot be recorded must say so, and must not lose the entry ------------------
+
+def _block_tombstones(proj):
+    """Make the tombstone file unwritable on every OS: a directory where the file must go."""
+    S.rejected_file(proj).mkdir(parents=True)
+
+
+def test_ship_reports_failure_when_the_tombstone_cannot_be_written(capsys):
+    """The IO error was swallowed and the CLI printed "will NOT be re-queued" with rc 0, while
+    nothing had been recorded."""
+    Q.main(["add", "--what", "only one", "--target", "skill:x", "/p/f1"])
+    _block_tombstones("/p/f1")
+    capsys.readouterr()
+    assert Q.main(["ship", "--index", "1", "/p/f1"]) == 2       # could not run, never a "no"
+    out = capsys.readouterr()
+    assert "will NOT be re-queued" not in out.out and out.err.strip()
+    assert [r["what"] for r in S.read_contributions("/p/f1")] == ["only one"]
+
+
+def test_a_failed_tombstone_does_not_take_the_entry_out_of_the_queue():
+    """With two entries the queue rewrite succeeded BEFORE the tombstone failed, so the shipped
+    entry left the queue with no tombstone - the resurrection the tombstone exists to prevent."""
+    Q.main(["add", "--what", "first", "--target", "skill:x", "/p/f2"])
+    Q.main(["add", "--what", "second", "--target", "skill:y", "/p/f2"])
+    _block_tombstones("/p/f2")
+    with pytest.raises(OSError):
+        S.drop_contribution("/p/f2", index=1, reason="stale")
+    assert [r["what"] for r in S.read_contributions("/p/f2")] == ["first", "second"]
+
+
+def test_ship_succeeds_and_records_when_the_store_is_writable(capsys):
+    """Control for the two tests above: the ordinary path is unchanged."""
+    Q.main(["add", "--what", "fine", "--target", "skill:x", "/p/f3"])
+    capsys.readouterr()
+    assert Q.main(["ship", "--index", "1", "/p/f3"]) == 0
+    assert S.read_contributions("/p/f3") == []
+    assert [r["what"] for r in S.read_shipped("/p/f3")] == ["fine"]
+
+
+# ---- drain closes every entry as SHIPPED, so a drained intent stays gone -----------------------
+
+def test_a_drained_intent_is_not_requeued_and_is_listed_as_shipped(capsys):
+    Q.main(["add", "--what", "gap A", "--target", "skill:x", "/p/dr1"])
+    Q.main(["add", "--what", "gap B", "/p/dr1"])
+    assert Q.main(["drain", "/p/dr1"]) == 0
+    capsys.readouterr()
+    assert Q.main(["add", "--what", "gap A", "--target", "skill:x", "/p/dr1"]) == 0
+    assert "not queued (shipped earlier)" in capsys.readouterr().out
+    assert S.read_contributions("/p/dr1") == []
+    assert Q.main(["shipped", "/p/dr1"]) == 0
+    out = capsys.readouterr().out
+    assert "gap A" in out and "gap B" in out
+
+
+def test_drain_on_an_unwritable_store_fails_and_keeps_the_queue(capsys):
+    Q.main(["add", "--what", "gap A", "/p/dr2"])
+    _block_tombstones("/p/dr2")
+    capsys.readouterr()
+    assert Q.main(["drain", "/p/dr2"]) == 2
+    out = capsys.readouterr()
+    assert "drained" not in out.out and out.err.strip()
+    assert [r["what"] for r in S.read_contributions("/p/dr2")] == ["gap A"]
+
+
+def test_drain_of_an_empty_queue_is_not_an_error(capsys):
+    assert Q.main(["drain", "/p/dr3"]) == 0
+    assert S.read_shipped("/p/dr3") == []
+
+
+# ---- a queue_key: close writes the SAME tombstone file a path close does -----------------------
+
+def test_a_ship_by_queue_key_blocks_a_requeue_by_path(tmp_path, capsys):
+    gone = tmp_path / "gone"
+    Q.main(["add", "--what", "vanishing gap", str(gone)])
+    key = S.QUEUE_KEY_PREFIX + S.proj_key(str(gone))
+    assert S.rejected_file(key) == S.rejected_file(str(gone))
+    assert Q.main(["ship", "--match", "vanishing", key]) == 0
+    capsys.readouterr()
+    gone.mkdir()
+    assert Q.main(["add", "--what", "vanishing gap", str(gone)]) == 0
+    assert "not queued (shipped earlier)" in capsys.readouterr().out
+    assert S.read_contributions(str(gone)) == []
+    assert [r["what"] for r in S.read_shipped(key)] == ["vanishing gap"]
+
+
+# ---- an undecodable queue line never empties the queue -----------------------------------------
+
+def test_a_non_utf8_byte_does_not_hide_or_wipe_the_queue(capsys):
+    Q.main(["add", "--what", "first", "/p/u1"])
+    Q.main(["add", "--what", "second", "/p/u1"])
+    with S.contrib_file("/p/u1").open("ab") as fh:
+        fh.write(b'{"what":"caf\xe9 note"}\n')             # a cp1252 hand edit
+    capsys.readouterr()
+    assert Q.main(["list", "/p/u1"]) == 0
+    out = capsys.readouterr().out
+    assert "first" in out and "second" in out and "caf" in out
+    assert Q.main(["add", "--what", "new", "/p/u1"]) == 0
+    whats = [r["what"] for r in S.read_contributions("/p/u1")]
+    assert whats[:2] == ["first", "second"] and whats[-1] == "new" and len(whats) == 4
+
+
+def test_a_malformed_json_line_is_skipped_and_the_rest_kept(capsys):
+    """Control for the undecodable case: a torn JSON line was already skipped, not fatal."""
+    Q.main(["add", "--what", "first", "/p/u2"])
+    with S.contrib_file("/p/u2").open("ab") as fh:
+        fh.write(b"{not json\n")
+    Q.main(["add", "--what", "second", "/p/u2"])
+    assert [r["what"] for r in S.read_contributions("/p/u2")] == ["first", "second"]
+
+
+def test_a_bom_on_the_queue_file_does_not_drop_the_first_entry():
+    Q.main(["add", "--what", "first", "/p/u3"])
+    f = S.contrib_file("/p/u3")
+    f.write_bytes(b"\xef\xbb\xbf" + f.read_bytes())
+    assert [r["what"] for r in S.read_contributions("/p/u3")] == ["first"]
+
+
+def test_a_line_separator_inside_a_value_does_not_split_the_entry():
+    import json
+    f = S.contrib_file("/p/u4")
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"what": "a\u2028b"}, ensure_ascii=False) + "\n", encoding="utf-8")
+    assert [r["what"] for r in S.read_contributions("/p/u4")] == ["a\u2028b"]
+
+
+def test_an_unreadable_queue_is_never_overwritten_by_add():
+    """An unreadable queue must not be read as empty by add and then rewritten with only the new
+    entry."""
+    f = S.contrib_file("/p/u5")
+    f.mkdir(parents=True)                                     # unreadable AND unwritable as a file
+    assert S.add_contribution("/p/u5", {"what": "new"}) is False
+    with pytest.raises(OSError):
+        S.add_contribution("/p/u5", {"what": "new"}, strict=True)
+    assert f.is_dir()
+
+
+# ---- add: an empty intent and a failed write are not "already queued" --------------------------
+
+@pytest.mark.parametrize("what", ["", "   "])
+def test_add_refuses_an_empty_what(capsys, what):
+    assert Q.main(["add", "--what", what, "/p/e1"]) == 2
+    out = capsys.readouterr()
+    assert "already queued" not in out.out
+    assert "--what" in out.err
+    assert S.read_contributions("/p/e1") == []
+
+
+def test_add_reports_a_store_write_failure_with_exit_2(capsys):
+    Q.main(["add", "--what", "gap A", "/p/e2"])
+    f = S.contrib_file("/p/e2")
+    f.unlink()
+    f.mkdir()                                                 # the queue file cannot be written
+    capsys.readouterr()
+    assert Q.main(["add", "--what", "gap B", "/p/e2"]) == 2
+    out = capsys.readouterr()
+    assert "already queued" not in out.out
+    assert "failed" in out.err
+
+
+def test_add_of_a_real_duplicate_still_says_already_queued(capsys):
+    Q.main(["add", "--what", "gap A", "/p/e3"])
+    capsys.readouterr()
+    assert Q.main(["add", "--what", "gap A", "/p/e3"]) == 0
+    assert "not queued (already queued): gap A" in capsys.readouterr().out
+
+
+def test_add_contribution_best_effort_default_is_unchanged():
+    """Hooks rely on add_contribution never raising: a failure is False, never an exception."""
+    f = S.contrib_file("/p/e4")
+    f.mkdir(parents=True)
+    assert S.add_contribution("/p/e4", {"what": "x"}) is False
+
+
+# ---- an unreadable store is never an empty one -------------------------------------------------
+# A directory where the file must be is unreadable as a file on every OS, which is what these use.
+
+def test_an_unreadable_closed_set_does_not_let_a_closed_intent_back_in(capsys):
+    """The re-queue block read the closed set through a reader that answered [] on ANY error, so a
+    closed set that exists but cannot be read let a shipped intent be queued again as a new TODO."""
+    S.rejected_file("/p/rc1").mkdir(parents=True)
+    assert Q.main(["add", "--what", "gap", "/p/rc1"]) == 2
+    out = capsys.readouterr()
+    assert "queued: gap" not in out.out and "failed" in out.err
+    assert S.contrib_file("/p/rc1").exists() is False                 # nothing was queued
+    assert S.add_contribution("/p/rc1", {"what": "gap"}) is False      # best-effort: refused
+    with pytest.raises(OSError):
+        S.add_contribution("/p/rc1", {"what": "gap"}, strict=True)
+
+
+@pytest.mark.parametrize("verb", ["shipped", "rejected"])
+def test_shipped_and_rejected_fail_on_an_unreadable_closed_set(capsys, verb):
+    S.rejected_file("/p/rc2").mkdir(parents=True)
+    assert Q.main([verb, "/p/rc2"]) == 2
+    out = capsys.readouterr()
+    assert "no shipped" not in out.out and "no dropped" not in out.out
+    assert "could not read" in out.err
+
+
+@pytest.mark.parametrize("verb", ["shipped", "rejected"])
+def test_shipped_and_rejected_stay_quiet_on_an_absent_closed_set(capsys, verb):
+    """The control: a closed set that was never written is genuinely empty."""
+    assert Q.main([verb, "/p/rc3"]) == 0
+    assert "no " in capsys.readouterr().out
+
+
+def test_list_fails_on_an_unreadable_queue(capsys):
+    S.contrib_file("/p/rc4").mkdir(parents=True)
+    assert Q.main(["list", "/p/rc4"]) == 2
+    out = capsys.readouterr()
+    assert "no pending" not in out.out and "could not read" in out.err
+
+
+def test_queues_reports_an_unreadable_queue_instead_of_hiding_it(capsys):
+    Q.main(["add", "--what", "readable", "/p/rc5"])
+    S.contrib_file("/p/rc6").mkdir(parents=True)
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 2
+    out = capsys.readouterr().out
+    assert S.proj_key("/p/rc6") in out and "unreadable" in out
+    assert S.proj_key("/p/rc5") in out                                # the readable one still listed
+
+
+def test_the_readers_raise_on_an_unreadable_file_and_answer_empty_on_an_absent_one():
+    """Every reader, not just the loaders the writers use: a caller that forgets to ask for the
+    raising variant must not get the empty answer an unreadable file used to produce."""
+    for reader in (S.read_contributions, S.read_closed, S.read_shipped, S.read_rejected):
+        assert reader("/p/rc7") == []
+    S.contrib_file("/p/rc7").mkdir(parents=True)
+    S.rejected_file("/p/rc7").mkdir(parents=True)
+    for reader in (S.read_contributions, S.read_closed, S.read_shipped, S.read_rejected):
+        with pytest.raises(OSError):
+            reader("/p/rc7")
+
+
+# ---- queues with nothing open ------------------------------------------------------------------
+
+def test_queues_says_so_when_no_queue_exists(capsys):
+    assert Q.main(["queues"]) == 0
+    assert "no queue on this machine has an open contribution (0 queue file(s) seen)" \
+        in capsys.readouterr().out
+
+
+# ---- a cp1252 console does not crash after the write -------------------------------------------
+
+def test_a_cp1252_console_survives_a_what_it_cannot_encode(home):
+    import os
+    import subprocess
+    import sys
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONUTF8", "PYTHONIOENCODING")}
+    env.update(HOME=str(home), USERPROFILE=str(home), PYTHONIOENCODING="cp1252")
+    r = subprocess.run([sys.executable, Q.__file__, "add", "--what", "hook drops → arrow",
+                        "/p/c1"], env=env, capture_output=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr
+    assert "queued" in r.stdout
+
+
+# ---- claim: two sweeping sessions must not work the same entry --------------------------------
+
+_SID_A = "aaaaaaaa-1111-2222-3333-444444444444"
+_SID_B = "bbbbbbbb-1111-2222-3333-444444444444"
+
+
+def _claim_cli(monkeypatch, sid, *extra):
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
+    return Q.main(["claim", "--match", "the gap", *extra, "/p/cl"])
+
+
+def test_a_claim_held_by_another_session_refuses_a_second_claim(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap", "--target", "skill:foo", "/p/cl"])
+    assert _claim_cli(monkeypatch, _SID_A) == 0
+    capsys.readouterr()
+    assert _claim_cli(monkeypatch, _SID_B) == 1
+    out = capsys.readouterr()
+    assert "aaaaaaaa" in out.out + out.err                    # the refusal names the holder
+    assert S.read_contributions("/p/cl")[0]["claim"]["session"] == _SID_A    # A keeps it
+
+
+def test_the_holder_may_claim_again_to_extend(monkeypatch):
+    import time
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    started = time.time() - 60
+    S.claim_contribution("/p/cl", "the gap", _SID_A, hours=1, now=started)   # still live
+    assert S.claim_state(S.read_contributions("/p/cl")[0]) == "live"
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", _SID_A)
+    assert Q.main(["claim", "--match", "the gap", "--hours", "2", "/p/cl"]) == 0
+    claim = S.read_contributions("/p/cl")[0]["claim"]
+    assert claim["until"] > started + 1.5 * 3600              # restarted from now, for 2h
+
+
+def test_an_expired_claim_does_not_block_another_session(monkeypatch):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    S.claim_contribution("/p/cl", "the gap", _SID_A, hours=1, now=1000.0)   # expired long ago
+    assert _claim_cli(monkeypatch, _SID_B) == 0
+    assert S.read_contributions("/p/cl")[0]["claim"]["session"] == _SID_B
+
+
+def test_list_marks_a_live_claim_and_an_expired_one(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    Q.main(["add", "--what", "old gap", "/p/cl"])
+    S.claim_contribution("/p/cl", "old gap", _SID_B, hours=1, now=1000.0)
+    _claim_cli(monkeypatch, _SID_A)
+    capsys.readouterr()
+    assert Q.main(["list", "/p/cl"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    live = next(ln for ln in lines if "the gap" in ln)
+    stale = next(ln for ln in lines if "old gap" in ln)
+    assert "claimed by aaaaaaaa" in live
+    assert "expired claim" in stale and "bbbbbbbb" in stale
+
+
+def test_release_removes_the_claim_and_says_whose_it_was(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    _claim_cli(monkeypatch, _SID_A)
+    capsys.readouterr()
+    assert Q.main(["release", "--match", "the gap", "/p/cl"]) == 0
+    assert "aaaaaaaa" in capsys.readouterr().out
+    assert "claim" not in S.read_contributions("/p/cl")[0]
+    assert _claim_cli(monkeypatch, _SID_B) == 0                # free again
+
+
+def test_release_of_an_unclaimed_entry_is_not_an_error(capsys):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    capsys.readouterr()
+    assert Q.main(["release", "--match", "the gap", "/p/cl"]) == 0
+    assert "not claimed" in capsys.readouterr().out
+
+
+def test_claim_without_a_session_id_or_by_is_refused(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    assert Q.main(["claim", "--match", "the gap", "/p/cl"]) == 2
+    assert "--by" in capsys.readouterr().err
+    assert "claim" not in S.read_contributions("/p/cl")[0]
+
+
+def test_claim_by_name_works_without_a_session_id(monkeypatch):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    assert Q.main(["claim", "--match", "the gap", "--by", "nightly-sweep", "/p/cl"]) == 0
+    assert S.read_contributions("/p/cl")[0]["claim"]["session"] == "nightly-sweep"
+
+
+def test_claim_refuses_an_ambiguous_or_missing_match(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap one", "/p/cl"])
+    Q.main(["add", "--what", "the gap two", "/p/cl"])
+    assert _claim_cli(monkeypatch, _SID_A) == 2                # "the gap" matches both
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", _SID_A)
+    assert Q.main(["claim", "--match", "nothing like it", "/p/cl"]) == 2
+    assert all("claim" not in r for r in S.read_contributions("/p/cl"))
+
+
+@pytest.mark.parametrize("hours", ["0", "-1", "nan", "inf"])
+def test_claim_refuses_a_duration_that_is_not_a_positive_finite_number(monkeypatch, hours):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    assert _claim_cli(monkeypatch, _SID_A, "--hours", hours) == 2
+    assert "claim" not in S.read_contributions("/p/cl")[0]
+
+
+def test_a_claimed_entry_still_ships_and_stays_closed(monkeypatch, capsys):
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    _claim_cli(monkeypatch, _SID_A)
+    assert Q.main(["ship", "--match", "the gap", "--note", "1.0", "/p/cl"]) == 0
+    assert S.read_contributions("/p/cl") == []
+    capsys.readouterr()
+    Q.main(["add", "--what", "the gap", "/p/cl"])
+    assert "shipped earlier" in capsys.readouterr().out
+
+
+def test_queues_counts_the_live_claims_beside_the_open_entries(tmp_path, capsys):
+    """`queues` is the machine-wide view, so it says how many entries some session holds; an
+    expired claim holds nothing and is not counted."""
+    import time
+    where = tmp_path / "claimed"
+    where.mkdir()
+    for what in ("held gap", "lapsed gap", "free gap"):
+        Q.main(["add", "--what", what, str(where)])
+    S.claim_contribution(str(where), "held gap", _SID_A, hours=1)
+    S.claim_contribution(str(where), "lapsed gap", _SID_B, hours=1, now=time.time() - 7200)
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 0
+    row = next(line for line in capsys.readouterr().out.splitlines() if str(where) in line)
+    assert "  3 open, 1 claimed  %s" % where in row
+
+
+def test_queues_names_no_claim_count_when_nothing_is_claimed(tmp_path, capsys):
+    where = tmp_path / "unclaimed"
+    where.mkdir()
+    Q.main(["add", "--what", "a gap", str(where)])
+    capsys.readouterr()
+    assert Q.main(["queues"]) == 0
+    row = next(line for line in capsys.readouterr().out.splitlines() if str(where) in line)
+    assert "  1 open  %s" % where in row            # no claim field between count and path

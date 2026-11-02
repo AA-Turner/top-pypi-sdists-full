@@ -1,0 +1,182 @@
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+# pylint: disable=no-member
+"""Many boards have RaspberryPI-compatible PinOut, but require to import
+special GPIO module instead RPI.GPIO.
+
+This module determines the type of board and import the corresponding
+GPIO module
+
+Can be extended to support BeagleBone or other boards Supports
+MicroPython
+"""
+
+from importlib import import_module
+from typing import Protocol, Any, runtime_checkable
+from ._tmc_gpio_board_base import *
+
+
+@runtime_checkable
+class GPIOModuleProtocol(Protocol):
+    """Protocol defining the interface for GPIO modules like RPi.GPIO,
+    Jetson.GPIO, etc."""
+
+    # pylint: disable=missing-function-docstring
+
+    BCM: int
+    BOARD: int
+    IN: int
+    OUT: int
+    HIGH: int
+    LOW: int
+    PUD_OFF: int
+    PUD_UP: int
+    PUD_DOWN: int
+    RISING: int
+
+    class PWM:
+        """PWM class protocol."""
+
+        def __init__(self, _channel: int, _frequency: float, /) -> None: ...
+        def start(self, _dutycycle: float, /) -> None: ...
+        def ChangeDutyCycle(self, _dutycycle: float, /) -> None: ...
+        def ChangeFrequency(self, _frequency: float, /) -> None: ...
+        def stop(self) -> None: ...
+
+    def setwarnings(self, value: bool) -> None: ...
+    def setmode(self, mode: int) -> None: ...
+    def cleanup(self, pin: int | None = None) -> None: ...
+    def setup(
+        self, pin: int, mode: int, initial: int = 0, pull_up_down: int = 0
+    ) -> None: ...
+    def input(self, pin: int) -> int: ...
+    def output(self, pin: int, value: int) -> None: ...
+    def add_event_detect(
+        self, pin: int, edge: int, callback: Any = None, bouncetime: int = 0
+    ) -> None: ...
+    def remove_event_detect(self, pin: int) -> None: ...
+
+
+class BaseRPiGPIOWrapper(BaseGPIOWrapper):
+    """RPI.GPIO base wrapper."""
+
+    def __init__(self, gpio_module: GPIOModuleProtocol):
+        """constructor.
+
+        Args:
+            gpio_module: GPIO module conforming to GPIOModuleProtocol (e.g., RPi.GPIO, Jetson.GPIO)
+        """
+        self.GPIO: GPIOModuleProtocol = gpio_module
+        self._gpios_pwm: list[Any] = [None] * 200
+
+    def init(self, gpio_mode=None):
+        """Initialize GPIO library."""
+        self.GPIO.setwarnings(False)
+        if gpio_mode is None:
+            gpio_mode = self.GPIO.BCM
+        self.GPIO.setmode(gpio_mode)
+
+    def deinit(self):
+        """Deinitialize GPIO library."""
+        self.GPIO.cleanup()
+
+    def gpio_setup(
+        self,
+        pin: int,
+        mode: GpioMode,
+        initial: Gpio | int = Gpio.LOW,
+        pull_up_down: GpioPUD = GpioPUD.PUD_OFF,
+    ):
+        """Setup GPIO pin."""
+        if mode == GpioMode.OUT:
+            self.GPIO.setup(int(pin), int(mode), initial=int(initial))
+        else:
+            self.GPIO.setup(int(pin), int(mode), pull_up_down=int(pull_up_down))
+
+    def gpio_cleanup(self, pin: int):
+        """Cleanup GPIO pin."""
+        gpio_pwm = self._gpios_pwm[pin]
+
+        if gpio_pwm is not None:
+            gpio_pwm.stop()
+            self._gpios_pwm[pin] = None
+        self.GPIO.cleanup(pin)
+
+    def gpio_input(self, pin: int) -> int:
+        """Read GPIO pin."""
+        return self.GPIO.input(pin)
+
+    def gpio_output(self, pin: int, value: int):
+        """Write GPIO pin."""
+        self.GPIO.output(pin, value)
+
+    def gpio_pwm_setup(self, pin: int, frequency: int = 10, duty_cycle: int = 0):
+        """Setup PWM."""
+        self.GPIO.setup(pin, int(GpioMode.OUT), initial=int(Gpio.LOW))
+        self._gpios_pwm[pin] = self.GPIO.PWM(pin, frequency)
+        self._gpios_pwm[pin].start(duty_cycle)
+
+    def gpio_pwm_set_frequency(self, pin: int, frequency: int):
+        """Set PWM frequency."""
+        gpio_pwm = self._gpios_pwm[pin]
+        if gpio_pwm is None:
+            raise RuntimeError(f"GPIO pin {pin} not configured as PWM")
+        gpio_pwm.ChangeFrequency(frequency)
+
+    def gpio_pwm_set_duty_cycle(self, pin: int, duty_cycle: int):
+        """Set PWM duty cycle.
+
+        Args:
+            pin (int): pin number
+            duty_cycle (int): duty cycle in percent (0-100)
+        """
+        gpio_pwm = self._gpios_pwm[pin]
+        if gpio_pwm is None:
+            raise RuntimeError(f"GPIO pin {pin} not configured as PWM")
+        gpio_pwm.ChangeDutyCycle(duty_cycle)
+
+    def gpio_add_event_detect(self, pin: int, callback: types.FunctionType):
+        """Add event detect."""
+        self.GPIO.add_event_detect(
+            pin, self.GPIO.RISING, callback=callback, bouncetime=300
+        )
+
+    def gpio_remove_event_detect(self, pin: int):
+        """Remove event detect."""
+        self.GPIO.remove_event_detect(pin)
+
+
+def create_gpio_wrapper(module_name: str, description: str) -> BaseRPiGPIOWrapper:
+    """Factory function to create a GPIO wrapper with the specified module.
+
+    Args:
+        module_name: Name of the GPIO module to import (e.g., 'RPi.GPIO', 'Jetson.GPIO')
+        description: Description for logging (e.g., 'GPIO control', 'GPIO mocking')
+
+    Returns:
+        Configured BaseRPiGPIOWrapper instance
+    """
+    gpio_module = import_module(module_name)
+    dependencies_logger.log(f"using {module_name} for {description}", Loglevel.INFO)
+    return BaseRPiGPIOWrapper(gpio_module)
+
+
+# Convenience factory functions for each GPIO type
+def MockGPIOWrapper() -> BaseRPiGPIOWrapper:
+    """Create Mock.GPIO wrapper."""
+    return create_gpio_wrapper("Mock.GPIO", "GPIO mocking")
+
+
+def RPiGPIOWrapper() -> BaseRPiGPIOWrapper:
+    """Create RPi.GPIO wrapper."""
+    return create_gpio_wrapper("RPi.GPIO", "GPIO control")
+
+
+def JetsonGPIOWrapper() -> BaseRPiGPIOWrapper:
+    """Create Jetson.GPIO wrapper."""
+    return create_gpio_wrapper("Jetson.GPIO", "GPIO control")
+
+
+def OPiGPIOWrapper() -> BaseRPiGPIOWrapper:
+    """Create OPi.GPIO wrapper."""
+    return create_gpio_wrapper("OPi.GPIO", "GPIO control")

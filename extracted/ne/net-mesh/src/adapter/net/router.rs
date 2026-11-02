@@ -1,0 +1,2398 @@
+//! Net Router for single-hop and multi-hop packet routing.
+//!
+//! The router handles:
+//! - Stream multiplexing across thousands of streams
+//! - Fair scheduling to prevent stream starvation
+//! - Low-latency packet forwarding
+//! - Per-stream statistics
+
+use arc_swap::ArcSwap;
+use bytes::{Bytes, BytesMut};
+use crossbeam_queue::ArrayQueue;
+use dashmap::DashMap;
+use std::net::SocketAddr;
+
+use super::transport::PeerAddr;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::net::UdpSocket;
+use tokio::sync::Notify;
+
+use super::protocol::HEADER_SIZE;
+use super::route::{RoutingHeader, RoutingTable, ROUTING_HEADER_SIZE};
+
+// --- Phase 0 instrument (NRPC_SEND_LOOP_BATCHING_PLAN) -------------------
+//
+// Measures the send loop's *drain run-length*: how many packets
+// `scheduler.dequeue()` returns back-to-back before the loop falls through
+// to `wait()`. This is the batchability signal — a sendmmsg drain only pays
+// when runs are long. Off unless `arm_send_drain_histo()` is called BEFORE
+// the send loop starts (the loop latches the flag once at startup), so an
+// unarmed/production loop pays only a stack-local increment.
+//
+// Measurement scaffolding — not part of the supported public API. The
+// arm/snapshot entry points are re-exported only so the in-repo integration
+// tests (`send_drain_depth`, `scheduled_stream_integrity`), which compile as
+// external crates, can drive them; every such entry point is `#[doc(hidden)]`
+// so it never appears in the crate's documented surface and downstream code
+// is not invited to depend on it.
+static SEND_DRAIN_HISTO: [AtomicU64; 9] = [
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+];
+static SEND_DRAIN_ARMED: AtomicBool = AtomicBool::new(false);
+static SEND_DRAIN_MAX: AtomicU64 = AtomicU64::new(0);
+
+/// Arm the send-loop drain-run histogram. Must be called BEFORE the
+/// router's send loop starts — the loop reads the flag once at startup.
+#[doc(hidden)]
+pub fn arm_send_drain_histo() {
+    SEND_DRAIN_ARMED.store(true, Ordering::Relaxed);
+}
+
+/// Snapshot the drain-run histogram. Index `i` (for `i < 8`) counts drain
+/// runs whose length fell in `[2^i, 2^(i+1))`; index `8` is `[256, ∞)`.
+#[doc(hidden)]
+pub fn send_drain_histo_snapshot() -> [u64; 9] {
+    let mut out = [0u64; 9];
+    for (i, b) in SEND_DRAIN_HISTO.iter().enumerate() {
+        out[i] = b.load(Ordering::Relaxed);
+    }
+    out
+}
+
+/// Longest single drain run observed so far (exact, not bucketed).
+#[doc(hidden)]
+pub fn send_drain_max() -> u64 {
+    SEND_DRAIN_MAX.load(Ordering::Relaxed)
+}
+
+#[inline]
+fn record_drain_run(run_len: u64) {
+    if run_len == 0 {
+        return;
+    }
+    // floor(log2(run_len)), clamped to the top bucket.
+    let bucket = (63 - run_len.leading_zeros()).min(8) as usize;
+    SEND_DRAIN_HISTO[bucket].fetch_add(1, Ordering::Relaxed);
+    SEND_DRAIN_MAX.fetch_max(run_len, Ordering::Relaxed);
+}
+
+// One flush = one destination group sent in a drain = one `sendmmsg`
+// syscall on Linux. The packets/flush ratio is the syscall-collapse factor.
+static SEND_BATCH_FLUSHES: AtomicU64 = AtomicU64::new(0);
+static SEND_BATCH_PACKETS: AtomicU64 = AtomicU64::new(0);
+
+/// `(flushes, packets)` sent via the batched-drain path. `packets / flushes`
+/// is the realized syscall-collapse factor (≈ `MAX_BATCH_SIZE` when full).
+#[doc(hidden)]
+pub fn send_batch_stats() -> (u64, u64) {
+    (
+        SEND_BATCH_FLUSHES.load(Ordering::Relaxed),
+        SEND_BATCH_PACKETS.load(Ordering::Relaxed),
+    )
+}
+
+#[inline]
+fn record_batch_flush(packets: u64) {
+    SEND_BATCH_FLUSHES.fetch_add(1, Ordering::Relaxed);
+    SEND_BATCH_PACKETS.fetch_add(packets, Ordering::Relaxed);
+}
+
+/// Append `data` to the destination group for `dest`, creating the group if
+/// this is the first packet for that peer in the current drain. Linear scan
+/// over `groups` — fine, since the distinct-peer count per drain is small
+/// (and bounded by `reset_dest_groups`).
+#[inline]
+fn group_by_dest(groups: &mut Vec<(PeerAddr, Vec<Bytes>)>, dest: PeerAddr, data: Bytes) {
+    match groups.iter_mut().find(|(d, _)| *d == dest) {
+        Some((_, v)) => v.push(data),
+        None => groups.push((dest, vec![data])),
+    }
+}
+
+/// Reset the per-destination group buffers between drains. Reuses the slots
+/// (and their grown inner-Vec capacity) to avoid reallocating on the send
+/// hot path, but drops the whole set once it exceeds `cap` so the dest set
+/// cannot grow without bound under peer churn — a node that sends to many
+/// distinct peers over its lifetime would otherwise keep a stale slot per
+/// peer forever, inflating memory and the linear `group_by_dest` scan. One
+/// drain touches at most `cap` (`MAX_DRAIN`) dests, so the bounded set stays
+/// at `cap + 1` worst case.
+#[inline]
+fn reset_dest_groups(groups: &mut Vec<(PeerAddr, Vec<Bytes>)>, cap: usize) {
+    if groups.len() > cap {
+        groups.clear();
+    } else {
+        for (_, v) in groups.iter_mut() {
+            v.clear();
+        }
+    }
+}
+
+/// Test-only loss injection shared by the single and batched send paths:
+/// returns `true` when this packet should be dropped (every Nth, `n > 0`).
+#[inline]
+fn drop_injected(drop_every_n: &AtomicU64, drop_counter: &AtomicU64) -> bool {
+    let n = drop_every_n.load(Ordering::Relaxed);
+    n > 0
+        && drop_counter
+            .fetch_add(1, Ordering::Relaxed)
+            .wrapping_add(1)
+            .is_multiple_of(n)
+}
+// ------------------------------------------------------------------------
+
+/// Router configuration
+#[derive(Debug, Clone)]
+pub struct RouterConfig {
+    /// Local node ID
+    pub local_id: u64,
+    /// Bind address
+    pub bind_addr: SocketAddr,
+    /// Maximum queue depth per stream
+    pub max_queue_depth: usize,
+    /// Fair scheduling quantum (packets per stream per round)
+    pub fair_quantum: usize,
+    /// Idle stream timeout (nanoseconds)
+    pub idle_timeout_ns: u64,
+    /// Enable priority queue bypass
+    pub priority_bypass: bool,
+}
+
+impl Default for RouterConfig {
+    fn default() -> Self {
+        Self {
+            local_id: 0,
+            bind_addr: SocketAddr::from(([0, 0, 0, 0], 0)),
+            max_queue_depth: 1024,
+            fair_quantum: 16,
+            idle_timeout_ns: 30_000_000_000, // 30 seconds
+            priority_bypass: true,
+        }
+    }
+}
+
+impl RouterConfig {
+    /// Create a new router config with defaults
+    pub fn new(local_id: u64, bind_addr: SocketAddr) -> Self {
+        Self {
+            local_id,
+            bind_addr,
+            ..Default::default()
+        }
+    }
+}
+
+/// Queued packet for fair scheduling
+pub struct QueuedPacket {
+    /// Packet data
+    pub data: Bytes,
+    /// Destination address
+    pub dest: PeerAddr,
+    /// Stream identifier
+    pub stream_id: u64,
+    /// Whether this is a priority packet
+    pub priority: bool,
+    /// Time the packet was queued
+    pub queued_at: Instant,
+}
+
+/// Per-stream queue for fair scheduling
+struct StreamQueue {
+    queue: ArrayQueue<QueuedPacket>,
+    packets_sent_this_round: AtomicU64,
+    /// Fairness weight (quantum multiplier). `1` is equal-share; higher
+    /// values let this stream ship `weight × session_quantum` packets
+    /// per round before round-reset. Always ≥ 1.
+    weight: AtomicU64,
+}
+
+impl StreamQueue {
+    fn new(capacity: usize) -> Self {
+        Self::new_with_weight(capacity, 1)
+    }
+
+    fn new_with_weight(capacity: usize, weight: u8) -> Self {
+        Self {
+            queue: ArrayQueue::new(capacity),
+            packets_sent_this_round: AtomicU64::new(0),
+            weight: AtomicU64::new(weight.max(1) as u64),
+        }
+    }
+
+    fn push(&self, packet: QueuedPacket) -> Result<(), QueuedPacket> {
+        self.queue.push(packet)
+    }
+
+    fn pop(&self) -> Option<QueuedPacket> {
+        self.queue.pop()
+    }
+
+    #[allow(dead_code)]
+    fn len(&self) -> usize {
+        self.queue.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.queue.is_empty()
+    }
+
+    fn reset_round(&self) {
+        self.packets_sent_this_round.store(0, Ordering::Relaxed);
+    }
+
+    fn increment_sent(&self) -> u64 {
+        self.packets_sent_this_round.fetch_add(1, Ordering::Relaxed)
+    }
+
+    fn sent_this_round(&self) -> u64 {
+        self.packets_sent_this_round.load(Ordering::Relaxed)
+    }
+
+    fn weight(&self) -> u64 {
+        self.weight.load(Ordering::Relaxed).max(1)
+    }
+
+    #[allow(dead_code)]
+    fn set_weight(&self, weight: u8) {
+        self.weight.store(weight.max(1) as u64, Ordering::Relaxed);
+    }
+}
+
+/// Fair scheduler for stream fairness
+pub struct FairScheduler {
+    /// Per-stream queues
+    streams: DashMap<u64, Arc<StreamQueue>>,
+    /// PERF_AUDIT §3.1 — incrementally-maintained snapshot of the
+    /// set of stream-ids in `streams`. Pre-fix `dequeue` allocated
+    /// a fresh `Vec<u64>` per call (often twice on quantum-reset
+    /// paths) by walking the DashMap — O(streams) work + a heap
+    /// alloc on the per-packet send path that §2.1's batching
+    /// wants to route MORE traffic through. The snapshot is
+    /// rebuilt only when the stream-set actually changes (the
+    /// vacant arm of `enqueue` / `set_stream_weight`, or after
+    /// `cleanup_empty` evicts at least one entry), so steady-
+    /// state dequeue pays a single `ArcSwap::load_full` (a
+    /// relaxed-load + Arc clone). Long-lived streams mean
+    /// rebuild rate is orders of magnitude below dequeue rate.
+    ///
+    /// The snapshot may briefly lag the DashMap (a concurrent
+    /// enqueue can add a stream between snapshot-build and
+    /// dequeue's iteration). That's the same race as the pre-fix
+    /// code — a dequeue that started before the new stream landed
+    /// won't service it this call; the next call's load picks up
+    /// the updated snapshot.
+    active_streams: ArcSwap<Vec<u64>>,
+    /// Version counter for the active-stream snapshot protocol.
+    /// Bumped at every stream-set mutation site *after* the DashMap
+    /// change and *before* [`Self::rebuild_active_streams`] runs.
+    /// The rebuild loop re-checks this after its `store`: if the
+    /// version moved while it was collecting, another mutation
+    /// landed concurrently and this rebuild's snapshot may be stale
+    /// — retry. Without this, two racing rebuilds can store out of
+    /// order (cleanup's pre-insert collection overwriting enqueue's
+    /// post-insert one), leaving a stream with queued packets
+    /// permanently absent from the snapshot: occupied-arm enqueues
+    /// never rebuild and cleanup never evicts a non-empty queue, so
+    /// nothing would ever repair it (lost wakeup).
+    active_streams_version: AtomicU64,
+    /// Priority queue (bypasses fair scheduling)
+    priority_queue: ArrayQueue<QueuedPacket>,
+    /// Fair quantum
+    quantum: usize,
+    /// Max queue depth per stream
+    max_depth: usize,
+    /// Notification for new packets
+    notify: Notify,
+    /// Total packets queued
+    total_queued: AtomicU64,
+    /// Total packets dropped
+    total_dropped: AtomicU64,
+    /// Rotation index for round-robin fairness across dequeue calls.
+    /// Only advances when a dequeue actually pops a packet, so
+    /// rotation correlates with service events rather than poll
+    /// frequency.
+    round_robin_idx: AtomicU64,
+    /// Counter incremented on every `dequeue` call (regardless of
+    /// whether a packet was popped) for the modulo-1024 cleanup
+    /// trigger. Decoupled from `round_robin_idx` so the rotation fix
+    /// doesn't accidentally suppress cleanup.
+    dequeue_call_count: AtomicU64,
+    /// **Current** in-queue packet count (enqueued minus dequeued),
+    /// across the priority lane and all per-stream queues. Unlike
+    /// `total_queued` (a cumulative enqueue counter that never
+    /// decrements), this reflects live backlog — the send loop reads it
+    /// to decide whether a batched drain is worthwhile.
+    current_depth: AtomicU64,
+}
+
+impl FairScheduler {
+    /// Create a new fair scheduler
+    pub fn new(quantum: usize, max_depth: usize) -> Self {
+        Self {
+            streams: DashMap::new(),
+            active_streams: ArcSwap::from_pointee(Vec::new()),
+            active_streams_version: AtomicU64::new(0),
+            priority_queue: ArrayQueue::new(max_depth),
+            quantum,
+            max_depth,
+            notify: Notify::new(),
+            total_queued: AtomicU64::new(0),
+            total_dropped: AtomicU64::new(0),
+            round_robin_idx: AtomicU64::new(0),
+            dequeue_call_count: AtomicU64::new(0),
+            current_depth: AtomicU64::new(0),
+        }
+    }
+
+    /// PERF_AUDIT §3.1 — mark the stream set as changed and rebuild
+    /// the snapshot. Must be called *after* the DashMap mutation so
+    /// any concurrent rebuild that observes the new version also
+    /// observes the mutation. Called from every stream-set mutation
+    /// site: the vacant arm of [`Self::enqueue`] and
+    /// [`Self::set_stream_weight`], and [`Self::cleanup_empty`]
+    /// when at least one entry was removed.
+    fn note_stream_set_changed(&self) {
+        self.active_streams_version.fetch_add(1, Ordering::SeqCst);
+        self.rebuild_active_streams();
+    }
+
+    /// PERF_AUDIT §3.1 — rebuild the active-stream snapshot from
+    /// the current `streams` DashMap and atomically swap it in.
+    ///
+    /// Lost-wakeup protection: the version counter is re-checked
+    /// after the `store`. If it moved while this rebuild was
+    /// collecting, a concurrent mutation landed and our snapshot
+    /// may predate it — and ArcSwap stores from racing rebuilds
+    /// can land in either order, so a stale collection could
+    /// otherwise overwrite a fresher one and strand a non-empty
+    /// stream outside the snapshot forever. Retrying until the
+    /// version is stable across collect+store guarantees the last
+    /// snapshot standing reflects every mutation (each mutation
+    /// bumps the version *before* its own rebuild, so whichever
+    /// rebuild finishes last either saw the final version or
+    /// retries). SeqCst keeps the version loads and the ArcSwap
+    /// store in one total order; rebuilds only run on stream-set
+    /// changes, so the cost is off the per-packet path.
+    fn rebuild_active_streams(&self) {
+        loop {
+            let v = self.active_streams_version.load(Ordering::SeqCst);
+            let keys: Vec<u64> = self.streams.iter().map(|e| *e.key()).collect();
+            self.active_streams.store(Arc::new(keys));
+            if self.active_streams_version.load(Ordering::SeqCst) == v {
+                break;
+            }
+            // Version moved mid-rebuild: another mutation raced us.
+            // Our snapshot may be stale — collect again.
+        }
+    }
+
+    /// Set the fair-scheduling weight for a stream. `weight` is a quantum
+    /// multiplier: 1 = equal share (default), higher values give the
+    /// stream proportionally more packets per round. Creates the stream
+    /// queue if it doesn't exist yet, so callers can set the weight
+    /// before any traffic flows.
+    pub fn set_stream_weight(&self, stream_id: u64, weight: u8) {
+        let weight = weight.max(1);
+        // PERF_AUDIT §3.1 — detect new vs existing so the
+        // active-stream snapshot only rebuilds when the set
+        // actually changes.
+        let was_new = match self.streams.entry(stream_id) {
+            dashmap::mapref::entry::Entry::Occupied(occ) => {
+                occ.get().set_weight(weight);
+                false
+            }
+            dashmap::mapref::entry::Entry::Vacant(vac) => {
+                vac.insert(Arc::new(StreamQueue::new_with_weight(
+                    self.max_depth,
+                    weight,
+                )));
+                true
+            }
+        };
+        if was_new {
+            self.note_stream_set_changed();
+        }
+    }
+
+    /// Enqueue a packet
+    pub fn enqueue(&self, packet: QueuedPacket) -> bool {
+        if packet.priority {
+            // Priority packets bypass fair scheduling
+            if self.priority_queue.push(packet).is_ok() {
+                self.total_queued.fetch_add(1, Ordering::Relaxed);
+                self.current_depth.fetch_add(1, Ordering::Relaxed);
+                self.notify.notify_one();
+                return true;
+            }
+        } else {
+            // PERF_AUDIT §3.1 — get-or-create with new/existing
+            // discrimination so the active-stream snapshot is
+            // rebuilt only when the set actually changes.
+            let (queue, is_new) = match self.streams.entry(packet.stream_id) {
+                dashmap::mapref::entry::Entry::Occupied(occ) => (occ.get().clone(), false),
+                dashmap::mapref::entry::Entry::Vacant(vac) => {
+                    let arc = Arc::new(StreamQueue::new(self.max_depth));
+                    vac.insert(arc.clone());
+                    (arc, true)
+                }
+            };
+            if is_new {
+                self.note_stream_set_changed();
+            }
+
+            if queue.push(packet).is_ok() {
+                self.total_queued.fetch_add(1, Ordering::Relaxed);
+                self.current_depth.fetch_add(1, Ordering::Relaxed);
+                self.notify.notify_one();
+                return true;
+            }
+        }
+
+        self.total_dropped.fetch_add(1, Ordering::Relaxed);
+        false
+    }
+
+    /// Dequeue next packet (fair round-robin)
+    pub fn dequeue(&self) -> Option<QueuedPacket> {
+        // Periodically clean up empty stream queues to prevent unbounded growth
+        // of the DashMap. Check every 1024 dequeue calls (cheap modular check).
+        // Tracked on a separate counter from `round_robin_idx` so
+        // that decoupling rotation from poll frequency doesn't
+        // suppress the cleanup trigger.
+        let call_count = self
+            .dequeue_call_count
+            .fetch_add(1, Ordering::Relaxed)
+            .wrapping_add(1);
+        if call_count.is_multiple_of(1024) {
+            self.cleanup_empty();
+        }
+
+        // Priority queue first
+        if let Some(packet) = self.priority_queue.pop() {
+            self.current_depth.fetch_sub(1, Ordering::Relaxed);
+            return Some(packet);
+        }
+
+        // PERF_AUDIT §3.1 — read the incrementally-maintained
+        // active-stream snapshot instead of walking the DashMap
+        // per call. `load_full` is one relaxed atomic load + Arc
+        // clone (no Vec alloc, no DashMap iteration).
+        let keys = self.active_streams.load_full();
+        if keys.is_empty() {
+            return None;
+        }
+        // Advance the round-robin cursor only when we actually pop a
+        // packet. Previously this used `fetch_add(1)` unconditionally,
+        // so every empty poll advanced the rotation as if we'd
+        // serviced a stream. The result was that under bursty mixed
+        // traffic, polls that found no packet still nudged the cursor
+        // past the stream that *would* have had a packet on the next
+        // tick, biasing service away from streams that became
+        // non-empty
+        // mid-pass.
+        //
+        // Now: read the cursor for the starting offset, then
+        // commit a `fetch_add(1)` only inside the successful pop
+        // arm. Behavioral effect is the same when packets are
+        // available; the difference shows up under contention
+        // and on dequeues that find nothing.
+        let start = self.round_robin_idx.load(Ordering::Relaxed) as usize % keys.len();
+
+        // Round-robin across streams, starting from the rotated index.
+        // Each stream's quantum is `base_quantum × stream.weight`, so
+        // a weight-4 stream gets 4× the packets per round of a weight-1
+        // stream before round-reset. Default weight is 1 = unchanged.
+        for i in 0..keys.len() {
+            let key = keys[(start + i) % keys.len()];
+            if let Some(queue) = self.streams.get(&key) {
+                let stream_quantum = (self.quantum as u64).saturating_mul(queue.weight());
+                if queue.sent_this_round() < stream_quantum && !queue.is_empty() {
+                    if let Some(packet) = queue.pop() {
+                        queue.increment_sent();
+                        self.current_depth.fetch_sub(1, Ordering::Relaxed);
+                        // Advance the rotation cursor only on
+                        // successful pop.
+                        self.round_robin_idx.fetch_add(1, Ordering::Relaxed);
+                        return Some(packet);
+                    }
+                }
+            }
+        }
+
+        // If all streams exhausted their quantum, reset and try again.
+        // Re-load the active-stream snapshot so streams added since
+        // the first load are also considered — `load_full` is
+        // cheap (no Vec alloc), and may pick up an updated snapshot
+        // if a concurrent enqueue rebuilt it mid-pass.
+        let keys = self.active_streams.load_full();
+        if keys.is_empty() {
+            return None;
+        }
+        let mut has_packets = false;
+        for key in keys.iter() {
+            if let Some(queue) = self.streams.get(key) {
+                queue.reset_round();
+                if !queue.is_empty() {
+                    has_packets = true;
+                }
+            }
+        }
+
+        if has_packets {
+            let start = self.round_robin_idx.load(Ordering::Relaxed) as usize % keys.len();
+            for i in 0..keys.len() {
+                let key = keys[(start + i) % keys.len()];
+                if let Some(queue) = self.streams.get(&key) {
+                    if let Some(packet) = queue.pop() {
+                        queue.increment_sent();
+                        self.current_depth.fetch_sub(1, Ordering::Relaxed);
+                        self.round_robin_idx.fetch_add(1, Ordering::Relaxed);
+                        return Some(packet);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Wait for new packets
+    pub async fn wait(&self) {
+        self.notify.notified().await;
+    }
+
+    /// Current live backlog: packets enqueued but not yet dequeued,
+    /// summed across the priority lane and all per-stream queues.
+    /// Distinct from [`Self::total_queued`], which only counts upward.
+    pub fn current_depth(&self) -> u64 {
+        self.current_depth.load(Ordering::Relaxed)
+    }
+
+    /// Get total queued count
+    pub fn total_queued(&self) -> u64 {
+        self.total_queued.load(Ordering::Relaxed)
+    }
+
+    /// Get total dropped count
+    pub fn total_dropped(&self) -> u64 {
+        self.total_dropped.load(Ordering::Relaxed)
+    }
+
+    /// Get number of active streams
+    pub fn stream_count(&self) -> usize {
+        self.streams.len()
+    }
+
+    /// Clean up empty stream queues.
+    ///
+    /// Only removes queues that are both empty and have no outstanding
+    /// `Arc` references (strong_count == 1 means only the DashMap holds it).
+    /// This prevents a race where `enqueue` clones the Arc, cleanup removes
+    /// the entry, and the enqueued packet becomes unreachable.
+    pub fn cleanup_empty(&self) -> usize {
+        let mut removed = 0;
+        self.streams.retain(|_, queue| {
+            if queue.is_empty() && Arc::strong_count(queue) == 1 {
+                removed += 1;
+                false
+            } else {
+                true
+            }
+        });
+        // PERF_AUDIT §3.1 — rebuild the active-stream snapshot
+        // when at least one entry was evicted so the dequeue
+        // path stops iterating over keys that no longer exist.
+        // No-op rebuild on a clean pass is cheap (single Vec
+        // alloc the same size as the prior snapshot, swapped in
+        // via ArcSwap), but the branch keeps the steady-state
+        // cleanup-call cost at zero rebuilds.
+        if removed > 0 {
+            self.note_stream_set_changed();
+        }
+        removed
+    }
+}
+
+/// Router statistics
+#[derive(Debug, Clone, Default)]
+pub struct RouterStats {
+    /// Packets received
+    pub packets_received: u64,
+    /// Packets forwarded
+    pub packets_forwarded: u64,
+    /// Packets delivered locally
+    pub packets_local: u64,
+    /// Packets dropped (TTL, no route, queue full)
+    pub packets_dropped: u64,
+    /// Bytes received
+    pub bytes_received: u64,
+    /// Bytes forwarded
+    pub bytes_forwarded: u64,
+    /// Active routes
+    pub routes: usize,
+    /// Active streams
+    pub streams: usize,
+    /// Average routing latency (nanoseconds)
+    pub avg_latency_ns: u64,
+}
+
+/// Net Router
+pub struct NetRouter {
+    /// Configuration
+    #[allow(dead_code)]
+    config: RouterConfig,
+    /// UDP socket
+    socket: Arc<UdpSocket>,
+    /// Routing table
+    routing_table: Arc<RoutingTable>,
+    /// Fair scheduler
+    scheduler: Arc<FairScheduler>,
+    /// Running flag
+    running: Arc<AtomicBool>,
+    /// Statistics
+    packets_received: AtomicU64,
+    packets_forwarded: AtomicU64,
+    packets_local: AtomicU64,
+    /// Shared with the send loop so its drops — including the
+    /// no-RTC-transport wiring-bug branch — stay counted.
+    packets_dropped: Arc<AtomicU64>,
+    bytes_received: AtomicU64,
+    bytes_forwarded: AtomicU64,
+    total_latency_ns: AtomicU64,
+    latency_samples: AtomicU64,
+    /// Test-only fault injection: when `> 0`, the send loop drops every
+    /// Nth dequeued (scheduled) packet instead of sending it, simulating
+    /// link loss for reliability tests. `0` (default) disables it — one
+    /// relaxed load per send, negligible. Shared into the send-loop task.
+    test_drop_every_n: Arc<AtomicU64>,
+    test_drop_counter: Arc<AtomicU64>,
+    /// The RTC admission side, installed after construction when the
+    /// node is configured with `MeshNodeConfig::rtc`. `ArcSwapOption`
+    /// because the send loop reads it per drain and must never take a
+    /// lock the installer could hold.
+    #[cfg(feature = "webrtc")]
+    rtc: Arc<arc_swap::ArcSwapOption<super::rtc::RtcTransport>>,
+    /// §12 F3: the mesh's projection of which endpoints hold a
+    /// provisional session. The router forwards for whoever handed
+    /// it a packet and never touches the peer map, so it cannot
+    /// read `PeerInfo::admission` itself.
+    #[cfg(feature = "webrtc")]
+    provisional: Arc<arc_swap::ArcSwapOption<dashmap::DashSet<PeerAddr>>>,
+}
+
+/// Submit one packet to a DataChannel from the scheduler drain.
+///
+/// Admission is total, so a refusal is immediate and means the peer's
+/// reserved queue is full right now. The packet gets exactly one
+/// re-offer — the drain cannot park, and holding it would reorder the
+/// stream behind every later packet — and is then dropped **with a
+/// counter** (`RtcStats::drain_refused`), never silently.
+#[cfg(feature = "webrtc")]
+fn submit_rtc_with_one_retry(
+    rtc: &arc_swap::ArcSwapOption<super::rtc::RtcTransport>,
+    packet: &[u8],
+    id: super::rtc::RtcPeerId,
+    dropped: &AtomicU64,
+) {
+    let Some(rtc) = rtc.load_full() else {
+        // No admission side installed: this is a wiring bug, not a
+        // disposition. Count it rather than returning silently — R1
+        // was exactly this branch being taken in production, with
+        // the packets it ate invisible to every counter.
+        dropped.fetch_add(1, Ordering::Relaxed);
+        return;
+    };
+    let first = match rtc.submit(packet, id) {
+        Ok(()) => return,
+        Err(e) => e,
+    };
+    // Only *pressure* earns the second offer. An `UnknownPeer` is a
+    // closed channel: re-offering it cannot succeed, and pretending
+    // otherwise just delays the counter.
+    if first == super::rtc::RtcSubmitError::UnknownPeer || rtc.submit(packet, id).is_err() {
+        rtc.stats().note_drain_refused();
+    }
+}
+
+impl NetRouter {
+    /// Create a new router
+    pub async fn new(config: RouterConfig) -> std::io::Result<Self> {
+        let socket = UdpSocket::bind(config.bind_addr).await?;
+        let routing_table = Arc::new(RoutingTable::new(config.local_id));
+        let scheduler = Arc::new(FairScheduler::new(
+            config.fair_quantum,
+            config.max_queue_depth,
+        ));
+
+        Ok(Self {
+            config,
+            socket: Arc::new(socket),
+            routing_table,
+            scheduler,
+            running: Arc::new(AtomicBool::new(false)),
+            packets_received: AtomicU64::new(0),
+            packets_forwarded: AtomicU64::new(0),
+            packets_local: AtomicU64::new(0),
+            packets_dropped: Arc::new(AtomicU64::new(0)),
+            bytes_received: AtomicU64::new(0),
+            bytes_forwarded: AtomicU64::new(0),
+            total_latency_ns: AtomicU64::new(0),
+            latency_samples: AtomicU64::new(0),
+            test_drop_every_n: Arc::new(AtomicU64::new(0)),
+            test_drop_counter: Arc::new(AtomicU64::new(0)),
+            #[cfg(feature = "webrtc")]
+            rtc: Arc::new(arc_swap::ArcSwapOption::empty()),
+            #[cfg(feature = "webrtc")]
+            provisional: Arc::new(arc_swap::ArcSwapOption::empty()),
+        })
+    }
+
+    /// Install the §12 provisional-endpoint projection (F3).
+    ///
+    /// The router forwards for whoever handed it a packet and never
+    /// touches the peer map, so it cannot read `PeerInfo::admission`
+    /// itself. This is the mirror the mesh maintains.
+    #[cfg(feature = "webrtc")]
+    pub fn set_provisional_endpoints(&self, set: super::rtc::ProvisionalEndpoints) {
+        self.provisional.store(Some(set));
+    }
+
+    /// Install the RTC admission side so the scheduler drain can
+    /// submit `PeerAddr::Rtc` destinations (Stage 3).
+    #[cfg(feature = "webrtc")]
+    pub fn set_rtc_transport(&self, rtc: Arc<super::rtc::RtcTransport>) {
+        self.rtc.store(Some(rtc));
+    }
+
+    /// Test-only: drop every `n`th dequeued (scheduled) packet in the
+    /// send loop to simulate link loss. `0` disables. Used by reliability
+    /// / retransmit tests; has no effect on the default (`0`) path.
+    pub fn set_test_drop_every_n(&self, n: u64) {
+        self.test_drop_every_n.store(n, Ordering::Relaxed);
+    }
+
+    /// Get local address
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// Get routing table
+    pub fn routing_table(&self) -> &Arc<RoutingTable> {
+        &self.routing_table
+    }
+
+    /// Get the fair scheduler. Exposed so `MeshNode::open_stream` can
+    /// propagate a stream's `fairness_weight` to the forwarding path.
+    pub fn scheduler(&self) -> &Arc<FairScheduler> {
+        &self.scheduler
+    }
+
+    /// Add a route. Returns the transition token it produced.
+    pub fn add_route(&self, dest_id: u64, next_hop: PeerAddr) -> u64 {
+        self.routing_table.add_route(dest_id, next_hop)
+    }
+
+    /// Add the route to a DIRECTLY connected peer.
+    ///
+    /// A direct peer's route is identity-qualified by construction: the
+    /// destination and the next hop are the same authenticated node, so
+    /// the entry can carry `next_hop_id` without inferring anything.
+    /// That is what makes it usable by protected forwarding, which
+    /// refuses a route with no bound identity
+    /// (`RoutingTable::lookup_authenticated`).
+    ///
+    /// Session establishment must use THIS rather than
+    /// [`Self::add_route`]. Installing a direct peer as a legacy route
+    /// left protected forwarding with nothing to resolve — every
+    /// authorized hop died at egress lookup, and no test caught it
+    /// because the only caller of `add_authenticated_route` was a test
+    /// fixture.
+    /// Returns the transition token it produced.
+    pub fn add_direct_route(&self, peer_node_id: u64, peer_addr: PeerAddr) -> u64 {
+        self.routing_table
+            .add_authenticated_route(peer_node_id, peer_addr, peer_node_id)
+    }
+
+    /// Remove the ORDINARY route — the inverse of [`Self::add_route`],
+    /// which installs one.
+    ///
+    /// Symmetric on purpose: an ordinary-only installer must not have
+    /// an all-candidate remover behind the same name, or a caller
+    /// undoing its own manual route silently deletes authenticated
+    /// state it never created. Administrative removal of everything a
+    /// destination knows is
+    /// [`RoutingTable::remove_destination_all_candidates`].
+    pub fn remove_route(&self, dest_id: u64) {
+        self.routing_table.remove_ordinary_route(dest_id);
+    }
+
+    /// Route a packet (called from receive loop)
+    pub fn route_packet(&self, data: Bytes, _from: PeerAddr) -> Result<RouteAction, RouterError> {
+        // §12 F3: no transit for a provisional adjacent session. The
+        // router is the one forwarding site with no view of the peer
+        // map, so it consults the mesh's projection.
+        #[cfg(feature = "webrtc")]
+        if self
+            .provisional
+            .load()
+            .as_ref()
+            .is_some_and(|set| set.contains(&_from))
+        {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            return Err(RouterError::NoRoute);
+        }
+        let start = Instant::now();
+        let len = data.len() as u64;
+
+        self.packets_received.fetch_add(1, Ordering::Relaxed);
+        self.bytes_received.fetch_add(len, Ordering::Relaxed);
+
+        // Need at least routing header
+        if data.len() < ROUTING_HEADER_SIZE {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            return Err(RouterError::PacketTooSmall);
+        }
+
+        // Parse routing header
+        let routing_header = RoutingHeader::from_bytes(&data[..ROUTING_HEADER_SIZE])
+            .ok_or(RouterError::InvalidHeader)?;
+
+        // Extract stream ID from Net header if present
+        let stream_id = if data.len() >= ROUTING_HEADER_SIZE + HEADER_SIZE {
+            let net_header = &data[ROUTING_HEADER_SIZE..ROUTING_HEADER_SIZE + HEADER_SIZE];
+            u64::from_le_bytes(net_header[32..40].try_into().unwrap_or([0; 8]))
+        } else {
+            0
+        };
+
+        // Per-stream `record_in` is deferred until the packet
+        // either delivers locally or survives all drop checks
+        // and is queued for forward. Pre-fix the call fired
+        // here (immediately after parse), so a packet that
+        // failed loop suppression or TTL incremented BOTH
+        // `packets_in` and `packets_dropped` for the stream —
+        // double-counting against any dashboard computing
+        // `delivery rate = packets_out / packets_in` (drops
+        // inflated the denominator without affecting the
+        // numerator, masking healthy networks behind apparent
+        // delivery loss). The drop paths now call
+        // `record_drop` only; `record_in` fires once for each
+        // successful local-delivery / forward.
+
+        // Check if local delivery
+        if self.routing_table.is_local(routing_header.dest_id) {
+            self.routing_table.record_in(stream_id, len);
+            self.packets_local.fetch_add(1, Ordering::Relaxed);
+            self.record_latency(start);
+            return Ok(RouteAction::Local(data.slice(ROUTING_HEADER_SIZE..)));
+        }
+
+        // Loop suppression: if we're about to forward a packet whose
+        // `src_id` is us, we sent it earlier and it has come back via
+        // a misconfigured route or a malicious peer. Drop it locally
+        // so the only thing breaking the loop is TTL exhaustion;
+        // every looping hop wastes one queue slot and 2x bandwidth
+        // on the link. The `src_id` field is u32; `local_id` is u64
+        // (only the low 32 bits identify us on the wire).
+        if routing_header.src_id == (self.routing_table.local_id() as u32) {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            self.routing_table.record_drop(stream_id);
+            return Err(RouterError::RoutingLoop);
+        }
+
+        // Check TTL
+        if routing_header.is_expired() {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            self.routing_table.record_drop(stream_id);
+            return Err(RouterError::TtlExpired);
+        }
+
+        // Lookup next hop
+        let next_hop = self
+            .routing_table
+            .lookup(routing_header.dest_id)
+            .ok_or(RouterError::NoRoute)?;
+
+        // Update header for forwarding
+        let mut fwd_header = routing_header;
+        fwd_header.forward();
+        // Re-check expiry after `forward()` decrements the TTL: if
+        // TTL hit 0, the next hop would just drop the packet on its
+        // own `is_expired()` check — wasting one forward, bandwidth,
+        // and a queue slot per last-hop packet. Drop locally here so
+        // the next hop never sees the doomed packet.
+        if fwd_header.is_expired() {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            self.routing_table.record_drop(stream_id);
+            return Err(RouterError::TtlExpired);
+        }
+        // All drop gates passed — count this packet as
+        // successfully ingressed for the stream before queueing
+        // the forward.
+        self.routing_table.record_in(stream_id, len);
+
+        // Fast path (perf #18): if the inbound `data` is sole-
+        // owned (the typical case for UDP packets just received
+        // from the socket), `try_into_mut` returns the same
+        // allocation as a `BytesMut` in O(1). We overwrite the
+        // first ROUTING_HEADER_SIZE bytes in place — refcount
+        // bump only, no body copy. Pre-fix this allocated a
+        // fresh buffer the size of the entire packet and
+        // memcpy'd the body for every forward; for a relay node
+        // moving GB/s of packets, bandwidth-class waste.
+        //
+        // Slow path: an outstanding clone of `data` (e.g. some
+        // observer / mirror) forces the copy. We fall back to
+        // the prior allocation strategy.
+        let forwarded_data = match data.try_into_mut() {
+            Ok(mut mut_data) => {
+                fwd_header.write_at(&mut mut_data[..ROUTING_HEADER_SIZE]);
+                mut_data.freeze()
+            }
+            Err(orig_data) => {
+                let mut new_data = BytesMut::with_capacity(orig_data.len());
+                fwd_header.write_to(&mut new_data);
+                new_data.extend_from_slice(&orig_data[ROUTING_HEADER_SIZE..]);
+                new_data.freeze()
+            }
+        };
+
+        // Queue for sending
+        let packet = QueuedPacket {
+            data: forwarded_data,
+            dest: next_hop,
+            stream_id,
+            priority: routing_header.flags.is_priority(),
+            queued_at: Instant::now(),
+        };
+
+        if self.scheduler.enqueue(packet) {
+            self.packets_forwarded.fetch_add(1, Ordering::Relaxed);
+            self.bytes_forwarded.fetch_add(len, Ordering::Relaxed);
+            self.routing_table.record_out(stream_id, len);
+            self.record_latency(start);
+            Ok(RouteAction::Forwarded(next_hop))
+        } else {
+            self.packets_dropped.fetch_add(1, Ordering::Relaxed);
+            self.routing_table.record_drop(stream_id);
+            Err(RouterError::QueueFull)
+        }
+    }
+
+    /// Send a packet directly (bypassing routing).
+    ///
+    /// The router owns its own ephemeral socket — a different socket from
+    /// the node's [`PeerSink`](super::transport::PeerSink) — so the
+    /// endpoint is resolved to its UDP tuple here, at the boundary, and
+    /// submitted on that socket exactly as before. Only the `Udp` variant
+    /// is live in this stage.
+    pub async fn send_to(&self, data: &[u8], dest: PeerAddr) -> std::io::Result<usize> {
+        match dest {
+            PeerAddr::Udp(addr) => self.socket.send_to(data, addr).await,
+            // A blind relay forwards only from the registered/bound endpoint,
+            // i.e. the node's mesh socket; this router socket is a different
+            // source, so the relay would drop it. Refuse rather than send.
+            PeerAddr::Relayed { .. } => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "relayed endpoints are not reachable from the router's own socket",
+            )),
+            // R5-A: total over the shared wire type — a downstream
+            // consumer can enable `net-mesh-wire/webrtc` without the
+            // core's feature, and this crate then has no driver to
+            // submit to. Unreachable in practice: nothing here can
+            // mint an `Rtc` endpoint without the feature.
+            #[cfg(not(feature = "webrtc"))]
+            #[allow(
+                unreachable_patterns,
+                reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+            )]
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "rtc endpoint without the core's webrtc feature",
+            )),
+            #[cfg(feature = "webrtc")]
+            PeerAddr::Rtc(id) => match self.rtc.load_full() {
+                Some(rtc) => rtc
+                    .submit(data, id)
+                    .map(|()| data.len())
+                    .map_err(std::io::Error::from),
+                None => Err(std::io::Error::new(
+                    std::io::ErrorKind::NotConnected,
+                    "rtc endpoint addressed on a router with no RTC transport",
+                )),
+            },
+        }
+    }
+
+    /// Receive a packet
+    pub async fn recv_from(&self, buf: &mut [u8]) -> std::io::Result<(usize, SocketAddr)> {
+        self.socket.recv_from(buf).await
+    }
+
+    /// Start the router (spawns send loop). Returns `None` if a
+    /// dispatch loop is already running for this router; calling
+    /// twice would otherwise spawn a second loop racing the first
+    /// one's `scheduler.dequeue()`, producing reordered or
+    /// duplicate sends.
+    pub fn start(&self) -> Option<tokio::task::JoinHandle<()>> {
+        if self
+            .running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return None;
+        }
+
+        let socket = self.socket.clone();
+        let scheduler = self.scheduler.clone();
+        let running = self.running.clone();
+        let drop_every_n = self.test_drop_every_n.clone();
+        let drop_counter = self.test_drop_counter.clone();
+        #[cfg(feature = "webrtc")]
+        let rtc = self.rtc.clone();
+        // Counts packets this loop cannot send: RTC refusals, and relayed
+        // destinations (never sendable from the router's own socket).
+        let dropped = self.packets_dropped.clone();
+
+        Some(tokio::spawn(async move {
+            // Phase 0 instrument: latch the arm flag once; when armed, count
+            // how many packets we drain back-to-back before blocking.
+            let measure_drain = SEND_DRAIN_ARMED.load(Ordering::Relaxed);
+            let mut drain_run: u64 = 0;
+
+            // Batched-drain scratch (Phase 1, NRPC_SEND_LOOP_BATCHING_PLAN).
+            // When the scheduler has a backlog, drain up to MAX_DRAIN packets
+            // and ship them grouped by destination — one `sendmmsg` per peer
+            // on Linux, falling back to per-packet `send_to` elsewhere. The
+            // `groups` holds one (dest, packets) slot per peer touched in a
+            // drain. Inner Vecs are reused across drains to avoid reallocating
+            // on the hot path; the slot set is bounded on reset (see below) so
+            // it can't accumulate a stale entry per peer forever under churn.
+            const MAX_DRAIN: usize = 64;
+            let mut groups: Vec<(PeerAddr, Vec<Bytes>)> = Vec::new();
+            // Linux-only batched sender over the same socket fd. The send loop
+            // is the socket's sole, single-threaded sender, so it owns one
+            // `BatchedTransport` for its whole lifetime and reuses the iovec /
+            // mmsghdr / sockaddr scratch across every flush — no per-flush
+            // allocation. (`PacketSender::send_batch` builds a fresh transport
+            // each call to stay shareable across concurrent senders; here there
+            // is exactly one sender, so we hold the reusable form directly.)
+            #[cfg(target_os = "linux")]
+            let mut batch_sender = {
+                use std::os::unix::io::AsRawFd;
+                super::linux::BatchedTransport::new_send_only(socket.as_raw_fd())
+            };
+
+            while running.load(Ordering::Acquire) {
+                // Dequeue and send
+                if let Some(first) = scheduler.dequeue() {
+                    // Count every packet `dequeue()` hands back, by design:
+                    // `drain_run` measures the scheduler's drain run-length,
+                    // not wire packets, so test-injected drops below still
+                    // count (in production `drop_every_n == 0`, so there are
+                    // none). This is deliberately distinct from the batch-flush
+                    // packet counter, which tracks only what reaches the wire.
+                    drain_run += 1;
+
+                    // Fast path: nothing else queued → send this one packet
+                    // directly, exactly as before. Keeps depth-≤1 traffic
+                    // (single scheduled stream, sparse sends) on the original
+                    // zero-overhead path. Guarded by the live `current_depth`.
+                    if scheduler.current_depth() == 0 {
+                        if !drop_injected(&drop_every_n, &drop_counter) {
+                            // Partitioned by endpoint variant; only the
+                            // `Udp` arm is live in this stage. The send
+                            // itself is byte-for-byte the previous one.
+                            match first.dest {
+                                PeerAddr::Udp(addr) => {
+                                    let _ = socket.send_to(&first.data, addr).await;
+                                }
+                                // Not sendable from this socket (see
+                                // `NetRouter::send_to`): count the drop.
+                                PeerAddr::Relayed { .. } => {
+                                    dropped.fetch_add(1, Ordering::Relaxed);
+                                }
+                                // R5-A: see `NetRouter::send_to`.
+                                #[cfg(not(feature = "webrtc"))]
+                                #[allow(
+                                    unreachable_patterns,
+                                    reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+                                )]
+                                _ => {}
+                                // RTC is never batched (str0m writes
+                                // one packet per drain), so the
+                                // depth-0 path and the group flush
+                                // below do the same thing for it:
+                                // submit once, and on refusal give it
+                                // exactly one more chance before
+                                // counting the drop.
+                                #[cfg(feature = "webrtc")]
+                                PeerAddr::Rtc(id) => {
+                                    submit_rtc_with_one_retry(&rtc, &first.data, id, &dropped);
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Backlog present → batched drain. Reset the per-dest
+                    // buffers for this drain (bounded — see `reset_dest_groups`).
+                    reset_dest_groups(&mut groups, MAX_DRAIN);
+                    if !drop_injected(&drop_every_n, &drop_counter) {
+                        group_by_dest(&mut groups, first.dest, first.data);
+                    }
+                    let mut drained = 1usize;
+                    while drained < MAX_DRAIN {
+                        match scheduler.dequeue() {
+                            Some(p) => {
+                                drain_run += 1;
+                                drained += 1;
+                                if !drop_injected(&drop_every_n, &drop_counter) {
+                                    group_by_dest(&mut groups, p.dest, p.data);
+                                }
+                            }
+                            None => break,
+                        }
+                    }
+
+                    // Flush each destination group: one batched syscall per
+                    // peer on Linux, per-packet send elsewhere.
+                    for (dest, data) in groups.iter() {
+                        if data.is_empty() {
+                            continue;
+                        }
+                        // Endpoint-variant partition for the flush. Only
+                        // `Udp` is live; the grouping above, `MAX_DRAIN`
+                        // and the drain instrumentation stay whole-drain.
+                        // Relayed destinations are not sendable from this
+                        // socket (see `NetRouter::send_to`): count the drops.
+                        if matches!(*dest, PeerAddr::Relayed { .. }) {
+                            dropped.fetch_add(data.len() as u64, Ordering::Relaxed);
+                            continue;
+                        }
+                        #[cfg(feature = "webrtc")]
+                        let dest = match *dest {
+                            PeerAddr::Udp(addr) => addr,
+                            PeerAddr::Relayed { .. } => continue,
+                            PeerAddr::Rtc(id) => {
+                                // One at a time: str0m's contract is
+                                // one `Channel::write` per drain, so
+                                // there is nothing to batch. The
+                                // grouping above, `MAX_DRAIN` and the
+                                // drain instrumentation stay
+                                // whole-drain, so the UDP
+                                // measurements remain comparable.
+                                for packet in data {
+                                    submit_rtc_with_one_retry(&rtc, packet, id, &dropped);
+                                }
+                                if measure_drain {
+                                    record_batch_flush(data.len() as u64);
+                                }
+                                continue;
+                            }
+                        };
+                        // R5-A: a `let`-binding cannot be refutable, and
+                        // the shared type may carry the `Rtc` variant
+                        // even here. Skip what this build cannot send.
+                        #[cfg(not(feature = "webrtc"))]
+                        #[allow(
+                            irrefutable_let_patterns,
+                            reason = "R5-A: reachable only when a downstream consumer enables `net-mesh-wire/webrtc` without the core's feature; with neither, `PeerAddr` has one variant and this arm is dead"
+                        )]
+                        let PeerAddr::Udp(dest) = *dest
+                        else {
+                            continue;
+                        };
+                        #[cfg(target_os = "linux")]
+                        {
+                            // `send_batch` is a synchronous `sendmmsg` on the
+                            // socket's non-blocking fd — it returns immediately
+                            // (filling the kernel buffer, then partial /
+                            // EWOULDBLOCK), so it does NOT block the worker and
+                            // must not be moved to `spawn_blocking`. The async
+                            // `send_to` below ships any unsent tail (partial
+                            // send / EWOULDBLOCK), which re-registers the waker
+                            // so we preserve backpressure rather than dropping
+                            // or spinning.
+                            let sent = batch_sender.send_batch(data, dest).unwrap_or(0);
+                            for d in &data[sent..] {
+                                let _ = socket.send_to(d, dest).await;
+                            }
+                        }
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            for d in data {
+                                let _ = socket.send_to(d, dest).await;
+                            }
+                        }
+                        if measure_drain {
+                            record_batch_flush(data.len() as u64);
+                        }
+                    }
+                } else {
+                    // Drain run ended — record its length, then block.
+                    if measure_drain {
+                        record_drain_run(drain_run);
+                    }
+                    drain_run = 0;
+                    // Wait for new packets (with timeout).
+                    //
+                    // The `notify_one` → `wait()` pattern is
+                    // sound — `tokio::sync::Notify`
+                    // stores a permit when `notify_one` is called
+                    // with no waiter, and the next `notified().await`
+                    // consumes it immediately. So an enqueue that
+                    // races our `dequeue() → None` transition is
+                    // observed on the next loop iteration regardless
+                    // of which side won the race; no notify is lost.
+                    //
+                    // The 1ms polling fallback is **defensive
+                    // paranoia**, not load-bearing for correctness:
+                    // it bounds the worst-case wakeup latency under
+                    // any future refactor that accidentally breaks
+                    // the permit-stash invariant. It also catches
+                    // the edge case where a `select!` branch fires
+                    // while `notified()` is still in its
+                    // pre-sleep registration window, dropping the
+                    // notified future without consuming the permit.
+                    // Cost: at most one wakeup per millisecond on
+                    // an idle router; negligible.
+                    //
+                    // The audit suggested `Notify::notify_waiters`
+                    // — that's wrong for this site: `notify_waiters`
+                    // does NOT store a permit when no one is
+                    // waiting, so it would re-introduce the genuine
+                    // lost-wakeup case the permit-stash semantics
+                    // close.
+                    tokio::select! {
+                        _ = scheduler.wait() => {}
+                        _ = tokio::time::sleep(Duration::from_millis(1)) => {}
+                    }
+                }
+            }
+        }))
+    }
+
+    /// Stop the router
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::Release);
+    }
+
+    /// Check if running
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::Acquire)
+    }
+
+    /// Get statistics
+    pub fn stats(&self) -> RouterStats {
+        let samples = self.latency_samples.load(Ordering::Relaxed);
+        let total_latency = self.total_latency_ns.load(Ordering::Relaxed);
+        let avg_latency = total_latency.checked_div(samples).unwrap_or(0);
+
+        RouterStats {
+            packets_received: self.packets_received.load(Ordering::Relaxed),
+            packets_forwarded: self.packets_forwarded.load(Ordering::Relaxed),
+            packets_local: self.packets_local.load(Ordering::Relaxed),
+            packets_dropped: self.packets_dropped.load(Ordering::Relaxed),
+            bytes_received: self.bytes_received.load(Ordering::Relaxed),
+            bytes_forwarded: self.bytes_forwarded.load(Ordering::Relaxed),
+            routes: self.routing_table.route_count(),
+            streams: self.routing_table.stream_count(),
+            avg_latency_ns: avg_latency,
+        }
+    }
+
+    /// Reset statistics
+    pub fn reset_stats(&self) {
+        self.packets_received.store(0, Ordering::Relaxed);
+        self.packets_forwarded.store(0, Ordering::Relaxed);
+        self.packets_local.store(0, Ordering::Relaxed);
+        self.packets_dropped.store(0, Ordering::Relaxed);
+        self.bytes_received.store(0, Ordering::Relaxed);
+        self.bytes_forwarded.store(0, Ordering::Relaxed);
+        self.total_latency_ns.store(0, Ordering::Relaxed);
+        self.latency_samples.store(0, Ordering::Relaxed);
+    }
+
+    fn record_latency(&self, start: Instant) {
+        let latency = start.elapsed().as_nanos() as u64;
+        self.total_latency_ns.fetch_add(latency, Ordering::Relaxed);
+        self.latency_samples.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Result of routing a packet
+#[derive(Debug)]
+pub enum RouteAction {
+    /// Packet is for local delivery
+    Local(Bytes),
+    /// Packet was forwarded to next hop
+    Forwarded(PeerAddr),
+}
+
+/// Router errors
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RouterError {
+    /// Packet too small
+    PacketTooSmall,
+    /// Invalid routing header
+    InvalidHeader,
+    /// TTL expired
+    TtlExpired,
+    /// No route to destination
+    NoRoute,
+    /// Queue full
+    QueueFull,
+    /// Source is this node — packet looped back via a misconfigured
+    /// route or hostile peer.
+    RoutingLoop,
+}
+
+impl std::fmt::Display for RouterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PacketTooSmall => write!(f, "packet too small"),
+            Self::InvalidHeader => write!(f, "invalid routing header"),
+            Self::TtlExpired => write!(f, "TTL expired"),
+            Self::NoRoute => write!(f, "no route to destination"),
+            Self::QueueFull => write!(f, "queue full"),
+            Self::RoutingLoop => write!(f, "routing loop (packet returned to its source)"),
+        }
+    }
+}
+
+impl std::error::Error for RouterError {}
+
+#[cfg(test)]
+mod tests {
+    use super::super::protocol::NetHeader;
+    use super::*;
+
+    /// R1's shape again: a queued RTC packet with no admission side
+    /// installed is a WIRING bug, and the drop must leave a count —
+    /// the uncounted version of this branch is how thousands of
+    /// packets disappeared under one reported refusal. Inverse:
+    /// remove the `fetch_add` and the counter stays 0.
+    #[cfg(feature = "webrtc")]
+    #[test]
+    fn a_packet_dropped_for_a_missing_rtc_transport_is_counted() {
+        let rtc = arc_swap::ArcSwapOption::from(None);
+        let dropped = AtomicU64::new(0);
+        submit_rtc_with_one_retry(
+            &rtc,
+            b"x",
+            super::super::rtc::RtcPeerId {
+                slot: 0,
+                generation: 0,
+            },
+            &dropped,
+        );
+        assert_eq!(
+            dropped.load(Ordering::Relaxed),
+            1,
+            "a drop for a missing RTC transport must be counted, not silent"
+        );
+    }
+
+    #[test]
+    fn test_fair_scheduler_basic() {
+        let scheduler = FairScheduler::new(2, 16);
+
+        // Enqueue packets from different streams
+        for stream in 0..3 {
+            for _ in 0..4 {
+                let packet = QueuedPacket {
+                    data: Bytes::from(vec![0u8; 64]),
+                    dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                    stream_id: stream,
+                    priority: false,
+                    queued_at: Instant::now(),
+                };
+                assert!(scheduler.enqueue(packet));
+            }
+        }
+
+        assert_eq!(scheduler.stream_count(), 3);
+        assert_eq!(scheduler.total_queued(), 12);
+
+        // Dequeue should round-robin
+        let mut stream_order = Vec::new();
+        while let Some(packet) = scheduler.dequeue() {
+            stream_order.push(packet.stream_id);
+        }
+
+        // Should have processed all 12 packets
+        assert_eq!(stream_order.len(), 12);
+
+        // Check fairness: each stream should get ~4 packets
+        let mut counts = [0; 3];
+        for stream in stream_order {
+            counts[stream as usize] += 1;
+        }
+        assert_eq!(counts, [4, 4, 4]);
+    }
+
+    #[test]
+    fn current_depth_tracks_live_backlog_and_returns_to_zero() {
+        // `total_queued` is cumulative; `current_depth` must reflect the
+        // live backlog (enqueued − dequeued) across the priority lane and
+        // per-stream queues, and a rejected enqueue must not bump it.
+        let scheduler = FairScheduler::new(2, 4); // per-queue cap = 4
+        let mk = |stream_id: u64, priority: bool| QueuedPacket {
+            data: Bytes::from(vec![0u8; 32]),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id,
+            priority,
+            queued_at: Instant::now(),
+        };
+
+        assert_eq!(scheduler.current_depth(), 0);
+
+        // 3 on a stream + 2 on the priority lane → depth 5.
+        for _ in 0..3 {
+            assert!(scheduler.enqueue(mk(1, false)));
+        }
+        for _ in 0..2 {
+            assert!(scheduler.enqueue(mk(0, true)));
+        }
+        assert_eq!(scheduler.current_depth(), 5);
+
+        // Overflow the priority lane (cap 4): two pushes succeed (already
+        // had 2), the 5th is rejected and must NOT change depth.
+        assert!(scheduler.enqueue(mk(0, true)));
+        assert!(scheduler.enqueue(mk(0, true)));
+        assert_eq!(scheduler.current_depth(), 7);
+        assert!(!scheduler.enqueue(mk(0, true))); // priority lane full
+        assert_eq!(
+            scheduler.current_depth(),
+            7,
+            "rejected enqueue bumped depth"
+        );
+
+        // Drain everything → back to 0.
+        let mut drained = 0;
+        while scheduler.dequeue().is_some() {
+            drained += 1;
+        }
+        assert_eq!(drained, 7);
+        assert_eq!(scheduler.current_depth(), 0, "depth did not return to zero");
+
+        // total_queued stays cumulative (7 successful enqueues), unchanged
+        // by draining — the contrast the new counter exists to provide.
+        assert_eq!(scheduler.total_queued(), 7);
+    }
+
+    #[test]
+    fn group_by_dest_partitions_preserving_per_dest_order() {
+        // The batched drain groups a mixed-destination run into one bucket
+        // per peer (send_batch is single-target). This pins the two
+        // invariants the send loop relies on: (1) packets to the same peer
+        // keep dequeue order; (2) the reuse-clear pattern empties the inner
+        // vecs while keeping the dest slots for the next drain.
+        let a: PeerAddr = PeerAddr::Udp("127.0.0.1:1".parse().unwrap());
+        let b: PeerAddr = PeerAddr::Udp("127.0.0.1:2".parse().unwrap());
+        let c: PeerAddr = PeerAddr::Udp("127.0.0.1:3".parse().unwrap());
+        let mk = |n: u8| Bytes::from(vec![n]);
+
+        let mut groups: Vec<(PeerAddr, Vec<Bytes>)> = Vec::new();
+        // Interleaved across three peers.
+        group_by_dest(&mut groups, a, mk(1));
+        group_by_dest(&mut groups, b, mk(2));
+        group_by_dest(&mut groups, a, mk(3));
+        group_by_dest(&mut groups, c, mk(4));
+        group_by_dest(&mut groups, b, mk(5));
+
+        assert_eq!(groups.len(), 3, "one group per distinct peer");
+        // Slots appear in first-seen order; packets within a peer keep order.
+        assert_eq!(groups[0], (a, vec![mk(1), mk(3)]));
+        assert_eq!(groups[1], (b, vec![mk(2), mk(5)]));
+        assert_eq!(groups[2], (c, vec![mk(4)]));
+
+        // Reuse: clear inner vecs (keep slots), regroup one peer.
+        for (_, v) in groups.iter_mut() {
+            v.clear();
+        }
+        group_by_dest(&mut groups, c, mk(9));
+        assert_eq!(groups.len(), 3, "dest slots persist across drains");
+        assert!(groups[0].1.is_empty() && groups[1].1.is_empty());
+        assert_eq!(
+            groups[2].1,
+            vec![mk(9)],
+            "existing slot reused, not duplicated"
+        );
+    }
+
+    #[test]
+    fn reset_dest_groups_stays_bounded_under_peer_churn() {
+        // Regression for the unbounded dest-slot cache: simulate many drains,
+        // each to a brand-new peer (worst-case churn). Without the cap the slot
+        // set would grow to one entry per peer ever seen (here 500); the
+        // bounded reset must keep it at `cap + 1`.
+        const CAP: usize = 64;
+        let mut groups: Vec<(PeerAddr, Vec<Bytes>)> = Vec::new();
+        let mut max_len = 0usize;
+        for port in 0u16..500 {
+            reset_dest_groups(&mut groups, CAP);
+            let dest: PeerAddr = PeerAddr::Udp(format!("127.0.0.1:{}", port + 1).parse().unwrap());
+            group_by_dest(&mut groups, dest, Bytes::from_static(b"x"));
+            max_len = max_len.max(groups.len());
+        }
+        assert!(
+            max_len <= CAP + 1,
+            "dest-group set must stay bounded under churn; peaked at {max_len}",
+        );
+    }
+
+    #[test]
+    fn test_fair_scheduler_priority() {
+        let scheduler = FairScheduler::new(2, 16);
+
+        // Enqueue normal packets
+        for _ in 0..4 {
+            let packet = QueuedPacket {
+                data: Bytes::from(vec![0u8; 64]),
+                dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                stream_id: 0,
+                priority: false,
+                queued_at: Instant::now(),
+            };
+            scheduler.enqueue(packet);
+        }
+
+        // Enqueue priority packet
+        let priority = QueuedPacket {
+            data: Bytes::from(vec![1u8; 64]),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id: 1,
+            priority: true,
+            queued_at: Instant::now(),
+        };
+        scheduler.enqueue(priority);
+
+        // Priority should come first
+        let first = scheduler.dequeue().unwrap();
+        assert_eq!(first.data[0], 1);
+        assert!(first.priority);
+    }
+
+    #[test]
+    fn test_fair_scheduler_no_starvation() {
+        // Regression: dequeue() always started iterating from the beginning
+        // of the DashMap, so streams appearing earlier in iteration order
+        // were systematically preferred, starving later streams.
+        //
+        // With the rotation fix, each dequeue() starts from a different
+        // position, so all streams should get roughly equal service.
+        let quantum = 1;
+        let scheduler = FairScheduler::new(quantum, 64);
+
+        // Use many streams to make DashMap iteration-order bias visible
+        let num_streams = 8u64;
+        let packets_per_stream = 20;
+
+        for stream in 0..num_streams {
+            for _ in 0..packets_per_stream {
+                let packet = QueuedPacket {
+                    data: Bytes::from(vec![stream as u8; 1]),
+                    dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                    stream_id: stream,
+                    priority: false,
+                    queued_at: Instant::now(),
+                };
+                scheduler.enqueue(packet);
+            }
+        }
+
+        // Dequeue all packets and track which stream each came from
+        let mut first_half_counts = vec![0u32; num_streams as usize];
+        let total = num_streams * packets_per_stream as u64;
+        let half = total / 2;
+
+        for i in 0..total {
+            let packet = scheduler.dequeue().unwrap();
+            if i < half {
+                first_half_counts[packet.stream_id as usize] += 1;
+            }
+        }
+
+        // In the first half of dequeues, every stream should have been served
+        // at least once. Without rotation, some streams could get 0 service.
+        for (stream, &count) in first_half_counts.iter().enumerate() {
+            assert!(
+                count > 0,
+                "stream {} was starved in the first half of dequeues ({} of {} packets)",
+                stream,
+                count,
+                half
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_router_creation() {
+        let config = RouterConfig::new(0x1234, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+
+        assert!(!router.is_running());
+        assert_eq!(router.stats().routes, 0);
+    }
+
+    /// `start()` must spawn at most one dispatch loop. A second
+    /// call while the first loop is still running would race the
+    /// scheduler's `dequeue` and produce reordered or duplicate
+    /// sends.
+    #[tokio::test]
+    async fn start_is_idempotent_returns_none_when_already_running() {
+        let config = RouterConfig::new(0x1234, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+
+        let first = router.start();
+        assert!(first.is_some(), "first start() should spawn a loop");
+        assert!(router.is_running());
+
+        let second = router.start();
+        assert!(
+            second.is_none(),
+            "second start() while running must NOT spawn a duplicate loop",
+        );
+
+        // After stop(), the first loop exits and a fresh start()
+        // is allowed again.
+        router.stop();
+        // Give the loop a tick to observe `running == false`.
+        if let Some(h) = first {
+            let _ = tokio::time::timeout(Duration::from_secs(2), h).await;
+        }
+
+        let third = router.start();
+        assert!(
+            third.is_some(),
+            "start() after stop() should be allowed to spawn again",
+        );
+        router.stop();
+        if let Some(h) = third {
+            let _ = tokio::time::timeout(Duration::from_secs(2), h).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_router_routing_table() {
+        let config = RouterConfig::new(0x1234, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+
+        let dest: PeerAddr = PeerAddr::Udp("127.0.0.1:9001".parse().unwrap());
+        router.add_route(0x5678, dest);
+
+        assert_eq!(router.routing_table().lookup(0x5678), Some(dest));
+        assert_eq!(router.stats().routes, 1);
+    }
+
+    #[tokio::test]
+    async fn test_router_extracts_stream_id_at_correct_offset() {
+        // Regression: stream_id was read from bytes 8..16 (inside the nonce)
+        // instead of bytes 40..48 where it actually lives in the Net header.
+        let local_id = 0x1234u64;
+        let config = RouterConfig::new(local_id, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+
+        let expected_stream_id: u64 = 0xDEAD_BEEF_CAFE_BABEu64;
+
+        // Build routing header pointing to local_id so we get RouteAction::Local
+        let routing = RoutingHeader::new(local_id, 0x5678, 4);
+        let routing_bytes = routing.to_bytes();
+
+        // Build a Net header with a known stream_id
+        let net = NetHeader::new(
+            0xAAAA,             // session_id
+            expected_stream_id, // stream_id
+            1,                  // sequence
+            [0u8; 12],          // nonce
+            0,                  // payload_len
+            0,                  // event_count
+            super::super::protocol::PacketFlags::NONE,
+        );
+        let net_bytes = net.to_bytes();
+
+        // Concatenate routing header + Net header
+        let mut packet = BytesMut::with_capacity(ROUTING_HEADER_SIZE + HEADER_SIZE);
+        packet.extend_from_slice(&routing_bytes);
+        packet.extend_from_slice(&net_bytes);
+
+        let from: PeerAddr = PeerAddr::Udp("127.0.0.1:5000".parse().unwrap());
+        let _ = router.route_packet(packet.freeze(), from);
+
+        // The stream stats should be keyed by the correct stream_id
+        let stats = router
+            .routing_table()
+            .get_stream_stats(expected_stream_id)
+            .expect("stream stats recorded for the routed packet");
+        assert_eq!(
+            stats.get_packets_in(),
+            1,
+            "stream stats should record 1 packet for stream_id 0x{:X}",
+            expected_stream_id
+        );
+    }
+
+    /// Pin: a packet whose `src_id` matches this router's
+    /// `local_id` must be dropped immediately on receipt with
+    /// `RoutingLoop` instead of being forwarded again. Pre-fix
+    /// the router happily looped the packet back along the
+    /// route, only breaking the cycle on TTL exhaustion (so
+    /// every loop wasted up to 64 hops × bandwidth before
+    /// dying).
+    #[tokio::test]
+    async fn route_packet_drops_when_src_id_is_local() {
+        let local_id = 0x1234u64;
+        let dest_id = 0x9999u64;
+        let dest_addr: PeerAddr = PeerAddr::Udp("127.0.0.2:6000".parse().unwrap());
+
+        let config = RouterConfig::new(local_id, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+        router.routing_table().add_route(dest_id, dest_addr);
+
+        // RoutingHeader stores src_id as u32 — the low 32 bits of
+        // the local node id are what identifies us on the wire.
+        let routing = RoutingHeader::new(dest_id, local_id as u32, 16);
+        let routing_bytes = routing.to_bytes();
+
+        let net = NetHeader::new(
+            0xAAAA,
+            0xBEEF,
+            1,
+            [0u8; 12],
+            0,
+            0,
+            super::super::protocol::PacketFlags::NONE,
+        );
+        let net_bytes = net.to_bytes();
+
+        let mut packet = BytesMut::with_capacity(ROUTING_HEADER_SIZE + HEADER_SIZE);
+        packet.extend_from_slice(&routing_bytes);
+        packet.extend_from_slice(&net_bytes);
+
+        let from: PeerAddr = PeerAddr::Udp("127.0.0.1:5000".parse().unwrap());
+        let result = router.route_packet(packet.freeze(), from);
+        match result {
+            Err(RouterError::RoutingLoop) => {}
+            other => panic!(
+                "expected RoutingLoop for src_id == local_id, got {:?}",
+                other
+            ),
+        }
+
+        // Counters: dropped += 1, forwarded unchanged.
+        let stats = router.stats();
+        assert_eq!(
+            stats.packets_dropped, 1,
+            "looping packet must increment packets_dropped"
+        );
+        assert_eq!(
+            stats.packets_forwarded, 0,
+            "looping packet must NOT be forwarded"
+        );
+    }
+
+    /// Regression for BUG_AUDIT_2026_04_30_CORE.md #119: pre-fix
+    /// `route_packet` decremented TTL via `forward()` and queued
+    /// the packet for the next hop without checking whether the
+    /// post-decrement TTL was 0. The next hop received a TTL=0
+    /// packet and dropped it on its own `is_expired()` check —
+    /// wasting one forward + bandwidth + queue slot per
+    /// last-hop packet. Post-fix the router drops here with
+    /// `TtlExpired` if `forward()` made the TTL 0.
+    #[tokio::test]
+    async fn route_packet_drops_when_forward_makes_ttl_zero() {
+        let local_id = 0x1234u64;
+        let dest_id = 0x9999u64;
+        let dest_addr: PeerAddr = PeerAddr::Udp("127.0.0.2:6000".parse().unwrap());
+
+        let config = RouterConfig::new(local_id, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+        router.routing_table().add_route(dest_id, dest_addr);
+
+        // TTL = 1 — `forward()` will decrement to 0. Pre-fix
+        // this would still queue the packet (RouteAction::Forwarded);
+        // post-fix it's dropped with TtlExpired.
+        let routing = RoutingHeader::new(dest_id, 0x5678, 1);
+        let routing_bytes = routing.to_bytes();
+
+        let net = NetHeader::new(
+            0xAAAA,
+            0xBEEF,
+            1,
+            [0u8; 12],
+            0,
+            0,
+            super::super::protocol::PacketFlags::NONE,
+        );
+        let net_bytes = net.to_bytes();
+
+        let mut packet = BytesMut::with_capacity(ROUTING_HEADER_SIZE + HEADER_SIZE);
+        packet.extend_from_slice(&routing_bytes);
+        packet.extend_from_slice(&net_bytes);
+
+        let from: PeerAddr = PeerAddr::Udp("127.0.0.1:5000".parse().unwrap());
+        let result = router.route_packet(packet.freeze(), from);
+
+        match result {
+            Err(RouterError::TtlExpired) => {} // expected
+            Ok(action) => panic!(
+                "post-fix must drop with TtlExpired, not forward (got {:?})",
+                action
+            ),
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+    }
+
+    /// Sanity: a TTL=2 packet should still forward (decrements
+    /// to 1 — non-zero, next hop accepts).
+    #[tokio::test]
+    async fn route_packet_forwards_when_ttl_remains_positive_after_decrement() {
+        let local_id = 0x1234u64;
+        let dest_id = 0x9999u64;
+        let dest_addr: PeerAddr = PeerAddr::Udp("127.0.0.2:6000".parse().unwrap());
+
+        let config = RouterConfig::new(local_id, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+        router.routing_table().add_route(dest_id, dest_addr);
+
+        let routing = RoutingHeader::new(dest_id, 0x5678, 2);
+        let routing_bytes = routing.to_bytes();
+        let net = NetHeader::new(
+            0xAAAA,
+            0xBEEF,
+            1,
+            [0u8; 12],
+            0,
+            0,
+            super::super::protocol::PacketFlags::NONE,
+        );
+        let net_bytes = net.to_bytes();
+        let mut packet = BytesMut::with_capacity(ROUTING_HEADER_SIZE + HEADER_SIZE);
+        packet.extend_from_slice(&routing_bytes);
+        packet.extend_from_slice(&net_bytes);
+        let from: PeerAddr = PeerAddr::Udp("127.0.0.1:5000".parse().unwrap());
+        let result = router.route_packet(packet.freeze(), from);
+        match result {
+            Ok(RouteAction::Forwarded(addr)) => assert_eq!(addr, dest_addr),
+            other => panic!("expected Forwarded, got {:?}", other),
+        }
+    }
+
+    /// Regression: a packet that fails any drop gate (loop
+    /// suppression, pre-decrement TTL, post-decrement TTL) must
+    /// NOT increment the per-stream `packets_in` counter — only
+    /// `packets_dropped`. Pre-fix `record_in` fired immediately
+    /// after parse, so a dropped packet incremented BOTH stream
+    /// counters; a dashboard computing `delivery_rate =
+    /// packets_out / packets_in` would see drops inflate the
+    /// denominator without affecting the numerator, masking
+    /// healthy networks behind apparent delivery loss.
+    ///
+    /// This pins the post-decrement TTL drop path (the audit's
+    /// stated trigger), but the structural change applies to
+    /// every drop path; the per-stream invariant is now
+    /// "packets_in counts only delivered or forwarded packets."
+    #[tokio::test]
+    async fn ttl_drop_does_not_double_count_packets_in_for_stream() {
+        let local_id = 0x1234u64;
+        let dest_id = 0x9999u64;
+        let dest_addr: PeerAddr = PeerAddr::Udp("127.0.0.2:6000".parse().unwrap());
+
+        let config = RouterConfig::new(local_id, "127.0.0.1:0".parse().unwrap());
+        let router = NetRouter::new(config).await.unwrap();
+        router.routing_table().add_route(dest_id, dest_addr);
+
+        // TTL = 1 hits the post-decrement drop path. Same
+        // setup as `route_packet_drops_when_forward_makes_ttl_zero`.
+        let routing = RoutingHeader::new(dest_id, 0x5678, 1);
+        let routing_bytes = routing.to_bytes();
+        // NetHeader::new params: (session_id, stream_id, sequence, nonce, payload_len, event_count, flags)
+        let session_id = 0xAAAAu64;
+        let stream_id = 0x4242u64;
+        let net = NetHeader::new(
+            session_id,
+            stream_id,
+            1,
+            [0u8; 12],
+            0,
+            0,
+            super::super::protocol::PacketFlags::NONE,
+        );
+        let net_bytes = net.to_bytes();
+        let mut packet = BytesMut::with_capacity(ROUTING_HEADER_SIZE + HEADER_SIZE);
+        packet.extend_from_slice(&routing_bytes);
+        packet.extend_from_slice(&net_bytes);
+        let from: PeerAddr = PeerAddr::Udp("127.0.0.1:5000".parse().unwrap());
+
+        let result = router.route_packet(packet.freeze(), from);
+        assert!(matches!(result, Err(RouterError::TtlExpired)));
+
+        let stats = router
+            .routing_table()
+            .get_stream_stats(stream_id)
+            .expect("stream stats present for the dropped packet");
+        assert_eq!(
+            stats.get_packets_in(),
+            0,
+            "regression: a dropped packet must NOT increment per-stream \
+             packets_in. Pre-fix this counter was incremented before \
+             the TTL/loop checks, so drops double-counted as both \
+             ingressed and dropped — masking delivery rate dashboards."
+        );
+        assert_eq!(
+            stats.get_drops(),
+            1,
+            "drop must still increment per-stream packets_dropped"
+        );
+    }
+
+    #[test]
+    fn test_regression_fair_scheduler_cleanup_called() {
+        // Regression: FairScheduler never removed empty stream queues from its
+        // DashMap. After many unique stream_ids passed through, the map grew
+        // without bound, causing O(n) iteration in dequeue() where n is the
+        // number of *ever-seen* streams rather than *active* streams. This
+        // degraded dequeue latency over time.
+        //
+        // Fix: dequeue() calls cleanup_empty() every 1024 iterations,
+        // removing streams whose queues have been fully drained.
+        let scheduler = FairScheduler::new(4, 16);
+
+        // Enqueue packets across many unique streams
+        let num_streams = 200u64;
+        for stream in 0..num_streams {
+            let packet = QueuedPacket {
+                data: Bytes::from(vec![0u8; 8]),
+                dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                stream_id: stream,
+                priority: false,
+                queued_at: Instant::now(),
+            };
+            assert!(scheduler.enqueue(packet));
+        }
+
+        assert_eq!(scheduler.stream_count(), num_streams as usize);
+
+        // Drain all packets
+        let mut drained = 0;
+        while scheduler.dequeue().is_some() {
+            drained += 1;
+        }
+        assert_eq!(drained, num_streams as usize);
+
+        // The cleanup triggers every 1024 dequeue calls. We need enough
+        // dequeue calls (even returning None) to cross the 1024 boundary.
+        // We already did `num_streams` dequeues above; do more no-op
+        // dequeues to push past the threshold.
+        for _ in 0..(1025 - drained) {
+            let _ = scheduler.dequeue();
+        }
+
+        // After cleanup, all empty stream queues should have been removed
+        assert_eq!(
+            scheduler.stream_count(),
+            0,
+            "empty stream queues must be cleaned up after enough dequeue \
+             iterations to prevent unbounded DashMap growth"
+        );
+    }
+
+    #[test]
+    fn test_regression_scheduler_sees_streams_added_after_quantum_exhaustion() {
+        // Regression: dequeue() collected stream keys once, then reused
+        // the stale snapshot for the retry loop after quantum reset.
+        // Streams added between the two loops were invisible until the
+        // next dequeue() call, causing extra latency.
+        //
+        // Fix: re-collect keys before the retry loop.
+        let scheduler = FairScheduler::new(1, 16);
+
+        // Stream 0 with 1 packet (quantum = 1, so first pass drains it)
+        scheduler.enqueue(QueuedPacket {
+            data: Bytes::from_static(b"s0"),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id: 0,
+            priority: false,
+            queued_at: Instant::now(),
+        });
+
+        // Drain stream 0's quantum
+        let pkt = scheduler.dequeue().unwrap();
+        assert_eq!(pkt.stream_id, 0);
+
+        // Now add stream 1 while the scheduler is "between rounds"
+        scheduler.enqueue(QueuedPacket {
+            data: Bytes::from_static(b"s1"),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id: 1,
+            priority: false,
+            queued_at: Instant::now(),
+        });
+
+        // Next dequeue should find stream 1
+        let pkt = scheduler.dequeue().unwrap();
+        assert_eq!(
+            pkt.stream_id, 1,
+            "newly added stream should be visible after quantum reset"
+        );
+    }
+
+    /// PERF_AUDIT §3.1 regression: the active-stream snapshot
+    /// must mutate exactly when the stream set does:
+    ///   - enqueue → new stream: rebuild (ArcSwap pointer changes).
+    ///   - enqueue → existing stream: NO rebuild (pointer stable).
+    ///   - set_stream_weight → new stream: rebuild.
+    ///   - set_stream_weight → existing stream weight change: NO rebuild.
+    ///   - cleanup_empty actually removes something: rebuild.
+    ///   - cleanup_empty with nothing to remove: NO rebuild.
+    ///
+    /// Pre-fix dequeue collected a fresh Vec<u64> from the DashMap
+    /// on EVERY call (twice on the quantum-reset path). A regression
+    /// that drops the snapshot-store from any of the three mutation
+    /// sites would silently leave dequeue iterating a stale set.
+    #[test]
+    fn active_stream_snapshot_tracks_stream_set_changes() {
+        let scheduler = FairScheduler::new(2, 16);
+        let initial_ptr = Arc::as_ptr(&scheduler.active_streams.load_full());
+        assert!(scheduler.active_streams.load_full().is_empty());
+
+        // enqueue → new stream → rebuild.
+        scheduler.enqueue(QueuedPacket {
+            data: Bytes::from_static(b"a"),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id: 7,
+            priority: false,
+            queued_at: Instant::now(),
+        });
+        let after_new = scheduler.active_streams.load_full();
+        assert_ne!(
+            Arc::as_ptr(&after_new),
+            initial_ptr,
+            "vacant-arm enqueue must swap a fresh snapshot in"
+        );
+        assert_eq!(&*after_new, &[7u64]);
+
+        // enqueue → existing stream → snapshot stable.
+        let before_existing = Arc::as_ptr(&scheduler.active_streams.load_full());
+        scheduler.enqueue(QueuedPacket {
+            data: Bytes::from_static(b"b"),
+            dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+            stream_id: 7,
+            priority: false,
+            queued_at: Instant::now(),
+        });
+        assert_eq!(
+            Arc::as_ptr(&scheduler.active_streams.load_full()),
+            before_existing,
+            "occupied-arm enqueue must NOT rebuild the snapshot — a \
+             regression here defeats the §3.1 fix's steady-state win"
+        );
+
+        // set_stream_weight → new stream → rebuild.
+        let before_weight_new = Arc::as_ptr(&scheduler.active_streams.load_full());
+        scheduler.set_stream_weight(11, 3);
+        let after_weight_new = scheduler.active_streams.load_full();
+        assert_ne!(
+            Arc::as_ptr(&after_weight_new),
+            before_weight_new,
+            "set_stream_weight on a new stream must rebuild the snapshot"
+        );
+        let mut sorted: Vec<u64> = after_weight_new.iter().copied().collect();
+        sorted.sort_unstable();
+        assert_eq!(sorted, vec![7u64, 11]);
+
+        // set_stream_weight → existing stream → stable.
+        let before_weight_existing = Arc::as_ptr(&scheduler.active_streams.load_full());
+        scheduler.set_stream_weight(11, 5);
+        assert_eq!(
+            Arc::as_ptr(&scheduler.active_streams.load_full()),
+            before_weight_existing,
+            "set_stream_weight on existing stream must NOT rebuild"
+        );
+
+        // cleanup_empty with nothing to remove (stream 7 has pending
+        // packets) → stable.
+        let before_clean_noop = Arc::as_ptr(&scheduler.active_streams.load_full());
+        let removed = scheduler.cleanup_empty();
+        assert_eq!(
+            removed, 1,
+            "stream 11 has no packets and only DashMap refs it"
+        );
+        let after_clean = scheduler.active_streams.load_full();
+        assert_ne!(
+            Arc::as_ptr(&after_clean),
+            before_clean_noop,
+            "cleanup_empty that actually removed an entry MUST rebuild"
+        );
+        assert_eq!(&*after_clean, &[7u64]);
+
+        // cleanup_empty with nothing removable (stream 7 still has
+        // packets queued) → stable pointer.
+        let before_clean_stable = Arc::as_ptr(&scheduler.active_streams.load_full());
+        let removed = scheduler.cleanup_empty();
+        assert_eq!(removed, 0);
+        assert_eq!(
+            Arc::as_ptr(&scheduler.active_streams.load_full()),
+            before_clean_stable,
+            "cleanup_empty that removed nothing must NOT rebuild"
+        );
+    }
+
+    /// PERF_AUDIT §3.1 lost-wakeup regression: concurrent snapshot
+    /// rebuilds (enqueue vacant-arm racing cleanup_empty's rebuild)
+    /// must never leave the snapshot out of sync with the stream
+    /// map once activity quiesces. Without the version-counter
+    /// retry, a rebuild that collected keys BEFORE a concurrent
+    /// insert could store AFTER the inserting thread's own rebuild,
+    /// wiping the new stream from the snapshot; with no further
+    /// stream-set change the stream's packets would be stranded
+    /// forever (occupied-arm enqueues don't rebuild, and cleanup
+    /// never evicts a non-empty queue). This hammers the race and
+    /// asserts the quiescent invariant snapshot == live stream set.
+    #[test]
+    fn active_stream_snapshot_survives_concurrent_rebuild_races() {
+        use std::thread;
+
+        let scheduler = Arc::new(FairScheduler::new(2, 16));
+        let mut handles = Vec::new();
+
+        // Writers: continuously create fresh streams (vacant-arm
+        // rebuilds) and drain packets so queues trend toward empty
+        // and stay eligible for cleanup eviction (cleanup rebuilds).
+        for t in 0..4u64 {
+            let sched = Arc::clone(&scheduler);
+            handles.push(thread::spawn(move || {
+                for i in 0..500u64 {
+                    let stream_id = t * 100_000 + i;
+                    sched.enqueue(QueuedPacket {
+                        data: Bytes::from_static(b"x"),
+                        dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                        stream_id,
+                        priority: false,
+                        queued_at: Instant::now(),
+                    });
+                    let _ = sched.dequeue();
+                }
+            }));
+        }
+
+        // Dedicated cleanup hammer: maximizes rebuild/insert overlap.
+        {
+            let sched = Arc::clone(&scheduler);
+            handles.push(thread::spawn(move || {
+                for _ in 0..2_000 {
+                    sched.cleanup_empty();
+                }
+            }));
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        // Quiescent invariant: snapshot == live stream set. A lost
+        // rebuild leaves a stream in the map (with packets queued)
+        // that the snapshot — and therefore dequeue — never sees.
+        let mut snapshot: Vec<u64> = scheduler
+            .active_streams
+            .load_full()
+            .iter()
+            .copied()
+            .collect();
+        snapshot.sort_unstable();
+        let mut live: Vec<u64> = scheduler.streams.iter().map(|e| *e.key()).collect();
+        live.sort_unstable();
+        assert_eq!(
+            snapshot, live,
+            "active-stream snapshot diverged from the stream map after \
+             concurrent enqueue/cleanup churn — version-counter retry \
+             protocol failed to repair a racing rebuild"
+        );
+    }
+
+    /// Fairness weight: a weight-4 stream should ship 4× the packets per
+    /// round of a weight-1 stream. With both queues full and one full
+    /// round of dequeues, we should see ~4:1 ratio before any round
+    /// reset fires.
+    #[test]
+    fn test_fair_scheduler_respects_stream_weight() {
+        // Base quantum = 1: every stream with weight 1 gets 1 packet per
+        // round; a weight-4 stream gets 4 packets per round.
+        let scheduler = FairScheduler::new(1, 64);
+
+        scheduler.set_stream_weight(1, 1);
+        scheduler.set_stream_weight(2, 4);
+
+        let dest: PeerAddr = PeerAddr::Udp("127.0.0.1:9999".parse().unwrap());
+        // Fill both streams with 8 packets each.
+        for stream_id in [1u64, 2u64] {
+            for _ in 0..8 {
+                scheduler.enqueue(QueuedPacket {
+                    data: Bytes::from_static(&[0u8; 16]),
+                    dest,
+                    stream_id,
+                    priority: false,
+                    queued_at: Instant::now(),
+                });
+            }
+        }
+
+        // Dequeue 5 packets. The weight-4 stream should ship at least
+        // 4 of those 5 in the first round (its quantum is 4; stream 1's
+        // quantum is 1). Depending on round-robin start, stream 1 may
+        // ship 1 packet in the middle.
+        let mut counts = [0u64; 3];
+        for _ in 0..5 {
+            if let Some(pkt) = scheduler.dequeue() {
+                counts[pkt.stream_id as usize] += 1;
+            }
+        }
+        assert_eq!(counts[0], 0);
+        assert!(
+            counts[2] >= 4,
+            "weight-4 stream should ship >= 4 packets in 5 dequeues; \
+             saw weight-1={} weight-4={}",
+            counts[1],
+            counts[2]
+        );
+        assert!(
+            counts[1] <= 1,
+            "weight-1 stream should ship <= 1 packet before round reset; \
+             saw {}",
+            counts[1]
+        );
+    }
+
+    /// Anti-starvation: a bulk transfer with a huge backlog must NOT
+    /// head-of-line-block a competing interactive stream of equal
+    /// weight. This is the property that justifies routing blob
+    /// transfers through the scheduler (FairScheduler transport plan) —
+    /// a 2 MiB transfer (~260 packets) queued ahead of a few
+    /// interactive packets cannot make the interactive flow wait for
+    /// the whole transfer to drain; round-robin interleaves them so
+    /// every interactive packet is serviced within a bounded number of
+    /// dequeues regardless of how deep the bulk backlog is.
+    #[test]
+    fn bulk_backlog_does_not_starve_an_equal_weight_interactive_stream() {
+        let scheduler = FairScheduler::new(1, 512);
+        let bulk = 1u64;
+        let interactive = 2u64;
+        scheduler.set_stream_weight(bulk, 1);
+        scheduler.set_stream_weight(interactive, 1);
+
+        let dest: PeerAddr = PeerAddr::Udp("127.0.0.1:9999".parse().unwrap());
+        // A transfer-scale backlog on the bulk stream …
+        let bulk_backlog = 260usize;
+        for _ in 0..bulk_backlog {
+            scheduler.enqueue(QueuedPacket {
+                data: Bytes::from_static(&[0u8; 16]),
+                dest,
+                stream_id: bulk,
+                priority: false,
+                queued_at: Instant::now(),
+            });
+        }
+        // … and just a handful of interactive packets behind it.
+        let interactive_count = 4usize;
+        for _ in 0..interactive_count {
+            scheduler.enqueue(QueuedPacket {
+                data: Bytes::from_static(&[0u8; 16]),
+                dest,
+                stream_id: interactive,
+                priority: false,
+                queued_at: Instant::now(),
+            });
+        }
+
+        // Drain, recording the dequeue index at which each interactive
+        // packet emerges.
+        let mut last_interactive_at = 0usize;
+        let mut seen_interactive = 0usize;
+        for idx in 0..(bulk_backlog + interactive_count) {
+            if let Some(pkt) = scheduler.dequeue() {
+                if pkt.stream_id == interactive {
+                    seen_interactive += 1;
+                    last_interactive_at = idx;
+                }
+            }
+        }
+
+        assert_eq!(
+            seen_interactive, interactive_count,
+            "every interactive packet must be delivered"
+        );
+        // With quantum 1 and equal weight, round-robin alternates one
+        // bulk, one interactive per round, so the k-th interactive
+        // packet emerges by dequeue ~2k — bounded by 2×count, utterly
+        // independent of the 260-deep bulk backlog. If the scheduler
+        // had FIFO/head-of-line semantics, the last interactive packet
+        // would not appear until index ~260.
+        assert!(
+            last_interactive_at <= 2 * interactive_count,
+            "interactive stream starved: last interactive packet at dequeue {} \
+             (bulk backlog {}); fair interleaving should deliver it by ~{}",
+            last_interactive_at,
+            bulk_backlog,
+            2 * interactive_count
+        );
+    }
+
+    /// Regression: BUG_REPORT.md #31 — `round_robin_idx` was
+    /// `fetch_add(1)`-ed unconditionally on every `dequeue` call,
+    /// so polls that returned `None` (no streams have packets)
+    /// still rotated the cursor. Under bursty mixed traffic this
+    /// biased service away from streams that became non-empty
+    /// mid-pass. The fix advances the cursor only when a packet
+    /// is actually popped.
+    #[test]
+    fn round_robin_idx_advances_only_on_successful_pop() {
+        let scheduler = FairScheduler::new(1, 64);
+
+        // Empty scheduler: many polls must NOT advance the index.
+        let initial = scheduler.round_robin_idx.load(Ordering::Relaxed);
+        for _ in 0..1000 {
+            assert!(scheduler.dequeue().is_none());
+        }
+        assert_eq!(
+            scheduler.round_robin_idx.load(Ordering::Relaxed),
+            initial,
+            "empty-poll dequeues must not advance round_robin_idx (#31)"
+        );
+
+        // Now enqueue + drain. Each successful pop should advance
+        // the index by exactly 1.
+        for stream in 0..5u64 {
+            scheduler.enqueue(QueuedPacket {
+                data: Bytes::from(vec![0u8; 8]),
+                dest: PeerAddr::Udp("127.0.0.1:9000".parse().unwrap()),
+                stream_id: stream,
+                priority: false,
+                queued_at: Instant::now(),
+            });
+        }
+        let before_drain = scheduler.round_robin_idx.load(Ordering::Relaxed);
+        let mut popped = 0;
+        while scheduler.dequeue().is_some() {
+            popped += 1;
+        }
+        let after_drain = scheduler.round_robin_idx.load(Ordering::Relaxed);
+        assert_eq!(popped, 5);
+        assert_eq!(
+            after_drain.wrapping_sub(before_drain),
+            popped as u64,
+            "round_robin_idx must advance by exactly the number of successful pops (#31)"
+        );
+    }
+}

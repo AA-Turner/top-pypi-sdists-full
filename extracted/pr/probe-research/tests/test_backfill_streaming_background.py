@@ -5,8 +5,9 @@ from threading import Event, get_ident
 
 import pytest
 
-from probe.cli import backfill, backfill_import, import_jobs
-from probe.cli.backfill_coverage import Coverage, CoverageError
+from probe.cli.imports import folder as backfill, jobs as import_jobs
+from probe.cli.imports.folder import flow as backfill_import
+from probe.cli.imports.folder.coverage.coverage import Coverage, CoverageError
 from probe.sdk.errors import TransportError
 from tests import test_backfill_background as fixtures
 
@@ -55,7 +56,7 @@ def test_first_receipt_advances_progress_before_the_last_unit_finishes(
             assert len(h.remote.calls) == 1 and h.remote.calls[0][1] == "a.py"
             first_delivered.set()
 
-    monkeypatch.setattr(backfill, "launch_agent", read)
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", read)
     backfill_import.run_background_job(payload, progress=progress)
     assert first_delivered.is_set() and last_finished
     assert completions == sorted(completions) and completions[-1] == 2
@@ -108,7 +109,7 @@ def test_delayed_monitor_cannot_overwrite_newer_delivery_progress(
                 or change == "outage" and fields.get("waiting_for_connection")):
             change_published.set()
 
-    monkeypatch.setattr(backfill, "launch_agent", read)
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", read)
     if change == "receipt":
         monkeypatch.setattr(Coverage, "accept_receipt", accepted)
         backfill_import.run_background_job(payload, progress=progress)
@@ -161,7 +162,7 @@ def test_offline_delivery_finishes_inflight_reads_before_retrying_saved_uploads(
         if "continuing approved local reads" in message:
             connection_failed.set()
 
-    monkeypatch.setattr(backfill, "launch_agent", read)
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", read)
     if failure_source == "upload":
         monkeypatch.setattr(h.remote, "upload_fingerprinted", offline)
     else:
@@ -189,7 +190,7 @@ def test_offline_delivery_finishes_inflight_reads_before_retrying_saved_uploads(
     monkeypatch.setattr(h.remote, "upload_fingerprinted", upload)
     monkeypatch.setattr(h.client, "flush", flush)
     # A crashed unit has no manifest to recover from: its agent runs again.
-    monkeypatch.setattr(backfill, "launch_agent", launch if not last_unit_ok
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", launch if not last_unit_ok
                         else lambda *a, **k: pytest.fail("re-read a saved manifest"))
     (h.folder / "unapproved.py").write_text("outside the reviewed inventory\n")
     backfill_import.run_background_job(payload, progress=lambda *a, **k: None)

@@ -1,0 +1,30 @@
+import os
+from uuid import UUID
+
+import lamindb_setup
+import pytest
+from lamindb_setup import logger
+
+
+def pytest_sessionstart(session: pytest.Session):
+    lamindb_instance_id = UUID("e1a2d3ab762e4592af5a1e53f288284e")
+    os.environ["LAMINDB_INSTANCE_ID_INIT"] = lamindb_instance_id.hex
+    assert lamindb_setup.settings.user.handle == "testuser2"
+    lamindb_setup.init(
+        storage="./default_storage_hub_prod_tests",
+        modules="bionty",
+        name="lamindb-setup-unit-tests",
+    )
+    assert lamindb_setup.settings.instance._id == lamindb_instance_id
+    assert lamindb_setup.settings.instance.uid == "7cIQBFhUg8ok"
+    if lamindb_setup.settings.instance.is_managed_by_hub:
+        os.environ["LAMIN_MIGRATE_ON_HUB"] = "false"
+    # init registers the pytest cwd as a dev-dir; drop that marker so the checkout stays unmarked
+    lamindb_setup.settings.dev_dir = None
+
+
+def pytest_sessionfinish(session: pytest.Session):
+    logger.set_verbosity(1)
+    lamindb_setup.settings.dev_dir = None
+    os.environ.pop("LAMIN_MIGRATE_ON_HUB", None)
+    lamindb_setup.delete("testuser2/lamindb-setup-unit-tests", force=True)

@@ -1,0 +1,180 @@
+from django import VERSION
+import pytest
+from django.template import engines, TemplateSyntaxError
+from django.template.backends.django import DjangoTemplates
+
+from django_rusty_templates import RustyTemplates
+
+all_engines = pytest.fixture(params=["rusty", "django"])
+all_engines_nocache = pytest.fixture(params=["rusty_nocache", "django_nocache"])
+
+
+@all_engines
+def template_engine(request):
+    """
+    Parametrize tests to run against both rusty and django template engines.
+
+    See https://docs.pytest.org/en/stable/how-to/fixtures.html#parametrizing-fixtures
+    """
+    return engines[request.param]
+
+
+@all_engines_nocache
+def template_engine_nocache(request):
+    """
+    Like template_engine, but forces usage of the filesystem loader without the cached loader.
+    """
+    return engines[request.param]
+
+
+@pytest.fixture
+def assert_render(template_engine):
+    """
+    A convenient method allowing to write concise tests rendering a template with a specific context.
+
+    Example:
+        def test_render_url_variable(assert_render):
+            assert_render(template="{% url home %}", context={"home": "home"}, expected="/")
+    """
+
+    def assert_render_template(template, context, expected, request=None):
+        template = template_engine.from_string(template)
+        assert template.render(context, request) == expected
+
+    return assert_render_template
+
+
+@pytest.fixture
+def render_output(template_engine):
+    def render_template_output(template, context, request=None):
+        template = template_engine.from_string(template)
+        return template.render(context, request)
+
+    return render_template_output
+
+
+@all_engines
+def assert_parse_error(request):
+    """
+    A convenient method to test `TemplateSyntaxError` for both engines.
+
+    Example:
+        def test_error(assert_parse_error):
+            assert_parse_error(
+                template=...,
+                django_message = snapshot("invalid literal for int() with base 10: '-5.5'"),
+                rusty_message = snapshot("  × Couldn't convert argument (-5.5) to integer...")
+            )
+
+    """
+
+    def _assert_parse_error(
+        template,
+        django_message,
+        rusty_message,
+        exception=TemplateSyntaxError,
+        rusty_exception=None,
+    ):
+        message = django_message if request.param == "django" else rusty_message
+        if VERSION >= (6, 0):
+            try:
+                reference = engines["django"].from_string(template)
+            except Exception as reference_error:
+                exception = type(reference_error)
+                rusty_exception = None
+                django_message = str(reference_error)
+                if request.param == "django" or (
+                    VERSION >= (6, 2) and "{% now" in template
+                ):
+                    message = django_message
+            else:
+                # Expressions such as positive exponents became valid in 6.0.
+                assert engines[request.param].from_string(template).render(
+                    {}
+                ) == reference.render({})
+                return
+        exception = (
+            rusty_exception
+            if request.param != "django" and rusty_exception
+            else exception
+        )
+        with pytest.raises(exception) as exc_info:
+            engines[request.param].from_string(template)
+        diagnostic = getattr(exc_info.value, "rusty_diagnostic", None)
+        if diagnostic is not None:
+            if request.param != "django" and VERSION >= (6, 2) and "{% now" in template:
+                # Native now parsing retains Rust diagnostics for errors in
+                # surrounding expressions. Tag arity errors use Django's text.
+                message = (
+                    rusty_message if diagnostic.startswith("  ×") else django_message
+                )
+            assert diagnostic == message
+            assert str(exc_info.value) == django_message
+        else:
+            assert str(exc_info.value) == message
+
+    return _assert_parse_error
+
+
+@all_engines
+def assert_render_error(request):
+    """
+    A convenient method to test rendering exception with both engines.
+
+    Example:
+        def test_error(assert_render_error):
+            assert_render_error(
+                template="{{ foo|center:bar }}",
+                context={"foo": "test", "bar": "-5.5"},
+                exception=ValueError,
+                django_message = snapshot("invalid literal for int() with base 10: '-5.5'"),
+                rusty_message = snapshot("  × Couldn't convert argument (-5.5) to integer...")
+            )
+    """
+
+    def _assert_render_error(
+        template,
+        context,
+        exception,
+        django_message,
+        rusty_message,
+        rusty_exception=None,
+        request_factory=None,
+    ):
+        message = django_message if request.param == "django" else rusty_message
+        exception = (
+            rusty_exception
+            if request.param != "django" and rusty_exception
+            else exception
+        )
+        if VERSION >= (6, 0) and (request.param == "django" or "|center:" in template):
+            try:
+                expected_output = (
+                    engines["django"]
+                    .from_string(template)
+                    .render(context, request_factory)
+                )
+            except Exception as reference_error:
+                exception = type(reference_error)
+                message = str(reference_error)
+            else:
+                assert (
+                    engines[request.param]
+                    .from_string(template)
+                    .render(context, request_factory)
+                    == expected_output
+                )
+                return
+        template = engines[request.param].from_string(template)
+        with pytest.raises(exception) as exc_info:
+            template.render(context, request_factory)
+        assert str(exc_info.value) == message
+
+    return _assert_render_error
+
+
+@all_engines
+def engine_class(request):
+    if request.param == "django":
+        return DjangoTemplates
+    return RustyTemplates

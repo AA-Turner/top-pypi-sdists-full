@@ -1,0 +1,45 @@
+"Run BPL notebooks directly, optionally saving their output."
+
+import json
+from pathlib import Path
+from fastcore.script import call_parse
+from fastcore.xtras import working_directory
+from fastcore.nbio import write_nb
+from . import bpl
+
+LANGUAGES = {'bpl', 'hpl'}
+
+
+def run_notebook(path, save=False):
+    "Run BPL cells in a cleared workspace, from the notebook's directory. Save outputs only when requested."
+    path = Path(path)
+    nb = json.loads(path.read_text())
+    if nb['metadata']['kernelspec']['language'] not in LANGUAGES: raise ValueError(f'{path}: expected a BPL notebook')
+    bpl(']clear')
+    with working_directory(path.parent):
+        for i, cell in enumerate(nb['cells'], 1):
+            if cell['cell_type'] != 'code': continue
+            try: result = bpl(''.join(cell['source']), 'repl')
+            except Exception as e: raise RuntimeError(f'{path}: cell {i} ({cell.get("id", "")}): {e}') from e
+            if save:
+                cell['outputs'] = [dict(output_type='stream', name='stdout', text=e['data']['text/plain']+'\n') if e['kind'] == 'explicit'
+                    else dict(output_type='display_data', data=e['data'], metadata={}) for e in result.events]
+    if save: write_nb(nb, path)
+
+
+@call_parse(pos=['path'])
+def main(
+    path:Path=Path('nbs'), # BPL notebook or directory to search
+    save:bool=False, # Save outputs in the notebook
+):
+    "Run BPL notebooks without starting Jupyter, holding the timing lock shared."
+    try: from fastws.cargo import timing_lock
+    except ImportError: raise SystemExit("bpl-nb runs basedpl's own notebooks and needs the dev extras: pip install 'basedpl[dev]'")
+    with timing_lock():
+        paths = sorted(path.rglob('*.ipynb')) if path.is_dir() else [path]
+        for p in paths:
+            if path.is_dir() and json.loads(p.read_text())['metadata'].get('kernelspec', {}).get('language') not in LANGUAGES: continue
+            run_notebook(p, save)
+
+
+if __name__ == '__main__': main()

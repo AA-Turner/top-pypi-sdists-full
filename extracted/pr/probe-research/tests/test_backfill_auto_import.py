@@ -5,9 +5,12 @@ import json
 
 import pytest
 
-from probe.cli import backfill as bf, backfill_import as imp, backfill_run as runner
-from probe.cli import import_jobs as jobs, tui
-from probe.cli.backfill_coverage import CoverageError
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import flow as imp
+from probe.cli import backfill_run as runner
+from probe.cli.imports import jobs as jobs
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import CoverageError
 from probe.sdk.delivery import journal
 from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
@@ -19,13 +22,14 @@ queued = test_import_jobs.queued
 @pytest.fixture
 def automatic(tmp_path, monkeypatch, queued):
     h = make_harness(tmp_path, monkeypatch)
-    monkeypatch.setattr(bf, "degraded_note", lambda *a: None)
-    monkeypatch.setattr(bf, "git_context", lambda *a: None)
-    monkeypatch.setattr(imp, "_background_client", lambda payload: nullcontext(h.client))
+    monkeypatch.setattr(bf.agents.flags, "degraded_note", lambda *a: None)
+    monkeypatch.setattr(bf.walk.git, "git_context", lambda *a: None)
+    monkeypatch.setattr(imp.background_job, "_background_client", lambda payload: nullcontext(h.client))
+    monkeypatch.setattr(imp.auto_import, "_background_client", lambda payload: nullcontext(h.client))
     monkeypatch.setattr(h.client, "flush", lambda **kwargs: journal.drain(
         h.client.journal, client_factory=lambda _: h.remote, **kwargs,
     ))
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("Opt-in worker must not prompt"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("Opt-in worker must not prompt"))
     return h
 
 
@@ -53,7 +57,7 @@ def test_automatic_import_requires_explicit_opt_in_before_any_account_or_file_wo
 
 def test_enqueue_does_not_scan_and_reuses_one_active_folder_job(automatic, monkeypatch, queued):
     h = automatic
-    monkeypatch.setattr(runner, "_index", lambda *a: pytest.fail("Scan belongs in worker"))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.traversal._index", lambda *a: pytest.fail("Scan belongs in worker"))
     job = _enqueue(h)
     assert _enqueue(h)["id"] == job["id"]
     assert job["kind"] == jobs.Kind.FOLDER and job["payload"]["auto_approve"] is True
@@ -78,7 +82,9 @@ def test_worker_saves_exact_plan_before_delivery_without_enqueuing_another_job(a
             seen.append(True)
         return real_deliver(*args, **kwargs)
 
-    monkeypatch.setattr(imp, "_deliver_approved", deliver)
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", deliver)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", deliver)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", deliver)
     _run(job)
     assert seen == [True] and len(queued) == 1 and len(jobs.list_jobs()) == 1
     assert h.classified == [["a.py"]]
@@ -96,13 +102,19 @@ def test_reconnect_after_preparation_uses_same_snapshot_and_ignores_new_files(au
             raise jobs._Interrupted
         return real_deliver(*args, **kwargs)
 
-    monkeypatch.setattr(imp, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", interrupted)
     assert jobs.run_worker(job["id"]) == 130
     assert jobs.get_job(job["id"])["state"] == jobs.State.INTERRUPTED
     assert h.remote.calls == []
     (h.folder / "b.py").write_text("new = True\n")
-    monkeypatch.setattr(imp, "_deliver_approved", real_deliver)
-    monkeypatch.setattr(imp, "_run", lambda *a, **k: pytest.fail("Prepared job must not replan"))
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", real_deliver)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", real_deliver)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", real_deliver)
+    monkeypatch.setattr(imp.flow, "_run", lambda *a, **k: pytest.fail("Prepared job must not replan"))
+    monkeypatch.setattr(imp.auto_import, "_run", lambda *a, **k: pytest.fail("Prepared job must not replan"))
+    monkeypatch.setattr(imp.scoped, "_run", lambda *a, **k: pytest.fail("Prepared job must not replan"))
     jobs.recover_jobs()
     _run(job)
     assert h.classified == [["a.py"]]
@@ -120,7 +132,9 @@ def test_changed_approved_bytes_are_not_automatically_reapproved_after_preparati
             (h.folder / "a.py").write_text("changed after approval\n")
         return real_deliver(*args, **kwargs)
 
-    monkeypatch.setattr(imp, "_deliver_approved", changed)
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", changed)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", changed)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", changed)
     assert jobs.run_worker(job["id"]) == 1
     saved = jobs.get_job(job["id"])
     assert "approved file(s) remain unfinished" in saved["error"]
@@ -180,11 +194,15 @@ def test_corrupt_prepared_checkpoint_fails_without_replanning(automatic, monkeyp
             raise jobs._Interrupted
         return real_deliver(*args, **kwargs)
 
-    monkeypatch.setattr(imp, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", interrupted)
     jobs.run_worker(job["id"])
     checkpoint, _ = imp._auto_checkpoint(job["payload"])
     checkpoint.write_text("broken saved plan")
-    monkeypatch.setattr(imp, "_run", lambda *a, **k: pytest.fail("Do not rebuild corrupt approvals"))
+    monkeypatch.setattr(imp.flow, "_run", lambda *a, **k: pytest.fail("Do not rebuild corrupt approvals"))
+    monkeypatch.setattr(imp.auto_import, "_run", lambda *a, **k: pytest.fail("Do not rebuild corrupt approvals"))
+    monkeypatch.setattr(imp.scoped, "_run", lambda *a, **k: pytest.fail("Do not rebuild corrupt approvals"))
     jobs.resume(job["id"])
     assert jobs.run_worker(job["id"]) == 1
     assert "could not be verified" in jobs.get_job(job["id"])["error"]
@@ -201,11 +219,15 @@ def test_missing_prepared_checkpoint_never_becomes_permission_to_replan(automati
             raise jobs._Interrupted
         return real_deliver(*args, **kwargs)
 
-    monkeypatch.setattr(imp, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.deliver, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.background_job, "_deliver_approved", interrupted)
+    monkeypatch.setattr(imp.flow, "_deliver_approved", interrupted)
     assert jobs.run_worker(job["id"]) == 130
     checkpoint, _ = imp._auto_checkpoint(job["payload"])
     checkpoint.unlink()
-    monkeypatch.setattr(imp, "_run", lambda *a, **k: pytest.fail("Do not replace missing approved plan"))
+    monkeypatch.setattr(imp.flow, "_run", lambda *a, **k: pytest.fail("Do not replace missing approved plan"))
+    monkeypatch.setattr(imp.auto_import, "_run", lambda *a, **k: pytest.fail("Do not replace missing approved plan"))
+    monkeypatch.setattr(imp.scoped, "_run", lambda *a, **k: pytest.fail("Do not replace missing approved plan"))
     resumed = _enqueue(h)
     assert resumed["id"] == job["id"] and resumed["state"] == jobs.State.QUEUED
     assert jobs.run_worker(job["id"]) == 1
@@ -238,7 +260,9 @@ def test_folder_replacement_during_preparation_fails_before_publishing_the_plan(
         (h.folder / "a.py").write_text("value = 1\n")
         return result
 
-    monkeypatch.setattr(imp, "_run", replace)
+    monkeypatch.setattr(imp.flow, "_run", replace)
+    monkeypatch.setattr(imp.auto_import, "_run", replace)
+    monkeypatch.setattr(imp.scoped, "_run", replace)
     assert jobs.run_worker(job["id"]) == 1
     assert "folder was replaced" in jobs.get_job(job["id"])["error"]
     checkpoint, _ = imp._auto_checkpoint(job["payload"])

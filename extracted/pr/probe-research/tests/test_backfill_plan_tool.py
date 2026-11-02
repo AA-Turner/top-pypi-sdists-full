@@ -18,8 +18,8 @@ import subprocess
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_plan_tool as t
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.classify import plan_tool as t
 
 ROOT = "/data/llm-env-auditing"
 #: Distinct random-looking names, like the 200 attempt directories in the

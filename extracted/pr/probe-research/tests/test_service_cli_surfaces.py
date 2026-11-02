@@ -44,9 +44,14 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe.cli import import_jobs, service_calls, wizard_service
-from probe.service import client, notesync, paths, protocol, statusline
-from probe.service.protocol import Method
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.lifecycle import service_calls
+from probe.cli.wizard.session import on_service as wizard_service
+from probe.foundation import service_api as client
+from probe.service.jobs import notesync, statusline
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
+from probe.foundation.service_api.wire import Method
 from tests.service_fakes import FakeCore
 from tests.service_harness import ps_passes, service_home, wait_for  # noqa: F401 -- a fixture
 
@@ -393,9 +398,21 @@ def test_requests_while_a_sync_runs_join_the_one_run_after_it(service_home, core
 def test_a_pending_sync_holds_the_service_up(service_home, core, monkeypatch, scratch):
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "0.2")
     core.plan("cli", before=[{"sleep": 1.0}])
-    started = service_home.start()
+    # The 0.2 s grace starts when the last connection closes. A keepalive holds the
+    # service from `start()` until the sync is running, so a slow box cannot let it
+    # idle out before the sync is asked; then only the sync can hold it up.
+    for _ in range(5):
+        started = service_home.start()
+        try:
+            hold = service_home.connect(keepalive=True)
+            break
+        except OSError:
+            continue  # it idled out between start() and the hello: start another
+    else:
+        raise AssertionError("the service idled out five times before a keepalive could hold it")
     client.sync_notes("reconcile", context=_hook_context())
     _wait_cli(core, 1)
+    hold.close()
     assert _status(service_home)["pid"] == started["pid"], "the service idled out under a sync"
     assert service_home.wait_exit(started["pid"], 10), "the service never idled out after the sync"
 
@@ -593,7 +610,7 @@ def test_without_the_service_the_cli_starts_its_own_worker(service_home, tmp_pat
 
 
 def test_a_start_waits_for_neither_a_previous_attempt_nor_an_update(tmp_path):
-    from probe.service import imports
+    from probe.service.jobs import imports
 
     held = {"on": False}
     workers = imports.ImportWorkers(tmp_path / "imports.json", log=lambda _m: None, held=lambda: held["on"])
@@ -858,7 +875,7 @@ class _Lost:
 
 
 def test_a_run_sent_and_never_answered_is_never_run_here_as_well(service_home, same_cli, scratch, monkeypatch, capsys):
-    from probe.service import client as service_client
+    from probe.foundation import service_api as service_client
 
     paths.ensure_dirs()
     paths.socket_path().touch()  # `_reachable`: a socket file is there
@@ -991,7 +1008,7 @@ def test_writing_a_childs_request_never_blocks_the_loop(tmp_path):
     that reads it late: the loop keeps running meanwhile."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     request = b"x" * (256 * 1024)
     child = [sys.executable, "-c", "import sys, time; time.sleep(0.6); sys.stdin.buffer.read()"]
@@ -1016,7 +1033,7 @@ def test_a_descendant_keeping_stdin_never_holds_the_writer_or_the_leader(tmp_pat
     it forever, and the leader, never waited for, stayed a zombie."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     pidfile = tmp_path / "descendant.pid"
     script = (
@@ -1051,7 +1068,7 @@ def test_a_descendant_keeping_stdin_never_holds_the_writer_or_the_leader(tmp_pat
 def test_a_resend_never_goes_to_a_service_that_does_not_enforce_the_sandbox(monkeypatch):
     """The resend after a lost answer opens a new connection: one to a service
     without `caps` (an older one, back at the same path) is never used."""
-    from probe.service import client as service_client
+    from probe.foundation import service_api as service_client
 
     class Older:
         closed = False
@@ -1156,7 +1173,7 @@ def test_a_stopping_service_hands_an_unrun_sync_to_a_detached_shell(ran, monkeyp
 
 def test_the_team_notes_probe_commands_say_the_service_started_them(ran, monkeypatch):
     """Marked `SERVICE_CHILD_ENV`, so none of them asks the service for an
-    update (`probe.cli.main._hand_update_to_service`): an ask from the first
+    update (`probe.cli.lifecycle.update_spawn._hand_update_to_service`): an ask from the first
     would land while the job's next command still runs from the CLI's files."""
     import asyncio
 
@@ -1608,7 +1625,7 @@ def test_a_cancelled_status_line_child_is_killed_not_left_running(tmp_path):
     """A refresh child must not outlive the service it reads (`kill_on_cancel`)."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     pid_file = tmp_path / "pid"
 

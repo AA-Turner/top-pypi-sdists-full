@@ -16,9 +16,9 @@ from types import SimpleNamespace
 import pytest
 
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-from probe.cli import updater, upgrading
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capability
+from probe.cli.install import updater, upgrade as upgrading
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capability
 
 
 def _plugin_result(name: str) -> updater.PluginResult:
@@ -32,17 +32,22 @@ def one_update(monkeypatch):
     """An update whose halves are stand-ins, counting what ran and on which thread."""
     ran: dict[str, list[str]] = {"cli": [], "pi": [], "plugins": []}
     both = threading.Barrier(2, timeout=5)
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda *a, **k: None)
     monkeypatch.setattr(
-        updater,
+        updater.cli_install,
         "upgrade_cli",
         lambda install, current, target: ran["cli"].append(threading.current_thread().name)
         or updater.CliResult(ran=True, ok=True, changed=False, before=current, after=current, message="cli current"),
     )
     monkeypatch.setattr(
-        upgrading, "_update_pi_package", lambda: ran["pi"].append(1) or upgrading._PiUpdate(["pi current"])
+        "probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: ran["pi"].append(1) or upgrading._PiUpdate(["pi current"])
+    )
+    monkeypatch.setattr(
+        upgrading.package_step, "_update_pi_package", lambda: ran["pi"].append(1) or upgrading._PiUpdate(["pi current"])
     )
 
     def plugins(name):
@@ -53,10 +58,11 @@ def one_update(monkeypatch):
 
         return update
 
-    monkeypatch.setattr(updater, "update_plugin", plugins("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", plugins("codex"))
-    monkeypatch.setattr(updater, "stale_tap_daemons", lambda *a, **k: ())
-    monkeypatch.setattr(updater, "follows_without_restart", lambda *a, **k: False)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", plugins("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", plugins("codex"))
+    monkeypatch.setattr(updater.tap_sessions, "stale_tap_daemons", lambda *a, **k: ())
+    monkeypatch.setattr(updater.tap_sessions, "follows_without_restart", lambda *a, **k: False)
+    monkeypatch.setattr(updater.tap_result, "follows_without_restart", lambda *a, **k: False)
     monkeypatch.setattr(upgrading.root_skills, "refresh", lambda source: [])
     return ran
 
@@ -131,7 +137,7 @@ def test_the_install_batch_installs_each_agents_plugins_with_its_refresh(monkeyp
         both.wait()
         return claude_cli.Result(ok=True, detail=source)
 
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", refresh)
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", refresh)
     monkeypatch.setattr(
         wizard.plugin_cli, "install",
         lambda source, plugin_id: ran.append((source, plugin_id)) or claude_cli.Result(ok=True, detail=plugin_id),
@@ -154,7 +160,7 @@ def test_the_install_batch_installs_each_agents_plugins_with_its_refresh(monkeyp
 
 
 def test_a_batch_without_an_allowance_installs_nothing_early(monkeypatch):
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True))
     monkeypatch.setattr(wizard.plugin_cli, "install", lambda *a: pytest.fail("installed before its step"))
     with wizard.marketplace_refreshes(["claude_code"], {"claude_code": [(Capability.TRACKING, "probe-research")]}):
         assert wizard.refresh_marketplace(source="claude_code").ok
@@ -164,7 +170,7 @@ def test_the_install_plan_keeps_each_agents_order_and_leaves_a_legacy_tap_to_its
     import importlib
 
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
 
     main = importlib.import_module("probe.cli.main")
     monkeypatch.setattr(plugin_cli, "available", lambda source: True)
@@ -213,13 +219,14 @@ def test_a_pass_that_raises_fails_only_its_own_agent(one_update, monkeypatch):
     monkeypatch.setattr(
         autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append((agent, attempt))
     )
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
 
     def broken(*_args):
         raise RuntimeError("codex exploded")
 
-    monkeypatch.setattr(updater, "update_codex_plugins", broken)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", broken)
     outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
     assert outcomes["claude_code"].ok and not outcomes["codex"].ok
     assert any("codex exploded" in line for line in outcomes["codex"].lines)
@@ -248,7 +255,8 @@ def _recording(monkeypatch):
     recorded: list = []
     reports: list[dict] = []
     monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append((agent, attempt)))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda build, **k: reports.append(build()))
     return recorded, reports
 
 
@@ -259,8 +267,8 @@ def test_a_hung_agent_fails_alone_at_its_deadline(one_update, monkeypatch, short
     from probe.shared.updates import update_report
 
     recorded, reports = _recording(monkeypatch)
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: short_deadline.wait(30) and _plugin_result("codex"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", lambda *a: short_deadline.wait(30) and _plugin_result("codex"))
 
     outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
 
@@ -295,8 +303,8 @@ def test_a_component_past_its_deadline_has_its_processes_stopped(one_update, mon
             after.append(exc)
         return _plugin_result("codex")
 
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", hung_codex)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", hung_codex)
     outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
 
     assert not outcomes["codex"].ok and any("was stopped (1 process)" in line for line in outcomes["codex"].lines)
@@ -324,7 +332,10 @@ upgrading._report_attempt = lambda *a, **k: None
 
 def hung(name):
     def run(*_args):
-        claude_cli.capture(["sh", "-c", f"echo $$ > {out / name}; exec sleep 60"], timeout=120)
+        # Written whole, then renamed: the test reads the pid once the file exists.
+        pid_file = out / name
+        claude_cli.capture(["sh", "-c", f"echo $$ > {pid_file}.part && mv {pid_file}.part {pid_file}; exec sleep 60"],
+                           timeout=120)
         return updater.PluginResult(True, True, False, "1", "1", "ok")
     return run
 
@@ -406,12 +417,12 @@ def test_a_single_agent_update_whose_plugins_raise_still_answers(one_update, mon
     """`perform_update` (one agent): its plugin step raising is that step's
     failure, recorded; the update answers instead of raising."""
     recorded, _reports = _recording(monkeypatch)
-    monkeypatch.setattr(upgrading, "agent_source", lambda: "claude_code")
+    monkeypatch.setattr(upgrading.upgrade, "agent_source", lambda: "claude_code")
 
     def broken(*_args):
         raise RuntimeError("claude exploded")
 
-    monkeypatch.setattr(updater, "update_plugin", broken)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", broken)
     outcome = upgrading.perform_update(base_url="https://x")
     assert not outcome.ok and any("claude exploded" in line for line in outcome.lines)
     assert one_update["cli"] and recorded and not recorded[-1][1].plugin_ok
@@ -428,8 +439,8 @@ def test_pi_failing_or_hanging_fails_only_pis_step(one_update, monkeypatch, shor
     _recording(monkeypatch)
     owed: list[bool] = []
     monkeypatch.setattr(autoupdate, "mark_pi_update_pending", lambda pending: owed.append(pending))
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: _plugin_result("codex"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", lambda *a: _plugin_result("codex"))
 
     def pi():
         if how == "raises":
@@ -437,7 +448,8 @@ def test_pi_failing_or_hanging_fails_only_pis_step(one_update, monkeypatch, shor
         short_deadline.wait(30)
         return upgrading._PiUpdate(["pi current"])
 
-    monkeypatch.setattr(upgrading, "_update_pi_package", pi)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", pi)
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", pi)
     outcomes = upgrading.perform_updates(["claude_code", "codex", "pi"], base_url="https://x")
 
     reason = "npm exploded" if how == "raises" else "did not finish within 0.5 s"
@@ -452,20 +464,20 @@ def test_a_failed_cli_upgrade_is_named_on_every_agents_answer(one_update, monkey
     """Each agent's `ok` carries the CLI's failure, and `--json` sends each
     agent's lines as its reason: every row must say why."""
     monkeypatch.setattr(
-        updater, "upgrade_cli",
+        updater.cli_install, "upgrade_cli",
         lambda install, current, target: updater.CliResult(
             ran=True, ok=False, changed=False, before=current, after=current, message="uv refused"
         ),
     )
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: _plugin_result("codex"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", lambda *a: _plugin_result("codex"))
     outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
     for outcome in outcomes.values():
         assert not outcome.ok and any("uv refused" in line for line in outcome.lines)
 
 
 def test_an_install_that_raises_does_not_fail_the_refresh(monkeypatch):
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True, detail="fresh"))
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True, detail="fresh"))
 
     def explode(source, plugin_id):
         raise OSError("disk full")

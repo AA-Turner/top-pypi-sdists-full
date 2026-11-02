@@ -1,0 +1,1092 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+"""Default keyboard event handler for Plotter."""
+
+import os
+import sys
+
+import numpy as np
+
+import vedo
+import vedo.vtkclasses as vtki
+from vedo import addons, utils
+
+
+__docformat__ = "google"
+
+
+def _print_color_picker_report(x: int, y: int, rgb) -> None:
+    """Print pixel color information using Rich when available."""
+    rgb_values = [int(v) for v in np.asarray(rgb).tolist()]
+    hex_color = vedo.colors.rgb2hex(np.array(rgb_values) / 255)
+    color_name = vedo.get_color_name(rgb_values)
+    is_dark = sum(rgb_values) < 150
+
+    if not vedo.settings.enable_print_color:
+        print(f"Pixel {[x, y]} has RGB{rgb_values} = {hex_color}  -> {color_name}")
+        return
+
+    try:
+        from rich.console import Console
+        from rich.style import Style
+        from rich.text import Text
+
+        text = Text()
+        text.append("Pixel ", style="bold cyan")
+        text.append(str([x, y]), style="bold white")
+        text.append(" has RGB[", style="white")
+
+        for channel in (
+            (rgb_values[0], 0, 0),
+            (0, rgb_values[1], 0),
+            (0, 0, rgb_values[2]),
+        ):
+            text.append(
+                "█",
+                style=Style(
+                    color=vedo.colors.rgb2hex(np.array(channel) / 255), bold=True
+                ),
+            )
+
+        text.append("] = ", style="white")
+
+        if is_dark:
+            value_style = Style(color="white", bgcolor=hex_color, bold=True)
+        else:
+            value_style = Style(color=hex_color, bold=True)
+
+        text.append(str(rgb_values), style=value_style)
+        text.append(" ", style="white")
+        text.append(hex_color, style=value_style)
+        text.append("  -> ", style="white")
+        text.append(color_name, style=value_style)
+        Console().print(text, highlight=False, soft_wrap=True)
+    except Exception:
+        vedo.printc(":rainbow:Pixel", [x, y], "has RGB[", end="")
+        vedo.printc("█", c=[rgb_values[0], 0, 0], end="")
+        vedo.printc("█", c=[0, rgb_values[1], 0], end="")
+        vedo.printc("█", c=[0, 0, rgb_values[2]], end="")
+        vedo.printc("] = ", end="")
+        if is_dark:
+            vedo.printc(
+                rgb_values,
+                hex_color,
+                c="w",
+                bc=rgb_values,
+                invert=1,
+                end="",
+            )
+            vedo.printc("  -> " + color_name, invert=1, c="w")
+        else:
+            vedo.printc(
+                rgb_values,
+                hex_color,
+                c=rgb_values,
+                end="",
+            )
+            vedo.printc("  -> " + color_name, c=color_name)
+
+
+def _print_keymap_notice(
+    title: str,
+    rows: list[tuple[str, str]] | None = None,
+    message: str = "",
+    color: str = "cyan",
+) -> None:
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.table import Table
+
+        if rows:
+            table = Table(show_header=False, box=None, pad_edge=False, expand=False)
+            table.add_column("Field", style=f"bold {color}", no_wrap=True)
+            table.add_column("Value", style="white")
+            for field, value in rows:
+                table.add_row(str(field), str(value))
+            body = table
+        else:
+            body = message
+
+        Console().print(
+            Panel(
+                body,
+                title=title,
+                title_align="left",
+                border_style=f"bold {color}",
+                expand=False,
+            )
+        )
+    except Exception:
+        vedo.printc((" " + title + " ").ljust(75), invert=True, c=color)
+        if rows:
+            for field, value in rows:
+                vedo.printc(f"{field:<14}: {value}", c=color)
+        elif message:
+            vedo.printc(message, c=color)
+
+
+def _print_keymap_info(obj) -> None:
+    printer = getattr(obj, "print", None)
+    if callable(printer):
+        printer()
+    else:
+        print(obj)
+
+
+def _normalize_key(iren, key) -> str:
+    if iren.GetShiftKey():
+        key = key.upper()
+    if iren.GetControlKey():
+        key = "Ctrl+" + key
+    if iren.GetAltKey():
+        key = "Alt+" + key
+    return key
+
+
+def _selected_meshes(plotter):
+    if plotter.clicked_object and plotter.clicked_object in plotter.get_meshes():
+        return [plotter.clicked_object]
+    return plotter.get_meshes()
+
+
+def _key_quit(plotter, _iren, _renderer) -> bool:
+    plotter.break_interaction()
+    return True
+
+
+def _key_close(plotter, _iren, _renderer) -> bool:
+    plotter.close()
+    return True
+
+
+def _key_abort(plotter, _iren, _renderer) -> bool:
+    vedo.logger.info("Execution aborted. Exiting python kernel now.")
+    plotter.break_interaction()
+    sys.exit(0)
+
+
+def _key_help(_plotter, _iren, _renderer) -> bool:
+    help_rows = [
+        ("i", "print info about the last clicked object"),
+        ("I", "print color of the pixel under the mouse"),
+        ("Y", "show the pipeline for this object as a graph"),
+        ("<->", "use arrows to reduce/increase opacity"),
+        ("x", "toggle mesh visibility"),
+        ("w", "toggle wireframe/surface style"),
+        ("l", "toggle surface edges visibility"),
+        ("p/P", "hide surface faces and show only points"),
+        ("1-3", "cycle surface color (2=light, 3=dark)"),
+        ("4", "cycle color map (press shift-4 to go back)"),
+        ("5-6", "cycle point-cell arrays (shift to go back)"),
+        ("7-8", "cycle background and gradient color"),
+        ("09+-", "cycle axes styles (on keypad, or press +/-)"),
+        ("k", "cycle available lighting styles"),
+        ("K", "toggle shading as flat or phong"),
+        ("A", "toggle anti-aliasing"),
+        ("D", "toggle depth-peeling (for transparencies)"),
+        ("U", "toggle perspective/parallel projection"),
+        ("o/O", "toggle extra light to scene and rotate it"),
+        ("a", "toggle interaction to Actor Mode"),
+        ("n", "toggle surface normals"),
+        ("r", "reset camera position"),
+        ("R", "reset camera to the closest orthogonal view"),
+        (".", "fly camera to the last clicked point"),
+        ("C", "print the current camera parameters state"),
+        ("X", "invoke a cutter widget tool"),
+        ("S", "save a screenshot of the current scene"),
+        ("E/F", "export 3D scene to numpy file or X3D"),
+        ("q", "return control to python script"),
+        ("Esc", "abort execution and exit python kernel"),
+    ]
+    title = (
+        f"vedo {vedo.__version__} | vtk {vtki.vtkVersion().GetVTKVersion()}"
+        f" | numpy {np.__version__} | python {sys.version_info[0]}.{sys.version_info[1]}"
+    )
+    try:
+        from rich import box
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.table import Table
+
+        table = Table(box=box.SIMPLE, expand=False, pad_edge=False)
+        table.add_column("Key", style="bold cyan", no_wrap=True)
+        table.add_column("Action", style="white")
+        for key, action in help_rows:
+            table.add_row(key, action)
+
+        Console().print(
+            Panel(
+                table,
+                title=title,
+                title_align="left",
+                subtitle="https://vedo.embl.es",
+                subtitle_align="right",
+                border_style="bold white",
+                expand=False,
+            )
+        )
+    except Exception:
+        msg = f" {title}, press: "
+        vedo.printc(msg.ljust(75), invert=True)
+        msg = "\n".join(f"    {key:<5} {action}" for key, action in help_rows)
+        vedo.printc(msg, dim=True, italic=True, bold=True)
+        vedo.printc(
+            " Check out the documentation at:  https://vedo.embl.es ".ljust(75),
+            invert=True,
+            bold=True,
+        )
+    return True
+
+
+def _key_toggle_actor_mode(_plotter, iren, _renderer) -> bool:
+    cur = iren.GetInteractorStyle()
+    if isinstance(cur, vtki.get_class("InteractorStyleTrackballCamera")):
+        iren.SetInteractorStyle(vtki.new("InteractorStyleTrackballActor"))
+        _print_keymap_notice(
+            "Interactor Style",
+            rows=[
+                ("mode", "TrackballActor"),
+                ("usage", "move and rotate individual meshes"),
+                ("tip", "press X twice to save the repositioned mesh"),
+                ("back", "press 'a' to go back to normal style"),
+            ],
+            color="yellow",
+        )
+    else:
+        iren.SetInteractorStyle(vtki.new("InteractorStyleTrackballCamera"))
+        _print_keymap_notice(
+            "Interactor Style",
+            rows=[
+                ("mode", "TrackballCamera"),
+                ("status", "normal camera interaction restored"),
+            ],
+            color="yellow",
+        )
+    return True
+
+
+def _key_toggle_depth_peeling(plotter, _iren, renderer) -> bool:
+    if renderer is None:
+        return True
+    udp = not renderer.GetUseDepthPeeling()
+    renderer.SetUseDepthPeeling(udp)
+    if udp:
+        plotter.window.SetAlphaBitPlanes(1)
+        renderer.SetMaximumNumberOfPeels(vedo.settings.max_number_of_peels)
+        renderer.SetOcclusionRatio(vedo.settings.occlusion_ratio)
+    plotter.interactor.Render()
+    was_used = renderer.GetLastRenderingUsedDepthPeeling()
+    rnr = plotter.renderers.index(renderer)
+    rows = [
+        ("renderer", f"nr.{rnr}"),
+        ("enabled", str(bool(udp))),
+        ("used last render", str(bool(was_used))),
+    ]
+    if udp and not was_used:
+        rows.append(("note", "enabled, but last rendering did not actually use it"))
+    _print_keymap_notice("Depth Peeling", rows=rows, color="cyan" if udp else "white")
+    return True
+
+
+def _key_fly_to(plotter, _iren, _renderer) -> bool:
+    if plotter.picked3d:
+        plotter.fly_to(plotter.picked3d)
+    return True
+
+
+def _key_screenshot(plotter, _iren, _renderer) -> bool:
+    fname = "screenshot.png"
+    i = 1
+    while os.path.isfile(fname):
+        fname = f"screenshot{i}.png"
+        i += 1
+    for ss in plotter.sliders:
+        ss[0].off()
+    for bb in plotter.buttons:
+        bb.off()
+    vedo.file_io.screenshot(fname)
+    for ss in plotter.sliders:
+        ss[0].on()
+        ss[0].Render()
+    for bb in plotter.buttons:
+        bb.on()
+    _print_keymap_notice(
+        "Screenshot Saved",
+        rows=[("file", fname)],
+        color="blue",
+    )
+    return True
+
+
+def _key_save_cutter(plotter, _iren, _renderer) -> bool:
+    cutter = getattr(plotter, "cutter_widget", None)
+    if not cutter:
+        return False
+
+    source = getattr(cutter, "mesh", None)
+    if source:
+        try:
+            source.apply_transform_from_actor()
+        except AttributeError:
+            pass
+
+    mesh = cutter.get_cut_mesh(invert=False)
+    source_filename = getattr(source, "filename", "")
+
+    if source_filename:
+        fname = os.path.basename(source_filename)
+        fname, extension = os.path.splitext(fname)
+        fname = fname.replace("_cut", "")
+        fname = f"{fname}_cut{extension or '.vtk'}"
+    else:
+        fname = "mesh_cut.vtk"
+
+    mesh.write(fname)
+    _print_keymap_notice(
+        "Cut Mesh Saved",
+        rows=[("file", fname)],
+        color="blue",
+    )
+    return True
+
+
+def _key_print_camera(_plotter, _iren, renderer) -> bool:
+    cam = renderer.GetActiveCamera()
+    vedo.printc("\n###################################################", c="y")
+    vedo.printc("## Template python code to position this camera: ##", c="y")
+    vedo.printc("cam = dict(", c="y")
+    vedo.printc("    pos=" + utils.precision(cam.GetPosition(), 6) + ",", c="y")
+    vedo.printc(
+        "    focal_point=" + utils.precision(cam.GetFocalPoint(), 6) + ",", c="y"
+    )
+    vedo.printc("    viewup=" + utils.precision(cam.GetViewUp(), 6) + ",", c="y")
+    vedo.printc("    roll=" + utils.precision(cam.GetRoll(), 6) + ",", c="y")
+    if cam.GetParallelProjection():
+        vedo.printc(
+            "    parallel_scale=" + utils.precision(cam.GetParallelScale(), 6) + ",",
+            c="y",
+        )
+    else:
+        vedo.printc(
+            "    distance=" + utils.precision(cam.GetDistance(), 6) + ",", c="y"
+        )
+    vedo.printc(
+        "    clipping_range=" + utils.precision(cam.GetClippingRange(), 6) + ",", c="y"
+    )
+    vedo.printc(")", c="y")
+    vedo.printc("show(mymeshes, camera=cam)", c="y")
+    vedo.printc("###################################################", c="y")
+    return True
+
+
+def _key_export_npz(_plotter, _iren, _renderer) -> bool:
+    vedo.file_io.export_window("scene.npz")
+    _print_keymap_notice(
+        "Scene Exported",
+        rows=[
+            ("file", "scene.npz"),
+            ("hint", "try: vedo scene.npz  (this is experimental!)"),
+        ],
+        color="blue",
+    )
+    return True
+
+
+def _key_export_x3d(_plotter, _iren, _renderer) -> bool:
+    vedo.file_io.export_window("scene.x3d")
+    _print_keymap_notice(
+        "Scene Exported",
+        rows=[
+            ("x3d", "scene.x3d"),
+            ("html", "scene.html"),
+            ("hint", "try: firefox scene.html"),
+        ],
+        color="blue",
+    )
+    return True
+
+
+def _key_print_info(plotter, _iren, _renderer) -> bool:
+    if plotter.clicked_object:
+        obj = plotter.clicked_object
+        print(obj)
+    else:
+        _print_keymap_info(plotter)
+    return False
+
+
+def _key_pick_color(plotter, iren, _renderer) -> bool:
+    x, y = iren.GetEventPosition()
+    plotter.color_picker([x, y], verbose=True)
+    return False
+
+
+def _key_show_pipeline(plotter, _iren, _renderer) -> bool:
+    if plotter.clicked_object and plotter.clicked_object.pipeline:
+        plotter.clicked_object.pipeline.show()
+    return False
+
+
+_KEY_DISPATCH = {
+    "q": _key_quit,
+    "Return": _key_quit,
+    "Ctrl+q": _key_close,
+    "Ctrl+w": _key_close,
+    "Escape": _key_close,
+    "F1": _key_abort,
+    "h": _key_help,
+    "a": _key_toggle_actor_mode,
+    "D": _key_toggle_depth_peeling,
+    "period": _key_fly_to,
+    "S": _key_screenshot,
+    "Ctrl+s": _key_save_cutter,
+    "Ctrl+S": _key_save_cutter,
+    "C": _key_print_camera,
+    "E": _key_export_npz,
+    "F": _key_export_x3d,
+    "i": _key_print_info,
+    "I": _key_pick_color,
+    "Y": _key_show_pipeline,
+}
+
+
+def handle_default_keypress(plotter, iren, event) -> None:
+    # NB: qt creates and passes a vtkGenericRenderWindowInteractor
+
+    del event
+
+    key = iren.GetKeySym()
+    if "_L" in key or "_R" in key:
+        return
+
+    key = _normalize_key(iren, key)
+
+    #######################################################
+    # utils.vedo.printc('Pressed key:', key, c='y', box='-')
+    # print(key, iren.GetShiftKey(), iren.GetAltKey(), iren.GetControlKey(),
+    #       iren.GetKeyCode(), iren.GetRepeatCount())
+    #######################################################
+
+    x, y = iren.GetEventPosition()
+    renderer = iren.FindPokedRenderer(x, y)
+    if renderer is None:
+        return
+
+    dispatch = _KEY_DISPATCH.get(key)
+    if dispatch:
+        if dispatch(plotter, iren, renderer):
+            return
+
+    elif key == "Down":
+        if plotter.clicked_object and plotter.clicked_object in plotter.get_meshes():
+            plotter.clicked_object.alpha(0.02)
+            if hasattr(plotter.clicked_object, "properties_backface"):
+                bfp = plotter.clicked_actor.GetBackfaceProperty()
+                plotter.clicked_object.properties_backface = bfp  # save it
+                plotter.clicked_actor.SetBackfaceProperty(None)
+        else:
+            for obj in plotter.get_meshes():
+                if obj:
+                    obj.alpha(0.02)
+                    bfp = obj.actor.GetBackfaceProperty()
+                    if bfp and hasattr(obj, "properties_backface"):
+                        obj.properties_backface = bfp
+                        obj.actor.SetBackfaceProperty(None)
+
+    elif key == "Left":
+        if plotter.clicked_object and plotter.clicked_object in plotter.get_meshes():
+            ap = plotter.clicked_object.properties
+            aal = max([ap.GetOpacity() * 0.75, 0.01])
+            ap.SetOpacity(aal)
+            bfp = plotter.clicked_actor.GetBackfaceProperty()
+            if bfp and hasattr(plotter.clicked_object, "properties_backface"):
+                plotter.clicked_object.properties_backface = bfp
+                plotter.clicked_actor.SetBackfaceProperty(None)
+        else:
+            for a in plotter.get_meshes():
+                if a:
+                    ap = a.properties
+                    aal = max([ap.GetOpacity() * 0.75, 0.01])
+                    ap.SetOpacity(aal)
+                    bfp = a.actor.GetBackfaceProperty()
+                    if bfp and hasattr(a, "properties_backface"):
+                        a.properties_backface = bfp
+                        a.actor.SetBackfaceProperty(None)
+
+    elif key == "Right":
+        if plotter.clicked_object and plotter.clicked_object in plotter.get_meshes():
+            ap = plotter.clicked_object.properties
+            aal = min([ap.GetOpacity() * 1.25, 1.0])
+            ap.SetOpacity(aal)
+            if (
+                aal == 1
+                and hasattr(plotter.clicked_object, "properties_backface")
+                and plotter.clicked_object.properties_backface
+            ):
+                # put back
+                plotter.clicked_actor.SetBackfaceProperty(
+                    plotter.clicked_object.properties_backface
+                )
+        else:
+            for a in plotter.get_meshes():
+                if a:
+                    ap = a.properties
+                    aal = min([ap.GetOpacity() * 1.25, 1.0])
+                    ap.SetOpacity(aal)
+                    if (
+                        aal == 1
+                        and hasattr(a, "properties_backface")
+                        and a.properties_backface
+                    ):
+                        a.actor.SetBackfaceProperty(a.properties_backface)
+
+    elif key == "Up":
+        if plotter.clicked_object and plotter.clicked_object in plotter.get_meshes():
+            plotter.clicked_object.properties.SetOpacity(1)
+            if (
+                hasattr(plotter.clicked_object, "properties_backface")
+                and plotter.clicked_object.properties_backface
+            ):
+                plotter.clicked_object.actor.SetBackfaceProperty(
+                    plotter.clicked_object.properties_backface
+                )
+        else:
+            for a in plotter.get_meshes():
+                if a:
+                    a.properties.SetOpacity(1)
+                    if hasattr(a, "properties_backface") and a.properties_backface:
+                        a.actor.SetBackfaceProperty(a.properties_backface)
+
+    elif key == "P":
+        for ia in _selected_meshes(plotter):
+            try:
+                ps = ia.properties.GetPointSize()
+                if ps > 1:
+                    ia.properties.SetPointSize(ps - 1)
+                ia.properties.SetRepresentationToPoints()
+            except AttributeError:
+                pass
+
+    elif key == "p":
+        for ia in _selected_meshes(plotter):
+            try:
+                ps = ia.properties.GetPointSize()
+                ia.properties.SetPointSize(ps + 2)
+                ia.properties.SetRepresentationToPoints()
+            except AttributeError:
+                pass
+
+    elif key == "U":
+        pval = renderer.GetActiveCamera().GetParallelProjection()
+        renderer.GetActiveCamera().SetParallelProjection(not pval)
+        if pval:
+            renderer.ResetCamera()
+
+    elif key == "r":
+        renderer.ResetCamera()
+
+    elif key == "A":  # toggle antialiasing
+        msam = plotter.window.GetMultiSamples()
+        if not msam:
+            plotter.window.SetMultiSamples(16)
+        else:
+            plotter.window.SetMultiSamples(0)
+        msam = plotter.window.GetMultiSamples()
+        if msam:
+            vedo.printc(f"Antialiasing set to {msam} samples", c=bool(msam))
+        else:
+            vedo.printc("Antialiasing disabled", c=bool(msam))
+
+    elif key == "R":
+        plotter.reset_viewup()
+
+    elif key == "w":
+        try:
+            if plotter.clicked_object.properties.GetRepresentation() == 1:  # toggle
+                plotter.clicked_object.properties.SetRepresentationToSurface()
+            else:
+                plotter.clicked_object.properties.SetRepresentationToWireframe()
+        except AttributeError:
+            pass
+
+    elif key == "1":
+        try:
+            plotter._icol += 1
+            plotter.clicked_object.mapper.ScalarVisibilityOff()
+            pal = vedo.colors.palettes[
+                vedo.settings.palette % len(vedo.colors.palettes)
+            ]
+            plotter.clicked_object.c(pal[(plotter._icol) % 10])
+            plotter.remove(plotter.clicked_object.scalarbar)
+        except AttributeError:
+            pass
+
+    elif key == "2":  # dark colors
+        try:
+            bsc = [
+                "k1",
+                "k2",
+                "k3",
+                "k4",
+                "b1",
+                "b2",
+                "b3",
+                "b4",
+                "p1",
+                "p2",
+                "p3",
+                "p4",
+                "g1",
+                "g2",
+                "g3",
+                "g4",
+                "r1",
+                "r2",
+                "r3",
+                "r4",
+                "o1",
+                "o2",
+                "o3",
+                "o4",
+                "y1",
+                "y2",
+                "y3",
+                "y4",
+            ]
+            plotter._icol += 1
+            if plotter.clicked_object:
+                plotter.clicked_object.mapper.ScalarVisibilityOff()
+                newcol = vedo.get_color(bsc[(plotter._icol) % len(bsc)])
+                plotter.clicked_object.c(newcol)
+                plotter.remove(plotter.clicked_object.scalarbar)
+        except AttributeError:
+            pass
+
+    elif key == "3":  # light colors
+        try:
+            bsc = [
+                "k6",
+                "k7",
+                "k8",
+                "k9",
+                "b6",
+                "b7",
+                "b8",
+                "b9",
+                "p6",
+                "p7",
+                "p8",
+                "p9",
+                "g6",
+                "g7",
+                "g8",
+                "g9",
+                "r6",
+                "r7",
+                "r8",
+                "r9",
+                "o6",
+                "o7",
+                "o8",
+                "o9",
+                "y6",
+                "y7",
+                "y8",
+                "y9",
+            ]
+            plotter._icol += 1
+            if plotter.clicked_object:
+                plotter.clicked_object.mapper.ScalarVisibilityOff()
+                newcol = vedo.get_color(bsc[(plotter._icol) % len(bsc)])
+                plotter.clicked_object.c(newcol)
+                plotter.remove(plotter.clicked_object.scalarbar)
+        except AttributeError:
+            pass
+
+    elif key == "4":  # cmap name cycle
+        ob = plotter.clicked_object
+        if not isinstance(ob, (vedo.Points, vedo.UnstructuredGrid)):
+            return
+        if not ob.mapper.GetScalarVisibility():
+            return
+        onwhat = ob.mapper.GetScalarModeAsString()  # UsePointData/UseCellData
+
+        cmap_names = [
+            "Accent",
+            "Paired",
+            "rainbow",
+            "rainbow_r",
+            "Spectral",
+            "Spectral_r",
+            "gist_ncar",
+            "gist_ncar_r",
+            "viridis",
+            "viridis_r",
+            "hot",
+            "hot_r",
+            "terrain",
+            "ocean",
+            "coolwarm",
+            "seismic",
+            "PuOr",
+            "RdYlGn",
+        ]
+        try:
+            i = cmap_names.index(ob._cmap_name)
+            if iren.GetShiftKey():
+                i -= 1
+            else:
+                i += 1
+            if i >= len(cmap_names):
+                i = 0
+            if i < 0:
+                i = len(cmap_names) - 1
+        except ValueError:
+            i = 0
+
+        ob._cmap_name = cmap_names[i]
+        ob.cmap(ob._cmap_name, on=onwhat)
+        if ob.scalarbar:
+            if isinstance(ob.scalarbar, vtki.vtkActor2D):
+                plotter.remove(ob.scalarbar)
+                title = ob.scalarbar.GetTitle()
+                ob.add_scalarbar(title=title)
+                plotter.add(ob.scalarbar).render()
+            elif isinstance(ob.scalarbar, vedo.Assembly):
+                plotter.remove(ob.scalarbar)
+                ob.add_scalarbar3d(title=ob._cmap_name)
+                plotter.add(ob.scalarbar)
+
+        vedo.printc(
+            f"Name:'{ob.name}'," if ob.name else "",
+            f"range:{utils.precision(ob.mapper.GetScalarRange(), 3)},",
+            f"colormap:'{ob._cmap_name}'",
+            c="g",
+            bold=False,
+        )
+
+    elif key == "5":  # cycle pointdata array
+        ob = plotter.clicked_object
+        if not isinstance(ob, (vedo.Points, vedo.UnstructuredGrid)):
+            return
+
+        arrnames = ob.pointdata.keys()
+        arrnames = [a for a in arrnames if "normal" not in a.lower()]
+        arrnames = [a for a in arrnames if "tcoord" not in a.lower()]
+        arrnames = [a for a in arrnames if "textur" not in a.lower()]
+        if len(arrnames) == 0:
+            return
+        ob.mapper.SetScalarVisibility(1)
+
+        if not ob._cmap_name:
+            ob._cmap_name = "rainbow"
+
+        try:
+            curr_name = ob.dataset.GetPointData().GetScalars().GetName()
+            i = arrnames.index(curr_name)
+            if "normals" in curr_name.lower():
+                return
+            if iren.GetShiftKey():
+                i -= 1
+            else:
+                i += 1
+            if i >= len(arrnames):
+                i = 0
+            if i < 0:
+                i = len(arrnames) - 1
+        except (ValueError, AttributeError):
+            i = 0
+
+        ob.cmap(ob._cmap_name, arrnames[i], on="points")
+        if ob.scalarbar:
+            if isinstance(ob.scalarbar, vtki.vtkActor2D):
+                plotter.remove(ob.scalarbar)
+                title = ob.scalarbar.GetTitle()
+                ob.scalarbar = None
+                ob.add_scalarbar(title=arrnames[i])
+                plotter.add(ob.scalarbar)
+            elif isinstance(ob.scalarbar, vedo.Assembly):
+                plotter.remove(ob.scalarbar)
+                ob.scalarbar = None
+                ob.add_scalarbar3d(title=arrnames[i])
+                plotter.add(ob.scalarbar)
+        else:
+            vedo.printc(
+                f"Name:'{ob.name}'," if ob.name else "",
+                f"active pointdata array: '{arrnames[i]}'",
+                c="g",
+                bold=False,
+            )
+
+    elif key == "6":  # cycle celldata array
+        ob = plotter.clicked_object
+        if not isinstance(ob, (vedo.Points, vedo.UnstructuredGrid)):
+            return
+
+        arrnames = ob.celldata.keys()
+        arrnames = [a for a in arrnames if "normal" not in a.lower()]
+        arrnames = [a for a in arrnames if "tcoord" not in a.lower()]
+        arrnames = [a for a in arrnames if "textur" not in a.lower()]
+        if len(arrnames) == 0:
+            return
+        ob.mapper.SetScalarVisibility(1)
+
+        if not ob._cmap_name:
+            ob._cmap_name = "rainbow"
+
+        try:
+            curr_name = ob.dataset.GetCellData().GetScalars().GetName()
+            i = arrnames.index(curr_name)
+            if "normals" in curr_name.lower():
+                return
+            if iren.GetShiftKey():
+                i -= 1
+            else:
+                i += 1
+            if i >= len(arrnames):
+                i = 0
+            if i < 0:
+                i = len(arrnames) - 1
+        except (ValueError, AttributeError):
+            i = 0
+
+        ob.cmap(ob._cmap_name, arrnames[i], on="cells")
+        if ob.scalarbar:
+            if isinstance(ob.scalarbar, vtki.vtkActor2D):
+                plotter.remove(ob.scalarbar)
+                title = ob.scalarbar.GetTitle()
+                ob.scalarbar = None
+                ob.add_scalarbar(title=arrnames[i])
+                plotter.add(ob.scalarbar)
+            elif isinstance(ob.scalarbar, vedo.Assembly):
+                plotter.remove(ob.scalarbar)
+                ob.scalarbar = None
+                ob.add_scalarbar3d(title=arrnames[i])
+                plotter.add(ob.scalarbar)
+        else:
+            vedo.printc(
+                f"Name:'{ob.name}'," if ob.name else "",
+                f"active celldata array: '{arrnames[i]}'",
+                c="g",
+                bold=False,
+            )
+
+    elif key == "7":
+        bgc = np.array(renderer.GetBackground()).sum() / 3
+        if bgc <= 0:
+            bgc = 0.223
+        elif 0 < bgc < 1:
+            bgc = 1
+        else:
+            bgc = 0
+        renderer.SetBackground(bgc, bgc, bgc)
+
+    elif key == "8":
+        bg2cols = [
+            "lightyellow",
+            "darkseagreen",
+            "palegreen",
+            "steelblue",
+            "lightblue",
+            "cadetblue",
+            "lavender",
+            "white",
+            "blackboard",
+            "black",
+        ]
+        bg2name = vedo.get_color_name(renderer.GetBackground2())
+        if bg2name in bg2cols:
+            idx = bg2cols.index(bg2name)
+        else:
+            idx = 4
+        bg2name_next = bg2cols[(idx + 1) % (len(bg2cols) - 1)]
+        renderer.GradientBackgroundOn()
+        renderer.SetBackground2(vedo.get_color(bg2name_next))
+
+    elif key in ["plus", "equal", "KP_Add", "minus", "KP_Subtract"]:  # cycle axes style
+        i = plotter.renderers.index(renderer)
+        try:
+            plotter.axes_instances[i].EnabledOff()
+            plotter.axes_instances[i].SetInteractor(None)
+        except AttributeError:
+            # print("Cannot remove widget", [plotter.axes_instances[i]])
+            try:
+                plotter.remove(plotter.axes_instances[i])
+            except Exception:
+                vedo.logger.warning(f"Cannot remove axes {plotter.axes_instances[i]}")
+                return
+        plotter.axes_instances[i] = None
+
+        if not plotter.axes:
+            plotter.axes = 0
+        if isinstance(plotter.axes, dict):
+            plotter.axes = 1
+
+        if key in ["minus", "KP_Subtract"]:
+            if not plotter.camera.GetParallelProjection() and plotter.axes == 0:
+                plotter.axes -= 1  # jump ruler doesnt make sense in perspective mode
+            bns = plotter.renderer.ComputeVisiblePropBounds()
+            addons.add_global_axes(axtype=(plotter.axes - 1) % 15, c=None, bounds=bns)
+        else:
+            if not plotter.camera.GetParallelProjection() and plotter.axes == 12:
+                plotter.axes += 1  # jump ruler doesnt make sense in perspective mode
+            bns = plotter.renderer.ComputeVisiblePropBounds()
+            addons.add_global_axes(axtype=(plotter.axes + 1) % 15, c=None, bounds=bns)
+        plotter.render()
+
+    elif "KP_" in key or key in [
+        "Insert",
+        "End",
+        "Next",
+        "Begin",
+        "Home",
+        "Prior",
+    ]:
+        asso = {  # change axes style
+            "KP_Insert": 0,
+            "KP_0": 0,
+            "Insert": 0,
+            "KP_End": 1,
+            "KP_1": 1,
+            "End": 1,
+            "KP_Down": 2,
+            "KP_2": 2,
+            "KP_Next": 3,
+            "KP_3": 3,
+            "Next": 3,
+            "KP_Left": 4,
+            "KP_4": 4,
+            "KP_Begin": 5,
+            "KP_5": 5,
+            "Begin": 5,
+            "KP_Right": 6,
+            "KP_6": 6,
+            "KP_Home": 7,
+            "KP_7": 7,
+            "Home": 7,
+            "KP_Up": 8,
+            "KP_8": 8,
+            "Prior": 9,  # on windows OS
+        }
+        clickedr = plotter.renderers.index(renderer)
+        if key in asso:
+            if plotter.axes_instances[clickedr]:
+                if hasattr(plotter.axes_instances[clickedr], "EnabledOff"):  # widget
+                    plotter.axes_instances[clickedr].EnabledOff()
+                else:
+                    try:
+                        renderer.RemoveActor(plotter.axes_instances[clickedr])
+                    except Exception:
+                        pass
+                plotter.axes_instances[clickedr] = None
+            bounds = renderer.ComputeVisiblePropBounds()
+            addons.add_global_axes(axtype=asso[key], c=None, bounds=bounds)
+            plotter.interactor.Render()
+
+    elif key == "O":
+        renderer.RemoveLight(plotter._extralight)
+        plotter._extralight = None
+
+    elif key == "o":
+        vbb, sizes, _, _ = addons.compute_visible_bounds()
+        cm = utils.vector(
+            (vbb[0] + vbb[1]) / 2, (vbb[2] + vbb[3]) / 2, (vbb[4] + vbb[5]) / 2
+        )
+        if not plotter._extralight:
+            vup = renderer.GetActiveCamera().GetViewUp()
+            pos = cm + utils.vector(vup) * utils.mag(sizes)
+            plotter._extralight = addons.Light(pos, focal_point=cm, intensity=0.4)
+            renderer.AddLight(plotter._extralight)
+            vedo.printc(
+                "Press 'o' again to rotate light source, or 'O' to remove it.", c="y"
+            )
+        else:
+            cpos = utils.vector(plotter._extralight.GetPosition())
+            x, y, z = plotter._extralight.GetPosition() - cm
+            r, th, ph = vedo.core.transformations.cart2spher(x, y, z)
+            th += 0.2
+            if th > np.pi:
+                th = np.random.random() * np.pi / 2
+            ph += 0.3
+            cpos = vedo.core.transformations.spher2cart(r, th, ph).T + cm
+            plotter._extralight.SetPosition(cpos)
+
+    elif key == "l":
+        for ia in _selected_meshes(plotter):
+            try:
+                ev = ia.properties.GetEdgeVisibility()
+                ia.properties.SetEdgeVisibility(not ev)
+                ia.properties.SetRepresentationToSurface()
+                ia.properties.SetLineWidth(0.1)
+            except AttributeError:
+                pass
+
+    elif key == "k":  # lightings
+        shds = ("default", "metallic", "plastic", "shiny", "glossy", "off")
+        for ia in _selected_meshes(plotter):
+            try:
+                lnr = (ia._ligthingnr + 1) % 6
+                ia.lighting(shds[lnr])
+                ia._lightingnr = lnr
+            except AttributeError:
+                pass
+
+    elif key == "K":  # shading
+        for ia in _selected_meshes(plotter):
+            if isinstance(ia, vedo.Mesh):
+                ia.compute_normals(cells=False)
+                intrp = ia.properties.GetInterpolation()
+                if intrp > 0:
+                    ia.properties.SetInterpolation(0)  # flat
+                else:
+                    ia.properties.SetInterpolation(2)  # phong
+
+    elif key == "n":  # toggle normals on an actor
+        already_shown = any(
+            getattr(ob, "name", "") == "added_auto_normals"
+            for ob in plotter.objects
+        )
+        plotter.remove("added_auto_normals")
+        if not already_shown:
+            if plotter.clicked_object in plotter.get_meshes():
+                if plotter.clicked_actor.GetPickable():
+                    norml = vedo.shapes.NormalLines(plotter.clicked_object)
+                    norml.name = "added_auto_normals"
+                    plotter.add(norml)
+
+    elif key == "x":
+        if plotter.justremoved is None:
+            if plotter.clicked_object in plotter.get_meshes() or isinstance(
+                plotter.clicked_object, vtki.vtkAssembly
+            ):
+                plotter.justremoved = plotter.clicked_actor
+                plotter.renderer.RemoveActor(plotter.clicked_actor)
+        else:
+            plotter.renderer.AddActor(plotter.justremoved)
+            plotter.justremoved = None
+
+    elif key == "X":
+        if plotter.clicked_object:
+            if not plotter.cutter_widget:
+                plotter.cutter_widget = addons.BoxCutter(plotter.clicked_object)
+                plotter.add(plotter.cutter_widget)
+                vedo.printc("Press i to toggle the cutter on/off", c="g", dim=1)
+                vedo.printc("      u to flip selection", c="g", dim=1)
+                vedo.printc("      r to reset cutting planes", c="g", dim=1)
+                vedo.printc(
+                    "      Shift+X to close the cutter box widget", c="g", dim=1
+                )
+                vedo.printc(
+                    "      Ctrl+S to save the cut section to file.", c="g", dim=1
+                )
+            else:
+                plotter.remove(plotter.cutter_widget)
+                plotter.cutter_widget = None
+            vedo.printc(
+                "Click object and press X to open the cutter box widget.", c="g"
+            )
+
+    if iren:
+        iren.Render()

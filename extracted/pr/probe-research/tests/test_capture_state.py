@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capture_state
+from probe.cli.capture import state as capture_state
 
 
 SID = "01a06383-6f4e-751a-b94c-bcefef19938c"
@@ -81,7 +81,7 @@ def test_every_reason_is_in_the_closed_vocabulary():
         "interpreter too old",
         "halted",
         "not recording",
-        # Probe off: the session is not captured (`probe.service.capture_gate`).
+        # Probe off: the session is not captured (`probe.service.sessions.capture_gate`).
         "Probe is off",
     )
 
@@ -217,7 +217,7 @@ def test_a_live_uploader_is_recognised_in_a_narrow_terminal(monkeypatch, module)
     a caller with `COLUMNS` set read a live daemon as `not started`
     (2026-09-28). A real process, not a fake: the bug was in what `ps`
     prints."""
-    from probe.cli import capture
+    from probe.cli.capture import capture
 
     target = {"capture_state": capture_state, "capture": capture}[module]
     proc = _sleeper("x" * 600, "tap")
@@ -236,7 +236,7 @@ def test_a_live_uploader_is_recognised_in_a_narrow_terminal(monkeypatch, module)
 def test_a_long_unrelated_command_line_is_not_the_uploader_it_would_signal(monkeypatch):
     """`-ww` hands `capture`'s SIGTERM gate the whole line, so its whole-word
     rule now sees every argument: a near-miss must still read as not ours."""
-    from probe.cli import capture
+    from probe.cli.capture import capture
 
     proc = _sleeper("x" * 600, "tapestry")
     try:
@@ -252,8 +252,8 @@ def test_every_uploader_identity_check_asks_ps_for_the_whole_line():
     of them TypeScript that no Python test reaches: each must pass `-ww`."""
     agent = Path(__file__).resolve().parents[1]
     copies = [
-        agent / "src/probe/cli/capture.py",
-        agent / "src/probe/cli/capture_state.py",
+        agent / "src/probe/cli/capture/capture.py",
+        agent / "src/probe/cli/capture/state.py",
         agent / "plugins/probe-research-tap/tap/start.py",
         agent / "plugins/probe-research-pi/src/core/daemon.ts",
     ]

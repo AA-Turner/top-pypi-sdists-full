@@ -9,7 +9,7 @@ from probe.sdk.delivery.outbox.lease import _stop_path
 #: How long a worker that found its queue empty stays, looking every _LINGER_POLL_SECONDS
 #: for new work, before exiting (#3625). A training loop queues an op every second or two:
 #: a worker leaving after one 1.5 s look was restarted by the next op (38 starts, 37.5
-#: CPU-s in 155 s). Far longer than Client._drainer_kick_interval, so an op whose kick the
+#: CPU-s in 155 s). Far longer than DetachedDrainer.kick_interval, so an op whose kick the
 #: writer's throttle swallowed is seen too, and a dying writer's last op (prod smoke
 #: 2026-08-06). A look costs a status.json read and a listing of an empty `ops/`; the drain
 #: lock is not held, so `finish()` never waits on it.
@@ -79,26 +79,9 @@ def _linger(journal, *, waiting: bool) -> LingerEnd | None:
 
 
 def _has_queued_op(journal) -> bool:
-    """Whether ``ops/`` holds an op the drain has never attempted, from a listing that stops
-    at the first such name.
-
-    Asked only when status.json says nothing is pending. That count is bookkeeping written
-    after each op lands; a volume too full to rewrite it (the append still succeeds, #2090)
-    or a crash between an op and its status write leaves it 0 while an op waits. Trusting
-    it spawned no worker, so the op stranded and kept its run's lane non-empty: on a full
-    disk every later write was dropped instead of sent directly (7-day soak, 0.200.2).
-
-    A name alone is not enough: an op the drain tried once and set aside (held for another
-    credential, refused #2041, backing off) also sits in ``ops/``, with status.json's
-    held/refused bookkeeping exposed to the same full-disk failure. Counting IT as "work
-    arrived" would spawn (`maybe_spawn`) or keep alive (`_work_arrived`) a worker for an op
-    the drain loop then backs off on forever (`LaneBackoff` never exits for a permanently
-    refused credential -- red team). `attempts` is written to the OP FILE on every drain
-    attempt (`outbox/drain/drain.py`, before the credential-refusal branch), unrelated to
-    status.json, so it survives that corruption and tells the cases apart without a
-    network call: 0 = never seen (the race this check catches); higher = the drain already
-    has an opinion, whatever status.json says. On an idle queue it is one listing of an
-    empty directory, asked only when the count already reads zero."""
+    """Whether ``ops/`` holds an op the drain never attempted (``attempts`` 0), from a listing that
+    stops at the first one. Asked only when status.json says nothing is pending, which a full disk or
+    a crash can leave wrong (#2090); an op set aside earlier is not new work."""
     import json
 
     try:

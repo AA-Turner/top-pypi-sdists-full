@@ -55,7 +55,7 @@ QUEUED_BY = "5f0c1d2e-bbbb-4a10-9f3e-00000000000b"
 
 def _queue_one(tmp_path, monkeypatch, *, session: str | None = f"claude_code:{QUEUED_BY}") -> tuple:
     """One write queued by a process whose agent session is `session`."""
-    monkeypatch.setattr(jm.journal, "queued_session", lambda: session)
+    monkeypatch.setattr(jm.append, "queued_session", lambda: session)
     spool = tmp_path / "outbox"
     producer = Client(settings=SETTINGS, spool_dir=spool, async_writes=True, auto_drain=False)
     producer.write("POST", "/v1/projects", {"name": "filed an hour late"})
@@ -118,10 +118,9 @@ def test_an_upload_request_carries_one_session_and_one_bucket(tmp_path, monkeypa
     from test_outbox_run_upload_window import RUN, Server, upload
 
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
-    monkeypatch.setattr(jm.journal, "queued_session", lambda: f"claude_code:{QUEUED_BY}")
+    monkeypatch.setattr(jm.append, "queued_session", lambda: f"claude_code:{QUEUED_BY}")
     queue = Journal(tmp_path / "outbox")
     for i in range(4):
         upload(queue, tmp_path, f"out/file{i}.txt")

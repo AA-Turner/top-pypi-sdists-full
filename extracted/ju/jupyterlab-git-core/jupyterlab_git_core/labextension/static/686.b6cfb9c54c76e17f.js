@@ -1,0 +1,1 @@
+"use strict";(self.rspackChunk_jupyterlab_git=self.rspackChunk_jupyterlab_git||[]).push([[686],{5285(r,n,t){function a(){return(a=Object.assign?Object.assign.bind():function(r){for(var n=1;n<arguments.length;n++){var t=arguments[n];for(var a in t)({}).hasOwnProperty.call(t,a)&&(r[a]=t[a])}return r}).apply(null,arguments)}t.d(n,{A:()=>a})}}]);

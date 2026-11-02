@@ -68,6 +68,9 @@ class QuicStreamReceiver:
             elif frame.fin and frame_end != self._final_size:
                 raise FinalSizeError("Cannot change final size")
         if frame.fin:
+            # Data at or beyond this final size already arrived (RFC 9000 section 4.5).
+            if frame_end < self.highest_offset:
+                raise FinalSizeError("Data received beyond final size")
             self._final_size = frame_end
         if frame_end > self.highest_offset:
             self.highest_offset = frame_end
@@ -125,6 +128,9 @@ class QuicStreamReceiver:
         """
         if self._final_size is not None and final_size != self._final_size:
             raise FinalSizeError("Cannot change final size")
+        # Data at or beyond this final size already arrived (RFC 9000 section 4.5).
+        if final_size < self.highest_offset:
+            raise FinalSizeError("Data received beyond final size")
         if final_size > self.highest_offset:
             self.highest_offset = final_size
 
@@ -214,10 +220,18 @@ class QuicStreamSender:
     ) -> Optional[QuicStreamFrame]:
         """
         Get a frame of data to send.
+
+        `max_size` is the number of data bytes which fit in the packet once the
+        frame header is written, and is negative if the header does not fit.
+        `max_offset` is the highest offset flow control lets the frame reach.
         """
         assert self._reset_error_code is None, "cannot call get_frame() after reset()"
 
-        # get the first pending data range
+        # Without room for the header, not even a FIN without data can be sent.
+        if max_size < 0:
+            return None
+
+        # Get the first pending data range.
         try:
             r = self._pending[0]
         except IndexError:

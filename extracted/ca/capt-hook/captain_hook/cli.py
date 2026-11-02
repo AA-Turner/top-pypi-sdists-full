@@ -1,0 +1,1134 @@
+from __future__ import annotations
+
+import inspect
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import threading
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal
+
+import click
+from cc_transcript.ids import SessionId
+from cc_transcript.tools import register_mcp_tool, unregister_mcp_tool
+from loguru import logger
+
+from captain_hook import faults, hook_lint
+from captain_hook.app import LoadError, _state, load_gitignore, reset
+from captain_hook.desktop.cli import helper
+from captain_hook.dispatch import (
+    SYNC_DEADLINE_MARGIN_SECONDS,
+    attributed,
+    dispatch,
+    dispatch_async,
+    envelope_text,
+)
+from captain_hook.loader import (
+    CONF_MODULE,
+    discover_hooks,
+    discover_pack,
+    is_skip_marked,
+    register_fault_announcements,
+    register_pr_announcements,
+    register_resource_provisioning,
+    stamp_identity,
+)
+from captain_hook.log import setup_logging
+from captain_hook.packs import manager, plugins
+from captain_hook.packs.plugins import PLUGIN_ID
+from captain_hook.pause import pause, resume
+from captain_hook.review.cli import review
+from captain_hook.review.pipeline import DISPATCH_EVENTS, dispatch_review
+from captain_hook.session import SessionStore, cleanup_stale, ensure_session
+from captain_hook.tickets.cli import ticket
+from captain_hook.types import HOST_EVENTS, TOOL_EVENTS, Event
+from captain_hook.update.cli import update
+from captain_hook.update.launchers import dispatch_launcher_check
+from captain_hook.update.updater import dispatch_update
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from cc_transcript.query import Session
+
+    from captain_hook.dispatch import Envelope
+    from captain_hook.events import BaseHookEvent
+    from captain_hook.transcripts import LazyTranscript
+    from captain_hook.types import RegisteredHook
+
+# capt-hook plugin/marketplace identity, rehomed from the deleted packs.contract module.
+DEFAULT_PREFIX = "uvx --isolated capt-hook"
+# A captain-hook dependency version floor is a lower bound: `>=X.Y.Z` (a bare pin or `<=`/`==`
+# would not let a newer captain-hook resolve). `pack test` requires it in a pack plugin's plugin.json.
+VERSION_FLOOR_RE = re.compile(r">=\s*\d+\.\d+\.\d+")
+
+
+def search_upward(start: Path, *rel: str, stop: Path | None = None) -> Path | None:
+    """The nearest existing ``base/rel`` walking from ``start`` upward; when ``stop`` is given the
+    walk halts at ``stop`` (inclusive) and never ascends above it."""
+    bound = stop.resolve() if stop is not None else None
+    for base in (start, *start.parents):
+        for r in rel:
+            if (cand := base / r).is_file():
+                return cand
+        if bound is not None and base.resolve() == bound:
+            break
+    return None
+
+
+EVENT_NAMES = ", ".join(n for e in Event if (n := e.name))
+
+PLUGIN_ROSTER_SOURCE = "plugin roster"
+
+DECISION_EVENTS = frozenset({Event.PreToolUse, Event.Stop, Event.SubagentStop, Event.PermissionRequest})
+
+type DiscoveryScope = Literal["all", "hooks"]
+
+
+@dataclass(frozen=True, slots=True)
+class CliState:
+    root: Path
+    hooks: str | None = None
+
+    @property
+    def hooks_dir(self) -> str:
+        return self.hooks or str(self.root / ".claude" / "hooks")
+
+    def plugin_packs(self) -> list[manager.ResolvedPack]:
+        """The pack each of this root's enabled plugins ships, or ``[]`` with the failure on the record.
+
+        A roster that cannot be read is not a machine without plugin packs. Hard-failing here
+        would take every Claude Code session on the machine down over one corrupt file, so the failure
+        is instead logged at ERROR, recorded as a :class:`~captain_hook.app.LoadError` that
+        ``capt-hook status`` and ``capt-hook pack list`` print, and recorded as a fault that the next
+        session start tells the user about — three places a person looks, none of them silent.
+        """
+        try:
+            return plugins.resolve_plugin_packs(self.root)
+        except plugins.PluginListError as exc:
+            logger.opt(exception=True).error("plugin roster unusable; no plugin-shipped pack is loaded")
+            _state.load_errors.append(LoadError(PLUGIN_ROSTER_SOURCE, exc))
+            faults.record(PLUGIN_ROSTER_SOURCE, exc)
+            return []
+
+    def discover(
+        self, *, scope: DiscoveryScope = "all", languages: Iterable[str] | None = None
+    ) -> list[manager.ResolvedPack]:
+        reset()
+        load_gitignore(self.root)
+        if (root := str(self.root)) not in sys.path:
+            sys.path.append(root)
+        discover_hooks(self.hooks_dir)
+        if scope == "hooks":
+            return []
+        names = manager.active_builtins(self.root) if languages is None else manager.builtins_for(languages)
+        builtins = [manager.resolve_builtin(name) for name in names]
+        packs = [*builtins, *self.plugin_packs()]
+        for pack_ in packs:
+            discover_pack(pack_.name, pack_.path)
+        register_pack_tools(packs)
+        before = len(_state.hooks)
+        # Resource provisioning is one shared SessionStart hook; register it once with the union.
+        if resources := list(dict.fromkeys(r for pack_ in packs for r in pack_.descriptor.resources)):
+            register_resource_provisioning(resources)
+        # The PR announcer's gating all lives in collect_announcements, so it registers unconditionally.
+        register_pr_announcements()
+        register_fault_announcements()
+        stamp_identity(before, root=Path(__file__).parent)
+        return packs
+
+
+ToolReg = tuple[str, dict[str, str] | None]
+
+# cc-transcript's tool registry is a process-global; discover() and every cache hit reconcile
+# against this per-name (behaves_like, span_edit) map under _registry_lock so no live spec drops.
+_registered_tools: dict[str, ToolReg] = {}
+_registry_lock = threading.Lock()
+tools_generation = 0
+
+
+def pack_tool_specs(packs: Sequence[manager.ResolvedPack]) -> dict[str, ToolReg]:
+    """The ``{tool_name: (behaves_like, span_edit_map)}`` map every enabled pack's ``[tools]`` declare.
+
+    A tool name may be owned by exactly one pack; a collision across packs raises
+    :class:`~captain_hook.packs.manager.PackError` naming both packs and the tool.
+    """
+    specs: dict[str, ToolReg] = {}
+    owner: dict[str, str] = {}
+    for pack_ in packs:
+        for spec in pack_.descriptor.tools:
+            if (prior := owner.get(spec.name)) is not None:
+                raise manager.PackError(f"tool {spec.name!r} is claimed by both {prior!r} and {pack_.pack_id!r}")
+            owner[spec.name] = pack_.pack_id
+            specs[spec.name] = (spec.behaves_like, spec.span_edit.as_map() if spec.span_edit else None)
+    return specs
+
+
+def reconcile_pack_tools(desired: Mapping[str, ToolReg]) -> None:
+    """Reconcile cc-transcript's tool registry to ``desired``, touching only added, removed, or changed
+    tools so an unchanged spec is never re-registered and no window opens for a live tool. A strict
+    no-op when ``desired`` already matches the registered set."""
+    global _registered_tools, tools_generation
+    with _registry_lock:
+        if _registered_tools == desired:
+            return
+        tools_generation += 1
+        for name in _registered_tools.keys() - desired.keys():
+            unregister_mcp_tool(name)
+        for name, (behaves_like, span_edit) in desired.items():
+            if _registered_tools.get(name) != (behaves_like, span_edit):
+                register_mcp_tool(name, behaves_like, span_edit)  # last write wins — no unregister gap
+        _registered_tools = dict(desired)
+
+
+def register_pack_tools(packs: Sequence[manager.ResolvedPack]) -> None:
+    """Reconcile cc-transcript's tool registry with every enabled pack's ``[tools]`` specs."""
+    reconcile_pack_tools(pack_tool_specs(packs))
+
+
+def example_hook_source() -> str:
+    """Read the bundled ``example.py`` scaffold from ``templates/example_hook.py.tmpl``."""
+    import importlib.resources
+
+    return (importlib.resources.files("captain_hook") / "templates" / "example_hook.py.tmpl").read_text()
+
+
+def plugin_dir() -> Path:
+    """Filesystem path to the bundled captain-hook plugin root.
+
+    Holds ``.claude-plugin/plugin.json`` and ``skills/``, so ``claude --plugin-dir``
+    can load the skills in-place from the installed wheel without a marketplace clone.
+    """
+    import importlib.resources
+
+    return Path(str(importlib.resources.files("captain_hook")))
+
+
+def register_marketplace(root: Path) -> None:
+    """Enable the captain-hook plugin marketplace in ``root/.claude/settings.json``.
+
+    Merges ``extraKnownMarketplaces`` and ``enabledPlugins`` entries into the
+    committed settings so the skills load from the plugin (tracking the repository)
+    instead of being copied into ``.claude/skills``. Claude Code prompts to install
+    the plugin when the project folder is trusted.
+    """
+    settings_path = root / ".claude" / "settings.json"
+    existing = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+    write_settings(
+        settings_path,
+        existing
+        | {
+            "extraKnownMarketplaces": existing.get("extraKnownMarketplaces", {})
+            | {"captain-hook": {"source": {"source": "github", "repo": "yasyf/captain-hook"}, "autoUpdate": True}},
+            "enabledPlugins": existing.get("enabledPlugins", {}) | {PLUGIN_ID: True},
+        },
+    )
+
+
+def maybe_launch_bootstrap(root: Path) -> bool:
+    """Offer to launch Claude with the ``bootstrapping-hooks`` skill after ``init``.
+
+    Only fires in an interactive session with the ``claude`` CLI on PATH; CI and
+    scripted runs skip the prompt entirely. On acceptance, the captain-hook plugin
+    marketplace is registered in ``.claude/settings.json``, and Claude is launched
+    with the bundled plugin loaded via ``--plugin-dir`` so the namespaced skill
+    resolves immediately without waiting on a marketplace install.
+
+    Returns:
+        Whether Claude was launched.
+    """
+    if not (sys.stdin.isatty() and shutil.which("claude")):
+        return False
+    if not click.confirm("Bootstrap hooks now? (launches Claude with the bootstrapping-hooks skill)", default=True):
+        return False
+    register_marketplace(root)
+    subprocess.run(
+        ["claude", "--plugin-dir", str(plugin_dir()), "/captain-hook:bootstrapping-hooks"], cwd=root, check=False
+    )
+    return True
+
+
+def write_settings(settings_path: Path, data: dict[str, Any]) -> None:
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = settings_path.with_suffix(f"{settings_path.suffix}.tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n")
+    os.replace(tmp, settings_path)
+
+
+def provision_pack_resources(resolved: Sequence[manager.ResolvedPack]) -> None:
+    import httpx
+
+    from captain_hook.util import http, model_cache
+
+    resources = list(dict.fromkeys(r for pack_ in resolved for r in pack_.descriptor.resources))
+    if not resources:
+        return
+    click.echo(f"Provisioning pack resources ({', '.join(resources)}, cached)...")
+    try:
+        model_cache.provision_resources(resources)
+    except (http.GitHubFetchError, OSError, httpx.HTTPError, subprocess.CalledProcessError) as e:
+        click.echo(f"  deferred (offline?): {e} — the SessionStart hook will retry at session start")
+
+
+def dispatch_event(
+    root: Path,
+    event: Event,
+    raw: dict[str, Any],
+    *,
+    session_dir: Path | None,
+    transcript_loader: Callable[[str | Path | None], Session] | None = None,
+) -> tuple[Envelope | None, Callable[[], None]]:
+    """Build the event's context, run its synchronous hooks, and return the envelope plus the work that follows it.
+
+    The one dispatch codepath shared by the cold CLI and the resident daemon: no printing,
+    logging setup, or discovery — those are the front door's job. ``transcript_loader`` overrides
+    the default parse (the daemon supplies a cache-backed one). The returned callable runs the
+    event's reviewer and updater dispatch, stale-session cleanup, and ``async_=True`` hooks; the
+    caller invokes it once the envelope has been delivered.
+    """
+    from captain_hook.context import HookContext
+    from captain_hook.heartbeat import record_heartbeat
+    from captain_hook.orca import coordinator_transcript
+    from captain_hook.transcripts import (
+        ROOT_TAIL_EVENTS,
+        claim_unborn,
+        lane_transcript_path,
+        lazy_transcript,
+        record_unborn,
+        registered_sources,
+        root_transcript,
+    )
+    from captain_hook.util import reqenv
+
+    provider = reqenv.provider()
+    record_heartbeat(event, raw)
+    resolved_path = raw.get("agent_transcript_path") or (
+        lane_transcript_path(parent, agent_id)
+        if event in TOOL_EVENTS and (parent := raw.get("transcript_path")) and (agent_id := raw.get("agent_id"))
+        else raw.get("transcript_path")
+    )
+    parent = raw.get("transcript_path")
+    in_lane = bool(parent) and resolved_path != parent
+    lane_root = (coordinator_transcript() if provider == "claude" else None) or (Path(parent) if in_lane else None)
+    root_session = bool(parent) and not in_lane and not raw.get("agent_id") and provider == "claude"
+    if root_session and event is Event.SessionStart and raw.get("source") == "startup":
+        record_unborn(session_dir, parent)
+    unborn = threading.Event()
+    if root_session and event is Event.UserPromptSubmit and claim_unborn(session_dir, parent):
+        unborn.set()
+
+    def evidence() -> LazyTranscript:
+        return lazy_transcript(
+            resolved_path, loader=transcript_loader, attach=lambda: registered_sources(session_dir), unborn=unborn
+        )
+
+    transcript = evidence()
+    ctx = HookContext(
+        session=SessionStore(session_dir),
+        transcript=transcript,
+        settings=_state.settings,
+        project_root=root,
+        root_transcript=root_transcript(lane_root, ROOT_TAIL_EVENTS) if lane_root else None,
+        root_path=lane_root,
+    )
+    evt = event.event_class(_raw=raw, ctx=ctx)
+    within_margin = reqenv.deadline_within(SYNC_DEADLINE_MARGIN_SECONDS)
+    try:
+        envelope = dispatch(event, evt, session_dir=session_dir, advisory=not within_margin)
+    except BaseException:
+        transcript.release()
+        raise
+
+    def background() -> None:
+        background_transcript = evidence()
+        fresh = event.event_class(_raw=raw, ctx=ctx.fork(background_transcript))
+        try:
+            after_reply(event, fresh, raw, session_dir)
+        finally:
+            background_transcript.release()
+
+    return envelope, background
+
+
+def after_reply(event: Event, evt: BaseHookEvent, raw: dict[str, Any], session_dir: Path | None) -> None:
+    if event in DISPATCH_EVENTS:
+        try:
+            dispatch_review(event.name, raw)
+        except Exception as exc:
+            logger.exception("native review dispatch failed")
+            faults.record("review dispatch", exc, raw.get("cwd"))
+    if event is Event.SessionStart:
+        try:
+            dispatch_update()
+        except Exception as exc:
+            logger.exception("native update dispatch failed")
+            faults.record("update dispatch", exc, raw.get("cwd"))
+        try:
+            dispatch_launcher_check()
+        except Exception as exc:
+            logger.exception("native launcher check dispatch failed")
+            faults.record("launcher check dispatch", exc, raw.get("cwd"))
+        try:
+            cleanup_stale(exclude=SessionId(sid) if (sid := raw.get("session_id")) else None)
+        except Exception:
+            logger.opt(exception=True).debug("stale-session cleanup on SessionStart failed")
+    dispatch_async(evt, session_dir)
+
+
+def run_event(state: CliState, event_name: str) -> None:
+    try:
+        event = Event[event_name]
+    except KeyError:
+        valid = ", ".join(n for e in Event if (n := e.name))
+        print(
+            f"Invalid event type: {event_name!r}. Valid event names are: {valid}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if event in HOST_EVENTS:
+        print(
+            f"{event_name} is a host event: only the capt-hookd host raises it, so `capt-hook run` refuses it.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    raw_text = sys.stdin.read()
+    if not raw_text.strip():
+        return
+
+    try:
+        raw = json.loads(raw_text)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Malformed stdin: {e}", file=sys.stderr)
+        return
+
+    session_id = raw.get("session_id")
+    setup_logging(session_id)
+
+    session_dir = ensure_session(SessionId(session_id)) if session_id else None
+    from captain_hook.snapshots.client import client_scope
+
+    tools = pack_tool_specs(state.discover())
+    with client_scope() as client:
+        client.bind_tool_registry(tools)
+        output, background = dispatch_event(state.root, event, raw, session_dir=session_dir)
+        output = attributed(event, raw, output)
+        if output:
+            print(envelope_text(output), flush=True)
+        background()
+
+
+def init_project(root: Path, *, review: bool = True) -> None:
+    from captain_hook.review.cli import watch_repo
+    from captain_hook.review.repo import repo_key
+
+    hooks_dir = root / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    example = hooks_dir / "example.py"
+    if not example.exists():
+        example.write_text(example_hook_source())
+
+    settings_path = root / ".claude" / "settings.json"
+    provision_pack_resources(CliState(root=root, hooks=str(hooks_dir)).discover())
+    register_marketplace(root)
+
+    click.echo(f"Scaffolded {example.relative_to(root)} + {settings_path.relative_to(root)}.")
+    click.echo()
+    click.echo("Claude Code plugin:")
+    click.echo(f"  + registered {PLUGIN_ID} in .claude/settings.json (registers every hook event via the plugin)")
+    click.echo()
+    match (review, repo_key(root)):
+        case (False, _):
+            click.echo("Session reviewer: skipped (--no-review) — `uvx capt-hook review enable` to turn it on later.")
+        case (True, None):
+            click.echo(
+                "Session reviewer: needs a git repo with a remote — `uvx capt-hook review enable` once it has one."
+            )
+        case (True, repo):
+            watch_repo(repo)
+            click.echo(
+                f"Session reviewer: watching {repo} — mines your ended sessions and opens hook PRs automatically."
+            )
+            click.echo("  Stop anytime with `uvx capt-hook review disable`.")
+    click.echo()
+    click.echo("Next:")
+    click.echo("  1. Read the quickstart: https://yasyf.github.io/captain-hook/")
+    click.echo("  2. Edit example.py or add new files under .claude/hooks/")
+    click.echo("  3. uvx capt-hook test               # verify inline tests")
+    click.echo('  4. Ask Claude "set up captain hook" # mine guardrails from this repo (the bootstrapping-hooks skill)')
+    click.echo()
+    maybe_launch_bootstrap(root)
+
+
+def show_logs(session: str | None = None, tail: int | None = None) -> None:
+    """Print a regular, decodable captain-hook session log.
+
+    Args:
+        session: A session id, or a transcript path (whose stem is the session
+            id) to locate its log file. When ``None``, the most recently
+            modified log is shown.
+        tail: Positive values print the last ``tail`` lines. Zero and ``None``
+            print the whole log; negative values omit the first ``abs(tail)`` lines.
+    """
+    from captain_hook.util.paths import resolve_log_dir
+
+    log_dir = resolve_log_dir()
+    if not log_dir.exists():
+        print(f"No captain-hook log directory at {log_dir}", file=sys.stderr)
+        return
+
+    if session is None:
+        logs = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
+        if not logs:
+            print(f"No log files in {log_dir}", file=sys.stderr)
+            return
+        log_file = logs[-1]
+    else:
+        session_id = Path(session).stem if ("/" in session or session.endswith(".jsonl")) else session
+        log_file = log_dir / f"{session_id}.log"
+
+    if not log_file.exists():
+        print(f"No log file at {log_file}", file=sys.stderr)
+        return
+
+    if tail is not None and tail > 0:
+        text = subprocess.check_output(["tail", "-n", f"{min(tail, sys.maxsize):d}", "--", str(log_file)], text=True)
+    else:
+        text = log_file.read_text()
+    lines = text.splitlines()
+    print("\n".join(lines[-tail:] if tail else lines))
+
+
+def expected_kinds_from_state() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for entry in _state.hooks:
+        if not entry.spec.tests:
+            continue
+        for key, expected in entry.spec.tests.items():
+            out[f"{entry.name}:{key!r}"] = type(expected).__name__.lower()
+    return out
+
+
+def hook_message_first_line(hook: RegisteredHook) -> str:
+    text = (
+        hook.spec.message
+        if isinstance(hook.spec.message, str)
+        else (inspect.getdoc(hook.handler) or "" if hook.handler is not None else "")
+    )
+    return (text.splitlines() or [""])[0]
+
+
+def run_tests(json_output: bool = False) -> None:
+    from captain_hook.app import _state
+    from captain_hook.testing.helpers import run_inline_tests
+
+    load_errors = list(_state.load_errors)
+    for error in load_errors:
+        line = f"{type(error.exc).__name__}: {error.exc}"
+        if json_output:
+            print(json.dumps({"id": error.source, "status": "load_error", "reason": line, "pack": error.pack}))
+        else:
+            print(f"  ERROR {f'[{error.pack}] ' if error.pack else ''}{error.source} failed to import: {line}")
+
+    package_root = Path(__file__).resolve().parent
+    hook_dirs = {
+        source.parent
+        for entry in _state.hooks
+        if not (source := Path(entry.source_file).resolve()).is_relative_to(package_root)
+    }
+    findings = hook_lint.lint_paths(hook_dirs)
+    for finding in findings:
+        if json_output:
+            print(json.dumps({"id": f"{finding.path}:{finding.line}", "status": "lint", "reason": str(finding)}))
+        else:
+            print(f"  LINT  {finding}")
+    if not json_output:
+        for exemption in hook_lint.lint_exemptions(hook_dirs):
+            print(f"  EXEMPT {exemption}")
+
+    results = run_inline_tests()
+    if not results:
+        if load_errors or findings:
+            if not json_output:
+                print(f"\n{len(load_errors)} hook file(s) failed to import, {len(findings)} lint findings.")
+            sys.exit(1)
+        if json_output:
+            print(json.dumps({"status": "empty", "reason": "no inline tests"}))
+        else:
+            print("No inline tests found.")
+        return
+
+    expected_by_id = expected_kinds_from_state()
+    passed = failed = errors = skipped = 0
+    for name, status, _ok, detail in results:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "id": name,
+                        "status": status,
+                        "expected": expected_by_id.get(name, ""),
+                        "reason": detail,
+                    }
+                )
+            )
+        match status:
+            case "pass":
+                passed += 1
+                if not json_output:
+                    print(f"  PASS  {name}")
+            case "skip":
+                skipped += 1
+                if not json_output:
+                    print(f"  SKIP  {name}: {detail}")
+            case "fail":
+                failed += 1
+                if not json_output:
+                    print(f"  FAIL  {name}: {detail}")
+            case "error":
+                errors += 1
+                if not json_output:
+                    print(f"  ERROR {name}: {detail}")
+            case _:
+                pass
+
+    if not json_output:
+        total = passed + failed + errors + skipped
+        summary = f"\n{total} tests: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped"
+        if load_errors:
+            summary += f", {len(load_errors)} import errors"
+        if findings:
+            summary += f", {len(findings)} lint findings"
+        print(summary)
+    if failed or errors or load_errors or findings:
+        sys.exit(1)
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--hooks",
+    default=None,
+    help="Path to hooks package directory (default: $CLAUDE_PROJECT_DIR/.claude/hooks)",
+)
+@click.option("--root", "root_path", default=None, help="Project root for gitignore and session resolution")
+@click.pass_context
+def cli(ctx: click.Context, hooks: str | None, root_path: str | None) -> None:
+    """Captain Hook — declarative hook framework for Claude Code lifecycle events."""
+    from captain_hook.util.paths import resolve_project_dir
+
+    root = Path(root_path) if root_path else Path(p) if (p := resolve_project_dir()) else Path.cwd()
+    ctx.obj = CliState(root=root, hooks=hooks)
+
+
+@cli.command(
+    short_help="Dispatch a hook event (reads JSON from stdin, writes JSON to stdout)",
+    help=(f"Dispatch a hook event (reads JSON from stdin, writes JSON to stdout).\n\nEVENT is one of: {EVENT_NAMES}."),
+)
+@click.argument("event")
+@click.pass_obj
+def run(state: CliState, event: str) -> None:
+    run_event(state, event)
+
+
+@cli.command("search-guard")
+def search_guard() -> None:
+    """Check only the existing search guards from a JSON hook event."""
+    from captain_hook.search_guard import main
+
+    main()
+
+
+@cli.command()
+@click.option("--json", "json_output", is_flag=True, default=False, help="Emit one JSON record per test (CI mode)")
+@click.pass_obj
+def test(state: CliState, json_output: bool) -> None:
+    """Run inline tests from the project's own hooks in .claude/hooks (or --hooks).
+
+    Only the repo's own hooks are tested here. The wheel builtins are tested by captain-hook itself,
+    and a plugin's pack is tested from its own repo with `pack test`. Tests run under a throwaway HOME
+    so live machine state never leaks into fixtures.
+    """
+    state.discover(scope="hooks")
+    run_tests(json_output=json_output)
+
+
+@cli.command(name="lint")
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
+@click.option("--json", "json_output", is_flag=True, default=False, help="Emit one JSON record per finding (CI mode)")
+@click.pass_obj
+def lint_hooks(state: CliState, paths: tuple[Path, ...], json_output: bool) -> None:
+    """Lint hook files against the authoring bar without running them.
+
+    A message states the rule, then the remediation, in at most two sentences, with no quoted
+    messages, record ids, dates, session ids, token counts, or narrative. Hook code matches commands
+    with parsed conditions, reads the session through ``evt.ctx``, lets failures raise, and carries
+    no comments. PATHS default to the hooks directory; test files are skipped. ``test`` and
+    ``pack test`` run the same lint. The text report also lists each hook a
+    ``# capt-hook: no-escape <reason>`` marker exempts, with its reason. Exits non-zero on any finding.
+    """
+    roots = paths or (Path(state.hooks_dir),)
+    findings = hook_lint.lint_paths(roots)
+    for finding in findings:
+        click.echo(
+            json.dumps(
+                {"path": str(finding.path), "line": finding.line, "rule": finding.rule, "detail": finding.detail}
+            )
+            if json_output
+            else str(finding)
+        )
+    if not json_output:
+        for exemption in hook_lint.lint_exemptions(roots):
+            click.echo(str(exemption))
+    if findings:
+        sys.exit(1)
+
+
+@cli.command()
+@click.pass_obj
+def hooks(state: CliState) -> None:
+    """List all discovered hooks without running their inline tests.
+
+    Each tab-separated row contains pack, home repository, source basename, hook
+    name, events, and the first line of its message or handler docstring.
+    """
+    from captain_hook.review.repo import RepoKey, normalize_origin
+    from captain_hook.review.routing import CAPTAIN_HOOK_REPO
+
+    resolved = state.discover()
+    # A hook's pack_name is its pack's runtime name (a builtin's name, a plugin pack's full id), so key
+    # the home-repo map by that: builtins route to captain-hook, plugin packs to their plugin.json repo.
+    home_repos: dict[str, RepoKey] = {}
+    for r in resolved:
+        match r.entry:
+            case manager.BuiltinPack(name=name):
+                home_repos[name] = CAPTAIN_HOOK_REPO
+            case manager.PluginPack(repository=repository) if repository:
+                home_repos[r.name] = RepoKey(normalize_origin(repository))
+    package_root = Path(__file__).resolve().parent
+    rows = [
+        (
+            hook.pack_name or "local",
+            str(home_repos.get(hook.pack_name, "-")) if hook.pack_name else "-",
+            Path(hook.source_file).name,
+            hook.name,
+            "|".join(event.name for event in hook.spec.events if event.name),
+            hook_message_first_line(hook),
+        )
+        for hook in _state.hooks
+        if hook.pack_name is not None or not Path(hook.source_file).resolve().is_relative_to(package_root)
+    ]
+    for row in sorted(rows, key=lambda row: (row[0], row[2], row[3])):
+        print("\t".join(cell.replace("\t", " ") for cell in row))
+
+
+@cli.command()
+@click.option(
+    "--no-review", is_flag=True, default=False, help="Skip enabling the SessionEnd session reviewer for this repo"
+)
+@click.pass_obj
+def init(state: CliState, no_review: bool) -> None:
+    """Scaffold the hooks directory, install bundled skills, wire settings, and enable the session reviewer."""
+    init_project(state.root, review=not no_review)
+
+
+@cli.command()
+@click.option("--session", default=None, help="Session id or transcript path to view")
+@click.option("--tail", type=int, default=None, help="Show only the last N lines")
+def logs(session: str | None, tail: int | None) -> None:
+    """View a recent captain-hook session log."""
+    show_logs(session=session, tail=tail)
+
+
+@cli.command()
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.option("--sync/--no-sync", default=True, help="Refresh open PR states from GitHub in the background")
+@click.pass_obj
+def status(state: CliState, repo_: str | None, sync: bool) -> None:
+    """Show the corrections the session reviewer is tracking and the hook PRs they would open."""
+    from captain_hook.review.cli import resolve_repo
+    from captain_hook.review.dashboard import status_command
+
+    state.discover()
+    status_command(
+        resolve_repo(repo_, state.root),
+        sync=sync,
+        wired=plugins.wired(state.root),
+        load_errors=list(_state.load_errors),
+    )
+
+
+@cli.command()
+@click.option("--session", "session_id", required=True, help="Session id to inspect")
+@click.pass_obj
+def heartbeats(state: CliState, session_id: str) -> None:
+    """Show per-event dispatch heartbeats for a session — an absent event is a wiring gap, not a quiet session."""
+    import asyncio
+
+    from cc_transcript.heartbeats import Heartbeat
+
+    from captain_hook.decisions import decisions_db_path
+    from captain_hook.heartbeat import open_heartbeat_log
+
+    async def load() -> tuple[Heartbeat, ...]:
+        async with await open_heartbeat_log(decisions_db_path()) as log:
+            return await log.for_session(SessionId(session_id))
+
+    if not (beats := asyncio.run(load())):
+        click.echo(f"no dispatch heartbeats for session {session_id} (never dispatched, or a different decisions.db)")
+        return
+    for b in beats:
+        click.echo(f"  {b.event:<22} ×{b.count}")
+
+
+@cli.group()
+def skills() -> None:
+    """Manage the bundled Claude Code skills."""
+
+
+@skills.command(name="install")
+@click.pass_obj
+def skills_install(state: CliState) -> None:
+    """Register the captain-hook plugin in .claude/settings.json (skills load from the plugin, not copied files)."""
+    register_marketplace(state.root)
+    click.echo(f"  registered {PLUGIN_ID} in .claude/settings.json")
+
+
+@cli.group()
+def pack() -> None:
+    """Inspect capt-hook packs — the wheel builtins and the packs enabled Claude plugins ship."""
+
+
+def dep_contract_reason(dep: str | dict[str, Any]) -> str | None:
+    """None when ``dep`` is the object-form captain-hook dependency with a version floor; else why not."""
+    if not isinstance(dep, dict):
+        return "must be an object, not a bare string (which carries no marketplace or version floor)"
+    if not (isinstance(name := dep.get("name"), str) and name == "captain-hook"):
+        return 'must set a nonempty "name" of "captain-hook"'
+    if dep.get("marketplace") != "captain-hook":
+        return 'must set "marketplace" to "captain-hook"'
+    version = dep.get("version")
+    if not (isinstance(version, str) and version.strip()):
+        return 'must carry a nonempty string "version" lower bound'
+    if not VERSION_FLOOR_RE.match(version.strip()):
+        return f'"version" {version!r} must be a lower-bound constraint of the form ">=X.Y.Z"'
+    return None
+
+
+def plugin_dependency_reason(plugin_root: Path) -> str | None:
+    """None when ``plugin_root``'s plugin.json declares the captain-hook dependency with a floor; else why not."""
+    if not (path := plugin_root / ".claude-plugin" / "plugin.json").is_file():
+        return f"no .claude-plugin/plugin.json at {plugin_root}"
+    try:
+        deps = json.loads(path.read_text()).get("dependencies") or []
+    except (json.JSONDecodeError, OSError) as e:
+        return f"{path} is unreadable: {e}"
+    # A dep references captain-hook as the bare string or as an object keyed by name or marketplace.
+    named = [
+        d
+        for d in deps
+        if d == "captain-hook"
+        or (isinstance(d, dict) and (d.get("name") == "captain-hook" or d.get("marketplace") == "captain-hook"))
+    ]
+    if not named:
+        return f"{path} declares no captain-hook dependency"
+    if reason := dep_contract_reason(named[0]):
+        return (
+            f"the captain-hook dependency in {path} {reason}; it must be an object "
+            '{"name": "captain-hook", "marketplace": "captain-hook", "version": ">=X.Y.Z"}, '
+            f"found {named[0]!r}"
+        )
+    return None
+
+
+@pack.command(name="test")
+@click.argument("plugin_root", default=".")
+@click.option("--json", "json_output", is_flag=True, default=False, help="Emit one JSON record per test (CI mode)")
+def pack_test(plugin_root: str, json_output: bool) -> None:
+    """Validate and test a plugin's capt-hook pack from its working tree.
+
+    Pass the plugin root — the dir holding ``.claude-plugin/plugin.json`` and
+    ``capt-hook/{pack.toml, hooks/}`` (default: the current directory). Requires all three; validates
+    the captain-hook dependency floor, the ``pack.toml`` resources and tool specs, loads only this
+    working-tree pack, and runs its inline tests under a throwaway HOME. Exits non-zero on a missing
+    layout, a bad dependency, an unknown resource, a load error, zero hooks, an ``async_=True`` decision
+    hook, or a failing test.
+    """
+    from captain_hook.util.model_cache import unknown_resources
+
+    root = Path(plugin_root).resolve()
+    pack_root = root / manager.PLUGIN_PACK_DIRNAME
+    descriptor_path = pack_root / manager.PACK_DESCRIPTOR
+    hooks_dir = pack_root / manager.HOOKS_DIRNAME
+    if not descriptor_path.is_file() or not hooks_dir.is_dir():
+        raise click.ClickException(
+            f"not a pack plugin root: expected {manager.PLUGIN_PACK_DIRNAME}/{manager.PACK_DESCRIPTOR} and "
+            f"{manager.PLUGIN_PACK_DIRNAME}/{manager.HOOKS_DIRNAME}/ under {root}"
+        )
+    if reason := plugin_dependency_reason(root):
+        raise click.ClickException(reason)
+    try:
+        descriptor = manager.PackDescriptor.load(descriptor_path)
+    except manager.PackError as e:
+        raise click.ClickException(f"invalid {descriptor_path}: {e}") from e
+    if unknown := unknown_resources(descriptor.resources):
+        raise click.ClickException(f"unknown resource(s) in {descriptor_path}: {', '.join(unknown)}")
+    reset()
+    discover_pack(root.name, hooks_dir)
+    if not _state.hooks and not _state.load_errors:
+        raise click.ClickException(f"no hooks loaded from {hooks_dir} — a pack ships at least one hook")
+    run_tests(json_output=json_output)
+
+
+def hook_count(path: Path) -> int:
+    return sum(
+        1 for p in path.glob("*.py") if not p.stem.startswith("_") and p.stem != CONF_MODULE and not is_skip_marked(p)
+    )
+
+
+@pack.command(name="list")
+@click.pass_obj
+def pack_list(state: CliState) -> None:
+    """List the active wheel builtins and the pack each enabled Claude plugin ships (read-only)."""
+    reset()
+    packs = [
+        *(manager.resolve_builtin(name) for name in manager.active_builtins(state.root)),
+        *state.plugin_packs(),
+    ]
+    for r in packs:
+        discover_pack(r.name, r.path)
+    for r in packs:
+        kind = "builtin" if isinstance(r.entry, manager.BuiltinPack) else "plugin"
+        click.echo(f"  {r.pack_id:34} {kind:8} {hook_count(r.path)} hooks")
+    for error in _state.load_errors:
+        click.echo(
+            f"!  {f'[{error.pack}] ' if error.pack else ''}{Path(error.source).name}: "
+            f"{type(error.exc).__name__}: {error.exc}"
+        )
+
+
+@cli.group()
+def transcripts() -> None:
+    """Register external transcripts (codex rollouts, teammate runs) into a session's deep view."""
+
+
+@transcripts.command(name="register")
+@click.option("--session", "session_id", required=True, help="Claude Code session id to attach the transcript to")
+@click.option("--provider", default="codex", help="Transcript source provider")
+@click.option("--thread-id", "thread_id", default=None, help="Provider thread id, resolved to a rollout at dispatch")
+@click.option("--path", "path", default=None, help="Direct path to the transcript file")
+@click.option("--label", default=None, help="Optional human label for the registration")
+def transcripts_register(
+    session_id: str, provider: str, thread_id: str | None, path: str | None, label: str | None
+) -> None:
+    """Register one external transcript against a session — exactly one of --thread-id or --path."""
+    from captain_hook.transcripts import register_transcript
+
+    if bool(thread_id) == bool(path):
+        raise click.UsageError("pass exactly one of --thread-id or --path")
+    try:
+        entry = register_transcript(session_id, provider=provider, thread_id=thread_id, path=path, label=label)
+    except ValueError as e:
+        raise click.UsageError(str(e)) from e
+    click.echo(f"  registered {provider} transcript for session {session_id}: {entry.thread_id or entry.path}")
+
+
+@transcripts.command(name="warm")
+@click.option("--session", "session_id", required=True, help="Claude Code session id to warm")
+@click.option(
+    "--root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="Project root whose hook tool registry matches the session",
+)
+@click.option("--max-seconds", type=click.IntRange(min=1, max=3600), default=900, show_default=True)
+def transcripts_warm(session_id: str, root: Path, max_seconds: int) -> None:
+    """Warm a session's registered transcript facts under paced native work limits."""
+    from contextlib import redirect_stderr, redirect_stdout
+    from io import StringIO
+    from time import monotonic, sleep, time
+
+    from cc_transcript.discovery import CLAUDE_PROJECTS_DIR
+
+    from captain_hook.session import state_root
+    from captain_hook.snapshots.client import (
+        HOOK_TAIL_BYTES,
+        NATIVE_CLASSIFIER,
+        WARM_STEP_BYTES,
+        WARM_STEP_SECONDS,
+        EvidenceIncomplete,
+        RegisteredWarmState,
+        RootWarmState,
+        client_scope,
+        warm_interval,
+    )
+    from captain_hook.transcripts import (
+        INVALID_SESSION_ID,
+        configured_classifier_policy,
+        registered_sources,
+        resolved_transcript_paths,
+    )
+
+    if not session_id or INVALID_SESSION_ID.search(session_id):
+        raise click.UsageError("invalid session id")
+    session_dir = state_root() / "hooks" / "sessions" / SessionId(session_id)
+    sources = registered_sources(session_dir)
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        CliState(root=root.resolve()).discover()
+    if _state.load_errors:
+        raise click.ClickException("hook discovery failed for project root")
+    started = monotonic()
+
+    def advance(state: RegisteredWarmState | RootWarmState) -> tuple[bool, int, str | None, int, int, int]:
+        steps = read_bytes = cache_bytes_read = cache_hits = 0
+        complete = False
+        failure = None
+        while (remaining := max_seconds - (monotonic() - started)) > 0:
+            steps += 1
+            try:
+                complete = state.step(read_bytes=WARM_STEP_BYTES, deadline_seconds=min(WARM_STEP_SECONDS, remaining))
+            except EvidenceIncomplete as exc:
+                usage = state.last_usage or exc.usage
+                read_bytes += usage.get("source_bytes_read", 0)
+                cache_bytes_read += usage.get("prepared_cache_bytes_read", 0)
+                cache_hits += usage.get("cache_hits", 0)
+                failure = exc.status
+                break
+            read_bytes += state.last_usage["source_bytes_read"]
+            cache_bytes_read += state.last_usage["prepared_cache_bytes_read"]
+            cache_hits += state.last_usage["cache_hits"]
+            if complete:
+                break
+            if interval := warm_interval(state.last_usage):
+                sleep(min(interval, max(0, max_seconds - (monotonic() - started))))
+        return complete, steps, failure, read_bytes, cache_bytes_read, cache_hits
+
+    with client_scope() as client:
+        client.foreground_deadline_unix_ms = int((time() + max_seconds) * 1000)
+        client.tool_registry()
+        try:
+            root_path = resolved_transcript_paths(client, [SessionId(session_id)], roots=[CLAUDE_PROJECTS_DIR])[
+                SessionId(session_id)
+            ]
+        except EvidenceIncomplete as exc:
+            raise click.ClickException(f"root transcript location {exc.status}") from exc
+        if root_path is None:
+            raise click.ClickException("root transcript is unavailable")
+        root_warmer = RootWarmState(root_path, NATIVE_CLASSIFIER, client, HOOK_TAIL_BYTES)
+        root_warmed, root_steps, root_failure, root_reads, root_cache_reads, _ = advance(root_warmer)
+        root_verified = False
+        root_verify_reads = root_verify_cache_reads = 0
+        classifier = NATIVE_CLASSIFIER
+        if root_warmed:
+            root_verified, _, verify_failure, root_verify_reads, root_verify_cache_reads, _ = advance(
+                RootWarmState(root_path, NATIVE_CLASSIFIER, client, HOOK_TAIL_BYTES)
+            )
+            root_failure = root_failure or verify_failure
+        classifier_ready = False
+        if root_verified and _state.classifier is not None:
+            classifier = configured_classifier_policy(root)
+            classifier_ready = True
+            root_failure = "classifier_unavailable"
+        elif root_verified:
+            try:
+                session = client.acquire(root_path, tail_bytes=HOOK_TAIL_BYTES)
+                try:
+                    prepared = list(
+                        client.pages(
+                            "prepare_hook_view",
+                            domain=True,
+                            view=session.view(),
+                            cwd=str(root.resolve()),
+                            droid=False,
+                        )
+                    )
+                    if len(prepared) != 1 or prepared[0]["kind"] != "classifier":
+                        raise click.ClickException("root classifier preparation returned invalid evidence")
+                    classifier = prepared[0]["classifier"]
+                    classifier_ready = True
+                finally:
+                    session.release()
+            except EvidenceIncomplete as exc:
+                root_failure = root_failure or exc.status
+        classified_warmed = classified_verified = classifier_ready and classifier == NATIVE_CLASSIFIER
+        classified_reads = classified_verify_reads = classified_cache_reads = classified_verify_cache_reads = 0
+        classified_steps = 0
+        if classifier_ready and classifier != NATIVE_CLASSIFIER and classifier["id"] != "captain-configured":
+            classified_warmed, classified_steps, classified_failure, classified_reads, classified_cache_reads, _ = (
+                advance(RootWarmState(root_path, classifier, client))
+            )
+            root_failure = root_failure or classified_failure
+            if classified_warmed:
+                classified_verified, _, verify_failure, classified_verify_reads, classified_verify_cache_reads, _ = (
+                    advance(RootWarmState(root_path, classifier, client))
+                )
+                root_failure = root_failure or verify_failure
+        warmer = RegisteredWarmState(sources, client)
+        warmed, steps, failure_status, warm_reads, warm_cache_reads, _ = (
+            advance(warmer) if sources.thread_ids or sources.direct_paths else (True, 0, None, 0, 0, 0)
+        )
+        verified = False
+        verify_steps = verify_reads = verify_cache_reads = verify_hits = 0
+        if warmed:
+            if sources.thread_ids or sources.direct_paths:
+                verified, verify_steps, verify_failure, verify_reads, verify_cache_reads, verify_hits = advance(
+                    RegisteredWarmState(sources, client)
+                )
+                failure_status = failure_status or verify_failure
+            else:
+                verified = True
+    complete = root_warmed and root_verified and classified_warmed and classified_verified and warmed and verified
+    click.echo(
+        json.dumps(
+            {
+                "complete": complete,
+                "root_steps": root_steps + classified_steps,
+                "root_source_bytes_read": root_reads + classified_reads,
+                "root_prepared_cache_bytes_read": root_cache_reads + classified_cache_reads,
+                "root_verify_source_bytes_read": root_verify_reads + classified_verify_reads,
+                "root_verify_prepared_cache_bytes_read": root_verify_cache_reads + classified_verify_cache_reads,
+                "root_facts_complete": classified_warmed and classified_verified,
+                "sources": len(sources.thread_ids) + len(sources.direct_paths),
+                "steps": steps,
+                "fact_cache_bytes": warmer.fact_cache_bytes,
+                "fact_cache_write_bytes": warmer.fact_cache_write_bytes,
+                "fact_cache_writes": warmer.fact_cache_writes,
+                "warm_source_bytes_read": warm_reads,
+                "warm_prepared_cache_bytes_read": warm_cache_reads,
+                "verify_complete": verified,
+                "verify_steps": verify_steps,
+                "verify_source_bytes_read": verify_reads,
+                "verify_prepared_cache_bytes_read": verify_cache_reads,
+                "verify_cache_hits": verify_hits,
+                "elapsed_seconds": round(monotonic() - started, 3),
+                "status": root_failure or failure_status or ("complete" if complete else "deadline"),
+            },
+            sort_keys=True,
+        )
+    )
+    if not complete:
+        raise SystemExit(1)
+
+
+@cli.command()
+def mcp() -> None:
+    """Serve the capt-hook MCP server over stdio, exposing the register_transcript tool."""
+    from captain_hook.mcp_server import build_mcp_server
+
+    build_mcp_server().run()
+
+
+cli.add_command(review)
+cli.add_command(helper)
+cli.add_command(update)
+cli.add_command(pause)
+cli.add_command(resume)
+cli.add_command(ticket)
+
+
+main = cli

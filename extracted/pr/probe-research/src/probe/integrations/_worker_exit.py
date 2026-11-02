@@ -38,19 +38,77 @@ def run_held(fn: Any, signums: tuple[int, ...], seconds: float) -> None:
     shuts down, and one that lands while the hold is being set up ran torch's
     handler, which raises: the close was skipped and the run stayed
     ``running``. So a hold that could not be set up is tried again; after
-    three signals in a row, ``fn()`` runs without one."""
-    for _attempt in range(3):
-        hold = _signals_held(signums, seconds)
-        try:
-            hold.__enter__()
-        except BaseException:  # noqa: BLE001 -- that signal was the ending; the close still runs
-            continue
-        try:
-            fn()
-        finally:
-            hold.__exit__(None, None, None)
+    three signals in a row, ``fn()`` runs without one. A hold
+    :func:`hold_until_the_close` started ends after ``fn()``."""
+    try:
+        for _attempt in range(3):
+            hold = _signals_held(signums, seconds)
+            try:
+                hold.__enter__()
+            except BaseException:  # noqa: BLE001 -- that signal was the ending; the close still runs
+                continue
+            try:
+                fn()
+            finally:
+                hold.__exit__(None, None, None)
+            return
+        fn()
+    finally:
+        end_hold_until_the_close()
+
+
+#: (pid, hold) of the hold :func:`hold_until_the_close` started; :func:`run_held` ends it.
+_until_close: tuple[int, Any] | None = None
+
+
+def hold_until_the_close(signums: tuple[int, ...]) -> None:
+    """Hold ``signums`` from a worker's first SIGINT / SIGTERM until its close (`run_held`).
+
+    torch's launcher forwards the signal it got to its workers as it shuts down, 1-2 ms after
+    the first. One landing in multiprocessing's exit before the close's own hold was up skipped
+    the close: the run stayed ``running``. Call it from the worker's signal handler, before
+    handing the signal on. Bounded by `WORKER_HOLD_SECONDS`, should no close come."""
+    global _until_close
+    if _until_close is not None and _until_close[0] == os.getpid():
+        if not _until_close[1]._expired:
+            return
+        end_hold_until_the_close()  # ran out with no close (the worker went on): start afresh
+    hold = _signals_held(signums, WORKER_HOLD_SECONDS)
+    hold.__enter__()  # a signal landing meanwhile runs the handler it finds, as before
+    _until_close = (os.getpid(), hold)
+
+
+def end_hold_until_the_close() -> None:
+    """Deliver what :func:`hold_until_the_close` held to the handlers it held them from: after
+    the close, or when a later ``train()`` begins (the worker went on; a note chained over a
+    spent hold would hand it its signal, which it drops). Main thread only."""
+    global _until_close
+    if threading.current_thread() is not threading.main_thread():
         return
-    fn()
+    held, _until_close = _until_close, None
+    if held is not None and held[0] == os.getpid():
+        held[1].__exit__(None, None, None)
+
+
+def _forget_the_hold_in_a_child() -> None:
+    """A child forked under a hold (this one, or a close's over it) inherits its handlers but
+    not its timer, so it would hold for good: put back what each hold took over."""
+    global _until_close
+    _until_close = None
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        for _depth in range(4):
+            try:
+                handler = signal.getsignal(signum)
+                if getattr(handler, "__func__", None) is not _signals_held._hold:
+                    break
+                fallback = signal.default_int_handler if signum == signal.SIGINT else signal.SIG_DFL
+                signal.signal(signum, handler.__self__._previous.get(signum, fallback))
+            except Exception:  # noqa: BLE001 -- a child's start must never fail here
+                break
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_forget_the_hold_in_a_child)
 
 
 def cap_finish_timeout(seconds: float) -> None:

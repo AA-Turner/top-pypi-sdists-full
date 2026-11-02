@@ -1,0 +1,170 @@
+Metadata-Version: 2.4
+Name: rainbow-api
+Version: 1.5.5
+Summary: Read chromatography and mass spectrometry binary files
+Author: Evan Shi and Eugene Kwan
+Author-email: evanyshi@cmu.edu
+License: LGPL-3.0-or-later
+Project-URL: Repository, https://github.com/evanyeyeye/rainbow
+Project-URL: Documentation, https://rainbow-api.readthedocs.io
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+Requires-Dist: numpy
+Requires-Dist: lxml>=4.9
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: matplotlib; extra == "test"
+Requires-Dist: pandas; extra == "test"
+Requires-Dist: python-lzf; extra == "test"
+Provides-Extra: hrms
+Requires-Dist: python-lzf; extra == "hrms"
+Provides-Extra: validate
+Requires-Dist: jsonschema>=4.18; extra == "validate"
+Requires-Dist: rfc3339-validator; extra == "validate"
+Provides-Extra: plot
+Requires-Dist: matplotlib; extra == "plot"
+Provides-Extra: waters
+Requires-Dist: pandas; extra == "waters"
+Dynamic: license-file
+
+# rainbow
+[![PyPI](https://img.shields.io/pypi/v/rainbow-api)](https://pypi.org/project/rainbow-api)
+[![Documentation Status](https://readthedocs.org/projects/rainbow-api/badge/?version=latest)](https://rainbow-api.readthedocs.io/en/latest/?badge=latest)
+[![PyPI - Downloads](https://static.pepy.tech/badge/rainbow-api)](https://pypi.org/project/rainbow-api)
+
+*rainbow* provides programmatic access to the raw data encoded in chromatography and mass spectrometry binary files. This library supports the following vendors and detectors:
+
+| Container | File | Data | Parse with |
+| --- | --- | --- | --- |
+| **Agilent `.D`** | `.uv` | UV spectrum (supports incomplete files) | |
+| | `.ch` | UV, FID, CAD, and ELSD channels | |
+| | `.ms` | MS (supports incomplete files) | |
+| | `MSProfile.bin` | HRMS and ICP-MS profile spectrum | `hrms=True` |
+| | `MSPeak.bin` | centroid (peak-picked) spectrum | `centroid=True` |
+| **Agilent `.dx`** (OpenLab CDS) | `.UV` | DAD spectrum | |
+| | `.CH` | single-wavelength UV/DAD signals | |
+| | `.IT` | instrument telemetry, as analog data | `telemetry=True` |
+| **Waters `.raw`** | `CHRO` | CAD and ELSD, plus miscellaneous analog data | |
+| | `FUNC` | UV and MS | |
+
+There is [documentation](http://rainbow-api.readthedocs.io/) for *rainbow* that also details the structure of each [binary file format](https://rainbow-api.readthedocs.io/en/latest/formats.html).
+
+## Installation
+
+```
+pip install rainbow-api
+```
+
+That installs everything needed to read a file. Four things are separate,
+because most callers never reach them:
+
+| Extra | Install | What it adds |
+| --- | --- | --- |
+| `plot` | `pip install rainbow-api[plot]` | `matplotlib`, for `DataFile.plot` |
+| `waters` | `pip install rainbow-api[waters]` | `pandas`, for the Waters compound transition table |
+| `hrms` | `pip install rainbow-api[hrms]` | `python-lzf`, for LZF-compressed MassHunter `MSProfile.bin` |
+| `validate` | `pip install rainbow-api[validate]` | `jsonschema` and `rfc3339-validator`, for the opt-in ASM conformance tests. Both: without the second, timestamp formats are not actually checked |
+
+Each says which extra to install if you call it without one, so nothing fails
+mysteriously.
+
+Prebuilt wheels include an optional compiled accelerator (see
+[Performance](#performance)); installation never requires a compiler, and
+*rainbow* works the same with or without it.
+
+## Usage
+
+The easiest way to get started is to give *rainbow* a directory path. Assume that we have a directory `mydata.D` that contains a binary file `DAD1.uv` with UV data. 
+
+```python
+import rainbow as rb
+datadir = rb.read("mydata.D")
+datafile = datadir.get_file("DAD1A.uv")
+```
+
+Here, the `datadir` DataDirectory object contains a DataFile object for `DAD1A.uv`. 
+
+*rainbow* normally infers the vendor from the path suffix (`.D`/`.dx` for Agilent, `.raw` for Waters). A directory whose name lacks that suffix is identified from its contents instead, so renamed datasets still parse. To force a parser explicitly, pass `format`:
+
+```python
+datadir = rb.read("Caffeine 3", format="waters")
+```
+
+The raw UV data is contained in numpy arrays that are attributes of `datafile`. Users may find the following particularly useful:
+* `datafile.xlabels` - 1D numpy array with retention times
+* `datafile.ylabels` - 1D numpy array with wavelengths
+* `datafile.data` - 2D numpy array with absorbances 
+
+There is a [tutorial](https://rainbow-api.readthedocs.io/en/latest/tutorial.html) available. There are also example [snippets](https://rainbow-api.readthedocs.io/en/latest/examples.html) for basic tasks. Or just check out the full [API](https://rainbow-api.readthedocs.io/en/latest/api.html). 
+
+### A whole sequence at once
+
+A sequence directory, one injection subdirectory per sample, reads in one call.
+Injections come back in sorted-name order, which for the names ChemStation
+writes by default is the order they ran.
+
+```python
+sequence = rb.read_sequence("Caffeine_Stability")
+first = sequence[0]
+one = sequence.get_injection("008-D1F-A1-sample_01.D")
+```
+
+See [Sequences](https://rainbow-api.readthedocs.io/en/latest/sequences.html).
+
+### Getting the data out of the vendor's format
+
+Any run, or any sequence, exports to the
+[Allotrope Simple Model](https://www.allotrope.org/): an open, published JSON
+format that other tools read, so the data stops depending on *rainbow* or on the
+instrument vendor. It reads back, and it validates against the published
+Allotrope schemas once the run's UTC offset is known: most vendor formats record
+local wall clock with no offset, and *rainbow* will not invent one, so pass
+`utc_offset=` if you know where the instrument was.
+
+```python
+datadir.export_asm("caffeine.asm.json")           # one run
+sequence.export_asm("stability.asm.json")         # the whole sequence
+back = rb.from_asm(json.load(open("caffeine.asm.json")))
+```
+
+A full-scan MS channel is a 2D grid the format cannot hold faithfully, so ask
+for the ions you want: `datadir.to_asm(ions=[195.1])`. See
+[ASM export](https://rainbow-api.readthedocs.io/en/latest/asm.html).
+
+### The metadata the normal read leaves behind
+
+A vendor run ships sidecar files the data parsers never touch, holding the
+acquisition context: module serials, firmware versions, the operator, method
+details, vial positions, timestamps. `rainbow.debug` decodes them on demand,
+and costs nothing if you never call it.
+
+```python
+from rainbow import debug
+debug.fields("mydata.D")     # one merged record of the whole run
+debug.inspect("mydata.D")    # every recognized sidecar, in full
+```
+
+See [Debug metadata](https://rainbow-api.readthedocs.io/en/latest/debug/overview.html).
+
+## Performance
+
+A few inherently-sequential decode loops are sped up by optional compiled
+(Cython) extensions: roughly **100x faster**, bit-identical, with a transparent
+pure-Python fallback when no compiler is available (prebuilt PyPI wheels include
+them). See the
+[Performance](https://rainbow-api.readthedocs.io/en/latest/performance.html)
+page in the documentation for the optimization strategies behind *rainbow* and
+the considerations for adding a new format.
+
+## Contents
+* `rainbow/` contains the code of the Python library.
+* `docs/` contains code for generating documentation. To build documentation locally, you will need the packages in `docs/requirements.txt` (`pip install -r docs/requirements.txt`); `myst-parser` is required as well as `sphinx` and `sphinx-rtd-theme`, since part of the documentation is Markdown. Then, move to the `docs/` directory and run `make html`. The docpages will be generated under `docs/_build`. 
+* `tests/` contains unit tests for the library. These can be run with `pytest` from the repository root (install the test dependency with `pip install -e .[test]`). 
+
+For development, an editable install (`pip install -e .`) compiles the optional
+accelerator in place if a C compiler and Cython are available; otherwise the
+pure-Python fallback is used. The parity between the two paths is checked by
+`tests/test_accelerator.py`.

@@ -1,0 +1,42 @@
+[package]
+name = "fullbleed"
+version = "2.5.51"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Deterministic HTML/CSS-to-PDF engine in Rust for transactional document generation and AI agent workflows."
+repository = "https://github.com/fullbleed-engine/fullbleed-official"
+homepage = "https://fullbleed.dev"
+documentation = "https://docs.rs/fullbleed"
+readme = "README.md"
+keywords = ["pdf", "html", "css", "document-generation", "printing"]
+categories = ["text-processing", "multimedia"]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/build.rs",
+    "/README.md",
+    "/LICENSE",
+    "/COPYRIGHT",
+    "/LICENSING.md",
+    "/THIRD_PARTY_LICENSES.md",
+    "/src/**",
+]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+python = []
+# Compatibility feature: enables SVG-to-PNG fallback through Fullbleed's native
+# compiler/raster pipeline without adding a separate SVG renderer dependency.
+svg_raster = []
+
+[profile.profiling]
+inherits = "release"
+debug = true
+
+[dependencies]
+fullbleed_audit_contract = { version = "0.1.3", path = "crates/fullbleed_audit_contract" }
+subsetter = { version = "0.2.6", default-features = false }
+unicode-bidi = "0.3.18"

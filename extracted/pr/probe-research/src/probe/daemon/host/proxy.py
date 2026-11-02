@@ -63,14 +63,14 @@ def _address() -> dict | None:
     """Where the service's daemon host listens (started if need be), or None."""
     try:
         from probe import __version__
-        from probe.service import client
+        from probe.foundation import service_api as client
     except Exception:  # noqa: BLE001 -- no service client: in-process
         return None
     try:
-        with client.Connection.open(1.0) as conn:
-            conn.hello("cli", str(__version__))
-            conn.sock.settimeout(ASK_S)
-            answer = conn.call(METHOD, {})
+        with client.Connection.open(1.0) as connection:
+            connection.hello("cli", str(__version__))
+            connection.sock.settimeout(ASK_S)
+            answer = connection.call(METHOD, {})
     except Exception:  # noqa: BLE001 -- no service, an older one, a refusal: in-process
         return None
     if not isinstance(answer, dict) or not isinstance(answer.get("socket"), str):
@@ -92,10 +92,10 @@ def _daemon_dir() -> Path:
     return base / "probe" / "daemon"
 
 
-def _readline(sock: socket.socket, buf: bytearray, timeout: float) -> dict | None:
+def _readline(sock: socket.socket, buffer: bytearray, timeout: float) -> dict | None:
     """The next message within `timeout`, or None (nothing yet). EOFError: closed."""
     end = time.monotonic() + timeout
-    while b"\n" not in buf:
+    while b"\n" not in buffer:
         left = end - time.monotonic()
         if left <= 0:
             return None
@@ -105,9 +105,9 @@ def _readline(sock: socket.socket, buf: bytearray, timeout: float) -> dict | Non
         chunk = sock.recv(65536)
         if not chunk:
             raise EOFError
-        buf += chunk
-    line, _, rest = bytes(buf).partition(b"\n")
-    buf[:] = rest
+        buffer += chunk
+    line, _, rest = bytes(buffer).partition(b"\n")
+    buffer[:] = rest
     try:
         msg = json.loads(line)
     except ValueError:
@@ -132,18 +132,18 @@ def main(argv: list[str]) -> int | None:
     if address is None:
         return None
     try:
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         paths.require_private(Path(address["socket"]).parent)  # never a listener in a folder another user made
     except (OSError, ImportError):
         return None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    buf = bytearray()
+    buffer = bytearray()
     try:
         sock.settimeout(ACK_S)
         sock.connect(address["socket"])
         sock.sendall(b'{"op":"hello","role":"proxy"}\n')
-        hello = _readline(sock, buf, ACK_S)
+        hello = _readline(sock, buffer, ACK_S)
         if not hello or hello.get("op") != "hello" or (address.get("pid") and hello.get("pid") != address["pid"]):
             sock.close()
             return None
@@ -153,7 +153,7 @@ def main(argv: list[str]) -> int | None:
                  "cwd": cwd, "source": args.source or _default_source(), "daemon_dir": str(_daemon_dir()),
                  "env": dict(os.environ)}
         sock.sendall((json.dumps(start, separators=(",", ":")) + "\n").encode())
-        answer = _readline(sock, buf, ACK_S)
+        answer = _readline(sock, buffer, ACK_S)
     except (OSError, EOFError):
         with contextlib.suppress(OSError):
             sock.close()
@@ -188,11 +188,11 @@ def main(argv: list[str]) -> int | None:
             if os.getppid() != parent:
                 return 0  # its supervisor is gone: closing tells the run so (the run's owner left)
             try:
-                msg = _readline(sock, buf, 1.0)
+                message = _readline(sock, buffer, 1.0)
             except InterruptedError:
                 continue
-            if msg and msg.get("op") == "exited" and msg.get("run") == run_id:
-                code = msg.get("code")
+            if message and message.get("op") == "exited" and message.get("run") == run_id:
+                code = message.get("code")
                 return code if isinstance(code, int) else 0
     except (OSError, EOFError):
         # The host went away under the run. After a stop it had nothing left to do;

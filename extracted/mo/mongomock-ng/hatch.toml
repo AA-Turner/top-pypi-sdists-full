@@ -1,0 +1,47 @@
+[envs.test]
+features = ["pyexecjs"]
+
+[envs.hatch-static-analysis]
+dependencies = ["ruff==0.7.*"]
+config-path = ".ruff_defaults.toml"
+
+[envs.test.env-vars]
+EXECJS_RUNTIME = "node"
+
+[envs.hatch-test.overrides]
+matrix.pymongo.extra-dependencies = [
+  { value = "pymongo==4.11.0", if = ["4"]},
+  { value = "pymongo==4.12.0", if = ["4.12"]},
+  { value = "pymongo==4.14.0", if = ["4.14"]},
+  { value = "pymongo", if = ["latest"]},
+]
+
+[[envs.hatch-test.matrix]]
+python = [ "3.10", "3.11", "3.12", "3.13", "3.14", "pypy3.10", "pypy3.11"]
+pymongo = ["4", "4.12", "4.14", "latest"]
+
+[envs.coverage]
+detached = true
+dependencies = [
+  "coverage[toml]>=6.2",
+  "lxml",
+]
+
+[envs.coverage.scripts]
+combine = "coverage combine {args}"
+xml = "coverage xml"
+
+[envs.types]
+dependencies = [
+  "mypy==1.11.*",
+]
+
+[envs.types.scripts]
+check = "mypy --install-types --non-interactive tests/types"
+
+[envs.docs]
+extra-dependencies = [
+  "doc8==1.1.*",
+  "pygments==2.16.*",
+]
+scripts = { check = "doc8 README.rst" }

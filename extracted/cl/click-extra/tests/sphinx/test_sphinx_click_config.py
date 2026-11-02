@@ -26,6 +26,7 @@ import pytest
 
 from click_extra import group
 from click_extra.config import CONFIG_PATH_METADATA_KEY
+from click_extra.sphinx.click_reference import _format_default, _toml_value
 
 
 @dataclass
@@ -83,6 +84,29 @@ def _plain_text(html: str) -> str:
     readable and independent of the lexer's token boundaries.
     """
     return unescape(re.sub(r"<[^>]+>", "", html))
+
+
+@pytest.mark.parametrize(
+    ("value", "default", "literal"),
+    (
+        (None, "*(none)*", None),
+        (True, "`true`", "true"),
+        (False, "`false`", "false"),
+        (3, "`3`", "3"),
+        ("Lisbon", '`"Lisbon"`', '"Lisbon"'),
+        ("Lisbon\nPorto", "*(see example)*", "'''\nLisbon\nPorto\n'''"),
+        ([], "`[]`", "[]"),
+        (["figs", "plums"], "`['figs', 'plums']`", '["figs", "plums"]'),
+        # A list holding a value TOML cannot spell has no example either.
+        (["figs", None], "`['figs', None]`", None),
+        # No literal for a value of another type, which renders as it prints.
+        (2.5, "2.5", None),
+    ),
+)
+def test_click_config_default_and_toml_literal(value, default, literal):
+    """A default renders in the table, and as the literal of its TOML example."""
+    assert _format_default(value) == default
+    assert _toml_value(value) == literal
 
 
 def test_click_config_renders_table_and_sections(sphinx_app_myst):
@@ -286,3 +310,53 @@ def test_click_config_heading_offset_adapts_to_surrounding_section(sphinx_app_my
     assert html is not None
     assert re.search(r"<h3[^>]*>\s*<code[^>]*>\s*city", html) or "<h3>" in html
     assert 'id="city"' in html
+
+
+@dataclass
+class OrchardConfig:
+    """Schema whose docstrings make Markdown headings, or look like they do."""
+
+    trees: int = 12
+    """How many trees grow in the orchard.
+
+    Pear and apple trees alternate along each row, so no row holds a single
+    =
+    kind of fruit.
+    """
+
+    rows: int = 4
+    """How many rows the trees stand in.
+
+    # Pruning
+
+    Each row is pruned in winter.
+    """
+
+    seasons: list[str] = field(default_factory=lambda: ["spring", "autumn"])
+    """Harvest seasons.
+
+    ```text
+    # A comment in a code block
+    ---
+    ```
+    """
+
+
+def test_click_config_warns_on_docstring_heading(sphinx_app_myst):
+    """Each heading in an option docstring is reported at its docstring line.
+
+    The lone `=` makes a setext heading of the paragraph above it, `# Pruning`
+    is an ATX heading, and the lines of a code block are no heading at all.
+    """
+    content = dedent("""
+        ```{click:config} OrchardConfig
+        from tests.sphinx.test_sphinx_click_config import OrchardConfig
+        ```
+    """)
+    sphinx_app_myst.build_document(content)
+    warnings = sphinx_app_myst._warning.getvalue()
+
+    reported = re.findall(r"line (\d+) of the docstring of option '(\w+)'", warnings)
+    assert reported == [("3", "rows"), ("4", "trees")]
+    # The type a project lists in `click_extra_fail_on_warnings`.
+    assert "[click_extra.config_docstring_heading]" in warnings

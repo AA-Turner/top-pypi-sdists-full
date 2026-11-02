@@ -1,0 +1,190 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-go-tools/action.yml
+# Purpose:   Install the pinned Go quality tools (golangci-lint, gosec, govulncheck)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# golangci-lint and gosec publish prebuilt linux binaries, so they are fetched.
+# govulncheck ships releases with no assets, so it stays `go install` pinned to a
+# tag.
+#
+# NO `command -v` SHORT-CIRCUIT, DELIBERATELY. A "skip if already present" guard
+# makes the pin a no-op where it matters most: the ARC runner image (the org
+# default, vars.GH_RUNNER_GOLANG = arc-runner-4cpu) bakes all three with
+# `go install ...@latest` on PATH, so every guard would hit, nothing would
+# download, and the job would run whatever @latest resolved to on image-bake day
+# while versions.yaml claimed a cooldown that never applied. A warm cache does
+# the same on hosted runners. Downloading unconditionally costs a few seconds,
+# and GITHUB_PATH PREPENDS, so the pinned copy wins over any baked one.
+#
+# Versions AND per-arch sha256 digests are pinned in
+# src/hyperi_ci/config/versions.yaml (`tools:`) and mirrored here by
+# scripts/update-versions.py --apply. Do not hand-edit the marked lines.
+#
+# The digest is the pin that matters: a release asset can be deleted and
+# re-uploaded under the same tag, so a tag alone is not integrity (issue #66). A
+# mismatch fails the step rather than installing. The mirror exists because
+# GitHub parses this file before hyperi-ci is installed, so it cannot read the
+# packaged SSOT the way `install.fetch_verified` does.
+#
+# govulncheck carries no digest: `go install` resolves through the Go module proxy
+# and is verified against the sum.golang.org transparency log.
+#
+# Referenced from reusable workflows as
+#   hyperi-io/hyperi-ci/.github/actions/setup-go-tools@main
+
+name: Setup Go tools
+description: Install the pinned golangci-lint, gosec and govulncheck (Linux runners)
+
+inputs:
+  golangci-lint-version:
+    description: golangci-lint release tag to pin (must include the leading `v`)
+    required: false
+    # hyperi-ci:pin tools.golangci-lint
+    default: v2.14.0
+  gosec-version:
+    description: gosec release tag to pin (must include the leading `v`)
+    required: false
+    # hyperi-ci:pin tools.gosec
+    default: v2.29.0
+  govulncheck-version:
+    description: govulncheck module version to pin (no prebuilt binaries upstream)
+    required: false
+    # hyperi-ci:pin tools.govulncheck
+    default: v1.8.0
+  golangci-lint-sha256-amd64:
+    description: sha256 of the linux-amd64 golangci-lint tarball
+    required: false
+    # hyperi-ci:pin tools.golangci-lint.sha256.amd64
+    default: ab90aeb7b066f92a33415b638a50fe5344bbb75a0d32ad30cc248d88f81032ab
+  golangci-lint-sha256-arm64:
+    description: sha256 of the linux-arm64 golangci-lint tarball
+    required: false
+    # hyperi-ci:pin tools.golangci-lint.sha256.arm64
+    default: ee7ec5f3453d15ddf106fae5a4d6c71737712348a979d1fe9cd52ec7ea299bae
+  gosec-sha256-amd64:
+    description: sha256 of the linux-amd64 gosec tarball
+    required: false
+    # hyperi-ci:pin tools.gosec.sha256.amd64
+    default: 6431b119741c1f4a50fdfcf94e782e16b9e642afc8c7fa9b5d39d48bf3003095
+  gosec-sha256-arm64:
+    description: sha256 of the linux-arm64 gosec tarball
+    required: false
+    # hyperi-ci:pin tools.gosec.sha256.arm64
+    default: c71244ec8d37488fd479d0d26990968fee03ece48b305d8224ac0c1ebd66e87c
+
+runs:
+  using: composite
+  steps:
+    - name: Install Go quality tools
+      # No `|| true`: the quality stage runs these and silent absence would mask
+      # supply-chain risks.
+      #
+      # Versions and digests arrive via env, not `${{ }}` inline, so a value can
+      # never be interpolated into the script body.
+      shell: bash
+      env:
+        GCL_VERSION: ${{ inputs.golangci-lint-version }}
+        GOSEC_VERSION: ${{ inputs.gosec-version }}
+        GOVULN_VERSION: ${{ inputs.govulncheck-version }}
+        GCL_SHA_AMD64: ${{ inputs.golangci-lint-sha256-amd64 }}
+        GCL_SHA_ARM64: ${{ inputs.golangci-lint-sha256-arm64 }}
+        GOSEC_SHA_AMD64: ${{ inputs.gosec-sha256-amd64 }}
+        GOSEC_SHA_ARM64: ${{ inputs.gosec-sha256-arm64 }}
+      run: |
+        set -euo pipefail
+        for v in "$GCL_VERSION" "$GOSEC_VERSION" "$GOVULN_VERSION"; do
+          case "$v" in
+            v*) ;;
+            *) echo "::error::tool version '$v' must start with 'v'"; exit 1 ;;
+          esac
+        done
+        case "$(uname -m)" in
+          x86_64) GOARCH=amd64 ;;
+          aarch64 | arm64) GOARCH=arm64 ;;
+          *) echo "::error::unsupported arch $(uname -m) for Go tools"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+        case "$GOARCH" in
+          amd64)
+            GCL_SHA="$GCL_SHA_AMD64"
+            GOSEC_SHA="$GOSEC_SHA_AMD64"
+            ;;
+          arm64)
+            GCL_SHA="$GCL_SHA_ARM64"
+            GOSEC_SHA="$GOSEC_SHA_ARM64"
+            ;;
+        esac
+
+        # A pinned tag is not integrity: a release asset can be deleted and
+        # re-uploaded under the same tag. Verification needs the whole file, so
+        # the download cannot pipe straight into tar.
+        fetch() {  # $1=url  $2=expected sha256  $3=dest file
+          curl -fsSL --connect-timeout 10 --max-time 300 --retry 7 --retry-all-errors --retry-max-time 600 -o "$3" "$1"
+          echo "$2  $3" | sha256sum -c - >/dev/null || {
+            echo "::error::$1 failed its sha256 check - refusing to install"
+            echo "  expected $2"
+            echo "  got      $(sha256sum "$3" | cut -d' ' -f1)"
+            exit 1
+          }
+        }
+
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+
+        # golangci-lint: binary nested one level down, hence --strip-components.
+        GCL="$GCL_VERSION"
+        fetch \
+          "https://github.com/golangci/golangci-lint/releases/download/${GCL}/golangci-lint-${GCL#v}-linux-${GOARCH}.tar.gz" \
+          "$GCL_SHA" "$TMP/golangci-lint.tar.gz"
+        tar xz -C "$HOME/.local/bin" --strip-components=1 \
+          -f "$TMP/golangci-lint.tar.gz" \
+          "golangci-lint-${GCL#v}-linux-${GOARCH}/golangci-lint"
+
+        # gosec: binary at the tarball ROOT, so no --strip-components here.
+        GOSEC="$GOSEC_VERSION"
+        fetch \
+          "https://github.com/securego/gosec/releases/download/${GOSEC}/gosec_${GOSEC#v}_linux_${GOARCH}.tar.gz" \
+          "$GOSEC_SHA" "$TMP/gosec.tar.gz"
+        tar xz -C "$HOME/.local/bin" -f "$TMP/gosec.tar.gz" gosec
+
+        # govulncheck: upstream publishes no binaries, so compile - but pinned,
+        # and with GOBIN forced into our dir so it cannot silently resolve to a
+        # baked copy on PATH. GOTOOLCHAIN=auto because setup-go pins `local` to
+        # the project's go.mod version, which is older than govulncheck needs.
+        GOTOOLCHAIN=auto GOBIN="$HOME/.local/bin" \
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULN_VERSION}"
+
+    - name: Verify Go tools match the pin
+      # ASSERT, don't just print. A version echoed into a log is a version
+      # nobody checks: every silent-wrong-tool failure mode still produces
+      # correct-looking output. Separate step so the install step's GITHUB_PATH
+      # is in effect (it does not apply to the step that writes it), which is
+      # also what makes our pinned copy shadow any runner-image copy.
+      #
+      # Versions arrive via env, not `${{ }}` inline, so the shell can strip the
+      # `v` and so a value can never be interpolated into the script body.
+      # No `set -e`: a missing tool must be REPORTED, not abort the step early.
+      shell: bash
+      env:
+        GCL_WANT: ${{ inputs.golangci-lint-version }}
+        GOSEC_WANT: ${{ inputs.gosec-version }}
+        GOVULN_WANT: ${{ inputs.govulncheck-version }}
+      run: |
+        set -uo pipefail
+        fail=0
+        assert() {  # $1=tool  $2=want substring  $3=actual --version output
+          if printf '%s' "$3" | grep -qF -- "$2"; then
+            echo "ok   $1: $2"
+          else
+            echo "::error::$1: expected version $2, got: $3"
+            fail=1
+          fi
+        }
+        assert golangci-lint "${GCL_WANT#v}"   "$(golangci-lint --version 2>&1)"
+        assert gosec         "${GOSEC_WANT#v}" "$(gosec --version 2>&1)"
+        assert govulncheck   "${GOVULN_WANT}"  "$(govulncheck -version 2>&1)"
+        exit "$fail"

@@ -1,0 +1,304 @@
+Metadata-Version: 2.5
+Name: metaclass-registry
+Version: 0.4.1
+Summary: Zero-boilerplate metaclass-driven plugin registry system with lazy discovery and caching
+Project-URL: Homepage, https://github.com/OpenHCSDev/metaclass-registry
+Project-URL: Documentation, https://metaclass-registry.readthedocs.io
+Project-URL: Repository, https://github.com/OpenHCSDev/metaclass-registry
+Project-URL: Issues, https://github.com/OpenHCSDev/metaclass-registry/issues
+Author-email: Tristan Simas <tristan.simas@mail.mcgill.ca>
+License: MIT
+License-File: LICENSE
+Keywords: cache,discovery,lazy-loading,metaclass,plugin,registry
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Provides-Extra: dev
+Requires-Dist: black>=23.0; extra == 'dev'
+Requires-Dist: mypy>=1.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0; extra == 'dev'
+Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: sphinx-rtd-theme>=2.0; extra == 'docs'
+Requires-Dist: sphinx>=7.0; extra == 'docs'
+Description-Content-Type: text/markdown
+
+# metaclass-registry
+
+**Zero-boilerplate metaclass-driven plugin registry system with lazy discovery and caching**
+
+[![PyPI version](https://badge.fury.io/py/metaclass-registry.svg)](https://badge.fury.io/py/metaclass-registry)
+[![Documentation Status](https://readthedocs.org/projects/metaclass-registry/badge/?version=latest)](https://metaclass-registry.readthedocs.io/en/latest/?badge=latest)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Coverage](https://openhcsdev.github.io/metaclass-registry/coverage.svg)](https://openhcsdev.github.io/metaclass-registry/coverage/)
+
+## Features
+
+- **Zero Boilerplate**: No custom metaclasses, no manual registry creation, just class attributes
+- **Lazy Discovery**: Plugins discovered automatically on first access
+- **Registry Inheritance**: Child classes inherit parent's registry for clean interface hierarchies
+- **Secondary Registries**: Auto-populate related registries from primary registry
+- **Persistent Caching**: Cache discovery results across process restarts
+- **Explicit Discovery**: Package scans occur only when the nominal root declares them
+- **Host Logging Safety**: Discovery imports preserve application-owned root logging
+- **Nominal Registry Families**: Stable key-axis declarations with
+  ``RegistryFamily`` and ``RegistryKeyAttribute``
+- **Registered Enums**: ``RegisteredEnumMeta`` for enum members backed by a
+  nominal registry
+- **Type-Safe**: Full type hints and mypy support
+
+## Quick Start
+
+```python
+from metaclass_registry import AutoRegisterMeta, RegistryFamily
+
+# Define the nominal family and its semantic key axis.
+class PluginBase(metaclass=AutoRegisterMeta):
+    __registry_family__ = RegistryFamily(
+        "plugin_name",
+        registry_name="plugin",
+    )
+    __registry__ = {}  # Local script: no package discovery required.
+    plugin_name = None
+
+# Access the auto-created registry
+PLUGINS = PluginBase.__registry__
+
+# Define plugins - they auto-register!
+class MyPlugin(PluginBase):
+    plugin_name = 'my_plugin'
+    
+    def run(self):
+        return "Hello from my plugin!"
+
+# Use the registry
+print(list(PLUGINS.keys()))  # ['my_plugin']
+plugin = PLUGINS['my_plugin']()
+print(plugin.run())  # "Hello from my plugin!"
+```
+
+``RegistryFamily`` is the preferred declaration for an ordinary nominal root.
+It installs the compatibility attributes used by ``AutoRegisterMeta`` while
+keeping the key axis in one object. Consumers should iterate or query
+``PluginBase.__registry__`` rather than maintain a parallel plugin mapping.
+The explicit plain registry is appropriate for this one-file example. Ordinary roots
+register declarations as their modules are imported; package discovery is opt-in through
+``RegistryConfig.discovery_package``.
+
+Use ``RegistryConfig`` when a family needs a supplied registry, a key extractor,
+lazy discovery, secondary registries, or custom logging:
+
+```python
+from metaclass_registry import (
+    AutoRegisterMeta,
+    RegistryConfig,
+    make_suffix_extractor,
+)
+
+HANDLERS = {}
+HANDLER_CONFIG = RegistryConfig(
+    registry_dict=HANDLERS,
+    key_attribute="handler_type",
+    key_extractor=make_suffix_extractor("Handler"),
+    skip_if_no_key=True,
+    registry_name="handler",
+)
+
+class Handler(metaclass=AutoRegisterMeta):
+    __registry_config__ = HANDLER_CONFIG
+    handler_type = None
+
+class FileHandler(Handler):
+    pass
+
+assert HANDLERS["file"] is FileHandler
+```
+
+### Package discovery
+
+Package discovery is explicit in 0.2.0. A nominal root that must discover declarations
+which are not otherwise imported owns that behavior directly:
+
+```python
+from metaclass_registry import AutoRegisterMeta, LazyDiscoveryDict, RegistryConfig
+
+class Plugin(metaclass=AutoRegisterMeta):
+    __registry_config__ = RegistryConfig(
+        registry_dict=LazyDiscoveryDict(),
+        key_attribute="plugin_name",
+        discovery_package="my_application.plugins",
+        discovery_recursive=False,
+    )
+    plugin_name = None
+```
+
+Use ``discovery_recursive=True`` only when plugin declarations live in subpackages.
+Without ``discovery_package``, the registry contains declarations imported by the
+application and never scans the surrounding package implicitly.
+
+## Installation
+
+```bash
+pip install metaclass-registry
+```
+
+## Why metaclass-registry?
+
+Most plugin systems require boilerplate code:
+
+**Before** (Traditional approach):
+```python
+# Custom metaclass per registry
+class PluginMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        if hasattr(cls, 'plugin_name') and cls.plugin_name:
+            PLUGINS[cls.plugin_name] = cls
+        return cls
+
+# Manual registry creation
+PLUGINS = {}
+
+# Base class with custom metaclass
+class PluginBase(metaclass=PluginMeta):
+    plugin_name = None
+```
+
+**After** (metaclass-registry):
+```python
+# One nominal family declaration owns the registry protocol.
+class PluginBase(metaclass=AutoRegisterMeta):
+    __registry_family__ = RegistryFamily("plugin_name")
+    plugin_name = None
+
+# Access auto-created registry
+PLUGINS = PluginBase.__registry__
+```
+
+## Advanced Features
+
+### One class per key
+
+A key names one class. A second, different class under an occupied key raises
+`DuplicateRegistryKeyError` at its class statement, naming the family, the key
+and both classes:
+
+```python
+class PluginA(Plugin):
+    name = "same"
+
+class PluginB(Plugin):
+    name = "same"   # DuplicateRegistryKeyError
+```
+
+The same class statement run again is not a conflict (`importlib.reload`,
+`dataclass(slots=True)`, a re-import): the new class object takes the key. To
+replace a registered class on purpose, say so in the replacing class body; the
+key must currently hold exactly the class named:
+
+```python
+class FasterPluginA(PluginA):
+    __replaces_registered__ = PluginA
+```
+
+Secondary registries follow the same rule.
+
+### Registry Inheritance
+
+```python
+class BackendBase(metaclass=AutoRegisterMeta):
+    __registry_family__ = RegistryFamily("backend_type")
+    backend_type = None
+
+class StorageBackend(BackendBase):
+    pass  # Inherits BackendBase.__registry__
+
+class ReadOnlyBackend(BackendBase):
+    pass  # Also inherits BackendBase.__registry__
+
+# All share the SAME registry!
+assert StorageBackend.__registry__ is BackendBase.__registry__
+```
+
+### Secondary Registries
+
+Pass ``SecondaryRegistry`` declarations through the family's authoritative
+``RegistryConfig``. Secondary mappings are derived indexes; populate them only
+through registration, never through a second manual registration path.
+
+### Custom Key Extractors
+
+Set ``RegistryConfig.key_extractor`` when names must be derived. The extractor
+receives ``(class_name, cls)`` and should return the semantic key. Prefer an
+explicit family key attribute when the declaration can own the value directly.
+
+### Strategy families
+
+``metaclass_registry.strategies`` derives a family's registry key from one
+declaration on each member and selects members from the registry:
+
+- ``EnumKeyedStrategyMixin``: members declare the enum member they implement;
+  ``for_enum_member`` instantiates the one registered for a member.
+- ``NominalTypeStrategyFamilyMixin``: members declare ``value_type``;
+  ``for_nominal_value`` picks the most specific registered type by MRO distance.
+- ``MostDerivedContextStrategyMixin``: each direct subclass starts a family with its
+  own registry; members implement ``matches`` and precedence is plain inheritance.
+- ``GeneratedLeafClassSpec``: declares generated leaf classes into a namespace.
+
+```python
+from abc import ABC, abstractmethod
+from enum import Enum
+from metaclass_registry import AutoRegisterMeta
+from metaclass_registry.strategies import EnumKeyedStrategyMixin
+
+class Shape(Enum):
+    SQUARE = "square"
+
+class ShapeArea(EnumKeyedStrategyMixin[Shape], ABC, metaclass=AutoRegisterMeta):
+    @abstractmethod
+    def area(self, size: float) -> float: ...
+
+class SquareArea(ShapeArea):
+    strategy_key = Shape.SQUARE
+
+    def area(self, size: float) -> float:
+        return size * size
+
+assert ShapeArea.for_enum_member(Shape.SQUARE).area(2.0) == 4.0
+```
+
+### Process-local caches
+
+``metaclass_registry.caches`` provides ``BoundedCache`` (an LRU owned by its
+holder), ``SynchronizedBoundedCache`` and the ``ProcessLocalBoundedCache`` family.
+Subclassing ``ProcessLocalBoundedCache`` is membership: each subclass owns one
+process-local singleton, and ``clear_process_caches()`` on the root (or on any
+subfamily) clears every member below it. ``IdentityBoundProcessCache`` binds
+values to an owner object and rejects a reused ``id``.
+
+## Documentation
+
+Full documentation available at [metaclass-registry.readthedocs.io](https://metaclass-registry.readthedocs.io)
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Contributing
+
+Contributions are welcome through the
+[repository](https://github.com/OpenHCSDev/metaclass-registry) and its
+[issue tracker](https://github.com/OpenHCSDev/metaclass-registry/issues).
+
+## Credits
+
+Developed by Tristan Simas as part of the OpenHCS project.

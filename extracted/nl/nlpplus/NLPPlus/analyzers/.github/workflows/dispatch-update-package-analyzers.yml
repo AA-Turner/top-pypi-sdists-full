@@ -1,0 +1,40 @@
+# Install at: VisualText/package-analyzers -> .github/workflows/dispatch-update-package-analyzers.yml
+#
+# Sender in the cross-repo percolation chain (see
+# VisualText/nlp-engine/docs/PERCOLATION.md).
+#
+# When a release tag (v*) is pushed here, ping the repos that embed
+# package-analyzers as a submodule so they refresh their pointer. Both the npm
+# and Python nlpengine packages listen for the `package-analyzers-release` event
+# and open a bump PR (they publish to npm/PyPI with their own versions, so a
+# submodule bump must not auto-publish — a human merges the PR).
+#
+# Requires the shared `CLASSIC_PAT` secret in this repo (the default
+# GITHUB_TOKEN cannot trigger workflows in other repos).
+
+name: Dispatch update-package-analyzers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - VisualText/npm-package-nlpengine   # embeds package-analyzers at path analyzers
+          - VisualText/py-package-nlpengine    # embeds package-analyzers at path NLPPlus/analyzers
+    steps:
+      - name: Trigger ${{ matrix.repo }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.CLASSIC_PAT }}
+          repository: ${{ matrix.repo }}
+          event-type: package-analyzers-release
+          client-payload: '{"tag_name": "${{ github.ref_name }}"}'
+        continue-on-error: true

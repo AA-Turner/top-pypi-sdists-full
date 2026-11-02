@@ -1,6 +1,6 @@
 [project]
 name = "cadwyn"
-version = "8.1.1"
+version = "8.2.0"
 description = "Production-ready community-driven modern Stripe-like API versioning in FastAPI"
 authors = [{ name = "Stanislav Zmiev", email = "zmievsa@gmail.com" }]
 license = "MIT"
@@ -80,7 +80,7 @@ dev = [
     "dirty-equals >=0.6.0",
     "uvicorn ~=0.23.0",
     # type checking
-    "ty>=0.0.91",
+    "ty>=0.0.92",
     # docs
     "mkdocs >=1.5.2",
     "mkdocs-material >=9.3.1",
@@ -97,6 +97,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "sqlalchemy>=2.0",
     "sqlmodel>=0.0.24",
+    "fastapi-pagination>=0.15.15",
 ]
 
 [tool.uv]
@@ -147,7 +148,13 @@ exclude_lines = [
     "__repr__",
     "def .+: \\.\\.\\.",
 ]
-omit = ["./docs/plugin.py", "./site/plugin.py", "scripts/*.py"]
+omit = [
+    "./docs/plugin.py",
+    "./site/plugin.py",
+    "scripts/*.py",
+    # Modules that tests write to their temporary directories
+    "*/pytest-of-*/*",
+]
 
 [tool.pytest.ini_options]
 filterwarnings = [

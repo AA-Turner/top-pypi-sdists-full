@@ -752,7 +752,7 @@ def test_probes_own_opens_in_an_exec_child_are_not_reads(tmp_path) -> None:
     data = _data_file(tmp_path, "logged.bin", b"g" * 400)
     env = {**os.environ}
     assert inputs.prepare_child("run-own", env)
-    code = f"from probe.sdk import hashing; hashing.fingerprint({str(data)!r})"
+    code = f"from probe.sdk.artifact import hashing; hashing.fingerprint({str(data)!r})"
     subprocess.run([sys.executable, "-c", code], env=env, check=True)
     rows, _ = inputs.collect("run-own", wait_s=5)
     assert rows == []
@@ -1225,7 +1225,7 @@ def test_an_exec_childs_own_ignore_reaches_the_launchers_collect(tmp_path, hande
     env = {**os.environ}
     assert inputs.prepare_child("run-hand", env)
     hand = (
-        "from probe.sdk import ignore, inputs\n"
+        "from probe.sdk.capture import lineage as inputs\nfrom probe.sdk.recording_rules import ignore\n"
         "assert inputs.hand_to_launcher('run-hand', ignore.load(os.getcwd(), extra=['*.ckpt']))\n"
         if handed
         else ""

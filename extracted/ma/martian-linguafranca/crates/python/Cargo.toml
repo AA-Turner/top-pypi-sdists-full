@@ -1,0 +1,17 @@
+[package]
+name = "linguafranca-python"
+version = "0.3.16"
+publish = false
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "_linguafranca"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { workspace = true }
+linguafranca = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_ignored = { workspace = true }

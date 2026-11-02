@@ -1307,20 +1307,42 @@ class Concept(Addressable, DataTyped, ConceptArgs, ReferenceReplaceable, Namespa
             self.purpose == Purpose.KEY and not self.keys
         )
 
-    def effective_keys(self, environment: Environment | None) -> set[str] | None:
-        """``keys``, falling back to what a datasource declaration implies.
-
-        A datasource binding this KEY outside its own grain asserts that the
-        grain determines it (see ``Environment.fk_derived_keys``). The
-        assertion lives on the datasource, not on the concept, so every reader
-        that treats ``keys`` as a functional dependency resolves it here."""
-        if self.keys or environment is None or self.purpose != Purpose.KEY:
-            return self.keys
-        derived = environment.fk_derived_keys().get(self.address)
-        return set(derived) if derived else self.keys
-
     def get_select_grain_and_keys(
-        self, grain: Grain, environment: Environment, pin_bare_aggregates: bool = True
+        self,
+        grain: Grain,
+        environment: Environment,
+        pin_bare_aggregates: bool = True,
+        _memo: dict[tuple[str, bool], Any] | None = None,
+    ) -> tuple[
+        Function
+        | WindowItem
+        | FilterItem
+        | AggregateWrapper
+        | RowsetItem
+        | SubselectItem
+        | MultiSelectLineage
+        | Comparison
+        | None,
+        Grain,
+        set[str] | None,
+    ]:
+        # One walk shares its parents' answers: the grain does not change
+        # down the recursion, and a lineage that reuses a parent along several
+        # paths (`b <- a + a`) would otherwise be expanded as a tree, 2**depth.
+        memo: dict[tuple[str, bool], Any] = {} if _memo is None else _memo
+        memo_key = (self.address, pin_bare_aggregates)
+        if memo_key not in memo:
+            memo[memo_key] = self._get_select_grain_and_keys(
+                grain, environment, pin_bare_aggregates, memo
+            )
+        return memo[memo_key]
+
+    def _get_select_grain_and_keys(
+        self,
+        grain: Grain,
+        environment: Environment,
+        pin_bare_aggregates: bool,
+        memo: dict[tuple[str, bool], Any],
     ) -> tuple[
         Function
         | WindowItem
@@ -1354,7 +1376,7 @@ class Concept(Addressable, DataTyped, ConceptArgs, ReferenceReplaceable, Namespa
             ),
         )
         final_grain = grain if not self.grain.components else self.grain
-        keys = self.effective_keys(environment)
+        keys = self.keys
         if not new_lineage:
             return new_lineage, final_grain, keys
 
@@ -1419,21 +1441,32 @@ class Concept(Addressable, DataTyped, ConceptArgs, ReferenceReplaceable, Namespa
                 # keeps its own row identity in the grain: the sum is constant
                 # within x but the expression still varies per w's row.
                 pkeys: set[str] = set(by_refs)
+                pins = _pin_anchors(new_lineage)
                 for x_ref in _non_aggregate_row_refs(new_lineage, environment):
                     x = environment.concepts[x_ref.address]
                     if isinstance(x, UndefinedConcept):
                         continue
+                    # a scalar of the `by` keys is read on the aggregate's rows
+                    if _function_of_addresses(x, set(by_refs), environment):
+                        continue
                     if x.derivation == Derivation.UNNEST:
                         pkeys.add(x.address)
                         continue
-                    _, _, parent_keys = x.get_select_grain_and_keys(grain, environment)
+                    _, _, parent_keys = x.get_select_grain_and_keys(
+                        grain, environment, _memo=memo
+                    )
                     if parent_keys:
                         pkeys.update(parent_keys)
                     elif x.purpose == Purpose.KEY:
                         # A bare key peer has no keys of its own; its row
                         # identity is itself (`coalesce(min(id) by cell, id)`
-                        # varies per id, not per cell).
-                        pkeys.add(x.address)
+                        # varies per id, not per cell). A pinned value is
+                        # evaluated on the rows its pin key is read on.
+                        pkeys |= (
+                            environment.bound_on(x.address)
+                            if x.address in pins
+                            else {x.address}
+                        ) or {x.address}
                 final_grain = Grain.from_concepts(pkeys, environment)
                 keys = final_grain.components
             else:
@@ -1445,9 +1478,14 @@ class Concept(Addressable, DataTyped, ConceptArgs, ReferenceReplaceable, Namespa
                     if x.derivation == Derivation.UNNEST:
                         pkeys.add(x.address)
                         continue
-                    _, _, parent_keys = x.get_select_grain_and_keys(grain, environment)
+                    _, _, parent_keys = x.get_select_grain_and_keys(
+                        grain, environment, _memo=memo
+                    )
                     if parent_keys:
                         pkeys.update(parent_keys)
+                    elif x.purpose == Purpose.KEY and _is_alias(new_lineage):
+                        # a renamed key reads the rows that bind it
+                        pkeys |= environment.bound_on(x.address)
                 # already reduced: re-reducing would drop a grouping spec's
                 # select-local flags, the only row identity rollup subtotals have
                 final_grain = (
@@ -2570,9 +2608,9 @@ def _non_aggregate_row_refs(expr, environment: Environment) -> list[ConceptRef]:
         return [expr]
     if isinstance(expr, (FunctionCallWrapper, Parenthetical)):
         return _non_aggregate_row_refs(expr.content, environment)
-    if isinstance(expr, Function):
+    if isinstance(expr, (Function, CaseWhen, CaseSimpleWhen, CaseElse)):
         out: list[ConceptRef] = []
-        for arg in expr.arguments:
+        for arg in _case_or_function_parts(expr):
             out += _non_aggregate_row_refs(arg, environment)
         return out
     if isinstance(expr, (Comparison, Conditional)):
@@ -2580,6 +2618,43 @@ def _non_aggregate_row_refs(expr, environment: Environment) -> list[ConceptRef]:
             expr.left, environment
         ) + _non_aggregate_row_refs(expr.right, environment)
     return []
+
+
+def _function_of_addresses(
+    concept: Concept, addresses: set[str], environment: Environment
+) -> bool:
+    if concept.address in addresses:
+        return True
+    if concept.derivation != Derivation.BASIC or concept.lineage is None:
+        return False
+    return all(
+        _function_of_addresses(
+            environment.concepts[ref.address], addresses, environment
+        )
+        for ref in concept.lineage.concept_arguments
+    )
+
+
+def _pin_anchors(expr: Any) -> set[str]:
+    if isinstance(expr, Function) and expr.operator == FunctionType.GRAIN_PIN:
+        return {a.address for a in expr.arguments[1:] if isinstance(a, ConceptRef)}
+    return set()
+
+
+def _is_alias(expr: Any) -> bool:
+    return isinstance(expr, Function) and expr.operator == FunctionType.ALIAS
+
+
+def _case_or_function_parts(
+    expr: Function | CaseWhen | CaseSimpleWhen | CaseElse,
+) -> list[Any]:
+    if isinstance(expr, Function):
+        return list(expr.arguments)
+    if isinstance(expr, CaseWhen):
+        return [expr.comparison, expr.expr]
+    if isinstance(expr, CaseSimpleWhen):
+        return [expr.value_expr, expr.expr]
+    return [expr.expr]
 
 
 def _aggregate_by_grain_refs(expr, environment: Environment) -> tuple[list[str], bool]:
@@ -2614,8 +2689,8 @@ def _aggregate_by_grain_refs(expr, environment: Environment) -> tuple[list[str],
         left_refs, left_by = _aggregate_by_grain_refs(expr.left, environment)
         right_refs, right_by = _aggregate_by_grain_refs(expr.right, environment)
         return left_refs + right_refs, left_by or right_by
-    if isinstance(expr, Function):
-        for arg in expr.arguments:
+    if isinstance(expr, (Function, CaseWhen, CaseSimpleWhen, CaseElse)):
+        for arg in _case_or_function_parts(expr):
             arg_refs, arg_by = _aggregate_by_grain_refs(arg, environment)
             refs.extend(arg_refs)
             has_by = has_by or arg_by

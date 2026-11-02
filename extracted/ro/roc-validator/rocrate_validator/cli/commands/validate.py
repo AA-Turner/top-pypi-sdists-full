@@ -1,0 +1,832 @@
+# Copyright (c) 2024-2026 CRS4
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+import sys
+from contextlib import nullcontext
+from pathlib import Path
+
+import rich_click as click
+from rich.markup import escape
+from rich.padding import Padding
+from rich.rule import Rule
+from rich.table import Table
+from rich.text import Text
+
+from rocrate_validator import constants, services
+from rocrate_validator.cli.commands.errors import handle_error
+from rocrate_validator.cli.main import cli
+from rocrate_validator.cli.ui.text.validate import ValidationCommandView
+from rocrate_validator.errors import ROCrateInvalidURIError
+from rocrate_validator.models import Severity, ValidationResult, ValidationSettings
+from rocrate_validator.utils import log as logging
+from rocrate_validator.utils.io_helpers.colors import get_severity_color
+from rocrate_validator.utils.io_helpers.input import get_single_char, multiple_choice
+from rocrate_validator.utils.io_helpers.output.console import Console
+from rocrate_validator.utils.io_helpers.output.json import JSONOutputFormatter
+from rocrate_validator.utils.io_helpers.output.text import TextOutputFormatter
+from rocrate_validator.utils.io_helpers.output.text.formatters import ValidationExtraChecksTextOutputFormatter
+from rocrate_validator.utils.io_helpers.output.text.layout.report import LiveTextProgressLayout, get_app_header_rule
+from rocrate_validator.utils.paths import get_profiles_path
+from rocrate_validator.utils.uri import validate_rocrate_uri
+
+# set the default profiles path
+DEFAULT_PROFILES_PATH = get_profiles_path()
+
+# set up logging
+logger = logging.getLogger(__name__)
+
+
+def validate_uri(ctx, param, value):
+    """
+    Validate if the value is a path or a URI
+    """
+    if value:
+        try:
+            validate_rocrate_uri(value)
+        except ROCrateInvalidURIError as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.exception("Invalid RO-Crate URI provided: %s", value)
+            raise click.BadParameter(e.message, param=param) from e
+    return value
+
+
+@cli.command("validate")
+@click.argument("rocrate-uri", callback=validate_uri, default=".")
+@click.option(
+    "-rr",
+    "--relative-root-path",
+    help="Use root-relative paths for all file references in the RO-Crate",
+    default=None,
+    show_default=True,
+)
+@click.option(
+    "-m",
+    "--metadata-only",
+    is_flag=True,
+    help="Validate only the metadata of the RO-Crate",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--packaging-mode",
+    type=click.Choice(["auto", "attached", "detached"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Packaging context assumed from the input, or explicitly attached/detached",
+)
+@click.option("-ff", "--fail-fast", is_flag=True, help="Fail fast validation mode", default=False, show_default=True)
+@click.option(
+    "--creation-time",
+    is_flag=True,
+    help="Treat availability checks as required (creation time validation)",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--enforce-availability",
+    is_flag=True,
+    help="Force availability checks as required",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--skip-availability-check",
+    is_flag=True,
+    help="Skip availability checks for web-based data entities",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--extra-checks",
+    is_flag=True,
+    help="Run all checks marked as extra_check; findings do not affect conformance",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--profiles-path",
+    type=click.Path(exists=True),
+    default=DEFAULT_PROFILES_PATH,
+    show_default=True,
+    help="Path containing the profiles files",
+)
+@click.option(
+    "--extra-profiles-path",
+    type=click.Path(exists=True),
+    default=None,
+    show_default=True,
+    help="Path containing additional user profiles files",
+)
+@click.option(
+    "-p",
+    "--profile-identifier",
+    multiple=True,
+    type=click.STRING,
+    default=None,
+    show_default=True,
+    metavar="Profile-ID",
+    help="Identifier of the profile to use for validation",
+)
+@click.option(
+    "-np",
+    "--no-auto-profile",
+    is_flag=True,
+    help="Disable automatic detection of the profile to use for validation",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "-nh",
+    "--disable-profile-inheritance",
+    is_flag=True,
+    help="Disable inheritance of profiles",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--no-profile-checks",
+    is_flag=True,
+    help="Skip consistency checks on validation profiles",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "-l",
+    "--requirement-severity",
+    type=click.Choice([s.name for s in Severity], case_sensitive=False),
+    default=Severity.REQUIRED.name,
+    show_default=True,
+    help="Severity of the requirements to validate",
+)
+@click.option(
+    "-lo",
+    "--requirement-severity-only",
+    is_flag=True,
+    help="Validate only the requirements of the specified severity (no requirements with lower severity)",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "-s",
+    "--skip-checks",
+    multiple=True,
+    type=click.STRING,
+    default=None,
+    show_default=True,
+    metavar="Fully-Qualified-Check-IDs",
+    help=(
+        "[bold yellow]Fully-Qualified-Check-IDs[/bold yellow] is a comma-separated list of checks to skip "
+        "(may be specified multiple times). Each check must be specified by its "
+        "Fully Qualified Identifier, e.g., [bold cyan]ro-crate-1.3_11.1[/bold cyan]. The fully qualified "
+        "check identifier has the format <Profile-ID>_<Requirement_#>.<RequirementCheck_#>, "
+        "where <Requirement_#> is the position number of the Requirement in the profile, "
+        "and <RequirementCheck_#> is the position number of the RequirementCheck within that Requirement. "
+        "You can find the Fully-Qualified-Check IDs using: "
+        "[bold orange1]rocrate-validator profiles describe <Profile-ID> -v[/bold orange1]"
+    ),
+)
+@click.option(
+    "--show-skipped-checks",
+    is_flag=True,
+    help="List skipped checks and their reasons at the end of the validation",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Output the validation details without prompting",
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--no-paging",
+    is_flag=True,
+    help="Disable pagination of the validation details",
+    default=False,
+    show_default=True,
+    hidden=sys.platform == "win32",
+)
+@click.option(
+    "-f",
+    "--output-format",
+    type=click.Choice(["json", "text"], case_sensitive=False),
+    default="text",
+    show_default=True,
+    help="Output format of the validation report",
+)
+@click.option(
+    "-o",
+    "--output-file",
+    type=click.Path(path_type=Path),
+    default=None,
+    show_default=True,
+    help="Path to the output file for the validation report",
+)
+@click.option(
+    "-w",
+    "--output-line-width",
+    type=click.INT,
+    default=120,
+    show_default=True,
+    help="Width of the output line",
+)
+@click.option(
+    "--cache-max-age",
+    type=click.INT,
+    default=constants.DEFAULT_HTTP_CACHE_MAX_AGE,
+    show_default=True,
+    help="Maximum age of the HTTP cache in seconds ([bold green]-1[/bold green] for no expiration)",
+)
+@click.option(
+    "--cache-path",
+    type=click.Path(),
+    default=None,
+    show_default=True,
+    help="Path to the HTTP cache directory",
+)
+@click.option(
+    "-nc",
+    "--no-cache",
+    is_flag=True,
+    help=(
+        "Disable the HTTP cache entirely: every request goes to the network "
+        "and nothing is persisted. Incompatible with [bold]--offline[/bold]."
+    ),
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--offline",
+    is_flag=True,
+    help=(
+        "Offline mode: HTTP requests are served only from the cache. "
+        "Pre-populate the cache with [bold]rocrate-validator cache warm[/bold]."
+    ),
+    default=False,
+    show_default=True,
+)
+@click.pass_context
+def validate(
+    ctx,
+    *,
+    profiles_path: Path = DEFAULT_PROFILES_PATH,
+    extra_profiles_path: Path | None = None,
+    profile_identifier: tuple[str, ...] = (),
+    metadata_only: bool = False,
+    packaging_mode: str = "auto",
+    creation_time: bool = False,
+    enforce_availability: bool = False,
+    skip_availability_check: bool = False,
+    extra_checks: bool = False,
+    no_auto_profile: bool = False,
+    disable_profile_inheritance: bool = False,
+    no_profile_checks: bool = False,
+    requirement_severity: str = Severity.REQUIRED.name,
+    requirement_severity_only: bool = False,
+    skip_checks: list[str] | None = None,
+    show_skipped_checks: bool = False,
+    rocrate_uri: str | Path = ".",
+    relative_root_path: Path | None = None,
+    fail_fast: bool = False,
+    no_paging: bool = False,
+    verbose: bool = False,
+    output_format: str = "text",
+    output_file: Path | None = None,
+    output_line_width: int | None = None,
+    cache_max_age: int = constants.DEFAULT_HTTP_CACHE_MAX_AGE,
+    cache_path: Path | None = None,
+    no_cache: bool = False,
+    offline: bool = False,
+):
+    """
+    [magenta]rocrate-validator:[/magenta] Validate a RO-Crate against a profile
+    """
+    console: Console = ctx.obj["console"]
+    pager = ctx.obj["pager"]
+    interactive = ctx.obj["interactive"]
+    # Get the no_paging flag
+    enable_pager = not no_paging
+    # override the enable_pager flag if the interactive flag is False
+    if not interactive or sys.platform == "win32":
+        enable_pager = False
+    _log_validation_inputs(
+        profiles_path=profiles_path,
+        extra_profiles_path=extra_profiles_path,
+        profile_identifier=profile_identifier,
+        requirement_severity=requirement_severity,
+        requirement_severity_only=requirement_severity_only,
+        disable_profile_inheritance=disable_profile_inheritance,
+        rocrate_uri=rocrate_uri,
+        fail_fast=fail_fast,
+        cache_max_age=cache_max_age,
+        cache_path=cache_path,
+        no_cache=no_cache,
+        offline=offline,
+    )
+
+    # --no-cache and --offline are contradictory: offline mode requires a cache
+    # to serve requests from, while no-cache disables caching entirely.
+    if no_cache and offline:
+        raise click.UsageError(
+            "The --no-cache and --offline flags are mutually exclusive: "
+            "offline mode relies on the HTTP cache to serve resources."
+        )
+
+    if rocrate_uri:
+        logger.debug("rocrate_path: %s", Path(rocrate_uri).resolve())
+
+    _warn_if_remote_offline(console, rocrate_uri, offline)
+
+    skip_checks_list = _parse_skip_checks(skip_checks)
+
+    try:
+        # Validation settings
+        validation_settings = {
+            "profiles_path": profiles_path,
+            "extra_profiles_path": extra_profiles_path,
+            "profile_identifier": profile_identifier,
+            "requirement_severity": requirement_severity,
+            "requirement_severity_only": requirement_severity_only,
+            "disable_inherited_profiles_issue_reporting": disable_profile_inheritance,
+            "rocrate_uri": rocrate_uri,
+            "rocrate_relative_root_path": relative_root_path,
+            "abort_on_first": fail_fast,
+            "skip_checks": skip_checks_list,
+            "metadata_only": metadata_only,
+            "packaging_mode": packaging_mode,
+            "cache_max_age": cache_max_age if not no_cache else -1,
+            "cache_path": cache_path,
+            "offline": offline,
+            "no_cache": no_cache,
+            # When offline is requested, remote crate fetching must use the cache
+            # instead of the "disable download" short-circuit.
+            "disable_remote_crate_download": not offline,
+            "creation_time": creation_time,
+            "enforce_availability": enforce_availability,
+            "skip_availability_check": skip_availability_check,
+            "extra_checks": extra_checks,
+            "validate_profile_checks": not no_profile_checks,
+        }
+
+        # Print the application header
+        if output_format == "text" and output_file is None:
+            console.print(get_app_header_rule())
+
+        # Get the available profiles
+        available_profiles = services.get_profiles(profiles_path, extra_profiles_path=extra_profiles_path)
+
+        # Resolve the concrete list of profile identifiers (auto-detection,
+        # interactive selection, or fallback to the base `ro-crate` profile).
+        profile_identifiers, autodetection = _resolve_profile_identifiers(
+            console,
+            interactive=interactive,
+            no_auto_profile=no_auto_profile,
+            available_profiles=available_profiles,
+            profile_identifiers=list(profile_identifier),
+            validation_settings=validation_settings,
+        )
+
+        # Validate the RO-Crate against the selected profiles
+        is_valid = True
+        results = {}
+        for profile in profile_identifiers:
+            # Duplicate settings for each profile and set the profile identifier
+            logger.info("\nValidating RO-Crate against profile: [bold magenta]%s[/bold magenta]", profile)
+            profile_settings = validation_settings.copy()
+            profile_settings["profile_identifier"] = profile
+            logger.debug("Profile selected for validation: %s", profile)
+            logger.debug("Profile autodetected: %s", autodetection)
+
+            # Perform the validation and render the result for the chosen output target.
+            if output_format == "text" and not output_file:
+                result = _render_console_result(
+                    profile_settings,
+                    console=console,
+                    pager=pager,
+                    interactive=interactive,
+                    enable_pager=enable_pager,
+                    verbose=verbose,
+                )
+            else:
+                result = _render_file_or_collected_result(
+                    profile,
+                    profile_settings,
+                    console=console,
+                    interactive=interactive,
+                    verbose=verbose,
+                    output_format=output_format,
+                    output_file=output_file,
+                    output_line_width=output_line_width,
+                )
+            results[profile] = result
+
+            # Update the global validation status
+            is_valid = is_valid and result.passed()
+
+            # Interrupt the validation if the fail fast mode is enabled
+            if fail_fast and not is_valid:
+                break
+
+        # Process JSON output format
+        if output_format == "json":
+            _emit_json_report(
+                results,
+                profile_identifiers,
+                is_valid,
+                console=console,
+                interactive=interactive,
+                output_file=output_file,
+                output_line_width=output_line_width,
+            )
+        _emit_skipped_checks_report(
+            results,
+            show_skipped_checks=show_skipped_checks,
+            output_format=output_format,
+            output_file=output_file,
+            output_line_width=output_line_width,
+            console=console,
+        )
+
+        # Exit with appropriate status code.
+        # using ctx.exit seems to raise an Exception that gets caught below,
+        # so we use sys.exit instead.
+        sys.exit(0 if is_valid else 1)
+    except Exception as e:
+        handle_error(e, console, debug=ctx.obj["debug"])
+
+
+def _log_validation_inputs(
+    *,
+    profiles_path,
+    extra_profiles_path,
+    profile_identifier,
+    requirement_severity,
+    requirement_severity_only,
+    disable_profile_inheritance,
+    rocrate_uri,
+    fail_fast,
+    cache_max_age,
+    cache_path,
+    no_cache,
+    offline,
+) -> None:
+    """Log the raw validation input parameters for debugging."""
+    logger.debug("profiles_path: %s", Path(profiles_path).resolve())
+    logger.debug("extra_profiles_path: %s", Path(extra_profiles_path).resolve() if extra_profiles_path else None)
+    logger.debug("profile_identifier: %s", profile_identifier)
+    logger.debug("requirement_severity: %s", requirement_severity)
+    logger.debug("requirement_severity_only: %s", requirement_severity_only)
+    logger.debug("disable_inheritance: %s", disable_profile_inheritance)
+    logger.debug("rocrate_uri: %s", rocrate_uri)
+    logger.debug("fail_fast: %s", fail_fast)
+    logger.debug("no fail fast: %s", not fail_fast)
+    logger.debug("cache_max_age: %s", cache_max_age)
+    logger.debug("cache_path: %s", Path(cache_path).resolve() if cache_path else None)
+    logger.debug("no_cache: %s", no_cache)
+    logger.debug("offline: %s", offline)
+
+
+def _warn_if_remote_offline(console: Console, rocrate_uri: str | Path, offline: bool) -> None:
+    """Warn when a remote RO-Crate is validated in offline mode (the cached copy is used)."""
+    if offline and isinstance(rocrate_uri, str) and rocrate_uri.split(":", 1)[0].lower() in ("http", "https", "ftp"):
+        console.print(
+            Padding(
+                Rule(
+                    "[bold yellow]WARNING:[/bold yellow] "
+                    "[bold]The target RO-Crate is remote and offline mode is enabled.[/bold]\n"
+                    "The cached version of the RO-Crate will be used if available.\n"
+                    "The cached copy may be out of sync with the version currently published remotely.",
+                    align="center",
+                    style="bold yellow",
+                ),
+                (1, 2, 0, 2),
+            )
+        )
+
+
+def _parse_skip_checks(skip_checks: list[str] | None) -> list[str]:
+    """Parse the comma-separated ``--skip-checks`` option into a flat list of check IDs."""
+    logger.debug("skip_checks: %s", skip_checks)
+    skip_checks_list: list[str] = []
+    if skip_checks:
+        try:
+            for s in skip_checks:
+                skip_checks_list.extend(_.strip() for _ in s.split(",") if _.strip())
+        except Exception as e:
+            logger.error("Error parsing skip_checks: %s", e)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.exception("Error parsing skip_checks")
+            raise ValueError(
+                f"Invalid skip_checks value: {skip_checks}. "
+                "It must be a comma-separated list of Fully Qualified Check IDs."
+            ) from e
+    logger.debug("Skip checks: %s", skip_checks_list)
+    return skip_checks_list
+
+
+def _resolve_profile_identifiers(  # noqa: C901, PLR0912
+    console: Console,
+    *,
+    interactive: bool,
+    no_auto_profile: bool,
+    available_profiles: list,
+    profile_identifiers: list[str],
+    validation_settings: dict,
+) -> tuple[list[str], bool]:
+    """
+    Resolve the concrete list of profile identifiers to validate against.
+
+    Applies auto-detection and interactive selection when no profile is given,
+    and falls back to the base ``ro-crate`` profile when nothing can be resolved.
+    Returns the identifiers and whether they were auto-detected.
+    """
+    autodetection = False
+    reason = None
+    if not profile_identifiers:
+        # Auto-detect the profile to use for validation (if not disabled)
+        candidate_profiles = None
+        detection_result = None
+        if not no_auto_profile:
+            detection_result = services.detect_profiles_detailed(settings=validation_settings)
+            candidate_profiles = detection_result.profiles
+            logger.debug("Candidate profiles: %s", candidate_profiles)
+        else:
+            logger.info("Auto-detection of the profiles to use for validation is disabled")
+
+        if detection_result and detection_result.diagnostics:
+            diagnostic = detection_result.diagnostics[0]
+            reason = (
+                f"`{escape(diagnostic.property or '')}` at {escape(diagnostic.location or '')} "
+                f"has value {escape(repr(diagnostic.value))}. {escape(diagnostic.message)}"
+            )
+            for diagnostic in detection_result.diagnostics:
+                if diagnostic.code not in ("INVALID_CONFORMS_TO", "INVALID_REFERENCE"):
+                    continue
+                console.print(
+                    "\n  [bold yellow]WARNING: Non-conforming metadata[/bold yellow]\n"
+                    f"    `{escape(diagnostic.property or '')}` at {escape(diagnostic.location or '')} "
+                    f"has value {escape(repr(diagnostic.value))}.\n"
+                    f"    {escape(diagnostic.message)}"
+                )
+            if candidate_profiles:
+                console.print(
+                    "    Profiles automatically selected for validation: "
+                    + escape(", ".join(profile.identifier for profile in candidate_profiles))
+                )
+
+        suggested_profile = detection_result.suggested_profile if detection_result else None
+        if interactive and not candidate_profiles and suggested_profile:
+            console.print(
+                "    The string URI matches the available profile "
+                f"[magenta]{escape(suggested_profile.identifier)}[/magenta]. "
+                "Using it will not correct the metadata."
+            )
+            confirmation = get_single_char(
+                console,
+                choices=["y", "n"],
+                message=("[bold]Use this profile for validation? ([magenta]y/n[/magenta]): [/bold]"),
+            )
+            if confirmation == "y":
+                return [suggested_profile.identifier], True
+        elif not interactive and suggested_profile:
+            console.print(
+                "    The string URI matches profile "
+                f"{escape(suggested_profile.identifier)}, but using it requires confirmation. "
+                "Use --profile-identifier to select it explicitly in non-interactive mode."
+            )
+
+        # Prompt the user only when no profile could be auto-detected or confirmed.
+        if interactive and not candidate_profiles:
+            console.print(
+                Padding(
+                    Rule(
+                        "[bold yellow]WARNING: [/bold yellow]"
+                        "[bold]Unable to automatically detect the profile to use for validation[/bold]"
+                        + (f"\n{reason}" if reason else "")
+                        + "\n",
+                        align="center",
+                        style="bold yellow",
+                    ),
+                    (2, 2, 0, 2),
+                )
+            )
+            if not profile_identifiers:
+                selected_options = multiple_choice(console, available_profiles)
+                if selected_options is None or isinstance(selected_options, bool):
+                    selected_options = []
+                profile_identifiers = [available_profiles[int(o)].identifier for o in selected_options]
+                logger.debug("Profile selected: %s", selected_options)
+            console.print(Padding(Rule(style="bold yellow"), (1, 2)))
+        elif candidate_profiles:
+            logger.debug("Profile identifier autodetected: %s", candidate_profiles[0].identifier)
+            autodetection = True
+            profile_identifiers = [_.identifier for _ in candidate_profiles]
+
+    # Fall back to the base profile when nothing could be resolved
+    if not profile_identifiers:
+        console.print(f"\n{' ' * 2}[bold yellow]WARNING: [/bold yellow]", end="")
+        if no_auto_profile:
+            console.print("[bold]Auto-detection of the profiles to use for validation is disabled[/bold]")
+        else:
+            console.print("[bold]Unable to automatically detect the profile to use for validation[/bold]")
+            if reason:
+                console.print(f"{' ' * 11}{reason}")
+        console.print(f"{' ' * 11}[bold]The base `ro-crate` profile will be used for validation[/bold]")
+        profile_identifiers = ["ro-crate"]
+
+    return profile_identifiers, autodetection
+
+
+def _render_console_result(
+    validation_settings: dict,
+    *,
+    console: Console,
+    pager,
+    interactive: bool,
+    enable_pager: bool,
+    verbose: bool,
+) -> ValidationResult:
+    """Validate and render the result to the interactive/text console (no output file)."""
+    if interactive:
+        command_view = ValidationCommandView(
+            validation_settings=ValidationSettings.parse(validation_settings),
+            console=console,
+            interactive=interactive,
+            no_paging=not enable_pager,
+            pager=pager,
+        )
+        result = command_view.show_validation_progress(services.validate)
+        if not result.passed():
+            verbose_choice = "n"
+            if interactive and not verbose:
+                verbose_choice = get_single_char(
+                    console,
+                    choices=["y", "n"],
+                    message=("[bold] > Do you want to see the validation details? ([magenta]y/n[/magenta]): [/bold]"),
+                )
+            if verbose_choice == "y" or verbose:
+                command_view.display_validation_result(result)
+            elif result.extra_checks:
+                console.print(ValidationExtraChecksTextOutputFormatter(result))
+        elif result.extra_checks:
+            console.print(ValidationExtraChecksTextOutputFormatter(result))
+        return result
+
+    result = services.validate(validation_settings)
+    console.register_formatter(TextOutputFormatter())
+    console.print(result.statistics)
+    if result.extra_checks and (result.passed() or not verbose):
+        console.print(ValidationExtraChecksTextOutputFormatter(result))
+    if not result.passed() and verbose:
+        out = Console(no_color=console.no_color, width=console.width, height=console.height)
+        out.register_formatter(TextOutputFormatter())
+        out.print(result)
+    return result
+
+
+def _render_file_or_collected_result(
+    profile: str,
+    validation_settings: dict,
+    *,
+    console: Console,
+    interactive: bool,
+    verbose: bool,
+    output_format: str,
+    output_file: Path | None,
+    output_line_width: int | None,
+) -> ValidationResult:
+    """Validate for the file/JSON-input path, optionally writing a text report to file."""
+    if interactive:
+        with LiveTextProgressLayout(
+            console=console,
+            profile_identifier=profile,
+            validation_settings=validation_settings,
+            callable_service=services.validate,
+            transient=True,
+        ) as result:
+            logger.debug("Validation result obtained")
+    else:
+        result = services.validate(validation_settings)
+
+    if result is None:
+        raise RuntimeError("Validation did not produce a result")
+
+    # Output processing for text format to file
+    if output_file and output_format == "text":
+        if interactive:
+            console.print(f"\n{' ' * 2}📝 [bold]Writing validation results to file[/bold]{'.' * 4} ", end="")
+        with output_file.open("w", encoding="utf-8") if output_file else sys.stdout as f:
+            out = Console(color_system=None, width=output_line_width, height=31, file=f)
+            out.register_formatter(TextOutputFormatter())
+            out.print(result.statistics)  # Output the statistics first
+            if result.extra_checks and (result.passed() or not verbose):
+                out.print(ValidationExtraChecksTextOutputFormatter(result))
+            if not result.passed() and verbose:
+                out.print(result)
+        if interactive:
+            console.print(f"[bold green]{output_file}[/bold green]", end="\n")
+    return result
+
+
+def _emit_json_report(
+    results: dict,
+    profile_identifiers: list[str],
+    is_valid: bool,
+    *,
+    console: Console,
+    interactive: bool,
+    output_file: Path | None,
+    output_line_width: int | None,
+) -> None:
+    """Write the aggregated validation results as JSON to a file or stdout."""
+    if interactive:
+        if is_valid:
+            console.print(
+                f"\n{' ' * 2}✅ [bold]Validation [green]PASSED![/green]. "
+                f"\n{' ' * 5}RO-Crate is valid according to the profile(s): "
+                f"[magenta]{', '.join(profile_identifiers)}[/magenta][/bold]"
+            )
+        else:
+            console.print(f"\n{' ' * 2}❌ [bold]Validation [red]FAILED![/red][/bold]")
+        if output_file:
+            console.print(
+                f"\n{' ' * 2}📝 [bold]Writing validation results in JSON format "
+                f'to the file "{output_file}"[/bold]{"." * 4} ',
+                end="",
+            )
+        else:
+            console.print(f"\n{' ' * 2}📋 [bold]The validation report in JSON format: [/bold]\n")
+
+    # Generate the JSON output and write it to the specified output file or to stdout
+    with output_file.open("w", encoding="utf-8") if output_file else nullcontext(sys.stdout) as f:
+        out = Console(width=output_line_width, file=f)
+        out.register_formatter(JSONOutputFormatter())
+        # Disable word-wrap/cropping: Rich would otherwise insert literal line
+        # breaks into long string values (e.g. messages, URLs), producing
+        # invalid, unescaped control characters in the JSON output.
+        out.print(results, soft_wrap=True)
+
+    if interactive and output_file:
+        console.print("[bold]DONE![/bold]", end="\n\n")
+
+
+def _print_skipped_checks(results: dict[str, ValidationResult], console: Console) -> None:
+    """Render the collected skipped-check details using the validation palette."""
+    details = [detail for result in results.values() for detail in result.skipped_check_details]
+    if not details:
+        return
+
+    table = Table(
+        title=f"Skipped Checks ({len(details)})",
+        title_style="bold yellow",
+        border_style="yellow",
+        header_style="bold yellow",
+        show_lines=False,
+    )
+    table.add_column("Profile", style="cyan", no_wrap=True)
+    table.add_column("Check", no_wrap=True)
+    table.add_column("Category", style="yellow", no_wrap=True)
+    table.add_column("Reason")
+    for detail in details:
+        table.add_row(
+            Text(detail.to_dict()["profile"], style="cyan"),
+            Text(detail.to_dict()["identifier"], style=get_severity_color(detail.check.severity)),
+            Text(detail.category.value, style="yellow"),
+            Text(f"{detail.check.name}: {detail.message}"),
+        )
+    console.print(Padding(table, (1, 2)))
+
+
+def _emit_skipped_checks_report(
+    results: dict[str, ValidationResult],
+    *,
+    show_skipped_checks: bool,
+    output_format: str,
+    output_file: Path | None,
+    output_line_width: int | None,
+    console: Console,
+) -> None:
+    """Write the optional skipped-check report without affecting JSON output."""
+    if not show_skipped_checks or output_format == "json":
+        return
+    if output_file:
+        with output_file.open("a", encoding="utf-8") as output:
+            output_console = Console(color_system=None, width=output_line_width, file=output)
+            _print_skipped_checks(results, output_console)
+    else:
+        _print_skipped_checks(results, console)

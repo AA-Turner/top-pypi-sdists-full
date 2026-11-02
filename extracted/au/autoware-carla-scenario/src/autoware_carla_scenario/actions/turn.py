@@ -1,0 +1,142 @@
+"""Turn action: analyse OpenDRIVE junctions ahead and set a turn route via TrafficManager."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional, Union
+
+from ..conditions.base import BaseCondition
+from ..entity.pedestrian_entity import PedestrianEntity
+from ..entity.registry import find_pedestrian_entity, find_vehicle_entity
+from ..traffic import TurnDirection
+from ..entity_role import EntityRole
+from ..control_domain import ControlDomain
+from .base import BaseAction, TickTiming
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+    from ..traffic.driven import BackendDriven
+
+logger = logging.getLogger(__name__)
+
+
+class TurnAction(BaseAction):
+    """Analyse OpenDRIVE junctions ahead and set a turn route via TrafficManager.
+
+    When the associated condition is satisfied, this action:
+
+    1. Locates the target vehicle by its ``role_name``
+    2. Walks forward along CARLA waypoints (which reflect the underlying
+       OpenDRIVE road network) to find the next junction
+    3. Enumerates all possible paths through the junction
+    4. Selects the path whose heading change best matches *direction*
+       (approximately −90° for left, +90° for right and 0° for straight on, in
+       CARLA's yaw convention)
+    5. Calls ``TrafficManager.set_path`` to apply the route
+
+    Args:
+        entity_name: ``role_name`` of the vehicle actor to control.
+        direction: :class:`TurnDirection` — ``LEFT``, ``RIGHT`` or ``STRAIGHT``.
+        condition: Trigger condition (see :class:`BaseCondition`).
+        timing: Tick phase (``PRE_TICK`` or ``POST_TICK``).
+        once: If ``True`` (default) the action fires at most once.
+        overrides: Take over a control domain of the entity another action
+            holds (:attr:`~BaseAction.overrides`).
+        search_distance: Maximum distance (m) to look ahead for a junction.
+        waypoint_step: Sampling distance (m) between waypoints.
+        post_junction_distance: How far (m) past the junction exit to extend
+            the route for a stable heading measurement.
+    """
+
+    _LEFT_TARGET_DEG: float = -90.0
+    _RIGHT_TARGET_DEG: float = 90.0
+
+    # Declared for the static check (docs/typecheck.md).
+    _entity_name: str
+    _direction: TurnDirection
+    _search_distance: float
+    _waypoint_step: float
+    _post_junction_distance: float
+
+    def __init__(
+        self,
+        entity_name: Union[EntityRole, str],
+        direction: TurnDirection,
+        condition: Optional[BaseCondition] = None,
+        timing: TickTiming = TickTiming.PRE_TICK,
+        *,
+        label: str = "turn_signal",
+        once: bool = True,
+        overrides: bool = False,
+        search_distance: float = 200.0,
+        waypoint_step: float = 2.0,
+        post_junction_distance: float = 20.0,
+    ) -> None:
+        super().__init__(
+            label=label,
+            condition=condition,
+            timing=timing,
+            once=once,
+            overrides=overrides,
+        )
+        self._entity_name = str(entity_name)
+        self._direction = direction
+        self._search_distance = search_distance
+        self._waypoint_step = waypoint_step
+        self._post_junction_distance = post_junction_distance
+
+    # ------------------------------------------------------------------
+    # BaseAction interface
+    # ------------------------------------------------------------------
+
+    def _control_claims(self) -> list[tuple[str, ControlDomain]]:
+        """The way the vehicle turns: its lateral domain."""
+        return [(str(self._entity_name), ControlDomain.LATERAL)]
+
+    def execute(self, world: "carla.World") -> None:
+        """Ask the named entity to turn at the next junction."""
+        entity = find_vehicle_entity(self._entity_name)
+        if entity is None:
+            _fail_if_pedestrian(self._entity_name)
+            logger.warning("TurnAction: entity '%s' not found", str(self._entity_name))
+            return
+
+        if TYPE_CHECKING:
+            # Codon calls a method a subclass overrides (AutowareEgoEntity's)
+            # through a dispatch thunk, which takes no keyword argument
+            # (docs/typecheck.md): the check calls BackendDriven's own, and
+            # checks each override on its own, through its class.
+            BackendDriven.turn_at_junction(
+                entity,
+                world,
+                self._direction,
+                search_distance=self._search_distance,
+                waypoint_step=self._waypoint_step,
+                post_junction_distance=self._post_junction_distance,
+            )
+        else:
+            entity.turn_at_junction(
+                world,
+                self._direction,
+                search_distance=self._search_distance,
+                waypoint_step=self._waypoint_step,
+                post_junction_distance=self._post_junction_distance,
+            )
+
+
+def _fail_if_pedestrian(entity_name: str) -> None:
+    """Raise :class:`AttributeError` when *entity_name* is a pedestrian.
+
+    A pedestrian cannot turn. The vehicle lookup does not find one, but
+    the action used to look up an entity of any kind and call
+    ``turn_at_junction`` on it, which raised; it still raises, rather than reading
+    as an entity that is not there.
+    """
+    found = find_pedestrian_entity(entity_name)
+    if found is None:
+        return
+    walker: PedestrianEntity = found
+    raise AttributeError(
+        f"'{type(walker).__name__}' object has no attribute 'turn_at_junction'"
+    )

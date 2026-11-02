@@ -11,7 +11,7 @@ import ifaddr
 from aioice import Candidate, TransportPolicy, ice, mdns, stun
 
 from .turnserver import run_turn_server
-from .utils import asynctest, invite_accept
+from .utils import RUNNING_ON_MAC_CI, asynctest, invite_accept
 
 RUNNING_ON_CI = os.environ.get("GITHUB_ACTIONS") == "true"
 
@@ -94,6 +94,80 @@ class IceComponentTest(unittest.TestCase):
         await pair.task
 
     @asynctest
+    async def test_nomination_removes_waiting_and_frozen_pairs(self) -> None:
+        connection = ice.Connection(ice_controlling=True, components=2)
+
+        def create_pair(
+            *, component: int, port: int, state: ice.CandidatePair.State
+        ) -> ice.CandidatePair:
+            # The pair's component is that of its local candidate.
+            protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+            protocol.local_candidate.component = component
+            pair = ice.CandidatePair(
+                protocol,
+                Candidate(
+                    foundation="some-foundation",
+                    component=component,
+                    transport="udp",
+                    priority=2345,
+                    host="2.3.4.5",
+                    port=port,
+                    type="host",
+                ),
+            )
+            pair.state = state
+            return pair
+
+        nominated = create_pair(
+            component=1, port=1000, state=ice.CandidatePair.State.SUCCEEDED
+        )
+        nominated.nominated = True
+        succeeded = create_pair(
+            component=1, port=1001, state=ice.CandidatePair.State.SUCCEEDED
+        )
+        waiting = create_pair(
+            component=1, port=1002, state=ice.CandidatePair.State.WAITING
+        )
+        frozen = create_pair(
+            component=1, port=1003, state=ice.CandidatePair.State.FROZEN
+        )
+        in_progress = create_pair(
+            component=1, port=1004, state=ice.CandidatePair.State.IN_PROGRESS
+        )
+        failed = create_pair(
+            component=1, port=1005, state=ice.CandidatePair.State.FAILED
+        )
+        other_component = [
+            create_pair(component=2, port=2000 + i, state=state)
+            for i, state in enumerate(ice.CandidatePair.State)
+        ]
+        connection._check_list = [
+            nominated,
+            succeeded,
+            waiting,
+            frozen,
+            in_progress,
+            failed,
+            *other_component,
+        ]
+
+        # A check scheduled but not yet started must be cancelled.
+        connection.check_start_task(waiting)
+        self.assertIsNotNone(waiting.task)
+
+        connection.check_complete(nominated)
+        self.assertEqual(
+            connection._check_list,
+            [nominated, succeeded, in_progress, failed, *other_component],
+        )
+        with self.assertRaises(asyncio.CancelledError):
+            await waiting.task
+        self.assertEqual(waiting.state, ice.CandidatePair.State.WAITING)
+
+        # No check is left running.
+        self.assertEqual(asyncio.all_tasks(), {asyncio.current_task()})
+
+    @asynctest
     async def test_request_with_invalid_method(self) -> None:
         connection = ice.Connection(ice_controlling=True)
 
@@ -139,6 +213,55 @@ class IceComponentTest(unittest.TestCase):
 
         await connection.check_start(pair)
         self.assertEqual(pair.state, ice.CandidatePair.State.FAILED)
+
+    @asynctest
+    async def test_triggered_check(self) -> None:
+        expected = {
+            ice.CandidatePair.State.FROZEN: True,
+            ice.CandidatePair.State.WAITING: True,
+            ice.CandidatePair.State.IN_PROGRESS: False,
+            ice.CandidatePair.State.SUCCEEDED: False,
+            ice.CandidatePair.State.FAILED: True,
+        }
+        for state, triggered in expected.items():
+            with self.subTest(state=state):
+                connection = ice.Connection(ice_controlling=True)
+                connection.remote_password = "remote-password"
+                connection.remote_username = "remote-username"
+
+                protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+                remote_candidate = Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=2345,
+                    host="2.3.4.5",
+                    port=2345,
+                    type="host",
+                )
+                connection._remote_candidates.append(remote_candidate)
+                pair = ice.CandidatePair(protocol, remote_candidate)
+                pair.state = state
+                connection._check_list.append(pair)
+
+                request = stun.Message(
+                    message_method=stun.Method.BINDING,
+                    message_class=stun.Class.REQUEST,
+                )
+                request.attributes["PRIORITY"] = 456789
+                connection.check_incoming(request, ("2.3.4.5", 2345), protocol)
+
+                # No new pair is formed.
+                self.assertEqual(connection._check_list, [pair])
+
+                if triggered:
+                    self.assertEqual(pair.state, ice.CandidatePair.State.WAITING)
+                    self.assertIsNotNone(pair.task)
+                    await pair.task
+                    self.assertEqual(pair.state, ice.CandidatePair.State.SUCCEEDED)
+                else:
+                    self.assertIsNone(pair.task)
+                    self.assertEqual(pair.state, state)
 
 
 class IceConnectionTest(unittest.TestCase):
@@ -283,6 +406,27 @@ class IceConnectionTest(unittest.TestCase):
         self.assertIsNone(candidate)
 
         await self.connect_and_exchange_data(conn_a, conn_b)
+
+    @asynctest
+    async def test_connect_nomination_removes_unchecked_pairs(self) -> None:
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+
+        # Add a lowest-priority candidate which is never checked.
+        unchecked = Candidate(
+            foundation="unchecked",
+            component=1,
+            transport="udp",
+            priority=1,
+            host="192.0.2.1",
+            port=1234,
+            type="host",
+        )
+        await conn_a.add_remote_candidate(unchecked)
+        await invite_accept(conn_a, conn_b)
+
+        await self.connect_and_exchange_data(conn_a, conn_b)
+        self.assertNotIn(unchecked, [p.remote_candidate for p in conn_a._check_list])
 
     @asynctest
     async def test_connect_close(self) -> None:
@@ -705,6 +849,28 @@ class IceConnectionTest(unittest.TestCase):
         await conn.close()
 
     @asynctest
+    async def test_connect_no_remote_candidates_trickled(self) -> None:
+        """
+        If end-of-candidates arrives during connect without any remote
+        candidates, connect fails.
+        """
+        conn = ice.Connection(ice_controlling=True)
+        await conn.gather_candidates()
+        conn.remote_username = "foo"
+        conn.remote_password = "bar"
+        connect_task = asyncio.create_task(conn.connect())
+        await asyncio.sleep(0.1)
+        self.assertFalse(connect_task.done())
+
+        with self.assertLogs("aioice.ice", level="INFO") as logs:
+            await conn.add_remote_candidate(None)
+            with self.assertRaises(ConnectionError) as cm:
+                await connect_task
+        self.assertEqual(str(cm.exception), "ICE negotiation failed")
+        self.assertFalse(any("ICE completed" in line for line in logs.output))
+        await conn.close()
+
+    @asynctest
     async def test_connect_no_remote_credentials(self) -> None:
         """
         If remote credentials have not been provided, connect fails.
@@ -783,6 +949,110 @@ class IceConnectionTest(unittest.TestCase):
             await conn.connect()
         self.assertEqual(str(cm.exception), "ICE negotiation failed")
         await conn.close()
+
+    async def start_trickle_with_failed_pairs(
+        self, conn: ice.Connection
+    ) -> asyncio.Task[None]:
+        """
+        Start connecting with a single unreachable remote candidate, without
+        end-of-candidates, and wait for its pairs to fail.
+        """
+        await conn.add_remote_candidate(
+            Candidate.from_sdp(
+                "6815297761 1 udp 659136 1.2.3.4 31102 typ host generation 0"
+            )
+        )
+        connect_task = asyncio.create_task(conn.connect())
+        while not conn._check_list or any(
+            p.state != ice.CandidatePair.State.FAILED for p in conn._check_list
+        ):
+            await asyncio.sleep(0.1)
+
+        # More candidates may still be trickled, so ICE has not failed.
+        await asyncio.sleep(0.1)
+        self.assertFalse(connect_task.done())
+        return connect_task
+
+    @asynctest
+    async def test_connect_trickle_after_failed_pairs(self) -> None:
+        # lower STUN retries
+        stun.RETRY_MAX = 1
+
+        conn_a = ice.Connection(ice_controlling=False)
+        conn_b = ice.Connection(ice_controlling=True)
+        await conn_a.gather_candidates()
+        await conn_b.gather_candidates()
+        conn_a.remote_username = conn_b.local_username
+        conn_a.remote_password = conn_b.local_password
+        conn_b.remote_username = conn_a.local_username
+        conn_b.remote_password = conn_a.local_password
+
+        connect_task = await self.start_trickle_with_failed_pairs(conn_a)
+
+        # Working candidates are trickled after the first pairs failed.
+        for candidate in conn_b.local_candidates:
+            await conn_a.add_remote_candidate(candidate)
+        await conn_a.add_remote_candidate(None)
+        for candidate in conn_a.local_candidates:
+            await conn_b.add_remote_candidate(candidate)
+        await conn_b.add_remote_candidate(None)
+        await asyncio.gather(connect_task, conn_b.connect())
+
+        await conn_a.close()
+        await conn_b.close()
+
+    @asynctest
+    async def test_connect_trickle_fails_after_end_of_candidates(self) -> None:
+        # lower STUN retries
+        stun.RETRY_MAX = 1
+
+        conn = ice.Connection(ice_controlling=True)
+        await conn.gather_candidates()
+        conn.remote_username = "foo"
+        conn.remote_password = "bar"
+
+        connect_task = await self.start_trickle_with_failed_pairs(conn)
+
+        # ICE fails once end-of-candidates is received.
+        await conn.add_remote_candidate(None)
+        with self.assertRaises(ConnectionError) as cm:
+            await connect_task
+        self.assertEqual(str(cm.exception), "ICE negotiation failed")
+        await conn.close()
+
+    @asynctest
+    async def test_connect_trickle_prunes_component(self) -> None:
+        conn_a = ice.Connection(ice_controlling=True, components=2)
+        conn_b = ice.Connection(ice_controlling=False, components=1)
+        await conn_a.gather_candidates()
+        await conn_b.gather_candidates()
+        conn_a.remote_username = conn_b.local_username
+        conn_a.remote_password = conn_b.local_password
+        conn_b.remote_username = conn_a.local_username
+        conn_b.remote_password = conn_a.local_password
+
+        # Side B only has candidates for the first component.
+        for candidate in conn_a.local_candidates:
+            await conn_b.add_remote_candidate(candidate)
+        await conn_b.add_remote_candidate(None)
+        for candidate in conn_b.local_candidates:
+            await conn_a.add_remote_candidate(candidate)
+        connect_task = asyncio.gather(conn_a.connect(), conn_b.connect())
+
+        async def wait_nominated() -> None:
+            while 1 not in conn_a._nominated:
+                await asyncio.sleep(0.1)
+
+        await asyncio.wait_for(wait_nominated(), timeout=5)
+        self.assertFalse(connect_task.done())
+
+        # Side A completes once end-of-candidates removes the second component.
+        await conn_a.add_remote_candidate(None)
+        await asyncio.wait_for(connect_task, timeout=5)
+        self.assertEqual(conn_a._components, {1})
+
+        await conn_a.close()
+        await conn_b.close()
 
     @asynctest
     async def test_connect_with_stun_server(self) -> None:
@@ -1089,6 +1359,56 @@ class IceConnectionTest(unittest.TestCase):
         await conn_b.close()
 
     @asynctest
+    async def test_recv_nominated_protocol_lost(self) -> None:
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+
+        # Exchange candidates and credentials.
+        await invite_accept(conn_a, conn_b)
+
+        # Connect.
+        await asyncio.gather(conn_a.connect(), conn_b.connect())
+
+        # Lose the nominated protocol.
+        await conn_a._nominated[1].protocol.close()
+
+        with self.assertRaises(ConnectionError) as cm:
+            await conn_a.recv()
+        self.assertEqual(str(cm.exception), "Connection lost while receiving data")
+
+        # Close.
+        await conn_a.close()
+        await conn_b.close()
+
+    @asynctest
+    async def test_recv_unnominated_protocol_lost(self) -> None:
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+
+        # Exchange candidates and credentials.
+        await invite_accept(conn_a, conn_b)
+
+        # Connect.
+        await asyncio.gather(conn_a.connect(), conn_b.connect())
+
+        # Lose a protocol which is not nominated.
+        loop = asyncio.get_running_loop()
+        _, protocol = await loop.create_datagram_endpoint(
+            lambda: ice.StunProtocol(conn_a), local_addr=("127.0.0.1", 0)
+        )
+        conn_a._protocols.append(protocol)
+        await protocol.close()
+
+        # Data is still received on the nominated pair.
+        await conn_b.send(b"howdee")
+        data = await conn_a.recv()
+        self.assertEqual(data, b"howdee")
+
+        # Close.
+        await conn_a.close()
+        await conn_b.close()
+
+    @asynctest
     async def test_send_not_connected(self) -> None:
         conn_a = ice.Connection(ice_controlling=True)
         with self.assertRaises(ConnectionError) as cm:
@@ -1129,6 +1449,7 @@ class IceConnectionTest(unittest.TestCase):
         self.assertEqual(len(conn_a.remote_candidates), 1)
         self.assertEqual(conn_a._remote_candidates_end, True)
 
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
     @asynctest
     async def test_add_remote_candidate_mdns_bad(self) -> None:
         """
@@ -1153,6 +1474,7 @@ class IceConnectionTest(unittest.TestCase):
         # close
         await conn_a.close()
 
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
     @asynctest
     async def test_add_remote_candidate_mdns_good(self) -> None:
         """

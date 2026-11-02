@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .public_import_report_out import PublicImportReportOut
 
 
 class PublicAssetOut(UniversalBaseModel):
@@ -45,6 +46,11 @@ class PublicAssetOut(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     Unique identifier of the asset (e.g., 'asset_abc123-def456-ghi789')
+    """
+
+    import_report: typing.Optional[PublicImportReportOut] = pydantic.Field(default=None)
+    """
+    For a Word document, spreadsheet or presentation imported from an Office file: what the file holds that is not shown, or is shown differently than in Office, and whether downloads keep it. Null when the import lost nothing, when the asset was not imported from a file, or when it was imported before these reports were kept.
     """
 
     is_archived: bool = pydantic.Field()

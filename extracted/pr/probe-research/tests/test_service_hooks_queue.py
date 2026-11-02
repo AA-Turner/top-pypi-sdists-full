@@ -31,10 +31,14 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import client, hookhosts, hookqueue, paths, protocol
-from probe.service.protocol import ErrorCode, Method
-from probe.service.registry import Registry
-from probe.service.server import Service, _bind
+from probe.foundation import service_api as client
+from probe.service.hooks import hooks as hookhosts, queue as hookqueue
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
+from probe.foundation.service_api.wire import ErrorCode, Method
+from probe.service.sessions.sessions import Registry
+from probe.service.server.server import Service
+from probe.service.server.legacy_door import _bind
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the service and the hooks are POSIX-only")

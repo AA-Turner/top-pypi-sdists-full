@@ -20,8 +20,10 @@ from types import SimpleNamespace
 import pytest
 
 from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-from probe.cli import doctor, setup, updater
-from probe.cli.capabilities import Capabilities
+from probe.cli.wizard import doctor
+from probe.cli import wizard as setup
+from probe.cli.install import updater
+from probe.cli.wizard.state.state import Capabilities
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "codex_hooks_list_0.159.2.json").read_text())
 RESULT = FIXTURE["result"]
@@ -702,19 +704,21 @@ def test_probe_doctor_fix_approves_before_the_report_reads_codex(monkeypatch):
     """The report's "Codex hooks" rows say what the fix left, not what it found."""
     from typer.testing import CliRunner
 
-    from probe.cli import capabilities, probe_config_cli, service_calls
+    from probe.cli.wizard import state as capabilities
+    from probe.cli.wizard.doctor import probe_config_check as probe_config_cli
+    from probe.cli.lifecycle import service_calls
     from probe.service import keeper
 
     main = importlib.import_module("probe.cli.main")
     order: list[str] = []
-    monkeypatch.setattr(capabilities, "refresh_mcp_token_verdict", lambda: None)
-    monkeypatch.setattr(doctor, "collect", lambda: order.append("collect") or SimpleNamespace(outbox_status=None))
-    monkeypatch.setattr(doctor, "rescue_outbox", lambda: None)
-    monkeypatch.setattr(doctor, "render", lambda *args, **kwargs: "rendered")
-    monkeypatch.setattr(doctor, "codex_hook_rows", lambda caps: order.append("rows") or [])
+    monkeypatch.setattr(capabilities.mcp_checks, "refresh_mcp_token_verdict", lambda: None)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: order.append("collect") or SimpleNamespace(outbox_status=None))
+    monkeypatch.setattr(doctor.repairs, "rescue_outbox", lambda: None)
+    monkeypatch.setattr(doctor.report, "render", lambda *args, **kwargs: "rendered")
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.doctor.codex_hook_rows", lambda caps: order.append("rows") or [])
     monkeypatch.setattr(service_calls, "view", lambda: {})
     monkeypatch.setattr(probe_config_cli, "doctor_rows", lambda fix: [])
-    monkeypatch.setattr(keeper, "refresh_lifeboat", lambda: "current")
+    monkeypatch.setattr(keeper.keeper, "refresh_lifeboat", lambda: "current")
     monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-daemon/1.0.0",))
     monkeypatch.setattr(codex_hooks, "approve",
                         lambda *_a, **_k: order.append("approve") or codex_hooks.Approval(approved=("k",), done=True))

@@ -367,7 +367,7 @@ def _agent_session(monkeypatch, state: str) -> str:
 
 @pytest.mark.parametrize("state", [session_marker.STATE_READ_ONLY, session_marker.STATE_OFF])
 def test_the_write_gate_refuses_a_push_and_a_set_under_read_and_off(monkeypatch, state):
-    from probe.cli import write_gate
+    from probe.cli.lifecycle import write_gate
 
     _agent_session(monkeypatch, state)
     for argv in (["summary", "push", "--project", "p"], ["visuals", "set", "--project", "p"]):
@@ -377,7 +377,7 @@ def test_the_write_gate_refuses_a_push_and_a_set_under_read_and_off(monkeypatch,
 
 
 def test_the_daemon_state_admits_a_push_only_when_directed(monkeypatch):
-    from probe.cli import write_gate
+    from probe.cli.lifecycle import write_gate
 
     sid = _agent_session(monkeypatch, session_marker.STATE_DAEMON)
     monkeypatch.setattr(session_marker, "agent_writes_freely", lambda s, st: False)  # a live lease

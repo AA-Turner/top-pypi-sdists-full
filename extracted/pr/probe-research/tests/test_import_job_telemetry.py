@@ -16,7 +16,7 @@ import os
 
 import pytest
 
-from probe.cli import import_jobs as jobs
+from probe.cli.imports import jobs as jobs
 from probe.cli import telemetry as tm
 
 
@@ -132,7 +132,8 @@ def test_a_finished_import_reports_under_the_session_that_approved_it(
     """The whole point: the completion has to be joinable to the approval, and
     the worker is a new process that inherits nothing."""
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Finished."])
     captured.clear()
     monkeypatch.setattr(tm.analytics, "_current", None)  # a fresh process knows nothing
     assert jobs.run_worker(job["id"]) == 0
@@ -153,7 +154,8 @@ def test_a_failed_import_names_the_kind_of_failure_and_never_its_text(
     def refuse(*args):
         raise jobs.JobError("the reviewed folder /home/someone/secret moved")
 
-    monkeypatch.setattr(jobs, "_dispatch", refuse)
+    monkeypatch.setattr(jobs.kind, "_dispatch", refuse)
+    monkeypatch.setattr(jobs.runner, "_dispatch", refuse)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 1
     done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
@@ -169,7 +171,8 @@ def test_an_unexpected_crash_reports_its_type_not_its_message(
         raise ZeroDivisionError("/home/someone/secret")
 
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", explode)
+    monkeypatch.setattr(jobs.kind, "_dispatch", explode)
+    monkeypatch.setattr(jobs.runner, "_dispatch", explode)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 1
     done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
@@ -184,7 +187,8 @@ def test_an_interrupted_worker_is_separable_from_a_failure(
         raise KeyboardInterrupt
 
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", interrupt)
+    monkeypatch.setattr(jobs.kind, "_dispatch", interrupt)
+    monkeypatch.setattr(jobs.runner, "_dispatch", interrupt)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 130
     assert _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)["outcome"] == (
@@ -219,7 +223,8 @@ def test_a_worker_signalled_by_a_cancel_stays_quiet(queued, captured, approving,
         jobs._update(folder, cancel_requested=True)
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(jobs, "_dispatch", interrupt)
+    monkeypatch.setattr(jobs.kind, "_dispatch", interrupt)
+    monkeypatch.setattr(jobs.runner, "_dispatch", interrupt)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 130
     assert [row for row in captured if row["event"] == tm.EVENT_IMPORT_JOB_FINISHED] == []
@@ -238,9 +243,11 @@ def _retrying_worker(monkeypatch, failures):
         return ["Finished."]
 
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", flaky)
+    monkeypatch.setattr(jobs.kind, "_dispatch", flaky)
+    monkeypatch.setattr(jobs.runner, "_dispatch", flaky)
     monkeypatch.setattr(jobs.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(jobs, "_reclaim_children", lambda folder: None)
+    monkeypatch.setattr(jobs.workers, "_reclaim_children", lambda folder: None)
+    monkeypatch.setattr(jobs.runner, "_reclaim_children", lambda folder: None)
     return job
 
 
@@ -293,9 +300,11 @@ def test_a_batch_retry_is_counted_apart_from_connection_waits(
         shown.append(jobs.get_job(job["id"])["progress"])
 
     job = _enqueue(jobs.Kind.FOLDER)
-    monkeypatch.setattr(jobs, "_dispatch", stopped_batch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", stopped_batch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", stopped_batch)
     monkeypatch.setattr(jobs.time, "sleep", sleep)
-    monkeypatch.setattr(jobs, "_reclaim_children", lambda folder: None)
+    monkeypatch.setattr(jobs.workers, "_reclaim_children", lambda folder: None)
+    monkeypatch.setattr(jobs.runner, "_reclaim_children", lambda folder: None)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 0
     assert [row for row in captured if row["event"] == tm.EVENT_IMPORT_JOB_STALLED] == []
@@ -334,7 +343,8 @@ def test_clearing_imports_says_how_much_unfinished_work_went_with_them(
 ):
     """Uninstall and the wizard's Exit both clear approved imports. What was
     discarded is unreadable a moment later, so the count has to ride here."""
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Finished."])
     done = _enqueue(approval="finished")
     jobs.run_worker(done["id"])
     _release(done)  # success clears `pid`, but `launch_pid` outlives it
@@ -358,10 +368,12 @@ def test_every_outcome_the_worker_can_report_is_a_declared_one():
     """The worker passes bare strings, because the pinned source tree it runs
     from may not carry `telemetry.py` at all. Nothing else pins the two
     together, so a rename on one side would silently split the funnel."""
+    import importlib
     import re
     from pathlib import Path
 
-    source = Path(jobs.__file__).read_text()
+    # Every piece the old import_jobs.py was split into (its door lists them).
+    source = "".join(Path(importlib.import_module(piece).__file__).read_text() for piece in jobs._PIECES)
     outcomes = set(re.findall(r'_emit_finished\([^,]+,\s*"([a-z_]+)"', source))
     reasons = set(re.findall(r'_emit_stalled\([^,]+,\s*"([a-z_]+)"', source))
     assert outcomes and reasons, "the regex stopped matching the call sites"
@@ -374,8 +386,10 @@ def test_telemetry_is_never_load_bearing_for_the_worker(queued, monkeypatch):
     approval was made, and that tree carries only what the lanes need. An
     unconditional import here did not merely stop reporting the import -- it
     stopped the import."""
-    monkeypatch.setattr(jobs, "_telemetry", lambda: None)
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.telemetry, "_telemetry", lambda: None)
+    monkeypatch.setattr(jobs.jobs, "_telemetry", lambda: None)
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Finished."])
     job = _enqueue()
     assert jobs.get_job(job["id"])["origin"] is None
     assert jobs.run_worker(job["id"]) == 0
@@ -394,8 +408,8 @@ def test_a_folder_attempt_reports_its_agents_per_lane_however_it_ends(
     """Most unit work runs in the background, so this event -- not
     `backfill.summary` -- is where an import's cost is visible, and a failed
     or stopped attempt spent tokens too."""
-    from probe.cli import backfill as bf
-    from probe.cli import import_agent_settings as settings_mod
+    from probe.cli.imports import folder as bf
+    from probe.cli.imports import agent_settings as settings_mod
 
     monkeypatch.setattr(settings_mod, "_read_server",
                         lambda client: ({"codex": {"*": {"effort": "medium"}}}, "fleet-1"))
@@ -415,7 +429,8 @@ def test_a_folder_attempt_reports_its_agents_per_lane_however_it_ends(
         return ["Finished."]
 
     job = _enqueue(jobs.Kind.FOLDER)
-    monkeypatch.setattr(jobs, "_dispatch", run)
+    monkeypatch.setattr(jobs.kind, "_dispatch", run)
+    monkeypatch.setattr(jobs.runner, "_dispatch", run)
     captured.clear()
     jobs.run_worker(job["id"])
     done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
@@ -430,7 +445,8 @@ def test_a_folder_attempt_reports_its_agents_per_lane_however_it_ends(
 
 def test_a_transcript_attempt_reports_no_agent_fields(queued, captured, approving, monkeypatch):
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Finished."])
     captured.clear()
     assert jobs.run_worker(job["id"]) == 0
     done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)

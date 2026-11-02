@@ -1,0 +1,378 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+import warnings
+
+from chainladder.methods import Benktander
+
+
+class CapeCod(Benktander):
+    """Applies the CapeCod technique to triangle **X**
+
+    Parameters
+    ----------
+    trend: float, optional (default=0.0)
+        The cape cod trend assumption. Any Trend transformer on X will
+        override this argument.
+    decay: float, optional (default=1.0)
+        The cape cod decay assumption. This parameter is required by the
+        Generalized Cape Cod Method, as discussed in [Using Best Practices to
+        Determine a Best Reserve Estimate](https://www.casact.org/sites/default/files/database/forum_98fforum_struhuss.pdf)
+        by Struzzieri and Hussian. As the `decay` factor approaches 1
+        (the default value), the result approaches the traditional Cape Cod
+        method. As the `decay` factor approaches 0, the result approaches
+        the `Chainladder` method.
+    n_iters: int, optional (default=1)
+        Number of iterations to use in the Benktander model.
+    groupby: str or list, optional (default=None)
+        An option to group levels of the triangle index together for the
+        purposes of deriving the apriori measures. If omitted, each level of
+        the triangle index will receive its own apriori computation.
+    apriori_sigma: float, optional (default=0.0)
+        Standard deviation of the apriori.  When used in conjunction with the
+        bootstrap model, the model samples aprioris from a lognormal
+        distribution using this argument as a standard deviation.
+    random_state: int, RandomState instance or None, optional (default=None)
+        Seed for sampling from the apriori distribution. This is ignored when
+        using as a deterministic method.
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by np.random.
+
+
+    Attributes
+    ----------
+    triangle:
+        returns **X**
+    ultimate_:
+        The ultimate losses per the method
+    ibnr_:
+        The IBNR per the method
+    apriori_:
+        The trended apriori vector developed by the Cape Cod Method
+    detrended_apriori_:
+        The detrended apriori vector developed by the Cape Cod Method
+
+    See Also
+    --------
+    Chainladder : Projects ultimate losses entirely from development patterns.
+    ExpectedLoss : Uses only an apriori expected ultimate.
+    BornhuetterFerguson : Blends development with an apriori ultimate.
+    Benktander : Iterative Bornhuetter-Ferguson method.
+
+    Examples
+    --------
+    Unlike Bornhuetter-Ferguson and Benktander, CapeCod derives the apriori
+    loss ratio from the data itself. ``sample_weight`` represents exposure
+    (e.g. earned premium) rather than an apriori expected ultimate.
+
+    .. testsetup::
+
+        import chainladder as cl
+
+    .. testcode::
+
+        xyz = cl.load_sample("xyz")
+
+        ibnr = (
+            cl.CapeCod().fit(X=xyz["Paid"], sample_weight=xyz["Premium"].latest_diagonal).ibnr_
+        )
+        print(ibnr)
+
+    .. testoutput::
+
+                      2261
+        1998           NaN
+        1999     88.211299
+        2000    698.247374
+        2001   1858.151261
+        2002   4611.796594
+        2003  10640.571396
+        2004  25916.281295
+        2005  53264.037933
+        2006  56079.713590
+        2007  40470.540502
+        2008  35043.822927
+
+    With default ``decay=1`` and ``trend=0``, every origin receives the same
+    apriori loss ratio: the exposure-weighted mean loss ratio across all
+    origins.
+
+    .. testcode::
+
+        apriori = (
+            cl.CapeCod()
+            .fit(X=xyz["Paid"], sample_weight=xyz["Premium"].latest_diagonal)
+            .apriori_
+        )
+        print(apriori)
+
+    .. testoutput::
+
+                  2261
+        1998  0.763919
+        1999  0.763919
+        2000  0.763919
+        2001  0.763919
+        2002  0.763919
+        2003  0.763919
+        2004  0.763919
+        2005  0.763919
+        2006  0.763919
+        2007  0.763919
+        2008  0.763919
+
+    Setting ``decay`` below 1 down-weights distant origins when computing
+    each origin's apriori, so each origin receives its own loss-ratio
+    estimate that drifts toward more recent experience.
+
+    .. testcode::
+
+        apriori = cl.CapeCod(decay=0.5).fit(
+            X=xyz["Paid"], sample_weight=xyz["Premium"].latest_diagonal
+        ).apriori_
+        print(apriori)
+
+    .. testoutput::
+
+                  2261
+        1998  0.797751
+        1999  0.799990
+        2000  0.804890
+        2001  0.793706
+        2002  0.777420
+        2003  0.748556
+        2004  0.740594
+        2005  0.687204
+        2006  0.705757
+        2007  0.784466
+        2008  0.830368
+
+    Setting ``trend`` projects the loss ratio forward over the experience
+    period.
+
+    .. testcode::
+
+        apriori = (
+            cl.CapeCod(decay=0.5, trend=0.03)
+            .fit(X=xyz["Paid"], sample_weight=xyz["Premium"].latest_diagonal)
+            .apriori_
+        )
+        print(apriori)
+
+    .. testoutput::
+
+                  2261
+        1998  1.027105
+        1999  1.014959
+        2000  1.001927
+        2001  0.966406
+        2002  0.924906
+        2003  0.869767
+        2004  0.841331
+        2005  0.765515
+        2006  0.773005
+        2007  0.847345
+        2008  0.890327
+    """
+
+    def __init__(
+        self,
+        trend=0,
+        decay=1,
+        n_iters=1,
+        apriori_sigma=0.0,
+        random_state=None,
+        groupby=None,
+    ):
+        self.trend = trend
+        self.decay = decay
+        self.n_iters = n_iters
+        self.apriori_sigma = apriori_sigma
+        self.random_state = random_state
+        self.groupby = groupby
+
+    def fit(self, X, y=None, sample_weight=None):
+        """Fit the model with X.
+
+        Parameters
+        ----------
+        X: Triangle-like
+            Loss data to which the model will be applied.
+        y: None
+            Ignored
+        sample_weight: Triangle-like
+            The exposure to be used in the method.
+        Returns
+        -------
+        self: object
+            Returns the instance itself.
+
+        Examples
+        --------
+        Fit returns the estimator itself, with ``ultimate_`` and
+        ``apriori_`` populated. The repr shows non-default parameters.
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            tr = cl.load_sample('ukmotor')
+            exposure = cl.Chainladder().fit(tr).ultimate_ * 0 + 20000
+            print(cl.CapeCod(trend=0.05).fit(tr, sample_weight=exposure))
+
+        .. testoutput::
+
+            CapeCod(trend=0.05)
+        """
+
+        if sample_weight is None:
+            raise ValueError("sample_weight is required.")
+        self.apriori = 1.0
+        self.X_ = self.validate_X(X)
+        sample_weight = sample_weight.set_backend(self.X_.array_backend)
+        self.apriori_, self.detrended_apriori_ = self._get_capecod_aprioris(
+            self.X_, sample_weight
+        )
+        self.expectation_ = sample_weight * self.detrended_apriori_
+        super().fit(X, y, self.expectation_)
+        return self
+
+    def _get_capecod_aprioris(self, X, sample_weight):
+        """Private method to establish CapeCod Apriori"""
+        latest = X.incr_to_cum().latest_diagonal
+        len_orig = sample_weight.shape[-2]
+        reported_exposure = sample_weight / self._align_cdf(X.copy(), sample_weight)
+        reported_exposure = reported_exposure.set_backend(latest.array_backend)
+        if self.groupby is not None:
+            latest = latest.groupby(self.groupby).sum()
+            reported_exposure = reported_exposure.groupby(self.groupby).sum()
+        trend_array = self._trend(X.iloc[0] * 0 + 1)
+        X_olf_array = self._onlevel(X)
+        sw_olf_array = self._onlevel(sample_weight)
+        xp = reported_exposure.get_array_module()
+        decay_matrix = self.decay ** xp.abs(
+            xp.arange(len_orig)[None].T - xp.arange(len_orig)[None]
+        )
+        weighted_exposure = reported_exposure.values.swapaxes(-1, -2) * decay_matrix
+        trended_ultimate = (latest.values * trend_array * X_olf_array) / (
+            reported_exposure.values * sw_olf_array
+        )
+        trended_ultimate = trended_ultimate.swapaxes(-1, -2)
+        apriori = xp.nansum(weighted_exposure * trended_ultimate, -1) / xp.nansum(
+            weighted_exposure, -1
+        )
+        apriori_ = reported_exposure.copy()
+        apriori_.values = apriori[..., None]
+        detrended_apriori_ = apriori_ / trend_array / X_olf_array * sw_olf_array
+        return self._set_ult_attr(apriori_), self._set_ult_attr(detrended_apriori_)
+
+    def predict(self, X, sample_weight=None):
+        """Predicts the CapeCod ultimate on a new triangle **X**
+
+        Parameters
+        ----------
+        X: Triangle
+            Loss data to which the model will be applied.
+        sample_weight: Triangle
+            For exposure-based methods, the exposure to be used for predictions
+
+        Returns
+        -------
+        X_new: Triangle
+            Loss data with CapeCod ultimate applied
+
+        Examples
+        --------
+        Fit on a prior-period view of the data, then apply the model to the
+        current Triangle and a refreshed exposure.
+
+        .. testsetup:
+
+            import chainladder as cl
+
+        .. testcode::
+
+            tr = cl.load_sample('ukmotor')
+            tr_prior = tr[tr.valuation < tr.valuation_date]
+            exposure_prior = cl.Chainladder().fit(tr_prior).ultimate_ * 0 + 20000
+            exposure = cl.Chainladder().fit(tr).ultimate_ * 0 + 20000
+            model = cl.CapeCod(trend=0.05).fit(
+                tr_prior, sample_weight=exposure_prior
+            )
+            print(model.predict(tr, sample_weight=exposure).ultimate_)
+
+        .. testoutput::
+
+                          2261
+            2007  12690.000000
+            2008  12746.000000
+            2009  13631.353487
+            2010  12896.639975
+            2011  13806.211939
+            2012  15991.144199
+            2013  17489.630279
+        """
+        if sample_weight is None:
+            raise ValueError("sample_weight is required.")
+        X_new = X.copy()
+        _, X_new.ldf_ = self.intersection(X_new, self.ldf_)
+        # If model was fit at a higher grain, then need to aggregate predicted aprioris too
+        if len(set(sample_weight.key_labels) - set(self.apriori_.key_labels)) > 0:
+            apriori_, detrended_apriori_ = self._get_capecod_aprioris(
+                X_new.groupby(self.apriori_.key_labels).sum(),
+                sample_weight.groupby(self.apriori_.key_labels).sum(),
+            )
+        else:
+            apriori_, detrended_apriori_ = self._get_capecod_aprioris(
+                X_new, sample_weight
+            )
+        X_new.expectation_ = sample_weight * detrended_apriori_
+        X_new = super().predict(X_new, X_new.expectation_)
+        X_new.apriori_ = apriori_
+        X_new.detrended_apriori_ = detrended_apriori_
+        return X_new
+
+    def _trend(self, X):
+        if self.groupby is None:
+            if hasattr(X, "trend_"):
+                if self.trend != 0:
+                    warnings.warn(
+                        "CapeCod Trend assumption is ignored when X has a trend_ property."
+                    )
+                trend_array = X.trend_.latest_diagonal.values
+
+            else:
+                trend_array = (X.trend(self.trend) / X).latest_diagonal.values
+
+        else:
+            if hasattr(X, "trend_"):
+                if self.trend != 0:
+                    warnings.warn(
+                        "CapeCod Trend assumption is ignored when X has a trend_ property."
+                    )
+                trend_array = (
+                    X.trend_.groupby(self.groupby).latest_diagonal.sum().values
+                )
+            else:
+                trend_array = (
+                    X.groupby(self.groupby).sum().trend(self.trend)
+                    / X.groupby(self.groupby).sum()
+                ).latest_diagonal.values
+        return trend_array
+
+    def _onlevel(self, X):
+        if self.groupby is None:
+            if hasattr(X, "olf_"):
+                olf_array = X.olf_.values
+            else:
+                olf_array = 1.0
+        else:
+            if hasattr(X, "olf_"):
+                olf_array = (X.olf_ * X).groupby(self.groupby).sum().values
+            else:
+                olf_array = 1.0
+        return olf_array

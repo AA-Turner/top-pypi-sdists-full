@@ -1,0 +1,401 @@
+import contextvars
+import logging
+from typing import Any, Optional, Union
+
+from ..hash_utils import redact_error_for_log, redact_key_for_log
+
+# Import EXISTING modules - no duplication
+from ..reliability import (
+    AsyncMetricsCollector,
+    BackpressureController,
+    CircuitBreaker,
+    CircuitBreakerConfig,
+)
+
+logger = logging.getLogger(__name__)
+
+# Thread-local operation context for automatic operation tracking
+_operation_context: contextvars.ContextVar[Optional[dict[str, Any]]] = contextvars.ContextVar("operation_context", default=None)
+
+
+class FeatureOrchestrator:
+    """Orchestrates existing reliability and monitoring features.
+
+    Examples:
+        Create minimal orchestrator:
+
+        >>> orch = FeatureOrchestrator(
+        ...     namespace="test",
+        ...     circuit_breaker_enabled=False,
+        ...     backpressure_enabled=False,
+        ... )
+        >>> orch.namespace
+        'test'
+
+        Check circuit breaker state (disabled returns True):
+
+        >>> orch.should_allow_request()
+        True
+
+        Get health status:
+
+        >>> status = orch.get_health_status()
+        >>> status["namespace"]
+        'test'
+        >>> status["overall_healthy"]
+        True
+    """
+
+    def __init__(
+        self,
+        namespace: str,
+        circuit_breaker_enabled: bool = True,
+        backpressure_enabled: bool = True,
+        collect_stats: bool = True,
+        enable_structured_logging: bool = True,
+        circuit_breaker_config: Optional[Union[dict[str, Any], CircuitBreakerConfig]] = None,
+        backpressure_config: Optional[dict[str, Any]] = None,
+    ):
+        self.namespace = namespace
+        self._circuit_breaker_enabled = circuit_breaker_enabled
+        self._backpressure_enabled = backpressure_enabled
+        self._collect_stats = collect_stats
+        self._enable_structured_logging = enable_structured_logging
+
+        # Initialize EXISTING modules
+        self._circuit_breaker = None
+        self._load_control = None
+        self._metrics_collector = None
+
+        if circuit_breaker_enabled:
+            # Handle both dict and CircuitBreakerConfig objects
+            if circuit_breaker_config is None:
+                # Create default config
+                config = CircuitBreakerConfig()
+                self._circuit_breaker = CircuitBreaker(config=config, namespace=namespace)
+            elif isinstance(circuit_breaker_config, dict):
+                # Convert dict to CircuitBreakerConfig
+                config = CircuitBreakerConfig(**circuit_breaker_config)
+                self._circuit_breaker = CircuitBreaker(config=config, namespace=namespace)
+            else:
+                # Already a CircuitBreakerConfig object
+                self._circuit_breaker = CircuitBreaker(config=circuit_breaker_config, namespace=namespace)
+
+        if backpressure_enabled:
+            self._load_control = BackpressureController(**(backpressure_config or {}))
+
+        if collect_stats:
+            self._metrics_collector = AsyncMetricsCollector()
+
+    @property
+    def circuit_breaker(self) -> Optional[CircuitBreaker]:
+        """Get circuit breaker if enabled."""
+        return self._circuit_breaker
+
+    @property
+    def load_control(self) -> Optional[BackpressureController]:
+        """Get load control if enabled."""
+        return self._load_control
+
+    @property
+    def metrics_collector(self) -> Optional[AsyncMetricsCollector]:
+        """Get metrics collector if enabled."""
+        return self._metrics_collector
+
+    def should_allow_request(self) -> bool:
+        """Ask the circuit breaker to admit this request: ``admit`` as a bool."""
+        return self.admit() is not None
+
+    def admit(self) -> Optional[int]:
+        """Ask the circuit breaker to admit this request, and say which cycle admitted it.
+
+        This is the breaker's admission decision, not a state read: it runs the
+        OPEN -> HALF_OPEN transition once the timeout has passed and consumes a
+        HALF_OPEN probe slot when it admits. Call it once per request, and record
+        the outcome of every admitted request with this value (``record_success`` /
+        ``record_failure`` / ``handle_cache_error`` as ``cycle``, or
+        ``release_probe`` when it ends with none). A rejected request is not a
+        failure — do not record it.
+
+        Returns:
+            None if the request must fail fast. Otherwise the cycle number that
+            admitted it (see ``CircuitBreaker.admit``; 0 with no breaker). 0 is
+            falsy: test the result with ``is None``.
+        """
+        # Guard clause: No circuit breaker means allow
+        if not self._circuit_breaker:
+            return 0
+
+        return self._circuit_breaker.admit()
+
+    def can_accept_request(self) -> bool:
+        """Check if system can accept new request based on load control."""
+        # Guard clause: No load control means accept
+        if not self._load_control:
+            return True
+
+        # BackpressureController uses context manager (acquire), not can_accept_request
+        # For now, always return True and let acquire handle backpressure
+        return True
+
+    def log_structured(self, level: str, message: str, **kwargs) -> None:
+        """Log with structured format if enabled."""
+        # Guard clause: No structured logging means standard log
+        if not self._enable_structured_logging:
+            getattr(logger, level.lower())(message)
+            return
+
+        # Add structured fields
+        structured_data = {"namespace": self.namespace, "message": message, **kwargs}
+
+        getattr(logger, level.lower())(f"[{self.namespace}] {message}", extra={"structured": structured_data})
+
+    def log_warning(self, message: str, **kwargs) -> None:
+        """Convenience method for logging warnings."""
+        self.log_structured("warning", message, **kwargs)
+
+    def get_health_status(self) -> dict[str, Any]:
+        """Get comprehensive health status from all modules."""
+        components: dict[str, Any] = {}
+        status: dict[str, Any] = {
+            "namespace": self.namespace,
+            "overall_healthy": True,
+            "healthy": True,
+            "components": components,
+            "circuit_breaker": None,  # Will be populated if enabled
+        }
+
+        # Circuit breaker health
+        if self._circuit_breaker:
+            # Use get_stats instead of get_status
+            cb_status = self._circuit_breaker.get_stats()
+            components["circuit_breaker"] = cb_status
+            status["circuit_breaker"] = cb_status  # Also at top level for compatibility
+            # Get state separately if needed
+            from ..reliability.circuit_breaker import CircuitState
+
+            state = self._circuit_breaker.get_state()
+            cb_status["state"] = state.name.lower()
+            if state == CircuitState.OPEN:
+                status["overall_healthy"] = False
+                status["healthy"] = False
+
+        # Load control health
+        if self._load_control:
+            lc_status = self._load_control.get_stats()
+            components["load_control"] = lc_status
+
+        # Metrics collector health
+        if self._metrics_collector:
+            metrics_status = self._metrics_collector.get_stats()
+            components["metrics"] = metrics_status
+
+        return status
+
+    def log_cache_operation(self, **kwargs: Any) -> None:
+        """Log cache operation with structured logging. Redacts ``key``, sanitises ``error`` (CWE-532).
+
+        Returns before redacting or formatting anything unless INFO is enabled: every L1 and L2 hit calls this,
+        and at the default WARNING level ``logger.info`` would drop the record it built.
+        """
+        if self._enable_structured_logging and kwargs and logger.isEnabledFor(logging.INFO):
+            operation = kwargs.get("operation", "unknown")
+            # Redact in kwargs itself — it is splatted into the structured payload below.
+            if "key" in kwargs:
+                kwargs["key"] = redact_key_for_log(kwargs["key"])
+            # CWE-532 at the sink: render an exception key-free; a str is already rendered (re-sanitising one emits "str").
+            if isinstance(kwargs.get("error"), BaseException):
+                kwargs["error"] = redact_error_for_log(kwargs["error"])
+            key = kwargs.get("key", "unknown")
+            self.log_structured("info", f"Cache operation: {operation}", cache_key=key, **kwargs)
+
+    def set_operation_context(self, operation: str, duration_ms: float = 0.0):
+        """Set operation context for automatic tracking in record_failure.
+
+        Args:
+            operation: Operation type (e.g., "get", "set", "delete")
+            duration_ms: Operation duration in milliseconds (optional)
+
+        This method sets thread-local context that will be automatically used by
+        a subsequent record_failure() call. Works across async boundaries thanks
+        to contextvars.
+
+        Example:
+            features.set_operation_context("get", duration_ms=1.5)
+            features.record_failure(error)  # Automatically uses "get" and 1.5ms
+        """
+        _operation_context.set(
+            {
+                "operation": operation,
+                "duration_ms": duration_ms,
+            }
+        )
+
+    def record_failure(self, error: Exception, *, count_toward_breaker: bool = True, cycle: Optional[int] = None) -> None:
+        """Record operation failure with automatic context detection.
+
+        Automatically uses operation type and duration from set_operation_context()
+        if available, otherwise falls back to defaults.
+
+        Args:
+            error: The exception that caused the failure
+            count_toward_breaker: False records the metric only. For failures that
+                say nothing about backend health, such as an L2 entry that fails
+                decryption or integrity checks.
+            cycle: What ``admit`` returned for the request. A HALF_OPEN breaker
+                ignores a failure from a request another cycle admitted (see
+                ``CircuitBreaker.record_failure``).
+        """
+        # Get operation context (async-safe)
+        ctx = _operation_context.get() or {}
+        operation = ctx.get("operation", "cache_operation")
+        duration_ms = ctx.get("duration_ms", 0.0)
+
+        if self._circuit_breaker and count_toward_breaker:
+            self._circuit_breaker._on_failure(error, cycle)
+        if self._metrics_collector:
+            self._metrics_collector.record_cache_operation(
+                operation=operation,
+                namespace=self.namespace,
+                success=False,
+                duration_ms=duration_ms,
+            )
+
+    def record_success(self, cycle: Optional[int] = None):
+        """Record operation success with the circuit breaker.
+
+        Emits no metrics: every success site also calls record_cache_operation() with the
+        full label set (serializer, size), and a second, unlabelled record here would count
+        each operation twice in cache_operations_total, once under serializer="unknown".
+
+        ``cycle`` is what ``admit`` returned for the request: a HALF_OPEN breaker counts
+        only its own cycle's probes toward closing (see ``CircuitBreaker.record_success``).
+        Positional, unlike there: this runs on every L2 hit and write, where passing it by
+        keyword through two calls costs about 0.3% of the op in instructions.
+        """
+        if self._circuit_breaker:
+            self._circuit_breaker._on_success(cycle)
+
+    def release_probe(self, cycle: int) -> None:
+        """Give back the HALF_OPEN probe slot of an admitted request that ends with no outcome.
+
+        For the decorated function's own exception: it says nothing about backend
+        health, so it is not a failure, and the next request probes in its place.
+        ``cycle`` is what ``admit`` returned for the request; a slot from any other
+        cycle stays spent (see ``CircuitBreaker.release_probe``).
+        """
+        if self._circuit_breaker:
+            self._circuit_breaker.release_probe(cycle)
+
+    def record_cache_operation(
+        self,
+        operation: str,
+        namespace: str,
+        success: bool,
+        duration_ms: float,
+        serializer: str = "unknown",
+        size_bytes: int = 0,
+    ):
+        """Record cache operation metrics."""
+        if self._metrics_collector:
+            self._metrics_collector.record_cache_operation(
+                operation=operation,
+                namespace=namespace,
+                success=success,
+                duration_ms=duration_ms,
+                serializer=serializer,
+                size_bytes=size_bytes,
+            )
+
+    def check_health(self) -> dict[str, Any]:
+        """Check health status - returns simplified status format."""
+        full_status = self.get_health_status()
+        return {
+            "status": "healthy" if full_status["healthy"] else "unhealthy",
+            "namespace": full_status["namespace"],
+            "components": full_status["components"],
+        }
+
+    @property
+    def collect_stats(self) -> bool:
+        """Whether statistics collection is enabled."""
+        return self._collect_stats
+
+    @property
+    def backpressure(self):
+        """Get backpressure controller."""
+        return self._load_control
+
+    def handle_cache_error(
+        self,
+        error: Exception,
+        operation: str,
+        cache_key: str = "unknown",
+        namespace: Optional[str] = None,
+        duration_ms: float = 0.0,
+        *,
+        count_toward_breaker: bool = True,
+        cycle: Optional[int] = None,
+        **extra_context: Any,
+    ) -> None:
+        """Centralized error handler for all cache operations.
+
+        Provides consistent error recording, logging, and monitoring across
+        all error paths in sync and async wrappers. Eliminates duplication.
+
+        Args:
+            error: The exception that occurred
+            operation: Operation type (e.g., "key_generation", "cache_get", "cache_set")
+            cache_key: Cache key involved (use "unknown" if unavailable). Pass the
+                raw key — it is redacted here before any logging (CWE-532).
+            namespace: Cache namespace (defaults to orchestrator namespace)
+            duration_ms: Operation duration in milliseconds
+            count_toward_breaker: Passed to record_failure(). False keeps the metric
+                and logs but leaves the circuit breaker untouched.
+            cycle: Passed to record_failure(): what ``admit`` returned for the request.
+            **extra_context: Additional context to include in logs
+
+        Example:
+            features.handle_cache_error(
+                error=e,
+                operation="key_generation",
+                cache_key=cache_key,
+                duration_ms=0.0
+            )
+        """
+        # Use orchestrator namespace if not provided
+        namespace = namespace or self.namespace
+
+        # Redact once at the sink so every error path is covered by construction
+        # (CWE-532) — callers pass the raw key; sentinels pass through readable.
+        cache_key = redact_key_for_log(cache_key)
+
+        # 1. Set operation context for metrics
+        self.set_operation_context(operation, duration_ms)
+
+        # 2. Record failure in circuit breaker and metrics collector
+        self.record_failure(error, count_toward_breaker=count_toward_breaker, cycle=cycle)
+
+        # 3. Structured logging with full context
+        self.log_cache_operation(
+            operation=f"{operation}_failed",
+            key=cache_key,
+            namespace=namespace,
+            # Key-free error text (CWE-532): type name only, or BackendError(error_type) —
+            # no exception's str() is trusted. The sink renders a raw object the same way.
+            error=redact_error_for_log(error),
+            error_type=type(error).__name__,
+            duration_ms=duration_ms,
+            **extra_context,
+        )
+
+        # 4. Also log via standard logger for backwards compatibility. Redact the key
+        # inline (idempotent: it is already redacted above, but the flow-insensitive
+        # architecture guard requires the wrapper on the logged expression) and keep
+        # the exception text key-free with redact_error_for_log (CWE-532).
+        from ..cache_handler import get_logger_provider
+
+        logger_instance = get_logger_provider().get_logger(__name__)
+        logger_instance.warning(
+            f"Cache operation '{operation}' failed for key '{redact_key_for_log(cache_key)}': {redact_error_for_log(error)}"
+        )

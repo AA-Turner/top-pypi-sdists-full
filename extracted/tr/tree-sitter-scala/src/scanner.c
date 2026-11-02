@@ -72,7 +72,8 @@ enum TokenType {
   USING_DIRECTIVE_START,
   CASE_DEFINITION_KEYWORD,
   DEF_SEMICOLON,
-  WILDCARD_BOUND_START
+  WILDCARD_BOUND_START,
+  WORD_OPERATOR_EOL
 };
 
 // Mirrors enum TokenType above.
@@ -131,7 +132,8 @@ const char* token_name[] = {
   "USING_DIRECTIVE_START",
   "CASE_DEFINITION_KEYWORD",
   "DEF_SEMICOLON",
-  "WILDCARD_BOUND_START"
+  "WILDCARD_BOUND_START",
+  "WORD_OPERATOR_EOL"
 };
 
 typedef struct {
@@ -730,6 +732,69 @@ static bool rest_of_line_is_blank_or_comments(TSLexer *lexer) {
   }
 }
 
+// scalac's followingIsLambdaAfterColon. A type parameter clause is left out,
+// since colon_argument does not take one.
+static bool colon_lambda_follows(TSLexer *lexer, int16_t region_width) {
+  if (lexer->lookahead == '(') {
+    int depth = 0;
+    do {
+      if (lexer->lookahead == '(') {
+        depth++;
+      } else if (lexer->lookahead == ')') {
+        depth--;
+      }
+      advance(lexer);
+    } while (depth > 0 && !lexer->eof(lexer));
+  } else if (is_alpha(lexer->lookahead) || lexer->lookahead == '_' ||
+             lexer->lookahead == '$') {
+    char word[2];
+    read_word(lexer, word, (int)sizeof word, NULL);
+  } else {
+    return false;
+  }
+  advance_past_blanks(lexer);
+  if (lexer->lookahead == '?') {
+    advance(lexer);
+  }
+  if (lexer->lookahead == 0x21D2) {
+    advance(lexer);
+  } else {
+    if (lexer->lookahead != '=') {
+      return false;
+    }
+    advance(lexer);
+    if (lexer->lookahead != '>') {
+      return false;
+    }
+    advance(lexer);
+  }
+  if (is_op_char(lexer->lookahead) ||
+      !rest_of_line_is_blank_or_comments(lexer)) {
+    return false;
+  }
+  for (;;) {
+    if (lexer->eof(lexer)) {
+      return true;
+    }
+    if (lexer->lookahead == '\r') {
+      advance(lexer);
+    }
+    if (lexer->lookahead != '\n') {
+      return false;
+    }
+    advance(lexer);
+    int16_t width = 0;
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+      advance(lexer);
+      width++;
+    }
+    if (!lexer->eof(lexer) && lexer->lookahead != '\n' &&
+        lexer->lookahead != '\r') {
+      return width > region_width;
+    }
+  }
+}
+
 // Whether a real operand follows the operator. Comments and line breaks are
 // transparent, so scalac reads the next real token across them. A comment-only
 // tail to EOF, a closing delimiter and a list separator are all no operand.
@@ -818,19 +883,59 @@ static bool operand_follows(TSLexer *lexer) {
   return operand_word_allowed(lexer);
 }
 
+// The right operand of a leading infix operator alone on its line, at column
+// `op_column`. As in scalac's isLeadingInfixOperator, the next line must not
+// be blank, must be at least as deep as the operator, and must start an
+// operand.
+static bool operand_on_next_line(TSLexer *lexer, uint32_t op_column) {
+  if (lexer->lookahead == '\r') {
+    advance(lexer);
+  }
+  if (lexer->lookahead == '\n') {
+    advance(lexer);
+  }
+  uint32_t width = 0;
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+    advance(lexer);
+    width++;
+  }
+  if (lexer->eof(lexer) || lexer->lookahead == '\n' ||
+      lexer->lookahead == '\r' || width < op_column || !has_operand(lexer)) {
+    return false;
+  }
+  if (is_op_char(lexer->lookahead)) {
+    char op[4] = {0};
+    int len = read_op_chars(lexer, op);
+    return is_unary_op(op, len);
+  }
+  return operand_word_allowed(lexer);
+}
+
 // Returns true if the lookahead starts a leading infix operator — a symbolic
 // operator or back-ticked identifier followed by whitespace and then an
 // operand. Such a line is a continuation of the previous expression, so
 // neither AUTOMATIC_SEMICOLON nor OUTDENT should fire ahead of it. Advances
 // the lexer; the caller must not rely on position. A name ending in operator
 // characters is one too, but it is left out here because the OUTDENT caller
-// reads a word of its own right after this call.
-static bool is_leading_infix_continuation(TSLexer *lexer) {
+// reads a word of its own right after this call. `alone`, when asked for,
+// reports an operator alone on its line, whose operand is on the next one.
+static bool is_leading_infix_continuation(TSLexer *lexer, bool *alone) {
+  if (alone != NULL) {
+    *alone = false;
+  }
   if (is_op_char(lexer->lookahead)) {
+    uint32_t column = lexer->get_column(lexer);
     char op[4] = {0};
     int len = read_op_chars(lexer, op);
     if (is_symbolic_keyword(op, len)) {
       return false;
+    }
+    // An operator alone on its line takes its operand from the next one.
+    if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+      if (alone != NULL) {
+        *alone = true;
+      }
+      return operand_on_next_line(lexer, column);
     }
     return operand_follows(lexer);
   }
@@ -846,6 +951,17 @@ static bool is_leading_infix_continuation(TSLexer *lexer) {
     return operand_follows(lexer);
   }
   return false;
+}
+
+// The region test of scalac's isLeadingInfixOperator, for the region at
+// `index`. It is only applied to an operator alone on its line or to case
+// clauses, since a definition body cannot take the operator once it closes.
+static bool region_keeps_operator(Scanner *scanner, uint32_t index,
+                                  int16_t width, bool alone) {
+  int16_t entry = scanner->indents.contents[index];
+  int16_t outer =
+      index >= 1 ? indent_width(scanner->indents.contents[index - 1]) : -1;
+  return !(alone || (entry & CASE_INDENT_FLAG)) || width > outer;
 }
 
 // Walks the rest of the line, tracking bracket depth and skipping strings,
@@ -1163,9 +1279,11 @@ static bool scan_impl(void *payload, TSLexer *lexer,
   // the line sits at this region's width. It stays open only for another `case`
   // clause, and returning false is safe because `case` is the only token that can
   // follow. The column check guards against a stale last_indentation_size when
-  // intervening states emit no external token.
+  // intervening states emit no external token. Mid-cascade the scan starts at
+  // the line's first token, so a scan that crossed a line break is on a later
+  // line, which can share the column by chance.
   if (valid_symbols[OUTDENT] && !valid_symbols[ERROR_SENTINEL] &&
-      scanner->last_indentation_size != -1 &&
+      newline_count == 0 && scanner->last_indentation_size != -1 &&
       at_case_region_width(prev, scanner->last_indentation_size) &&
       (lexer->eof(lexer)
            ? scanner->last_column == -1
@@ -1282,11 +1400,16 @@ static bool scan_impl(void *payload, TSLexer *lexer,
           }
           return false;
         }
-        // At top level the stack is empty, so the same-width `case` close at
-        // the bottom of scan() never sees a width-0 `match`/`case`. Flag the
-        // region here instead. The arrow rules out an enum `case Foo`, which
+        // The same-width `case` close at the bottom of scan() compares the
+        // line with the enclosing region, but the `match` may not sit at that
+        // region's width: at top level the stack is empty, and braces push no
+        // region, so in `object O:` + `def f = {` + `v match` + `case ...`
+        // the `match` and its cases share a column the stack never saw. Flag
+        // the region here instead. In a case region every line at its width
+        // is another clause, so the flag only matters where the clauses end,
+        // as at `end match`. The arrow rules out an enum `case Foo`, which
         // has none and must not open a case region.
-        if (scanner->indents.size == 0 && len == 4 &&
+        if (len == 4 &&
             strcmp(word, "case") == 0 && !is_case_definition_word(lexer) &&
             scan_rest_of_line(lexer).has_case_arrow) {
           entry |= CASE_INDENT_FLAG;
@@ -1298,7 +1421,7 @@ static bool scan_impl(void *payload, TSLexer *lexer,
         // Nor with a leading `|`/`&` infix operator, which continues the
         // previous expression. Only these two run here, and not after a colon,
         // where the line can only be the body.
-        if (!scanner->after_colon_eol && is_leading_infix_continuation(lexer)) {
+        if (!scanner->after_colon_eol && is_leading_infix_continuation(lexer, NULL)) {
           return false;
         }
         break;
@@ -1362,13 +1485,23 @@ static bool scan_impl(void *payload, TSLexer *lexer,
     // Keep the indented block open when the next line starts with a leading
     // infix operator, which continues the previous expression. But a line
     // ending in depth-0 `then`/`do` closes the regions up to its conditional.
-    if (lexer->lookahead != 0 && is_leading_infix_continuation(lexer) &&
-        !scan_rest_of_line(lexer).ends_conditional) {
+    bool alone = false;
+    bool infix = lexer->lookahead != 0 &&
+                 is_leading_infix_continuation(lexer, &alone) &&
+                 !scan_rest_of_line(lexer).ends_conditional;
+    uint32_t top = scanner->indents.size - 1;
+    if (infix && region_keeps_operator(scanner, top, indentation_size, alone)) {
       return false;
     }
     // A same-width `case` line continues the case region instead.
     if (case_region_close && is_case_clause_intro(lexer)) {
       return false;
+    }
+    // The cascade of outdents stops at the region that keeps the operator.
+    if (infix && top >= 1 &&
+        indentation_size < indent_width(scanner->indents.contents[top - 1]) &&
+        region_keeps_operator(scanner, top - 1, indentation_size, alone)) {
+      scanner->last_indentation_size = -1;
     }
     if (scanner->indents.size > 0) {
       array_pop(&scanner->indents);
@@ -1512,13 +1645,16 @@ static bool scan_impl(void *payload, TSLexer *lexer,
       if (is_symbolic_keyword(op, len)) {
         return len == 1 && op[0] == '@';
       }
-      if (newline_count == 1 && operand_follows(lexer)) {
+      if (newline_count == 1 &&
+          (lexer->lookahead == '\n' || lexer->lookahead == '\r'
+               ? operand_on_next_line(lexer, (uint32_t)indentation_size)
+               : operand_follows(lexer))) {
         return false;
       }
       return true;
     }
     if (lexer->lookahead == '`') {
-      if (newline_count == 1 && is_leading_infix_continuation(lexer)) {
+      if (newline_count == 1 && is_leading_infix_continuation(lexer, NULL)) {
         return false;
       }
       return true;
@@ -1765,10 +1901,12 @@ static bool scan_impl(void *payload, TSLexer *lexer,
     // A `/` next carries the operator on, so the colon is not a lone one.
     if (op_len == 1 && op[0] == ':' && lexer->lookahead != '/') {
       // A lone `:` ending its line is the fewer-braces colon (scalac's
-      // COLONeol). Deciding it at the token level kills the cross-newline
+      // COLONeol), as is one before a lambda head that ends its line.
+      // Deciding it at the token level kills the cross-newline
       // ascription fork that GLR would otherwise keep alive across the region.
       if (valid_symbols[COLON_EOL] &&
-          rest_of_line_is_blank_or_comments(lexer)) {
+          (rest_of_line_is_blank_or_comments(lexer) ||
+           colon_lambda_follows(lexer, prev_width))) {
         lexer->result_symbol = COLON_EOL;
         return true;
       }
@@ -2017,27 +2155,137 @@ static bool scan_impl(void *payload, TSLexer *lexer,
   // the grammar). Tails on the same line, and tails the semicolon machinery
   // never sees (inside parentheses, or after an emitted semicolon slot),
   // arrive here.
-  if (valid_symbols[CONTROL_TAIL_GATE] && !valid_symbols[ERROR_SENTINEL]) {
-    switch (lexer->lookahead) {
-      case 'c': case 'e': case 'f': case 't': case 'y': {
-        lexer->mark_end(lexer);
-        // `do` and `while` stay ungated: they can start a statement, and
-        // gate validity blends in from unrelated GLR forks.
-        static const char *const tail_words[] = {
-            "catch", "else", "finally", "then", "yield"};
-        char word[sizeof "finally"];
-        int len = read_word(lexer, word, (int)sizeof word, NULL);
-        if (len > 0 &&
-            word_in(word, tail_words,
-                    sizeof(tail_words) / sizeof(tail_words[0]))) {
+  //
+  // An alphanumeric operator that ends its line shares the word read: it
+  // continues the expression when the next line starts an operand, as a
+  // symbolic one does. scalac's infixOps skips one line break after any
+  // operator name when the next token can start an operand
+  // (newLineOptWhenFollowing). Only the infix production takes this token,
+  // so `a getOrElse` + `b` stays one expression instead of a postfix call
+  // and a new statement. Everything else declines, and the internal word
+  // token reads the name as before.
+  bool gate = valid_symbols[CONTROL_TAIL_GATE];
+  // Emitting the token kills every GLR fork that reads the word as
+  // something else, so it's only offered where no fork can:
+  // - The name has blanks before it. In `!a`, the `a` is the operand of a
+  //   prefix operator, though a fork may read `!` as the left operand.
+  // - No operand can start here. In `if (c) foo`, a fork reads `foo` as
+  //   the branch, which is right unless a `then` follows.
+  bool word_op = valid_symbols[WORD_OPERATOR_EOL] && newline_count == 0 &&
+                 indentation_size > 0 && !valid_symbols[SIMPLE_STRING_START];
+  if ((gate || word_op) && !valid_symbols[ERROR_SENTINEL] &&
+      (is_word_start(lexer->lookahead) || lexer->lookahead == '`')) {
+    lexer->mark_end(lexer);
+    if (lexer->lookahead == '`') {
+      if (!word_op) {
+        return false;
+      }
+      advance(lexer);
+      while (lexer->lookahead != '`') {
+        if (lexer->eof(lexer) || lexer->lookahead == '\n' ||
+            lexer->lookahead == '\r') {
+          return false;
+        }
+        advance(lexer);
+      }
+      advance(lexer);
+    } else {
+      char word[sizeof "protected"];
+      bool underscore_tail = false;
+      int len = read_word(lexer, word, (int)sizeof word, &underscore_tail);
+      // `do` and `while` stay ungated: they can start a statement, and
+      // gate validity blends in from unrelated GLR forks.
+      static const char *const tail_words[] = {
+          "catch", "else", "finally", "then", "yield"};
+      if (len > 0 && word_in(word, tail_words,
+                             sizeof(tail_words) / sizeof(tail_words[0]))) {
+        if (gate) {
           lexer->result_symbol = CONTROL_TAIL_GATE;
           return true;
         }
         return false;
       }
-      default:
-        break;
+      if (!word_op) {
+        return false;
+      }
+      // Keywords never name an operator. `derives` and `end` are soft, but
+      // after an operand they only ever start a clause.
+      static const char *const keywords[] = {
+          "abstract", "case",     "catch",   "class",   "def",     "derives",
+          "do",       "else",     "end",     "enum",    "export",  "extends",
+          "false",    "final",    "finally", "for",     "forSome", "given",
+          "if",       "implicit", "import",  "lazy",    "macro",   "match",
+          "new",      "null",     "object",  "override", "package", "private",
+          "protected", "return",  "sealed",  "super",   "then",    "this",
+          "throw",    "trait",    "true",    "try",     "type",    "val",
+          "var",      "while",    "with",    "yield",
+      };
+      // A lone `_` is a placeholder or an eta-expansion, not a name.
+      if (len > 0 &&
+          (word_in(word, keywords, sizeof(keywords) / sizeof(keywords[0])) ||
+           strcmp(word, "_") == 0)) {
+        return false;
+      }
+      // An operator suffix after a final `_` belongs to the name: `unary_!`.
+      if (underscore_tail) {
+        while (is_op_char(lexer->lookahead)) {
+          advance(lexer);
+        }
+      }
+      // A non-ASCII letter carries the name on past what read_word takes.
+      if (lexer->lookahead > 127) {
+        return false;
+      }
     }
+    lexer->mark_end(lexer);
+    // Only a comment may follow on the line. A block comment running onto
+    // the next line is left to the internal tokens.
+    if (!rest_of_line_is_blank_or_comments(lexer) ||
+        (lexer->lookahead != '\n' && lexer->lookahead != '\r')) {
+      return false;
+    }
+    if (lexer->lookahead == '\r') {
+      advance(lexer);
+    }
+    if (lexer->lookahead == '\n') {
+      advance(lexer);
+    }
+    int16_t width = 0;
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+      advance(lexer);
+      width++;
+    }
+    // A blank line ends the expression (scalac's NEWLINES), and so does a
+    // line that closes the indentation region (scalac's OUTDENT).
+    if (lexer->eof(lexer) || lexer->lookahead == '\n' ||
+        lexer->lookahead == '\r' || width < prev_width) {
+      return false;
+    }
+    if (!has_operand(lexer) || lexer->lookahead == '.' ||
+        lexer->lookahead == '=' || lexer->lookahead == '@') {
+      return false;
+    }
+    // Words that start a definition or a clause can't start an operand.
+    if (lexer->lookahead >= 'a' && lexer->lookahead <= 'z') {
+      static const char *const not_operand[] = {
+          "abstract", "case",   "catch",    "class",     "def",     "derives",
+          "do",       "else",   "end",      "enum",      "export",  "extends",
+          "final",    "finally", "forSome", "given",     "implicit", "import",
+          "lazy",     "match",  "object",   "override",  "package", "private",
+          "protected", "sealed", "then",    "trait",     "type",    "val",
+          "var",      "with",   "yield",
+      };
+      char next[sizeof "protected"];
+      int len = read_word(lexer, next, (int)sizeof next, NULL);
+      if (len > 0 &&
+          word_in(next, not_operand,
+                  sizeof(not_operand) / sizeof(not_operand[0]))) {
+        return false;
+      }
+    }
+    lexer->result_symbol = WORD_OPERATOR_EOL;
+    LOG("    WORD_OPERATOR_EOL\n");
+    return true;
   }
 
   return false;

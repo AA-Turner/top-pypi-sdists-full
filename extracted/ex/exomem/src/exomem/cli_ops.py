@@ -1,0 +1,661 @@
+"""Shared result/error envelope + argument coercion for the non-MCP surfaces.
+
+The REST facade and the CLI (`--json` mode) speak ONE envelope shape — a single
+command contract — so a script gets the same machine-readable result whichever
+door it knocks on:
+
+    success: {"success": true,  "data": <result>}
+    failure: {"success": false, "error": {"code", "message", "remediation"}}
+
+`coerce` turns a raw arg mapping (a REST JSON body or CLI strings) into the leaf's
+kwargs using the registry `Param` specs — rejecting unknown params and re-running
+the base64 binary-blob guard on text fields, the same boundary the MCP middleware
+enforces. MCP also uses this envelope for structured semantic-authoring refusals;
+unrelated MCP errors retain FastMCP's native error path.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+from pydantic import TypeAdapter, ValidationError
+
+from . import guards
+
+if TYPE_CHECKING:
+    from .commands import Param
+
+
+# A leaf-contract error string is "CODE: human reason …" (uppercase code prefix).
+_CODE_PREFIX = re.compile(r"^([A-Z][A-Z0-9_]+):\s*(.*)$", re.DOTALL)
+
+# This closed envelope code is shared by rendering validation and client accounting.
+INVALID_OPERATION_ARGUMENTS = "INVALID_OPERATION_ARGUMENTS"
+
+RELATION_REVIEW_STABLE_ID_REMEDIATION = (
+    'For reviewed-none, preview maintain_memory(mode="backfill-ids"). '
+    "Resolve reported identity issues before confirmation, then backfill with its "
+    "plan_id and a why; re-read and validate."
+)
+
+# Stable, machine-readable codes → a one-line remediation. Only the codes worth a
+# pointer are listed; everything else carries `remediation: null`.
+_REMEDIATION: dict[str, str] = {
+    "UNKNOWN_PARAM": (
+        "Remove the unknown field; run with --help or see /api/openapi.json for the "
+        "accepted params."
+    ),
+    "MISSING_ARGUMENT": "Provide the required argument; run the subcommand with --help.",
+    "BAD_INT": "Pass an integer.",
+    "BAD_BOOL": "Pass a boolean (true/false).",
+    "BAD_JSON": "Pass valid JSON for this field.",
+    "BINARY_BLOB_REJECTED": "Don't push binaries through text fields; use the /upload endpoint.",
+    "NOT_FOUND": "Check the path; try `ask_memory` to locate it.",
+    "ENTITY_AMBIGUOUS": (
+        "Review the returned active candidates and reconcile the identity before creating."
+    ),
+    "STALE_PARENT_HASH": "Re-read the parent page and retry with its current content hash.",
+    "STALE_UNIT_REFERENCE": (
+        "Re-read the exact unit and retry with its current reference/fingerprint."
+    ),
+    "AMBIGUOUS_UNIT_REFERENCE": ("Re-read the parent and select one exact current unit reference."),
+    "RELATION_REVIEW_STABLE_ID_REQUIRED": RELATION_REVIEW_STABLE_ID_REMEDIATION,
+    "COMPACT_RELATIONS_REQUIRE_RICH_KIND": (
+        "Select an explicit governed rich kind or author a canonical note-level relation."
+    ),
+    "DRIFT_GUARDS_REQUIRED": (
+        "Re-read the parent and exact unit, then pass both expected_hash and expected_fingerprint."
+    ),
+    "WRITER_LEASE_REQUIRED": (
+        "Send the mutation to the current writer or retry after its lease expires."
+    ),
+    "WRITER_COORDINATOR_UNAVAILABLE": (
+        "Check the coordinator URL, credentials, and service health; reads remain available."
+    ),
+    "WRITER_COORDINATOR_CONTRACT_ABSENT": (
+        "Point the writer-lease URL at a service that implements /v1/vaults/<id>/lease, "
+        "or disable coordination; retrying cannot change this answer."
+    ),
+    "WRITER_FENCED": (
+        "Retry the mutation; the retry runs under whichever lease is current now, "
+        "which may be this process's own renewed lease."
+    ),
+    "INGRESS_BYPASSED": (
+        "Public traffic must enter via the HA edge hostname; check DNS, tunnel ingress, "
+        "and worker route coverage, or set EXOMEM_EDGE_STAMP_ENFORCE=0 to break glass."
+    ),
+    "MUTATION_BUSY": "Retry after the active vault mutation finishes.",
+    "MUTATION_WARMING": "Retry after semantic corpus warm-up completes.",
+    "RETRIEVAL_INDEX_WARMING": (
+        "Retry the exact recall after the maintained semantic index finishes warming."
+    ),
+    "ORIGIN_INPUT_LOOKUP_STALE": (
+        "Retry the same write shortly; linked names are re-checked in the background."
+    ),
+    "MUTATION_ACKNOWLEDGEMENT_PENDING": (
+        "Do not change the payload or use a new identity. Retry only with the original "
+        "replay identity; if none exists, reconcile the outcome before submitting again."
+    ),
+    "MUTATION_COMMITTED_ACKNOWLEDGEMENT_UNCERTAIN": (
+        "Do not rerun with a new identity; reconcile the committed mutation and retry "
+        "only with the same identity."
+    ),
+    "MUTATION_OUTCOME_UNKNOWN": (
+        "Read the target to verify whether the mutation actually landed. This "
+        "identity stays outcome-unknown and every identical retry returns this "
+        "code, so if the change is still wanted, send it again under a new "
+        "idempotency key."
+    ),
+    "MUTATION_LOCK_UNAVAILABLE": (
+        "Check that the runtime state root is writable and supports host file locking."
+    ),
+    "MODEL_BUSY": "Retry shortly; model compute is at its admitted capacity.",
+    "INVALID_MEDIA_OPERATION": "Use operation=process, operation=status, or operation=retry.",
+    "INVALID_RECORD_ARGUMENTS": "Use only the arguments accepted by the selected record action.",
+    "INVALID_PLAN_ARGUMENTS": "Use only the arguments accepted by the selected Planning action.",
+    "PLANNING_PROFILE_REQUIRED": "Choose a collection with semantic_profile: planning.",
+    "INVALID_PLAN": "Correct the authored Planning values and retry.",
+    "PLANNING_VALUES_UNAVAILABLE": (
+        "Use a shipped Planning value, or have the owner repair or release the vault's "
+        "Planning values."
+    ),
+    "PLAN_NOT_FOUND": "Re-read the collection and select one exact plan_id.",
+    "AMBIGUOUS_PLAN": "Repair duplicate Planning IDs before mutating this collection.",
+    "PLAN_ID_CONFLICT": "Use a new plan_id or retry the identical original add.",
+    "STALE_PLAN_CONTAINER": "Re-read the collection and retry with its current container hash.",
+    "STALE_PLAN_ITEM": "Re-read the exact plan and retry with its current item version.",
+    "INVALID_PLAN_RELATION": "Use valid authorized same-collection Planning relationships.",
+    "UNRESOLVED_SOURCE_CITATION": (
+        "Capture the original material as governed Source or Evidence, then retry the "
+        "unchanged derived write with that governed reference; otherwise remove the "
+        "unsupported citation explicitly."
+    ),
+    "INVALID_PLAN_CONTINUATION": "Restart the Planning query without this continuation.",
+    "INVALID_CONTINUATION": "Restart governed recall without this continuation.",
+    "CONTINUATION_STALE": "Read the view again from its first page, without this continuation.",
+    "STALE_PLAN_SNAPSHOT": "Re-run the Planning query against the current snapshot.",
+    "PLAN_RESPONSE_TOO_LARGE": "Narrow the Planning query or request fewer rows.",
+    "STALE_RECORD": "Re-read the record and retry with its current versions.",
+    "STALE_RECORD_SNAPSHOT": "Re-run the query against the current collection snapshot.",
+    "RECORD_RECOVERY_REQUIRED": (
+        "Have the cell operator inspect and quarantine stale private transaction residue, "
+        "then retry the unchanged request."
+    ),
+    "RECORD_ID_CONFLICT": "Use a new record ID or re-read the existing record before retrying.",
+    "RECORD_NATURAL_KEY_CONFLICT": (
+        "Update the named existing item instead of appending a second one for the same key. "
+        "If the collection already holds two items under that key, update one of the named "
+        "items to a distinct natural key, or delete/archive one, then retry."
+    ),
+    "CREATE_ONLY_CONFLICT": "Choose an unused collection path or inspect the existing collection.",
+    "UNSUPPORTED_MEDIA": "Use a supported audio, video, image, document, or text-media extension.",
+    "MEDIA_NOT_FOUND": "Check the governed Knowledge Base path and original filename.",
+    "MEDIA_PATH_OUTSIDE_KB": "Choose a media artifact inside the governed Knowledge Base.",
+    "MEDIA_PATH_ACCESS_DENIED": (
+        "Move the artifact to a writable governed subtree or update _access.yaml policy."
+    ),
+}
+
+# Error codes whose HTTP status is NOT the default 400.
+_SERVICE_UNAVAILABLE_CODES = frozenset(
+    {
+        "WRITER_COORDINATOR_UNAVAILABLE",
+        "WRITER_COORDINATOR_CONTRACT_ABSENT",
+        "MUTATION_LOCK_UNAVAILABLE",
+        "RECORD_RECOVERY_REQUIRED",
+        "MODEL_BUSY",
+        # Retrieval-index-reliability (restore-indexed-category-recall): a safe
+        # exact category/kind plan whose maintained semantic catalog cannot yet
+        # prove completeness — retryable with bounded `retry_after_ms`, never a
+        # client-fault 400.
+        "RETRIEVAL_INDEX_WARMING",
+        # A name-linked retained input the lookup could not yet check; the refusal
+        # schedules the build that settles it, so the same write succeeds on retry.
+        "ORIGIN_INPUT_LOOKUP_STALE",
+    }
+)
+_NOT_FOUND_CODES = frozenset({"NOT_FOUND", "OLD_NOT_FOUND", "SOURCES_NOT_FOUND", "NOT_IN_TRASH"})
+_CONFLICT_CODES = frozenset(
+    {
+        "PREFERENCE_CONFLICT",
+        "PREFERENCE_OPERATOR_OVERRIDE",
+        "ARTIFACT_EXISTS",
+        "FILE_EXISTS",
+        "DEST_EXISTS",
+        "ENTITY_EXISTS",
+        "ENTITY_AMBIGUOUS",
+        "STALE_IDENTITY_DECISION",
+        "IDENTITY_DECISION_REQUIRED",
+        "ALREADY_SUPERSEDED",
+        "ALREADY_TRASHED",
+        "STALE_EDIT",
+        "STALE_PARENT_HASH",
+        "STALE_UNIT_REFERENCE",
+        "AMBIGUOUS_UNIT_REFERENCE",
+        "CONTINUATION_STALE",
+        "STALE_CONTRACT",
+        "CONTRACT_EXISTS",
+        "WRITER_LEASE_REQUIRED",
+        "WRITER_FENCED",
+        "IDEMPOTENCY_KEY_REUSED",
+        "IDEMPOTENCY_IN_PROGRESS",
+        "BATCH_ROLLBACK_INCOMPLETE",
+        "BATCH_CLEANUP_INCOMPLETE",
+        "MUTATION_BUSY",
+        "MUTATION_WARMING",
+        "MUTATION_ACKNOWLEDGEMENT_PENDING",
+        "MUTATION_COMMITTED_ACKNOWLEDGEMENT_UNCERTAIN",
+        "MUTATION_OUTCOME_UNKNOWN",
+        # A maintenance job holds the one slot, or its plan changed since the preview.
+        "MAINTENANCE_JOB_ACTIVE",
+        "STALE_MAINTENANCE_PLAN",
+        # Adoption Studio drift codes (add-adoption-studio): a stale plan/apply or a
+        # proposal whose bound content changed since review is a conflict, not a
+        # plain bad-request — the client's honest recourse is to re-scan/re-read,
+        # not to resubmit the same payload.
+        "ADOPTION_SOURCE_CHANGED",
+        "PLAN_STALE",
+        "REVIEW_ITEM_CHANGED",
+        "STALE_RECORD",
+        "STALE_RECORD_SNAPSHOT",
+        "RECORD_ID_CONFLICT",
+        "RECORD_NATURAL_KEY_CONFLICT",
+        "CREATE_ONLY_CONFLICT",
+        "AMBIGUOUS_RECORD",
+    }
+)
+
+
+class OpError(Exception):
+    """A structured operation error carrying a stable code + remediation.
+
+    `str(OpError)` is "CODE: message" so it reads the same as the leaf-contract
+    `ValueError`s when surfaced as plain text.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        remediation: str | None = None,
+        *,
+        details: dict[str, Any] | None = None,
+    ):
+        self.code = code
+        self.message = message
+        self.remediation = remediation or _REMEDIATION.get(code)
+        self.details = dict(details or {})
+        super().__init__(f"{code}: {message}")
+
+    def as_public_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "code": self.code,
+            "message": self.message,
+            "remediation": self.remediation,
+        }
+        if self.details:
+            payload.update(ok=False, error_code=self.code)
+        payload.update(self.details)
+        return payload
+
+    def __str__(self) -> str:
+        if self.details:
+            return json.dumps(
+                self.as_public_dict(),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        return f"{self.code}: {self.message}"
+
+
+def envelope(success: bool, data: Any = None, error: dict | None = None) -> dict:
+    """Build the shared envelope. Success carries `data`; failure carries `error`."""
+    if success:
+        return {"success": True, "data": data}
+    error_payload = dict(error or {})
+    payload = {"success": False, "error": error_payload}
+    for field in ("validation_state", "mutated"):
+        if field in error_payload:
+            payload[field] = error_payload.pop(field)
+    return payload
+
+
+def action_argument_contract(
+    action: str, allowed: Iterable[str], required: Iterable[str]
+) -> str:
+    """Say what an action accepts, from the tables its validator already checks."""
+    names = ", ".join(sorted(allowed)) or "none"
+    needs = ", ".join(sorted(required))
+    return f"{action} allowed: {names}" + (f"; {action} requires: {needs}" if needs else "")
+
+
+def semantic_validation_error_dict(exc: Exception) -> dict[str, Any] | None:
+    """Find a structured semantic refusal without changing unrelated errors."""
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        projector = getattr(current, "as_semantic_validation_error", None)
+        if callable(projector):
+            try:
+                payload = projector()
+            except Exception:  # noqa: BLE001 - keep the original error path intact
+                payload = None
+            if isinstance(payload, dict):
+                return payload
+        current = current.__cause__ or current.__context__
+    return None
+
+
+def _semantic_validation_error_dict_cause_only(exc: BaseException) -> dict[str, Any] | None:
+    """Like `semantic_validation_error_dict`, but follows `__cause__` only.
+
+    `semantic_validation_error_dict` also follows `__context__` — the chain
+    Python sets IMPLICITLY whenever one exception is raised while another is
+    already being handled, with no `from` required. That is correct for
+    `error_dict`, which must always answer a client with *some* code and
+    accepts the (rare) risk of an implicit chain. It is NOT safe for a
+    caller that must tell a genuine bug apart from a refusal: a teardown bug
+    (a `finally`/`__exit__`/lease-release/graph-sync failure) that fires
+    while a semantic refusal is unwinding gets `__context__` set to that
+    refusal automatically, with no `from` anywhere in the bug's own code.
+    Following `__context__` there would misattribute the bug's own class
+    name to the refusal code it happened to interrupt. This variant follows
+    only the EXPLICIT `raise ... from e` idiom (`__cause__`) — the one
+    `commands.py`'s `raise ValueError(f"{e.code}: {e.reason}") from e`
+    re-wraps actually use — so an implicit, incidental `__context__` chain
+    never contributes a code.
+    """
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        projector = getattr(current, "as_semantic_validation_error", None)
+        if callable(projector):
+            try:
+                payload = projector()
+            except Exception:  # noqa: BLE001 - keep the original error path intact
+                payload = None
+            if isinstance(payload, dict):
+                return payload
+        current = current.__cause__
+    return None
+
+
+def error_dict(exc: Exception) -> dict:
+    """Convert any raised error into the envelope's `error` block.
+
+    `OpError` carries its fields directly; a leaf-contract `ValueError`
+    ("CODE: reason") is parsed into {code, message}; anything else is `INTERNAL`.
+    """
+    semantic_payload = semantic_validation_error_dict(exc)
+    if semantic_payload is not None:
+        return semantic_payload
+    public_dict = getattr(exc, "as_public_dict", None)
+    if callable(public_dict):
+        try:
+            public_payload = public_dict()
+        except Exception:  # noqa: BLE001 - fall through to the shared parser
+            public_payload = None
+        if isinstance(public_payload, dict):
+            return public_payload
+    if isinstance(exc, OpError):
+        return {"code": exc.code, "message": exc.message, "remediation": exc.remediation}
+    text = str(exc)
+    if isinstance(exc, (ValueError, TypeError, RuntimeError)):
+        m = _CODE_PREFIX.match(text)
+        if m:
+            code, message = m.group(1), m.group(2).strip()
+            return {"code": code, "message": message, "remediation": _REMEDIATION.get(code)}
+        return {"code": "OP_ERROR", "message": text, "remediation": None}
+    return {"code": "INTERNAL", "message": text, "remediation": None}
+
+
+def leaf_contract_code(exc: BaseException) -> str | None:
+    """Return the stable refusal code an exception carries, or `None`.
+
+    This is DELIBERATELY STRICTER than `error_dict`'s classification, not a
+    mirror of it. `error_dict` answers a client, who has already lost the
+    ability to see anything other than a code — every exception must map to
+    *some* code, so `error_dict` accepts a small amount of misattribution
+    risk (see below) in exchange for never leaving a request unanswered.
+    This function feeds the mutation journal, whose entire job is
+    separating genuine refusals from genuine bugs — a code that looks
+    like a refusal but was actually produced by a bug is worse here than a
+    class name that's merely uninformative, because it hides the bug inside
+    what reads as normal traffic. Through `public_refusal` it also decides
+    whether MCP answers an exception with the error envelope or lets it
+    raise as a fault. So where the two intentionally diverge, this function
+    is the more conservative one:
+
+    1. The semantic chain walk uses `_semantic_validation_error_dict_cause_only`
+       (walks `exc.__cause__` only), NOT `error_dict`'s
+       `semantic_validation_error_dict` (which also walks `__context__`).
+       `__context__` is set IMPLICITLY by Python whenever an exception is
+       raised while another is already being handled — no `from` required —
+       so it can carry an unrelated `SemanticWriteError` merely because a
+       teardown bug happened to fire while that refusal was unwinding
+       (`finally`/`__exit__`/lease-release/graph-sync code in `writer_lease`
+       runs inside every one of the ~21 `except SemanticWriteError:`
+       handlers across `create_file.py`/`edit.py`/`append_to_file.py`/
+       `link.py`). `error_dict` accepts that risk; the journal must not, or
+       a live bug in that teardown path would be invisible in the refusal
+       distribution — recorded as a benign content refusal instead of a
+       bug. `__cause__` only picks up the EXPLICIT
+       `raise ValueError(f"{e.code}: {e.reason}") from e` re-wrap idiom
+       `commands.py` uses at ~25 sites, which is the case this step exists
+       to fix: the re-wrap's own `str()` carries the *raw* `e.code` (e.g.
+       "SEMANTIC_CONTRACT_VIOLATION"), while `as_semantic_validation_error()`
+       on the explicitly-chained cause projects the *canonical* semantic
+       code (e.g. "missing_semantic_unit") that the client actually receives
+       via `error_dict`.
+    2. A duck-typed `as_public_dict()` payload (e.g. `OpError`,
+       `vault.BatchWriteError`).
+    3. `OpError.code` directly.
+    4. The "CODE: message" leaf-contract convention on a plain
+       `ValueError`/`TypeError`/`RuntimeError`.
+
+    Two more inert divergences from `error_dict`, for accuracy: if the
+    semantic payload has no `"code"` key, or `code == ""`, `error_dict`
+    returns that payload verbatim (so a client could see a codeless error
+    block). This function instead falls through to steps 2-4 on `exc`
+    itself. Nothing exercises this today — `as_semantic_validation_error()`
+    always sets a non-empty canonical finding code — but if it ever
+    happened, falling through is the safer direction for a journal: it
+    still prefers a real code over `None` when one is available lower in
+    the precedence, rather than silently accepting an empty one.
+
+    Unlike `error_dict`, this returns `None` — never a fallback sentinel —
+    when nothing structured is found. Callers use `None` to fall back to
+    the exception's own class name instead of inventing a plausible-looking
+    code for a genuinely unexpected error — so real bugs stay visible as
+    bugs.
+    """
+
+    def _code_of(payload: object) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        code = payload.get("code")
+        return code if isinstance(code, str) and code else None
+
+    semantic_code = _code_of(_semantic_validation_error_dict_cause_only(exc))
+    if semantic_code is not None:
+        return semantic_code
+    public_dict = getattr(exc, "as_public_dict", None)
+    if callable(public_dict):
+        try:
+            payload = public_dict()
+        except Exception:  # noqa: BLE001 - fall through to the narrower checks
+            payload = None
+        public_code = _code_of(payload)
+        if public_code is not None:
+            return public_code
+    if isinstance(exc, OpError) and exc.code:
+        return exc.code
+    if isinstance(exc, (ValueError, TypeError, RuntimeError)):
+        # `_CODE_PREFIX`'s first group is `[A-Z][A-Z0-9_]+` (one-or-more
+        # after the first char), so a match can never capture an empty
+        # string — no `and m.group(1)` truthiness check needed here.
+        m = _CODE_PREFIX.match(str(exc))
+        if m:
+            return m.group(1)
+    return None
+
+
+def public_refusal(exc: Exception) -> dict[str, Any] | None:
+    """Return the public error block for a coded refusal, or `None` for a fault.
+
+    A refusal is an `OpError`, a semantic refusal on the exception chain, or an
+    exception that `leaf_contract_code` finds a code on: a public-dict carrier
+    such as a committed batch failure, or the "CODE: reason" convention. The
+    block is the one `error_dict` builds, so it reads the same on every facade.
+    An exception without a code is a fault and returns `None`.
+    """
+    if isinstance(exc, OpError):
+        return exc.as_public_dict()
+    if semantic_validation_error_dict(exc) is None and leaf_contract_code(exc) is None:
+        return None
+    return error_dict(exc)
+
+
+def http_status_for(code: str) -> int:
+    """HTTP status for an error code (REST). Defaults to 400."""
+    if code in _NOT_FOUND_CODES or code.endswith("_NOT_FOUND"):
+        return 404
+    if code in _CONFLICT_CODES or code.endswith("_EXISTS"):
+        return 409
+    if code in _SERVICE_UNAVAILABLE_CODES:
+        return 503
+    if code == "INGRESS_BYPASSED":
+        return 403
+    return 400
+
+
+# --------------------------------------------------------------------------- #
+# Argument coercion
+# --------------------------------------------------------------------------- #
+def _coerce_bool(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("true", "1", "yes", "on"):
+            return True
+        if low in ("false", "0", "no", "off", ""):
+            return False
+    raise OpError("BAD_BOOL", f"`{name}` must be a boolean, got {value!r}")
+
+
+def _coerce_int(value: Any, name: str) -> int:
+    if isinstance(value, bool):  # bool is an int subclass — reject the confusion
+        raise OpError("BAD_INT", f"`{name}` must be an integer, got a boolean")
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        raise OpError("BAD_INT", f"`{name}` must be an integer, got {value!r}") from None
+
+
+def _coerce_list(value: Any, name: str) -> list[str]:
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    if isinstance(value, str):
+        # CLI convenience: comma-separated → list (empty string → empty list).
+        return [item.strip() for item in value.split(",") if item.strip()]
+    raise OpError("BAD_TYPE", f"`{name}` must be a list, got {value!r}")
+
+
+def _coerce_json(value: Any, name: str, *, cli: bool = False) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            if cli:
+                # CLI convenience: a bare unquoted string for a union/json field is
+                # itself (`kb edit --value hello`), not malformed JSON. REST stays
+                # strict-JSON — this fallback only fires on the CLI surface.
+                return value
+            raise OpError("BAD_JSON", f"`{name}` must be valid JSON: {e}") from None
+    return value
+
+
+def _coerce_dict(value: Any, name: str) -> dict:
+    out = _coerce_json(value, name)
+    if not isinstance(out, dict):
+        raise OpError("BAD_JSON", f"`{name}` must be a JSON object")
+    return out
+
+
+def _coerce_nullable_dict(value: Any, name: str) -> dict | None:
+    out = _coerce_json(value, name)
+    if out is None:
+        return None
+    if not isinstance(out, dict):
+        raise OpError("BAD_JSON", f"`{name}` must be a JSON object or null")
+    return out
+
+
+def _coerce_client_artifact_files(value: Any, name: str, *, cli: bool) -> list[dict[str, str]]:
+    """Validate file handles at non-MCP boundaries without reflecting signed URLs."""
+    from .commands import _ClientArtifactFiles
+
+    try:
+        files = TypeAdapter(_ClientArtifactFiles).validate_python(
+            _coerce_json(value, name, cli=cli)
+        )
+        if any(
+            not isinstance(file, dict)
+            or not isinstance(file.get("download_url"), str)
+            or not isinstance(file.get("file_id"), str)
+            or any(
+                key in file and not isinstance(file[key], str) for key in ("mime_type", "file_name")
+            )
+            for file in files
+        ):
+            raise ValueError("invalid client artifact file handle")
+        return files
+    except (ValidationError, TypeError, ValueError) as error:
+        raise OpError("INVALID_FILE", "`files` must be one to eight valid file handles") from error
+
+
+def coerce(
+    params: tuple[Param, ...],
+    raw: dict,
+    *,
+    guarded_fields: tuple[str, ...] = (),
+    tool: str = "",
+    cli: bool = False,
+) -> dict:
+    """Coerce a raw arg mapping into leaf kwargs using the `Param` specs.
+
+    - Drops keys whose value is `None` (treated as "not supplied" — let the leaf
+      default apply), matching the previous REST `body.get(...)` behaviour.
+    - Rejects any key that is not a declared param (`UNKNOWN_PARAM`).
+    - Coerces each value by its declared type tag (works for JSON-native values
+      from REST and for CLI strings alike).
+    - Re-runs the base64 binary-blob guard on the declared text fields.
+
+    `cli=True` relaxes one thing only: a union/`json` field whose raw string isn't
+    valid JSON falls back to that string (so `kb edit --value hello` works without
+    `--value '"hello"'`). REST keeps `cli=False` and stays strict-JSON.
+    """
+    spec = {p.name: p for p in params}
+    unknown = [k for k in raw if k not in spec]
+    if unknown:
+        raise OpError(
+            "UNKNOWN_PARAM",
+            f"unknown parameter(s) for `{tool}`: {', '.join(sorted(unknown))}",
+        )
+
+    # Binary-blob guard FIRST (before any value is shipped to a leaf).
+    for fld in guarded_fields:
+        if fld in raw:
+            guards.guard_text_content(raw.get(fld), tool=tool, field=fld)
+    # `edit`'s batch mode carries each write payload in edits[].new_string — guard
+    # those too (the top-level guarded_fields only covers new_body/new_string),
+    # mirroring the MCP middleware so no surface lets a blob in through the nest.
+    if tool in ("edit", "edit_memory") and isinstance(raw.get("edits"), list):
+        for item in raw["edits"]:
+            if isinstance(item, dict):
+                guards.guard_text_content(
+                    item.get("new_string"), tool=tool, field="edits[].new_string"
+                )
+    if tool == "edit_memory" and isinstance(raw.get("operation"), dict):
+        operation = raw["operation"]
+        for field in ("new_body", "new_string"):
+            guards.guard_text_content(operation.get(field), tool=tool, field=f"operation.{field}")
+        for item in operation.get("edits") or []:
+            if isinstance(item, dict):
+                guards.guard_text_content(
+                    item.get("new_string"),
+                    tool=tool,
+                    field="operation.edits[].new_string",
+                )
+
+    kwargs: dict[str, Any] = {}
+    for name, value in raw.items():
+        if value is None:
+            continue
+        p = spec[name]
+        if p.type == "bool":
+            kwargs[name] = _coerce_bool(value, name)
+        elif p.type == "int":
+            kwargs[name] = _coerce_int(value, name)
+        elif p.type == "list[str]":
+            kwargs[name] = _coerce_list(value, name)
+        elif p.type == "dict":
+            kwargs[name] = _coerce_dict(value, name)
+        elif p.type == "nullable_dict":
+            kwargs[name] = _coerce_nullable_dict(value, name)
+        elif p.type == "json":
+            kwargs[name] = _coerce_json(value, name, cli=cli)
+        elif p.type == "client_artifact_files":
+            kwargs[name] = _coerce_client_artifact_files(value, name, cli=cli)
+        else:  # "str"
+            kwargs[name] = value if isinstance(value, str) else str(value)
+    return kwargs

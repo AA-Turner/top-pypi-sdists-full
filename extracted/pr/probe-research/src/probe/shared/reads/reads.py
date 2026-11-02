@@ -11,7 +11,7 @@ from typing import Any
 
 import typer
 
-from ...cli import refs
+from ...cli.commands import ref_syntax as refs
 
 #: C1 controls + bidi overrides: the display-manipulation characters JSON
 #: leaves raw under ensure_ascii=False. They only ever occur inside string
@@ -20,7 +20,7 @@ from ...cli import refs
 DISPLAY_CONTROLS = re.compile("[\u0080-\u009f\u202a-\u202e\u2066-\u2069]")
 
 def render_json(obj: Any, pretty: bool) -> str:
-    """One output policy for every read command (`probe.cli.main._print_json`
+    """One output policy for every read command (`probe.cli.commands.json_print._print_json`
     prints it and says why): indented for a terminal (`pretty`), compact for a
     pipe, display controls escaped either way."""
     if pretty:
@@ -154,7 +154,7 @@ def resolve_ref(
 ) -> refs.Ref:
     """Resolve a ref, reporting both failure modes as CLI errors.
 
-    The one adapter between :mod:`probe.cli.refs` (which raises library errors so
+    The one adapter between :mod:`probe.cli.commands.ref_syntax` (which raises library errors so
     the SDK and tests can use it) and Typer's exit codes. Ambiguity and absence
     both surface as ``BadParameter``: each means "this ref does not identify one
     thing", and neither is something a retry of the same command fixes.
@@ -619,7 +619,7 @@ def notes_find(
     note: str | None = None,
 ) -> Printed:
     """`probe notes find`: the paragraphs of an entity's note that mention any of `words`."""
-    from ...cli import notes_find as finder
+    from ...cli.commands.notes import find as finder
 
     out = Out(api.pretty)
 
@@ -650,7 +650,9 @@ def outbox_status(api: Api, journal: Any, others: list, verbose: bool = False, r
 
     out = Out(api.pretty)
     pending = [item for namespace in journal.namespaces() for item in namespace.pending()]
-    failed = [item for namespace in journal.namespaces() for item in namespace.failed()]
+    # Dead letters and torn files in one pass over each failed/ (final review of #3794).
+    failed_reads = [namespace.read_failed() for namespace in journal.namespaces()]
+    failed = [item for letters, _ in failed_reads for item in letters]
     pending.sort(key=lambda item: item[1].get("enqueued_at") or "")
     if run is not None:
         pending = [(p, op) for p, op in pending if op.get("run_ref") == run]
@@ -676,6 +678,10 @@ def outbox_status(api: Api, journal: Any, others: list, verbose: bool = False, r
         # depend on that source still existing at drain time, which is a fact an
         # operator should be able to see rather than infer from a dead letter.
         "unstaged_low_disk": status.get("unstaged_low_disk"),
+        # Op files a power cut left empty or cut short, moved to failed/ (plan T6): no run
+        # survives in one, so they are counted here, not on a run. Read from failed/ itself:
+        # an older SDK's status.json rewrite drops the `torn` tally (review of #3785, I11).
+        "torn": sum(torn for _, torn in failed_reads),
     }
     try:
         # Writes that wait for a credential no process here holds: whose,

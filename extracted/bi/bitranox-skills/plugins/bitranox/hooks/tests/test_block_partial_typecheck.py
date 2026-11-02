@@ -1,0 +1,511 @@
+"""Tests for block-partial-typecheck.py (PreToolUse(Bash|PowerShell) narrowed-pyright guard).
+
+Contract: reads a PreToolUse event JSON on stdin. Exit 2 (with stderr) blocks only
+when pyright is given positional paths, the project has a test directory, and none
+of those paths covers it. Every other path exits 0.
+
+All content is ASCII.
+"""
+
+import io
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+import block_partial_typecheck as B
+
+HOOKS_DIR = Path(__file__).resolve().parent.parent
+SCRIPT = HOOKS_DIR / "block-partial-typecheck.py"
+
+
+@pytest.fixture
+def project(tmp_path: Path) -> Path:
+    """A project laid out with src/ and tests/."""
+    (tmp_path / "src" / "pkg").mkdir(parents=True)
+    (tmp_path / "tests").mkdir()
+    return tmp_path
+
+
+def run_main(monkeypatch, command, cwd: Path | None = None, tool_name: str = "Bash") -> int:
+    payload = {"tool_name": tool_name, "tool_input": {"command": command}}
+    if cwd is not None:
+        payload["cwd"] = str(cwd)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    return B.main()
+
+
+# --- allowed: not a narrowed check -----------------------------------------
+
+
+def test_unrelated_command_passes(monkeypatch, project):
+    assert run_main(monkeypatch, "ls -la && echo done", project) == 0
+
+
+def test_bare_pyright_passes(monkeypatch, project):
+    """No paths: pyright uses its config's include list, i.e. the whole project."""
+    assert run_main(monkeypatch, "pyright", project) == 0
+
+
+def test_bare_pyright_with_flags_passes(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright --outputjson", project) == 0
+
+
+def test_version_passes(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright --version", project) == 0
+
+
+def test_paths_covering_tests_pass(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright src tests", project) == 0
+
+
+def test_dot_covers_everything(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright .", project) == 0
+
+
+def test_checking_only_tests_passes(monkeypatch, project):
+    """Naming the tests is explicit about scope, not a false 'all clean'."""
+    assert run_main(monkeypatch, "pyright tests", project) == 0
+
+
+def test_file_inside_tests_passes(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright tests/test_x.py", project) == 0
+
+
+def test_project_without_tests_passes(monkeypatch, tmp_path):
+    """Nothing to miss when the project has no test directory."""
+    (tmp_path / "src").mkdir()
+    assert run_main(monkeypatch, "pyright src", tmp_path) == 0
+
+
+def test_missing_cwd_passes(monkeypatch):
+    assert run_main(monkeypatch, "pyright src") == 0
+
+
+def test_value_flag_argument_is_not_a_path(monkeypatch, project):
+    """`--pythonversion 3.10` must not read 3.10 as a positional path."""
+    assert run_main(monkeypatch, "pyright --pythonversion 3.10 tests", project) == 0
+
+
+def test_word_containing_pyright_passes(monkeypatch, project):
+    assert run_main(monkeypatch, "echo pyrightish", project) == 0
+
+
+def test_unbalanced_quotes_passes(monkeypatch, project):
+    assert run_main(monkeypatch, 'pyright "src', project) == 0
+
+
+def test_pyright_as_another_tools_flag_value_passes(monkeypatch, project):
+    """`find -name pyright` names a FILE to look for; it invokes nothing.
+
+    Observed false positive: the guard took the quoted "pyright" for the
+    executable and read the rest of find's own arguments as its paths, blocking
+    with the nonsense "paths given: 4 2>/dev/null".
+    """
+    assert run_main(monkeypatch, "find .venv -name 'pyright' -maxdepth 4 2>/dev/null", project) == 0
+    assert run_main(monkeypatch, "grep -rn -e pyright src", project) == 0
+
+
+def test_real_invocation_after_a_flag_value_still_blocks(monkeypatch, project):
+    """Skipping a flag-value match must not skip a real run later in the line.
+
+    Returning at the first token spelled "pyright" would let the genuine
+    narrowed invocation through unchecked.
+    """
+    assert run_main(monkeypatch, "find . -name pyright; python -m pyright src", project) == 2
+
+
+def test_redirect_ends_the_invocation(monkeypatch, project):
+    """`2>/dev/null` is a redirection, not a path handed to pyright.
+
+    shlex keeps the fd prefix in one token, so a plain `>` comparison misses it
+    and the redirect target gets counted as a positional.
+    """
+    assert run_main(monkeypatch, "pyright tests 2>/dev/null", project) == 0
+    assert B._pyright_invocations("pyright src 2>/dev/null") == [["src"]]
+
+
+# --- blocked: narrowed away from the tests ---------------------------------
+
+
+def test_src_only_blocks(monkeypatch, project, capsys):
+    assert run_main(monkeypatch, "pyright src", project) == 2
+    err = capsys.readouterr().err
+    assert "BLOCKED" in err
+    assert "tests/" in err
+
+
+def test_src_trailing_slash_blocks(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright src/", project) == 2
+
+
+def test_individual_files_block(monkeypatch, project, capsys):
+    """The exact shape that hid 7 strict errors in a new test file."""
+    assert run_main(monkeypatch, "pyright src/pkg/a.py src/pkg/b.py", project) == 2
+    assert "src/pkg/a.py src/pkg/b.py" in capsys.readouterr().err
+
+
+def test_blocks_via_uv_run(monkeypatch, project):
+    assert run_main(monkeypatch, "uv run pyright src", project) == 2
+
+
+def test_uv_with_names_the_package_not_a_path(monkeypatch, project):
+    """`--with pyright` is uv's PACKAGE, so the pyright after it is the executable, not a path.
+
+    Read the other way round, the guard takes the flag's value as the executable and the real
+    executable as its only positional - so it blocks the no-paths form it recommends, which is
+    also how this repo documents running any tool (`uv run --with X ...`).
+    """
+    assert run_main(monkeypatch, "uv run --with pyright pyright", project) == 0
+    assert run_main(monkeypatch, "uvx --from pyright pyright", project) == 0
+
+
+def test_uv_with_still_sees_real_paths(monkeypatch, project):
+    """Skipping the flag value must not skip the check: a narrowed run still blocks."""
+    assert run_main(monkeypatch, "uv run --with pyright pyright src", project) == 2
+
+
+def test_blocks_with_flags_before_paths(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright --outputjson --pythonversion 3.10 src", project) == 2
+
+
+def test_message_names_the_fix(monkeypatch, project, capsys):
+    run_main(monkeypatch, "pyright src", project)
+    err = capsys.readouterr().err
+    assert "pyright src tests" in err
+
+
+def test_refusal_says_nothing_in_the_command_ran(monkeypatch, project, capsys):
+    # The block refuses the WHOLE Bash call, so an edit bundled with the pyright run is lost too.
+    run_main(monkeypatch, "echo edit > f.txt && pyright src", project)
+    err = capsys.readouterr().err
+    assert B.shell_text.WHOLE_CALL_REFUSED in err
+
+
+def test_test_dir_named_test_is_honoured(monkeypatch, tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "test").mkdir()
+    assert run_main(monkeypatch, "pyright src", tmp_path) == 2
+
+
+# --- contract ---------------------------------------------------------------
+
+
+def test_broken_stdin_never_wedges_a_turn(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert B.main() == 0
+
+
+def test_script_exists_and_is_ascii():
+    text = SCRIPT.read_text(encoding="utf-8")
+    text.encode("ascii")  # raises if a tell slipped in
+    assert text.startswith("#!/usr/bin/env python3")
+
+
+_BS = chr(92)
+
+
+def test_a_powershell_pathed_pyright_still_blocks(monkeypatch, project):
+    """Same two defects as the sed guard: the split, then the basename.
+
+    Here the consequence is a partial typecheck sailing through the gate that exists to catch it.
+    """
+    cmd = "C:" + _BS + "venv" + _BS + "Scripts" + _BS + "pyright.exe src"
+    assert run_main(monkeypatch, cmd, project, tool_name="PowerShell") == 2
+
+
+def test_a_pyright_call_inside_a_heredoc_body_is_not_a_call():
+    """A heredoc body is DATA. A doc or script that merely CONTAINS a narrow pyright invocation
+    is not one, and blocking it stops the footgun being written down."""
+    cmd = "cat > notes.md <<EOF\npyright src/one_file.py\nEOF"
+    assert B._pyright_invocations(cmd) == []
+
+
+def test_a_real_pyright_call_after_a_heredoc_is_still_seen():
+    cmd = "cat > notes.md <<EOF\nprose\nEOF\npyright src/one_file.py"
+    assert B._pyright_invocations(cmd) == [["src/one_file.py"]]
+
+
+# --- every invocation is judged, not only the first ------------------------
+
+
+def test_a_version_query_before_a_narrowed_run_does_not_hide_it(monkeypatch, project):
+    """`--version` made the scan return "not a check run" for the WHOLE line, so the narrowed
+    `pyright src` after it was never judged."""
+    assert run_main(monkeypatch, "pyright --version && pyright src", project) == 2
+
+
+def test_a_second_narrowed_run_is_judged_on_its_own(monkeypatch, project, capsys):
+    """Only the first invocation was judged; `pyright src` after `pyright tests` escaped.
+
+    Each run's verdict is read on its own, so each is judged on its own.
+    """
+    assert run_main(monkeypatch, "pyright tests && pyright src", project) == 2
+    assert "paths given: src" in capsys.readouterr().err
+
+
+def test_several_full_runs_still_pass(monkeypatch, project):
+    """The control: judging every invocation must not block runs that each cover the tests."""
+    assert run_main(monkeypatch, "pyright --version && pyright", project) == 0
+    assert run_main(monkeypatch, "pyright tests && pyright src tests", project) == 0
+    assert run_main(monkeypatch, "pyright --version", project) == 0
+
+
+def test_a_shell_operator_ends_the_invocation():
+    """The `_SHELL_BREAKS` arm: `&&` and `||` end pyright's argv, they are not paths."""
+    assert B._pyright_invocations("pyright src && echo x") == [["src"]]
+    assert B._pyright_invocations("pyright src || true") == [["src"]]
+    assert B._pyright_invocations("pyright tests && pyright src") == [["tests"], ["src"]]
+    assert B._pyright_invocations("pyright --version && pyright src") == [["src"]]
+
+
+# --- pyright counts only in COMMAND position ---------------------------------
+
+
+@pytest.mark.parametrize("command", [
+    'grep -rn "pyright" pyproject.toml',
+    "grep -n 'pyright' -A 30 pyproject.toml",
+    "grep -n pyright Makefile | head -20",
+    "rg pyright src",
+    "cat pyproject.toml | grep pyright src",
+    "python tools/check.py pyright src",
+    'env NO_COLOR=1 python3 gate.py --gate ".venv/bin/pyright" --name pyright --gate "ruff check ."',
+    "uv run python pyright src",
+])
+def test_a_word_pyright_handed_to_another_program_is_not_a_run(monkeypatch, project, command):
+    """A positional pattern spelling pyright was read as the executable, and the file after it as
+    the path pyright was narrowed to - 1 in 3 of this guard's real corpus blocks was this shape.
+    The cwd here HAS a tests dir, so the positive control below fires in the same fixture."""
+    assert run_main(monkeypatch, command, project) == 0
+
+
+@pytest.mark.parametrize("command", [
+    "which pyright", "command -v pyright", "command -V pyright", "test -x .venv/bin/pyright",
+    "type pyright", "ls .venv/bin/pyright", "[ -x .venv/bin/pyright ]",
+])
+def test_looking_up_the_pyright_executable_is_not_a_run(command):
+    """These name the program to FIND it; parsing them as a no-paths run was harmless only because
+    an empty path list never blocks."""
+    assert B._pyright_invocations(command) == []
+
+
+@pytest.mark.parametrize("command", [
+    "pyright src",
+    ".venv/bin/pyright src",
+    "python -m pyright src",
+    "python3.12 -m pyright src",
+    "env -u VIRTUAL_ENV .venv/bin/python -m pyright --outputjson src/pkg/a.py",
+    "uv run python -m pyright src",
+    "py -3 -m pyright src",
+    "timeout 600 pyright src",
+    "nice -n 19 pyright src",
+    "sudo -u me pyright src",
+    "command pyright src",
+    "npx pyright src",
+    "poetry run pyright src",
+    "FORCE_COLOR=0 pyright src",
+    # `cd .`, not `cd sub`: a run is judged where the cd lands, and these cases are about the
+    # separator, so the cd must land in the project that has the tests/.
+    "cd .\npyright src",
+    "cd .; pyright src",
+    "if pyright src; then echo ok; fi",
+    "for f in a; do pyright src; done",
+    "{ pyright src; echo done; }",
+    "! pyright src",
+    "test -x .venv/bin/pyright && .venv/bin/pyright src",
+    "grep -n pyright pyproject.toml; pyright src",
+])
+def test_a_real_narrowed_run_still_blocks_in_command_position(monkeypatch, project, command):
+    """The control for the command-position rule: launchers, keywords, assignments and every
+    statement separator must still lead to the executable."""
+    assert run_main(monkeypatch, command, project) == 2
+
+
+def test_a_powershell_call_operator_run_still_blocks(monkeypatch, project):
+    cmd = "& C:" + _BS + "venv" + _BS + "Scripts" + _BS + "pyright.exe src"
+    assert run_main(monkeypatch, cmd, project, tool_name="PowerShell") == 2
+
+
+# --- a path pathlib cannot resolve -------------------------------------------
+
+
+def test_a_path_with_a_nul_byte_is_undecidable_not_a_crash(monkeypatch, project):
+    """pathlib raises ValueError, not OSError, for an embedded NUL. `_covers` caught only OSError,
+    so the ValueError escaped `main()`. It is now the documented "cannot tell -> do not block"."""
+    assert B._covers("src" + chr(0) + "x", project, project / "tests") is True
+    assert run_main(monkeypatch, "pyright 'src" + chr(0) + "x'", project) == 0
+
+
+def test_an_undecidable_path_does_not_excuse_a_narrowed_run_beside_it(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright 'src" + chr(0) + "x' && pyright src", project) == 2
+
+
+# --- the directory a run lands in, not the session's ---------------------------
+
+
+@pytest.fixture
+def nested(tmp_path: Path) -> tuple[Path, Path]:
+    """The reporter's layout: a repo root with NO top-level tests/, and a skill dir holding its own
+    scripts/ and tests/. The session sat in the skill dir and cd'd to the root first."""
+    root = tmp_path / "repo"
+    skill = root / "skills" / "x"
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "tests").mkdir()
+    (root / "scripts").mkdir()
+    return root, skill
+
+
+def _sh(path: Path) -> str:
+    """`path` as a Bash operand: double-quoted, forward slashes (bash eats unquoted backslashes)."""
+    return '"%s"' % path.as_posix()
+
+
+def test_a_full_coverage_run_after_a_cd_to_the_repo_root_passes(monkeypatch, nested):
+    """contrib #74, reproduced on the five recorded calls behind it: judged against the SESSION's
+    directory, `skills/x/tests` resolved to nothing and the skill's own tests/ read as excluded."""
+    root, skill = nested
+    cmd = f"cd {_sh(root)} && pyright skills/x/scripts skills/x/tests scripts"
+    assert run_main(monkeypatch, cmd, skill) == 0
+    assert run_main(monkeypatch, "cd ../.. && pyright skills/x/scripts skills/x/tests", skill) == 0
+
+
+def test_a_narrowed_run_is_judged_where_the_cd_lands(monkeypatch, nested):
+    """Control: the same cd into a directory that HAS tests/, with tests/ left out, still blocks."""
+    root, skill = nested
+    assert run_main(monkeypatch, f"cd {_sh(skill)} && pyright scripts", root) == 2
+    assert run_main(monkeypatch, f"cd {_sh(skill)} && pyright scripts tests", root) == 0
+    assert run_main(monkeypatch, "pyright scripts", skill) == 2          # no cd: the session dir
+
+
+def test_a_cd_that_cannot_be_followed_leaves_nothing_to_judge(monkeypatch, nested):
+    _root, skill = nested
+    assert run_main(monkeypatch, 'cd "$REPO" && pyright scripts', skill) == 0
+
+
+def test_a_cd_inside_a_subshell_does_not_outlive_it(monkeypatch, nested):
+    root, skill = nested
+    cmd = f"(cd {_sh(root)} && pyright scripts) ; pyright scripts"
+    assert run_main(monkeypatch, cmd, skill) == 2      # the second run is back in the skill dir
+    cmd = f"(cd {_sh(skill)} && pyright scripts tests) ; pyright scripts"
+    assert run_main(monkeypatch, cmd, root) == 0       # control: back at the root, no tests/
+
+
+# --- a path outside the project is not a narrowed PROJECT check -----------------
+
+
+@pytest.fixture
+def scratch_file(tmp_path_factory) -> Path:
+    """A scratch probe that lives OUTSIDE the `project` fixture's directory."""
+    path = tmp_path_factory.mktemp("scratch") / "tcheck.py"
+    path.write_text("x: int = 1\n", encoding="utf-8")
+    return path
+
+
+def test_a_scratch_probe_outside_the_project_passes(monkeypatch, project, scratch_file):
+    """Type-checking a scratch file that lives OUTSIDE the project narrows nothing about the
+    project: its tests/ was never in that run's scope. Blocking it read
+    `pyright /tmp/.../scratch/tcheck.py` exactly like `pyright src/pkg/__init__.py`."""
+    assert run_main(monkeypatch, f"pyright {_sh(scratch_file)}", project) == 0
+    both = f"pyright {_sh(scratch_file)} {_sh(scratch_file.parent)}"
+    assert run_main(monkeypatch, both, project) == 0
+
+
+def test_a_relative_path_climbing_out_of_the_project_passes(monkeypatch, project, scratch_file):
+    """A `..` that leaves the project root is outside too: judged after resolving, not by spelling."""
+    rel = Path(os.path.relpath(scratch_file, project)).as_posix()
+    assert rel.startswith("../")
+    assert run_main(monkeypatch, f"pyright {rel}", project) == 0
+
+
+def test_an_outside_path_does_not_excuse_an_inside_narrowed_path(monkeypatch, project, scratch_file):
+    """Control: one outside path beside an inside non-test path is still a narrowed project run."""
+    assert run_main(monkeypatch, f"pyright {_sh(scratch_file)} src/pkg/__init__.py", project) == 2
+    assert run_main(monkeypatch, "pyright src/pkg/__init__.py", project) == 2
+
+
+def test_an_absolute_path_into_the_project_is_still_inside(monkeypatch, project):
+    """Control: an ABSOLUTE path into the project is inside it, whatever its spelling."""
+    assert run_main(monkeypatch, f"pyright {_sh(project / 'src')}", project) == 2
+
+
+# --- an unexpanded variable is not a path ----------------------------------------------------------
+# OPEN-WORK [930]: the loop below runs the whole-project check twice, once per Python version, and
+# was refused with 'paths given: $v'. What `$v` expands to (flags, paths, nothing) is not in the
+# text, so it is no path this guard can judge; a literal path beside it still is.
+
+_VERSION_LOOP = 'for v in "" "--pythonversion 3.10"; do pyright --pythonpath .venv/bin/python {args}; done'
+
+
+@pytest.mark.parametrize("args", ["$v", '"$v"', "${v}", "$v ${EXTRA:-}"])
+def test_an_unexpanded_variable_after_pyright_is_not_a_path(monkeypatch, project, args):
+    assert run_main(monkeypatch, _VERSION_LOOP.format(args=args), project) == 0
+
+
+def test_a_literal_path_beside_an_unexpanded_variable_is_still_refused(monkeypatch, project, capsys):
+    assert run_main(monkeypatch, _VERSION_LOOP.format(args="$v src"), project) == 2
+    assert "paths given: src\n" in capsys.readouterr().err
+
+
+def test_control_a_literal_narrowed_run_with_the_same_flags_is_refused(monkeypatch, project):
+    assert run_main(monkeypatch, "pyright --pythonpath .venv/bin/python --pythonversion 3.10 src", project) == 2
+
+
+# A variable the command itself assigned ONE literal value is not unknown: the text holds it.
+# Replayed over the corpus, dropping every `$F` passed `F="src/a.py src/b.py"; pyright $F`, a narrowed
+# run the guard had refused, while `S=/tmp/scratch; pyright $S/t.py` had been refused as inside.
+
+def test_a_file_list_the_command_assigned_is_judged_as_its_paths(monkeypatch, project, capsys):
+    assert run_main(monkeypatch, 'F="src/pkg/__init__.py src/pkg"; pyright $F', project) == 2
+    assert "paths given: src/pkg/__init__.py src/pkg\n" in capsys.readouterr().err
+    assert run_main(monkeypatch, 'export F=src; .venv/bin/pyright --pythonpath x "${F}"', project) == 2
+
+
+def test_a_file_list_the_command_assigned_with_its_tests_passes(monkeypatch, project):
+    assert run_main(monkeypatch, 'F="src/pkg tests"; pyright $F', project) == 0
+
+
+def test_an_assigned_scratch_dir_outside_the_project_passes(monkeypatch, project, scratch_file):
+    command = f"S={_sh(scratch_file.parent)}; pyright $S/{scratch_file.name}"
+    assert run_main(monkeypatch, command, project) == 0
+
+
+def test_an_assigned_value_holding_flags_is_read_as_flags(monkeypatch, project):
+    assert run_main(monkeypatch, 'A="--pythonversion 3.10"; pyright $A', project) == 0
+    assert run_main(monkeypatch, 'A="--pythonversion 3.10"; pyright $A src', project) == 2
+
+
+@pytest.mark.parametrize("command", [
+    "F=src; F=tests; pyright $F",                   # assigned twice: which one holds is not read
+    "F=$(ls src); pyright $F",                      # a substitution's output
+    "for F in src; do pyright $F; done",            # a loop variable
+    "if a; then F=src; fi; pyright $F",             # a branch that may not run
+    'if [ -n "$CI" ]; then\n  F=src\nfi\npyright $F',  # the same, the assignment on its own line
+    "for x in 1; do\n F=src\ndone\npyright $F",     # a loop body that may not run
+    "while read l; do\nF=src\ndone < x; pyright $F",
+    "case $x in\n a)\n  F=src\n  ;;\nesac\npyright $F",  # a case arm
+    "F=src; unset F; pyright $F",                   # unset: the run has no paths
+    "pyright $UNSET_IN_THIS_COMMAND",               # from the environment
+])
+def test_a_variable_whose_value_the_text_does_not_settle_is_unknown(monkeypatch, project, command):
+    assert run_main(monkeypatch, command, project) == 0
+
+
+def test_an_unknown_value_after_a_value_flag_is_that_flags_value(monkeypatch, project, capsys):
+    """Dropping `$V` before reading flags would make `src` the value of --pythonversion."""
+    assert run_main(monkeypatch, "pyright --pythonversion $V src", project) == 2
+    assert "paths given: src\n" in capsys.readouterr().err
+
+
+def test_a_path_after_a_redirection_is_still_handed_to_pyright():
+    """OPEN-WORK [1060]: the shell passes the words after a redirection to the program too, so
+    `pyright 2>/dev/null src` checks src only; stopping at the redirection read a full run."""
+    assert B._pyright_invocations("pyright 2>/dev/null src") == [["src"]]
+    assert B._pyright_invocations("pyright > out.txt src tests") == [["src", "tests"]]
+
+
+def test_an_ampersand_redirection_is_not_a_path():
+    """`&>out` was not recognised as a redirection and became a positional path."""
+    assert B._pyright_invocations("pyright &>out.txt") == [[]]
+    assert B._pyright_invocations("pyright tests &> out.txt") == [["tests"]]

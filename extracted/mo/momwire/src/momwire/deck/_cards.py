@@ -13,7 +13,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-__all__ = ["DeckError", "Card", "parse_card", "tokenize"]
+__all__ = [
+    "DeckError",
+    "Card",
+    "gw_field_refusal",
+    "infinite_angle_refusal",
+    "parse_card",
+    "tokenize",
+    "wire_geometry_refusal",
+]
 
 
 class DeckError(ValueError):
@@ -59,19 +67,19 @@ class Card:
 
     def i(self, k: int) -> int:
         """Field ``k`` as an integer: rounded half to even, exact however
-        large.  An infinite or NaN field has no integer, and refuses here
-        with the exception type Python's own conversion raises (OverflowError
-        / ValueError) but in this module's words, which name the card and
-        the field rather than the interpreter's float-to-int conversion: the
-        C++ reader (`_nec5_deck_core.cpp`) raises the same text."""
+        large.  An infinite or NaN field has no integer, and the deck is
+        refused here (a :class:`DeckError`, which every front end prints as
+        a refusal) in words that name the card and the field rather than the
+        interpreter's float-to-int conversion: the C++ readers
+        (`_nec5_deck_core.cpp`'s ``Card::i``) refuse with the same text."""
         value = self.f(k)
         if math.isnan(value):
-            raise ValueError(
+            raise DeckError(
                 f"{self.mnemonic} field {k + 1} is NaN; an integer field must be "
                 f"a finite number"
             )
         if math.isinf(value):
-            raise OverflowError(
+            raise DeckError(
                 f"{self.mnemonic} field {k + 1} is infinite; an integer field must "
                 f"be a finite number"
             )
@@ -81,6 +89,87 @@ class Card:
     def text(self) -> str:
         """A comment card's free text: everything after the mnemonic."""
         return self.raw[2:]
+
+
+# The most segments one GW may ask for. A count past it is no wire anything
+# can mesh (the matrix alone is its square), and a count in the millions of
+# millions would hang the reader building nodes, so it refuses on the card.
+# The C++ readers hold the same limit (`_nec5_deck_core.cpp`'s
+# `kMaxGeometry`, `_nec4_deck_core.cpp`'s `kMaxSegments`).
+MAX_WIRE_SEGMENTS = 10_000_000
+
+
+def gw_field_refusal(card: Card) -> str | None:
+    """Why a ``GW`` card is malformed past serving, or ``None``.
+
+    Every one of a GW's nine fields is read (tag, segment count, the two
+    ends, the radius), and none of them means anything as an infinity or
+    a NaN: each such deck used to fail deep in the mesh with the
+    interpreter's own float-to-int message. A segment count past
+    :data:`MAX_WIRE_SEGMENTS` is refused here too. Every dialect's reader
+    asks this on the card, before anything else reads it, and the C++
+    readers (`_nec5_deck_core.cpp`'s `gw_field_refusal`) say the same
+    words."""
+    for k, value in enumerate(card.values[:9]):
+        if not math.isfinite(value):
+            return (
+                f"GW field {k + 1} is not a finite number; a wire's tag, segment "
+                f"count, end coordinates and radius must all be finite"
+            )
+    if card.i(1) > MAX_WIRE_SEGMENTS:
+        return (
+            f"GW tag {card.i(0)} asks for more than {MAX_WIRE_SEGMENTS} segments; "
+            f"this engine meshes at most {MAX_WIRE_SEGMENTS} segments on one wire"
+        )
+    return None
+
+
+# How far from the origin a wire may reach, in metres. Past it the readers'
+# own arithmetic (the node grid, the junction snapping, the far field) runs
+# out of doubles and used to fail with the interpreter's float-to-int message;
+# a wire there is no antenna anything can mesh.
+MAX_COORDINATE = 1e299
+
+
+def wire_geometry_refusal(mnemonic: str, tag: int, points, radius: float) -> str | None:
+    """Why the wire a geometry card ``mnemonic`` built or moved is past
+    meshing, or ``None``: a coordinate or radius that is not a finite number
+    (a NaN or infinite field on the card, or a GS / GM that scaled or moved
+    the wire past the doubles), or a coordinate past :data:`MAX_COORDINATE`.
+
+    Every reader asks it after each geometry card, of every wire, so the
+    card named is the one that made the wire so; ``points`` are the wire's
+    ends and any path vertices. The C++ readers
+    (`_nec5_deck_core.cpp`'s ``wire_geometry_refusal``) say the same words."""
+    finite = math.isfinite(radius)
+    far = False
+    for point in points:
+        for c in point:
+            if not math.isfinite(c):
+                finite = False
+            elif abs(c) > MAX_COORDINATE:
+                far = True
+    if not finite:
+        return (
+            f"{mnemonic} leaves tag {tag} with a coordinate or radius that is not "
+            f"a finite number; a wire's ends and radius must stay finite"
+        )
+    if far:
+        return (
+            f"{mnemonic} puts tag {tag} more than 1e+299 m from the origin; this "
+            f"engine meshes wires within 1e+299 m of it"
+        )
+    return None
+
+
+def infinite_angle_refusal(mnemonic: str) -> str:
+    """The sentence for a GM rotation or a GH helix whose fields make an
+    infinite angle, which no sine or cosine can take (Python's ``math``
+    raises a domain error on one); the C++ readers say the same words."""
+    return (
+        f"{mnemonic} turns its fields into an infinite angle; a card's angles, "
+        f"turns and lengths must be finite numbers"
+    )
 
 
 def _to_float(token: str) -> float | None:

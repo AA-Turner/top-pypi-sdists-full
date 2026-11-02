@@ -17,15 +17,17 @@ import pytest
 
 from backfill_plan_agent import filing, note, unit_paths
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_github as gh
-from probe.cli import backfill_import as imp
-from probe.cli import backfill_plan as plans
-from probe.cli import backfill_record as record
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.sources import github as gh
+from probe.cli.imports.folder import flow as imp
+from probe.cli.imports.folder.classify import plan as plans
+from probe.cli.imports.folder.record import record as record
 from probe.cli import backfill_run as runner
-from probe.cli import telemetry, tui
-from probe.cli.backfill_coverage import Coverage, Scope
-from probe.cli.backfill_ledger import Ledger
+from probe.cli import telemetry
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.upload.ledger import Ledger
 from probe.sdk.delivery import journal as jm
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings
@@ -76,8 +78,8 @@ class Harness:
         self.root = root
         self.monkeypatch = monkeypatch
         self.client = self.new_client()
-        monkeypatch.setattr(runner, "classify", self.classify)
-        monkeypatch.setattr(bf, "launch_agent", filing(self.launch))
+        monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", self.classify)
+        monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(self.launch))
         real_run_units = runner.run_units
 
         def units(*args, **kwargs):
@@ -85,13 +87,20 @@ class Harness:
             self.after_units()
             return result
 
-        monkeypatch.setattr(runner, "run_units", units)
+        monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", units)
         monkeypatch.setattr(gh, "collect_evidence", self.collect)
         monkeypatch.setattr(gh, "attach_reviewed_sources", self.attach)
         monkeypatch.setattr(record, "complete_record", lambda *a, **kw: ["Recorded."])
-        monkeypatch.setattr(tui, "page", lambda *a, **kw: "")
-        monkeypatch.setattr(tui, "review", lambda title, lines, choices: choices[0][1])
-        monkeypatch.setattr(tui, "interactive", lambda: False)
+        monkeypatch.setattr(tui.layout, "page", lambda *a, **kw: "")
+        monkeypatch.setattr(tui.forms, "page", lambda *a, **kw: "")
+        monkeypatch.setattr(tui.progress, "page", lambda *a, **kw: "")
+        monkeypatch.setattr(tui.forms, "review", lambda title, lines, choices: choices[0][1])
+        monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+        monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+        monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+        monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+        monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+        monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
 
     def new_client(self, *, tenant="tenant", workspace="workspace", backend="https://test.invalid"):
         client = Client(
@@ -225,7 +234,6 @@ def make_harness(tmp_path, monkeypatch):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     return Harness(tmp_path, monkeypatch)
 
 
@@ -254,7 +262,7 @@ def test_fresh_queue_resume_requires_real_durable_receipt(scoped_harness):
 def test_optional_wandb_outage_cannot_block_real_file_delivery(scoped_harness, monkeypatch):
     h = scoped_harness
     monkeypatch.setattr(
-        tui, "review",
+        tui.forms, "review",
         lambda title, lines, choices: "wandb" if title == "Add W&B history" else "import",
     )
 
@@ -305,13 +313,13 @@ def test_files_nobody_classified_wait_for_the_next_run_and_only_they_are_reclass
         plan.excluded = ["b.py"]
         return plan, tail, session
 
-    monkeypatch.setattr(runner, "classify", one_session_failed)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", one_session_failed)
     monkeypatch.setattr(h.client, "_wake_delivery", h.drain)
     h.run()
     assert h.report()["new"] == ["b.py"]
     assert [path for path, _ in h.manifested] == ["a.py"]
     assert h.outcome == telemetry.BackfillOutcome.PARTIAL_CLASSIFICATION
-    monkeypatch.setattr(runner, "classify", real)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", real)
     h.run()
     assert h.classified[-1] == ["b.py"]
 
@@ -365,7 +373,7 @@ def test_changed_file_review_requires_explicit_opt_in(scoped_harness, monkeypatc
         assert title == "Review the import plan"
         return "import"
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     h.run(interactive=True, yes=False)
 
     assert reviews == ["Review changed files", *(["Review the import plan"] if selection else [])]
@@ -386,7 +394,7 @@ def test_cancelling_changed_file_review_keeps_the_delta_pending(
     h.run()
     h.drain()
     (h.folder / "a.py").write_text("value = 2\n")
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: selection)
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: selection)
 
     with pytest.raises(KeyboardInterrupt):
         h.run(interactive=True, yes=False)
@@ -507,7 +515,7 @@ def test_saved_file_code_sources_require_an_explicit_attachment_choice(
         assert any("org/repo" in line for line in lines)
         return selection
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     if selection is None or selection is tui.BACK:
         with pytest.raises(KeyboardInterrupt):
             h.run(interactive=True, yes=False)
@@ -598,7 +606,7 @@ def test_recovery_hint_never_auto_adopts_source_identity(interactive, yes, monke
     def no_prompt(*args, **kwargs):
         raise AssertionError("automated run must not prompt")
 
-    monkeypatch.setattr(tui, "review", no_prompt)
+    monkeypatch.setattr(tui.forms, "review", no_prompt)
     source_id, lines = imp._choose_source(
         [{"source_id": "old-id", "paths": ["/old/mount"]}], interactive=interactive, yes=yes
     )
@@ -609,9 +617,9 @@ def test_recovery_hint_never_auto_adopts_source_identity(interactive, yes, monke
 
 def test_recovery_choice_accepts_only_an_explicit_listed_id(monkeypatch):
     candidates = [{"source_id": "old-id", "paths": ["/old/mount"]}]
-    monkeypatch.setattr(tui, "review", lambda *args, **kwargs: "old-id")
+    monkeypatch.setattr(tui.forms, "review", lambda *args, **kwargs: "old-id")
     assert imp._choose_source(candidates, interactive=True, yes=False)[0] == "old-id"
-    monkeypatch.setattr(tui, "review", lambda *args, **kwargs: "unrelated-id")
+    monkeypatch.setattr(tui.forms, "review", lambda *args, **kwargs: "unrelated-id")
     with pytest.raises(ValueError, match="listed source ID"):
         imp._choose_source(candidates, interactive=True, yes=False)
 
@@ -631,7 +639,7 @@ def test_recovery_menu_defaults_to_a_separate_import(monkeypatch):
         ]
         return choices[0][1]
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     source_id, lines = imp._choose_source(candidates, interactive=True, yes=False)
     assert source_id is None
     assert any("Starting a separate source" in line for line in lines)
@@ -639,7 +647,7 @@ def test_recovery_menu_defaults_to_a_separate_import(monkeypatch):
 
 @pytest.mark.parametrize("selection", [None, tui.BACK])
 def test_cancelling_recovery_never_starts_or_adopts_an_import(monkeypatch, selection):
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: selection)
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: selection)
     with pytest.raises(KeyboardInterrupt):
         imp._choose_source(
             [{"source_id": "old-id", "paths": ["/old/mount"]}],
@@ -668,7 +676,7 @@ def test_moved_folder_interactive_choice_recovers_receipts_without_reclassificat
         prompts.append(lines)
         return original.source_id
 
-    monkeypatch.setattr(tui, "review", choose)
+    monkeypatch.setattr(tui.forms, "review", choose)
     lines = h.run(interactive=True, yes=False)
     assert len(prompts) == 1 and any(old_path in line for line in prompts[0])
     assert h.coverage().source_id == original.source_id
@@ -714,7 +722,7 @@ def test_rows_the_classifier_leaves_out_never_upload_and_stay_settled(scoped_har
             left_out=[plans.LeftOut("apps/web", "Rails + React product app")],
         ), "", None
 
-    h.monkeypatch.setattr(runner, "classify", classify)
+    h.monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", classify)
     excluded = ["apps/web/Gemfile", "apps/web/package.json", "apps/web/show.tsx"]
     lines = h.run()
     assert h.manifested == [("a.py", "value = 1\n")]

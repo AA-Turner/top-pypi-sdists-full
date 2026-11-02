@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pymzml
-Version: 2.7.0
+Version: 2.7.1
 Summary: high-throughput mzML parsing
 Project-URL: Homepage, https://pymzml.github.io/pymzML
 Project-URL: Issues, https://github.com/pymzml/pymzML/issues

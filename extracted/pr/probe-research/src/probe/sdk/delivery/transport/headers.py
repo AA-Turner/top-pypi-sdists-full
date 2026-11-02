@@ -1,14 +1,22 @@
 """RequestHeaders: the headers a request carries -- auth, workspace limits, device, attribution, and the session, origin and event-time scopes."""
 
 from __future__ import annotations
-import os
+
+from collections.abc import Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from probe.foundation.compat.compat import StrEnum
-from collections.abc import Mapping
+import hashlib
+import hmac
+import os
 from typing import Any
 
+from probe.foundation.compat.compat import StrEnum
+from probe.sdk import errors, routes, session_marker
+from probe.sdk.settings import workspace_limit as _workspace_limit
+from probe.sdk.settings.settings import DAEMON_SHELL_CONFIG
+
 from ....foundation.request_identity.request_identity import device_headers
+from ....foundation.request_identity.surface import Surface
 from ...agent_session import (
     AGENT_HEADER,
     AGENT_SESSION_HEADER,
@@ -19,7 +27,6 @@ from ...agent_session import (
     agent_session_headers,
     recorded_session_headers,
     run_write_origin)
-from ....foundation.request_identity.surface import Surface
 
 
 class Attribution(StrEnum):
@@ -119,16 +126,8 @@ def _write_origin_header(session: Mapping[str, str]) -> dict[str, str]:
     return {WRITE_ORIGIN_HEADER: RUN_WRITE_ORIGIN} if recorded == RUN_WRITE_ORIGIN else {}
 
 
-#: Surfaces that genuinely run ON the machine they report. The MCP is excluded on
-#: purpose: `_client_for_token` is shared by the local stdio server and the HOSTED one,
-#: which memoizes a transport per token for many people, so a fixed device identity
-#: would report our pod as every caller's machine (the bug `client_headers_scope` fixed
-#: for versions).
-#:
-#: So an MCP-only report carries no device. The server closes the gap:
-#: `current_client_versions` resolves a device-less report through the token's live
-#: device bindings when exactly one device holds it, so the plugin's version lands on the
-#: right machine, not a second one.
+#: Surfaces that run ON the machine they report. Not the MCP: the hosted one shares a transport per
+#: token across people, so a device identity would name our pod as every caller's machine.
 _DEVICE_REPORTING_SURFACES = frozenset({Surface.CLI.value, Surface.SDK.value})
 
 
@@ -144,3 +143,70 @@ def _device_headers_for(surface: str) -> dict[str, str]:
         return device_headers(device_instance_id())
     except Exception:  # noqa: BLE001 - identity is telemetry, never a hard failure
         return {}
+
+
+class RequestHeadersMixin:
+    """Part of Transport: its methods run with `self` the Transport; fold_parts() copies them into Transport."""
+
+    # -- auth ---------------------------------------------------------------
+    def _auth_headers(self, path: str, raw_body: bytes) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if routes.is_public(path):
+            # Public reads (Probe's docs) carry no credential: needed most when sign-in
+            # broke, and a token there would be ignored.
+            return headers
+        is_ingest = routes.is_ingest(path)
+        if is_ingest:
+            if not self.settings.ingest_token:
+                raise errors.AuthError("no ingest token configured (set PROBE_INGEST_TOKEN)")
+            headers["Authorization"] = f"Bearer {self.settings.ingest_token}"
+            if self.settings.hmac_secret:
+                sig = hmac.new(
+                    self.settings.hmac_secret.encode(), raw_body, hashlib.sha256
+                ).hexdigest()
+                headers["X-Signature"] = f"sha256={sig}"
+        else:
+            # /v1 accepts a user PAT (probe_pat_) OR a read-only service token (probe_svc_);
+            # the backend dispatches on the prefix. A Reader carries only the service token.
+            bearer = self.settings.token or self.settings.service_token
+            if not bearer:
+                if os.environ.get("PROBE_CONFIG_PATH") == DAEMON_SHELL_CONFIG:
+                    raise errors.AuthError(
+                        "no API token here: this is the Probe daemon's shell, which has no Probe key on "
+                        "purpose. Run the probe command as a command of its own (`probe ...`, or chained: "
+                        "`cd x && probe ...`): the daemon writes to Probe only that way, with its checks."
+                    )
+                raise errors.AuthError(
+                    f"no API token configured ({session_marker.WIZARD_HINT}, or set "
+                    "PROBE_SERVICE_TOKEN)"
+                )
+            headers["Authorization"] = f"Bearer {bearer}"
+        return headers
+
+    # -- workspace limit -------------------------------------------------------
+    def _workspace_limit_headers(self) -> dict[str, str]:
+        """The limit headers for one request, read per request like the client identity:
+        none inside `workspace_limit.without_limit()` (a picker's list); under the hosted
+        MCP's per-request scope the CALLER's (an empty one included: they sent none); else
+        this transport's settings'. An environment slug is looked up once, without the
+        limit. Raises rather than sending nothing: a limit this process cannot name is
+        never dropped."""
+        if _workspace_limit.suppressed():
+            return {}
+        forwarded = _workspace_limit.forwarded()
+        if forwarded is not None:
+            return dict(forwarded)
+        limit = getattr(self.settings, "workspace_limit", None)
+        if limit is None:
+            return {}
+
+        def listed() -> Any:
+            with _workspace_limit.without_limit():
+                return self.request("GET", "/v1/workspaces", idempotent=True).json()
+
+        bearer = self.settings.token or self.settings.service_token
+        ident = _workspace_limit.resolve_id(
+            limit, base_url=self.settings.base_url, list_workspaces=listed,
+            account=_workspace_limit.account_key(bearer),
+        )
+        return _workspace_limit.request_headers(limit, ident)

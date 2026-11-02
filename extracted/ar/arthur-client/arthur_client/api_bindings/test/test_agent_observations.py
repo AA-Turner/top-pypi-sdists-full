@@ -37,6 +37,7 @@ class TestAgentObservations(unittest.TestCase):
             return AgentObservations(
                 install_path = '',
                 version = '',
+                previous_version = '',
                 host_name = '',
                 host_group = '',
                 os_version = '',

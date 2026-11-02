@@ -29,7 +29,7 @@ def _hook(name: str):
 
 def test_pis_manual_steps_are_pis_not_claude_codes():
     """"Set it up manually" for pi printed `claude plugin marketplace add ...`."""
-    from probe.cli import actions
+    from probe.cli.wizard.actions import onboarding as actions
     from probe.shared.harness.harnesses import pi as pi_config
 
     text = actions.manual_steps(base_url="https://api.test", agent_source="pi")
@@ -39,7 +39,7 @@ def test_pis_manual_steps_are_pis_not_claude_codes():
 
 
 def test_manual_steps_for_every_agent_name_each_ones_own_commands():
-    from probe.cli import actions
+    from probe.cli.wizard.actions import onboarding as actions
 
     text = actions.manual_steps(base_url="https://api.test", agent_source=("claude_code", "codex", "pi"))
     assert "claude plugin install" in text
@@ -49,7 +49,7 @@ def test_manual_steps_for_every_agent_name_each_ones_own_commands():
 
 
 def test_instruction_files_name_pis_file_too():
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     assert setup.instruction_files(("pi",)) == "AGENTS.md"
     assert setup.instruction_files(("claude_code", "codex", "pi")) == "CLAUDE.md + AGENTS.md"
@@ -57,12 +57,12 @@ def test_instruction_files_name_pis_file_too():
 
 def test_a_pi_run_never_writes_claude_codes_status_line(tmp_path, monkeypatch):
     """`apply_agent_rules` installed Claude Code's status line on every run."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     calls = []
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "pi"))
-    monkeypatch.setattr(setup, "apply_statusline", lambda: calls.append(1) or ["status line"])
+    monkeypatch.setattr(setup.apply.agent_files, "apply_statusline", lambda: calls.append(1) or ["status line"])
     setup.apply_agent_rules(True)
     assert calls == []
 

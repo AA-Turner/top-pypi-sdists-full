@@ -8,19 +8,9 @@ if TYPE_CHECKING:
 
 
 def _record_upload_fallback(journal: "Journal", client: Any, op: dict) -> bool:
-    """Record a reference artifact for an upload the server refused for good; returns
-    whether the row landed. The caller lets the op stop blocking the run's close only
-    then: a recorded file is a resolved op, an unrecorded one is a real loss and stays
-    blocking.
-
-    The sync upload path already writes an `is_reference` row (local path,
-    `meta.upload = "failed"`; `check_run` counts it as a capture gap) on a permanent
-    rejection. It is the run's only record of the file, and the drainer had no
-    equivalent: a rejected queued upload left an outbox dead letter and nothing else.
-
-    Best effort: it runs while handling a failure so it may not raise. A dead letter with
-    no fallback row still beats a drain that dies mid-pass.
-    """
+    """Record a reference artifact for an upload the server refused for good, as the sync path does;
+    returns whether the row landed (only then does the op stop holding the run's close). Best
+    effort: it runs while handling a failure."""
     shaped = _upload_fallback_request(op)
     if shaped is None:
         return False  # only runs carry the reference-artifact shape

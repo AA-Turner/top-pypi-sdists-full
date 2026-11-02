@@ -504,7 +504,7 @@ def test_prune_says_why_git_cannot_read_the_repo(tmp_path, monkeypatch, capsys):
 
 
 def test_doctor_reports_old_snapshot_refs(tmp_path, monkeypatch):
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     repo = _repo_with_commit(tmp_path / "repo")
     assert "none in this repo" in doctor._snapshot_ref_rows(str(repo))[1]

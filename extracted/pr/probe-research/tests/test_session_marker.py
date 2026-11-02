@@ -761,7 +761,7 @@ def test_every_reason_in_the_closed_vocabulary_renders_whole_on_the_bare_line() 
     `capture_state.REASONS` that outgrows `_LONGEST_REASON_CHARS` would otherwise
     render as `interp…` -- the one thing on the line the reader can act on, cut.
     """
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     assert session_marker._LONGEST_REASON_CHARS == max(len(r) for r in capture_state.REASONS)
     for reason in capture_state.REASONS:
@@ -1140,7 +1140,7 @@ def test_the_writer_and_the_readers_address_the_same_file(tmp_path, monkeypatch)
     """`sdk.config.config_path` used to ignore PROBE_CONFIG_PATH while four
     readers honoured it, so a value written here landed in ~/.config while the
     readers looked elsewhere: it worked in the field and vanished under test."""
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
     from probe.sdk.settings import settings as sdk_config
 
     target = tmp_path / "elsewhere.json"

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 
 FIXTURES = Path(__file__).parent / "fixtures" / "daemon_prompts" / "reads"
 
@@ -121,7 +121,7 @@ def test_saying_no_stays_the_researchers(tmp_path):
     assert _guard(tmp_path, "probe deny 7f3a09c1") == session_marker.DAEMON_PROFILE_DENY.format(matched="probe deny")
 
 
-@pytest.mark.parametrize("command,matched", [("probe project create x", "probe project create"),
+@pytest.mark.parametrize("command,matched", [("probe experiment create x", "probe experiment create"),
                                              ("probe notes push n.md", "probe notes push"),
                                              ("probe companion feedback 'wrong project'", "probe companion feedback")])
 def test_a_write_is_told_that_directed_runs_it(tmp_path, command, matched):
@@ -129,7 +129,7 @@ def test_a_write_is_told_that_directed_runs_it(tmp_path, command, matched):
 
 
 @pytest.mark.parametrize("command", ["probe project move willow-dictation-training --workspace willow --directed",
-                                     "probe --directed project create x",
+                                     "probe --directed experiment create x",
                                      "probe ask x && probe notes push n.md --directed",
                                      "probe companion feedback 'wrong project' --directed",
                                      "probe project contributors p1 --add a@b.c --directed"])

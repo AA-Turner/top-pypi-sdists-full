@@ -1,0 +1,1333 @@
+"""Tests for session-start.py (SessionStart context-injection hook).
+
+Contract: on stdout, emit
+  {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": <skill+banner>}}
+when meta-using-bitranox-skills/SKILL.md is readable; emit nothing when it is not. main()
+always returns 0. The skill is located via CLAUDE_PLUGIN_ROOT (else relative to the
+hook file).
+
+All content is ASCII.
+"""
+
+import io
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+import session_start as S
+import self_improve_signals as SIG
+
+REPO_PLUGIN_ROOT = Path(__file__).resolve().parents[2]  # plugins/bitranox
+
+
+@pytest.fixture(autouse=True)
+def isolate_home(tmp_path, monkeypatch):
+    """Point HOME at a clean tmp dir so audit-file lookup never sees a real report.
+
+    Also drop the auto-update-nudge opt-out sentinel by default so the nudge stays silent for
+    the non-nudge tests; the nudge tests remove it explicitly.
+
+    Also chdir to a clean tmp dir: the run() helper sends no stdin, so _proj() falls back to
+    os.getcwd(); without this it would resolve the REAL repo, whose in-tree curated store makes
+    dream_due() fire and pollutes the context the non-nudge tests assert on. The nudge tests are
+    unaffected - they pass an explicit cwd via run_with_stdin().
+    """
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / ".bitranox-no-autoupdate-nudge").write_text("", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    return home
+
+
+def make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nBODY\n"):
+    skill = tmp_path / "skills" / "meta-using-bitranox-skills" / "SKILL.md"
+    skill.parent.mkdir(parents=True, exist_ok=True)
+    skill.write_text(skill_body, encoding="utf-8")
+    return tmp_path
+
+
+def run(monkeypatch, capsys, plugin_root=None):
+    if plugin_root is None:
+        monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    else:
+        monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    rc = S.main()
+    return rc, capsys.readouterr().out
+
+
+def test_bare_project_emits_nothing(tmp_path, monkeypatch, capsys):
+    # no anchor tree, no audit, no nudges -> the essentials hook emits nothing at all
+    rc, out = run(monkeypatch, capsys, tmp_path)
+    assert rc == 0
+    assert out == ""
+
+
+def test_output_is_valid_json_with_audit(tmp_path, monkeypatch, capsys):
+    cwd = "/proj/jsoncheck"
+    _write_audit(cwd, 'line with "quotes"\nand newline\tand tab\n')
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, cwd)
+    json.loads(out)  # raises if escaping is wrong
+
+
+def test_banner_resolves_against_real_repo_skill(monkeypatch, capsys):
+    # session-banner derives the skill path from the hook file location and finds the
+    # real meta-using-bitranox-skills skill shipped in this repo.
+    import session_banner as B
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    rc = B.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "meta-using-bitranox-skills" in json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_real_skill_is_where_the_hook_expects():
+    assert (REPO_PLUGIN_ROOT / "skills" / "meta-using-bitranox-skills" / "SKILL.md").is_file()
+
+
+# --------------------------------------------------------------------------
+# SessionEnd audit surfacing (consumed once, appended to the skills context)
+# --------------------------------------------------------------------------
+
+
+
+def _ctx(out):
+    """additionalContext from the hook output; '' when the hook emitted nothing."""
+    if not out:
+        return ""
+    return json.loads(out).get("hookSpecificOutput", {}).get("additionalContext", "")
+
+
+def _sysmsg(out):
+    if not out:
+        return ""
+    return json.loads(out).get("systemMessage", "")
+
+
+def run_with_stdin(monkeypatch, capsys, plugin_root, cwd):
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": cwd})))
+    rc = S.main()
+    return rc, capsys.readouterr().out
+
+
+def _write_audit(cwd, text):
+    af = SIG.audit_file(cwd)
+    af.parent.mkdir(parents=True, exist_ok=True)
+    af.write_text(text, encoding="utf-8")
+    return af
+
+
+def test_pending_contributions_are_surfaced_and_NOT_consumed(tmp_path, monkeypatch, capsys):
+    # The intent-to-ship must outlive the session: surfacing a pending contribution must NOT clear
+    # it (that is the difference from the audit). It stands until it actually ships.
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    cwd = _marketplace(tmp_path, "contrib")   # the listing is shown where a dream is run from
+    SIG.add_contribution(cwd, {"what": "check-tree misses sideways refs",
+                               "target": "skill:meta-self-improve", "why": "real gap"})
+    rc, out = run_with_stdin(monkeypatch, capsys, root, cwd)
+    assert rc == 0
+    ctx = _ctx(out)
+    assert "check-tree misses sideways refs" in ctx        # the pending TODO is visible
+    assert "skill:meta-self-improve" in ctx                # and where it goes
+    assert len(SIG.read_contributions(cwd)) == 1           # NOT consumed - unlike the audit
+
+    rc2, out2 = run_with_stdin(monkeypatch, capsys, root, cwd)
+    assert "check-tree misses sideways refs" in _ctx(out2)  # still surfaced next session
+
+
+def test_no_pending_contributions_no_noise(tmp_path, monkeypatch, capsys):
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/nocontrib")
+    assert "pending upstream contribution" not in _ctx(out).lower()
+
+
+def test_audit_is_surfaced_and_consumed(tmp_path, monkeypatch, capsys):
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nSKILLBODY\n")
+    cwd = "/proj/audit"
+    af = _write_audit(cwd, "<SELF-IMPROVE-AUDIT>\nreview these misses\n</SELF-IMPROVE-AUDIT>\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, cwd)
+    assert rc == 0
+    ctx = _ctx(out)
+    assert "review these misses" in ctx  # audit surfaced by the essentials hook
+    assert not af.is_file()              # consumed (deleted) so it is not resurfaced
+
+
+def test_audit_surfaces_even_without_skill(tmp_path, monkeypatch, capsys):
+    cwd = "/proj/auditonly"
+    _write_audit(cwd, "<SELF-IMPROVE-AUDIT>\nonly audit\n</SELF-IMPROVE-AUDIT>\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, tmp_path, cwd)  # tmp_path has no skill
+    assert rc == 0
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "only audit" in ctx
+
+
+def test_no_audit_no_store_emits_nothing(tmp_path, monkeypatch, capsys):
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/none")
+    assert rc == 0
+    assert "SELF-IMPROVE-AUDIT" not in out and out == ""
+
+
+# --------------------------------------------------------------------------
+# Auto-update nudge (self-silencing systemMessage)
+# --------------------------------------------------------------------------
+
+
+def _optout(home):
+    return home / ".claude" / ".bitranox-no-autoupdate-nudge"
+
+
+def test_nudge_fires_when_autoupdate_off(tmp_path, monkeypatch, capsys, isolate_home):
+    _optout(isolate_home).unlink()  # remove the default opt-out so the nudge can fire
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/x")
+    assert rc == 0
+    assert "auto-update" in _sysmsg(out)
+
+
+def test_nudge_silent_when_autoupdate_on(tmp_path, monkeypatch, capsys, isolate_home):
+    _optout(isolate_home).unlink()
+    settings = isolate_home / ".claude" / "settings.json"
+    settings.write_text(
+        json.dumps({"extraKnownMarketplaces": {"bitranox-skills": {"autoUpdate": True}}}),
+        encoding="utf-8")
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/x")
+    assert _sysmsg(out) == ""
+
+
+def test_nudge_silent_when_optout_present(tmp_path, monkeypatch, capsys):
+    # the autouse fixture leaves the opt-out sentinel in place
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/x")
+    assert _sysmsg(out) == ""
+
+
+# D8: the settings-candidate loop (_autoupdate_enabled) must move PAST a file that parses but
+# does not enable, on to the next candidate - not stop and report "not enabled" on the first hit.
+
+def test_a_parseable_but_non_enabling_settings_file_falls_through_to_the_next_candidate(
+        tmp_path, monkeypatch, capsys, isolate_home):
+    """User settings.json parses and explicitly sets autoUpdate false (a real file, not just
+    missing); the project's settings.local.json is the one that enables it. The loop must not
+    stop at the first parseable candidate - it must keep looking until one actually enables."""
+    _optout(isolate_home).unlink()
+    user_settings = isolate_home / ".claude" / "settings.json"
+    user_settings.write_text(
+        json.dumps({"extraKnownMarketplaces": {"bitranox-skills": {"autoUpdate": False}}}),
+        encoding="utf-8")
+    proj = tmp_path / "proj"
+    (proj / ".claude").mkdir(parents=True)
+    (proj / ".claude" / "settings.local.json").write_text(
+        json.dumps({"extraKnownMarketplaces": {"bitranox-skills": {"autoUpdate": True}}}),
+        encoding="utf-8")
+    root = make_plugin_root(tmp_path / "plugin", skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert _sysmsg(out) == ""  # enabled at the project layer: no nudge
+
+
+def test_control_all_candidates_parse_but_none_enables_still_nudges(
+        tmp_path, monkeypatch, capsys, isolate_home):
+    """Control for the test above: same shape, but the last candidate does NOT enable either -
+    the nudge must still fire."""
+    _optout(isolate_home).unlink()
+    user_settings = isolate_home / ".claude" / "settings.json"
+    user_settings.write_text(
+        json.dumps({"extraKnownMarketplaces": {"bitranox-skills": {"autoUpdate": False}}}),
+        encoding="utf-8")
+    proj = tmp_path / "proj2"
+    (proj / ".claude").mkdir(parents=True)
+    (proj / ".claude" / "settings.local.json").write_text(
+        json.dumps({"extraKnownMarketplaces": {"bitranox-skills": {"autoUpdate": False}}}),
+        encoding="utf-8")
+    root = make_plugin_root(tmp_path / "plugin2", skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert "auto-update" in _sysmsg(out)
+
+
+# --------------------------------------------------------------------------
+# meta-dream-tree due nudge (additionalContext, self-silencing)
+# --------------------------------------------------------------------------
+
+
+def test_dream_nudge_fires_when_due(tmp_path, monkeypatch, capsys, isolate_home):
+    mem = SIG.memory_dir("/proj/dream")
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "a.md").write_text("x", encoding="utf-8")  # memory exists, no last-dream -> due
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/dream")
+    ctx = _ctx(out)
+    assert "BITRANOX-DREAM-DUE" in ctx and "meta-dream-tree" in ctx
+
+
+def test_dream_nudge_silent_when_not_due(tmp_path, monkeypatch, capsys):
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/nomem")  # no memory dir -> not due
+    assert "BITRANOX-DREAM-DUE" not in out
+
+
+def test_dream_nudge_silent_when_off(tmp_path, monkeypatch, capsys, isolate_home):
+    mem = SIG.memory_dir("/proj/dream")
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "a.md").write_text("x", encoding="utf-8")
+    SIG.save_config({"dream_mode": "off"})
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/dream")
+    assert "BITRANOX-DREAM-DUE" not in out
+
+
+# --------------------------------------------------------------------------
+# new-project bootstrap nudge + the nudges config flag
+# --------------------------------------------------------------------------
+
+
+def _seed_some_other_knowledge():
+    """Give the store SOMETHING to gather from (a sibling project's memory)."""
+    other = SIG.memory_dir("/proj/other")
+    other.mkdir(parents=True, exist_ok=True)
+    (other / "b.md").write_text("a useful note", encoding="utf-8")
+
+
+def _install_collect_skill(root):
+    """The new-project nudge is gated on the Phase-2 meta-collect-knowledge skill being installed."""
+    p = root / "skills" / "meta-collect-knowledge" / "SKILL.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("---\nname: meta-collect-knowledge\n---\n\nB\n", encoding="utf-8")
+
+
+def test_newproject_nudge_fires_once_then_silent(tmp_path, monkeypatch, capsys, isolate_home):
+    _seed_some_other_knowledge()
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    _install_collect_skill(root)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/fresh")   # fresh, no memory
+    ctx = _ctx(out)
+    assert "BITRANOX-NEW-PROJECT" in ctx and "collect-knowledge" in ctx
+    rc2, out2 = run_with_stdin(monkeypatch, capsys, root, "/proj/fresh")  # second time: silent
+    assert "BITRANOX-NEW-PROJECT" not in out2
+
+
+def test_newproject_nudge_silent_on_empty_store(tmp_path, monkeypatch, capsys, isolate_home):
+    # nothing anywhere to seed from -> no nudge (fresh machine), even with the skill installed
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    _install_collect_skill(root)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/fresh")
+    assert "BITRANOX-NEW-PROJECT" not in out
+
+
+def test_newproject_nudge_dormant_without_collect_skill(tmp_path, monkeypatch, capsys, isolate_home):
+    # collect skill NOT installed (Phase 1 state) -> nudge stays dormant even for a fresh project
+    _seed_some_other_knowledge()
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/fresh")
+    assert "BITRANOX-NEW-PROJECT" not in out
+
+
+def test_nudges_flag_off_suppresses_dream_and_newproject(tmp_path, monkeypatch, capsys, isolate_home):
+    SIG.save_config({"nudges": False})
+    mem = SIG.memory_dir("/proj/dream")          # a due dream
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "a.md").write_text("x", encoding="utf-8")
+    _seed_some_other_knowledge()
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/dream")
+    assert "BITRANOX-DREAM-DUE" not in out        # nudges off -> suppressed
+    rc2, out2 = run_with_stdin(monkeypatch, capsys, root, "/proj/fresh")
+    assert "BITRANOX-NEW-PROJECT" not in out2
+
+
+# --------------------------------------------------------------------------
+# model-driven on-demand retrieval standing rule (BITRANOX-MEMORY-RETRIEVAL)
+# --------------------------------------------------------------------------
+
+import uuid_store as US  # noqa: E402
+
+
+def _anchor_tree_with_fact(tmp_path):
+    """An anchor (CLAUDE.md + central .claude-memory store with one body) -> a nested proj below it."""
+    anchor = tmp_path / "atree"
+    proj = anchor / "sub" / "proj"
+    proj.mkdir(parents=True)
+    (anchor / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    u = US.fact_uuid(str(anchor), "some-fact")
+    US.put_body(str(anchor), u, "the fact body")          # creates anchor/.claude-memory/facts/<shard>/<u>.md
+    return anchor, proj, u
+
+
+def test_retrieval_context_emits_rule_with_anchor_and_slug_path(tmp_path):
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    block = S.retrieval_context(str(proj))
+    assert block is not None
+    assert "BITRANOX-MEMORY-RETRIEVAL" in block
+    assert "%s/.claude-memory/facts/" % anchor in block   # concrete absolute anchor path
+    assert "mem:" in block                                 # names the pointer scheme
+    assert "<slug>.md" in block                            # the slug-named body rule
+
+
+def test_retrieval_context_none_without_store(tmp_path):
+    # a CLAUDE.md anchor but NO .claude-memory store yet -> nothing to retrieve
+    anchor = tmp_path / "bare"
+    proj = anchor / "proj"
+    proj.mkdir(parents=True)
+    (anchor / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    assert S.retrieval_context(str(proj)) is None
+
+
+def test_retrieval_context_none_without_anchor(tmp_path):
+    d = tmp_path / "no" / "claude" / "md"
+    d.mkdir(parents=True)
+    assert S.retrieval_context(str(d)) is None
+
+
+def test_main_includes_retrieval_block_when_store_exists(tmp_path, monkeypatch, capsys):
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert rc == 0
+    ctx = _ctx(out)
+    assert "BITRANOX-MEMORY-RETRIEVAL" in ctx and ("%s/.claude-memory/facts/" % anchor) in ctx
+
+
+def test_main_omits_retrieval_when_no_store(tmp_path, monkeypatch, capsys):
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nB\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, "/proj/no-store")
+    assert "BITRANOX-MEMORY-RETRIEVAL" not in out
+
+
+# --------------------------------------------------------------------------
+# inject split: session-start emits ONLY the small essentials (retrieval + audit + nudges);
+# the big skills banner moved to session-banner.py. Root cause: the harness persists oversized
+# additionalContext to a file with a ~2KB preview, so anything appended after the ~10KB banner
+# (retrieval block, nudges, audit) never reached context.
+# --------------------------------------------------------------------------
+
+
+def test_session_start_no_longer_injects_the_banner(tmp_path, monkeypatch, capsys):
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nBIGBANNER\n")
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "BIGBANNER" not in ctx and "EXTREMELY-IMPORTANT" not in ctx   # banner not here any more
+    assert "BITRANOX-MEMORY-RETRIEVAL" in ctx                            # essentials still here
+
+
+def test_session_start_small_context_stays_under_persist_cap(tmp_path, monkeypatch, capsys):
+    # essentials (retrieval + audit + nudges) must stay comfortably below the harness persist
+    # threshold, or they get buried in a file again. Defensive budget: 3500 bytes.
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    _write_audit(str(proj), "<SELF-IMPROVE-AUDIT>\nsome candidate misses\n</SELF-IMPROVE-AUDIT>\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert ctx and len(ctx.encode("utf-8")) < 3500
+
+
+def test_session_banner_emits_the_skill_banner(tmp_path, monkeypatch, capsys):
+    import session_banner as B
+    root = make_plugin_root(tmp_path, skill_body="---\nname: meta-using-bitranox-skills\n---\n\nBIGBANNER\n")
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(root))
+    rc = B.main()
+    out = capsys.readouterr().out
+    assert rc == 0
+    ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "BIGBANNER" in ctx and ctx.startswith("<EXTREMELY-IMPORTANT>")
+
+
+def test_session_banner_missing_skill_emits_nothing(tmp_path, monkeypatch, capsys):
+    import session_banner as B
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(tmp_path))
+    rc = B.main()
+    assert rc == 0 and capsys.readouterr().out == ""
+
+
+# ---------------------------------------------------------------------------
+# decoy_context: a second .claude-memory BELOW the tree top
+# ---------------------------------------------------------------------------
+
+
+def _tree(tmp_path, *, decoy: bool, name: str = "tree"):
+    """Build a minimal tree: CLAUDE.md + a store at the top, a project level under it.
+
+    With ``decoy=True`` a SECOND store is planted below the top, which is what the walk-up
+    retrieval resolves to FIRST - the whole reason this check exists.
+    """
+    top = tmp_path / name
+    (top / ".claude-memory" / "facts").mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("# top\n", encoding="utf-8")
+    proj = top / "proj"
+    proj.mkdir()
+    (proj / "CLAUDE.md").write_text("# proj\n", encoding="utf-8")
+    if decoy:
+        (proj / ".claude-memory").mkdir()
+    return proj
+
+
+def _clear_stamp():
+    """Drop every decoy stamp, whatever the naming scheme, so a test starts un-throttled."""
+    d = SIG._audit_dir()
+    if d.is_dir():
+        for stamp in d.glob("*decoy-check.stamp"):
+            stamp.unlink()
+
+
+def test_decoy_context_is_silent_on_a_healthy_tree(tmp_path):
+    """Exactly one store, at the top, is the healthy shape and must say nothing."""
+    proj = _tree(tmp_path, decoy=False)
+    _clear_stamp()
+
+    assert S.decoy_context(str(proj)) == ""
+
+
+def test_decoy_context_reports_a_store_below_the_top(tmp_path):
+    """The arm that matters: without it the check could be silent for the wrong reason.
+
+    A store below the top shadows the real bodies at the top and returns stale or empty ones
+    with NO error, so a silent check and a healthy tree are indistinguishable from the outside.
+    """
+    proj = _tree(tmp_path, decoy=True)
+    _clear_stamp()
+
+    out = S.decoy_context(str(proj))
+
+    assert "decoy anchor" in out
+    assert str(proj / ".claude-memory") in out
+
+
+def test_decoy_context_is_throttled_after_it_runs(tmp_path):
+    """The scan is a full os.walk of the tree, far too slow to pay on every session start."""
+    proj = _tree(tmp_path, decoy=True)
+    _clear_stamp()
+
+    first = S.decoy_context(str(proj))
+    second = S.decoy_context(str(proj))
+
+    assert "decoy anchor" in first
+    assert second == ""
+
+
+def test_decoy_context_sweeps_the_superseded_machine_wide_stamp(tmp_path):
+    """Upgrading to the per-project stamp must not strand the old one in the audit dir.
+
+    The machine-wide `decoy-check.stamp` is dead the moment the key becomes per-project, but it
+    is a file in the user's audit dir with no owner left to remove it, and nothing in it says
+    why it is there. Swept on the next run that writes a per-project stamp.
+    """
+    proj = _tree(tmp_path, decoy=False)
+    _clear_stamp()
+    legacy = SIG._audit_dir() / "decoy-check.stamp"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text("2026-01-01T00:00:00", encoding="utf-8")
+
+    S.decoy_context(str(proj))
+
+    assert not legacy.exists()
+    assert (SIG._audit_dir() / (SIG.proj_key(str(proj)) + ".decoy-check.stamp")).exists()
+
+
+def test_decoy_context_throttle_is_per_project_not_machine_wide(tmp_path):
+    """One tree's daily check must not consume every other tree's.
+
+    The stamp used to live at a single machine-wide path, so whichever project started a session
+    first each day silenced the decoy warning for every other tree on the machine - and a tree
+    that really does carry a decoy was checked only if it happened to win that race.
+    """
+    healthy = _tree(tmp_path, decoy=False, name="healthy")
+    carries_decoy = _tree(tmp_path, decoy=True, name="carries-decoy")
+    _clear_stamp()
+
+    first = S.decoy_context(str(healthy))
+    second = S.decoy_context(str(carries_decoy))
+
+    assert first == ""
+    assert "decoy anchor" in second
+
+
+def test_decoy_context_is_silent_when_no_ancestor_carries_a_claude_md(tmp_path):
+    """A session started in a plain parent dir must not call the trees BELOW it decoys.
+
+    ``find_decoy_anchors`` requires an anchor resolved from a CLAUDE.md-bearing ancestor; with no
+    such ancestor the walk root used to fall back to the cwd itself, so every live per-tree store
+    underneath read as a decoy and the message told the user to remove it. Following that advice
+    deletes real fact bodies. The same fallback made the walk root unbounded - a session started
+    in a home directory walked the whole of it inside a hook that promises not to delay a session.
+    """
+    parent = tmp_path / "projects"
+    parent.mkdir()
+    repo = parent / "repoA"
+    (repo / ".claude-memory" / "facts").mkdir(parents=True)
+    (repo / "CLAUDE.md").write_text("# repoA top\n", encoding="utf-8")
+    _clear_stamp()
+
+    # Non-vacuous: the whole point is that no ancestor carries a CLAUDE.md. If one did (a stray
+    # /tmp/CLAUDE.md has hijacked this walk before), the assertion below would pass for the
+    # wrong reason.
+    import uuid_store as us
+    assert us.resolve_anchor(str(parent)) is None
+
+    assert S.decoy_context(str(parent)) == ""
+
+
+def test_decoy_context_never_raises_on_a_broken_tree(tmp_path):
+    """A hook must never wedge a session: an unresolvable project is an empty string, not a raise."""
+    assert S.decoy_context(str(tmp_path / "does-not-exist")) == ""
+
+
+# --------------------------------------------------------------------------
+# OPEN-WORK.md: the standing backlog. The handover describes ONE MOMENT and is overwritten
+# wholesale, so anything that outlives the session sinks a little on every rewrite - measured,
+# five tracked items lost their size and then their heading across three rewrites in one day.
+# The backlog is a separate artifact, and SessionStart re-surfaces it WITHOUT consuming it,
+# ordered by RANK so a fresh micro-task cannot outrank a standing one by being recent.
+# --------------------------------------------------------------------------
+
+
+def _write_open_work(proj, text):
+    p = Path(proj) / "OPEN-WORK.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+def test_open_work_items_are_surfaced_and_not_consumed(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "p1"
+    proj.mkdir()
+    ow = _write_open_work(proj, "# Open work\n\n"
+                          "- [ ] (2026-08-27) [1] USER: review all skills one by one"
+                          " | size: 88 of 135 targets | next: pick a slice\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "review all skills one by one" in ctx
+    assert "88 of 135 targets" in ctx
+    assert ow.exists() and "review all skills one by one" in ow.read_text(encoding="utf-8")
+
+
+def test_open_work_orders_by_rank_not_by_recency(tmp_path, monkeypatch, capsys):
+    # The whole point: a rank-1 item raised days ago must print ABOVE a rank-2 item raised today.
+    proj = tmp_path / "p2"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (2026-08-31) [2] FOUND: pad the backup counter\n"
+                           "- [ ] (2026-08-27) [1] USER: review all skills one by one\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert ctx.index("review all skills") < ctx.index("pad the backup counter")
+
+
+def test_open_work_reports_the_age_of_an_item(tmp_path, monkeypatch, capsys):
+    # Ageing is the property that was missing: a long-carried item has to become conspicuous.
+    import datetime
+    old = (datetime.date.today() - datetime.timedelta(days=4)).isoformat()
+    proj = tmp_path / "p3"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (%s) [1] USER: review all skills one by one\n" % old)
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert "4 days" in _ctx(out)
+
+
+def test_open_work_skips_closed_items(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "p4"
+    proj.mkdir()
+    _write_open_work(proj, "- [x] (2026-08-20) [1] USER: done thing | closed: shipped in 5.1.0\n"
+                           "- [ ] (2026-08-27) [2] USER: open thing\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "open thing" in ctx and "done thing" not in ctx
+
+
+def test_open_work_shows_a_short_backlog_whole(tmp_path, monkeypatch, capsys):
+    # A fixed count recreated the sink it exists to remove: with a cap of five, everything below
+    # rank five was a number rather than a thing. The budget is the only real constraint, so a
+    # backlog that fits is shown WHOLE.
+    proj = tmp_path / "p5"
+    proj.mkdir()
+    lines = "".join("- [ ] (2026-08-27) [%d] FOUND: item number %d\n" % (i * 10, i) for i in range(1, 9))
+    _write_open_work(proj, lines)
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "item number 1" in ctx
+    assert "item number 8" in ctx
+    assert "more in OPEN-WORK.md" not in ctx
+
+
+def test_open_work_truncates_on_bytes_and_counts_the_rest(tmp_path, monkeypatch, capsys):
+    # Past the budget it still truncates, and a hidden item must be COUNTED - a silent drop is
+    # the failure this file exists to stop.
+    proj = tmp_path / "p5b"
+    proj.mkdir()
+    long_tail = "x" * 300
+    lines = "".join("- [ ] (2026-08-27) [%d] FOUND: item number %d %s\n" % (i * 10, i, long_tail)
+                    for i in range(1, 41))
+    _write_open_work(proj, lines)
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "item number 1 " in ctx
+    assert "item number 40 " not in ctx
+    assert "more in OPEN-WORK.md" in ctx
+
+
+def test_open_work_shows_at_least_one_item_however_long(tmp_path, monkeypatch, capsys):
+    # A single item longer than the whole budget must not reduce the block to a bare count.
+    proj = tmp_path / "p5c"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (2026-08-27) [10] FOUND: the only item %s\n" % ("y" * 4000))
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "the only item" in ctx
+    assert len(ctx.encode("utf-8")) < 3500
+
+
+def test_open_work_absent_is_silent(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "p6"
+    proj.mkdir()
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert "OPEN-WORK" not in _ctx(out)
+
+
+def test_open_work_with_no_open_items_is_silent(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "p7"
+    proj.mkdir()
+    _write_open_work(proj, "- [x] (2026-08-20) [1] USER: done | closed: shipped\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert "OPEN-WORK" not in _ctx(out)
+
+
+def test_open_work_block_stays_within_the_persist_budget(tmp_path, monkeypatch, capsys):
+    # Same 3500-byte budget as the essentials test above, proven with a POPULATED backlog
+    # rather than an empty one: an unbounded block would bury the essentials in a file again.
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    _write_audit(str(proj), "<SELF-IMPROVE-AUDIT>\nsome candidate misses\n</SELF-IMPROVE-AUDIT>\n")
+    lines = "".join(
+        "- [ ] (2026-08-27) [%d] USER: a standing item with a fairly long description number %d"
+        " | size: %d targets | open: not started | next: do the thing\n" % (i, i, i * 11)
+        for i in range(1, 13))
+    _write_open_work(proj, lines)
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert ctx and len(ctx.encode("utf-8")) < 3500
+
+
+def test_open_work_accepts_an_uncertain_date(tmp_path, monkeypatch, capsys):
+    # The skill tells a writer with no real first-raised date to write today's with a "?" rather
+    # than invent one. A parser that drops that line would make the honest form the invisible one.
+    proj = tmp_path / "p8"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (2026-08-31?) [1] FOUND: date not known | open: first seen here\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    assert "date not known" in _ctx(out)
+
+
+def test_open_work_accepts_an_unknown_date(tmp_path, monkeypatch, capsys):
+    # "(unknown)" is what an agent writes unprompted when no date was recorded - measured in a
+    # test arm that reached for it over the prescribed "?" form. A parser that drops it makes the
+    # honest line the invisible one, which is the failure this file exists to stop.
+    proj = tmp_path / "p9"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (unknown) [1] FOUND: nobody recorded when this started\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "nobody recorded when this started" in ctx
+    assert "date unknown" in ctx
+
+
+def test_open_work_sorts_a_dated_item_above_an_undated_one_of_equal_rank(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "p10"
+    proj.mkdir()
+    _write_open_work(proj, "- [ ] (unknown) [1] FOUND: undated item\n"
+                           "- [ ] (2026-08-27) [1] FOUND: dated item\n")
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert ctx.index("dated item") < ctx.index("undated item")
+
+
+# A closed item keeps its number, and this block lists open items only, so the number a closed
+# line holds looks free. Measured over 22 real backlogs: 7 had an open item sharing its rank with
+# a closed line, none had two open items on one rank. "rank 14" then names two things.
+
+def test_an_open_rank_a_closed_line_also_uses_is_named(tmp_path):
+    proj = tmp_path / "dup1"
+    _write_open_work(proj, "- [x] (2026-09-23) [14] USER: old thing | closed: shipped\n"
+                           "- [ ] (2026-10-01) [14] USER: new thing\n"
+                           "- [ ] (2026-10-01) [20] FOUND: other\n")
+    block = S.open_work_context(str(proj))
+    assert "Rank 14 labels more than one line" in block
+    assert "new thing" in block and "other" in block
+
+
+def test_distinct_ranks_raise_no_rank_warning(tmp_path):
+    """Control: the same backlog with the closed line on its own number says nothing."""
+    proj = tmp_path / "dup2"
+    _write_open_work(proj, "- [x] (2026-09-23) [13] USER: old thing | closed: shipped\n"
+                           "- [ ] (2026-10-01) [14] USER: new thing\n")
+    assert "labels more than one line" not in S.open_work_context(str(proj))
+
+
+def test_two_closed_lines_sharing_a_rank_are_history_not_a_warning(tmp_path):
+    proj = tmp_path / "dup3"
+    _write_open_work(proj, "- [x] (2026-09-01) [10] USER: a | closed: x\n"
+                           "- [x] (2026-09-02) [10] USER: b | closed: y\n"
+                           "- [ ] (2026-10-01) [20] USER: open one\n")
+    assert "labels more than one line" not in S.open_work_context(str(proj))
+
+
+def test_two_open_items_on_one_rank_are_named_too(tmp_path):
+    proj = tmp_path / "dup4"
+    _write_open_work(proj, "- [ ] (2026-10-01) [30] USER: a\n- [ ] (2026-10-02) [30] USER: b\n"
+                           "- [ ] (2026-10-02) [40] USER: c\n- [x] (2026-10-02) [40] USER: d\n")
+    assert "Ranks 30, 40 label more than one line" in S.open_work_context(str(proj))
+
+
+def test_the_rank_warning_yields_before_the_listing_does(tmp_path):
+    """Under a tight budget the warning goes first: the listing is what must survive."""
+    proj = tmp_path / "dup5"
+    _write_open_work(proj, "- [x] (2026-09-23) [14] USER: old | closed: x\n"
+                           "- [ ] (2026-10-01) [14] USER: the open item\n")
+    full = S.open_work_context(str(proj))
+    assert "labels more than one line" in full
+    plain = full.split("\n", 1)[1]          # the same block without its warning line
+    # The floor reserves a newline after the last line, so the plain listing needs one byte more.
+    block = S.open_work_context(str(proj), budget=len(plain.encode("utf-8")) + 1)
+    assert block == plain
+
+
+def test_the_rank_warning_never_costs_a_listed_item(tmp_path):
+    """At every budget the listing equals its twin's, whose closed line holds a free number."""
+    items = "".join("- [ ] (2026-08-27) [%d] USER: a standing item with a long description %d\n"
+                    % (i * 10, i) for i in range(1, 20))
+    dup, twin = tmp_path / "dup6", tmp_path / "twin6"
+    _write_open_work(dup, "- [x] (2026-09-01) [10] USER: closed | closed: x\n" + items)
+    _write_open_work(twin, "- [x] (2026-09-01) [5] USER: closed | closed: x\n" + items)
+    warned_seen = dropped_seen = 0
+    for budget in range(400, 2400, 7):
+        block = S.open_work_context(str(dup), budget=budget)
+        plain = S.open_work_context(str(twin), budget=budget)
+        assert len(block.encode("utf-8")) <= budget
+        if "labels more than one line" in block:
+            warned_seen += 1
+            assert block.split("\n", 1)[1] == plain
+        else:
+            dropped_seen += 1
+            assert block == plain
+    assert warned_seen and dropped_seen, "control: both outcomes must occur across the budgets"
+
+
+# ---- the listing reads the backlog through open_work, the module the backlog tools use ------------
+# Pinned byte for byte BEFORE the parser was folded onto open_work.iter_items: ranks out of file
+# order, a rank shared with a closed line, three items on one rank (dated, earlier, undated), an
+# uncertain date, a capital-X closed line, an indented item, loose spacing, a fenced template
+# line and prose quoting an item mid-line.
+
+PINNED_BACKLOG = (
+    "# Open work\n\nOne item per line:\n\n```\n"
+    "- [ ] (YYYY-MM-DD) [rank] ORIGIN: what it is | size: how much is left | open: why | next: "
+    "action\n```\n\n## Items\n\n"
+    "- [ ] (2026-10-20) [40] FOUND: forty, the later of two dated items on one rank | size: 1 | "
+    "open: x | next: y\n"
+    "- [x] (2026-09-01) [10] USER: an old closed line holding rank ten | closed: shipped in 1.0\n"
+    "- [ ] (2026-10-28) [10] USER: ten, sharing its rank with the closed line above\n"
+    "- [ ] (2026-10-01) [40] FOUND: forty, the earlier one\n"
+    "- [ ] (unknown) [40] USER: forty, undated, so it sorts last in its rank\n"
+    "- [ ] (2026-10-29?) [5] USER: five, an uncertain date | next: a very long next action that "
+    "runs past the ninety-six character cut of the listing line\n"
+    "- [X] (2026-08-01) [7] FOUND: a closed line with a capital X\n"
+    "  - [ ] (2026-10-10) [20] USER: twenty, indented under a bullet\n"
+    "- [ ]   (2026-10-02)   [30]   USER: thirty, with loose spacing   \n"
+    "prose that mentions - [ ] (2026-10-02) [99] mid-line is not an item\n")
+
+PINNED_LISTING = (
+    "Ranks 10, 40 label more than one line of OPEN-WORK.md (closed lines included): give the open "
+    "item a free number before citing it as 'rank N'.\n"
+    "7 OPEN-WORK ITEM(S) - the standing backlog at OPEN-WORK.md, ordered by RANK and NOT by what "
+    "was touched last. It persists until an item is closed there, so reading it does not clear it. "
+    "Whatever you do next should be the top-ranked item, or you should say plainly why a "
+    "lower-ranked one goes first:\n"
+    "- [5] (raised today) USER: five, an uncertain date | next: a very long next action that runs "
+    "past the ninety-six char\n"
+    "- [10] (raised 1 day ago) USER: ten, sharing its rank with the closed line above\n"
+    "- [20] (raised 19 days ago) USER: twenty, indented under a bullet\n"
+    "- [30] (raised 27 days ago) USER: thirty, with loose spacing\n"
+    "- [40] (raised 28 days ago) FOUND: forty, the earlier one\n"
+    "- [40] (raised 9 days ago) FOUND: forty, the later of two dated items on one rank | size: 1 | "
+    "open: x | next: y\n"
+    "- [40] (date unknown) USER: forty, undated, so it sorts last in its rank")
+
+
+def test_the_backlog_listing_is_pinned_byte_for_byte(tmp_path):
+    import datetime
+    proj = tmp_path / "pin"
+    _write_open_work(proj, PINNED_BACKLOG)
+    assert S.open_work_context(str(proj), today=datetime.date(2026, 10, 29)) == PINNED_LISTING
+
+
+def test_an_item_line_inside_a_code_fence_is_not_listed(tmp_path):
+    # open_work.iter_items skips a fenced line, so backlog_list and backlog_close never see it as
+    # an item; the session-start listing must not show one the tools cannot close.
+    import open_work
+    proj = tmp_path / "fence"
+    text = ("```\n- [ ] (2026-10-01) [3] USER: an example inside a fence\n```\n"
+            "- [ ] (2026-10-01) [9] USER: the real item\n")
+    _write_open_work(proj, text)
+    block = S.open_work_context(str(proj))
+    assert "the real item" in block
+    assert "inside a fence" not in block
+    assert [it["rank"] for it in open_work.list_items(proj / "OPEN-WORK.md")] == [9]
+
+
+def test_a_rank_shared_only_with_a_fenced_line_raises_no_warning(tmp_path):
+    proj = tmp_path / "fence2"
+    _write_open_work(proj, "~~~\n- [x] (2026-10-01) [9] USER: example | closed: x\n~~~\n"
+                           "- [ ] (2026-10-01) [9] USER: the real item\n")
+    assert "labels more than one line" not in S.open_work_context(str(proj))
+
+
+def test_essentials_stay_under_budget_with_every_block_present(tmp_path, monkeypatch, capsys):
+    # The earlier budget test used a fixture carrying only retrieval + audit, so a backlog sized
+    # against it passed while the REAL repo - which also has contributions - overran by 429 bytes.
+    # This one populates every block that shares the ceiling.
+    anchor, proj, _u = _anchor_tree_with_fact(tmp_path)
+    _write_audit(str(proj), "<SELF-IMPROVE-AUDIT>\n" + "a candidate miss\n" * 6 + "</SELF-IMPROVE-AUDIT>\n")
+    for i in range(4):
+        SIG.add_contribution(str(proj), {"what": "a pending contribution number %d with a description" % i,
+                                         "target": "skill:some-skill", "why": "measured"})
+    lines = "".join(
+        "- [ ] (2026-08-27) [%d] USER: a standing item with a fairly long description number %d"
+        " | size: %d targets | open: not started | next: do the thing\n" % (i * 10, i, i * 11)
+        for i in range(1, 31))
+    _write_open_work(proj, lines)
+    root = make_plugin_root(tmp_path)
+    rc, out = run_with_stdin(monkeypatch, capsys, root, str(proj))
+    ctx = _ctx(out)
+    assert "OPEN-WORK ITEM(S)" in ctx and "PENDING UPSTREAM CONTRIBUTION" in ctx   # both present
+    assert len(ctx.encode("utf-8")) < 3500
+
+
+def _fill_queue(cwd, count):
+    for i in range(count):
+        SIG.add_contribution(cwd, {"what": "queued contribution %03d that describes its change at length" % i,
+                                   "target": "skill:some-skill-%03d" % i,
+                                   "why": "measured on the corpus, run %03d" % i})
+
+
+def test_a_full_contribution_queue_in_a_dream_room_stays_under_the_ceiling(tmp_path, monkeypatch, capsys):
+    # contrib_context formatted every queued entry with no budget of its own. At the queue's
+    # 100-entry cap that measured 11481 bytes against the 3300 ceiling, and over the ceiling the
+    # harness persists the WHOLE essentials block and injects a ~2KB preview, so every other block
+    # went with it. A dream room is where the entries are listed, so that is the case to pin.
+    cwd = _marketplace(tmp_path, "fullqueue")
+    _fill_queue(cwd, 100)
+    assert len(SIG.read_contributions(cwd)) == 100            # the fixture really is a full queue
+    _write_open_work(cwd, "".join(
+        "- [ ] (2026-08-27) [%d] USER: a standing item number %d | size: %d | open: x | next: y\n"
+        % (i * 10, i, i) for i in range(1, 6)))
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    ctx = _ctx(out)
+    assert len(ctx.encode("utf-8")) <= S._ESSENTIALS_CEILING_BYTES
+    assert "100 PENDING UPSTREAM CONTRIBUTION" in ctx          # the count survives
+    assert "OPEN-WORK ITEM(S)" in ctx                          # and the backlog is not crowded out
+
+
+def test_a_contribution_listing_that_does_not_fit_says_how_many_it_left_out(tmp_path):
+    cwd = _marketplace(tmp_path, "partial")
+    _fill_queue(cwd, 30)
+    block = S.contrib_context(cwd, budget=1500)
+    assert len(block.encode("utf-8")) <= 1500
+    assert block.startswith("30 PENDING UPSTREAM CONTRIBUTION")
+    assert "queued contribution 000" in block                  # it lists what fits, not nothing
+    assert "more" in block and "contrib_queue.py list" in block
+
+
+def test_a_dream_room_listing_shows_who_has_claimed_an_entry(tmp_path):
+    # Two sweeping sessions once worked the same entry because nothing showed one had started it.
+    cwd = _marketplace(tmp_path, "claimed")
+    _fill_queue(cwd, 2)
+    SIG.claim_contribution(cwd, "contribution 001", "cccccccc-1111-2222-3333-444444444444", hours=2)
+    block = S.contrib_context(cwd, budget=1500)
+    claimed = next(ln for ln in block.splitlines() if "contribution 001" in ln)
+    free = next(ln for ln in block.splitlines() if "contribution 000" in ln)
+    assert "claimed by cccccccc" in claimed
+    assert "claimed" not in free
+
+
+def test_a_contribution_budget_too_small_for_one_entry_leaves_the_count(tmp_path):
+    cwd = _marketplace(tmp_path, "tiny")
+    _fill_queue(cwd, 3)
+    block = S.contrib_context(cwd, budget=200)
+    assert block and "3 PENDING UPSTREAM CONTRIBUTION" in block
+    assert "queued contribution" not in block
+    assert len(block.encode("utf-8")) <= 200          # the count line respects the budget it was given
+
+
+def test_a_contribution_budget_too_small_even_for_the_count_yields_nothing(tmp_path):
+    # This budget once returned the count line anyway, over the budget and so over the ceiling, which
+    # makes the harness hide the WHOLE essentials block - the backlog with it. The queue yields first.
+    cwd = _marketplace(tmp_path, "tiny")
+    _fill_queue(cwd, 3)
+    assert S.contrib_context(cwd, budget=40) is None
+    assert len(S.contrib_pointer(cwd).encode("utf-8")) > 40    # control: it is the SIZE that refused it
+
+
+@pytest.mark.parametrize("budget", list(range(396, 426)) + list(range(520, 1200, 11)))
+def test_a_truncated_open_work_listing_stays_within_its_budget(tmp_path, budget):
+    # The line counting the items left out was appended AFTER the loop had spent the budget, so a
+    # listing cut close to the limit overran it by that line's own length. Many budgets, because
+    # whether one lands inside the overrun window depends on where the last admitted line ends.
+    proj = tmp_path / ("ow%d" % budget)
+    _write_open_work(proj, "".join(
+        "- [ ] (2026-08-27) [%d] USER: a standing item with a long description number %d | size: 9\n"
+        % (i * 10, i) for i in range(1, 40)))
+    block = S.open_work_context(str(proj), budget=budget)
+    assert "more in OPEN-WORK.md" in block or block == S._OPEN_WORK_COMPACT % 39
+    assert len(block.encode("utf-8")) <= budget
+
+
+def test_two_compact_pointers_never_push_the_essentials_past_the_ceiling(tmp_path, monkeypatch, capsys):
+    # With little room left, the backlog and the queue each degrade to a one-line pointer, and two
+    # pointers that each fit alone can still breach the ceiling together. Only the backlog pointer
+    # may stand over it; the queue pointer goes first.
+    cwd = _marketplace(tmp_path, "tight")
+    _fill_queue(cwd, 5)
+    _write_open_work(cwd, "".join("- [ ] (2026-08-27) [%d] USER: item %d | size: 1 | open: x | next: y\n"
+                                  % (i * 10, i) for i in range(1, 6)))
+    seen_listed = False
+    for filler in range(2700, 3200, 7):
+        _write_audit(cwd, "<SELF-IMPROVE-AUDIT>\n" + "x" * filler + "\n</SELF-IMPROVE-AUDIT>\n")
+        _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+        ctx = _ctx(out)
+        seen_listed = seen_listed or "5 PENDING UPSTREAM CONTRIBUTION" in ctx
+        if len(ctx.encode("utf-8")) > S._ESSENTIALS_CEILING_BYTES:
+            assert "PENDING UPSTREAM CONTRIBUTION" not in ctx, filler
+    assert seen_listed, "control: the queue pointer must appear while there is room for it"
+
+
+def _unreadable_queue(cwd):
+    """A queue path that exists but cannot be read as a file (a directory stands there)."""
+    q = SIG.contrib_file(cwd)
+    q.mkdir(parents=True)
+    with pytest.raises(OSError):
+        SIG.read_contributions(cwd)                            # the reader really does refuse it
+    return q
+
+
+@pytest.mark.parametrize("room", ["marketplace", "work"])
+def test_an_unreadable_contribution_queue_is_named_not_hidden(tmp_path, room):
+    """The readers raise on an unreadable queue, and the hook turned that into silence - the same
+    output as an empty queue, so pending contributions vanished without a word."""
+    cwd = _marketplace(tmp_path) if room == "marketplace" else _work_project(tmp_path)
+    _unreadable_queue(cwd)
+    block = S.contrib_context(cwd, budget=1500)
+    assert block and "could not be read" in block and "contrib_queue.py list" in block
+    assert S.contrib_pointer(cwd) == block
+
+
+def test_an_unreadable_queue_line_still_respects_its_budget(tmp_path):
+    cwd = _marketplace(tmp_path)
+    _unreadable_queue(cwd)
+    assert S.contrib_context(cwd, budget=20) is None
+    assert len(S.contrib_pointer(cwd).encode("utf-8")) > 20    # control: it is the SIZE that refused it
+
+
+def test_an_absent_contribution_queue_still_shows_nothing_control(tmp_path):
+    cwd = _marketplace(tmp_path)
+    assert S.contrib_context(cwd, budget=1500) is None and S.contrib_pointer(cwd) is None
+
+
+def test_open_work_falls_back_to_a_compact_pointer_when_the_budget_is_gone(tmp_path, monkeypatch, capsys):
+    # When the other blocks have spent the ceiling there is no room for items, but the backlog
+    # must not vanish either - hiding it is the failure this whole file exists to stop. It
+    # degrades to one short line naming the count, never to nothing and never to a breach.
+    proj = tmp_path / "p11"
+    proj.mkdir()
+    _write_open_work(proj, "".join(
+        "- [ ] (2026-08-27) [%d] USER: a standing item with a long description number %d\n" % (i * 10, i)
+        for i in range(1, 15)))
+    block = S.open_work_context(str(proj), budget=50)
+    assert block is not None
+    assert "14" in block and "OPEN-WORK.md" in block
+    assert len(block.encode("utf-8")) < 200
+
+
+# --------------------------------------------------------------------------
+# A dream is the dream's job: outside a dream room the maintenance nudges collapse to one line
+# --------------------------------------------------------------------------
+
+
+def _marketplace(tmp_path, name="mkt"):
+    """A cwd that is a Claude Code plugin marketplace - the room a dream is run from."""
+    root = tmp_path / name
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin" / "marketplace.json").write_text('{"name": "x", "plugins": []}',
+                                                              encoding="utf-8")
+    return str(root)
+
+
+def _work_project(tmp_path, name="work"):
+    root = tmp_path / name
+    root.mkdir()
+    return str(root)
+
+
+def _memory_with_facts(cwd):
+    mem = SIG.memory_dir(cwd)
+    mem.mkdir(parents=True, exist_ok=True)
+    (mem / "a.md").write_text("x", encoding="utf-8")   # facts exist, no last-dream -> due
+
+
+def _dream_block(ctx):
+    return ctx.split("<BITRANOX-DREAM-DUE>")[1].split("</BITRANOX-DREAM-DUE>")[0].strip()
+
+
+def test_dream_due_in_a_work_project_is_one_line_that_defers(tmp_path, monkeypatch, capsys):
+    """Measured over three weeks of transcripts: the full ask at the start of an ordinary session is
+    where a consolidation gets run inline, in a project whose work it is not."""
+    cwd = _work_project(tmp_path)
+    _memory_with_facts(cwd)
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    ctx = _ctx(out)
+    assert "BITRANOX-DREAM-DUE" in ctx and "meta-dream-tree" in ctx
+    assert "session of its own" in ctx, "the deferral must be stated, not implied"
+    assert "dedup / merge" not in ctx and "say 'skip'" not in ctx, "the full ask must not appear"
+    assert "\n" not in _dream_block(ctx), "one line"
+
+
+def test_dream_due_in_a_marketplace_repo_is_the_full_ask(tmp_path, monkeypatch, capsys):
+    cwd = _marketplace(tmp_path)
+    _memory_with_facts(cwd)
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    ctx = _ctx(out)
+    assert "BITRANOX-DREAM-DUE" in ctx and "dedup / merge" in ctx
+
+
+def test_dream_due_in_the_memory_store_is_the_full_ask(tmp_path, monkeypatch, capsys):
+    store = tmp_path / SIG.MEMORY_DIRNAME
+    (store / "facts").mkdir(parents=True)
+    cwd = str(store)
+    _memory_with_facts(cwd)
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    assert "dedup / merge" in _ctx(out)
+
+
+def test_dream_due_in_auto_mode_is_the_full_ask_anywhere(tmp_path, monkeypatch, capsys):
+    """auto is the user saying the dream needs no asking - so the nudge that starts it stays whole."""
+    cwd = _work_project(tmp_path)
+    _memory_with_facts(cwd)
+    SIG.save_config({"dream_mode": "auto"})
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    assert "dedup / merge" in _ctx(out)
+
+
+def test_pending_contributions_in_a_work_project_show_the_count_only(tmp_path, monkeypatch, capsys):
+    """The listing is an invitation to pick a queued tooling change up NOW; in a work project the
+    count says a dream has work waiting, and the entries stay in the queue for it."""
+    cwd = _work_project(tmp_path)
+    SIG.add_contribution(cwd, {"what": "check-tree misses sideways refs",
+                               "target": "skill:meta-self-improve", "why": "real gap"})
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    ctx = _ctx(out)
+    assert "1 PENDING UPSTREAM CONTRIBUTION" in ctx
+    assert "check-tree misses sideways refs" not in ctx, "the entry is the dream's to read"
+    assert "dream" in ctx.split("PENDING UPSTREAM CONTRIBUTION")[1][:400].lower()
+    assert len(SIG.read_contributions(cwd)) == 1
+
+
+def test_pending_contributions_in_a_marketplace_repo_are_listed(tmp_path, monkeypatch, capsys):
+    cwd = _marketplace(tmp_path)
+    SIG.add_contribution(cwd, {"what": "check-tree misses sideways refs",
+                               "target": "skill:meta-self-improve", "why": "real gap"})
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), cwd)
+    ctx = _ctx(out)
+    assert "check-tree misses sideways refs" in ctx and "skill:meta-self-improve" in ctx
+
+
+# --------------------------------------------------------------------------
+# A checkout that fell BEHIND its upstream must not present its stale backlog as current.
+# All work here runs in worktrees, so nothing fast-forwards the main checkout: measured, it sat
+# 219 commits behind origin/master and the backlog block listed seven items that were closed
+# upstream, with nothing on screen saying so. Real repositories below, no stubbed git.
+# --------------------------------------------------------------------------
+
+import os  # noqa: E402
+import subprocess  # noqa: E402
+
+#: git reads these BEFORE cwd; a push from a linked worktree exports GIT_DIR to its hooks, and
+#: the pre-push gate runs this suite, so an inherited one would aim every call at the real repo.
+_GIT_SCOPE_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                   "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE",
+                   "GIT_PREFIX", "GIT_QUARANTINE_PATH")
+
+
+def _git_env():
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_SCOPE_VARS}
+    env.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid",
+               GIT_CONFIG_NOSYSTEM="1", LC_ALL="C")
+    return env
+
+
+def _g(cwd, *args):
+    return subprocess.run(["git", *args], cwd=str(cwd), env=_git_env(), check=True,
+                          capture_output=True, text=True, encoding="utf-8").stdout.strip()
+
+
+def _commit_open_work(repo, text, msg):
+    _write_open_work(repo, text)
+    _g(repo, "add", "OPEN-WORK.md")
+    _g(repo, "commit", "-q", "-m", msg)
+
+
+_STALE = "- [ ] (2026-09-01) [10] USER: closed upstream long ago\n"
+_FRESH = ("- [x] (2026-09-01) [10] USER: closed upstream long ago | closed: shipped\n"
+          "- [ ] (2026-09-20) [80] FOUND: raised upstream after the clone\n")
+
+
+@pytest.fixture
+def behind_clone(tmp_path, monkeypatch):
+    """A clone whose master is one fetched commit behind origin/master."""
+    for var in _GIT_SCOPE_VARS:
+        monkeypatch.delenv(var, raising=False)
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    _g(origin, "init", "-q", "-b", "master")
+    _commit_open_work(origin, _STALE, "first")
+    clone = tmp_path / "clone"
+    _g(tmp_path, "clone", "-q", str(origin), str(clone))
+    _commit_open_work(origin, _FRESH, "close one, raise one")
+    _g(clone, "fetch", "-q", "origin")
+    return clone
+
+
+def test_a_behind_checkout_lists_the_upstream_backlog(tmp_path, monkeypatch, capsys, behind_clone):
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "raised upstream after the clone" in ctx
+    assert "closed upstream long ago" not in ctx
+    assert "1 commit behind origin/master" in ctx
+
+
+def test_a_behind_checkout_with_its_own_backlog_edits_keeps_them_and_warns(
+        tmp_path, monkeypatch, capsys, behind_clone):
+    # Uncommitted local edits are work nobody else has: replacing them with upstream would hide
+    # them, so the local file is listed and the reader is told it may be stale.
+    _write_open_work(behind_clone, _STALE + "- [ ] (2026-09-27) [20] USER: typed here, not pushed\n")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "typed here, not pushed" in ctx
+    assert "1 commit behind origin/master" in ctx
+    assert "may be stale" in ctx
+
+
+def test_a_behind_branch_that_committed_its_own_backlog_change_keeps_it(
+        tmp_path, monkeypatch, capsys, behind_clone):
+    _commit_open_work(behind_clone, _STALE + "- [ ] (2026-09-27) [30] FOUND: committed locally\n",
+                      "local backlog edit")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "committed locally" in ctx
+    assert "may be stale" in ctx
+
+
+def test_an_up_to_date_checkout_adds_no_note(tmp_path, monkeypatch, capsys, behind_clone):
+    _g(behind_clone, "merge", "-q", "--ff-only", "origin/master")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "raised upstream after the clone" in ctx
+    assert "behind" not in ctx
+
+
+def test_a_branch_without_upstream_is_compared_with_origin_head(
+        tmp_path, monkeypatch, capsys, behind_clone):
+    # A worktree branch is created with no upstream; origin/HEAD is what it fell behind.
+    _g(behind_clone, "remote", "set-head", "origin", "master")
+    _g(behind_clone, "checkout", "-q", "-b", "topic", "--no-track", "master")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "raised upstream after the clone" in ctx
+    assert "1 commit behind origin/master" in ctx
+
+
+def test_a_repo_with_no_remote_reads_the_file_on_disk(tmp_path, monkeypatch, capsys):
+    for var in _GIT_SCOPE_VARS:
+        monkeypatch.delenv(var, raising=False)
+    repo = tmp_path / "solo"
+    repo.mkdir()
+    _g(repo, "init", "-q", "-b", "master")
+    _commit_open_work(repo, _STALE, "first")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(repo))
+    ctx = _ctx(out)
+    assert "closed upstream long ago" in ctx
+    assert "behind" not in ctx
+
+
+def test_a_behind_checkout_whose_upstream_dropped_the_backlog_keeps_the_local_copy(
+        tmp_path, monkeypatch, capsys, behind_clone):
+    origin = tmp_path / "origin"
+    _g(origin, "rm", "-q", "OPEN-WORK.md")
+    _g(origin, "commit", "-q", "-m", "drop backlog")
+    _g(behind_clone, "fetch", "-q", "origin")
+    _, out = run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(behind_clone))
+    ctx = _ctx(out)
+    assert "closed upstream long ago" in ctx
+    assert "2 commits behind origin/master" in ctx
+    assert "has no OPEN-WORK.md" in ctx
+
+
+# A separator str.splitlines() honours but the backlog tool does not: the reader must split on
+# "\n" only, so one line stays one item whatever a field holds.
+@pytest.mark.parametrize("code", [0x2028, 0x2029, 0x0B, 0x0C, 0x1C, 0x1D, 0x1E, 0x85])
+def test_open_work_reader_keeps_a_line_with_a_unicode_separator_as_one_item(code):
+    line = "- [ ] (2026-01-01) [50] FOUND: real item" + chr(code) + "- [ ] (2026-01-01) [1] USER: injected"
+    items = S._parse_open_work(line + "\n")
+    assert [it[0] for it in items] == [50]
+    assert S._shared_rank_warning(line + "\n") == ""
+
+
+# --------------------------------------------------------------------------
+# A shell cwd inside a git-ignored scratch dir (.plan/<batch>/ under a repo) must not become a
+# memory level: the heal scaffolds every gap level up to the anchor, and those CLAUDE.md /
+# CLAUDE.local.md pairs then register as curated levels inside a tree git never tracks.
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def repo_with_ignored_scratch(tmp_path, monkeypatch):
+    for var in _GIT_SCOPE_VARS:
+        monkeypatch.delenv(var, raising=False)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _g(repo, "init", "-q", "-b", "master")
+    (repo / ".gitignore").write_text(".plan/\n", encoding="utf-8")
+    (repo / "CLAUDE.md").write_text("# repo\n", encoding="utf-8")
+    (repo / ".plan" / "fold" / "batch").mkdir(parents=True)
+    (repo / "src" / "pkg").mkdir(parents=True)
+    return repo
+
+
+def test_a_cwd_in_an_ignored_dir_scaffolds_no_level_there(tmp_path, monkeypatch, capsys,
+                                                          repo_with_ignored_scratch):
+    repo = repo_with_ignored_scratch
+    run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(repo / ".plan" / "fold" / "batch"))
+    made = sorted(str(p.relative_to(repo)) for p in (repo / ".plan").rglob("CLAUDE*.md"))
+    assert made == []
+    assert (repo / "CLAUDE.local.md").is_file()      # the repo's own level is still healed
+
+
+def test_a_cwd_in_a_tracked_subdir_still_scaffolds_its_levels(tmp_path, monkeypatch, capsys,
+                                                              repo_with_ignored_scratch):
+    repo = repo_with_ignored_scratch
+    run_with_stdin(monkeypatch, capsys, make_plugin_root(tmp_path), str(repo / "src" / "pkg"))
+    assert (repo / "src" / "pkg" / "CLAUDE.md").is_file()
+    assert (repo / "src" / "CLAUDE.local.md").is_file()

@@ -1,0 +1,36 @@
+[package]
+name = "portablemc-py"
+description = "The Python API to PortableMC."
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+portablemc.workspace = true
+portablemc-cli = { workspace = true, features = ["__unstable"], optional = true }
+
+uuid.workspace = true
+clap = { workspace = true, optional = true }
+chrono.workspace = true
+regex.workspace = true
+
+pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py39", "chrono"] }
+
+[features]
+default = ["cli"]
+# Embed the command line interface, used by the 'portablemc' console script, it can be
+# disabled when the CLI is packaged separately.
+cli = ["dep:portablemc-cli", "dep:clap"]
+
+[build-dependencies]
+pyo3-build-config = "0.29.0"
+
+[lib]
+name = "portablemc_py"
+crate-type = ["cdylib"]

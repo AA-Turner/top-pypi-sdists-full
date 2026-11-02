@@ -1,0 +1,466 @@
+"""Base backend protocol definitions.
+
+This module defines the storage backend contract using PEP 544 protocol-based abstraction.
+All L2 backends (Redis, HTTP, etc.) must implement BaseBackend protocol.
+
+Optional capability protocols (TTLInspectableBackend, LockableBackend, KeyTrackableBackend,
+TimeoutConfigurableBackend, BufferReadableBackend, BufferWritableBackend)
+enable advanced features with graceful degradation.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
+from contextlib import AbstractAsyncContextManager
+from typing import Any, BinaryIO, Optional, Protocol, runtime_checkable
+
+# Re-export BackendError for convenience (public API)
+from cachekit.backends.errors import BackendError  # noqa: F401
+
+
+@runtime_checkable
+class BaseBackend(Protocol):
+    """Protocol defining the L2 backend storage contract.
+
+    All backend implementations must support these four operations on bytes.
+    This protocol uses structural subtyping (PEP 544) - any class implementing
+    these methods is considered a valid backend.
+
+    Design principles:
+    - Stateless operations (no connection management in protocol)
+    - Bytes-only interface (language-agnostic, no Python-specific types)
+    - No Redis-specific concepts (works for any backend: Redis, HTTP, DynamoDB, etc.)
+    - Simple and focused (KISS principle)
+
+    Example:
+        >>> from cachekit.backends import BaseBackend, RedisBackend
+        >>> issubclass(RedisBackend, BaseBackend)  # structural (runtime-checkable) protocol
+        True
+        >>> backend = RedisBackend()  # doctest: +SKIP
+        >>> backend.set("key", b"value", ttl=60)  # doctest: +SKIP
+        >>> data = backend.get("key")  # doctest: +SKIP
+    """
+
+    def get(self, key: str) -> Optional[bytes]:
+        """Retrieve value from backend storage.
+
+        Args:
+            key: Cache key to retrieve
+
+        Returns:
+            Bytes value if found, None if key doesn't exist
+
+        Raises:
+            BackendError: If backend operation fails (network, timeout, etc.)
+        """
+        ...
+
+    def set(self, key: str, value: bytes, ttl: Optional[int] = None) -> None:
+        """Store value in backend storage.
+
+        Args:
+            key: Cache key to store
+            value: Bytes value to store (encrypted or plaintext msgpack)
+            ttl: Time-to-live in seconds (None = no expiry)
+
+        Raises:
+            BackendError: If backend operation fails (network, timeout, etc.)
+        """
+        ...
+
+    def delete(self, key: str) -> bool:
+        """Delete key from backend storage.
+
+        Args:
+            key: Cache key to delete
+
+        Returns:
+            True if key was deleted, False if key didn't exist. CachekitIO returns
+            True on every successful delete, whether or not the key existed: the
+            server does not report existence on DELETE.
+
+        Raises:
+            BackendError: If backend operation fails (network, timeout, etc.)
+        """
+        ...
+
+    def exists(self, key: str) -> bool:
+        """Check if key exists in backend storage.
+
+        Args:
+            key: Cache key to check
+
+        Returns:
+            True if key exists, False otherwise
+
+        Raises:
+            BackendError: If backend operation fails (network, timeout, etc.)
+        """
+        ...
+
+    def health_check(self) -> tuple[bool, dict[str, Any]]:
+        """Check backend health status.
+
+        Returns:
+            Tuple of (is_healthy, details_dict)
+            Details must include 'latency_ms' and 'backend_type'
+
+        Example:
+            >>> backend = RedisBackend()  # doctest: +SKIP
+            >>> is_healthy, details = backend.health_check()  # doctest: +SKIP
+            >>> assert 'latency_ms' in details  # doctest: +SKIP
+            >>> assert 'backend_type' in details  # doctest: +SKIP
+        """
+        ...
+
+
+@runtime_checkable
+class TTLInspectableBackend(Protocol):
+    """Optional protocol for backends that support TTL inspection and refresh.
+
+    Backends implementing this protocol can report remaining TTL on keys
+    and refresh TTLs on existing keys. This enables features like automatic
+    TTL refresh for frequently-accessed keys.
+
+    Not all backends support this capability:
+    - Supported: Redis, CachekitIO, File, PostgreSQL, DynamoDB, SQLite
+    - Not supported: HTTP (stateless), S3 (limited)
+    - Memcached: partial — implements ``refresh_ttl`` (via ``touch``) but NOT ``get_ttl``
+      (no protocol command to read remaining TTL), so it is not a full TTLInspectableBackend.
+
+    Example:
+        >>> # TTL inspection pattern (async context):
+        >>> # if hasattr(backend, 'get_ttl'):
+        >>> #     ttl = await backend.get_ttl("user:123")
+        >>> #     if ttl and ttl < 60:
+        >>> #         await backend.refresh_ttl("user:123", 3600)
+    """
+
+    async def get_ttl(self, key: str) -> Optional[int]:
+        """Get remaining TTL on key (in seconds).
+
+        Args:
+            key: Cache key to inspect
+
+        Returns:
+            Remaining TTL in seconds, or None if:
+            - Key doesn't exist
+            - Key has no expiration (permanent)
+
+        Raises:
+            BackendError: If backend operation fails
+
+        Example:
+            >>> ttl = await backend.get_ttl("user:123")  # doctest: +SKIP
+            >>> if ttl and ttl < 60:  # doctest: +SKIP
+            ...     # Key expiring soon
+            ...     pass  # doctest: +SKIP
+        """
+        ...
+
+    async def refresh_ttl(self, key: str, ttl: int) -> bool:
+        """Refresh (update) TTL on existing key.
+
+        Args:
+            key: Cache key to refresh
+            ttl: New TTL in seconds
+
+        Returns:
+            True if key existed and TTL was refreshed
+            False if key doesn't exist (no-op)
+
+        Raises:
+            BackendError: If backend operation fails
+
+        Example:
+            >>> refreshed = await backend.refresh_ttl("user:123", 3600)  # doctest: +SKIP
+            >>> if refreshed:  # doctest: +SKIP
+            ...     # TTL successfully updated
+            ...     pass  # doctest: +SKIP
+        """
+        ...
+
+
+@runtime_checkable
+class BufferHandle(Protocol):
+    """A borrowed, zero-copy view of a cached value plus the resource backing it.
+
+    Returned by ``BufferReadableBackend.get_buffer``. ``view`` aliases backend-owned memory (e.g.
+    mmap'd file pages), not a heap copy. The consumer reads it, then calls ``close()``; the view
+    is unusable afterwards (unless the consumer exported the view itself, which keeps it readable
+    until that export dies), so it must never be stored (e.g. in L1) nor returned past the read
+    call frame (#171). An object built over the view (an Arrow table) keeps the backing memory
+    alive past ``close()`` through its buffer exports: the implementation must never free memory
+    that is still exported.
+    """
+
+    view: memoryview
+    """Zero-copy view of the payload (valid only until close())."""
+
+    def close(self) -> None:
+        """Release the view and its backing resource. Idempotent."""
+        ...
+
+
+@runtime_checkable
+class BufferReadableBackend(Protocol):
+    """Optional protocol for backends that can return a zero-copy buffer instead of materializing
+    the whole value on the heap.
+
+    Lets large plaintext values (e.g. uncompressed Arrow IPC) be read without copying the payload.
+    Only the File backend implements this today (mmap, POSIX). Backends that don't implement it
+    are simply read via ``get`` as usual.
+    """
+
+    def get_buffer(self, key: str) -> Optional[BufferHandle]:
+        """Return a borrowed zero-copy handle for ``key``, or None when the value is not mappable
+        (missing/expired/too large/non-POSIX) — the caller then falls back to ``get``. The caller
+        MUST ``close()`` the handle when done reading."""
+        ...
+
+
+@runtime_checkable
+class BufferWritableBackend(Protocol):
+    """Optional protocol for backends that can accept a value written incrementally through a
+    seekable sink, instead of one materialized ``bytes`` blob (write-side twin of
+    ``BufferReadableBackend``).
+
+    Lets large values (e.g. multi-GB Arrow IPC) reach storage without the whole serialized
+    payload ever existing in memory. Only the File backend implements this today; backends that
+    don't are simply written via ``set`` as usual (the caller falls back transparently).
+
+    Why a writer callback and not an ``Iterable[bytes]``: the Arrow envelope stores an
+    xxHash3-64 checksum BEFORE the payload it covers, so the producer must patch bytes it has
+    already emitted once the stream is complete. A forward-only chunk iterator cannot express
+    that without serializing twice; a seekable sink can. This deliberately scopes the protocol
+    to random-access backends (File) — a forward-only transport (chunked HTTP upload) needs a
+    different contract and is out of scope until a backend demands it.
+
+    Contract:
+    - ``write_payload`` receives a writable, seekable binary sink positioned at the START of
+      the payload region. Producers MUST anchor seeks with ``tell()`` (never absolute offset 0):
+      backends may keep private framing before the payload.
+    - The value becomes visible under ``key`` only if ``write_payload`` returns successfully;
+      on any exception the backend discards the partial write, leaves any previous value for
+      the key intact, and re-raises the producer's exception unwrapped (so serialization errors
+      keep their type for the caller's error handling).
+    - ``ttl`` semantics are identical to ``set``.
+    - A successful ``set_streaming(key, w, ttl)`` is observably identical to
+      ``set(key, full_bytes, ttl)`` for the same payload bytes — same readback via
+      ``get``/``get_buffer``, same expiry, same size-limit enforcement (violations raise
+      ``BackendError`` and nothing is stored).
+    """
+
+    def set_streaming(self, key: str, write_payload: Callable[[BinaryIO], None], ttl: Optional[int] = None) -> None:
+        """Store the payload produced by ``write_payload`` under ``key``, never holding it whole.
+
+        Args:
+            key: Cache key to store
+            write_payload: Callable that writes the complete payload to the provided sink
+            ttl: Time-to-live in seconds (None = no expiry), same semantics as ``set``
+
+        Raises:
+            BackendError: If the backend operation fails (I/O, size limits, TTL bounds)
+            Exception: Whatever ``write_payload`` raises, unwrapped (partial write discarded)
+        """
+        ...
+
+
+@runtime_checkable
+class LockableBackend(Protocol):
+    """Optional protocol for backends supporting distributed locking.
+
+    Backends implementing this protocol can provide distributed lock semantics
+    for coordinating access across multiple processes/servers. This enables
+    features like cache stampede prevention and critical sections.
+
+    Not all backends support this capability:
+    - Supported: ``PerRequestRedisBackend`` — the tenant-scoped Redis backend
+      ``RedisBackendProvider`` hands out and the env-resolved Redis path uses — and
+      ``CachekitIOBackend`` (SaaS ``POST /v1/cache/{key}/lock``).
+    - Not supported: ``RedisBackend`` constructed directly and passed as
+      ``backend=``, ``FileBackend``, L1-only (in-memory).
+
+    Contract — bare cache key:
+        ``acquire_lock`` receives the **bare cache key**, identical to what
+        ``get``/``set``/``delete`` receive. Callers MUST NOT append suffixes
+        like ``:lock`` before passing the key. Each backend owns its own
+        lock-namespace derivation:
+
+        - Redis: derives ``<key>:lock`` internally for the on-wire lock name.
+        - CachekitIO (SaaS): the lock endpoint is ``POST /v1/cache/{key}/lock`` —
+          no key derivation needed.
+
+        This convergence keeps the Python SDK byte-for-byte compatible with
+        the cachekit-rs and cachekit-ts SDKs at the protocol boundary.
+
+    Example:
+        >>> # Distributed locking pattern (async context):
+        >>> # if hasattr(backend, 'acquire_lock'):
+        >>> #     async with backend.acquire_lock("user:123:profile", timeout=30) as acquired:
+        >>> #         if acquired:
+        >>> #             result = expensive_computation()
+    """
+
+    def acquire_lock(
+        self,
+        key: str,
+        timeout: float,
+        blocking_timeout: Optional[float] = None,
+    ) -> AbstractAsyncContextManager[bool]:
+        """Acquire a distributed lock on key.
+
+        Args:
+            key: Bare cache key (e.g., ``"user:123"``) — the SAME shape passed
+                to ``get``/``set``/``delete``. Implementations are responsible
+                for any internal lock-namespace derivation; callers MUST NOT
+                pre-suffix the key.
+            timeout: How long to hold the lock (seconds) before auto-release
+            blocking_timeout: Max time to wait for lock acquisition (None = non-blocking)
+
+        Returns:
+            An async context manager yielding True if the lock was acquired,
+            False if the wait timed out. Implementations are ``async``
+            generators wrapped in ``@asynccontextmanager``, so this protocol
+            declares the *decorated* shape.
+
+        Raises:
+            BackendError: If backend operation fails
+
+        Example:
+            >>> async with backend.acquire_lock("user:123:profile", timeout=30, blocking_timeout=5) as acquired:  # doctest: +SKIP
+            ...     if acquired:  # doctest: +SKIP
+            ...         # Lock held, safe to proceed
+            ...         pass  # doctest: +SKIP
+            ...     else:  # doctest: +SKIP
+            ...         # Timeout waiting for lock
+            ...         pass  # doctest: +SKIP
+
+        Note:
+            Lock is automatically released on context exit, even if exception occurs.
+        """
+        ...
+
+
+@runtime_checkable
+class KeyTrackableBackend(Protocol):
+    """Optional protocol for backends supporting server-side key tracking.
+
+    A decorated function's no-argument ``invalidate_cache()`` must delete every key
+    ANY process wrote for it, not only the keys the calling process remembers. A
+    tracking backend keeps one server-side set of written keys per decorated
+    function (the registry id) — per tenant on a tenant-scoped backend — and drains
+    the calling tenant's set on whole-function invalidation.
+
+    Not all backends support this capability:
+    - Supported: ``PerRequestRedisBackend`` — what ``RedisBackendProvider`` and
+      therefore the env-resolved Redis path hand out.
+    - Not supported: ``RedisBackend`` constructed directly and passed as
+      ``backend=``, ``FileBackend``, ``MemcachedBackend``, ``CachekitIOBackend``,
+      L1-only. These keep process-local invalidation: the calling process deletes
+      the keys it wrote or read itself.
+
+    Both methods are sync, like ``BaseBackend.get``/``set``; async callers run
+    them through ``asyncio.to_thread``.
+
+    Example:
+        >>> from cachekit.backends.base import KeyTrackableBackend
+        >>> from cachekit.backends.redis.provider import PerRequestRedisBackend
+        >>> from cachekit.backends.file import FileBackend
+        >>> issubclass(PerRequestRedisBackend, KeyTrackableBackend)
+        True
+        >>> issubclass(FileBackend, KeyTrackableBackend)
+        False
+    """
+
+    def track_key(self, registry_id: str, key: str) -> None:
+        """Add a cache key to the server-side tracking set for ``registry_id``.
+
+        ``key`` is the raw cache key as the caller wrote it and is stored raw.
+        Implementations scope ``registry_id`` (tenant prefix) and apply the same
+        scoping to members only at drain time, so a member can never name a key
+        outside the implementation's own scope. Refreshes the set's TTL on every call.
+
+        Raises:
+            Exception: On any backend failure. Tracking is advisory: callers
+                swallow the error, and a key whose tracking failed is still
+                removed by the caller's next drain through ``local_keys``.
+        """
+        ...
+
+    def drain_tracked(self, registry_id: str, local_keys: Iterable[str]) -> set[str]:
+        """Drain the tracking set in bounded atomic steps, deleting every member's key,
+        then delete every key in ``local_keys`` that no step popped.
+
+        Args:
+            registry_id: Unscoped registry id of the decorated function.
+            local_keys: The caller's snapshot of the keys it knows it wrote or read.
+                Required: these are the keys the tracking set may be missing (a failed
+                ``track_key``, a key written before tracking existed, a lapsed set),
+                and deleting them is what makes the drain complete.
+
+        Returns:
+            The raw keys deleted — decoded popped members plus all of ``local_keys`` —
+            for L1 eviction.
+
+        Raises:
+            Exception: If any command fails. The caller then falls back to deleting
+                its local keys one by one.
+        """
+        ...
+
+
+@runtime_checkable
+class TimeoutConfigurableBackend(Protocol):
+    """Optional protocol for per-operation timeout configuration.
+
+    Backends implementing this protocol allow fine-grained timeout control
+    per operation, so a caller can set an explicit timeout for a single
+    operation where the backend supports it.
+
+    All backends support some timeout mechanism, but granularity varies:
+    - Per-operation: HTTP, DynamoDB, PostgreSQL
+    - Per-socket/transaction: Redis, Memcached, SQLite
+    - Global: KV, S3
+
+    ``isinstance`` against this protocol is not a safe capability probe: it
+    matches by method name only, so it is also True for ``CachekitIOBackend``,
+    whose ``with_timeout(timeout)`` is a builder that returns a new backend,
+    not this context manager.
+
+    Example:
+        >>> # Per-operation timeout pattern (async context):
+        >>> # if hasattr(backend, 'with_timeout'):
+        >>> #     async with backend.with_timeout("get", 100):
+        >>> #         value = await backend.get("key")
+    """
+
+    def with_timeout(
+        self,
+        operation: str,
+        timeout_ms: int,
+    ) -> AbstractAsyncContextManager[None]:
+        """Set timeout for operations within context.
+
+        Args:
+            operation: Operation name (e.g., "get", "set", "delete")
+            timeout_ms: Timeout in milliseconds
+
+        Returns:
+            An async context manager that applies the timeout while it is
+            open. Implementations are ``async`` generators wrapped in
+            ``@asynccontextmanager``, so this protocol declares the
+            *decorated* shape.
+
+        Raises:
+            BackendError: With error_type=TIMEOUT if timeout exceeded
+
+        Example:
+            >>> async with backend.with_timeout("get", 100):  # doctest: +SKIP
+            ...     value = await backend.get("key")  # doctest: +SKIP
+
+        Note:
+            Backends without per-operation timeout may apply timeout at
+            socket or global level (coarser-grained fallback).
+        """
+        ...

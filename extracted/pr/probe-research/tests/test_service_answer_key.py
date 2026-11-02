@@ -33,9 +33,10 @@ from pathlib import Path
 import pytest
 
 from probe.shared.mailbox import approvals as appr
-from probe.service import client, protocol
-from probe.service.mailhost import ANSWER_CHANNEL, MailHost
-from probe.service.protocol import ErrorCode, Method
+from probe.foundation import service_api as client
+from probe.foundation import service_api as protocol
+from probe.service.mail.mail import ANSWER_CHANNEL, MailHost
+from probe.foundation.service_api.wire import ErrorCode, Method
 from tests.service_harness import service_home  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -94,9 +95,28 @@ def _hook_env() -> dict:
             "XDG_STATE_HOME": os.environ["XDG_STATE_HOME"]}
 
 
+#: Runs a hook file as the harness does (payload on stdin), its service budgets
+#: raised: the 0.3 s connect and 0.8 s answer a person waits on. A loaded CI
+#: runner misses them and the hook rightly writes the answer itself (agent-ci
+#: 41287688296), which reads as the key failing. These tests check the key.
+_PATIENT_HOOK = """
+import importlib.util, os, sys
+sys.argv = sys.argv[1:]
+sys.path[0] = os.path.dirname(sys.argv[0])
+spec = importlib.util.spec_from_file_location("approvals_hook", sys.argv[0])
+hook = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(hook)
+rpc = hook._hook_harness().load_sibling("_service_rpc").Rpc
+connect = rpc.connect
+rpc.connect = lambda timeout=10.0: connect(timeout)
+hook.ANSWER_WAIT_S = 10.0
+sys.exit(hook.main())
+"""
+
+
 def _ask(req: appr.Request, choice: str, hook: Path = HOOKS / "approvals_hook.py") -> None:
     """The person answers through the question tool: PreToolUse, then PostToolUse
-    with their pick, each run by the harness as a subprocess."""
+    with their pick, each run by the harness as a subprocess (`_PATIENT_HOOK`)."""
     q = req.question
     tool_input = {"questions": [{"header": q.header, "question": q.question, "multiSelect": False,
                                  "options": [{"label": q.yes_label, "description": ""},
@@ -105,8 +125,8 @@ def _ask(req: appr.Request, choice: str, hook: Path = HOOKS / "approvals_hook.py
             "tool_use_id": f"toolu_{req.id}"}
     for payload in ({**base, "hook_event_name": "PreToolUse"},
                     {**base, "hook_event_name": "PostToolUse", "tool_response": {"answers": {q.question: choice}}}):
-        done = subprocess.run([sys.executable, str(hook)], input=json.dumps(payload), capture_output=True,
-                              text=True, env=_hook_env(), timeout=30)
+        done = subprocess.run([sys.executable, "-c", _PATIENT_HOOK, str(hook)], input=json.dumps(payload),
+                              capture_output=True, text=True, env=_hook_env(), timeout=30)
         assert (done.returncode, done.stdout) == (0, ""), done.stderr
 
 

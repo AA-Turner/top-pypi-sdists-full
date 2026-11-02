@@ -1,0 +1,114 @@
+name: sync-upstream
+
+on:
+  # schedule:
+  #   - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Perform a no-op dry run
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Configure git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Add remotes and fetch
+        run: |
+          git remote add upstream https://github.com/parcel-bundler/lightningcss || true
+          git fetch upstream --tags --prune
+          git fetch origin --tags --prune
+
+      - name: Record initial HEAD
+        id: head
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Compute ahead/behind vs upstream/master
+        id: ab
+        run: |
+          BASE=$(git merge-base HEAD upstream/master)
+          BEHIND=$(git rev-list --left-only --count HEAD...upstream/master)
+          AHEAD=$(git rev-list --right-only --count HEAD...upstream/master)
+          echo "base=$BASE"   >> "$GITHUB_OUTPUT"
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "ahead=$AHEAD"   >> "$GITHUB_OUTPUT"
+
+      - name: Merge upstream/master into master
+        if: ${{ steps.ab.outputs.behind != '0' }}
+        run: |
+          set -e
+          if ! git merge upstream/master -X ours --no-edit; then
+            echo "Merge failed, attempting rebase with theirs"
+            git merge --abort || true
+            git rebase upstream/master -X theirs
+          fi
+
+      - name: Plan push (dry-run)
+        if: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          # Plan: push master branch only if changed
+          BRANCH_TIP=$(git rev-parse master)
+          if [[ "${{ steps.head.outputs.sha }}" != "$BRANCH_TIP" ]]; then
+            echo "Would push branch master"
+          else
+            echo "No branch changes to push"
+          fi
+
+          # Plan: sync missing tags from upstream to origin (non-destructive)
+          mapfile -t UP_TAGS < <(git ls-remote --tags upstream | awk '{print $2}' | sed 's@refs/tags/@@' | sed 's/\^{}$//' | sort -u)
+          mapfile -t OR_TAGS < <(git ls-remote --tags origin | awk '{print $2}' | sed 's@refs/tags/@@' | sed 's/\^{}$//' | sort -u)
+          MISSING_LIST=$(comm -23 <(printf "%s\n" "${UP_TAGS[@]}") <(printf "%s\n" "${OR_TAGS[@]}") || true)
+          MISSING_COUNT=$(printf "%s\n" "$MISSING_LIST" | sed '/^$/d' | wc -l | tr -d ' ')
+          if [[ "$MISSING_COUNT" != "0" ]]; then
+            echo "Would push $MISSING_COUNT missing tag(s) from upstream to origin"
+            echo "$MISSING_LIST" | head -n 20 | sed 's/^/  - /'
+            if (( MISSING_COUNT > 20 )); then echo "  ... (truncated)"; fi
+          else
+            echo "No upstream tags missing on origin"
+          fi
+
+      - name: Push branch and sync tags
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          # Push branch only if master has new commits
+          BRANCH_TIP=$(git rev-parse master)
+          if [[ "${{ steps.head.outputs.sha }}" != "$BRANCH_TIP" ]]; then
+            echo "Pushing branch master"
+            git push origin master
+          else
+            echo "Branch unchanged; not pushing master"
+          fi
+
+          # Sync missing tags (push only tags that exist on upstream but not on origin)
+          mapfile -t UP_TAGS < <(git ls-remote --tags upstream | awk '{print $2}' | sed 's@refs/tags/@@' | sed 's/\^{}$//' | sort -u)
+          mapfile -t OR_TAGS < <(git ls-remote --tags origin | awk '{print $2}' | sed 's@refs/tags/@@' | sed 's/\^{}$//' | sort -u)
+          MISSING_LIST=$(comm -23 <(printf "%s\n" "${UP_TAGS[@]}") <(printf "%s\n" "${OR_TAGS[@]}") || true)
+          if [[ -n "$MISSING_LIST" ]]; then
+            echo "$MISSING_LIST" | while read -r TAG; do
+              if [[ -n "$TAG" ]]; then
+                echo "Pushing missing tag $TAG"
+                git push origin "refs/tags/$TAG:refs/tags/$TAG"
+              fi
+            done
+          else
+            echo "No upstream tags missing on origin"
+          fi

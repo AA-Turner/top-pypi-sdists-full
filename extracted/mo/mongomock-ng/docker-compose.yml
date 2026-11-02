@@ -1,0 +1,30 @@
+services:
+  mongomock_ng:
+    build:
+      context: .
+    image: mongomock_ng:latest
+    working_dir: /project
+    command: hatch test
+    environment:
+      - TEST_MONGO_HOST=mongodb://mongo:27017/mock?replicaSet=rs0
+      - MONGODB=7.0.34
+    volumes:
+      - .:/project
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:7.0.34
+    entrypoint: ["/mongo-entrypoint.sh"]
+    command: []
+    ports:
+      - 127.0.0.1:27017:27017
+    volumes:
+      - ./mongo-entrypoint.sh:/mongo-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'try{rs.status().ok===1&&rs.isMaster().ismaster}catch(e){false}' --quiet 2>/dev/null | grep -q true"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s

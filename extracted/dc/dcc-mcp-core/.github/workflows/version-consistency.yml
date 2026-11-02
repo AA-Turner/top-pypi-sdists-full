@@ -1,0 +1,46 @@
+name: Version Consistency Check
+
+# Run on every PR: path filters cannot see a newly introduced release claim.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  version-consistency:
+    name: Check version consistency across files
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: loonghao/vx@v0.9.34
+        with:
+          version: "0.9.34"
+          cache-key-prefix: "vx-tools-v0.9.34"
+
+      - name: Check version consistency
+        run: python -I scripts/ci/core_version_contract.py check
+
+      - name: Check uv lock consistency
+        run: |
+          python scripts/ci/check_uv_lock.py
+          vx uv lock --check
+
+      - name: Check lockfile versions against declared versions
+        # No branch context is passed: the gate judges a lockfile the same way
+        # on a release PR and on the push to `main` that PR produces, so a
+        # green release PR cannot turn red at merge.
+        run: |
+          python scripts/ci/check_lock_versions.py

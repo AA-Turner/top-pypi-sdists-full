@@ -318,6 +318,28 @@ def test_fuzz_budget_too_small_for_startup_still_runs_a_scenario(cli, app_runner
     assert "Tested: 1" in result.stdout, result.stdout
 
 
+@pytest.mark.parametrize("max_time", ["0", "30"], ids=["time-limit-reached", "time-left"])
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_traceback=True)
+def test_fuzz_reports_error_that_does_not_repeat(cli, app_runner, ctx, snapshot_cli, max_time):
+    url = _make_fuzz_app(ctx, app_runner)
+    with ctx.check(
+        """
+calls = 0
+
+@schemathesis.check
+def crashes_once(ctx, response, case):
+    global calls
+    calls += 1
+    if calls == 1:
+        raise RuntimeError("First call crashed")
+"""
+    ) as module:
+        assert (
+            cli.main("fuzz", url, f"--max-time={max_time}", "--workers=1", "--checks=crashes_once", hooks=module)
+            == snapshot_cli
+        )
+
+
 def test_fuzz_single_scenario_is_singular(cli, app_runner, ctx):
     url = _make_fuzz_app(ctx, app_runner)
 
@@ -344,6 +366,31 @@ def test_fuzz_checks_steps_after_a_failure(cli, app_runner, ctx):
 
     assert "skipped" not in result.stdout, result.stdout
     assert f"Tested: {len(requested)}\n" in result.stdout, result.stdout
+
+
+# Confirming that auth is enforced sends probe requests that join the scenario while its steps are checked.
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_with_enforced_auth(cli, app_runner, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "security": [{"key": []}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"key": {"type": "apiKey", "in": "header", "name": "X-Key"}}},
+    )
+
+    @app.route("/items")
+    def items():
+        if request.headers.get("X-Key") != "secret":
+            return jsonify({"detail": "unauthorized"}), 401
+        return jsonify([])
+
+    result = cli.main("fuzz", app_runner.openapi_url(app), "-H", "X-Key: secret", "--max-time=0", "--workers=1")
+    assert_cli_snapshot(result, snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)

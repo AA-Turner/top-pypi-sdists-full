@@ -1,0 +1,261 @@
+from __future__ import annotations
+
+import logging
+from threading import Lock
+from typing import TYPE_CHECKING, Any
+
+from cachekit._rust_serializer import ByteStorage
+from cachekit.hash_utils import redact_error_for_log
+
+from .auto_serializer import AutoSerializer
+from .base import (
+    CrossSDKSerializerProtocol,
+    EnvelopeShapeError,
+    SerializationError,
+    SerializationFormat,
+    SerializationMetadata,
+    SerializerProtocol,
+    SuspiciousCacheEntryError,
+)
+from .encryption_wrapper import (
+    DecryptionAuthenticationError,
+    EncryptionError,
+    EncryptionWrapper,
+    KeyringConfigurationError,
+    TenantMismatchError,
+)
+from .standard_serializer import StandardSerializer
+
+if TYPE_CHECKING:
+    from .arrow_serializer import ArrowSerializer
+    from .orjson_serializer import OrjsonSerializer
+
+logger = logging.getLogger(__name__)
+
+# Lazy import for optional ArrowSerializer (requires pyarrow from [data] extra)
+_ArrowSerializer: type | None = None
+
+
+def _get_arrow_serializer() -> type:
+    """Lazy-load ArrowSerializer. Raises ImportError if pyarrow not installed."""
+    global _ArrowSerializer
+    if _ArrowSerializer is None:
+        from .arrow_serializer import ArrowSerializer
+
+        _ArrowSerializer = ArrowSerializer
+    return _ArrowSerializer
+
+
+# Lazy import for optional OrjsonSerializer (requires orjson from [json] extra)
+_OrjsonSerializer: type | None = None
+
+
+def _get_orjson_serializer() -> type:
+    """Lazy-load OrjsonSerializer. Raises ImportError if orjson not installed."""
+    global _OrjsonSerializer
+    if _OrjsonSerializer is None:
+        from .orjson_serializer import OrjsonSerializer
+
+        _OrjsonSerializer = OrjsonSerializer
+    return _OrjsonSerializer
+
+
+# Validate ByteStorage works correctly
+test_storage = ByteStorage("msgpack")
+test_data = b"test validation data"
+envelope = test_storage.store(test_data, None)
+retrieved, _ = test_storage.retrieve(envelope)
+assert retrieved == test_data, "ByteStorage validation failed"
+
+# Serializer factory with double-checked locking
+# Cache key format: "name:integrity_checking" to support different configurations
+_serializer_cache: dict[str, Any] = {}
+_serializer_lock = Lock()
+
+# Registry maps serializer names to factory functions (not classes directly)
+# This allows passing enable_integrity_checking parameter during instantiation
+SERIALIZER_REGISTRY = {
+    "auto": AutoSerializer,  # Python-specific types (NumPy, pandas, datetime optimization)
+    "pythonic": AutoSerializer,  # Alias — preserves Python types (tuples, sets, frozensets, datetime, UUID)
+    "default": StandardSerializer,  # Language-agnostic MessagePack for multi-language caches
+    "std": StandardSerializer,  # Explicit StandardSerializer alias
+    "arrow": None,  # Lazy-loaded: requires pyarrow from [data] extra
+    "orjson": None,  # Lazy-loaded: requires orjson from [json] extra
+    "encrypted": EncryptionWrapper,  # StandardSerializer + AES-256-GCM encryption
+}
+
+
+def get_serializer(name: str, enable_integrity_checking: bool = True) -> SerializerProtocol:
+    """Get cached serializer instance by name with configurable integrity checking (thread-safe).
+
+    Uses double-checked locking for fast-path performance (lock-free reads
+    after first instantiation). This avoids repeated serializer instantiation.
+
+    Args:
+        name: Serializer name ("default", "std", "auto", "pythonic", "arrow", "orjson")
+        enable_integrity_checking: Enable integrity checking (default: True)
+            - For "default"/"std": Controls ByteStorage layer (True = LZ4 + xxHash3-64, False = pure MessagePack)
+            - For "auto": Controls ByteStorage layer (True = LZ4 + xxHash3-64, False = raw MessagePack, no ByteStorage)
+            - For "arrow"/"orjson": Controls xxHash3-64 integrity checking (Python xxhash)
+
+    Returns:
+        Cached serializer instance configured with integrity checking setting
+
+    Raises:
+        ValueError: If name not in SERIALIZER_REGISTRY
+
+    Examples:
+        >>> serializer = get_serializer("default")
+        >>> isinstance(serializer, StandardSerializer)
+        True
+        >>> serializer_fast = get_serializer("std", enable_integrity_checking=False)
+        >>> serializer_fast.enable_integrity_checking
+        False
+        >>> get_serializer("invalid")  # doctest: +SKIP
+        Traceback (most recent call last):
+        ValueError: Unknown serializer: 'invalid'. Valid options: default, std, auto, arrow, orjson
+    """
+    # Cache key includes integrity_checking setting to support both configurations
+    cache_key = f"{name}:{enable_integrity_checking}"
+
+    # Fast path: Check cache without lock (read-only, thread-safe)
+    if cache_key in _serializer_cache:
+        return _serializer_cache[cache_key]
+
+    # Slow path: Validate and instantiate with lock
+    with _serializer_lock:
+        # Double-check: Another thread may have created it
+        if cache_key in _serializer_cache:
+            return _serializer_cache[cache_key]
+
+        # Validate name
+        if name not in SERIALIZER_REGISTRY:
+            valid_names = ", ".join(SERIALIZER_REGISTRY.keys())
+            raise ValueError(
+                f"Unknown serializer: '{name}'. "
+                f"Valid options: {valid_names}. "
+                f"To use a custom serializer, pass instance directly: "
+                f"@cache(serializer=MySerializer())"
+            )
+
+        # Get serializer class (lazy-load optional serializers if needed)
+        if name == "arrow":
+            serializer_class = _get_arrow_serializer()
+        elif name == "orjson":
+            serializer_class = _get_orjson_serializer()
+        else:
+            serializer_class = SERIALIZER_REGISTRY[name]
+
+        # Instantiate with integrity checking configuration
+        if name in ("default", "std", "auto", "pythonic", "arrow", "orjson"):
+            # All core serializers use enable_integrity_checking parameter
+            serializer = serializer_class(enable_integrity_checking=enable_integrity_checking)
+        else:
+            # Future serializers without integrity checking support
+            serializer = serializer_class()
+
+        # Validate protocol compliance
+        if not isinstance(serializer, SerializerProtocol):
+            raise TypeError(
+                f"Serializer {serializer_class.__name__} must implement "
+                f"SerializerProtocol (serialize, deserialize methods required)"
+            )
+
+        _serializer_cache[cache_key] = serializer
+        return serializer
+
+
+def get_available_serializers() -> dict[str, Any]:
+    """Get all available serializer classes.
+
+    Note: includes "encrypted" (EncryptionWrapper), which no cache decorator accepts as
+    serializer=: encrypt with @cache.secure(master_key=..., serializer=<inner>) instead.
+    """
+    return SERIALIZER_REGISTRY.copy()
+
+
+def benchmark_serializers() -> dict[str, Any]:
+    """Get instantiated serializers for benchmarking."""
+    serializers = {}
+    for name in SERIALIZER_REGISTRY:
+        try:
+            serializers[name] = get_serializer(name)
+        except Exception as e:
+            logger.warning(f"Failed to instantiate {name} serializer: {redact_error_for_log(e)}")
+    return serializers
+
+
+def get_serializer_info() -> dict[str, dict[str, Any]]:
+    """Get information about available serializers."""
+    info = {}
+    for name in SERIALIZER_REGISTRY:
+        try:
+            instance = get_serializer(name)
+            info[name] = {
+                "class": type(instance).__name__,
+                "module": type(instance).__module__,
+                "available": True,
+                "description": type(instance).__doc__ or "No description available",
+            }
+            # Add method info if available
+            if hasattr(instance, "get_info"):
+                info[name].update(instance.get_info())  # type: ignore[attr-defined]
+        except ImportError as e:
+            # Optional serializer whose backing dependency (pyarrow / orjson) is absent.
+            optional_modules = {
+                "arrow": ("ArrowSerializer", "cachekit.serializers.arrow_serializer"),
+                "orjson": ("OrjsonSerializer", "cachekit.serializers.orjson_serializer"),
+            }
+            cls, module = optional_modules.get(name, ("Unknown", "unknown"))
+            info[name] = {
+                "class": cls,
+                "module": module,
+                "available": False,
+                "error": str(e),
+            }
+        except Exception as e:
+            info[name] = {
+                "class": "Unknown",
+                "module": "unknown",
+                "available": False,
+                "error": str(e),
+            }
+    return info
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy attribute access for optional ArrowSerializer / OrjsonSerializer."""
+    if name == "ArrowSerializer":
+        return _get_arrow_serializer()
+    if name == "OrjsonSerializer":
+        return _get_orjson_serializer()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# Export the main interface
+__all__ = [
+    "ArrowSerializer",
+    "AutoSerializer",
+    "DecryptionAuthenticationError",
+    "KeyringConfigurationError",
+    "EncryptionError",
+    "EncryptionWrapper",
+    "TenantMismatchError",
+    "OrjsonSerializer",
+    "StandardSerializer",
+    # Base types
+    "CrossSDKSerializerProtocol",
+    "EnvelopeShapeError",
+    "SerializationError",
+    "SerializationFormat",
+    "SerializationMetadata",
+    "SerializerProtocol",
+    "SuspiciousCacheEntryError",
+    # Factory
+    "get_serializer",
+    "SERIALIZER_REGISTRY",
+    # Utility functions
+    "benchmark_serializers",
+    "get_available_serializers",
+    "get_serializer_info",
+]

@@ -1,0 +1,188 @@
+Metadata-Version: 2.4
+Name: focus-data-toolkit
+Version: 0.14.1
+Summary: Generate provider-realistic FOCUS 1.2/1.3 sample data (AWS, Azure, GCP) and convert it to the four FOCUS 1.4 datasets — strictly from source facts, completed by client supplements including native AWS/Azure/GCP exports — with schema detection, gap analysis, a cross-dataset validation gate and atomic writes.
+Author: Guy-Hermann Adiko
+License-Expression: MIT AND CC-BY-4.0
+Project-URL: Homepage, https://github.com/guymano/focus-data-toolkit
+Project-URL: Source, https://github.com/guymano/focus-data-toolkit
+Project-URL: Issues, https://github.com/guymano/focus-data-toolkit/issues
+Project-URL: Changelog, https://github.com/guymano/focus-data-toolkit/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://github.com/guymano/focus-data-toolkit#readme
+Keywords: finops,focus,billing,cost,sample-data
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+License-File: LICENSES/CC-BY-4.0.txt
+Provides-Extra: parquet
+Requires-Dist: pyarrow<26,>=15; extra == "parquet"
+Requires-Dist: tzdata>=2024.1; sys_platform == "win32" and extra == "parquet"
+Provides-Extra: scale
+Requires-Dist: focus-data-toolkit[parquet]; extra == "scale"
+Provides-Extra: validator
+Requires-Dist: focus-validator<3,>=2.1; python_version >= "3.12" and extra == "validator"
+Provides-Extra: studio
+Requires-Dist: fastapi<1,>=0.110; extra == "studio"
+Requires-Dist: uvicorn[standard]<1,>=0.29; extra == "studio"
+Requires-Dist: python-multipart<1,>=0.0.9; extra == "studio"
+Provides-Extra: studio-all
+Requires-Dist: focus-data-toolkit[parquet,studio]; extra == "studio-all"
+Provides-Extra: all
+Requires-Dist: focus-data-toolkit[parquet,studio,validator]; extra == "all"
+Provides-Extra: release
+Requires-Dist: build<2,>=1; extra == "release"
+Requires-Dist: twine<8,>=5; extra == "release"
+Provides-Extra: dev
+Requires-Dist: focus-data-toolkit[parquet,release,studio]; extra == "dev"
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-cov<8,>=5; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: mypy<2.5,>=1.11; extra == "dev"
+Requires-Dist: jsonschema<5,>=4.21; extra == "dev"
+Requires-Dist: httpx<1,>=0.27; extra == "dev"
+Dynamic: license-file
+
+# focus-data-toolkit
+
+Generate realistic **FOCUS 1.2 / 1.3** cost and usage data (AWS, Azure, GCP), convert it to
+**FOCUS 1.4**, and validate the result. One dependency-free Python core, usable three ways.
+
+[![PyPI](https://img.shields.io/pypi/v/focus-data-toolkit)](https://pypi.org/project/focus-data-toolkit/)
+[![Python](https://img.shields.io/pypi/pyversions/focus-data-toolkit)](https://pypi.org/project/focus-data-toolkit/)
+[![License: MIT AND CC-BY-4.0](https://img.shields.io/badge/license-MIT%20AND%20CC--BY--4.0-blue)](LICENSE)
+[![CI](https://github.com/guymano/focus-data-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/guymano/focus-data-toolkit/actions/workflows/ci.yml)
+
+[FOCUS](https://focus.finops.org) is the open standard for cloud cost and usage data. FOCUS 1.4 defines four datasets: Cost and Usage, Contract Commitment, Billing Period, and Invoice Detail. The toolkit is honest by design: any value it cannot derive from your source is left empty (**strict** mode) or filled with clearly labelled assumptions (**synthetic** mode).
+
+The source prepares **0.14.1**, a patch of 0.14.0, which converts FOCUS 1.2/1.3
+sources toward 1.4 more faithfully:
+- values are migrated to the 1.4 rules, and a stricter 1.4 lint checks the output;
+- commitment terms can be supplied explicitly;
+- Azure reservation and savings plan orders have adapters;
+- a 1.2 source can declare who issued it, to name its Service Provider, in the CLI
+  and, since 0.14.1, in Studio.
+
+0.14.1 also reads the Contract Commitment dataset of a generated sample from the
+sample itself, so it lists every commitment the sample applies. See the
+[conversion rules](docs/conversion-rules.md) and the [changelog](CHANGELOG.md).
+The [generator corrections and validation evidence](docs/generator-corrections.md)
+describe the generated samples, unchanged since 0.13.0. The Docker examples below
+continue to pin the previously released 0.12.0 image.
+
+## Three ways to use it
+
+| Interface | Best for | Get started |
+|---|---|---|
+| **Studio** | FinOps users who prefer a UI | `pip install "focus-data-toolkit[studio]"` then `focus-toolkit ui` |
+| **Runner** | Automation and large volumes | `docker run --rm ghcr.io/guymano/focus-data-toolkit:0.12.0 version` |
+| **CLI & SDK** | Engineers and scripts | `pip install focus-data-toolkit` then `focus-toolkit --help` |
+
+All three run the same core, so their outputs are byte-for-byte identical. Studio is a local web app (binds `127.0.0.1`, token-guarded, no data leaves your machine, see [docs/studio.md](docs/studio.md)). Runner is a non-root OCI image whose entrypoint is the CLI (see [docs/runner.md](docs/runner.md)).
+
+## Install
+
+```bash
+pip install focus-data-toolkit
+```
+
+The core needs only the standard library (Python 3.11+). Optional extras:
+
+| Extra | Adds |
+|---|---|
+| `parquet` | Parquet I/O: columnar, decimal128, Hive partitioning (alias: `scale`) |
+| `studio` | the local web UI (`focus-toolkit ui`) |
+| `studio-all` | `studio` + `parquet` |
+| `validator` | the official FinOps validator (`--official`, needs Python 3.12+) |
+| `all` | everything above |
+
+Also available via `pipx install`, `uv tool install`, or `docker pull ghcr.io/guymano/focus-data-toolkit:0.12.0`.
+
+## Quickstart
+
+```bash
+# 1. Generate sample data (aws|azure|gcp, FOCUS 1.2|1.3)
+focus-toolkit generate --provider aws --focus-version 1.3 --rows 1000 --out ./out
+
+# 2. Convert a 1.2/1.3 Cost and Usage file to FOCUS 1.4 (source version auto-detected)
+focus-toolkit convert --cost-and-usage out/focus_1_3_cost_and_usage_aws.csv --out ./focus-1.4
+
+# 3. Open the Studio web app (needs the studio extra)
+focus-toolkit ui
+```
+
+Or use it as a Python library, the same engine behind all three interfaces:
+
+```python
+from focus_data_toolkit import convert_files
+
+convert_files("cost_and_usage.csv", "focus-1.4", mode="strict")
+```
+
+Everything a library caller needs is importable from the package root, including
+supplements and the failures to handle:
+
+```python
+from pathlib import Path
+
+from focus_data_toolkit import (
+    AtomicWriteError, ConversionError, Mode, SupplementBundle, SupplementError,
+    SupplementFileSpec, convert_files,
+)
+
+try:
+    bundle = SupplementBundle.load([SupplementFileSpec(path=Path("invoices.json"))])
+    convert_files("cost_and_usage.csv", "focus-1.4", mode=Mode.STRICT, supplements=bundle)
+except (ConversionError, SupplementError):
+    ...  # invalid source or unusable supplement: nothing was written
+except AtomicWriteError:
+    ...  # the lint or cross-dataset gate refused publication: nothing was written
+```
+
+## What it does, and what it doesn't
+
+- Converts FOCUS 1.2/1.3 Cost and Usage into the four FOCUS 1.4 datasets. Values a 1.4 rule
+  fixes deterministically are migrated and reported (`FDT-MIG-*`). Values it cannot fix without
+  inventing a fact are refused. See [docs/conversion-rules.md](docs/conversion-rules.md).
+- The three other datasets come only from [supplements](docs/supplements.md) or synthetic mode.
+  There is no FOCUS 1.4 generator and no invalid-data generator.
+- Built for real data: bounded-memory streaming (`--stream`), atomic writes, a deterministic
+  manifest with per-column lineage, structured `FDT-*` diagnostics, cross-dataset validation.
+- Single-node engine. See [docs/compatibility.md](docs/compatibility.md) for the support matrix.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | success, no assumptions |
+| `1` | lint / validation / write failure |
+| `2` | invalid input or arguments |
+| `3` | strict result intentionally incomplete |
+| `4` | synthetic result contains assumptions |
+| `5` | disk space or budget exhausted (streaming / Runner) |
+| `130` | cancelled (Ctrl-C / SIGTERM), nothing partial is published |
+
+Add `--exit-policy pipeline` in `set -e` or CI scripts to treat codes `3` and `4` as `0`.
+
+## Trust
+
+- Deterministic: same input, same output bytes, all listed in `SHA256SUMS`.
+- The embedded FOCUS 1.4 model is hash-pinned to the FinOps source workbook; see [docs/model-provenance.md](docs/model-provenance.md).
+- Releases are reproducible, signed (Sigstore/cosign), with SBOM and attestations; see [docs/releasing.md](docs/releasing.md).
+- Private: no network I/O, no telemetry, no credentials; see [docs/security-model.md](docs/security-model.md).
+
+## Documentation
+
+[Studio](docs/studio.md) · [Runner](docs/runner.md) · [Supplements](docs/supplements.md) · [Compatibility](docs/compatibility.md) · [Versioning](docs/versioning.md) · [Security model](docs/security-model.md) · [Model provenance](docs/model-provenance.md) · [Releasing](docs/releasing.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md)
+
+## License
+
+Code is MIT (see [LICENSE](LICENSE)). The embedded FOCUS 1.4 data model derives from the FinOps FOCUS workbook, © the FinOps Foundation, CC-BY-4.0 (see [NOTICE](NOTICE)). "FOCUS" and "FinOps" are FinOps Foundation trademarks; this is an independent community project, not endorsed by the FinOps Foundation.

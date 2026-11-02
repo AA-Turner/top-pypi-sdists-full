@@ -1,0 +1,202 @@
+use jiff::civil::{Date, DateTime, ISOWeekDate, Time};
+use jiff::tz::{Offset, TimeZone};
+use jiff::{SignedDuration, Span, Timestamp, Zoned};
+use ryo3_core::map_py_overflow_err;
+use ryo3_jiff_core::{
+    JiffDate, JiffDateTime, JiffOffset, JiffSignedDuration, JiffSpan, JiffTime, JiffTimeZone,
+    JiffTimestamp, JiffZoned,
+};
+
+use crate::{
+    RyDate, RyDateTime, RyISOWeekDate, RyOffset, RySignedDuration, RySpan, RyTime, RyTimeZone,
+    RyTimestamp, RyZoned,
+};
+
+// ~ ~ ~ internal crate conversions ~ ~ ~
+impl From<&RyDateTime> for RyDate {
+    #[inline]
+    fn from(value: &RyDateTime) -> Self {
+        value.0.date().into()
+    }
+}
+
+impl From<&RyDateTime> for RyTime {
+    #[inline]
+    fn from(value: &RyDateTime) -> Self {
+        value.0.time().into()
+    }
+}
+
+impl From<&RyDateTime> for RyISOWeekDate {
+    #[inline]
+    fn from(value: &RyDateTime) -> Self {
+        value.0.date().iso_week_date().into()
+    }
+}
+
+impl From<&RyTimestamp> for RyDate {
+    #[inline]
+    fn from(value: &RyTimestamp) -> Self {
+        value.0.to_zoned(TimeZone::UTC).date().into()
+    }
+}
+
+impl From<&RyTimestamp> for RyDateTime {
+    #[inline]
+    fn from(value: &RyTimestamp) -> Self {
+        value.0.to_zoned(TimeZone::UTC).datetime().into()
+    }
+}
+
+impl From<&RyTimestamp> for RyISOWeekDate {
+    #[inline]
+    fn from(value: &RyTimestamp) -> Self {
+        value.0.to_zoned(TimeZone::UTC).iso_week_date().into()
+    }
+}
+
+impl From<&RyTimestamp> for RyTime {
+    #[inline]
+    fn from(value: &RyTimestamp) -> Self {
+        value.0.to_zoned(TimeZone::UTC).time().into()
+    }
+}
+
+impl From<&RyTimestamp> for RyZoned {
+    #[inline]
+    fn from(value: &RyTimestamp) -> Self {
+        value.0.to_zoned(TimeZone::UTC).into()
+    }
+}
+
+impl From<&RyZoned> for RyDate {
+    #[inline]
+    fn from(value: &RyZoned) -> Self {
+        value.0.date().into()
+    }
+}
+
+impl From<&RyZoned> for RyTime {
+    #[inline]
+    fn from(value: &RyZoned) -> Self {
+        value.0.time().into()
+    }
+}
+
+impl From<&RyZoned> for RyDateTime {
+    #[inline]
+    fn from(value: &RyZoned) -> Self {
+        value.0.datetime().into()
+    }
+}
+
+impl From<&RyZoned> for RyISOWeekDate {
+    #[inline]
+    fn from(value: &RyZoned) -> Self {
+        value.0.date().iso_week_date().into()
+    }
+}
+
+impl From<&RyZoned> for RyTimestamp {
+    #[inline]
+    fn from(value: &RyZoned) -> Self {
+        value.0.timestamp().into()
+    }
+}
+
+impl From<&RyDate> for RyISOWeekDate {
+    #[inline]
+    fn from(value: &RyDate) -> Self {
+        value.0.iso_week_date().into()
+    }
+}
+
+// ~ ~ ~ From jiff types to ryo3-jiff types ~ ~ ~
+
+macro_rules! impl_from_jiff_for_ry {
+    ($jiff_type:ty, $ryo3_type:ty) => {
+        impl $ryo3_type {
+            #[inline]
+            pub fn from_inner(value: $jiff_type) -> Self {
+                Self(value)
+            }
+        }
+
+        impl From<$jiff_type> for $ryo3_type {
+            #[inline]
+            fn from(value: $jiff_type) -> Self {
+                Self::from_inner(value)
+            }
+        }
+    };
+}
+
+impl_from_jiff_for_ry!(Date, RyDate);
+impl_from_jiff_for_ry!(DateTime, RyDateTime);
+impl_from_jiff_for_ry!(ISOWeekDate, RyISOWeekDate);
+impl_from_jiff_for_ry!(Offset, RyOffset);
+impl_from_jiff_for_ry!(SignedDuration, RySignedDuration);
+impl_from_jiff_for_ry!(Span, RySpan);
+impl_from_jiff_for_ry!(Time, RyTime);
+impl_from_jiff_for_ry!(Timestamp, RyTimestamp);
+impl_from_jiff_for_ry!(TimeZone, RyTimeZone);
+impl_from_jiff_for_ry!(Zoned, RyZoned);
+
+macro_rules! impl_from_jiff_newt_for_ry {
+    ($jiff_newt:ty, $ryo3_type:ty) => {
+        impl From<$jiff_newt> for $ryo3_type {
+            #[inline]
+            fn from(value: $jiff_newt) -> Self {
+                Self::from_inner(value.into_inner())
+            }
+        }
+    };
+}
+
+impl_from_jiff_newt_for_ry!(JiffDate, RyDate);
+impl_from_jiff_newt_for_ry!(JiffTime, RyTime);
+impl_from_jiff_newt_for_ry!(JiffDateTime, RyDateTime);
+impl_from_jiff_newt_for_ry!(JiffTimestamp, RyTimestamp);
+impl_from_jiff_newt_for_ry!(JiffZoned, RyZoned);
+impl_from_jiff_newt_for_ry!(JiffSpan, RySpan);
+impl_from_jiff_newt_for_ry!(JiffOffset, RyOffset);
+impl_from_jiff_newt_for_ry!(JiffSignedDuration, RySignedDuration);
+impl_from_jiff_newt_for_ry!(JiffTimeZone, RyTimeZone);
+
+impl From<jiff::civil::Date> for RyISOWeekDate {
+    fn from(date: jiff::civil::Date) -> Self {
+        Self(ISOWeekDate::from(date))
+    }
+}
+
+impl From<RyTimeZone> for TimeZone {
+    fn from(value: RyTimeZone) -> Self {
+        value.0
+    }
+}
+
+impl TryFrom<SignedDuration> for RySpan {
+    type Error = pyo3::PyErr;
+
+    fn try_from(value: SignedDuration) -> Result<Self, Self::Error> {
+        Span::try_from(value)
+            .map(Self::from)
+            .map_err(map_py_overflow_err)
+    }
+}
+
+impl From<RySignedDuration> for SignedDuration {
+    fn from(value: RySignedDuration) -> Self {
+        value.0
+    }
+}
+
+impl TryFrom<&ryo3_std::time::PyDuration> for RySignedDuration {
+    type Error = pyo3::PyErr;
+
+    fn try_from(value: &ryo3_std::time::PyDuration) -> Result<Self, Self::Error> {
+        SignedDuration::try_from(*(value.inner()))
+            .map(Self::from)
+            .map_err(map_py_overflow_err)
+    }
+}

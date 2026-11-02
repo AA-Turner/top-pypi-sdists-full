@@ -1,0 +1,2969 @@
+"""Local vector embeddings for hybrid search.
+
+Loads the recall encoder lazily (`MODEL_NAME`: `BAAI/bge-m3` on a personal
+server and a Cloud cell; the heavy import
+stays off the keyword-mode hot path). Chunks each
+KB page paragraph-wise with title prepended, normalizes vectors so
+cosine = dot product, and persists to a per-machine sqlite sidecar
+(`.embeddings.sqlite` under the machine-local state root; see `state_paths`).
+
+Sidecar lives outside `_Schema/` deliberately:
+- Dotfile → Obsidian Sync ignores it (each machine maintains its own)
+- Not bundled in `_Schema.zip` (would inflate every claude.ai schema upload)
+- `audit_fix(rebuild_embeddings=True)` rebuilds from the markdown source
+  of truth if the sidecar is lost or stale.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import gc
+import hashlib
+import logging
+import math
+import os
+import sqlite3
+import sys
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Sequence
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, BinaryIO, NamedTuple
+
+import numpy as np
+
+from . import (
+    accel,
+    call_spans,
+    embedding_backend,
+    index_paths,
+    model_cache,
+    recall_policy,
+    recall_space,
+    runtime_resources,
+    vecstore,
+)
+from .clip_index import CLIP_DIM, ClipIndex
+from .embedding_index import VECTOR_DIM as VECTOR_DIM  # the legacy width, re-exported
+from .embedding_index import EmbeddingIndex, expected_parent_state
+from .vector_index_common import vec_gate as _vec_gate
+
+log = logging.getLogger(__name__)
+
+
+#: The recall encoder (`recall_space.configured_recall_model`). A sidecar written
+#: by another encoder keeps serving with that one until `recall_migration` has
+#: re-embedded it into this one's space.
+MODEL_NAME = recall_space.configured_recall_model()
+# The cross-encoder reranker is a stateless scorer (no stored vectors / sidecar dim),
+# so it can be swapped freely without a re-index. EXOMEM_RANKING_MODEL (legacy alias
+# EXOMEM_RERANKER_MODEL) overrides; EXOMEM_DISABLE_RANKING turns it off entirely (a
+# ~0.44 GB RAM + rerank-latency saving for low-resource / lite installs).
+RERANKER_NAME = (
+    os.environ.get("EXOMEM_RANKING_MODEL")
+    or os.environ.get("EXOMEM_RERANKER_MODEL")
+    or "BAAI/bge-reranker-base"
+)
+# The CrossEncoder runtime is separate from the bi-encoder runtime. Keep the
+# default unchanged; ONNX selection requires its explicit optional extra.
+RERANKER_BACKEND_ENV = "EXOMEM_RERANKER_BACKEND"
+RERANKER_BACKEND = (os.environ.get(RERANKER_BACKEND_ENV) or "torch").strip().lower()
+# This closed set mirrors the runtimes supported by the pinned CrossEncoder API.
+_RERANKER_BACKENDS = frozenset({"torch", "onnx"})
+# bge documentation recommends prefixing queries (not passages) for retrieval.
+QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
+# Rough word-count cap per chunk. bge-base's tokenizer maxes at 512 tokens;
+# words ≈ tokens × 0.75, so 350 words is a safe upstream cap that avoids
+# truncation surprises while staying paragraph-coherent.
+MAX_WORDS_PER_CHUNK = 350
+
+# CLIP: one shared image+text space, so a text query can match a (textless) photo
+# by visual content. An EMBEDDER (measurement) like bge — not a captioning VLM —
+# so it stays in-bounds for the pure-substrate server. ViT-B/32 → 512-dim.
+CLIP_MODEL_NAME = "clip-ViT-B-32"
+#: The activation index's own encoder (close-memory-loop, step 4). Unset, or naming
+#: `MODEL_NAME`, is the shared topology: activation uses the recall singleton on the
+#: process-wide model gate, exactly as before. Any other model is a second guarded
+#: singleton with an execution slot of its own, so an interactive query encode never
+#: queues behind a recall write's bulk encode. Recall itself never changes model.
+ACTIVATION_MODEL_ENV = "EXOMEM_ACTIVATION_MODEL"
+_MODEL = None
+#: Advanced under `_MODEL_LOCK` on every load and every unload of `_MODEL`, so a
+#: vector can say which resident model produced it (see `passage_memo_stamp`).
+_MODEL_GENERATION = 0
+_MODEL_LOCK = threading.Lock()
+_RERANKER = None
+_RERANKER_LOCK = threading.Lock()
+_CLIP_MODEL = None
+_CLIP_QUERY_MODEL = None
+_CLIP_LOCK = threading.Lock()
+_ACTIVATION_MODEL = None
+_ACTIVATION_MODEL_LOCK = threading.Lock()
+_ACTIVATION_GATE: runtime_resources.ModelAdmissionGate | None = None
+_ACTIVATION_GATE_LOCK = threading.Lock()
+#: The interactive lane: single query encodes, on a model that can encode
+#: concurrently, never wait for (or are refused behind) a bulk batch.
+_INTERACTIVE_GATE: runtime_resources.ModelAdmissionGate | None = None
+_INTERACTIVE_GATE_LOCK = threading.Lock()
+#: Tokens of an activation turn that are read, the model's special tokens on
+#: top. A turn's head says what it is about, and the request path has no budget
+#: for reading a pasted page.
+ACTIVATION_TURN_MAX_TOKENS = 40
+_IMPORT_FAILED = False  # one-time soft-fail flag for upsert_after_write
+_CLIP_IMPORT_FAILED = False
+
+
+class _ModelGuard:
+    """In-flight + last-activity tracking for a lazily-loaded model singleton, so the
+    idle-unload reaper (`model_reaper`) can reclaim it safely.
+
+    Correctness rests on the worker holding a live LOCAL ref to the model for the whole
+    encode (get_model() returns it, the worker calls model.encode on that local): nulling
+    the module singleton can't collect it and `empty_cache()` frees only unused blocks, so
+    an unload racing an in-flight encode is never a use-after-free. This guard therefore
+    only prevents INEFFICIENCY — a transient double-load or empty_cache stealing reusable
+    blocks mid-encode — via the in-flight counter, not a crash. Its lock guards only the
+    counter + timestamp; it is never held across a model load or an encode.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self._lock = threading.Lock()
+        self._inflight = 0
+        self._last_activity = 0.0  # time.monotonic() of last load/encode; 0 = never loaded
+
+    def touch(self) -> None:
+        """Stamp activity (called on model load so a fresh model isn't instantly reaped)."""
+        with self._lock:
+            self._last_activity = time.monotonic()
+
+    @contextlib.contextmanager
+    def active(self):
+        """Bracket an encode/predict: bump in-flight so the reaper skips this model."""
+        with self._lock:
+            self._inflight += 1
+            self._last_activity = time.monotonic()
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._inflight -= 1
+                self._last_activity = time.monotonic()
+
+    def inflight(self) -> int:
+        with self._lock:
+            return self._inflight
+
+    def last_activity(self) -> float:
+        with self._lock:
+            return self._last_activity
+
+
+BGE_GUARD = _ModelGuard("embeddings")
+RERANKER_GUARD = _ModelGuard("reranker")
+CLIP_GUARD = _ModelGuard("clip")
+ACTIVATION_GUARD = _ModelGuard("activation")
+
+
+def unload_model() -> bool:
+    """Drop the bge singleton and release its GPU cache. Skips if a worker is mid-encode.
+
+    Returns True if it actually unloaded. Safe under concurrent use (see `_ModelGuard`):
+    a worker that already holds the model finishes its encode on its local ref. The busy
+    check + null happen under `_MODEL_LOCK`, so no new get_model() can complete a load in
+    between (get_model also takes `_MODEL_LOCK`)."""
+    global _MODEL, _MODEL_GENERATION
+    with _MODEL_LOCK:
+        if _MODEL is None or BGE_GUARD.inflight() > 0:
+            return False
+        m, _MODEL = _MODEL, None
+        _MODEL_GENERATION += 1
+    clear_passage_vectors()
+    # Backends hold runtime memory the reference drop alone will not return: an
+    # ONNX session owns arenas outside Python's heap, and torch owns a caching
+    # allocator. `release` is where each says how to give it back.
+    release = getattr(m, "release", None)
+    if release is not None:
+        with contextlib.suppress(Exception):  # unload must never raise
+            release()
+    del m
+    gc.collect()
+    accel.empty_cache()
+    return True
+
+
+def unload_activation_model() -> bool:
+    """Drop a separate activation encoder. See `unload_model`; the shared
+    topology holds nothing here, so this is then a no-op."""
+    global _ACTIVATION_MODEL
+    with _ACTIVATION_MODEL_LOCK:
+        if _ACTIVATION_MODEL is None or ACTIVATION_GUARD.inflight() > 0:
+            return False
+        m, _ACTIVATION_MODEL = _ACTIVATION_MODEL, None
+    release = getattr(m, "release", None)
+    if release is not None:
+        with contextlib.suppress(Exception):  # unload must never raise
+            release()
+    del m
+    gc.collect()
+    accel.empty_cache()
+    return True
+
+
+def unload_reranker() -> bool:
+    """Drop the reranker singleton + release GPU cache. See `unload_model`."""
+    global _RERANKER
+    with _RERANKER_LOCK:
+        if _RERANKER is None or RERANKER_GUARD.inflight() > 0:
+            return False
+        m, _RERANKER = _RERANKER, None
+    del m
+    gc.collect()
+    accel.empty_cache()
+    return True
+
+
+def unload_clip_model() -> bool:
+    """Drop both CLIP towers while no image, query or tag encode is active."""
+    global _CLIP_MODEL, _CLIP_QUERY_MODEL
+    with _CLIP_LOCK:
+        if (_CLIP_MODEL is None and _CLIP_QUERY_MODEL is None) or CLIP_GUARD.inflight() > 0:
+            return False
+        image, _CLIP_MODEL = _CLIP_MODEL, None
+        query, _CLIP_QUERY_MODEL = _CLIP_QUERY_MODEL, None
+    had_image = image is not None
+    del image, query
+    gc.collect()
+    if had_image:
+        accel.empty_cache()
+    else:
+        from . import process_memory
+
+        process_memory.trim_allocator()
+    return True
+
+# Process-lifetime memo of the per-vault index objects. Sharing ONE instance per
+# vault is what makes the in-memory matrix cache survive across find() calls (and
+# lets warm-up actually prime it) — previously every call site built a throwaway
+# instance whose cache started empty, so all_vectors() paid a full O(vault) reload
+# on every find. Keyed by the resolved vault path; guarded for the worker-thread
+# pool + file-watcher/media-worker threads that touch these concurrently.
+_INDEX_CACHE: dict[str, EmbeddingIndex] = {}
+_CLIP_INDEX_CACHE: dict[str, ClipIndex] = {}
+_INDEX_CACHE_LOCK = threading.Lock()
+
+
+sidecar_path = index_paths.sidecar_path
+clip_sidecar_path = index_paths.clip_sidecar_path
+
+
+def clip_enabled() -> bool:
+    """False when EXOMEM_DISABLE_CLIP is set (mirrors EXOMEM_DISABLE_EMBEDDINGS)."""
+    return not os.environ.get("EXOMEM_DISABLE_CLIP")
+
+
+def ranking_enabled() -> bool:
+    """False when EXOMEM_DISABLE_RANKING is set — the reranker never loads or scores.
+
+    The reranker is already opt-in per query (see find.should_rerank); this hard-off
+    keeps it from ever being preloaded or invoked, freeing ~0.44 GB and its latency —
+    the 'lite' knob for low-resource installs. Retrieval falls back to the fused
+    vector+BM25 ordering, which is what serves the un-reranked majority of queries anyway.
+    """
+    return not os.environ.get("EXOMEM_DISABLE_RANKING")
+
+
+INDEX_SCOPES = index_paths.INDEX_SCOPES
+index_scope = index_paths.index_scope
+
+
+def _index_walk(vault_root: Path):
+    """Compatibility wrapper for the semantic-index path contract."""
+    yield from index_paths.iter_index_markdown(vault_root)
+
+
+def _is_embeddable_path(path: Path) -> bool:
+    """Compatibility wrapper for derived-index markdown eligibility."""
+    return index_paths.is_embeddable_path(path)
+
+
+@call_spans.timed("embeddings.model_load")
+def get_model():
+    """Lazy singleton served by the configured backend, CPU-default unless set.
+
+    The backend decides which runtime loads the model; the model itself, its
+    pooling, and its output are fixed, so a backend change never invalidates a
+    stored vector. `embedding_backend.load_encoder` keeps the heavy import local
+    for the same reason this function did — a lean install must not pay it.
+    """
+    global _MODEL, _MODEL_GENERATION
+    resident = _MODEL
+    if resident is not None:
+        # The slot serializes a load, not a lookup: taking it here made every
+        # query encode wait behind a bulk encode's batch once before its own turn.
+        return resident
+    # A served model's artefact can take minutes to download or build; the
+    # process-wide model slot is taken only to load the finished bytes.
+    embedding_backend.ensure_served_artifact(MODEL_NAME)
+    with runtime_resources.model_execution():
+        if _MODEL is not None:
+            return _MODEL
+        with _MODEL_LOCK:
+            if _MODEL is not None:
+                return _MODEL
+            _MODEL = embedding_backend.load_encoder(MODEL_NAME)
+            _MODEL_GENERATION += 1
+            # A new model is a new encoder: nothing remembered before it holds.
+            clear_passage_vectors()
+        BGE_GUARD.touch()  # start the idle clock at load, not epoch 0
+        return _MODEL
+
+
+def get_reranker():
+    """Load the configured CrossEncoder backend lazily."""
+    global _RERANKER
+    with runtime_resources.model_execution():
+        if _RERANKER is not None:
+            return _RERANKER
+        with _RERANKER_LOCK:
+            if _RERANKER is not None:
+                return _RERANKER
+            backend = RERANKER_BACKEND
+            if backend not in _RERANKER_BACKENDS:
+                raise ValueError(
+                    f"unknown {RERANKER_BACKEND_ENV}: {backend!r}; "
+                    f"valid: {sorted(_RERANKER_BACKENDS)}"
+                )
+            # The tokenizer guard first, before any import a lean install lacks.
+            embedding_backend.require_tokenizer(RERANKER_NAME)
+            runtime_resources.configure_torch()
+            from sentence_transformers import CrossEncoder
+
+            device = accel.select_device(override_env="EXOMEM_EMBED_DEVICE")
+            log.info("loading reranker %s with %s", RERANKER_NAME, backend)
+
+            def load_cross_encoder(**kwargs):
+                if backend == "onnx":
+                    # Do not auto-select CUDA: that would bypass Exomem's
+                    # explicit accelerator/headroom policy. ONNX Runtime has
+                    # no provider in the lean MPS profile, so MPS uses CPU.
+                    provider = (
+                        "CUDAExecutionProvider"
+                        if str(device).startswith("cuda")
+                        else "CPUExecutionProvider"
+                    )
+                    model_path = RERANKER_NAME
+                    if kwargs.get("local_files_only"):
+                        snapshot = model_cache.snapshot_path(RERANKER_NAME)
+                        if snapshot is not None:
+                            model_path = str(snapshot)
+                    return CrossEncoder(
+                        model_path,
+                        # SentenceTransformers probes torch.cuda when device is
+                        # omitted, even with an explicit ONNX Runtime provider.
+                        # Pass policy's resolved device to skip that probe.
+                        device=device,
+                        backend=backend,
+                        model_kwargs={
+                            "provider": provider,
+                            "export": False,
+                            "file_name": "model.onnx",
+                            "subfolder": "onnx",
+                        },
+                        **kwargs,
+                    )
+                return CrossEncoder(
+                    RERANKER_NAME,
+                    device=device,
+                    backend=backend,
+                    **kwargs,
+                )
+
+            _RERANKER = model_cache.load_offline_first(
+                RERANKER_NAME,
+                load_cross_encoder,
+            )
+        RERANKER_GUARD.touch()
+        return _RERANKER
+
+
+# Run bge/CLIP in fp16 on Apple Silicon (MPS): ~half the memory and faster encodes, and
+# these retrieval models tolerate half precision well. Gated to MPS only — CPU fp16 is
+# emulated (slower) and the CUDA path stays fp32 for cross-run/voiceprint parity. Disable
+# with EXOMEM_MPS_FP16=0.
+#
+# Storage is unaffected: every vector is upcast to float32 before it hits the sqlite blob
+# (the astype(np.float32) guards in embed_*/upsert_*), so the on-disk format is identical —
+# only the computed precision changes. Existing fp32 vectors differ from new fp16 ones by
+# ~1e-3 (harmless for ranking); `audit_fix(rebuild_embeddings=True)` re-embeds for exact
+# consistency if wanted.
+#
+# It lives in `embedding_backend` because the torch encoder applies it at load; CLIP below
+# and `tests/test_accel.py` reach it through this name.
+_maybe_half = embedding_backend._maybe_half
+
+
+class ClipUnavailable(Exception):
+    """CLIP (sentence-transformers/Pillow) isn't importable — soft-fail signal."""
+
+
+def _clip_device() -> str:
+    """Device for CLIP. Honors EXOMEM_CLIP_DEVICE; otherwise CUDA > MPS > CPU via
+    `accel.select_device`, but avoids CUDA when ASR is active in this process.
+
+    Why avoid CUDA under ASR: faster-whisper's CUDA-12 cuDNN/cuBLAS wheels get
+    PATH-prepended (extract._ensure_cuda_dll_path) so ctranslate2 can load — which
+    then shadows torch-cu132's bundled cuDNN 13 and makes CLIP's ViT Conv2d die with
+    CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH. bge survives (pure transformer, no conv);
+    CLIP's vision tower doesn't. Since the media worker prewarms ASR at startup, having
+    extraction enabled means PATH is already poisoned, so CLIP falls to CPU there — a
+    tiny ViT-B/32, off the request path, embeds in well under a second.
+
+    This clash is **CUDA-only**: `avoid_cuda_when_asr` fires only when the auto-pick
+    would be CUDA, so on Apple Silicon CLIP keeps the MPS (Metal) GPU even with ASR
+    running. A CLIP-only box (EXOMEM_DISABLE_MEDIA_EXTRACTION set) also keeps the GPU.
+    """
+    return accel.select_device(override_env="EXOMEM_CLIP_DEVICE", avoid_cuda_when_asr=True)
+
+
+def _clip_image_lane_is_onnx() -> bool:
+    """The image tower follows the encoder lane: ONNX wherever torch is not served."""
+    return embedding_backend.resolve_backend() == embedding_backend.ONNX
+
+
+def get_clip_model():
+    """Lazy CLIP image and tag tower: sentence-transformers, or its ONNX build on CPU."""
+    global _CLIP_MODEL
+    with runtime_resources.model_execution():
+        if _CLIP_MODEL is not None:
+            return _CLIP_MODEL
+        with _CLIP_LOCK:
+            if _CLIP_MODEL is not None:
+                return _CLIP_MODEL
+            if _clip_image_lane_is_onnx():
+                from .clip_image import OnnxClipImageEncoder
+
+                log.info("loading the ONNX CLIP image encoder on CPU")
+                _CLIP_MODEL = OnnxClipImageEncoder()
+                CLIP_GUARD.touch()
+                return _CLIP_MODEL
+            runtime_resources.configure_torch()
+            from sentence_transformers import SentenceTransformer
+
+            device = _clip_device()
+            log.info("loading CLIP model %s on %s", CLIP_MODEL_NAME, device)
+            _CLIP_MODEL = _maybe_half(
+                model_cache.load_offline_first(
+                    CLIP_MODEL_NAME,
+                    lambda **kw: SentenceTransformer(CLIP_MODEL_NAME, device=device, **kw),
+                ),
+                device,
+            )
+        CLIP_GUARD.touch()
+        return _CLIP_MODEL
+
+
+def get_clip_query_model():
+    """Lazy multilingual query tower aligned to the existing image vectors."""
+    global _CLIP_QUERY_MODEL
+    with runtime_resources.model_execution():
+        with _CLIP_LOCK:
+            if _CLIP_QUERY_MODEL is None:
+                from .clip_query import OnnxClipQueryEncoder
+
+                log.info("loading the multilingual CLIP query encoder on CPU")
+                _CLIP_QUERY_MODEL = OnnxClipQueryEncoder()
+        CLIP_GUARD.touch()
+        return _CLIP_QUERY_MODEL
+
+
+def clip_encoder_space() -> dict[str, str]:
+    """The image tower's vector space and the artifact that writes into it.
+
+    Both lanes write one space: the ONNX build passed the same-precision parity
+    bound against the sentence-transformers model, so it keeps the stored vectors.
+    """
+    from . import media_models
+
+    spec = media_models.model_spec("image")
+    artifact = (
+        f"onnx:{spec['artifact']['digest']}"
+        if _clip_image_lane_is_onnx()
+        else f"sentence-transformers:{CLIP_MODEL_NAME}"
+    )
+    return {
+        "space": spec["image_space"],
+        "width": str(spec["dimensions"]),
+        "precision": spec["precision"],
+        "artifact": artifact,
+    }
+
+
+def _clip_image_tower():
+    """Load the image tower, mapping a missing runtime or artifact to ClipUnavailable."""
+    try:
+        return get_clip_model()
+    except (ImportError, embedding_backend.ModelFilesUnavailable) as error:
+        raise ClipUnavailable(f"CLIP image encoder unavailable: {error}") from error
+
+
+def embed_image(path: Path) -> np.ndarray:
+    """Encode decoded pixels as an L2-normalized float32 visual vector."""
+    from . import image_codecs
+
+    try:
+        image = image_codecs.open_image(path)
+    except ImportError as error:
+        raise ClipUnavailable(str(error)) from error
+    with image as img:
+        model = _clip_image_tower()
+        with CLIP_GUARD.active(), runtime_resources.model_execution():
+            vec = model.encode(img.convert("RGB"), convert_to_numpy=True, normalize_embeddings=True)
+    return vec.astype(np.float32, copy=False)
+
+
+def embed_clip_text(query: str) -> np.ndarray:
+    """Encode a text query into CLIP space → float32 (512,), L2-normalized."""
+    with CLIP_GUARD.active(), runtime_resources.model_execution():
+        try:
+            model = get_clip_query_model()
+        except (ImportError, embedding_backend.ModelFilesUnavailable) as error:
+            raise ClipUnavailable(f"multilingual image query encoder unavailable: {error}") from error
+        vec = model.encode([query])[0]
+    return vec.astype(np.float32, copy=False)
+
+
+def embed_clip_texts(texts: list[str]) -> np.ndarray:
+    """Batch-encode texts into CLIP space → float32 `(N, 512)`, L2-normalized.
+
+    Same shared image+text space as `embed_image`, so a cosine between an image vector
+    and these text vectors is a valid zero-shot match score. Used to embed the fixed
+    image-tag vocabulary once (image_tags). Raises ClipUnavailable when CLIP is missing.
+    """
+    if not texts:
+        return np.zeros((0, CLIP_DIM), dtype=np.float32)
+    if _clip_image_lane_is_onnx():
+        # Tags score against CLIP's original text tower, which only the torch lane serves.
+        raise ClipUnavailable("image tags need the sentence-transformers CLIP text tower")
+    try:
+        model = get_clip_model()
+    except ImportError as e:
+        raise ClipUnavailable(f"sentence-transformers not installed: {e}") from e
+    with CLIP_GUARD.active(), runtime_resources.model_execution():
+        vecs = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+    return vecs.astype(np.float32, copy=False)
+
+
+CLIP_VIDEO_FRAMES = 8  # frame budget for the unknown-duration sequential fallback
+
+
+# --- Per-keyframe multi-vector video sampling -------------------------------
+# One mean-pooled vector blurs a long/multi-scene video. Instead we keep N
+# per-keyframe vectors so a video is findable at the SPECIFIC moment. The
+# sampler is duration-scaled seek-sampling (O(1) in length, no full decode) +
+# perceptual-hash near-dup suppression (collapses static talking-head runs),
+# capped to bound storage. No new dependency — PIL + numpy only.
+MAX_VIDEO_KEYFRAMES = 40  # hard cap on vectors per video (EXOMEM_MAX_VIDEO_KEYFRAMES overrides)
+MIN_VIDEO_KEYFRAMES = 4
+VIDEO_CANDIDATE_INTERVAL_SECS = 8  # ≈ one candidate keyframe per this many seconds
+PHASH_DEDUP_DISTANCE = 5  # Hamming distance under which two frames count as near-dups
+
+
+def _max_video_keyframes() -> int:
+    raw = os.environ.get("EXOMEM_MAX_VIDEO_KEYFRAMES")
+    if raw:
+        try:
+            v = int(raw)
+            if v > 0:
+                return v
+        except ValueError:
+            pass
+    return MAX_VIDEO_KEYFRAMES
+
+
+def _hash_bits(arr: np.ndarray) -> int:
+    """Pack a small grayscale array into an average-hash int: bit per pixel vs mean.
+
+    Shared core between the PIL path (`_avg_hash`) and the ndarray path used by the
+    scene-detection metrics pass, so both produce comparable hashes.
+    """
+    flat = np.asarray(arr, dtype=np.float32).ravel()
+    bits = flat >= flat.mean()
+    val = 0
+    for b in bits:
+        val = (val << 1) | int(b)
+    return val
+
+
+def _avg_hash(img, *, size: int = 8) -> int:
+    """64-bit perceptual average-hash: downscale → grayscale → bit per pixel vs mean.
+
+    Keys on luminance *structure*, so it distinguishes textured frames (faces, slides,
+    whiteboards — what real recordings contain) but is blind to two flat frames of
+    differing uniform colour (both hash to all-ones). Dedup is best-effort; a
+    pathologically flat video simply keeps fewer keyframes.
+    """
+    small = img.convert("L").resize((size, size))
+    return _hash_bits(np.asarray(small, dtype=np.float32))
+
+
+def _pool_gray(arr: np.ndarray, *, size: int = 8) -> np.ndarray:
+    """Mean-pool a grayscale array down to size×size (hash input for ndarray frames)."""
+    a = np.asarray(arr, dtype=np.float32)
+    h, w = a.shape
+    return a[: h - h % size, : w - w % size].reshape(
+        size, h // size, size, w // size
+    ).mean(axis=(1, 3))
+
+
+def _gray_hist(arr: np.ndarray, *, bins: int = 32) -> np.ndarray:
+    """Normalized grayscale histogram (sums to 1) — a global-luminance signature that
+    catches shifts the structural average-hash is blind to (two flat frames of
+    differing brightness)."""
+    h, _ = np.histogram(np.asarray(arr).ravel(), bins=bins, range=(0, 256))
+    total = h.sum()
+    if not total:
+        return np.zeros(bins, dtype=np.float32)
+    return (h / total).astype(np.float32)
+
+
+def _hamming(a: int, b: int) -> int:
+    return bin(a ^ b).count("1")
+
+
+def _sample_video_keyframes(path: Path | BinaryIO) -> list[tuple[float, object]]:
+    """Seek-sample duration-scaled candidate keyframes → `(timestamp_seconds, PIL image)`.
+
+    Candidate count scales with duration (≈ one per `VIDEO_CANDIDATE_INTERVAL_SECS`),
+    clamped to `[MIN_VIDEO_KEYFRAMES, 2×cap]` so a fast-cut video has headroom for the
+    pHash dedup to keep distinct scenes. Seeks to each timestamp (O(1) in length);
+    falls back to first-N sequential decode when the duration is unknown.
+    """
+    try:
+        import av
+    except ImportError as e:
+        raise ClipUnavailable(f"PyAV not installed: {e}") from e
+    cap = _max_video_keyframes()
+    frames: list[tuple[float, object]] = []
+    av_source = path if hasattr(path, "read") else str(path)
+    with av.open(av_source) as container:
+        if not container.streams.video:
+            return frames
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        total_secs = 0.0
+        if stream.duration and stream.time_base:
+            total_secs = float(stream.duration * stream.time_base)
+        elif container.duration:
+            total_secs = container.duration / av.time_base
+        if total_secs > 0 and stream.time_base:
+            n = max(MIN_VIDEO_KEYFRAMES,
+                    min(math.ceil(total_secs / VIDEO_CANDIDATE_INTERVAL_SECS), 2 * cap))
+            for k in range(n):
+                t = total_secs * (k + 0.5) / n  # evenly-spaced midpoints
+                try:
+                    container.seek(int(t / float(stream.time_base)), stream=stream, backward=True)
+                    frames.append((t, next(container.decode(stream)).to_image()))
+                except Exception:  # noqa: BLE001 — best-effort sample; skip a bad seek
+                    continue
+        if not frames:  # unknown duration or all seeks failed → first-N sequential
+            container.seek(0)
+            fallback = max(MIN_VIDEO_KEYFRAMES, min(CLIP_VIDEO_FRAMES, cap))
+            for i, frame in enumerate(container.decode(stream)):
+                ts = float(frame.time) if frame.time is not None else float(i)
+                frames.append((ts, frame.to_image()))
+                if len(frames) >= fallback:
+                    break
+    return frames
+
+
+def _dedup_keyframes(
+    frames: list[tuple[float, object]], *, distance: int = PHASH_DEDUP_DISTANCE
+) -> list[tuple[float, object]]:
+    """Drop frames whose average-hash is within `distance` of the last KEPT frame —
+    collapses static runs while keeping scene changes. Soft: returns input on any error."""
+    if len(frames) <= 1:
+        return frames
+    try:
+        kept = [frames[0]]
+        last_hash = _avg_hash(frames[0][1])
+        for ts, img in frames[1:]:
+            h = _avg_hash(img)
+            if _hamming(h, last_hash) <= distance:
+                continue
+            kept.append((ts, img))
+            last_hash = h
+        return kept
+    except Exception:  # noqa: BLE001 — dedup is a best-effort optimisation
+        return frames
+
+
+# --- Visual-change scene detection (EXOMEM_VIDEO_SCENE_FRAMES) --------------
+# Boundary thresholds sit deliberately ABOVE the near-dup band: dedup collapses
+# frames within PHASH_DEDUP_DISTANCE (5), a scene boundary needs a hash change
+# > SCENE_HASH_THRESHOLD (10) — a hysteresis gap so jitter never becomes a scene.
+SCENE_HASH_THRESHOLD = 10  # hamming bits (of 64); EXOMEM_VIDEO_SCENE_THRESHOLD overrides
+SCENE_HIST_THRESHOLD = 0.35  # L1 distance between normalized 32-bin histograms (max 2.0)
+SCENE_MIN_SECS = 4.0  # boundaries closer than this merge; EXOMEM_VIDEO_SCENE_MIN_SECS overrides
+
+
+_FALSY_ENV = {"", "0", "false", "no", "off"}
+
+
+def scene_frames_enabled() -> bool:
+    """EXOMEM_VIDEO_SCENE_FRAMES gates scene detection + persisted scene frames.
+
+    Default OFF: video keyframe selection stays the uniform sampler and no frame
+    files are written — byte-identical to the pre-feature behavior.
+    """
+    return os.environ.get("EXOMEM_VIDEO_SCENE_FRAMES", "").strip().lower() not in _FALSY_ENV
+
+
+def _scene_hash_threshold() -> int:
+    raw = os.environ.get("EXOMEM_VIDEO_SCENE_THRESHOLD")
+    if raw:
+        try:
+            v = int(raw)
+            if 0 < v <= 64:
+                return v
+        except ValueError:
+            pass
+    return SCENE_HASH_THRESHOLD
+
+
+def _scene_min_secs() -> float:
+    raw = os.environ.get("EXOMEM_VIDEO_SCENE_MIN_SECS")
+    if raw:
+        try:
+            v = float(raw)
+            if v >= 0:
+                return v
+        except ValueError:
+            pass
+    return SCENE_MIN_SECS
+
+
+@dataclass(frozen=True)
+class Scene:
+    """One detected scene: `[start_ts, end_ts]` with a representative timestamp.
+
+    `boundary_score` is the normalized change score of the boundary that OPENED the
+    scene (0.0 for the first scene, which has no opening boundary) — used to merge
+    the weakest boundaries first when detection exceeds the keyframe cap.
+    """
+
+    start_ts: float
+    end_ts: float
+    rep_ts: float
+    boundary_score: float
+
+
+def detect_scenes(
+    series: list[tuple[float, int, np.ndarray]],
+    *,
+    hash_threshold: int | None = None,
+    hist_threshold: float | None = None,
+    min_scene_secs: float | None = None,
+    max_scenes: int | None = None,
+) -> list[Scene]:
+    """Pure scene-boundary detection over `[(ts, hash64, hist)]` candidate metrics.
+
+    Anchor-based (the `_dedup_keyframes` pattern generalized): each candidate is
+    compared to the CURRENT scene's anchor, not the previous frame, so slow drift
+    doesn't fragment a scene and static runs collapse. A boundary opens when the
+    hash hamming distance exceeds `hash_threshold` OR the histogram L1 distance
+    exceeds `hist_threshold`. A boundary within `min_scene_secs` of the previous
+    one merges into it (the anchor re-points at the newest content, so A→B→A
+    flicker and fades yield one boundary). When more than `max_scenes` result, the
+    adjacent pair with the weakest opening boundary merges first. Representative
+    timestamp = candidate nearest the scene's temporal midpoint.
+    """
+    if not series:
+        return []
+    if hash_threshold is None:
+        hash_threshold = _scene_hash_threshold()
+    if hist_threshold is None:
+        hist_threshold = SCENE_HIST_THRESHOLD
+    if min_scene_secs is None:
+        min_scene_secs = _scene_min_secs()
+    if max_scenes is None:
+        max_scenes = _max_video_keyframes()
+
+    ts0, h0, hist0 = series[0]
+    # Working form: candidate timestamps + the anchor metrics + opening-boundary score.
+    scenes: list[dict] = [
+        {"ts": [ts0], "anchor": (h0, np.asarray(hist0, dtype=np.float32)), "score": math.inf}
+    ]
+    last_boundary_ts = ts0
+    for ts, h, hist in series[1:]:
+        hist = np.asarray(hist, dtype=np.float32)
+        anchor_h, anchor_hist = scenes[-1]["anchor"]
+        d_hash = _hamming(h, anchor_h)
+        d_hist = float(np.abs(hist - anchor_hist).sum())
+        if d_hash <= hash_threshold and d_hist <= hist_threshold:
+            scenes[-1]["ts"].append(ts)
+            continue
+        score = max(d_hash / 64.0, d_hist / 2.0)
+        if ts - last_boundary_ts < min_scene_secs:
+            # Same transition (flicker/fade): absorb, re-anchor to the newest content.
+            scenes[-1]["ts"].append(ts)
+            scenes[-1]["anchor"] = (h, hist)
+            scenes[-1]["score"] = max(scenes[-1]["score"], score)
+            last_boundary_ts = ts
+            continue
+        scenes.append({"ts": [ts], "anchor": (h, hist), "score": score})
+        last_boundary_ts = ts
+
+    # Over the cap: merge the scene whose OPENING boundary is weakest into its
+    # predecessor — keeps the strongest boundaries (better than uniform subsampling).
+    while len(scenes) > max(1, max_scenes) and len(scenes) > 1:
+        i = min(range(1, len(scenes)), key=lambda k: scenes[k]["score"])
+        scenes[i - 1]["ts"].extend(scenes[i]["ts"])
+        del scenes[i]
+
+    out: list[Scene] = []
+    for sc in scenes:
+        ts_list = sc["ts"]
+        start, end = ts_list[0], ts_list[-1]
+        mid = (start + end) / 2.0
+        rep = min(ts_list, key=lambda t: abs(t - mid))
+        score = 0.0 if sc["score"] is math.inf else float(sc["score"])
+        out.append(Scene(start_ts=start, end_ts=end, rep_ts=rep, boundary_score=score))
+    return out
+
+
+SCENE_CANDIDATE_MIN_GAP_SECS = 2.0  # pass-1 thinning: at most one candidate per this
+SCENE_CANDIDATE_CAP = 900  # hard bound on pass-1 candidates (all-intra screen captures)
+
+
+def _iter_iframe_metrics(path: Path) -> list[tuple[float, int, np.ndarray]]:
+    """Pass 1 of scene detection: I-frame-only metrics scan → `[(ts, hash64, hist)]`.
+
+    Decodes ONLY keyframes (`skip_frame NONKEY`), reformatted libav-side to 64×64
+    grayscale — no full-res frame is ever materialized here. Encoder scenecut logic
+    already concentrates I-frames at hard cuts, so candidate density adapts to the
+    content. Thinned to one candidate per `SCENE_CANDIDATE_MIN_GAP_SECS`, with the
+    gap widened so a pathological all-intra stream stays under `SCENE_CANDIDATE_CAP`.
+    """
+    try:
+        import av
+    except ImportError as e:
+        raise ClipUnavailable(f"PyAV not installed: {e}") from e
+    out: list[tuple[float, int, np.ndarray]] = []
+    with av.open(str(path)) as container:
+        if not container.streams.video:
+            return out
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        stream.codec_context.skip_frame = "NONKEY"
+        total_secs = 0.0
+        if stream.duration and stream.time_base:
+            total_secs = float(stream.duration * stream.time_base)
+        elif container.duration:
+            total_secs = container.duration / av.time_base
+        min_gap = SCENE_CANDIDATE_MIN_GAP_SECS
+        if total_secs:
+            min_gap = max(min_gap, total_secs / SCENE_CANDIDATE_CAP)
+        last_ts: float | None = None
+        for frame in container.decode(stream):
+            if frame.time is None:
+                continue
+            ts = float(frame.time)
+            if last_ts is not None and ts - last_ts < min_gap:
+                continue
+            gray = frame.reformat(width=64, height=64, format="gray8").to_ndarray()
+            out.append((ts, _hash_bits(_pool_gray(gray)), _gray_hist(gray)))
+            last_ts = ts
+            if len(out) >= SCENE_CANDIDATE_CAP:
+                break
+    return out
+
+
+def _decode_frames_at(path: Path | BinaryIO, ts_list: list[float]) -> list[object]:
+    """Pass 2 of scene detection: seek+decode ONE full-res frame per timestamp.
+
+    Same O(1) seek pattern as `_sample_video_keyframes`. Returns one entry per
+    requested timestamp; a failed seek/decode yields None at that position.
+    """
+    try:
+        import av
+    except ImportError as e:
+        raise ClipUnavailable(f"PyAV not installed: {e}") from e
+    images: list[object] = []
+    av_source = path if hasattr(path, "read") else str(path)
+    with av.open(av_source) as container:
+        if not container.streams.video:
+            return [None] * len(ts_list)
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        for t in ts_list:
+            try:
+                container.seek(int(t / float(stream.time_base)), stream=stream, backward=True)
+                images.append(next(container.decode(stream)).to_image())
+            except Exception:  # noqa: BLE001 — best-effort; a bad seek skips one frame
+                images.append(None)
+    return images
+
+
+def _metrics_from_frames(frames: list[tuple[float, object]]) -> list[tuple[float, int, np.ndarray]]:
+    """Scene metrics for already-decoded PIL frames (the uniform-sampler fallback)."""
+    out: list[tuple[float, int, np.ndarray]] = []
+    for ts, img in frames:
+        arr = np.asarray(img.convert("L").resize((64, 64)), dtype=np.uint8)
+        out.append((ts, _hash_bits(_pool_gray(arr)), _gray_hist(arr)))
+    return out
+
+
+def sample_video_scenes(path: Path) -> list[tuple[Scene, object]]:
+    """Scene-aware sampling → `[(Scene, full-res PIL representative frame)]`.
+
+    Cheap I-frame metrics pass → `detect_scenes` → decode only the winners. Falls
+    back to the uniform seek-sampler's frames (metrics computed from the already-
+    decoded images — no second decode) when the I-frame pass fails or yields fewer
+    than `MIN_VIDEO_KEYFRAMES` candidates (unknown duration, sparse-keyframe encodes).
+    """
+    candidates: list[tuple[float, int, np.ndarray]] = []
+    try:
+        candidates = _iter_iframe_metrics(path)
+    except ClipUnavailable:
+        raise
+    except Exception as e:  # noqa: BLE001 — pass 1 is an optimisation; fall back
+        log.warning("I-frame metrics pass failed for %s: %s; falling back", path.name, e)
+        candidates = []
+    if len(candidates) >= MIN_VIDEO_KEYFRAMES:
+        scenes = detect_scenes(candidates)
+        images = _decode_frames_at(path, [s.rep_ts for s in scenes])
+        pairs = [(s, img) for s, img in zip(scenes, images, strict=True) if img is not None]
+        if pairs:
+            return pairs
+    frames = _sample_video_keyframes(path)
+    if not frames:
+        return []
+    scenes = detect_scenes(_metrics_from_frames(frames))
+    by_ts = dict(frames)
+    return [(s, by_ts[s.rep_ts]) for s in scenes if s.rep_ts in by_ts]
+
+
+def embed_video_scenes(
+    path: Path,
+) -> tuple[list[tuple[float, np.ndarray]], list[tuple[Scene, object]]]:
+    """Scene-aware variant of `embed_video_frames`: ONE decode pass yields both the
+    per-scene CLIP vectors (at representative timestamps) and the full-res
+    representative images for persistence. Raises ClipUnavailable like its sibling.
+    """
+    try:
+        from PIL import Image  # noqa: F401 — decoded frames are PIL images
+    except ImportError as e:
+        raise ClipUnavailable(f"Pillow not installed: {e}") from e
+    model = _clip_image_tower()
+    pairs = sample_video_scenes(path)
+    if not pairs:
+        raise ClipUnavailable(f"no decodable video frames in {path.name}")
+    with CLIP_GUARD.active(), runtime_resources.model_execution():
+        vecs = model.encode(
+            [img for _, img in pairs], convert_to_numpy=True, normalize_embeddings=True
+        )
+    vectors = [
+        (float(s.rep_ts), vecs[i].astype(np.float32, copy=False))
+        for i, (s, _) in enumerate(pairs)
+    ]
+    return vectors, pairs
+
+
+def embed_video_frames(path: Path) -> list[tuple[float, np.ndarray]]:
+    """Encode a video → `[(timestamp_seconds, CLIP vector)]`, one per keyframe.
+
+    Multi-vector replacement for `embed_video`'s single mean-pooled vector: scene-aware
+    (duration-scaled seek-sampling + perceptual-hash near-dup suppression, capped at
+    `MAX_VIDEO_KEYFRAMES`) so a long/multi-scene video is findable at the SPECIFIC moment.
+    Each vector is 512-d, L2-normalized. Raises ClipUnavailable if CLIP/PyAV/Pillow are
+    missing or no frame decodes.
+
+    With `EXOMEM_VIDEO_SCENE_FRAMES` set, keyframes are chosen by visual-change scene
+    detection (`embed_video_scenes`) instead of the uniform sampler; unset keeps this
+    path byte-identical to the pre-feature behavior.
+    """
+    if scene_frames_enabled():
+        vectors, _ = embed_video_scenes(path)
+        return vectors
+    try:
+        from PIL import Image  # noqa: F401 — frame.to_image() returns a PIL image
+    except ImportError as e:
+        raise ClipUnavailable(f"Pillow not installed: {e}") from e
+    model = _clip_image_tower()
+    candidates = _sample_video_keyframes(path)
+    if not candidates:
+        raise ClipUnavailable(f"no decodable video frames in {path.name}")
+    kept = _dedup_keyframes(candidates)
+    cap = _max_video_keyframes()
+    if len(kept) > cap:  # uniform subsample preserving time order
+        idx = sorted(set(np.linspace(0, len(kept) - 1, cap).round().astype(int).tolist()))
+        kept = [kept[i] for i in idx]
+    images = [img for _, img in kept]
+    with CLIP_GUARD.active(), runtime_resources.model_execution():
+        vecs = model.encode(images, convert_to_numpy=True, normalize_embeddings=True)
+    return [(float(ts), vecs[i].astype(np.float32, copy=False)) for i, (ts, _) in enumerate(kept)]
+
+
+def rerank_pairs(query: str, passages: list[str]) -> np.ndarray:
+    """Score `(query, passage)` pairs with bge-reranker-base. Returns float32 (N,).
+
+    Higher = more relevant. Scores are not bounded to [0, 1] — they're the
+    CrossEncoder's raw logits, useful for relative ordering only.
+    """
+    if not passages:
+        return np.zeros(0, dtype=np.float32)
+    model = get_reranker()
+    pairs = [(query, p) for p in passages]
+    with RERANKER_GUARD.active(), runtime_resources.model_execution():
+        scores = model.predict(
+            pairs,
+            batch_size=32,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+    return scores.astype(np.float32, copy=False)
+
+
+#: Character cap for a paragraph the whitespace-word cap cannot bound: one written
+#: mostly without spaces between words (Han, kana, Hangul, Thai, ...), one carrying
+#: more unspaced text than this, or one holding a single "word" longer than this
+#: (a pasted blob, a path chain). 500 characters stay under the 512-token encoder
+#: limit (about 290-330 bge-m3 tokens for CJK prose).
+MAX_UNSPACED_CHARS_PER_CHUNK = 500
+_SENTENCE_END_MARKS = frozenset("。！？.!?")
+
+
+def _needs_character_cap(paragraph: str) -> bool:
+    """True when the whitespace-word cap cannot bound this paragraph's length."""
+    import unicodedata
+
+    from . import text_scripts
+
+    limit = MAX_UNSPACED_CHARS_PER_CHUNK
+    if len(paragraph) <= limit:
+        return False
+    if max(len(word) for word in paragraph.split()) > limit:
+        return True
+    token_chars = 0
+    unspaced = 0
+    for character in paragraph:
+        if unicodedata.category(character)[0] in "LNM":
+            token_chars += 1
+            unspaced += text_scripts.is_scriptio_continua(character)
+    return unspaced * 2 > token_chars or unspaced > limit
+
+
+def _hard_cut_point(text: str, limit: int) -> int:
+    """Where to cut `text` (longer than `limit`) so the head is at most `limit` characters.
+
+    At the last whitespace inside the limit when there is one (Thai separates
+    phrases with spaces); otherwise at the limit, stepped back so the tail never
+    starts with a combining mark cut off its base letter.
+    """
+    import unicodedata
+
+    for at in range(limit, 0, -1):
+        if text[at].isspace():
+            return at
+    at = limit
+    while at > 1 and unicodedata.category(text[at])[0] == "M":
+        at -= 1
+    return at
+
+
+def _split_by_characters(paragraph: str) -> list[str]:
+    """Pack sentences into pieces of at most `MAX_UNSPACED_CHARS_PER_CHUNK` characters.
+
+    A sentence ends after one of `。！？.!?`. A sentence longer than the cap is cut
+    at `_hard_cut_point`. Pieces are stripped of surrounding whitespace.
+    """
+    limit = MAX_UNSPACED_CHARS_PER_CHUNK
+    sentences: list[str] = []
+    start = 0
+    for at, character in enumerate(paragraph):
+        if character in _SENTENCE_END_MARKS:
+            sentences.append(paragraph[start : at + 1])
+            start = at + 1
+    if start < len(paragraph):
+        sentences.append(paragraph[start:])
+    pieces: list[str] = []
+    current = ""
+    for sentence in sentences:
+        if len(current) + len(sentence) > limit and current:
+            pieces.append(current)
+            current = ""
+        while len(sentence) > limit:
+            at = _hard_cut_point(sentence, limit)
+            pieces.append(sentence[:at])
+            sentence = sentence[at:]
+        current += sentence
+    if current:
+        pieces.append(current)
+    return [piece.strip() for piece in pieces if piece.strip()]
+
+
+def chunk_text(title: str, body: str) -> list[str]:
+    """Paragraph-split body with title prepended for retrieval context.
+
+    - Split on blank-line paragraph boundaries.
+    - Drop empty/whitespace-only chunks.
+    - Truncate overlong chunks at word boundary so the tokenizer doesn't lop.
+    - A paragraph the word cap cannot bound (mostly unspaced text, more unspaced
+      text than the cap, or a single word longer than the cap) is split instead,
+      into pieces of at most `MAX_UNSPACED_CHARS_PER_CHUNK` characters at sentence
+      ends, else at the last space, else at the cap off any combining mark.
+    - Always prepend the title and a blank line so embeddings of orphan paragraphs still
+      carry the document's topic.
+    """
+    title = (title or "").strip()
+    body = (body or "").strip()
+    if not body:
+        return [title] if title else []
+    paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+    out: list[str] = []
+    for p in paragraphs:
+        if _needs_character_cap(p):
+            out.extend(f"{title}\n\n{piece}" if title else piece for piece in _split_by_characters(p))
+            continue
+        words = p.split()
+        if len(words) > MAX_WORDS_PER_CHUNK:
+            p = " ".join(words[:MAX_WORDS_PER_CHUNK])
+        chunk = f"{title}\n\n{p}" if title else p
+        out.append(chunk)
+    return out
+
+
+def _chunks_for_page(vault_root: Path, page, *, allow_encode: bool = True) -> list[str] | None:
+    """Chunking router — the single seam every writer/rebuild path goes through.
+
+    Gated (`EXOMEM_SEMANTIC_SEGMENTS`) audio/video sidecars whose transcript is
+    timed get SEMANTIC SEGMENT chunks (each starting with its `[timestamp]`
+    marker — what `find` surfaces as `transcript_match_at`), with the sections
+    before/after `## Extracted text` still paragraph-chunked in document order.
+    Every other page — and the gate-off world — returns `chunk_text` output
+    unchanged (equality-tested).
+
+    Segmenting a timed transcript ENCODES: the segmenter scores every gap
+    between timed lines with embeddings of the windows on either side, so one
+    long recording is hundreds of texts through the model. A writer pays that
+    once per generation. A read path must not pay it per request, and it must
+    not quietly substitute a different chunking either, because the rows the
+    embedding pass published were cut by this seam and only an identical cut
+    matches them. So `allow_encode=False` returns None exactly where the
+    segmenter would have run, and the caller decides what a page whose current
+    chunking it cannot afford to derive is worth to it.
+    """
+    from . import semantic_segments as ss
+
+    if not (
+        ss.semantic_segments_enabled()
+        and getattr(page, "media_type", None) in ("audio", "video")
+    ):
+        return chunk_text(page.title, page.search_body)
+    body = page.body or ""
+    idx = body.find("## Extracted text")
+    if idx == -1:
+        return chunk_text(page.title, page.search_body)
+    head = body[:idx]
+    rest = body[idx + len("## Extracted text"):]
+    nxt = rest.find("\n## ")
+    transcript = (rest if nxt == -1 else rest[:nxt]).strip()
+    tail = "" if nxt == -1 else rest[nxt + 1 :]
+    timed_lines = sum(1 for line in transcript.splitlines() if ss.TIMED_LINE_RE.match(line))
+    if timed_lines < ss.MIN_TIMED_LINES:
+        return chunk_text(page.title, page.search_body)
+    if not allow_encode:
+        return None
+    events = (
+        ss.gather_events(vault_root, page.media_file)
+        if getattr(page, "media_file", None)
+        else ss.Events([], [])
+    )
+    segs = ss.segment_transcript(transcript, events=events)
+    if segs is None:
+        return chunk_text(page.title, page.search_body)
+    title = (page.title or "").strip()
+    out: list[str] = []
+    if head.strip():
+        out.extend(chunk_text(title, head))
+    out.extend(f"{title}\n\n{s}" if title else s for s in segs)
+    if tail.strip():
+        out.extend(chunk_text(title, tail))
+    return out
+
+
+def encode_batch_size(model) -> int:
+    """Encode batch size for the device the model actually landed on.
+
+    The policy lives in `embedding_backend.batch_size_for` so both backends share
+    one rule. An ONNX session exposes no `.device`, so the backend carries the
+    resolved device rather than the batch size being inferred from the model
+    object; `getattr` keeps a bare sentence-transformers model working for callers
+    and tests that construct one directly.
+    """
+    device = str(getattr(model, "device", "cpu"))
+    return embedding_backend.batch_size_for(device)
+
+
+def embed_texts(texts: list[str], *, is_query: bool = False) -> np.ndarray:
+    """Batch-encode texts → float32 `(N, dim)`, L2-normalized for cosine.
+
+    The span carries what was encoded, not just how long it took. On the 0.84.1
+    personal service one write recorded `embeddings.encode` at 15.6 s with a
+    single text: a duration alone cannot separate a cold model from a caller
+    that handed the encoder a whole note body, and those are different defects
+    with different fixes.
+    """
+    # Resolved before the encode span opens, and only on the MCP path: off it
+    # the spans are no-ops and the frame walk would be the only cost paid.
+    on_path = call_spans.MCP_CALL_TOKEN.get() is not None
+    caller = _encode_caller() if on_path else "off-path"
+    measurements = {"texts": len(texts), "chars": sum(len(text) for text in texts)} if on_path else None
+    with (
+        call_spans.span("embeddings.encode", measurements),
+        call_spans.span(f"encode.by.{caller}"),
+    ):
+        return _embed_texts(texts, is_query=is_query, measurements=measurements)
+
+
+def _encode_caller() -> str:
+    """The nearest Exomem module above the encoder, as a span name suffix.
+
+    An `embeddings.encode` of 80 s with 837 texts sat in the ledger for days
+    with no way to say who asked for it; the caller was the semantic segmenter
+    reached from the context pack. Span fields are integers, so the caller is
+    carried in a sibling span's name instead: `encode.by.<module>`, a small
+    fixed set of identifiers, never user data. Never raises.
+    """
+    try:
+        frame = sys._getframe(2)
+        for _ in range(16):
+            if frame is None:
+                break
+            module = str(frame.f_globals.get("__name__", ""))
+            if module.startswith("exomem."):
+                leaf = module.rsplit(".", 1)[-1]
+                if leaf not in {"embeddings", "embedding_backend"}:
+                    return leaf
+            frame = frame.f_back
+    except Exception:  # noqa: BLE001 - attribution must never break an encode
+        pass
+    return "unknown"
+
+
+_PREPARED_SPACES: ContextVar[list[recall_space.SpaceIdentity] | None] = ContextVar(
+    "embedding_prepared_spaces", default=None
+)
+
+
+def _record_producer(model: object, model_name: str, vectors: np.ndarray) -> None:
+    captured = _PREPARED_SPACES.get()
+    if captured is None or not len(vectors):
+        return
+    profile = getattr(model, "profile", None)
+    fingerprint = None
+    if isinstance(profile, embedding_backend.EncoderProfile):
+        model_name = profile.model
+        fingerprint = profile.fingerprint()
+    captured.append(recall_space.SpaceIdentity(model_name, fingerprint, int(vectors.shape[1])))
+
+
+def _encode_prepared(
+    encode: Callable[[], np.ndarray], *, fallback: recall_space.SpaceIdentity | None = None
+) -> tuple[np.ndarray, recall_space.SpaceIdentity]:
+    """Retain actual producer identities across a prepared vector group's encodes."""
+    spaces: list[recall_space.SpaceIdentity] = []
+    marker = _PREPARED_SPACES.set(spaces)
+    model_name = recall_space.encoding_model()
+    try:
+        vectors = np.asarray(encode(), dtype=np.float32)
+    finally:
+        _PREPARED_SPACES.reset(marker)
+    if vectors.ndim != 2:
+        raise ValueError("prepared encoder returned an invalid vector shape")
+    if spaces:
+        identity = spaces[0]
+        if any(space != identity for space in spaces) or vectors.shape[1] != identity.dim:
+            raise recall_space.VectorSpaceMismatch("prepared vectors have different producers")
+    else:
+        # No new encode (all texts reused), or the historical substituted encoder seam.
+        identity = fallback or recall_space.current_identity(vectors.shape[1], model=model_name)
+        if len(vectors) and vectors.shape[1] != identity.dim:
+            raise recall_space.VectorSpaceMismatch("prepared vectors differ from the reused space")
+    return vectors, identity
+
+
+def _embed_texts(
+    texts: list[str], *, is_query: bool = False, measurements: dict[str, int] | None = None
+) -> np.ndarray:
+    if not texts:
+        return np.zeros((0, recall_space.current_dim()), dtype=np.float32)
+    selected = recall_space.selected_model()
+    model_name = MODEL_NAME
+    if selected is not None and selected != model_name:
+        # Keep the actual previous encoder alive through identity capture too.
+        with recall_space._in_flight():
+            model = recall_space.previous_resident(selected)
+            if model is None:
+                raise recall_space.ServingEncoderCold(f"{selected} is not resident")
+            vectors = recall_space.encode_with_previous(
+                selected, texts, is_query=is_query, encoder=model, measurements=measurements
+            )
+            _record_producer(model, selected, vectors)
+            return vectors
+    model = get_model()
+    query_prefix, passage_prefix = _prefixes(model, model_name)
+    prefix = query_prefix if is_query else passage_prefix
+    if prefix:
+        texts = [prefix + t for t in texts]
+    with BGE_GUARD.active():
+        vectors = _encode_in_turns(
+            model,
+            texts,
+            admission=runtime_resources.model_admission,
+            execution=runtime_resources.model_execution,
+            measurements=measurements,
+        )
+        _record_producer(model, model_name, vectors)
+        return vectors
+
+
+def advisory_passages_fit(texts: list[str]) -> bool:
+    """Prove passages fit the resident selected encoder; never load or wait."""
+    selected = recall_space.selected_model()
+    model_name = selected or MODEL_NAME
+    previous = selected is not None and selected != MODEL_NAME
+    with contextlib.ExitStack() as stack:
+        if previous:
+            stack.enter_context(recall_space._in_flight())
+            model = recall_space.previous_resident(selected)
+        else:
+            if not _MODEL_LOCK.acquire(blocking=False):
+                raise runtime_resources.ModelBusyError("model compute is busy; retry shortly")
+            try:
+                stack.enter_context(BGE_GUARD.active())
+                model = _MODEL
+            finally:
+                _MODEL_LOCK.release()
+        if model is None:
+            raise recall_space.ServingEncoderCold("advisory encoder is not resident")
+        _query_prefix, prefix = _prefixes(model, model_name)
+        passages = [prefix + text for text in texts] if prefix else texts
+        # ONNX counts on a private tokenizer clone. Torch reconfigures its
+        # shared tokenizer, so it must refuse if the encoder's slot is busy.
+        if not getattr(model, "concurrent_encodes", False):
+            execution = recall_space._previous_gate().execution if previous else runtime_resources.model_execution
+            stack.enter_context(execution(wait=False))
+        return model.texts_fit(passages)
+
+
+def _prefixes(model, model_name: str) -> tuple[str, str]:
+    """The query and passage prefixes the resident model was trained with."""
+    profile = getattr(model, "profile", None)
+    if isinstance(profile, embedding_backend.EncoderProfile):
+        return profile.query_prefix, profile.passage_prefix
+    query, passage, _pooling, _pad = embedding_backend._DECLARED.get(
+        model_name, embedding_backend._UNDECLARED
+    )
+    return query, passage
+
+
+@contextlib.contextmanager
+def _encode_interval(measurements: dict[str, int] | None, field: str):
+    """Add an attempted phase to its enclosing encode, including failed phases."""
+    if measurements is None:
+        yield
+        return
+    started = time.perf_counter_ns()
+    try:
+        yield
+    finally:
+        measurements[field] = measurements.get(field, 0) + (time.perf_counter_ns() - started) // 1000
+
+
+def _encode_in_turns(
+    model, texts: list[str], *, admission, execution, measurements: dict[str, int] | None = None
+) -> np.ndarray:
+    """The background lane: a bulk encode, one batch per execution turn.
+
+    One admission covers the whole encode, so it is one unit of admitted work,
+    but the execution slot is released between batches, so no encode is held
+    behind the whole of another. Several batches are formed longest first, as
+    sentence-transformers forms them, so they pad no more than one call did;
+    rows come back in input order.
+    """
+    from . import foreground_priority, mode
+
+    size = encode_batch_size(model)
+    if (
+        mode.service_profile_enabled()
+        and getattr(model, "backend", None) == embedding_backend.ONNX
+        and getattr(getattr(model, "profile", None), "quantization", None) == embedding_backend.ORT_DYNAMIC_INT8
+    ):
+        # Dynamic-int8 already encodes serially inside the backend. Yield the
+        # execution slot after each actual inference, preserving admission.
+        size = 1
+    order = np.argsort([-len(text) for text in texts]) if len(texts) > size else np.arange(len(texts))
+    parts: list[np.ndarray] = []
+    with admission():
+        for start in range(0, len(texts), size):
+            # A running native forward completes; an owned stop prevents the next one.
+            foreground_priority.check_cancelled()
+            batch = [texts[i] for i in order[start : start + size]]
+            with contextlib.ExitStack() as turn:
+                manager = execution()
+                with _encode_interval(measurements, "execution_wait_us"):
+                    turn.enter_context(manager)
+                foreground_priority.check_cancelled()
+                with _encode_interval(measurements, "model_encode_us"):
+                    vecs = model.encode(
+                        batch,
+                        batch_size=size,
+                        convert_to_numpy=True,
+                        normalize_embeddings=True,
+                        show_progress_bar=False,
+                    )
+            parts.append(np.asarray(vecs, dtype=np.float32))
+    stacked = parts[0] if len(parts) == 1 else np.concatenate(parts, axis=0)
+    out = np.empty_like(stacked)
+    out[order] = stacked
+    return out
+
+
+def _interactive_execution(model, bulk_execution):
+    """The slot one interactive query encode runs in; it never waits.
+
+    A model that can encode concurrently (an ONNX Runtime session) serves query
+    encodes on a lane of their own, so a query is never refused behind a bulk
+    batch on the same instance; a second query at the same moment still reads
+    `busy`. Any other model shares its bulk slot, where `wait=False` refuses
+    while a batch runs.
+    """
+    global _INTERACTIVE_GATE
+    if not getattr(model, "concurrent_encodes", False):
+        return bulk_execution(wait=False)
+    with _INTERACTIVE_GATE_LOCK:
+        if _INTERACTIVE_GATE is None:
+            _INTERACTIVE_GATE = runtime_resources.ModelAdmissionGate(
+                runtime_resources.resolve_policy().model_admission
+            )
+        gate = _INTERACTIVE_GATE
+    return gate.execution(wait=False)
+
+
+def embed_query_if_loaded(text: str, *, max_tokens: int | None = None) -> np.ndarray | None:
+    """Encode one query only when the text encoder is already resident.
+
+    ``max_tokens`` caps how much of the text is read; None reads up to the
+    model's own limit.
+    """
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return None
+    if not _MODEL_LOCK.acquire(blocking=False):
+        raise runtime_resources.ModelBusyError("model compute is busy; retry shortly")
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(BGE_GUARD.active())
+            model = _MODEL
+        finally:
+            _MODEL_LOCK.release()
+        if model is None:
+            return None
+        query_prefix, _passage_prefix = _prefixes(model, MODEL_NAME)
+        cap = {} if max_tokens is None else {"max_tokens": max_tokens}
+        on_path = call_spans.MCP_CALL_TOKEN.get() is not None
+        caller = _encode_caller() if on_path else "off-path"
+        measurements = {"texts": 1, "chars": len(text)} if on_path else None
+        with (
+            call_spans.span("embeddings.encode", measurements),
+            call_spans.span(f"encode.by.{caller}"),
+            contextlib.ExitStack() as turn,
+        ):
+            manager = _interactive_execution(model, runtime_resources.model_execution)
+            with _encode_interval(measurements, "execution_wait_us"):
+                turn.enter_context(manager)
+            with _encode_interval(measurements, "model_encode_us"):
+                vecs = model.encode(
+                    [query_prefix + text],
+                    batch_size=encode_batch_size(model),
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                    **cap,
+                )
+        return np.asarray(vecs, dtype=np.float32)[0]
+
+
+def activation_model_name() -> str:
+    """The activation encoder's model: `EXOMEM_ACTIVATION_MODEL`, else recall's."""
+    return (os.environ.get(ACTIVATION_MODEL_ENV) or "").strip() or MODEL_NAME
+
+
+def activation_encoder_is_shared() -> bool:
+    """True when activation uses the recall singleton itself.
+
+    Equal names are equal profiles: a served model's revision, quantisation and
+    file format are a function of its name (`embedding_backend.served_artifact`),
+    and both lanes load through the same backend. So one model named twice is
+    ONE resident instance, loaded once and paid for once.
+    """
+    return activation_model_name() == MODEL_NAME
+
+
+def activation_fingerprint() -> str | None:
+    """The vector space the resident activation encoder produces, or None when
+    it is cold. Activation vectors are stored under it and read only by it."""
+    shared = activation_encoder_is_shared()
+    model = _MODEL if shared else _ACTIVATION_MODEL
+    if model is None:
+        return None
+    profile = getattr(model, "profile", None)
+    if isinstance(profile, embedding_backend.EncoderProfile):
+        return profile.fingerprint()
+    return embedding_backend.fingerprint(MODEL_NAME if shared else activation_model_name())
+
+
+def _activation_gate() -> runtime_resources.ModelAdmissionGate:
+    global _ACTIVATION_GATE
+    with _ACTIVATION_GATE_LOCK:
+        if _ACTIVATION_GATE is None:
+            _ACTIVATION_GATE = runtime_resources.ModelAdmissionGate(
+                runtime_resources.resolve_policy().model_admission
+            )
+        return _ACTIVATION_GATE
+
+
+def activation_execution(*, wait: bool = True):
+    """The execution slot activation encodes run in.
+
+    Shared topology: the process-wide gate, as every recall encode. Separate
+    model: a gate private to that singleton, so the activation query never meets
+    the recall writer's bulk encodes and the nonblocking rule reads `busy` only
+    when activation's own encoder is busy.
+    """
+    if activation_encoder_is_shared():
+        return runtime_resources.model_execution(wait=wait)
+    return _activation_gate().execution(wait=wait)
+
+
+def _activation_admission():
+    if activation_encoder_is_shared():
+        return runtime_resources.model_admission()
+    return _activation_gate().admission()
+
+
+def get_activation_model():
+    """The activation encoder, loading it if needed — never from a request thread.
+
+    The recall singleton in the shared topology; otherwise a second lazily loaded
+    singleton, registered with the reaper and preloaded by warm-up like the rest.
+    """
+    global _ACTIVATION_MODEL
+    if activation_encoder_is_shared():
+        return get_model()
+    if _ACTIVATION_MODEL is None:
+        embedding_backend.ensure_served_artifact(activation_model_name())
+    with activation_execution():
+        if _ACTIVATION_MODEL is not None:
+            return _ACTIVATION_MODEL
+        with _ACTIVATION_MODEL_LOCK:
+            if _ACTIVATION_MODEL is None:
+                _ACTIVATION_MODEL = embedding_backend.load_encoder(activation_model_name())
+        ACTIVATION_GUARD.touch()
+        return _ACTIVATION_MODEL
+
+
+def embed_activation_query_if_loaded(text: str) -> np.ndarray | None:
+    """Encode one activation turn only when its encoder is already resident.
+
+    Never loads and never waits: `None` when cold, `ModelBusyError` when the
+    encoder's own slot is taken. The turn is read at `ACTIVATION_TURN_MAX_TOKENS`.
+    In the shared topology this is `embed_query_if_loaded` with that cap.
+    """
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return None
+    if activation_encoder_is_shared():
+        return embed_query_if_loaded(text, max_tokens=ACTIVATION_TURN_MAX_TOKENS)
+    if not _ACTIVATION_MODEL_LOCK.acquire(blocking=False):
+        raise runtime_resources.ModelBusyError("model compute is busy; retry shortly")
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(ACTIVATION_GUARD.active())
+            model = _ACTIVATION_MODEL
+        finally:
+            _ACTIVATION_MODEL_LOCK.release()
+        if model is None:
+            return None
+        query_prefix, _passage_prefix = _prefixes(model, activation_model_name())
+        on_path = call_spans.MCP_CALL_TOKEN.get() is not None
+        caller = _encode_caller() if on_path else "off-path"
+        measurements = {"texts": 1, "chars": len(text)} if on_path else None
+        with (
+            call_spans.span("embeddings.encode", measurements),
+            call_spans.span(f"encode.by.{caller}"),
+            contextlib.ExitStack() as turn,
+        ):
+            manager = _interactive_execution(model, activation_execution)
+            with _encode_interval(measurements, "execution_wait_us"):
+                turn.enter_context(manager)
+            with _encode_interval(measurements, "model_encode_us"):
+                vecs = model.encode(
+                    [query_prefix + text],
+                    batch_size=encode_batch_size(model),
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                    max_tokens=ACTIVATION_TURN_MAX_TOKENS,
+                )
+        return np.asarray(vecs, dtype=np.float32)[0]
+
+
+def embed_activation_passages_if_loaded(texts: list[str]) -> np.ndarray | None:
+    """Encode activation signatures only with an encoder already resident.
+
+    The request thread's index pass uses this: it holds the model's lock and its
+    guard while it takes the model, exactly as `embed_query_if_loaded` does, so
+    a reaper that unloads it in the meantime leaves None, never a load. None
+    also when the model is busy; the background pass encodes what is left.
+    """
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS") or not texts:
+        return None
+    shared = activation_encoder_is_shared()
+    lock = _MODEL_LOCK if shared else _ACTIVATION_MODEL_LOCK
+    guard = BGE_GUARD if shared else ACTIVATION_GUARD
+    if not lock.acquire(blocking=False):
+        return None
+    with contextlib.ExitStack() as stack:
+        try:
+            stack.enter_context(guard.active())
+            model = _MODEL if shared else _ACTIVATION_MODEL
+        finally:
+            lock.release()
+        if model is None:
+            return None
+        _query_prefix, passage_prefix = _prefixes(model, MODEL_NAME if shared else activation_model_name())
+        return _encode_in_turns(
+            model,
+            [passage_prefix + text for text in texts],
+            admission=_activation_admission,
+            execution=activation_execution,
+        )
+
+
+def embed_activation_passages(texts: list[str]) -> np.ndarray:
+    """Encode activation signatures with the activation encoder's passage prefix.
+
+    Loads the encoder when it is cold, so it belongs to the background index
+    build, never to a request thread. The shared topology is `embed_texts`.
+    """
+    if activation_encoder_is_shared():
+        return embed_texts(texts, is_query=False)
+    if not texts:
+        return np.zeros((0, 0), dtype=np.float32)
+    model = get_activation_model()
+    _query_prefix, passage_prefix = _prefixes(model, activation_model_name())
+    with ACTIVATION_GUARD.active():
+        return _encode_in_turns(
+            model,
+            [passage_prefix + text for text in texts],
+            admission=_activation_admission,
+            execution=activation_execution,
+        )
+
+
+def vector_backend_active(vault_root: Path) -> bool:
+    """True when the vec0 backend would serve vector search for this vault now.
+
+    Consults the same ladder `search()` uses (kill switch, load memo, per-instance
+    sync state) without running a query. Warm-up branches on this: prime the vec
+    tables when True, the in-memory matrix when False. Never creates the sidecar.
+    """
+    if vecstore.backend() == "numpy" or vecstore.load_failed():
+        return False
+    idx = get_embedding_index(vault_root)
+    if idx._vec_failed or not idx.path.exists():
+        return False
+    conn = idx._connect()
+    try:
+        return _vec_gate(idx, conn)
+    finally:
+        conn.close()
+
+
+def peek_embedding_index(vault_root: Path) -> EmbeddingIndex | None:
+    """Read an existing serving index without locking, creating or promoting one.
+
+    A pointer cutover can precede the normal registry handoff. Until that handoff,
+    an optional reader gets no index rather than the old sidecar's resident matrix.
+    """
+    index = _INDEX_CACHE.get(str(Path(vault_root).resolve()))
+    if index is None:
+        return None
+    try:
+        serving_path = index_paths.sidecar_path(vault_root, nonblocking=True)
+    except OSError:
+        # An unreadable pointer cannot prove that the retained sidecar still serves.
+        return None
+    if index.path != serving_path:
+        return None
+    return index
+
+
+def get_embedding_index(vault_root: Path, *, path: Path | None = None) -> EmbeddingIndex:
+    """Return the process-shared `EmbeddingIndex` for this vault.
+
+    ALL production call sites (find, warm-up, writers, audit) must go through this
+    so the in-memory matrix cache is shared and survives across calls — the whole
+    reason find() stops paying a full reload per query. Tests may still construct
+    `EmbeddingIndex` directly to exercise the class in isolation.
+
+    `path` names a sidecar that does not serve recall (one a re-embed is
+    building): it has no shared matrix to keep, and gets an instance of its own.
+    """
+    key = str(Path(vault_root).resolve())
+    # The serving sidecar can change (a new vector space cut over), and the
+    # shared instance follows it: the old one and its matrix are dropped.
+    serving = index_paths.sidecar_path(vault_root)
+    if path is not None and Path(path) != serving:
+        return EmbeddingIndex(vault_root, path=Path(path))
+    path = serving
+    with _INDEX_CACHE_LOCK:
+        idx = _INDEX_CACHE.get(key)
+        if idx is None or idx.path != path:
+            # The cutover made a build's sidecar the serving one: the instance
+            # the vector lane read it through carries over with its matrix.
+            idx = _INDEX_CACHE.pop(str(path), None)
+            if idx is None:
+                idx = EmbeddingIndex(vault_root, path=path)
+            _INDEX_CACHE[key] = idx
+        return idx
+
+
+def get_building_index(vault_root: Path, path: Path) -> EmbeddingIndex:
+    """The process-shared index the vector lane reads a building sidecar through.
+
+    Kept beside the serving ones, under the sidecar's own path, so its matrix
+    is loaded once and caught up by write generation as the build commits, and
+    the idle reaper and residency status see it. The cutover hands it to
+    `get_embedding_index`. The build writes through an instance of its own.
+    """
+    key = str(path)
+    with _INDEX_CACHE_LOCK:
+        idx = _INDEX_CACHE.get(key)
+    if idx is not None:
+        return idx
+    fresh = get_embedding_index(vault_root, path=Path(path))
+    if fresh.path == index_paths.sidecar_path(vault_root):
+        return fresh  # the cutover won the race: this is the serving instance
+    with _INDEX_CACHE_LOCK:
+        return _INDEX_CACHE.setdefault(key, fresh)
+
+
+def get_clip_index(vault_root: Path) -> ClipIndex:
+    """Return the process-shared `ClipIndex` for this vault (see get_embedding_index)."""
+    key = str(Path(vault_root).resolve())
+    with _INDEX_CACHE_LOCK:
+        idx = _CLIP_INDEX_CACHE.get(key)
+        if idx is None:
+            idx = ClipIndex(vault_root, encoder_space=clip_encoder_space)
+            _CLIP_INDEX_CACHE[key] = idx
+        return idx
+
+
+def clear_embedding_indexes() -> None:
+    """Drop the shared index memo (and its in-memory matrices). Test hook — the
+    per-test tmp vault would otherwise leave a stale instance keyed by its path."""
+    with _INDEX_CACHE_LOCK:
+        _INDEX_CACHE.clear()
+        _CLIP_INDEX_CACHE.clear()
+    clear_passage_vectors()
+
+
+def unload_index_caches() -> dict[str, int]:
+    """Evict resident embedding/CLIP matrices from already-shared index objects.
+
+    The passage vectors advisory sweeps hand on are a cache of the same kind
+    and go with them."""
+    clear_passage_vectors()
+    with _INDEX_CACHE_LOCK:
+        embedding_indexes = list(_INDEX_CACHE.values())
+        clip_indexes = list(_CLIP_INDEX_CACHE.values())
+    return {
+        "embedding": sum(1 for idx in embedding_indexes if idx.unload_cache()),
+        "clip": sum(1 for idx in clip_indexes if idx.unload_cache()),
+    }
+
+
+def _summarize_index_status(indexes: dict[str, object]) -> dict:
+    by_vault = {key: idx.cache_status() for key, idx in indexes.items()}
+    loaded = [s for s in by_vault.values() if s.get("loaded")]
+    return {
+        "indexes": len(by_vault),
+        "loaded": len(loaded),
+        "rows": sum(int(s.get("rows") or 0) for s in loaded),
+        "unit_rows": sum(int(s.get("unit_rows") or 0) for s in loaded),
+        "bytes": sum(int(s.get("bytes") or 0) for s in loaded),
+        "by_vault": by_vault,
+    }
+
+
+def index_cache_activity() -> tuple[tuple[str, int], ...]:
+    """A cheap fingerprint of matrix USE for the idle reaper: per shared index, its hit count."""
+    with _INDEX_CACHE_LOCK:
+        indexes = [("embedding:" + k, idx) for k, idx in _INDEX_CACHE.items()]
+        indexes += [("clip:" + k, idx) for k, idx in _CLIP_INDEX_CACHE.items()]
+    return tuple(sorted((key, int(idx.cache_status().get("hits") or 0)) for key, idx in indexes))
+
+
+def index_cache_status() -> dict:
+    """No-allocation residency status for already-created embedding index objects."""
+    with _INDEX_CACHE_LOCK:
+        embedding_indexes = dict(_INDEX_CACHE)
+        clip_indexes = dict(_CLIP_INDEX_CACHE)
+    return {
+        "embedding": _summarize_index_status(embedding_indexes),
+        "clip": _summarize_index_status(clip_indexes),
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddingPublication:
+    """Volatile proof of both projections published from one guarded source."""
+
+    guard: Any
+    index: Any
+    identity: recall_space.SpaceIdentity
+    token: tuple[int, int, int, int]
+    chunk_count: int
+    unit_count: int
+    parent_generation: str
+    parent_source_hash: str
+    policy_identity: tuple[str, str]
+    registry_identity: tuple[int, str, str]
+    claims_enabled: bool = False
+    claim_checksum: str | None = None
+
+    def current(self, vault_root: Path, *, claims_required: bool = False) -> bool:
+        from . import claims, semantic_index, vault
+
+        try:
+            self.guard.recheck(vault_root)
+            if claims_required and (
+                not self.claims_enabled
+                or not claims.publication_current(vault_root, self.guard.target, self.claim_checksum)
+            ):
+                return False
+            return (
+                recall_policy.recall_policy_identity(vault_root) == self.policy_identity
+                and semantic_index.current_registry_identity(vault_root) == self.registry_identity
+                and self.index.parent_publication_current(
+                    self.guard.target, token=self.token, identity=self.identity,
+                    chunk_count=self.chunk_count, unit_count=self.unit_count,
+                    parent_generation=self.parent_generation,
+                    parent_source_hash=self.parent_source_hash,
+                )
+            )
+        except (OSError, sqlite3.Error, vault.PathGuardError):
+            return False
+
+
+def reconstruct_publication(vault_root: Path, path: Path) -> EmbeddingPublication | None:
+    """Recheck an evicted/restarted proof from one bounded current parent."""
+    from . import claims, find_corpus, runtime_resources, semantic_index, vault
+
+    index = get_embedding_index(vault_root)
+    if not index.path.exists() or not recall_policy.is_recall_candidate(vault_root, path):
+        return None
+    try:
+        with runtime_resources.semantic_preparation(vault_root, path) as prepared:
+            policy = recall_policy.recall_policy_identity(vault_root)
+            page = find_corpus.parse_page(
+                path, path.stat().st_mtime, vault_root,
+                content=prepared.source.encode("utf-8"),
+                resolved_relative=path.relative_to(vault_root).as_posix(),
+            )
+            if page is None:
+                return None
+            identity = index.identity or recall_space.current_identity(recall_space.current_dim())
+            prepared.check_page(page, vector_dim=0 if prepared.source_bytes <= 1024 else identity.dim)
+            chunks = _chunks_for_page(vault_root, page, allow_encode=False)
+            if chunks is None:
+                return None  # The existing segmenter needs inference: replay instead.
+            state = semantic_index.current_parent_index_state(vault_root, path, source=prepared.source)
+            units = state.occurrences
+            prepared.check_projections(chunks, units, vector_dim=identity.dim)
+            token = index.parent_publication_from_source(chunks, state, identity=identity)
+            if token is None:
+                return None
+            proof = EmbeddingPublication(
+                prepared.guard, index, identity, token, len(chunks), len(units),
+                state.parent_generation, state.parent_source_hash, policy,
+                (state.parser_version, state.language_registry_hash, state.relation_registry_hash),
+                claims_enabled=claims.claim_level_enabled(),
+                claim_checksum=(
+                    claims.claim_checksum_for_page(page, vault_root=vault_root)
+                    if claims.claim_level_enabled()
+                    else None
+                ),
+            )
+            return proof if proof.current(vault_root) else None
+    except (OSError, UnicodeError, ValueError, sqlite3.Error, vault.PathGuardError,
+            runtime_resources.PreparationBudgetExceeded, runtime_resources.PreparationCapacityBusy):
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddingSyncStatus:
+    """Bounded outcome from one embedding-sidecar dispatch.
+
+    ``code`` is deliberately a stable enum-like value rather than an exception
+    message.  Writer results can therefore report observed degradation without
+    leaking backend, model, or filesystem details.
+    """
+
+    status: str
+    code: str
+    eligible_count: int
+    # Internal only: public receipts remain bounded and content-free. A
+    # restarted dispatcher replays rather than inventing this volatile proof.
+    publication: EmbeddingPublication | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if type(self.status) is not str or self.status not in {
+            "completed",
+            "disabled",
+            "deferred",
+            "degraded",
+        }:
+            raise ValueError("unsupported embedding sync status")
+        if type(self.code) is not str or not self.code or len(self.code) > 64:
+            raise ValueError("embedding sync code must be bounded and nonempty")
+        if type(self.eligible_count) is not int or self.eligible_count < 0:
+            raise ValueError("embedding eligible_count must be nonnegative")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "code": self.code,
+            "eligible_count": self.eligible_count,
+        }
+
+
+def upsert_after_write_status(
+    vault_root: Path,
+    written_paths: list[Path],
+    *,
+    defer_during_warm: bool = True,
+    batch_size: int = 256,
+) -> EmbeddingSyncStatus:
+    """Prepare service parents individually within the shared peak allowance."""
+    from . import mode, runtime_resources, vault
+
+    if not mode.service_profile_enabled() or os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return _upsert_after_write_status(
+            vault_root, written_paths, defer_during_warm=defer_during_warm, batch_size=batch_size
+        )
+    eligible = [
+        path for path in written_paths
+        if index_paths.is_embeddable_path(path)
+        and index_paths.rel_to_vault(vault_root, path) is not None
+        and recall_policy.is_recall_candidate(vault_root, path)
+    ]
+    if not eligible:
+        return _upsert_after_write_status(
+            vault_root, written_paths, defer_during_warm=defer_during_warm, batch_size=batch_size
+        )
+    suppressed = [path for path in written_paths if path not in eligible]
+    if suppressed:
+        _upsert_after_write_status(vault_root, suppressed, defer_during_warm=defer_during_warm)
+    failure: EmbeddingSyncStatus | None = None
+    publication: EmbeddingPublication | None = None
+    for path in eligible:
+        try:
+            with runtime_resources.semantic_preparation(vault_root, path) as preparation:
+                status = _upsert_after_write_status(
+                    vault_root, [path], defer_during_warm=defer_during_warm,
+                    batch_size=1, preparation=preparation,
+                )
+                if len(eligible) == 1:
+                    publication = status.publication
+        except runtime_resources.PreparationBudgetExceeded:
+            status = EmbeddingSyncStatus("degraded", "embedding_preparation_budget_exceeded", 1)
+        except runtime_resources.PreparationCapacityBusy:
+            status = EmbeddingSyncStatus("degraded", "embedding_preparation_busy", 1)
+        except (OSError, UnicodeError, vault.PathGuardError):
+            status = EmbeddingSyncStatus("degraded", "embedding_input_unavailable", 1)
+        if status.status != "completed":
+            failure = failure or status
+    return EmbeddingSyncStatus(
+        failure.status if failure else "completed",
+        failure.code if failure else "embedding_upsert_completed",
+        len(eligible),
+        publication=publication if failure is None else None,
+    )
+
+
+def _upsert_after_write_status(
+    vault_root: Path,
+    written_paths: list[Path],
+    *,
+    defer_during_warm: bool = True,
+    batch_size: int = 256,
+    preparation: Any = None,
+) -> EmbeddingSyncStatus:
+    """Re-embed eligible files and return an observable bounded outcome."""
+    global _IMPORT_FAILED
+    md_paths: list[Path] = []
+    rejected_paths: list[str] = []
+    for path in written_paths:
+        if not index_paths.is_embeddable_path(path):
+            continue
+        rel = index_paths.rel_to_vault(vault_root, path)
+        if rel is None:
+            continue
+        # Admission is intentionally before defer/model/page-cache/content work.
+        # A raw Record stays structured-only even when the vector backend is off.
+        if recall_policy.is_recall_candidate(vault_root, path):
+            md_paths.append(path)
+        else:
+            rejected_paths.append(rel)
+    if rejected_paths:
+        try:
+            get_embedding_index(vault_root).purge_paths_if_present(rejected_paths)
+        except Exception as e:  # noqa: BLE001 - derived purge is best-effort
+            log.warning("embedding recall-policy purge failed: %s", e)
+    eligible_count = len(md_paths)
+    # Test runs disable the heavy embedding path to keep the suite fast.
+    # Production servers leave EXOMEM_DISABLE_EMBEDDINGS unset.
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return EmbeddingSyncStatus("disabled", "embeddings_disabled", eligible_count)
+    if not md_paths:
+        return EmbeddingSyncStatus("completed", "no_eligible_paths", 0)
+    if _IMPORT_FAILED:
+        return EmbeddingSyncStatus("disabled", "embeddings_import_unavailable", eligible_count)
+
+    # While the background warm-up is loading the model, don't block this
+    # write on the singleton lock — park the batch; the warm thread drains it
+    # right after the model lands (readiness.mark_ready("embeddings")). If the
+    # process dies before draining, audit/reconcile recover the stale sidecar.
+    race_receipts = []
+    if defer_during_warm:
+        from . import deferred_index, readiness
+
+        if readiness.should_defer("embeddings"):
+            rels: list[str] = []
+            for path in md_paths:
+                rel = index_paths.rel_to_vault(vault_root, path)
+                if rel is not None:
+                    rels.append(rel)
+            try:
+                race_receipts = deferred_index.add_receipts(vault_root, rels)
+            except (OSError, sqlite3.Error):
+                log.warning("durable warm defer failed; deferring in memory only")
+                race_receipts = []
+            if readiness.defer("embeddings", (vault_root, tuple(md_paths), tuple(race_receipts))):
+                log.info(
+                    "write-embed deferred until the embedding model is warm (%d file(s))",
+                    len(md_paths),
+                )
+                return EmbeddingSyncStatus(
+                    "deferred",
+                    # The durable receipts above are the coverage evidence the
+                    # batch report trusts.  When recording them failed, say so
+                    # in the code so a stale queue entry for the same path can
+                    # never bless this batch as durably covered.
+                    "deferred_warmup" if race_receipts else "deferred_warmup_volatile",
+                    eligible_count,
+                )
+
+    def finish(status: EmbeddingSyncStatus) -> EmbeddingSyncStatus:
+        if race_receipts and status.status == "completed":
+            from . import deferred_index
+
+            deferred_index.clear_receipts(vault_root, race_receipts)
+        return status
+
+    try:
+        get_model()  # triggers the heavy import; cheap thereafter.
+    except ImportError as e:
+        if not _IMPORT_FAILED:
+            log.warning(
+                "embeddings disabled (import failed: %s); writers will not "
+                "update the vector sidecar. Keyword-mode find() still works.",
+                e,
+            )
+            _IMPORT_FAILED = True
+        return finish(
+            EmbeddingSyncStatus("disabled", "embeddings_import_unavailable", eligible_count)
+        )
+    except Exception as e:  # noqa: BLE001 - model backends soft-fail by contract
+        log.warning("embedding model load failed: %s; skipping upsert", e)
+        return finish(
+            EmbeddingSyncStatus("degraded", "embedding_model_load_failed", eligible_count)
+        )
+
+    from . import find as find_module
+
+    try:
+        index = get_embedding_index(vault_root)
+    except Exception as e:  # noqa: BLE001 - derived index open is best-effort
+        log.warning("could not open embedding sidecar for upsert: %s", e)
+        return finish(
+            EmbeddingSyncStatus("degraded", "embedding_index_open_failed", eligible_count)
+        )
+    from . import freshness, vault
+
+    captured_policy_identity = recall_policy.recall_policy_identity(vault_root)
+    per_file: list[tuple[Path, Any, list[str], float, freshness.FileSignature, Any]] = []
+    failure_code: str | None = None
+    for md in md_paths:
+        try:
+            stat = md.stat()
+            signature = freshness.stat_signature(md)
+            if preparation is not None and signature != preparation.signature:
+                raise OSError("semantic input changed during preparation")
+            mtime = stat.st_mtime
+        except FileNotFoundError:
+            # File was just written then disappeared — treat as a delete.
+            try:
+                rel = md.resolve().relative_to(vault_root.resolve()).as_posix()
+                index.delete_file(rel)
+            except ValueError:
+                continue
+            except Exception as e:  # noqa: BLE001 - derived delete is observable
+                log.warning("embedding cleanup failed for disappeared file: %s", e)
+                failure_code = "embedding_delete_failed"
+            continue
+        except OSError as e:
+            log.warning("embedding input metadata could not be read: %s", e)
+            failure_code = "embedding_input_unavailable"
+            continue
+        try:
+            if preparation is None:
+                page = find_module._CACHE.get(md, vault_root)
+            else:
+                from . import find_corpus
+
+                page = find_corpus.parse_page(
+                    md, mtime, vault_root,
+                    content=preparation.source.encode("utf-8"),
+                    resolved_relative=md.relative_to(vault_root).as_posix(),
+                )
+        except Exception as e:  # noqa: BLE001 - parsing/cache failures are observable
+            log.warning("embedding input could not be parsed: %s", e)
+            failure_code = "embedding_input_unavailable"
+            continue
+        if page is None:
+            failure_code = "embedding_input_unavailable"
+            continue
+        if preparation is not None:
+            identity = getattr(index, "identity", None)
+            width = identity.dim if identity else recall_space.current_dim()
+            preparation.check_page(page, vector_dim=0 if preparation.source_bytes <= 1024 else width)
+        try:
+            chunks = _chunks_for_page(vault_root, page, allow_encode=False) if preparation is not None else None
+            if chunks is None:
+                # Timed segmentation performs inference while chunking. Keep
+                # its conservative vector reservation ahead of that work.
+                if preparation is not None:
+                    preparation.check_page(page, vector_dim=width)
+                chunks = _chunks_for_page(vault_root, page)
+        except Exception as e:  # noqa: BLE001 - chunk extraction is best-effort
+            log.warning("embedding chunks could not be prepared: %s", e)
+            failure_code = "embedding_chunking_failed"
+            continue
+        prepared_state = None
+        if preparation is not None:
+            from . import semantic_index
+
+            prepared_state = semantic_index.current_parent_index_state(
+                vault_root, md, source=preparation.source,
+            )
+            preparation.check_projections(
+                chunks or [], prepared_state.occurrences,
+                vector_dim=identity.dim if identity else recall_space.current_dim(),
+            )
+        per_file.append((md, page, chunks, mtime, signature, prepared_state))
+
+    if not per_file:
+        return finish(
+            EmbeddingSyncStatus(
+                "completed" if failure_code is None else "degraded",
+                failure_code or "embedding_upsert_completed",
+                eligible_count,
+            )
+        )
+
+    from . import semantic_index
+
+    published_paths: list[Path] = []
+    prepared: list[tuple] = []
+    prepared_count = 0
+    batch_identity: recall_space.SpaceIdentity | None = None
+    publication: EmbeddingPublication | None = None
+
+    def flush_prepared() -> None:
+        nonlocal prepared_count, batch_identity, failure_code, publication
+        if not prepared:
+            return
+        current = []
+        for item in prepared:
+            md, replacement, unit_replacement, validator = item
+            if validator():
+                current.append(item)
+            else:
+                failure_code = failure_code or "embedding_input_drifted"
+                try:
+                    index.purge_paths_if_present([replacement[0]])
+                except Exception as error:  # noqa: BLE001
+                    log.warning("embedding drift purge failed: %s", error)
+        if current:
+            try:
+                publish = getattr(index, "upsert_batch", None)
+                if callable(publish):
+                    publication_token = publish(
+                        [item[1] for item in current],
+                        [item[2] for item in current if item[2] is not None],
+                        identity=batch_identity,
+                        validate=lambda: all(item[3]() for item in current),
+                    )
+                    if preparation is not None and len(current) == 1 and publication_token is not None:
+                        _md, replacement, unit, _validator = current[0]
+                        if unit is not None:
+                            state, unit_vectors, _mtime = unit
+                            publication = EmbeddingPublication(
+                                preparation.guard, index, batch_identity, publication_token,
+                                len(replacement[1]), len(unit_vectors), state.parent_generation,
+                                state.parent_source_hash, captured_policy_identity,
+                                (state.parser_version, state.language_registry_hash,
+                                 state.relation_registry_hash),
+                            )
+                else:
+                    # Keep the historical narrow index-adapter seam.
+                    for _md, (rel, chunks, vectors, mtime), unit, _validate in current:
+                        if chunks:
+                            index.upsert_file(rel, chunks, vectors, mtime)
+                        else:
+                            index.delete_file(rel)
+                        if unit is not None:
+                            # An empty set still publishes the parent's coverage record.
+                            index.upsert_semantic_units(*unit)
+                published_paths.extend(item[0] for item in current)
+            except Exception as error:  # noqa: BLE001 - failed batches retain receipts
+                drifted = not all(item[3]() for item in current)
+                failure_code = failure_code or (
+                    "embedding_input_drifted" if drifted else "embedding_encode_failed"
+                )
+                log.warning("embedding batch publication failed: %s", error)
+                if drifted:
+                    try:
+                        index.purge_paths_if_present([item[1][0] for item in current])
+                    except Exception as purge_error:  # noqa: BLE001
+                        log.warning("embedding drift purge failed: %s", purge_error)
+        prepared.clear()
+        prepared_count = 0
+        batch_identity = None
+
+    for md, page, chunks, mtime, signature, prepared_state in per_file:
+        rel_path = page.rel_path
+
+        def still_current(path: Path = md, expected: freshness.FileSignature = signature) -> bool:
+            try:
+                if preparation is not None:
+                    preparation.guard.recheck(vault_root)
+                return (
+                    recall_policy.is_recall_candidate(vault_root, path)
+                    and freshness.stat_signature(path) == expected
+                    and recall_policy.recall_policy_identity(vault_root) == captured_policy_identity
+                )
+            except (OSError, vault.PathGuardError):
+                return False
+
+        if not still_current():
+            try:
+                index.purge_paths_if_present([rel_path])
+            except Exception as error:  # noqa: BLE001
+                log.warning("embedding drift purge failed for %s: %s", rel_path, error)
+            failure_code = failure_code or "embedding_input_drifted"
+            continue
+        stored_chunks, stored_units = _stored_text_vectors(
+            index, rel_path, max_bytes=preparation.reuse_allowance if preparation else None
+        )
+        try:
+            with recall_space.encoding_for(index):
+                vectors, producer = _encode_prepared(
+                    lambda chunks=chunks, stored_chunks=stored_chunks: (
+                        _embed_live_chunks_reusing(chunks, stored_chunks)
+                        if chunks
+                        else np.zeros((0, recall_space.current_dim()), dtype=np.float32)
+                    ),
+                    fallback=getattr(index, "identity", None),
+                )
+        except Exception as error:  # noqa: BLE001
+            log.warning("embedding encode failed for %s: %s; sidecar left stale", rel_path, error)
+            failure_code = failure_code or "embedding_encode_failed"
+            continue
+        unit_replacement = None
+        try:
+            state = prepared_state or semantic_index.current_parent_index_state(vault_root, md)
+            units = state.occurrences
+            with recall_space.encoding_for(index):
+                unit_vectors, unit_producer = _encode_prepared(
+                    lambda units=units, stored_units=stored_units, producer=producer: (
+                        _embed_live_chunks_reusing([unit.content for unit in units], stored_units)
+                        if units
+                        else np.zeros((0, producer.dim), dtype=np.float32)
+                    ),
+                    fallback=getattr(index, "identity", None),
+                )
+            if len(unit_vectors):
+                if chunks and (
+                    producer.dim != unit_producer.dim
+                    or not producer.accepts(unit_producer.model, unit_producer.fingerprint)
+                ):
+                    raise recall_space.VectorSpaceMismatch(
+                        "parent encoders changed during preparation"
+                    )
+                if not chunks or unit_producer.fingerprint is not None:
+                    producer = unit_producer
+            unit_replacement = (state, unit_vectors, mtime)
+        except Exception as error:  # noqa: BLE001 - optional unit vectors soft-fail
+            log.warning("semantic-unit embedding update failed for %s: %s", rel_path, error)
+            failure_code = failure_code or "semantic_unit_embedding_encode_failed"
+        if batch_identity is not None and batch_identity != producer:
+            flush_prepared()
+        batch_identity = producer
+        prepared.append(
+            (md, (rel_path, chunks or [], vectors, mtime), unit_replacement, still_current)
+        )
+        prepared_count += len(vectors) + (len(unit_replacement[1]) if unit_replacement else 0)
+        if prepared_count >= max(1, int(batch_size)) or len(prepared) >= max(1, int(batch_size)):
+            flush_prepared()
+    flush_prepared()
+
+    # Claim-level sidecar (.claims.sqlite) rides the same write seam — opt-in via
+    # EXOMEM_CLAIM_LEVEL, no-op otherwise. Local import avoids a module cycle
+    # (claims imports embeddings at load; embeddings reaches claims only here, at
+    # runtime). Best-effort: a claim-sidecar miss must never fail a vector write.
+    try:
+        from . import claims
+
+        if claims.claim_level_enabled() and published_paths:
+            if preparation is None:
+                claims.upsert_claims_after_write(vault_root, published_paths)
+            else:
+                pages = {md: (page, signature) for md, page, _chunks, _mtime, signature, _state in per_file}
+                type_basis = claims.producer_basis(vault_root)
+                claims.upsert_claims_after_write(
+                    vault_root, published_paths, pages=pages, type_basis=type_basis
+                )
+                if publication is not None:
+                    publication = replace(publication, claims_enabled=True,
+                                          claim_checksum=claims.claim_checksum_for_page(
+                                              pages[published_paths[0]][0], type_basis=type_basis
+                                          ))
+                    if not publication.current(vault_root, claims_required=True):
+                        failure_code = failure_code or "embedding_auxiliary_failed"
+    except Exception as e:  # noqa: BLE001
+        log.debug("claim sidecar upsert skipped (%s)", e)
+        failure_code = failure_code or "embedding_auxiliary_failed"
+    return finish(
+        EmbeddingSyncStatus(
+            "completed" if failure_code is None else "degraded",
+            failure_code or "embedding_upsert_completed",
+            eligible_count,
+            publication=publication if failure_code is None else None,
+        )
+    )
+
+
+def upsert_after_write(vault_root: Path, written_paths: list[Path]) -> bool:
+    """Preserve the historical Boolean for primary vector work completion."""
+    status = upsert_after_write_status(vault_root, written_paths)
+    # Preserve the legacy memoized-import-failure precedence: historically a
+    # stripped install returned ``False`` even for a batch containing no
+    # embeddable paths.
+    return not _IMPORT_FAILED and (
+        status.status == "completed" or status.code == "embedding_auxiliary_failed"
+    )
+
+
+def _live_embed_max_chunks() -> int:
+    try:
+        return max(1, int(os.environ.get("EXOMEM_LIVE_EMBED_MAX_CHUNKS") or "256"))
+    except ValueError:
+        return 256
+
+
+def _stored_text_vectors(
+    index: Any, rel_path: str, *, max_bytes: int | None = None
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """The page's published vectors by text, or nothing when they cannot be read.
+
+    Reuse is an economy, never a dependency: a sidecar that cannot answer costs
+    this write a full encode, which is what it cost before."""
+    try:
+        chunks, units = (
+            index.stored_text_vectors(rel_path)
+            if max_bytes is None else index.stored_text_vectors(rel_path, max_bytes=max_bytes)
+        )
+    except Exception as e:  # noqa: BLE001 - fall back to encoding everything
+        log.debug("stored vectors unavailable for reuse (%s)", type(e).__name__)
+        return {}, {}
+    return chunks, units
+
+
+#: Texts whose passage vectors an advisory sweep keeps for the next consumer.
+#: ~3 KiB of vector per text, so the whole hand-off stays a few MiB.
+PASSAGE_MEMO_MAX_TEXTS = 1024
+
+
+class PassageStamp(NamedTuple):
+    """Which encoder produced a passage vector: its vector space and its load.
+
+    Two vectors of one text are interchangeable only when all three agree.
+    ``space`` is the model and pooling a vector lives in; ``generation`` is the
+    load of that model, so a vector filed after an unload and reload is never
+    served to the new load; ``encoder`` is the encode functions in use, because
+    a substituted encoder (the bench's mixed encoder, a test fake) is another
+    space too. Compared with ``==``.
+    """
+
+    space: str
+    generation: int
+    encoder: tuple[Any, Any]
+
+
+def _vector_space() -> str:
+    """The vector space an encode produces now: the resident encoder's own
+    fingerprint, which for a served model names the exact bytes it runs. An
+    encoder with no profile (none loaded, or a substitute) is named by the
+    model it stands for."""
+    selected = recall_space.selected_model()
+    if selected is not None and selected != MODEL_NAME:
+        return recall_space.previous_space(selected)
+    profile = getattr(_MODEL, "profile", None)
+    if isinstance(profile, embedding_backend.EncoderProfile):
+        return profile.fingerprint()
+    return embedding_backend.fingerprint(MODEL_NAME)
+
+
+def passage_memo_stamp() -> PassageStamp:
+    """The stamp of the encoder in use now.
+
+    A sweep captures it BEFORE it encodes and files its vectors under it; a
+    consumer captures it before it looks vectors up. Any load or unload in
+    between advances ``generation``, so the vectors are dropped or not served
+    rather than trusted under a model that did not produce them.
+    """
+    return PassageStamp(_vector_space(), _MODEL_GENERATION, (embed_texts, _embed_texts))
+
+
+_PASSAGE_MEMO: OrderedDict[bytes, tuple[PassageStamp, np.ndarray]] = OrderedDict()
+_PASSAGE_MEMO_LOCK = threading.Lock()
+
+
+def _passage_key(text: str) -> bytes:
+    """A fixed 16-byte key for a text: the memo must hold vectors, not texts.
+
+    Chunking caps a paragraph's words, not its characters, so one unbroken
+    paragraph can be a megabyte; keyed by the text itself, a full memo could pin
+    a gigabyte. A 128-bit digest makes a collision between two remembered texts
+    negligible.
+    """
+    return hashlib.blake2b(text.encode("utf-8", "surrogatepass"), digest_size=16).digest()
+
+
+def remember_passage_vectors(
+    texts: Sequence[str], vectors: Any, *, stamp: PassageStamp
+) -> None:
+    """Keep the passage vectors an advisory sweep just encoded, most recent last.
+
+    A sweep scores text no sidecar row holds: `add` sweeps its draft before the
+    commit publishes it, and an edit sweeps the page's bare paragraphs. Keeping
+    those vectors lets the same write's commit, or the page's next edit, take
+    them instead of encoding the same text again. ``stamp`` is the one the sweep
+    captured before encoding; when the encoder is no longer that one -- the model
+    was unloaded or reloaded, or another encoder is in use -- the whole batch is
+    dropped. Only passages (`is_query=False`) belong here: a query vector is a
+    different function.
+    """
+    try:
+        rows = [np.array(vector, dtype=np.float32) for vector in vectors]
+        if len(rows) != len(texts):
+            return
+        keys = [_passage_key(text) for text in texts]
+        with _PASSAGE_MEMO_LOCK:
+            if stamp != passage_memo_stamp():
+                return
+            for key, row in zip(keys, rows, strict=True):
+                if row.ndim != 1 or not row.size:
+                    continue
+                row.setflags(write=False)
+                _PASSAGE_MEMO[key] = (stamp, row)
+                _PASSAGE_MEMO.move_to_end(key)
+            while len(_PASSAGE_MEMO) > PASSAGE_MEMO_MAX_TEXTS:
+                _PASSAGE_MEMO.popitem(last=False)
+    except Exception as e:  # noqa: BLE001 - the hand-off is an economy, never a failure
+        log.debug("passage vectors not remembered (%s)", type(e).__name__)
+
+
+def recall_passage_vectors(
+    texts: Iterable[str], *, stamp: PassageStamp
+) -> dict[str, np.ndarray]:
+    """The remembered passage vector for each of `texts` filed under ``stamp``.
+
+    ``stamp`` is the consumer's own, captured before it looks up; nothing is
+    served once the encoder has moved on from it.
+    """
+    try:
+        if not _PASSAGE_MEMO:
+            return {}
+        wanted = [(text, _passage_key(text)) for text in dict.fromkeys(texts)]
+        with _PASSAGE_MEMO_LOCK:
+            if stamp != passage_memo_stamp():
+                return {}
+            found: dict[str, np.ndarray] = {}
+            for text, key in wanted:
+                entry = _PASSAGE_MEMO.get(key)
+                if entry is not None and entry[0] == stamp:
+                    found[text] = entry[1]
+                    _PASSAGE_MEMO.move_to_end(key)
+            return found
+    except Exception as e:  # noqa: BLE001 - a failed lookup costs an encode, nothing more
+        log.debug("passage vectors not recalled (%s)", type(e).__name__)
+        return {}
+
+
+def clear_passage_vectors() -> None:
+    """Forget every remembered passage vector."""
+    with _PASSAGE_MEMO_LOCK:
+        _PASSAGE_MEMO.clear()
+
+
+def _embed_live_chunks_reusing(
+    texts: list[str], stored: dict[str, np.ndarray]
+) -> np.ndarray:
+    """Vectors for `texts` in order, encoding only the texts `stored` lacks.
+
+    A vector is a function of its text, so an unchanged chunk keeps the vector
+    the sidecar already published for that exact text. Appending one observation
+    to a ninety-chunk note then encodes one chunk, not ninety. A text the
+    sidecar lacks but an advisory sweep just encoded (`add` sweeps its draft
+    before committing it) takes the sweep's vector. With nothing to reuse this
+    is `_embed_live_chunks` unchanged."""
+    recalled = recall_passage_vectors(
+        (text for text in dict.fromkeys(texts) if text not in stored),
+        stamp=passage_memo_stamp(),
+    )
+    # `reused` counts the page's own rows only, as on `advisory.best_cosine`;
+    # the hand-off is `recalled`, and the two never overlap.
+    fields = {"texts": len(texts), "reused": sum(1 for text in texts if text in stored)}
+    if recalled:
+        fields["recalled"] = sum(1 for text in texts if text in recalled)
+        stored = {**stored, **recalled}
+    missing = [text for text in dict.fromkeys(texts) if text not in stored]
+    with call_spans.span("index.embeddings.reuse", fields):
+        if len(missing) == len(texts):
+            return _embed_live_chunks(texts)
+        lookup = {text: stored[text] for text in texts if text in stored}
+        if missing:
+            fresh = np.asarray(_embed_live_chunks(missing), dtype=np.float32)
+            lookup.update(zip(missing, fresh, strict=True))
+        return np.stack([lookup[text] for text in texts]).astype(np.float32, copy=False)
+
+
+def _embed_live_chunks(chunks: list[str]) -> np.ndarray:
+    """Encode one file in bounded slices while preserving chunk order."""
+    limit = _live_embed_max_chunks()
+    parts = [
+        embed_texts(chunks[offset : offset + limit], is_query=False)
+        for offset in range(0, len(chunks), limit)
+    ]
+    if not parts:
+        return np.zeros((0, recall_space.current_dim()), dtype=np.float32)
+    if len(parts) == 1:
+        return np.asarray(parts[0], dtype=np.float32)
+    return np.concatenate(parts, axis=0)
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationVectors:
+    """One page generation's exact chunks and vectors, encoded at most once.
+
+    ``reused`` is True when the vectors came from the already-published
+    sidecar rows rather than a fresh encode.  It is the observable a caller
+    needs to prove that two consumers of one generation did not both pay for
+    it, and it is content-free.
+    ``space`` binds these vectors to the source sidecar across model cutover.
+    """
+
+    rel_path: str
+    fingerprint: str
+    title: str
+    body: str
+    chunks: tuple[str, ...]
+    vectors: np.ndarray
+    reused: bool
+    space: recall_space.SpaceIdentity | None
+
+
+def published_generation_vectors(
+    vault_root: Path, rel_path: str, *, chunks: list[str]
+) -> np.ndarray | None:
+    """The sidecar's own vectors for exactly `chunks`, or None.
+
+    Exactness is decided on the stored chunk TEXT, not on an mtime or a row
+    count: a page whose current chunking differs by one character is a
+    different generation and must not borrow the previous one's vectors.
+    """
+    published = _published_generation_vectors_with_space(vault_root, rel_path, chunks=chunks)
+    return published[0] if published is not None else None
+
+
+def _published_generation_vectors_with_space(
+    vault_root: Path, rel_path: str, *, chunks: list[str]
+) -> tuple[np.ndarray, recall_space.SpaceIdentity | None] | None:
+    if not chunks:
+        return np.zeros((0, recall_space.current_dim()), dtype=np.float32), None
+    try:
+        index = get_embedding_index(vault_root)
+        stored, _units, space = index.stored_text_vectors_with_space(rel_path)
+        if any(chunk not in stored for chunk in chunks):
+            return None
+        return np.asarray([stored[chunk] for chunk in chunks], dtype=np.float32), space
+    except Exception as e:  # noqa: BLE001 - sidecar reuse is an optimisation
+        log.debug("published generation reuse unavailable (%s)", type(e).__name__)
+        return None
+
+
+def prepare_generation_vectors(
+    vault_root: Path,
+    rel_path: str,
+    *,
+    expected_fingerprint: str,
+    allow_encode: bool = True,
+) -> GenerationVectors | None:
+    """Resolve one exact page generation's chunks and vectors for reuse.
+
+    The handoff between the embedding consumer and the advisory consumer is the
+    published sidecar itself: whichever runs first pays the encode, and the
+    other reads those exact rows back.  That is what also makes a post-crash
+    replay free — the vectors for the generation are already durable.
+
+    Returns None when the page is absent, unreadable, no longer the expected
+    generation, or when encoding would be required and is not allowed.  It
+    never falls back to a different generation's vectors.
+    """
+    from . import find as find_module
+    from .vault import PathGuardError, content_hash, read_guarded_text
+
+    vault_root = Path(vault_root).resolve()
+    target = Path(vault_root).joinpath(*str(rel_path).split("/"))
+    try:
+        if target.is_symlink() or not target.is_file():
+            return None
+        text, guard = read_guarded_text(vault_root, target)
+    except (OSError, UnicodeDecodeError, PathGuardError):
+        return None
+    fingerprint = content_hash(text)
+    if fingerprint != expected_fingerprint:
+        return None
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return None
+    try:
+        page = find_module._CACHE.get(target, Path(vault_root))
+        if page is None:
+            return None
+        chunks = _chunks_for_page(Path(vault_root), page)
+    except Exception as e:  # noqa: BLE001 - chunk extraction is best-effort
+        log.debug("generation chunk preparation failed (%s)", type(e).__name__)
+        return None
+
+    published = _published_generation_vectors_with_space(vault_root, rel_path, chunks=chunks)
+    if published is not None and len(published[0]) == len(chunks):
+        (vectors, space), reused = published, True
+    elif not allow_encode:
+        return None
+    else:
+        try:
+            get_model()
+        except Exception as e:  # noqa: BLE001 - model backends soft-fail by contract
+            log.debug("generation model load failed (%s)", type(e).__name__)
+            return None
+        try:
+            index = get_embedding_index(vault_root)
+            with recall_space.encoding_for(index):
+                space = index.identity
+                vectors, reused = _embed_live_chunks(chunks), False
+        except Exception as e:  # noqa: BLE001 - one bad encode must not fail a worker
+            log.debug("generation encode failed (%s)", type(e).__name__)
+            return None
+    # The page can move under a slow encode; re-prove before handing it on.
+    try:
+        guard.recheck(vault_root)
+    except (OSError, UnicodeDecodeError, PathGuardError):
+        return None
+    return GenerationVectors(
+        rel_path=str(rel_path),
+        fingerprint=fingerprint,
+        title=page.title,
+        body=page.body,
+        chunks=tuple(chunks),
+        vectors=np.asarray(vectors, dtype=np.float32),
+        reused=reused,
+        space=space,
+    )
+
+
+def delete_after_remove_status(
+    vault_root: Path, removed_rel_paths: list[str]
+) -> EmbeddingSyncStatus:
+    """Drop sidecar rows and return an observable bounded outcome."""
+    eligible_count = len(removed_rel_paths)
+    # Deletion is a model-free policy operation.  Run it before the optional
+    # backend gates so a lean install still removes stale rows, and the index's
+    # no-sidecar guard keeps an absent derived store absent.
+    purge_failed = False
+    if removed_rel_paths:
+        try:
+            index = get_embedding_index(vault_root)
+            purge = getattr(index, "purge_paths_if_present", None)
+            if purge is not None:
+                purge(removed_rel_paths)
+            else:  # compatibility for narrow third-party index adapters
+                for rel in removed_rel_paths:
+                    index.delete_file(rel)
+        except Exception as e:  # noqa: BLE001 - derived deletion is best-effort
+            log.warning("could not purge embedding sidecar rows for delete: %s", e)
+            purge_failed = True
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        return EmbeddingSyncStatus(
+            "degraded" if purge_failed else "disabled",
+            "embedding_delete_failed" if purge_failed else "embeddings_disabled",
+            eligible_count,
+        )
+    if not removed_rel_paths:
+        return EmbeddingSyncStatus("completed", "no_eligible_paths", 0)
+    if _IMPORT_FAILED:
+        return EmbeddingSyncStatus(
+            "disabled", "embeddings_import_unavailable", eligible_count
+        )
+    succeeded = not purge_failed
+    return EmbeddingSyncStatus(
+        "completed" if succeeded else "degraded",
+        "embedding_delete_completed" if succeeded else "embedding_delete_failed",
+        eligible_count,
+    )
+
+
+def delete_after_remove(vault_root: Path, removed_rel_paths: list[str]) -> None:
+    """Compatibility wrapper preserving the legacy ``None`` return."""
+    delete_after_remove_status(vault_root, removed_rel_paths)
+
+
+def delete_clip_after_remove(
+    vault_root: Path, removed_rel_paths: list[str]
+) -> EmbeddingSyncStatus:
+    """Drop CLIP sidecar rows for removed paths; mirrors delete_after_remove_status.
+
+    A video's per-keyframe rows share its own rel_path (see `ClipIndex`), so
+    deleting that one key purges every keyframe alongside a plain image row.
+    Gated by `clip_enabled()` (EXOMEM_DISABLE_CLIP), not EXOMEM_DISABLE_EMBEDDINGS
+    -- CLIP deletion never touches the heavy torch/sentence-transformers import,
+    only sqlite, so a lean (no `embeddings` extra) install still purges cleanly.
+    """
+    eligible_count = len(removed_rel_paths)
+    if not clip_enabled():
+        return EmbeddingSyncStatus("disabled", "clip_disabled", eligible_count)
+    if not removed_rel_paths:
+        return EmbeddingSyncStatus("completed", "no_eligible_paths", 0)
+    try:
+        index = get_clip_index(vault_root)
+    except Exception as e:  # noqa: BLE001 - derived index deletion is best-effort
+        log.warning("could not open CLIP sidecar for delete: %s", e)
+        return EmbeddingSyncStatus(
+            "degraded", "clip_index_open_failed", eligible_count
+        )
+    succeeded = True
+    for rel in removed_rel_paths:
+        try:
+            index.delete(rel)
+        except Exception as e:  # noqa: BLE001 - derived index deletion is best-effort
+            log.warning("delete(%s) failed in CLIP sidecar: %s", rel, e)
+            succeeded = False
+    return EmbeddingSyncStatus(
+        "completed" if succeeded else "degraded",
+        "clip_delete_completed" if succeeded else "clip_delete_failed",
+        eligible_count,
+    )
+
+
+def index_incremental(
+    vault_root: Path,
+    *,
+    batch_size: int = 256,
+    dry_run: bool = False,
+    log_fn=log.info,
+) -> dict:
+    """Incrementally (re)embed the markdown the index scope covers — idempotent, no wipe.
+
+    Unlike `EmbeddingIndex.rebuild_all` (wipe-then-rebuild), this is the reconcile-
+    style path the `exomem index` CLI drives: it SKIPS files whose sidecar rows are
+    already current (stored `file_mtime` >= on-disk mtime, 1s slack for FS jitter),
+    embeds only the new/changed ones in batches of ~`batch_size` chunks (progress
+    logged between batches), and prunes rows for files that are gone or no longer
+    indexable. Re-running after a clean pass embeds nothing.
+
+    Scope is `index_scope()`: `"kb"` (default) or `"vault"`. Honors
+    `access.is_indexable`, `_is_embeddable_path`, and `_chunks_for_page` — the same
+    selection `rebuild_all` uses — so the two agree on WHICH files belong in the index.
+    Returns a small stats dict (also the CLI's machine-readable output).
+    """
+    from . import access, semantic_index
+    from . import find as find_module
+
+    scope = index_paths.index_scope()
+    index = get_embedding_index(vault_root)
+    row_mtimes = index.file_mtimes()
+    unit_parent_states = index.semantic_unit_parent_states()
+
+    pending: list[tuple[str, list[str], float]] = []
+    pending_units: list[tuple[semantic_index.SemanticParentIndexState, float]] = []
+    seen_on_disk: set[str] = set()
+    unit_seen_on_disk: set[str] = set()
+    scanned = 0
+    for md in index_paths.iter_index_markdown(vault_root):
+        if not index_paths.is_embeddable_path(md):
+            continue
+        page = find_module._CACHE.get(md, vault_root)
+        if page is None:
+            continue
+        if not access.is_indexable(vault_root, page.rel_path):
+            continue  # excluded tree (_access.yaml) — keep it out of the index
+        try:
+            unit_state = semantic_index.build_parent_index_state(vault_root, md)
+        except (OSError, UnicodeError, ValueError):
+            unit_state = None
+        if unit_state is not None:
+            unit_seen_on_disk.add(page.rel_path)
+            # Every parsed parent owes a coverage record, even with no occurrence.
+            if unit_parent_states.get(page.rel_path) != expected_parent_state(unit_state):
+                pending_units.append((unit_state, page.mtime))
+        chunks = _chunks_for_page(vault_root, page)
+        if not chunks:
+            continue
+        scanned += 1
+        seen_on_disk.add(page.rel_path)
+        prior = row_mtimes.get(page.rel_path)
+        if prior is not None and page.mtime <= prior + 1.0:
+            continue  # sidecar already current for this file
+        pending.append((page.rel_path, chunks, page.mtime))
+
+    # Rows for files no longer walked (deleted or newly excluded) → prune, so the
+    # incremental index stays a faithful reflection of the scope without a full wipe.
+    stale = sorted(
+        {rp for rp in row_mtimes if rp not in seen_on_disk}
+        | {rp for rp in unit_parent_states if rp not in unit_seen_on_disk}
+    )
+
+    stats = {
+        "scope": scope,
+        "scanned": scanned,
+        "files_to_embed": len(pending),
+        "chunks_embedded": 0,
+        "unit_parents_to_embed": len(pending_units),
+        "unit_vectors_embedded": 0,
+        "files_pruned": len(stale),
+        "dry_run": dry_run,
+    }
+    log_fn(
+        f"index({scope}): {scanned} indexable file(s); {len(pending)} to (re)embed, "
+        f"{len(pending_units)} semantic-unit parent(s) to (re)embed, "
+        f"{len(stale)} stale row-set(s) to prune (dry_run={dry_run})"
+    )
+    if dry_run:
+        return stats
+
+    for rp in stale:
+        index.delete_file(rp)
+
+    total_files = len(pending)
+    done_files = 0
+
+    def _flush(group: list[tuple[str, list[str], float]]) -> None:
+        nonlocal done_files
+        if not group:
+            return
+        flat: list[str] = []
+        for _rp, chs, _m in group:
+            flat.extend(chs)
+        with recall_space.encoding_for(index, load=True):
+            vectors, producer = _encode_prepared(lambda: embed_texts(flat, is_query=False))
+        offset = 0
+        replacements = []
+        for rp, chs, m in group:
+            n = len(chs)
+            replacements.append((rp, chs, vectors[offset : offset + n], m))
+            offset += n
+        index.upsert_batch(replacements, identity=producer)
+        done_files += len(group)
+        stats["chunks_embedded"] += len(flat)
+        log_fn(
+            f"  …{done_files}/{total_files} file(s) embedded ({stats['chunks_embedded']} chunk(s))"
+        )
+
+    batch: list[tuple[str, list[str], float]] = []
+    batch_chunks = 0
+    for item in pending:
+        batch.append(item)
+        batch_chunks += len(item[1])
+        if batch_chunks >= batch_size:
+            _flush(batch)
+            batch = []
+            batch_chunks = 0
+    _flush(batch)
+
+    unit_batch: list[tuple[semantic_index.SemanticParentIndexState, float]] = []
+    unit_batch_size = 0
+
+    def _flush_units(
+        group: list[tuple[semantic_index.SemanticParentIndexState, float]],
+    ) -> None:
+        if not group:
+            return
+        occurrences = [state.occurrences for state, _mtime in group]
+        texts = [occurrence.content for items in occurrences for occurrence in items]
+        if texts:
+            with recall_space.encoding_for(index, load=True):
+                vectors, producer = _encode_prepared(lambda: embed_texts(texts, is_query=False))
+        else:
+            # Coverage records alone need no model.
+            vectors, producer = _encode_prepared(
+                lambda: np.zeros((0, index.dim), dtype=np.float32),
+                fallback=getattr(index, "identity", None),
+            )
+        offset = 0
+        replacements = []
+        for (state, mtime), items in zip(group, occurrences, strict=True):
+            count = len(items)
+            replacements.append((state, vectors[offset : offset + count], mtime))
+            offset += count
+        index.upsert_batch([], replacements, identity=producer)
+        stats["unit_vectors_embedded"] += len(texts)
+
+    for item in pending_units:
+        unit_batch.append(item)
+        unit_batch_size += len(item[0].occurrences)
+        if unit_batch_size >= batch_size:
+            _flush_units(unit_batch)
+            unit_batch = []
+            unit_batch_size = 0
+    _flush_units(unit_batch)
+
+    log_fn(f"index done: {stats}")
+    return stats

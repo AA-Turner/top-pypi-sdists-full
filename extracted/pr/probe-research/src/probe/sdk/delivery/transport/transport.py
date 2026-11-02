@@ -1,46 +1,33 @@
-"""SDK HTTP transport over the Probe Research v3 contract: a thin httpx wrapper for the two
-auth surfaces (``/v1/*`` Bearer ``probe_pat_...``; ``/ingest/*`` Bearer ``ros_ing_...`` plus
-optional X-Signature HMAC). Maps HTTP status to ``errors`` types, retries idempotent calls
-on 5xx/network blips with capped backoff; paginated reads expose ``X-Next-Cursor`` via
-:class:`Page`.
-"""
+"""Transport: one request to the Probe API (`/v1/*` with a user or service token, `/ingest/*` with
+the ingest token and an HMAC), its retries and its typed errors; stages in DESIGN.md."""
 
 from __future__ import annotations
 
-from ...secret_gate import freeze_stream, freeze_upload
-
-import hashlib
-import hmac
+from collections.abc import Mapping
+from dataclasses import dataclass
 import json
 import os
 import re
 import time
-from dataclasses import dataclass
-from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import httpx
 
+from ... import client_status, errors
+from ....foundation.compose.compose import fold_parts
+from ....foundation.remote_settings import remote_settings as device_mark
 from ....foundation.request_identity.request_identity import (
     CLIENT_KIND_HEADER,
     CLIENT_VERSION_HEADER,
     client_version_headers,
     current_client_headers)
-
-from ....foundation.remote_settings import remote_settings as device_mark
-from ... import client_status
-from .protocols import observer
-from ....foundation.durable import durable
-from ... import errors
-from ....foundation.safe_warn import safe_warn
-from ... import session_marker
-from ...values import unstorable
-from ...settings import workspace_limit as _workspace_limit
-from ...settings.settings import DAEMON_SHELL_CONFIG, Settings
-from ...agent_session import AGENT_SESSION_HEADER
 from ....foundation.request_identity.surface import ATTRIBUTION_HEADER, SURFACE_HEADER, TOOL_HEADER, Surface, current_tool
+from ....foundation.safe_warn import safe_warn
 from ....foundation.tls.tls import ssl_context
-from probe.sdk.delivery.transport.blobs import _blob_label, _instrumented, _iter_file, _warn_upload_inspection
+from ...agent_session import AGENT_SESSION_HEADER
+from ...settings.settings import Settings
+from ...values import unstorable
+from .protocols import observer
 
 #: SDK reliability 2.8: every request says this client speaks per-writer leases. The server
 #: flips a `leases` run to the legacy rules on the first heartbeat, status write or logged
@@ -121,7 +108,26 @@ class Page:
     next_cursor: str | None
 
 
-class Transport:
+if TYPE_CHECKING:
+    from probe.sdk.delivery.transport.headers import RequestHeadersMixin
+    from probe.sdk.delivery.transport.deadlines import RetryPolicyMixin
+    from probe.sdk.delivery.transport.failures import ErrorMappingMixin
+    from probe.sdk.delivery.transport.tracking import TrackingMarkerMixin
+    from probe.sdk.delivery.transport.blobs import BlobsMixin
+
+    class _TransportParts(
+        RequestHeadersMixin,
+        RetryPolicyMixin,
+        ErrorMappingMixin,
+        TrackingMarkerMixin,
+        BlobsMixin,
+    ):
+        """Transport's parts as bases, for editors and type checkers; at runtime fold_parts() copies them in."""
+else:
+    _TransportParts = object
+
+
+class Transport(_TransportParts):
     def __init__(
         self,
         settings: Settings,
@@ -184,183 +190,6 @@ class Transport:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    # -- auth ---------------------------------------------------------------
-    def _auth_headers(self, path: str, raw_body: bytes) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        if path.startswith("/public/"):
-            # Public reads (Probe's docs) carry no credential: needed most when sign-in
-            # broke, and a token there would be ignored.
-            return headers
-        is_ingest = path.startswith("/ingest")
-        if is_ingest:
-            if not self.settings.ingest_token:
-                raise errors.AuthError("no ingest token configured (set PROBE_INGEST_TOKEN)")
-            headers["Authorization"] = f"Bearer {self.settings.ingest_token}"
-            if self.settings.hmac_secret:
-                sig = hmac.new(
-                    self.settings.hmac_secret.encode(), raw_body, hashlib.sha256
-                ).hexdigest()
-                headers["X-Signature"] = f"sha256={sig}"
-        else:
-            # /v1 accepts a user PAT (probe_pat_) OR a read-only service token (probe_svc_);
-            # the backend dispatches on the prefix. A Reader carries only the service token.
-            bearer = self.settings.token or self.settings.service_token
-            if not bearer:
-                if os.environ.get("PROBE_CONFIG_PATH") == DAEMON_SHELL_CONFIG:
-                    raise errors.AuthError(
-                        "no API token here: this is the Probe daemon's shell, which has no Probe key on "
-                        "purpose. Run the probe command as a command of its own (`probe ...`, or chained: "
-                        "`cd x && probe ...`): the daemon writes to Probe only that way, with its checks."
-                    )
-                raise errors.AuthError(
-                    f"no API token configured ({session_marker.WIZARD_HINT}, or set "
-                    "PROBE_SERVICE_TOKEN)"
-                )
-            headers["Authorization"] = f"Bearer {bearer}"
-        return headers
-
-    # -- workspace limit -------------------------------------------------------
-    def _workspace_limit_headers(self) -> dict[str, str]:
-        """The limit headers for one request, read per request like the client identity:
-        none inside `workspace_limit.without_limit()` (a picker's list); under the hosted
-        MCP's per-request scope the CALLER's (an empty one included: they sent none); else
-        this transport's settings'. An environment slug is looked up once, without the
-        limit. Raises rather than sending nothing: a limit this process cannot name is
-        never dropped."""
-        if _workspace_limit.suppressed():
-            return {}
-        forwarded = _workspace_limit.forwarded()
-        if forwarded is not None:
-            return dict(forwarded)
-        limit = getattr(self.settings, "workspace_limit", None)
-        if limit is None:
-            return {}
-
-        def listed() -> Any:
-            with _workspace_limit.without_limit():
-                return self.request("GET", "/v1/workspaces", idempotent=True).json()
-
-        bearer = self.settings.token or self.settings.service_token
-        ident = _workspace_limit.resolve_id(
-            limit, base_url=self.settings.base_url, list_workspaces=listed,
-            account=_workspace_limit.account_key(bearer),
-        )
-        return _workspace_limit.request_headers(limit, ident)
-
-    # -- deadline -------------------------------------------------------------
-    def _attempt_timeout(self, requested: float | None, what: str) -> tuple[Any, bool]:
-        """``(timeout kwarg value, clamped)`` for one attempt. Outside a
-        :func:`deadline_scope`: ``requested`` untouched (None keeps the client-wide budget),
-        ``clamped`` False. Inside: ``min(requested or self.timeout, remaining)``, with
-        ``clamped`` saying the deadline set the bound. Raises
-        :class:`errors.DeadlineExceeded` when nothing is left: the request is never sent."""
-        deadline = _request_deadline.get()
-        if deadline is None:
-            return requested, False
-        left = deadline - time.monotonic()
-        if left <= 0:
-            raise errors.DeadlineExceeded(f"{what}: deadline passed before it was sent")
-        base = float(self.timeout if requested is None else requested)
-        bound = min(base, left)
-        return httpx.Timeout(bound, connect=min(bound, _DEFAULT_CONNECT_TIMEOUT)), bound < base
-
-    @staticmethod
-    def _retry_pause(attempt: int, resp: httpx.Response | None = None) -> bool:
-        """Sleep before retry ``attempt + 1``; False, without sleeping, when that retry must
-        not happen here (the caller raises the failure it has).
-
-        The wait is the transport's step on the one backoff ladder
-        (`durable.backoff_delays`, `_TRANSPORT_BACKOFF`: 0.2 s doubling to 2 s), LENGTHENED
-        to the server's ``Retry-After`` when ``resp`` carries one (plan 0.4/0.6: the server
-        sends a jittered one on a lock timeout, 5 s on `entitlement_unavailable`). Never
-        retries sooner than asked:
-
-        * a ``Retry-After`` over `_INLINE_RETRY_AFTER_MAX` is not waited out inside one
-          request: the error goes back at once carrying ``retry_after`` and the caller's own
-          loop (outbox worker, exporter, `finish()`, each with its own ceiling and deadline)
-          waits;
-        * inside a `deadline_scope` with no room for the wait AND another attempt, no retry
-          at all rather than retry early.
-        """
-        deadline = _request_deadline.get()
-        retry_after = _retry_after_seconds(resp) if resp is not None else None
-        if _patient() and deadline is not None:
-            return Transport._patient_pause(
-                attempt, retry_after, deadline, status=resp.status_code if resp is not None else None
-            )
-        (*_, delay) = durable.backoff_delays(attempt + 1, _TRANSPORT_BACKOFF)
-        if retry_after is not None and retry_after > _INLINE_RETRY_AFTER_MAX:
-            return False
-        pause = durable.honor_retry_after(delay, retry_after, ceiling=_INLINE_RETRY_AFTER_MAX)
-        if deadline is not None and deadline - time.monotonic() <= pause:
-            return False
-        time.sleep(pause)
-        return True
-
-    @staticmethod
-    def _patient_pause(
-        attempt: int, retry_after: float | None, deadline: float, *, status: int | None = None
-    ) -> bool:
-        """`_retry_pause` inside :func:`patience`: the jittered `_PATIENCE_BACKOFF` step,
-        lengthened to any ``Retry-After`` the budget can hold, shortened so a last attempt
-        fits before the deadline. False when no room. The scope's FIRST retry says so, once,
-        on stderr."""
-        room = deadline - time.monotonic() - _PATIENCE_LAST_ATTEMPT
-        if room <= 0 or (retry_after is not None and retry_after > room):
-            return False
-        _announce_patience(status)
-        (*_, step) = durable.backoff_delays(attempt + 1, _PATIENCE_BACKOFF)
-        jittered = step / 2 + _JITTER.uniform(0, step / 2)
-        time.sleep(min(durable.honor_retry_after(jittered, retry_after, ceiling=room), room))
-        return True
-
-    def _may_retry(self, attempt: int) -> bool:
-        """The COUNT half of the retry decision: ``max_retries`` quick tries, or,
-        inside :func:`patience`, as many as the deadline allows."""
-        return attempt <= self.max_retries or _patient()
-
-    @staticmethod
-    def _deadline_error(what: str, exc: BaseException) -> errors.DeadlineExceeded:
-        """The deadline cut an attempt: ``sent`` when only the response was lost
-        (a read timeout), so the server may have applied the request."""
-        return errors.DeadlineExceeded(f"{what}: {exc}", sent=isinstance(exc, httpx.ReadTimeout))
-
-    def _send_within_deadline(self, deadline: float, method: str, path: str, **kwargs) -> httpx.Response:
-        """Send, then read the body chunk by chunk, checking ``deadline`` between chunks.
-        httpx timeouts bound each socket operation, not the request: a response trickling a
-        byte at a time never trips one (live: a close with ``flush_timeout=2`` took 9.8 s).
-        Returns an ordinary, fully read response."""
-        with self._client.stream(method, path, **kwargs) as resp:
-            if resp.is_stream_consumed:  # an in-memory transport already read it
-                resp.read()
-                return resp
-            chunks: list[bytes] = []
-            for chunk in resp.iter_raw():
-                chunks.append(chunk)
-                if time.monotonic() >= deadline:
-                    raise errors.DeadlineExceeded(
-                        f"{method} {path}: deadline passed while reading the response", sent=True
-                    )
-        return httpx.Response(
-            resp.status_code,
-            headers=resp.headers,
-            content=b"".join(chunks),
-            request=resp.request,
-            extensions=resp.extensions,
-        )
-
-    @staticmethod
-    def _cut_by_deadline(exc: BaseException, clamped: bool) -> bool:
-        """A timeout that fired only because the deadline shortened the attempt: our clock
-        ran out, not the server's patience."""
-        deadline = _request_deadline.get()
-        return (
-            clamped
-            and deadline is not None
-            and isinstance(exc, httpx.TimeoutException)
-            and time.monotonic() >= deadline
-        )
-
     # -- core request -------------------------------------------------------
     def request(
         self,
@@ -381,6 +210,39 @@ class Transport:
         re-encoded."""
         if content is not None and json_body is not None:
             raise ValueError("pass json_body or content, not both")
+        json_body = self._prepare_json_body(method, path, json_body, params)
+        # Serialize ourselves so the HMAC signs the exact sanitized bytes.
+        if content is not None:
+            raw_body = bytes(content)
+        else:
+            raw_body = b"" if json_body is None else json.dumps(json_body).encode()
+        # Client identity: what this transport was built with, unless the caller bound a
+        # per-request override. Read per request: the hosted MCP memoizes one transport per
+        # token for many callers, so a construction-time identity would report the SERVER's
+        # version as every caller's. An empty override is a real answer ("reported nothing"):
+        # only None falls back.
+        override = current_client_headers()
+        client_identity = self._client_headers if override is None else override
+        headers = self._build_headers(
+            method, path, raw_body, has_json=json_body is not None, content=content,
+            content_headers=content_headers, extra_headers=extra_headers, override=override,
+            client_identity=client_identity,
+        )
+        retry = idempotent if idempotent is not None else method.upper() in {"GET", "PUT"}
+        resp, attempt, started = self._send_with_retries(
+            method, path, headers=headers, params=params, timeout=timeout, retry=retry,
+            content=raw_body if json_body is not None or content is not None else None,
+        )
+        return self._settle_response(
+            resp, method, path, attempt=attempt, started=started, override=override,
+            client_identity=client_identity, headers=headers,
+        )
+
+    def _prepare_json_body(
+        self, method: str, path: str, json_body: Any | None, params: dict[str, Any] | None
+    ) -> Any | None:
+        """Refuse NULs in the path and query; normalize the JSON body, keep the fields a scrub must
+        not rewrite, and escape NULs for display (warning once)."""
         # Validate structure before the recursive scrubber. Scan the normalized
         # body again below: sets/opaque reprs may become new JSON strings.
         if unstorable.has_nul(params) or ("\x00" in path):
@@ -428,18 +290,23 @@ class Transport:
             json_body, escaped = unstorable.escape_nuls(json_body, path=path, method=method)
             if escaped:
                 safe_warn.warn(unstorable.describe(escaped), stacklevel=1)
-        # Serialize ourselves so the HMAC signs the exact sanitized bytes.
-        if content is not None:
-            raw_body = bytes(content)
-        else:
-            raw_body = b"" if json_body is None else json.dumps(json_body).encode()
-        # Client identity: what this transport was built with, unless the caller bound a
-        # per-request override. Read per request: the hosted MCP memoizes one transport per
-        # token for many callers, so a construction-time identity would report the SERVER's
-        # version as every caller's. An empty override is a real answer ("reported nothing"):
-        # only None falls back.
-        override = current_client_headers()
-        client_identity = self._client_headers if override is None else override
+        return json_body
+
+    def _build_headers(
+        self,
+        method: str,
+        path: str,
+        raw_body: bytes,
+        *,
+        has_json: bool,
+        content: bytes | None,
+        content_headers: Mapping[str, str] | None,
+        extra_headers: Mapping[str, str] | None,
+        override: Mapping[str, str] | None,
+        client_identity: Mapping[str, str],
+    ) -> dict[str, str]:
+        """Every header one request carries: identity, auth, workspace limit, body type, surface,
+        session attribution and the idempotency key."""
         # A per-request identity override means we speak FOR someone else (the hosted MCP
         # serving a remote caller), so this process's device header drops out too: sending it
         # would attribute every caller's traffic to the server's pod, the bug
@@ -454,7 +321,7 @@ class Transport:
             # `/public/` (no workspace's; naming one needs a credential).
             **({} if path.startswith(("/ingest", "/public/")) else self._workspace_limit_headers()),
         }
-        if json_body is not None:
+        if has_json:
             headers["Content-Type"] = "application/json"
         if content is not None:
             headers.update(content_headers or {})
@@ -487,8 +354,21 @@ class Transport:
         key = _idempotency_key(method, path)
         if key:
             headers["Idempotency-Key"] = key
+        return headers
 
-        retry = idempotent if idempotent is not None else method.upper() in {"GET", "PUT"}
+    def _send_with_retries(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict[str, str],
+        params: dict[str, Any] | None,
+        timeout: float | None,
+        retry: bool,
+        content: bytes | None,
+    ) -> tuple[httpx.Response, int, float]:
+        """Send until an answer the caller gets (retrying what may be retried); returns it with the
+        attempt count and the start time. Raises a typed error when no answer came."""
         # Wall time as the CALLER sees it, retries included: what parks a training loop is
         # the total, not one attempt.
         started = time.monotonic()
@@ -508,7 +388,7 @@ class Transport:
                 observer().end_transport()
                 raise
             send = dict(
-                content=raw_body if json_body is not None or content is not None else None,
+                content=content,
                 params=params,
                 headers=headers,
                 **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
@@ -538,21 +418,7 @@ class Transport:
                 replayable = retry or isinstance(exc, _CONNECT_ERRORS)
                 if replayable and self._may_retry(attempt) and self._retry_pause(attempt):
                     continue
-                observer().end_transport()
-                observer().record_transport(
-                    method,
-                    path,
-                    seconds=time.monotonic() - started,
-                    error=repr(exc),
-                    base=self.settings.base_url,
-                )
-                if self._cut_by_deadline(exc, clamped):
-                    raise self._deadline_error(f"{method} {path}", exc) from exc
-                failure = errors.TransportError(f"{method} {path}: {exc}")
-                # Server never reached: nobody's op can land, so the outbox drain ends the
-                # pass for every run (plan 1.6). A timeout AFTER sending may be this op's own.
-                failure.unreachable = isinstance(exc, _CONNECT_ERRORS)
-                raise failure from exc
+                self._raise_transport_error(exc, method, path, started=started, clamped=clamped)
 
             _check_clock_skew(resp)
             if (
@@ -562,125 +428,70 @@ class Transport:
                 and self._retry_pause(attempt, resp)
             ):
                 continue
+            return resp, attempt, started
 
-            observer().end_transport()
-            observer().record_transport(
-                method,
-                path,
-                seconds=time.monotonic() - started,
-                status=resp.status_code,
-                base=self.settings.base_url,
-            )
-            if override is None:
-                # Only for our OWN identity: under an override (the hosted MCP)
-                # the status grades someone else's client, not this process.
-                client_status.notice(resp.headers, client_identity, self.surface)
-                # Probe staff asked this machine to update now, repair its session capture,
-                # or change a setting (a later CLI command acts): one lookup per kind when
-                # no header is there.
-                device_mark.note_all(resp.headers)
-            if resp.status_code >= 400:
-                if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
-                    # A RETRIED delete finding the thing in the trash: the first attempt
-                    # landed and its reply was lost. That is the delete succeeding, not a
-                    # refusal; the notice is the answer.
-                    return resp
-                raise self._to_error(resp)
-            if 200 <= resp.status_code < 300:
-                # 2xx only: a 3xx means the write did not land where we asked.
-                self._auto_mark_tracking(method, path, headers.get(AGENT_SESSION_HEADER))
-            return resp
+    def _raise_transport_error(
+        self, exc: httpx.HTTPError, method: str, path: str, *, started: float, clamped: bool
+    ) -> NoReturn:
+        """No answer came and no retry is left: record it, then raise DeadlineExceeded when our own
+        deadline cut the attempt, else a TransportError (``unreachable`` when never sent)."""
+        observer().end_transport()
+        observer().record_transport(
+            method,
+            path,
+            seconds=time.monotonic() - started,
+            error=repr(exc),
+            base=self.settings.base_url,
+        )
+        if self._cut_by_deadline(exc, clamped):
+            raise self._deadline_error(f"{method} {path}", exc) from exc
+        failure = errors.TransportError(f"{method} {path}: {exc}")
+        # Server never reached: nobody's op can land, so the outbox drain ends the
+        # pass for every run (plan 1.6). A timeout AFTER sending may be this op's own.
+        failure.unreachable = isinstance(exc, _CONNECT_ERRORS)
+        raise failure from exc
 
-    def _auto_mark_tracking(self, method: str, path: str, session_id: str | None) -> None:
-        """First research write of a coding-agent session SETTLES its tracking signal at the
-        process cwd's effective default, so local surfaces stop disagreeing with the backend
-        about whether the session is tracked. AFTER success on purpose: a write that never
-        landed marks nothing, and a server commit the client never saw heals on the next
-        successful write.
-
-        It settles at the DEFAULT, not `on`. A write is the agent's act, not the
-        researcher's declaration: it may record the value the session started at, never
-        change it. On a default-off machine it writes `off`, so the warn layer keeps warning
-        about the write that just happened (the honest reading). SessionStart seeds the same
-        value, so this is normally a no-op; it covers a session started before the seed
-        shipped.
-
-        Never marks: reads; non-research routes (`_RESEARCH_PATH_PREFIXES`); a session held
-        by the `PROBE_SESSION_TRACKING` env override (a signal file would outlive and defeat
-        a machine-wide forced-off, so with the env holding the setting, EITHER direction,
-        nothing is written); an explicit per-session decision (the helper's own contract).
-
-        ONLY A SETTLED SESSION IS REMEMBERED. `set_tracking_if_absent` returns False for "a
-        decision exists" and for a transient I/O failure (read-only state dir, full disk);
-        caching on False alone would leave the session unmarked for the transport's life.
-        A failure is not remembered: it costs one extra stat on the next write.
-
-        Fail-soft: must never break the write it rides on; any surprise is swallowed and
-        not remembered.
-        """
-        if not session_id or session_id in self._tracking_marked:
-            return
-        if method.upper() in _READ_METHODS:
-            return
-        if not _is_research_path(path):
-            return
-        try:
-            # Normal path: SessionStart already settled it. Read before resolving any
-            # default so a later folder edit adds no ancestor I/O to every write.
-            if session_marker.tracking_signal(session_id) is not None:
-                settled = True
-            elif session_marker.tracking_env_override() is not None:
-                settled = True  # held by the env for this process's lifetime
-            elif session_marker.set_tracking_if_absent(
-                session_id, session_marker.resolve_tracking_default(None)[0]
-            ):
-                settled = True  # this call decided it
-            else:
-                # False is ambiguous: a decision exists, or the write failed.
-                settled = session_marker.tracking_signal(session_id) is not None
-        except Exception:  # noqa: BLE001 - by the fail-soft contract above
-            return
-        if not settled:
-            return
-        if len(self._tracking_marked) >= _TRACKING_MEMO_CAP:
-            self._tracking_marked.clear()
-        self._tracking_marked.add(session_id)
-
-    def _to_error(self, resp: httpx.Response) -> errors.RosError:
-        try:
-            body = resp.json()
-            detail = body.get("detail")
-            if body.get("code") == errors.CLIENT_TOO_OLD:
-                min_version = body.get("min_version")
-                min_version = min_version if isinstance(min_version, str) else None
-                return errors.ClientTooOldError(
-                    errors.upgrade_message(errors._detail_message(detail), min_version),
-                    status=resp.status_code,
-                    detail=detail,
-                    min_version=min_version,
-                )
-            # A run, group, experiment or project in the TRASH answers 410 with a fixed token
-            # plus the notice ("in the trash since ..., Probe can restore it until ...").
-            # The sentence is what a person or agent needs; the token alone says nothing.
-            in_trash = detail == "in_trash"
-            if in_trash and isinstance(body.get("message"), str):
-                detail = body["message"]
-        except (json.JSONDecodeError, ValueError, AttributeError):
-            detail, in_trash = resp.text, False
-        error = errors.error_for(resp.status_code, detail)
-        if in_trash:
-            error.in_trash = True
-        applied = resp.headers.get(_workspace_limit.APPLIED_HEADER)
-        if applied and resp.status_code == 404:
-            # The API answered under this computer's workspace limit: what was asked for may
-            # exist outside it. Said, never left to read as gone (agents have filed
-            # data-loss reports off a silent miss).
-            error.workspace_limit_applied = applied
-            _workspace_limit.annotate_not_found(
-                error,
-                _workspace_limit.hidden_hint(applied, getattr(self.settings, "workspace_limit", None)),
-            )
-        return _with_retry_after(error, resp)
+    def _settle_response(
+        self,
+        resp: httpx.Response,
+        method: str,
+        path: str,
+        *,
+        attempt: int,
+        started: float,
+        override: Mapping[str, str] | None,
+        client_identity: Mapping[str, str],
+        headers: dict[str, str],
+    ) -> httpx.Response:
+        """Record the answer, read what the server says about this client, then return it or raise
+        its typed error."""
+        observer().end_transport()
+        observer().record_transport(
+            method,
+            path,
+            seconds=time.monotonic() - started,
+            status=resp.status_code,
+            base=self.settings.base_url,
+        )
+        if override is None:
+            # Only for our OWN identity: under an override (the hosted MCP)
+            # the status grades someone else's client, not this process.
+            client_status.notice(resp.headers, client_identity, self.surface)
+            # Probe staff asked this machine to update now, repair its session capture,
+            # or change a setting (a later CLI command acts): one lookup per kind when
+            # no header is there.
+            device_mark.note_all(resp.headers)
+        if resp.status_code >= 400:
+            if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
+                # A RETRIED delete finding the thing in the trash: the first attempt
+                # landed and its reply was lost. That is the delete succeeding, not a
+                # refusal; the notice is the answer.
+                return resp
+            raise self._to_error(resp)
+        if 200 <= resp.status_code < 300:
+            # 2xx only: a 3xx means the write did not land where we asked.
+            self._auto_mark_tracking(method, path, headers.get(AGENT_SESSION_HEADER))
+        return resp
 
     # -- typed helpers ------------------------------------------------------
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
@@ -723,285 +534,6 @@ class Transport:
         resp = self.request("GET", path, params=params, idempotent=True)
         return Page(items=resp.json(), next_cursor=resp.headers.get("X-Next-Cursor"))
 
-    @_instrumented("PUT")
-    def put_url(
-        self,
-        url: str,
-        data: bytes,
-        *,
-        content_type: str | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> None:
-        """Raw PUT of bytes to a presigned URL (artifact upload, fold #16). No
-        Authorization header (the URL carries its signature); goes to an absolute URL (R2),
-        not the API base; retried on network blips."""
-        # No local content scan: the presigned digest pins these bytes, so a scan could only
-        # warn; the server inspects every upload and returns its own warning
-        # (`_warn_upload_inspection` below).
-        data = bytes(data)
-        request_headers = dict(headers or {})
-        if content_type:
-            request_headers.setdefault("Content-Type", content_type)
-        attempt = 0
-        while True:
-            attempt += 1
-            attempt_timeout, clamped = self._attempt_timeout(None, f"PUT {_blob_label(url)}")
-            try:
-                resp = self._client.put(
-                    url,
-                    content=data,
-                    headers=request_headers,
-                    **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
-                )
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                if self._cut_by_deadline(exc, clamped):
-                    raise self._deadline_error(f"PUT {_blob_label(url)}", exc) from exc
-                raise errors.TransportError(f"PUT {_blob_label(url)}: {exc}") from exc
-            if (
-                resp.status_code in _RETRYABLE
-                and attempt <= self.max_retries
-                and self._retry_pause(attempt, resp)
-            ):
-                continue
-            if resp.status_code >= 400:
-                raise _presigned_put_error(resp, url)
-            _warn_upload_inspection(resp)
-            return
-
-    @freeze_upload
-    def put_file(
-        self,
-        url: str,
-        path: str,
-        *,
-        content_type: str | None = None,
-        headers: Mapping[str, str] | None = None,
-        chunk_size: int = 1 << 20,
-    ) -> None:
-        """Stream a local file to a presigned URL without buffering it (an anchored artifact
-        can be model weights; reading it into ``bytes`` OOMs the training loop). No
-        Authorization header; the URL carries its signature.
-
-        Content-Length is measured from the open file on every attempt, never from a
-        caller's size. A generator body makes httpx use ``Transfer-Encoding: chunked`` (a
-        presigned R2/S3 PUT rejects it, 411), and a declared length disagreeing with the
-        streamed bytes frames the PUT wrong (short truncates the stored object, long hangs
-        the connection). Same handle, so header and body stay in lockstep.
-
-        Re-opens ``path`` every attempt: httpx does not rewind a consumed body, so a retry
-        must stream from byte 0, else a spent handle sends a truncated body the server
-        stores and confirms as complete."""
-        request_headers = dict(headers or {})
-        if content_type:
-            request_headers.setdefault("Content-Type", content_type)
-        attempt = 0
-        while True:
-            attempt += 1
-            attempt_timeout, clamped = self._attempt_timeout(None, f"PUT {_blob_label(url)}")
-            try:
-                with open(path, "rb") as fh:
-                    request_headers["Content-Length"] = str(os.fstat(fh.fileno()).st_size)
-                    resp = self._client.put(
-                        url,
-                        content=_iter_file(fh, chunk_size),
-                        headers=request_headers,
-                        **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
-                    )
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                if self._cut_by_deadline(exc, clamped):
-                    raise self._deadline_error(f"PUT {_blob_label(url)}", exc) from exc
-                raise errors.TransportError(f"PUT {_blob_label(url)}: {exc}") from exc
-            if (
-                resp.status_code in _RETRYABLE
-                and attempt <= self.max_retries
-                and self._retry_pause(attempt, resp)
-            ):
-                continue
-            if resp.status_code >= 400:
-                raise _presigned_put_error(resp, url)
-            _warn_upload_inspection(resp)
-            return
-
-    @_instrumented("PUT")
-    def put_part(
-        self,
-        url: str,
-        path: str,
-        *,
-        offset: int,
-        length: int,
-        chunk_size: int = 1 << 20,
-    ) -> str | None:
-        """PUT bytes ``[offset, offset + length)`` of ``path`` to a presigned multipart PART
-        URL (plan item (g)); returns the store's ETag.
-
-        THE ONE BYTE PATH WITH NO LOCAL CREDENTIAL GATE, on purpose. Every other upload goes
-        through `freeze_upload`/`freeze_stream`, which read the whole body, refuse anything
-        over the 64 MiB inspection limit and may redact it. A part is a slice of an artifact
-        over that limit: redacting would break the sha256 the whole object is verified
-        against, and the limit is why the file goes this way. These bytes reach object
-        storage BEFORE anything scans them; the server's verifier inspects a bounded prefix
-        afterwards and RECORDS what it finds on the artifact; nothing is blocked. The caller
-        already refused a credential in the PATH (`secret_gate._check_path`).
-
-        Streams (never buffers), Content-Length fixed to ``length`` and the body cut at it,
-        re-opening the file every attempt like `put_file`. No Authorization header."""
-        headers = {"Content-Length": str(length)}
-        attempt = 0
-        while True:
-            attempt += 1
-            attempt_timeout, clamped = self._attempt_timeout(None, f"PUT {_blob_label(url)}")
-            try:
-                with open(path, "rb") as fh:
-                    fh.seek(offset)
-                    resp = self._client.put(
-                        url,
-                        content=_iter_file(fh, chunk_size, length),
-                        headers=headers,
-                        **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
-                    )
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                if self._cut_by_deadline(exc, clamped):
-                    raise self._deadline_error(f"PUT {_blob_label(url)}", exc) from exc
-                raise errors.TransportError(f"PUT {_blob_label(url)}: {exc}") from exc
-            if (
-                resp.status_code in _RETRYABLE
-                and attempt <= self.max_retries
-                and self._retry_pause(attempt, resp)
-            ):
-                continue
-            if resp.status_code >= 400:
-                # #2075: a 401/403 refuses this part's signed URL, never the login (none is
-                # sent): `UploadRefused`, not an auth block.
-                raise _presigned_put_error(resp, url)
-            return resp.headers.get("etag")
-
-    @_instrumented("PUT")
-    @freeze_stream
-    def put_fileobj(
-        self,
-        url: str,
-        fh: Any,
-        *,
-        size: int,
-        content_type: str | None = None,
-        headers: Mapping[str, str] | None = None,
-        chunk_size: int = 1 << 20,
-    ) -> None:
-        """PUT an already-open, already-verified file handle to a presigned URL. The
-        per-file capture path hashes a descriptor before streaming it (bytes sent = bytes
-        checked); this sibling of :meth:`put_file` takes that descriptor instead of
-        re-opening a path it cannot vouch for. Sends exactly ``size`` bytes, rewinding to
-        byte 0 every attempt. No Authorization header."""
-        request_headers = dict(headers or {})
-        if content_type:
-            request_headers.setdefault("Content-Type", content_type)
-        request_headers["Content-Length"] = str(size)
-        attempt = 0
-        while True:
-            attempt += 1
-            attempt_timeout, clamped = self._attempt_timeout(None, f"PUT {_blob_label(url)}")
-            fh.seek(0)
-            try:
-                resp = self._client.put(
-                    url,
-                    content=_iter_file(fh, chunk_size, size),
-                    headers=request_headers,
-                    **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
-                )
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                if self._cut_by_deadline(exc, clamped):
-                    raise self._deadline_error(f"PUT {_blob_label(url)}", exc) from exc
-                raise errors.TransportError(f"PUT {_blob_label(url)}: {exc}") from exc
-            if (
-                resp.status_code in _RETRYABLE
-                and attempt <= self.max_retries
-                and self._retry_pause(attempt, resp)
-            ):
-                continue
-            if resp.status_code >= 400:
-                raise _presigned_put_error(resp, url)
-            _warn_upload_inspection(resp)
-            return
-
-    @_instrumented("GET")
-    def get_url(self, url: str) -> bytes:
-        """Raw GET of a presigned URL (artifact download); returns the bytes. No
-        Authorization header (the URL carries its signature)."""
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                resp = self._client.get(url)
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                raise errors.TransportError(f"GET {_blob_label(url)}: {exc}") from exc
-            if (
-                resp.status_code in _RETRYABLE
-                and attempt <= self.max_retries
-                and self._retry_pause(attempt, resp)
-            ):
-                continue
-            if resp.status_code >= 400:
-                raise _with_retry_after(errors.error_for(resp.status_code, resp.text), resp)
-            return resp.content
-
-    @_instrumented("GET")
-    def download_to(
-        self, url: str, dest: str, *, chunk_size: int = 1 << 20, max_bytes: int | None = None
-    ) -> tuple[int, str]:
-        """Stream a presigned-URL GET to ``dest``; return ``(size_bytes, sha256_hex)``.
-        Sibling of :meth:`get_url` for bytes you do NOT want in memory (model weights): it
-        hashes while writing, so a caller verifies against a known ``content_hash`` without
-        a second pass. No Authorization header. Idempotent: a blip or retryable status
-        restarts from byte 0 (``open`` truncates ``dest``). A partial file remains only when
-        retries are exhausted mid-stream; the caller owns cleanup on error."""
-        if max_bytes is not None and max_bytes < 0:
-            raise ValueError("max_bytes must not be negative")
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                with self._client.stream("GET", url) as resp:
-                    if (
-                        resp.status_code in _RETRYABLE
-                        and attempt <= self.max_retries
-                        and self._retry_pause(attempt, resp)
-                    ):
-                        continue
-                    if resp.status_code >= 400:
-                        resp.read()  # a streamed response has no .text until read
-                        raise _with_retry_after(
-                            errors.error_for(resp.status_code, resp.text), resp
-                        )
-                    hasher = hashlib.sha256()
-                    size = 0
-                    if max_bytes is not None:
-                        declared = resp.headers.get("content-length")
-                        if declared is not None and int(declared) > max_bytes:
-                            raise ValueError("artifact download exceeds its byte budget")
-                    with open(dest, "wb") as fh:
-                        for chunk in resp.iter_bytes(chunk_size):
-                            if max_bytes is not None and size + len(chunk) > max_bytes:
-                                raise ValueError("artifact download exceeds its byte budget")
-                            fh.write(chunk)
-                            hasher.update(chunk)
-                            size += len(chunk)
-                return size, hasher.hexdigest()
-            except httpx.HTTPError as exc:
-                if attempt <= self.max_retries and self._retry_pause(attempt):
-                    continue
-                raise errors.TransportError(f"GET {_blob_label(url)}: {exc}") from exc
-
 
 #: The Probe daemon runs each `probe` command with an operation id (R12). Every write
 #: request the command makes carries `<op id>-<n>` (n counts that command's writes in
@@ -1020,18 +552,9 @@ def _idempotency_key(method: str, path: str) -> str | None:
     _idempotency_count += 1
     return f"{base[:80]}-{_idempotency_count}"
 from probe.sdk.delivery.transport.deadlines import (  # noqa: E402 -- pieces need each other; the front door loads this one first
-    _INLINE_RETRY_AFTER_MAX,
-    _JITTER,
-    _PATIENCE_BACKOFF,
-    _PATIENCE_LAST_ATTEMPT,
-    _TRANSPORT_BACKOFF,
-    _announce_patience,
-    _patient,
     _request_deadline,
-    _retry_after_seconds,
-    _with_retry_after,
 )
-from probe.sdk.delivery.transport.failures import _is_trash_notice, _presigned_put_error  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.failures import _is_trash_notice  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.headers import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     Attribution,
     _attribution_override,
@@ -1041,4 +564,18 @@ from probe.sdk.delivery.transport.headers import (  # noqa: E402 -- pieces need 
     _write_origin_header,
     resolve_attribution,
 )
-from probe.sdk.delivery.transport.tracking import _READ_METHODS, _TRACKING_MEMO_CAP, _is_research_path  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.headers import RequestHeadersMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.deadlines import RetryPolicyMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.failures import ErrorMappingMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.tracking import TrackingMarkerMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.blobs import BlobsMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+
+# Transport's parts read it back at import time, so they load after it and are folded in here.
+fold_parts(
+    Transport,
+    RequestHeadersMixin,
+    RetryPolicyMixin,
+    ErrorMappingMixin,
+    TrackingMarkerMixin,
+    BlobsMixin,
+)

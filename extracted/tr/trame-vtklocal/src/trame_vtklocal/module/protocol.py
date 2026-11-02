@@ -1,0 +1,296 @@
+import os
+import json
+import time
+import zipfile
+from functools import wraps
+from pathlib import Path
+
+from vtkmodules.vtkCommonCore import vtkVersion
+
+# from vtkmodules.vtkCommonCore import vtkLogger
+from vtkmodules.vtkSerializationManager import vtkObjectManager
+from wslink import register as export_rpc
+from wslink.websocket import LinkProtocol
+
+try:
+    import zlib  # noqa
+
+    ZIP_COMPRESSION = zipfile.ZIP_DEFLATED
+except ImportError:
+    ZIP_COMPRESSION = zipfile.ZIP_STORED
+
+API_NO_IDS_UPDATE = (
+    vtkVersion.GetVTKMajorVersion() <= 9
+    and vtkVersion.GetVTKMinorVersion() <= 4
+    and vtkVersion.GetVTKBuildVersion() < 20250509
+)  # mr90034
+
+
+def map_id_mtime(object_manager, vtk_id):
+    vtk_obj = object_manager.GetObjectAtId(vtk_id)
+    if vtk_obj is None:
+        return (vtk_id, 0)
+    return (vtk_id, vtk_obj.GetMTime())
+
+
+def timeIt(func):
+    """A decorator to measure the execution time of a function."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        print(f"{func.__name__}: {execution_time:.2f}s")
+        return result
+
+    return wrapper
+
+
+class ObjectManagerAPI(LinkProtocol):
+    def __init__(self, *args, **kwargs):
+        addon_serdes_registrars = kwargs.pop("addon_serdes_registrars", [])
+        super().__init__(*args, **kwargs)
+        self.vtk_object_manager = vtkObjectManager()
+        self.vtk_object_manager.Initialize()
+        for registrar in addon_serdes_registrars:
+            self.vtk_object_manager.InitializeExtensionModuleHandler(registrar)
+        self._widgets = {}
+        self._push_camera = False
+
+        self._debug_state = False
+        self._debug_state_counter = 1
+
+        # Debug - adjust verbosity
+        # self.vtk_object_manager.SetObjectManagerLogVerbosity(
+        #     vtkLogger.VERBOSITY_WARNING
+        # )
+        # self.vtk_object_manager.serializer.SetSerializerLogVerbosity(
+        #     vtkLogger.VERBOSITY_WARNING
+        # )
+
+    def register_widget(self, root_obj, dep_obj):
+        self.vtk_object_manager.RegisterObject(dep_obj)
+        root_id = self.vtk_object_manager.GetId(root_obj)
+        dep_id = self.vtk_object_manager.GetId(dep_obj)
+        if root_id not in self._widgets:
+            self._widgets[root_id] = set()
+
+        self._widgets[root_id].add(dep_id)
+        # print(f"Register widget: {dep_obj.GetClassName()}={dep_id}")
+
+    def unregister_widget(self, root_obj, dep_obj):
+        root_id = self.vtk_object_manager.GetId(root_obj)
+        dep_id = self.vtk_object_manager.GetId(dep_obj)
+        self.vtk_object_manager.UnRegisterObject(dep_id)
+        if root_id in self._widgets:
+            self._widgets[root_id].discard(dep_id)
+
+    def get_all_ids(self, root_id):
+        if root_id in self._widgets:
+            return [root_id, *self._widgets[root_id]]
+        return [root_id]
+
+    def update(self, push_camera=False, obj_to_update=None, **_):
+        self._push_camera = push_camera
+        # t0 = time.perf_counter()
+
+        if API_NO_IDS_UPDATE:  # <= 9.4.2
+            self.vtk_object_manager.UpdateStatesFromObjects()
+        else:  # > 9.4.2
+            if obj_to_update is None:
+                self.vtk_object_manager.UpdateStatesFromObjects()
+            else:
+                ids = [
+                    self.vtk_object_manager.GetId(vtk_obj) for vtk_obj in obj_to_update
+                ]
+                self._update_roots(ids)
+
+        if self._debug_state:
+            self.vtk_object_manager.Export(f"snapshot-{self._debug_state_counter}")
+            self._debug_state_counter += 1
+
+        # t1 = time.perf_counter()
+        # print(f"Update in {t1-t0:.3f}s")
+
+    def _update_roots(self, ids):
+        """Serialize each root once, skipping roots an earlier walk already covered.
+
+        ``UpdateStatesFromObjects`` walks every identifier's dependency graph on its
+        own, so roots whose graphs overlap are serialized more than once: for
+        example a registered widget attached to the render window's interactor,
+        which reaches the whole scene through it, or the same root passed twice.
+
+        To attach a widget, prefer creating the interactor with
+        ``vtkRenderWindowInteractor(track_interactor_observer_instances=True)``.
+        The widget is then part of the render window's own graph and needs no
+        registration at all. This method guards the cases that remain.
+
+        Roots are serialized one at a time in the order given. After each walk the
+        root's dependencies are read again, and a later root is skipped only if that
+        walk reached it. Put the root most likely to reach the others first.
+        """
+        manager = self.vtk_object_manager
+        covered = set()
+        for vtk_id in ids:
+            if vtk_id in covered:
+                continue
+            manager.UpdateStatesFromObjects([vtk_id])
+            covered.add(vtk_id)
+            covered.update(manager.GetAllDependencies(vtk_id))
+
+    @property
+    def active_ids(self):
+        return self.vtk_object_manager.GetAllDependencies("")
+
+    @export_rpc("vtklocal.get.state")
+    def get_state(self, obj_id):
+        state = self.vtk_object_manager.GetState(obj_id)
+
+        # -------------------------------------------------
+        # DEBUG - Helper for dynamic state patching
+        # -------------------------------------------------
+        # state = json.loads(state)
+        # if state["ClassName"] == "vtkTextProperty":
+        #     state["FontSize"] *= 2
+        # elif state["ClassName"] == "vtkCubeAxesActor":
+        #     state["ScreenSize"] *= 2
+        # state = json.dumps(state)
+        # -------------------------------------------------
+
+        return state
+
+    @export_rpc("vtklocal.get.hash")
+    def get_hash(self, hash):
+        # print("get_hash", hash)
+        return self.addAttachment(memoryview(self.vtk_object_manager.GetBlob(hash)))
+
+    @export_rpc("vtklocal.get.batch")
+    def get_batch(self, state_ids, hash_keys):
+        blob_chunk_size = 0
+        chunk_threshold = int(os.environ.get("WSLINK_MAX_MSG_SIZE", "4194304"))
+        next_hashes = []
+        hashes = {}
+        states = []
+
+        for obj_id in state_ids:
+            state = json.loads(self.vtk_object_manager.GetState(obj_id))
+            if state:
+                states.append(state)
+            else:
+                # Abort as the state is stale
+                return {
+                    "states": [],
+                    "hashes": {},
+                    "next": False,
+                    "skip": True,
+                }
+
+        for hash in hash_keys:
+            if blob_chunk_size < chunk_threshold:
+                array = self.vtk_object_manager.GetBlob(hash)
+                blob = memoryview(array)
+                blob_chunk_size += blob.nbytes
+                hashes[hash] = blob
+            else:
+                next_hashes.append(hash)
+
+        next = {"states": [], "hashes": next_hashes} if next_hashes else False
+
+        return {"states": states, "hashes": hashes, "next": next}
+
+    @export_rpc("vtklocal.get.status")
+    def get_status(self, obj_id):
+        # print("get_status", obj_id)
+        ids = self.vtk_object_manager.GetAllDependencies(obj_id)
+
+        # Add widgets ids without duplicate
+        ids_width_deps = list(ids)
+        if obj_id in self._widgets:
+            for dep_id in self._widgets[obj_id]:
+                ids_width_deps += list(
+                    self.vtk_object_manager.GetAllDependencies(dep_id)
+                )
+        ids = list(set(ids_width_deps))
+
+        hashes = self.vtk_object_manager.GetBlobHashes(ids)
+        renderWindow = self.vtk_object_manager.GetObjectAtId(obj_id)
+        ids_mtime = [map_id_mtime(self.vtk_object_manager, v) for v in ids]
+        ignore_ids = []
+        cameras = []
+        force_push = []
+        if renderWindow:
+            interactor = self.vtk_object_manager.GetId(renderWindow.interactor)
+            renderers = renderWindow.GetRenderers()
+            for renderer in renderers:
+                activeCamera = renderer.GetActiveCamera()
+                cid = self.vtk_object_manager.GetId(activeCamera)
+                if not self._push_camera:
+                    ignore_ids.append(cid)
+                else:
+                    force_push.append(cid)
+                cameras.append(cid)
+
+        return dict(
+            ids=ids_mtime,
+            hashes=hashes,
+            ignore_ids=ignore_ids,
+            cameras=cameras,
+            force_push=force_push,
+            interactor=interactor,
+        )
+
+    def dump_data(self, output_file, wasm_ids):
+        """
+        Create file (zip) with WASM data
+        """
+        output_file = Path(output_file)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Extract ids to save
+        all_ids = set()
+        for vtk_id in wasm_ids:
+            all_ids.update(self.vtk_object_manager.GetAllDependencies(vtk_id))
+
+        # Extract hash to save
+        hashes = self.vtk_object_manager.GetBlobHashes(list(all_ids))
+
+        with zipfile.ZipFile(output_file, "w", ZIP_COMPRESSION) as zipf:
+            # Write info
+            zipf.writestr(
+                "vtk-wasm.json",
+                json.dumps(
+                    {
+                        "vtk": vtkVersion.GetVTKVersion(),
+                        "ids": wasm_ids,
+                    }
+                ),
+            )
+            # Write states
+            zipf.mkdir("states")
+            for vtk_id in all_ids:
+                zipf.writestr(
+                    f"states/{vtk_id}",
+                    self.vtk_object_manager.GetState(vtk_id),
+                )
+
+            # Write blobs
+            zipf.mkdir("blobs")
+            for hash in hashes:
+                zipf.writestr(
+                    f"blobs/{hash}",
+                    memoryview(self.vtk_object_manager.GetBlob(hash)),
+                )
+
+
+class ObjectManagerHelper:
+    def __init__(self, trame_server, addon_serdes_registrars=None):
+        self.trame_server = trame_server
+        self.root_protocol = None
+        self.api = ObjectManagerAPI(addon_serdes_registrars=addon_serdes_registrars)
+        self.trame_server.add_protocol_to_configure(self.configure_protocol)
+
+    def configure_protocol(self, protocol):
+        self.root_protocol = protocol
+        self.root_protocol.registerLinkProtocol(self.api)

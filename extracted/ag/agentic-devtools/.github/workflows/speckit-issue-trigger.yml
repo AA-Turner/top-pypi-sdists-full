@@ -1,0 +1,131 @@
+name: SpecKit Issue Trigger
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch: { inputs: { issue_number: { description: 'Issue number to process (for manual testing)', required: true, type: number } } }
+
+permissions: { actions: write, issues: write, contents: read, pull-requests: read }
+
+concurrency:
+  group: speckit-trigger-${{ github.event.issue.number || inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-phase-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == vars.SPECKIT_TRIGGER_LABEL || github.event.label.name == 'speckit'
+    steps:
+      - name: Resolve Engine
+        id: engine
+        env: { SPECKIT_ENGINE_RAW: "${{ vars.SPECKIT_ENGINE || 'legacy' }}" }
+        run: raw="${SPECKIT_ENGINE_RAW}"; e="${raw,,}"; [[ "$e" == "cloud-agent" || "$e" == "legacy" ]] || echo "::warning::unsupported SPECKIT_ENGINE '${raw}'; using legacy"; [[ "$e" == "cloud-agent" ]] || e="legacy"; echo "value=$e" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository (Progression Dispatch + Cloud Agent Guard)
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Cloud Agent In-Flight Guard
+        id: cloud-inflight
+        if: steps.engine.outputs.value == 'cloud-agent'
+        env: { DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}", AI_PR_LOOP_CREDENTIAL_IDENTITY: "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", GH_TOKEN: "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}", ISSUE_NUMBER: "${{ github.event.issue.number || inputs.issue_number }}" }
+        run: |
+          python -m pip install .
+          set +e
+          result="$(agdt-speckit-cloud-agent-guard --issue-number "$ISSUE_NUMBER" --phase 0 --repo "$GITHUB_REPOSITORY")"; status=$?
+          printf '%s\n' "$result"; already="true"
+          if [[ "$status" -eq 0 ]]; then
+            already="$(RESULT="$result" python -c 'import json, os; print("true" if json.loads(os.environ["RESULT"]).get("in_flight") is True else "false")' 2>/dev/null)"
+            [[ "$already" == "true" || "$already" == "false" ]] || already="true"
+          else
+            echo "::warning::Cloud guard lookup failed; preserving tracking state"
+          fi
+          echo "already=$already" >> "$GITHUB_OUTPUT"
+
+      - name: Add Processing Label
+        if: steps.engine.outputs.value != 'cloud-agent' && steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          script: |
+            const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
+            if (!issueNumber) { core.warning('Could not resolve issue number; skipping speckit:processing label'); return; }
+            try { await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, labels: ['speckit:processing'] }); }
+            catch (error) { core.warning(`Failed to add speckit:processing label to issue #${issueNumber}: ${error.message}`); }
+
+      - name: Resolve Parent and Hierarchy
+        id: hierarchy
+        if: steps.cloud-inflight.outputs.already != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          REPOSITORY: ${{ github.repository }}
+          SPECKIT_COMMENT_ON_ISSUE: ${{ vars.SPECKIT_COMMENT_ON_ISSUE || '' }}
+          SPECKIT_TRIGGER_LABEL: ${{ vars.SPECKIT_TRIGGER_LABEL || 'speckit' }}
+        run: |
+          python -m pip install .
+          set +e
+          agdt-speckit-resolve-hierarchy \
+            --issue-number "$ISSUE_NUMBER" \
+            --repo "$REPOSITORY" \
+            --ref main
+          status=$?
+          if [[ "$status" -eq 3 ]]; then
+            echo "Parent spec is missing; issue was blocked."
+            exit 0
+          fi
+          exit "$status"
+
+      - name: Dispatch Phase Progression
+        if: steps.hierarchy.outputs.hierarchy_level != 'blocked' && steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
+          SPEC_DIR: ${{ steps.hierarchy.outputs.spec_dir }}
+          SPEC_CONTEXT: ${{ steps.hierarchy.outputs.spec_context }}
+          ENGINE: ${{ steps.engine.outputs.value }}
+        with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          script: |
+            const path = require('path');
+            const { buildPhaseProgressionInputs, resolveInitialProgressionPhase, dispatchRecordedProgression } = require(path.join(process.env.GITHUB_WORKSPACE, '.github', 'scripts', 'speckit-trigger', 'progression-dispatch.js'));
+            const hierarchyLevel = process.env.HIERARCHY_LEVEL;
+            const phase = resolveInitialProgressionPhase(
+              process.env.ENGINE, hierarchyLevel, process.env.SPEC_CONTEXT
+            );
+            const inputs = buildPhaseProgressionInputs({
+              issueNumber: process.env.ISSUE_NUMBER,
+              phase,
+              hierarchyLevel,
+              specDir: process.env.SPEC_DIR || '',
+              specContext: process.env.SPEC_CONTEXT || '',
+            });
+            await dispatchRecordedProgression({ github, context, inputs });
+
+      - name: Handle Failure (Comment + Label)
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER_INPUT: ${{ inputs.issue_number || '' }}
+          TRIGGER_LABEL: ${{ vars.SPECKIT_TRIGGER_LABEL || 'speckit' }}
+        with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          script: |
+            const dispatchIssueNumber = Number.parseInt(process.env.ISSUE_NUMBER_INPUT || '0', 10);
+            const issueNumber = context.payload.issue?.number || (Number.isFinite(dispatchIssueNumber) ? dispatchIssueNumber : 0);
+            if (!issueNumber) return;
+            const triggerLabel = process.env.TRIGGER_LABEL || 'speckit';
+            const retriggerLabelInstructions = triggerLabel === 'speckit' ? `3. You can re-trigger by removing the \`speckit:failed\` label and re-adding the \`speckit\` label, or use the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml)` : `3. You can re-trigger by removing the \`speckit:failed\` label and re-adding the \`${triggerLabel}\` label (legacy: \`speckit\`), or use the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml)`;
+            const body = `## ❌ SpecKit: Trigger Failed\n\nAn error occurred while dispatching the SpecKit workflow.\n\n**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n### Troubleshooting\n\n1. Check the workflow logs for detailed error messages\n2. Verify that the workflow has \`permissions: actions: write\`, that Actions are enabled in repository settings, and that the target workflow file name/path is correct\n${retriggerLabelInstructions}\n\n---\n_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`;
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) { try { await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, body }); } catch (e) { console.log('Could not post failure comment:', e.message); } }
+            try { await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, labels: ['speckit:failed'] }); } catch (e) { console.log('Could not add speckit:failed label:', e.message); }
+            try { await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, name: 'speckit:processing' }); } catch { /* Label may not exist */ }

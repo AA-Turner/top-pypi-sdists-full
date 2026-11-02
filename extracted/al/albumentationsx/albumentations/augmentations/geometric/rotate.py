@@ -1,0 +1,788 @@
+"""Transforms for rotating images and associated data.
+
+This module provides classes for rotating images, masks, bounding boxes, and keypoints.
+Includes transforms for 90-degree rotations and arbitrary angle rotations with various
+border handling options.
+"""
+
+import math
+from typing import Any, Literal, Self
+
+import cv2
+import numpy as np
+import torch
+from albucore import rot90_volume, warp_affine
+from pydantic import model_validator
+
+from albumentations.augmentations.crops import functional as fcrops
+from albumentations.augmentations.geometric.transforms import Affine
+from albumentations.core.invocation import SamplingContext
+from albumentations.core.transform_params import SampledParams, TargetSet
+from albumentations.core.transforms_interface import (
+    BaseTransformInitSchema,
+    DualTransform,
+)
+from albumentations.core.type_definitions import (
+    ALL_TARGETS,
+    C4_INVERSE,
+    CV2_BORDER_CONSTANT,
+    CV2_INTER_LINEAR,
+    CV2_INTER_NEAREST,
+    BorderModeType,
+    ImageType,
+    InterpolationType,
+    VolumeType,
+    c4_group_elements,
+)
+
+from . import functional as fgeometric
+
+__all__ = ["RandomRotate90", "Rotate", "SafeRotate"]
+
+SMALL_NUMBER = 1e-10
+
+
+class RandomRotate90(DualTransform):
+    """Randomly rotate by 90° (0, 90, 180, or 270). Supports image, mask, bboxes, keypoints, volume.
+    Set group_element for TTA; use inverse() to restore predictions.
+
+    Even with p=1.0, the transform has a 1/4 probability of being identity:
+    - With probability p * 1/4: no rotation (0 degrees)
+    - With probability p * 1/4: rotate 90 degrees
+    - With probability p * 1/4: rotate 180 degrees
+    - With probability p * 1/4: rotate 270 degrees
+
+    For example:
+    - With p=1.0: Each rotation angle (including 0°) has 0.25 probability
+    - With p=0.8: Each rotation angle has 0.2 probability, and no transform has 0.2 probability
+    - With p=0.5: Each rotation angle has 0.125 probability, and no transform has 0.5 probability
+
+    When `group_elements` is specified, the configured rotations are sampled uniformly.
+    If `"e"` is excluded from the subset, the transform never returns the identity when applied.
+
+    Common applications:
+    - Aerial/satellite imagery: Objects can appear in any orientation
+    - Medical imaging: Scans/slides may not have a consistent orientation
+    - Document analysis: Pages or symbols might be rotated
+    - Microscopy: Cell orientation is often arbitrary
+    - Game development: Sprites/textures that should work in multiple orientations
+
+    Not recommended for:
+    - Natural scene images where gravity matters (e.g., landscape photography)
+    - Face detection/recognition tasks
+    - Text recognition (unless text can appear rotated)
+    - Tasks where object orientation is important for classification
+
+    Note:
+        If your domain has both 90-degree rotation AND flip symmetries
+        (e.g., satellite imagery, microscopy), consider using `D4` transform instead.
+        `D4` is more efficient and mathematically correct as it:
+        - Samples uniformly from all 8 possible combinations of rotations and flips
+        - Properly represents the dihedral group D4 symmetries
+        - Avoids potential correlation between separate rotation and flip augmentations
+
+    `inverse()` requires `group_element` to be set explicitly; it is not available when
+    sampling randomly with `group_elements` or the default random mode.
+
+    When `group_element` is specified, the transform is deterministic—useful for TTA (Test Time
+    Augmentation) where you need to apply each of the 4 rotations (0°, 90°, 180°, 270°) explicitly
+    and invert predictions. Uses the same naming as D4: C4 is the rotation subgroup of D4.
+    Call `inverse()` on a deterministic instance to get a new transform that undoes the rotation
+    (r90 ↔ r270, r180 ↔ r180, e ↔ e).
+
+    Args:
+        p (float): probability of applying the transform. Default: 1.0.
+            Note that even with p=1.0, there's still a 0.25 probability
+            of getting a 0-degree rotation (identity transform).
+        group_element (Literal['e', 'r90', 'r180', 'r270'] | None): If set, always apply this
+            C4 group element: "e"=identity, "r90"=90°, "r180"=180°, "r270"=270° counterclockwise.
+            Use for TTA. Default: None (random choice).
+        group_elements (tuple[Literal["e", "r90", "r180", "r270"], ...] | None): If set, sample uniformly
+            from the provided non-empty subset of C4 group elements. Invalid or empty subsets raise `ValueError`.
+            Mutually exclusive with `group_element`. Default: None (random choice).
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> # Create example data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]  # Class labels for bounding boxes
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]  # Labels for keypoints
+        >>> # Define the transform
+        >>> transform = A.Compose([
+        ...     A.RandomRotate90(p=1.0),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>> # Apply the transform to all targets
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>> rotated_image = transformed["image"]
+        >>> rotated_mask = transformed["mask"]
+        >>> rotated_bboxes = transformed["bboxes"]
+        >>> rotated_bbox_labels = transformed["bbox_labels"]
+        >>> rotated_keypoints = transformed["keypoints"]
+        >>> rotated_keypoint_labels = transformed["keypoint_labels"]
+
+        >>> # TTA: apply each of the 4 rotations, run inference, then undo on the predicted mask
+        >>> from albumentations.core.type_definitions import c4_group_elements
+        >>> predictions = []
+        >>> for element in c4_group_elements:
+        ...     aug = A.RandomRotate90(p=1.0, group_element=element)
+        ...     aug_image = aug(image=image)["image"]
+        ...     pred_mask = np.zeros((100, 100, 1), dtype=np.uint8)  # placeholder for model output
+        ...     restored = aug.inverse()(image=pred_mask)["image"]
+        ...     predictions.append(restored)
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    class InitSchema(BaseTransformInitSchema):
+        group_element: Literal["e", "r90", "r180", "r270"] | None
+        group_elements: tuple[Literal["e", "r90", "r180", "r270"], ...] | None
+
+        @model_validator(mode="after")
+        def _validate_group_config(self) -> Self:
+            if self.group_element is not None and self.group_elements is not None:
+                raise ValueError("group_element and group_elements are mutually exclusive")
+
+            if self.group_elements is not None:
+                if not self.group_elements:
+                    raise ValueError("group_elements must be a non-empty subset of C4 group elements")
+
+                if len(self.group_elements) != len(set(self.group_elements)):
+                    raise ValueError("group_elements must not contain duplicate elements")
+
+            return self
+
+    def __init__(
+        self,
+        p: float = 1,
+        group_element: Literal["e", "r90", "r180", "r270"] | None = None,
+        group_elements: tuple[Literal["e", "r90", "r180", "r270"], ...] | None = None,
+    ):
+        super().__init__(p=p)
+        self.group_element = group_element
+        self.group_elements = group_elements
+
+    def apply(
+        self,
+        img: ImageType,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.rot90(img, group_element)
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        if self.group_element is not None:
+            group_element = self.group_element
+        elif self.group_elements is not None:
+            group_element = sampling.random_generator.choice(self.group_elements)
+        else:
+            group_element = sampling.random_generator.choice(c4_group_elements)
+
+        # Explicitly clear group_elements so that _build_applied_config() does not
+        # merge the unused constructor tuple (e.g. ("r90", "r270")) into the record,
+        # which would cause InitSchema to reject the replay as mutually exclusive.
+        sampling.applied_overrides.update({"group_element": group_element, "group_elements": None})
+        return SampledParams(params={"group_element": group_element})
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.bboxes_rot90(bboxes, group_element, bbox_type=bbox_type)
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.keypoints_rot90(keypoints, group_element, shape)
+
+    def apply_to_images(
+        self,
+        images: ImageType,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.rot90_images(images, group_element)
+
+    def apply_to_volumes(
+        self,
+        volumes: np.ndarray | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        **params: Any,
+    ) -> np.ndarray | torch.Tensor:
+        if group_element == "e":
+            return volumes
+        axes = (-2, -1) if isinstance(volumes, torch.Tensor) else (2, 3)
+        return rot90_volume(volumes, fgeometric.C4_GROUP_ELEMENT_TO_K[group_element], axes)
+
+    def apply_to_masks3d(
+        self,
+        masks3d: np.ndarray | torch.Tensor,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        **params: Any,
+    ) -> np.ndarray | torch.Tensor:
+        return self.apply_to_volumes(masks3d, group_element, **params)
+
+    def apply_to_mask3d(
+        self,
+        mask3d: VolumeType,
+        group_element: Literal["e", "r90", "r180", "r270"],
+        **params: Any,
+    ) -> VolumeType:
+        return self.apply_to_images(mask3d, group_element, **params)
+
+    def inverse(self) -> "RandomRotate90":
+        """Return a new RandomRotate90 with the inverse group element to undo this transform. Use
+        after inference in TTA to restore predictions to original orientation.
+
+        Raises:
+            ValueError: If `group_element` is `None` (random mode cannot be inverted).
+
+        """
+        if self.group_element is None:
+            raise ValueError(
+                "Cannot invert RandomRotate90 with random group_element. Set group_element explicitly for TTA.",
+            )
+        return RandomRotate90(p=1, group_element=C4_INVERSE[self.group_element])
+
+
+class RotateInitSchema(BaseTransformInitSchema):
+    angle_range: tuple[float, float]
+
+    interpolation: InterpolationType
+
+    mask_interpolation: InterpolationType
+
+    border_mode: BorderModeType
+
+    fill: tuple[float, ...] | float
+    fill_mask: tuple[float, ...] | float | None
+
+
+class Rotate(DualTransform):
+    """Rotate by a random angle from angle_range (degrees). Optional crop_border removes black
+    corners. Same rotation for image, mask, bboxes, keypoints.
+
+    Args:
+        angle_range (tuple[float, float]): Range (in degrees) from which a random angle is
+            sampled per image. Default: (-90, 90)
+        interpolation (OpenCV flag): Flag that is used to specify the interpolation algorithm. Should be one of:
+            cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_LINEAR.
+        border_mode (OpenCV flag): Flag that is used to specify the pixel extrapolation method. Should be one of:
+            cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE, cv2.BORDER_REFLECT, cv2.BORDER_WRAP, cv2.BORDER_REFLECT_101.
+            Default: cv2.BORDER_CONSTANT
+        fill (tuple[float, ...] | float): Padding value if border_mode is cv2.BORDER_CONSTANT.
+        fill_mask (tuple[float, ...] | float): Padding value if border_mode is cv2.BORDER_CONSTANT applied for masks.
+        rotate_method (Literal['largest_box', 'ellipse']): Method to rotate bounding boxes.
+            Should be 'largest_box' or 'ellipse'. Default: 'largest_box'
+        crop_border (bool): Whether to crop border after rotation. If True, the output image size might differ
+            from the input. Default: False
+        mask_interpolation (OpenCV flag): flag that is used to specify the interpolation algorithm for mask.
+            Should be one of: cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_NEAREST.
+        p (float): Probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Note:
+        - The rotation angle is randomly selected for each execution within the range specified by 'angle_range'.
+        - When 'crop_border' is False, the output image will have the same size as the input, potentially
+          introducing black triangles in the corners.
+        - When 'crop_border' is True, the output image is cropped to remove black triangles, which may result
+          in a smaller image.
+        - Bounding boxes are rotated and may change size or shape.
+        - Keypoints are rotated around the center of the image.
+
+    Mathematical Details:
+        1. An angle θ is randomly sampled from the range specified by 'angle_range'.
+        2. The image is rotated around its center by θ degrees.
+        3. The rotation matrix R is:
+           R = [cos(θ)  -sin(θ)]
+               [sin(θ)   cos(θ)]
+        4. Each point (x, y) in the image is transformed to (x', y') by:
+           [x']   [cos(θ)  -sin(θ)] [x - cx]   [cx]
+           [y'] = [sin(θ)   cos(θ)] [y - cy] + [cy]
+           where (cx, cy) is the center of the image.
+        5. If 'crop_border' is True, the image is cropped to the largest rectangle that fits inside the rotated image.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> # Create example data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]  # Class labels for bounding boxes
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]  # Labels for keypoints
+        >>> # Define the transform
+        >>> transform = A.Compose([
+        ...     A.Rotate(angle_range=(-45, 45), p=1.0),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>> # Apply the transform to all targets
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>> rotated_image = transformed["image"]
+        >>> rotated_mask = transformed["mask"]
+        >>> rotated_bboxes = transformed["bboxes"]
+        >>> rotated_bbox_labels = transformed["bbox_labels"]
+        >>> rotated_keypoints = transformed["keypoints"]
+        >>> rotated_keypoint_labels = transformed["keypoint_labels"]
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    class InitSchema(RotateInitSchema):
+        rotate_method: Literal["largest_box", "ellipse"]
+        crop_border: bool
+
+        fill: tuple[float, ...] | float
+        fill_mask: tuple[float, ...] | float | None
+
+    def __init__(
+        self,
+        angle_range: tuple[float, float] = (-90, 90),
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        border_mode: BorderModeType = CV2_BORDER_CONSTANT,
+        rotate_method: Literal["largest_box", "ellipse"] = "largest_box",
+        crop_border: bool = False,
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        fill: tuple[float, ...] | float = 0,
+        fill_mask: tuple[float, ...] | float | None = 0,
+        p: float = 0.5,
+    ):
+        super().__init__(p=p)
+        self.angle_range = angle_range
+        self.interpolation = interpolation
+        self.mask_interpolation = mask_interpolation
+        self.border_mode = border_mode
+        self.fill = fill
+        self.fill_mask = fill_mask
+        self.rotate_method = rotate_method
+        self.crop_border = crop_border
+
+    def apply(
+        self,
+        img: ImageType,
+        matrix: np.ndarray,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> ImageType:
+        height, width = shape[:2]
+        img_out = warp_affine(
+            img,
+            matrix,
+            dsize=(width, height),
+            flags=self.interpolation,
+            border_mode=self.border_mode,
+            border_value=self.fill,
+        )
+        if self.crop_border:
+            img_out = fcrops.crop(img_out, x_min, y_min, x_max, y_max)
+        return fgeometric.clip_if_interpolation_can_overshoot(img_out, self.interpolation)
+
+    def apply_to_mask(
+        self,
+        mask: ImageType,
+        matrix: np.ndarray,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> ImageType:
+        height, width = shape[:2]
+        img_out = warp_affine(
+            mask,
+            matrix,
+            dsize=(width, height),
+            flags=self.mask_interpolation,
+            border_mode=self.border_mode,
+            border_value=self.fill_mask,
+        )
+        if self.crop_border:
+            return fcrops.crop(img_out, x_min, y_min, x_max, y_max)
+        return img_out
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        bbox_matrix: np.ndarray,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        shape: tuple[int, int],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        image_shape = shape[:2]
+        bboxes_out = fgeometric.bboxes_affine(
+            bboxes,
+            bbox_matrix,
+            self.rotate_method,
+            image_shape,
+            self.border_mode,
+            image_shape,
+            bbox_type=bbox_type,
+        )
+        if self.crop_border:
+            return fcrops.crop_bboxes_by_coords(
+                bboxes_out,
+                (x_min, y_min, x_max, y_max),
+                image_shape,
+            )
+        return bboxes_out
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        matrix: np.ndarray,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        keypoints_out = fgeometric.keypoints_affine(
+            keypoints,
+            matrix,
+            shape[:2],
+            scale={"x": 1, "y": 1},
+            border_mode=self.border_mode,
+        )
+        if self.crop_border:
+            return fcrops.crop_keypoints_by_coords(
+                keypoints_out,
+                (x_min, y_min, x_max, y_max),
+            )
+        return keypoints_out
+
+    @staticmethod
+    def _rotated_rect_with_max_area(
+        height: int,
+        width: int,
+        angle: float,
+    ) -> dict[str, int]:
+        """Largest axis-aligned rectangle inside a rotated rectangle (width, height, angle deg).
+        Returns crop bounds. Used for crop_border in Rotate.
+
+        References:
+            Rotate image and crop out black borders: https://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
+
+        """
+        angle = math.radians(angle)
+        width_is_longer = width >= height
+        side_long, side_short = (width, height) if width_is_longer else (height, width)
+
+        # since the solutions for angle, -angle and 180-angle are all the same,
+        # it is sufficient to look at the first quadrant and the absolute values of sin,cos:
+        sin_a, cos_a = abs(math.sin(angle)), abs(math.cos(angle))
+        if side_short <= 2.0 * sin_a * cos_a * side_long or abs(sin_a - cos_a) < SMALL_NUMBER:
+            # half constrained case: two crop corners touch the longer side,
+            # the other two corners are on the mid-line parallel to the longer line
+            x = 0.5 * side_short
+            wr, hr = (x / sin_a, x / cos_a) if width_is_longer else (x / cos_a, x / sin_a)
+        else:
+            # fully constrained case: crop touches all 4 sides
+            cos_2a = cos_a * cos_a - sin_a * sin_a
+            wr, hr = (
+                (width * cos_a - height * sin_a) / cos_2a,
+                (height * cos_a - width * sin_a) / cos_2a,
+            )
+
+        return {
+            "x_min": max(0, int(width / 2 - wr / 2)),
+            "x_max": min(width, int(width / 2 + wr / 2)),
+            "y_min": max(0, int(height / 2 - hr / 2)),
+            "y_max": min(height, int(height / 2 + hr / 2)),
+        }
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+        angle = sampling.py_random.uniform(*self.angle_range)
+
+        sampling.applied_overrides["angle_range"] = angle
+
+        if self.crop_border:
+            height, width = targets.require_aligned_spatial_shape(2)
+            out_params: dict[str, Any] = self._rotated_rect_with_max_area(height, width, angle)
+        else:
+            out_params = {"x_min": -1, "x_max": -1, "y_min": -1, "y_max": -1}
+
+        center = fgeometric.center(image_shape)
+        bbox_center = fgeometric.center_bbox(image_shape)
+
+        translate: dict[str, int] = {"x": 0, "y": 0}
+        shear: dict[str, float] = {"x": 0, "y": 0}
+        scale: dict[str, float] = {"x": 1, "y": 1}
+        rotate = angle
+
+        matrix = fgeometric.create_affine_transformation_matrix(
+            translate,
+            shear,
+            scale,
+            rotate,
+            center,
+        )
+        bbox_matrix = fgeometric.create_affine_transformation_matrix(
+            translate,
+            shear,
+            scale,
+            rotate,
+            bbox_center,
+        )
+        out_params["matrix"] = matrix
+        out_params["bbox_matrix"] = bbox_matrix
+
+        return SampledParams(params=out_params)
+
+
+class SafeRotate(Affine):
+    """Rotate by a random angle but scale to fit the original frame. No black corners;
+    output size equals input. Good when fixed dimensions are required.
+
+    This transformation ensures that the entire rotated image fits within the original frame by scaling it
+    down if necessary. The resulting image maintains its original dimensions but may contain artifacts due to the
+    rotation and scaling process.
+
+    Args:
+        angle_range (tuple[float, float]): Range (in degrees) from which a random angle is
+            sampled per image. Default: (-90, 90)
+        interpolation (OpenCV flag): Flag that is used to specify the interpolation algorithm. Should be one of:
+            cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_LINEAR.
+        border_mode (OpenCV flag): Flag that is used to specify the pixel extrapolation method. Should be one of:
+            cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE, cv2.BORDER_REFLECT, cv2.BORDER_WRAP, cv2.BORDER_REFLECT_101.
+            Default: cv2.BORDER_REFLECT_101
+        fill (tuple[float, float] | float): Padding value if border_mode is cv2.BORDER_CONSTANT.
+        fill_mask (tuple[float, float] | float): Padding value if border_mode is cv2.BORDER_CONSTANT applied
+            for masks.
+        rotate_method (Literal['largest_box', 'ellipse']): Method to rotate bounding boxes.
+            Should be 'largest_box' or 'ellipse'. Default: 'largest_box'
+        mask_interpolation (OpenCV flag): flag that is used to specify the interpolation algorithm for mask.
+            Should be one of: cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_NEAREST.
+        p (float): Probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Note:
+        - The rotation is performed around the center of the image.
+        - After rotation, the image is scaled to fit within the original frame, which may cause some distortion.
+        - The output image will always have the same dimensions as the input image.
+        - Bounding boxes and keypoints are transformed along with the image.
+
+    Mathematical Details:
+        1. An angle θ is randomly sampled from the range specified by 'angle_range'.
+        2. The image is rotated around its center by θ degrees.
+        3. The rotation matrix R is:
+           R = [cos(θ)  -sin(θ)]
+               [sin(θ)   cos(θ)]
+        4. The scaling factor s is calculated to ensure the rotated image fits within the original frame:
+           s = min(width / (width * |cos(θ)| + height * |sin(θ)|),
+                   height / (width * |sin(θ)| + height * |cos(θ)|))
+        5. The combined transformation matrix T is:
+           T = [s*cos(θ)  -s*sin(θ)  tx]
+               [s*sin(θ)   s*cos(θ)  ty]
+           where tx and ty are translation factors to keep the image centered.
+        6. Each point (x, y) in the image is transformed to (x', y') by:
+           [x']   [s*cos(θ)   s*sin(θ)] [x - cx]   [cx]
+           [y'] = [-s*sin(θ)  s*cos(θ)] [y - cy] + [cy]
+           where (cx, cy) is the center of the image.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> # Create example data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]  # Class labels for bounding boxes
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]  # Labels for keypoints
+        >>> # Define the transform
+        >>> transform = A.Compose([
+        ...     A.SafeRotate(angle_range=(-45, 45), p=1.0),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>> # Apply the transform to all targets
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>> rotated_image = transformed["image"]
+        >>> rotated_mask = transformed["mask"]
+        >>> rotated_bboxes = transformed["bboxes"]
+        >>> rotated_bbox_labels = transformed["bbox_labels"]
+        >>> rotated_keypoints = transformed["keypoints"]
+        >>> rotated_keypoint_labels = transformed["keypoint_labels"]
+
+    """
+
+    _targets = ALL_TARGETS
+
+    class InitSchema(RotateInitSchema):
+        rotate_method: Literal["largest_box", "ellipse"]
+
+    def __init__(
+        self,
+        angle_range: tuple[float, float] = (-90, 90),
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        border_mode: BorderModeType = CV2_BORDER_CONSTANT,
+        rotate_method: Literal["largest_box", "ellipse"] = "largest_box",
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        fill: tuple[float, ...] | float = 0,
+        fill_mask: tuple[float, ...] | float | None = None,
+        p: float = 0.5,
+    ):
+        super().__init__(
+            rotate=angle_range,
+            interpolation=interpolation,
+            border_mode=border_mode,
+            fill=fill,
+            fill_mask=fill_mask,
+            rotate_method=rotate_method,
+            fit_output=True,
+            mask_interpolation=mask_interpolation,
+            p=p,
+        )
+        self.angle_range = angle_range
+
+    def _create_safe_rotate_matrix(
+        self,
+        angle: float,
+        center: tuple[float, float],
+        image_shape: tuple[int, int],
+    ) -> tuple[np.ndarray, dict[str, float]]:
+        height, width = image_shape[:2]
+        rotation_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+
+        abs_cos = abs(rotation_mat[0, 0])
+        abs_sin = abs(rotation_mat[0, 1])
+        new_w = int(height * abs_sin + width * abs_cos)
+        new_h = int(height * abs_cos + width * abs_sin)
+
+        # Adjust the rotation matrix to take into account the new size
+        rotation_mat[0, 2] += new_w / 2 - center[0]
+        rotation_mat[1, 2] += new_h / 2 - center[1]
+
+        scale_x = width / new_w
+        scale_y = height / new_h
+
+        scale_mat = np.array([[scale_x, 0, 0], [0, scale_y, 0], [0, 0, 1]])
+
+        # Combine rotation and scaling
+        matrix = scale_mat @ np.vstack([rotation_mat, [0, 0, 1]])
+
+        return matrix, {"x": scale_x, "y": scale_y}
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+        angle = sampling.py_random.uniform(*self.angle_range)
+
+        sampling.applied_overrides["angle_range"] = angle
+
+        image_center = fgeometric.center(image_shape)
+        bbox_center = fgeometric.center_bbox(image_shape)
+
+        matrix, scale = self._create_safe_rotate_matrix(
+            angle,
+            image_center,
+            image_shape,
+        )
+        bbox_matrix, _ = self._create_safe_rotate_matrix(
+            angle,
+            bbox_center,
+            image_shape,
+        )
+
+        return SampledParams(
+            params={
+                "rotate": angle,
+                "scale": scale,
+                "matrix": matrix,
+                "bbox_matrix": bbox_matrix,
+                "output_shape": image_shape,
+            }
+        )

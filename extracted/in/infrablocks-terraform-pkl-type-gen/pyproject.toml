@@ -1,0 +1,127 @@
+[tool.poetry]
+name = "infrablocks.terraform_pkl_type_gen"
+version = "0.1.1"
+description = "Provides invoke tasks to interact with terraform"
+authors = [
+    "Toby Clemson <tobyclemson@gmail.com>",
+    "Tom Duckering <tom.duckering@gmail.com>",
+]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "infrablocks", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+invoke = ">=2.2.0"
+tfparse = ">=0.6.16"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "^7.6.10"
+junitparser = "^3.2.0"
+poethepoet = "^0.33.1"
+pyright = { extras = ["nodejs"], version = "^1.1.391" }
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.1"
+pytest-cov = "^6.0.0"
+pytest-diff = "^0.1.14"
+pytest-pretty = "^1.2.0"
+pytest-repeat = "^0.9.3"
+pytest-unordered = "^0.6.1"
+ruff = "^0.11.0"
+
+[tool.poetry.group.changelog.dependencies]
+scriv = "^1.5.1"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs-material = "^9.5.47"
+mkdocstrings = { extras = ["python"], version = "^0.29.0" }
+black = "^25.1.0"
+
+[tool.poe.tasks]
+lint-check = "ruff check src tests"
+lint-fix = "ruff check --fix src tests"
+format-check = "ruff format --diff src tests"
+format-fix = "ruff format src tests"
+type-check = "pyright src tests"
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build"
+changelog-fragment-create = "scriv create"
+changelog-assemble = "scriv collect"
+
+[tool.poe.tasks.test-unit]
+args = [{ name = "filter", options = ["--filter"], default = "" }]
+shell = """
+  mkdir -p reports/coverage/unit
+  pytest -vv tests/unit \
+    --junitxml=./reports/unit.junit.xml \
+    --cov-report=xml:./reports/coverage/unit/coverage.xml \
+    --cov-report=html:./reports/coverage/unit \
+    ${filter:+-k ${filter}}
+"""
+
+[tool.poe.tasks.test-unit.env]
+COVERAGE_FILE = "./reports/coverage/unit/.coverage"
+PYTHONDEVMODE = "1"
+
+[tool.poe.tasks.test-report]
+shell = """
+  junitparser merge \
+    reports/*.junit.xml \
+    reports/all.junit.xml
+  coverage combine \
+    --keep \
+    --data-file=./reports/coverage/.coverage \
+    reports/coverage/unit/.coverage
+  coverage html \
+    --data-file=./reports/coverage/.coverage \
+    --directory=./reports/coverage/all
+  coverage xml \
+    --data-file=./reports/coverage/.coverage \
+    -o ./reports/coverage/all/coverage.xml
+  coverage report \
+    --data-file=./reports/coverage/.coverage
+"""
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers",
+    "--capture=no",
+    "--cov=./src"
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ["@abstract"]
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+allow-magic-value-types = ["str", "bytes", "int"]
+
+[tool.pyright]
+include = ["src", "tests/unit"]
+extraPaths = ["src"]
+strict = ["src"]
+reportMissingTypeStubs = "error"
+
+[tool.scriv]
+version = "literal: pyproject.toml: tool.poetry.version"
+format = "md"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

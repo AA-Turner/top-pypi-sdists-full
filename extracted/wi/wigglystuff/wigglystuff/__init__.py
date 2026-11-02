@@ -1,0 +1,148 @@
+"""Public widget exports for the wigglystuff package."""
+
+import importlib.metadata
+import tomllib
+from pathlib import Path
+
+from .annotation import AnnotationWidget
+from .altair_widget import AltairWidget
+from .api_doc import ApiDoc
+from .async_flow import AsyncFlow
+from .bezier_curve import BezierCurve
+from .cell_tour import CellTour
+from .chart_puck import ChartPuck
+from .chart_multi_select import ChartMultiSelect
+from .chart_select import ChartSelect
+from .circular_slider import CircularRangeSlider, CircularSlider
+from .color_picker import ColorPicker
+from .copy_to_clipboard import CopyToClipboard
+from .cube_widget import CubeWidget
+from .curve_editor import CurveEditor
+from .driver_tour import DriverTour
+from .edge_draw import EdgeDraw
+from .env_config import EnvConfig
+from .esm_widget import EsmWidget
+from .excalidraw import Excalidraw
+from .fader import Fader
+from .floating_panel import FloatingPanel
+from .formula_animation import FormulaAnimation
+from .frame_player import FramePlayer
+from .gamepad import GamepadWidget
+from .graph_widget import GraphWidget
+from .grid_draw import GridDraw
+from .heatmap_select import HeatmapSelect
+from .hint import Hint
+from .hover_slider import HoverSlider
+from .hover_zoom import HoverZoom
+from .html import HTMLRefreshWidget, ImageRefreshWidget, ProgressBar
+from .keystroke import KeystrokeWidget
+from .knob import Knob
+from .tangle_latex import TangleLatex
+from .live_edit import LiveEdit, inspect_run
+from .manim_web import ManimWeb
+from .matrix import Matrix
+from .midi_button import MidiButton
+from .module_tree import ModuleTreeWidget
+from .neo4j_widget import Neo4jWidget
+from .nested_table import NestedTable
+from .observable_plot import ObservablePlot
+from .paint import Paint
+from .parallel_coords import ParallelCoordinates
+from .pip import Pip
+from .play_slider import PlaySlider
+from .ridgeline_chart import RidgelineChart
+from .scatter_log import ScatterLog
+from drawdata import ScatterWidget
+from .slider2d import Slider2D
+from .spline_draw import SplineDraw
+from .state_viewer import StateViewer
+from .sortable_list import SortableList
+from .talk import WebkitSpeechToTextWidget
+from .tangle import TangleChoice, TangleDistribution, TangleSelect, TangleSlider
+from .tangle_function import TangleFunction
+from .text_compare import TextCompare
+from .treemap import Treemap
+from .three_widget import ThreeWidget
+from .trace_view import TraceView
+from .widget_dag import WidgetDAG
+from .utils import forecast_chart
+from .webcam_capture import WebcamCapture
+
+try:
+    __version__ = importlib.metadata.version("wigglystuff")
+except importlib.metadata.PackageNotFoundError:
+    _pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    __version__ = tomllib.loads(_pyproject.read_text())["project"]["version"]
+
+__all__ = [
+    "AnnotationWidget",
+    "AltairWidget",
+    "ApiDoc",
+    "AsyncFlow",
+    "BezierCurve",
+    "CellTour",
+    "ChartPuck",
+    "ChartMultiSelect",
+    "ChartSelect",
+    "CircularRangeSlider",
+    "CircularSlider",
+    "ColorPicker",
+    "CopyToClipboard",
+    "CubeWidget",
+    "CurveEditor",
+    "DriverTour",
+    "EdgeDraw",
+    "EnvConfig",
+    "EsmWidget",
+    "Excalidraw",
+    "Fader",
+    "FloatingPanel",
+    "FormulaAnimation",
+    "FramePlayer",
+    "GamepadWidget",
+    "GraphWidget",
+    "GridDraw",
+    "HeatmapSelect",
+    "Hint",
+    "KeystrokeWidget",
+    "Knob",
+    "TangleLatex",
+    "LiveEdit",
+    "ManimWeb",
+    "Matrix",
+    "MidiButton",
+    "ModuleTreeWidget",
+    "Neo4jWidget",
+    "NestedTable",
+    "ObservablePlot",
+    "Paint",
+    "ParallelCoordinates",
+    "Pip",
+    "PlaySlider",
+    "RidgelineChart",
+    "ScatterLog",
+    "ScatterWidget",
+    "Slider2D",
+    "SplineDraw",
+    "StateViewer",
+    "SortableList",
+    "TangleChoice",
+    "TangleDistribution",
+    "TangleFunction",
+    "TangleSelect",
+    "TangleSlider",
+    "TextCompare",
+    "Treemap",
+    "WebkitSpeechToTextWidget",
+    "ThreeWidget",
+    "TraceView",
+    "WidgetDAG",
+    "WebcamCapture",
+    "HoverSlider",
+    "HoverZoom",
+    "HTMLRefreshWidget",
+    "ImageRefreshWidget",
+    "ProgressBar",
+    "forecast_chart",
+    "inspect_run",
+]

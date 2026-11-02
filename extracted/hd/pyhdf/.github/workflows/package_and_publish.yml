@@ -1,0 +1,135 @@
+name: PyPI publish
+
+on:
+  push:
+
+jobs:
+    packages:
+        name: Wheels on ${{ matrix.os }} (${{ matrix.cibw_archs }})
+        runs-on: ${{ matrix.os }}
+        strategy:
+          fail-fast: true
+          matrix:
+            os: [windows-latest, ubuntu-latest, macos-latest]
+            cibw_archs: ["auto"]
+        env:
+          CIBW_SKIP: "*-musllinux_*"
+        steps:
+        - uses: actions/checkout@v7
+
+        - uses: actions/setup-python@v6
+          name: Install Python
+          with:
+            python-version: '3.14'
+
+        - name: Setup conda (windows-latest)
+          if: matrix.os == 'windows-latest'
+          uses: s-weigand/setup-conda@v1
+
+        - name: Setup conda paths (windows-latest)
+          if: matrix.os == 'windows-latest'
+          run: |
+            echo "LIBRARY_DIRS=C:\Miniconda\Library\lib;C:\Miniconda\Library\bin" >> $env:GITHUB_ENV
+            echo "INCLUDE_DIRS=C:\Miniconda\Library\include" >> $env:GITHUB_ENV
+
+        - name: Setup libjpeg paths (macos-latest)
+          if: matrix.os == 'macos-latest'
+          run: |
+            echo 'LIBRARY_DIRS=/opt/homebrew/opt/jpeg/lib' >> $GITHUB_ENV
+            echo 'INCLUDE_DIRS=/opt/homebrew/opt/jpeg/include' >> $GITHUB_ENV
+
+        # See https://github.com/pypa/cibuildwheel/issues/563#issuecomment-2257729524
+        - name: Set macOS deployment target
+          if: matrix.os == 'macos-latest'
+          run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
+
+        - name: Install cibuildwheel
+          run: |
+            python -m pip install cibuildwheel==4.1.0
+        - name: Build wheels
+          run: |
+            python -m cibuildwheel --output-dir dist
+          env:
+            CIBW_BUILD: '{cp,pp}3*'
+            CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+            CIBW_BEFORE_ALL_LINUX: yum -y install epel-release hdf hdf-devel && ln -s /usr/lib64/hdf/lib* /usr/lib64/
+            CIBW_ARCHS_LINUX: 'x86_64'  # restrict to 64bit builds
+            CIBW_ARCHS_WINDOWS: 'AMD64'  # restrict to 64bit builds
+            # (mac-os) Install hdf4 from sources
+            CIBW_BEFORE_ALL_MACOS: >
+              brew install ninja jpeg &&
+              export PATH="/opt/homebrew/opt/jpeg/bin:$PATH" &&
+              export LDFLAGS="-L/opt/homebrew/opt/jpeg/lib" &&
+              export CPPFLAGS="-I/opt/homebrew/opt/jpeg/include" &&
+              export PKG_CONFIG_PATH="/opt/homebrew/opt/jpeg/lib/pkgconfig" &&
+              cd /tmp &&
+              git clone --depth 1 --branch hdf4.3.0 https://github.com/HDFGroup/hdf4.git &&
+              mkdir build && cd build &&
+              ../hdf4/configure --enable-hdf4-xdr --enable-shared --disable-static --disable-fortran --disable-netcdf --enable-production --with-zlib --prefix=/usr/local &&
+              sudo make install
+            CIBW_BEFORE_ALL_WINDOWS: >
+              conda config --set always_yes yes --set changeps1 no --set auto_update_conda no --set safety_checks disabled &&
+              conda install -q hdf4
+        - name: Copy wheels into wheelhouse
+          run: |
+            mkdir wheelhouse
+            cp dist/*.whl wheelhouse
+        - uses: actions/upload-artifact@v7
+          with:
+            name: wheelhouse-${{ matrix.os }}
+            path: wheelhouse
+
+    publish:
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        name: Publish to PyPI
+        needs: [packages]
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v7
+
+          - name: Switch to using Python 3.x
+            uses: actions/setup-python@v6
+            with:
+              python-version: 3.x
+
+          - name: Create source distribution archive
+            run: |
+              python -m pip install build
+              python -m build --sdist -o wheelhouse
+
+          - uses: actions/upload-artifact@v7
+            with:
+              name: wheelhouse-sdist
+              path: wheelhouse
+
+          - name: Publish SDIST to PyPI  # there are some problems if sdist is not pushed first
+            if: github.event.base_ref == 'refs/heads/master'
+            uses: pypa/gh-action-pypi-publish@release/v1
+            with:
+              user: __token__
+              password: ${{ secrets.PYPI_API_TOKEN }}
+              packages_dir: wheelhouse/
+
+          - name: Download all the wheels
+            uses: actions/download-artifact@v8
+            with:
+              path: ./wheelhouse/
+              pattern: wheelhouse-*
+              merge-multiple: true
+
+          - name: Publish a Python distribution to Test PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
+            with:
+              user: __token__
+              password: ${{ secrets.PYPI_TEST_TOKEN }}
+              repository_url: https://test.pypi.org/legacy/
+              packages_dir: wheelhouse/
+              verbose: true
+
+          - name: Publish a Python distribution to PyPI
+            if: github.event.base_ref == 'refs/heads/master'
+            uses: pypa/gh-action-pypi-publish@release/v1
+            with:
+              user: __token__
+              password: ${{ secrets.PYPI_API_TOKEN }}
+              packages_dir: wheelhouse/

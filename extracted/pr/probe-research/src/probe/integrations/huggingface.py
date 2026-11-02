@@ -79,11 +79,14 @@ callback records them:
   through ``os._exit``, which runs no exit hook, so the run is closed from
   multiprocessing's worker-exit finalizers instead, from how the worker is
   ending (an error, Ctrl-C, or the verdicts above), bounded to fit torch's
-  30 s grace before SIGKILL, with SIGTERM / SIGINT held during that close.
+  30 s grace before SIGKILL, with SIGTERM / SIGINT held from the first one
+  until that close is done.
 
 To tell Ctrl-C and SIGTERM apart, a handler is chained IN FRONT of the SIGINT
 / SIGTERM handlers it finds during ``train()``: it notes the signal, puts the
-previous handler back and calls it, so nothing changes for that handler (a
+previous handler back and calls it, so that handler sees it as before (in a
+worker that closes its run on the way out, a signal that ends it also holds
+the next ones until that close, `_worker_exit.hold_until_the_close`) (a
 SIGINT that arrives after the parent process died is torch's death signal to
 its workers, not a person: ``failed``). It is
 chained only over a handler set from Python (never over the default SIGTERM,
@@ -158,7 +161,7 @@ except ImportError as _missing:
     ) from _missing
 
 import probe
-from probe.sdk import fluent
+from probe.sdk import errors, fluent
 from probe.sdk.artifact import hashing
 from probe.foundation.safe_warn import safe_warn
 from probe.sdk.settings.settings import env_run_id as _env_run_id
@@ -168,6 +171,8 @@ from ._worker_exit import (
     WORKER_CLOSE_SECONDS,
     WORKER_HOLD_SECONDS,
     cap_finish_timeout,
+    end_hold_until_the_close,
+    hold_until_the_close,
     run_held,
 )
 
@@ -207,6 +212,10 @@ _SIGNALS_SEEN: set[object] = set()
 #: worker it starts with ``PR_SET_PDEATHSIG`` = SIGINT.
 _PARENT_DIED = "parent_died"
 
+#: The worker process that closes its run from multiprocessing's exit
+#: (:func:`_close_when_this_worker_exits`); its signal note starts the hold.
+_WORKER_CLOSE_PID: int | None = None
+
 #: Runs a ``train()`` reached ``on_train_end`` on, but did not finish: run id ->
 #: the status to close with. transformers prunes a hyperparameter trial by
 #: calling ``on_train_end`` and then raising ``optuna.TrialPruned``.
@@ -233,11 +242,11 @@ class ProbeCallback(TrainerCallback):
     ``project`` / ``experiment`` / ``name`` and any other keyword go to
     ``probe.init()`` (``question=``, ``tags=``, ``config=``, ``client=``, ...).
     ``report_to="probe"`` builds one with no arguments: the run is then named
-    after ``run_name`` and filed by ``PROBE_PROJECT`` (or floats until the
-    daemon files it); open the run yourself with ``probe.init(...)`` to choose
-    more, and the callback adopts it. ``log_model=False`` records no
-    checkpoints. ``checkpoints="upload"`` stores each saved checkpoint's files
-    instead of only its location (``"reference"``, the default; with
+    after ``run_name`` and filed in ``PROBE_PROJECT`` (else the ``probe project
+    use`` one; with neither, training stops at its start); open the run yourself
+    with ``probe.init(...)`` to choose more, and the callback adopts it.
+    ``log_model=False`` records no checkpoints. ``checkpoints="upload"`` stores
+    each saved checkpoint's files instead of only its location (``"reference"``, the default; with
     ``report_to="probe"`` set ``PROBE_CHECKPOINTS=upload``). ``strict=True`` lets
     Probe errors raise instead of warning once.
     """
@@ -353,8 +362,7 @@ class ProbeCallback(TrainerCallback):
         )
         _UNFINISHED[run.id] = weakref.ref(state)
         _note_unfinished_at_exit.register()
-        _SIGNALS_SEEN.clear()
-        _chain_signal_notes()
+        _start_noting_signals()
 
     def on_train_end(self, args, state, control, **kwargs):
         if not state.is_world_process_zero or self._run is None or self._stands_down():
@@ -593,7 +601,8 @@ class ProbeCallback(TrainerCallback):
             else:
                 self._run = self._init_run(args, state)
         except Exception as exc:
-            if self._strict:
+            # No project is a setup mistake, not an outage: stop before the GPU hours.
+            if self._strict or isinstance(exc, errors.ProjectRequired):
                 raise
             self._disabled = True
             self._warn_once(
@@ -1095,7 +1104,9 @@ def _close_when_this_worker_exits(run_id: str) -> None:
     finds nothing open). The same close ``lightning.py`` makes for its workers."""
     from multiprocessing import util
 
+    global _WORKER_CLOSE_PID
     util.Finalize(None, _close_at_worker_exit, args=(run_id,), exitpriority=100)
+    _WORKER_CLOSE_PID = os.getpid()
 
 
 def _close_at_worker_exit(run_id: str) -> None:
@@ -1116,7 +1127,14 @@ def _close_at_worker_exit(run_id: str) -> None:
 
     # Held: torch SIGTERMs the other workers the moment one fails, and a
     # killed parent sends its workers SIGINT; either cut the close short.
-    run_held(close, (signal.SIGTERM, signal.SIGINT), WORKER_HOLD_SECONDS)
+    global _WORKER_CLOSE_PID
+    _WORKER_CLOSE_PID = None  # from here a signal starts no hold: one handed back after the close is final
+    try:
+        run_held(close, (signal.SIGTERM, signal.SIGINT), WORKER_HOLD_SECONDS)
+    except KeyboardInterrupt:
+        # A Ctrl-C held over the close, handed back: the worker is already on its way out, and
+        # raising here would skip the rest of multiprocessing's exit (its finalizers, children).
+        pass
 
 
 def _worker_verdict(
@@ -1184,7 +1202,17 @@ class _SignalNote:
                     signal.signal(signum, self.previous)
             except (ValueError, OSError):
                 pass
-        return self.previous(signum, frame)
+        try:
+            return self.previous(signum, frame)
+        except BaseException:
+            if os.getpid() == self.pid and _WORKER_CLOSE_PID == self.pid:
+                # It is ending this worker, which closes its run on the way out: the launcher's
+                # own signal, forwarded as it shuts down, waits for that close.
+                try:
+                    hold_until_the_close((signal.SIGTERM, signal.SIGINT))
+                except Exception:  # noqa: BLE001 -- never stand between a signal and its ending
+                    pass
+            raise
 
 
 def _parent_gone(ppid: int) -> bool:
@@ -1201,6 +1229,15 @@ def _parent_gone(ppid: int) -> bool:
     except (OSError, IndexError):
         return False
     return state in (b"Z", b"X", b"x")
+
+
+def _start_noting_signals() -> None:
+    """A train() begins. In a worker that went on after a signal, what its hold kept goes out
+    first, while that signal is still noted, so the notes chain over the real handlers."""
+    if threading.current_thread() is threading.main_thread():
+        end_hold_until_the_close()
+    _SIGNALS_SEEN.clear()
+    _chain_signal_notes()
 
 
 def _chain_signal_notes() -> None:

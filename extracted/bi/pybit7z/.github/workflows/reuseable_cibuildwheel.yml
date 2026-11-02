@@ -1,0 +1,91 @@
+name: cibuildwheel
+
+on:
+  workflow_call:
+    inputs:
+      auto:
+        description: Build wheels for auto archs
+        required: true
+        type: boolean
+      extra:
+        description: Build wheels for aarch64 armv7l riscv64 ppc64le s390x, macos-15-intel arm64 & windows x86
+        required: true
+        type: boolean
+
+jobs:
+  build_wheels:
+    name: ${{ matrix.os }}, ${{ matrix.arch }}, ${{ matrix.build }}, ${{ matrix.group }} wheels
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04]
+        arch: [x86_64, i686, aarch64, ppc64le, s390x, armv7l, riscv64]
+        build: [manylinux, musllinux]
+        include:
+          - {arch: x86_64, group: auto}
+          - {arch: i686, group: auto}
+          - {arch: aarch64, group: extra}
+          - {arch: ppc64le, group: extra}
+          - {arch: s390x, group: extra}
+          - {arch: armv7l, group: extra}
+          - {arch: riscv64, group: extra}
+          - {os: windows-latest, arch: AMD64, build: win, group: auto}
+          - {os: windows-latest, arch: x86, build: win, group: extra}
+          - {os: windows-2022, arch: ARM64, build: win, group: auto}
+          - {os: macos-14, arch: universal2, build: macos, group: auto}
+
+    steps:
+      - uses: actions/checkout@v7
+        if: >
+          (inputs.auto && matrix.group == 'auto') ||
+          (inputs.extra && matrix.group == 'extra')
+        with:
+          fetch-depth: 0
+
+      - name: Set up msvc on Windows
+        if: >
+          runner.os == 'Windows' &&
+          ((inputs.auto && matrix.group == 'auto') ||
+           (inputs.extra && matrix.group == 'extra'))
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        if: runner.os == 'Linux' && inputs.extra && matrix.group == 'extra'
+
+      - name: Cache
+        if: >
+          (inputs.auto && matrix.group == 'auto') ||
+          (inputs.extra && matrix.group == 'extra')
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/vcpkg
+            ~/AppData/Local/vcpkg
+          key: cache-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.build }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: cache-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.build }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Build wheels
+        if: >
+          (inputs.auto && matrix.group == 'auto') ||
+          (inputs.extra && matrix.group == 'extra')
+        uses: pypa/cibuildwheel@v4.3
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: '*${{ matrix.build }}*'
+          CIBW_BEFORE_ALL_LINUX: >
+            mkdir -p ~/.cache /host/home/runner/.cache/vcpkg || true &&
+            ln -s /host/home/runner/.cache/vcpkg ~/.cache/vcpkg || true
+          CIBW_INHERIT: 'before-all-linux: append'
+
+      - name: Upload wheels
+        if: >
+          (inputs.auto && matrix.group == 'auto') ||
+          (inputs.extra && matrix.group == 'extra')
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-${{ matrix.os }}-${{ matrix.build }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl

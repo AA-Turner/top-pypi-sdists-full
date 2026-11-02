@@ -41,8 +41,12 @@ from probe.sdk.delivery import outbox as outbox_worker
 from probe.sdk.delivery.outbox.drainers import service_handoff
 from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
 from probe.sdk.delivery.journal.journal import Journal
-from probe.service import background, client, paths, protocol
-from probe.service.protocol import BackgroundRefusal, BackgroundState, ErrorCode, Method
+from probe.service.jobs.background import background
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
+from probe.foundation.service_api.vocabularies import BackgroundRefusal, BackgroundState
+from probe.foundation.service_api.wire import ErrorCode, Method
 from tests.service_harness import pid_running, service_home, wait_for  # noqa: F401 -- a fixture
 
 #: What a caller's wait may run past its handoff budget (thread start, the
@@ -599,7 +603,7 @@ def test_a_caller_with_no_new_privs_like_the_service_counts_as_sandboxed(monkeyp
     host's own copy."""
     if not sys.platform.startswith("linux"):
         pytest.skip("Landlock and no_new_privs are Linux's")
-    from probe.service import caller
+    from probe.service.actions import caller
 
     both = ("0", "0", "1", "mnt:[4026531841]", "user:[4026531837]")
     monkeypatch.setattr(caller, "confinement", lambda pid: both)
@@ -1109,13 +1113,13 @@ def test_the_screen_refuses_a_gone_caller_and_never_pid_1(monkeypatch):
     lost every WORK method."""
     from probe.service import server
 
-    monkeypatch.setattr(server, "confined", lambda pid: False)
+    monkeypatch.setattr(server.policy, "confined", lambda pid: False)
     assert server.screen(1, "12345") is None  # its start time known (Linux), as a real peer's is
     gone = subprocess.Popen(["true"])
     gone.wait()
     assert server.screen(gone.pid, None) == protocol.RefusedReason.CALLER_GONE
     assert server.screen(os.getpid(), None) is None
-    monkeypatch.setattr(server, "confined", lambda pid: True)
+    monkeypatch.setattr(server.policy, "confined", lambda pid: True)
     assert server.screen(os.getpid(), None) == protocol.RefusedReason.SANDBOXED
 
 

@@ -1,0 +1,308 @@
+import time
+from collections import Counter as CollectionsCounter
+from collections.abc import Callable, Iterable
+
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.metrics import Counter, ObservableGauge, Observation, _Gauge
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+
+from rock import env_vars
+from rock.admin.metrics.constants import MetricsConstants
+from rock.admin.metrics.gc_view_instrument_match import patch_view_instrument_match
+from rock.logger import init_logger
+from rock.utils import get_instance_id, get_uniagent_endpoint
+
+logger = init_logger(__name__)
+
+
+class MetricsMonitor:
+    def __init__(
+        self,
+        host: str,
+        port: str,
+        pod: str,
+        env: str = "daily",
+        role: str = "test",
+        export_interval_millis: int = 10000,
+        endpoint: str = "",
+        user_defined_tags: dict = {},
+        metric_prefix: str = "",
+    ):
+        patch_view_instrument_match()
+        self.metric_prefix = metric_prefix
+        self.user_defined_tags = user_defined_tags
+        self._init_basic_attributes(host, port, pod, env, role)
+        self.endpoint = endpoint or f"http://{self.host}:{self.port}/v1/metrics"
+        self._init_telemetry(export_interval_millis)
+        self.counters: dict[str, Counter] = {}
+        self.gauges: dict[str, _Gauge] = {}
+        self.observable_gauges: dict[str, ObservableGauge | None] = {}
+        self._register_metrics()
+        logger.info(
+            f"Initializing MetricsCollector with host={host}, port={port}, pod={pod}, "
+            f"env={env}, role={role}, endpoint={self.endpoint}"
+        )
+
+    @classmethod
+    def create(
+        cls,
+        export_interval_millis: int = 20000,
+        metrics_endpoint: str = "",
+        user_defined_tags: dict = {},
+        metric_prefix: str = "",
+    ) -> "MetricsMonitor":
+        host, port = get_uniagent_endpoint()
+        pod = get_instance_id()
+        env = env_vars.ROCK_ADMIN_ENV
+        role = env_vars.ROCK_ADMIN_ROLE
+        logger.info(f"Initializing MetricsCollector with host={host}, port={port}, env={env}, role={role}")
+        return cls(
+            host=host,
+            port=port,
+            pod=pod,
+            env=env,
+            role=role,
+            export_interval_millis=export_interval_millis,
+            endpoint=metrics_endpoint,
+            user_defined_tags=user_defined_tags,
+            metric_prefix=metric_prefix,
+        )
+
+    def _register_metrics(self):
+        """Register all monitoring metrics"""
+        # Request count metrics
+        self._register_counter(MetricsConstants.SANDBOX_REQUEST_SUCCESS, "Number of successful requests")
+        self._register_counter(MetricsConstants.SANDBOX_REQUEST_FAILURE, "Number of failed requests")
+        self._register_counter(MetricsConstants.SANDBOX_REQUEST_CLIENT_ERROR, "Number of client error requests")
+        self._register_counter(MetricsConstants.SANDBOX_REQUEST_TOTAL, "Number of total requests")
+        # Sandbox metrics
+        self._register_gauge(MetricsConstants.SANDBOX_TOTAL_COUNT, "Number of sandbox")
+        self._register_gauge(MetricsConstants.SANDBOX_COUNT_IMAGE, "Number of sandbox aggregated by image")
+        # RT metrics
+        self._register_gauge(
+            MetricsConstants.SANDBOX_REQUEST_RT,
+            "total execution time for request",
+            "ms",
+        )
+        # Single sandbox resource utilization metrics (percentage of allocated resources)
+        self._register_gauge(MetricsConstants.SANDBOX_CPU, "Single sandbox CPU usage percentage of allocated resources")
+        self._register_gauge(
+            MetricsConstants.SANDBOX_MEM, "Single sandbox memory usage percentage of allocated resources"
+        )
+        self._register_gauge(
+            MetricsConstants.SANDBOX_DISK, "Single sandbox disk usage percentage of allocated resources"
+        )
+        self._register_gauge(MetricsConstants.SANDBOX_DISK_LOG, "Sandbox log dir disk usage percent")
+        self._register_gauge(MetricsConstants.SANDBOX_DISK_DIND, "Sandbox kata DinD disk usage percent")
+        self._register_gauge(
+            MetricsConstants.SANDBOX_NET, "Single sandbox network usage percentage of allocated resources"
+        )
+
+        # Phase failure metrics
+        self._register_counter(MetricsConstants.SANDBOX_PHASE_FAILURE, "Number of sandbox phase failures")
+
+        # Ray cluster resource metrics (total and available resources)
+        self._register_gauge(MetricsConstants.TOTAL_CPU_RESOURCE, "Total CPU resource in Ray cluster")
+        self._register_gauge(MetricsConstants.TOTAL_MEM_RESOURCE, "Total memory resource in Ray cluster")
+        self._register_gauge(MetricsConstants.AVAILABLE_CPU_RESOURCE, "Available CPU resource in Ray cluster")
+        self._register_gauge(MetricsConstants.AVAILABLE_MEM_RESOURCE, "Available memory resource in Ray cluster")
+        self._register_gauge(MetricsConstants.TOTAL_DISK_RESOURCE, "Total disk resource in Ray cluster")
+        self._register_gauge(MetricsConstants.AVAILABLE_DISK_RESOURCE, "Available disk resource in Ray cluster")
+        self._register_gauge(MetricsConstants.DISK_OVERCOMMIT_RATIO, "Disk overcommit ratio for Ray scheduling")
+
+        # MetaStore metrics
+        self._register_counter(MetricsConstants.METASTORE_SUCCESS, "Number of successful meta_store operations")
+        self._register_counter(MetricsConstants.METASTORE_FAILURE, "Number of failed meta_store operations")
+        self._register_counter(MetricsConstants.METASTORE_TOTAL, "Number of total meta_store operations")
+        self._register_gauge(MetricsConstants.METASTORE_RT, "MetaStore operation response time", "ms")
+
+        # MetaStore DB-layer metrics
+        self._register_counter(MetricsConstants.METASTORE_DB_SUCCESS, "Number of successful DB operations")
+        self._register_counter(MetricsConstants.METASTORE_DB_FAILURE, "Number of failed DB operations")
+        self._register_counter(MetricsConstants.METASTORE_DB_TOTAL, "Number of total DB operations")
+        self._register_gauge(MetricsConstants.METASTORE_DB_RT, "DB operation response time", "ms")
+
+    def _register_counter(self, name: str, description: str, unit: str = "1"):
+        self.register_counter(name, description, unit)
+
+    def _register_gauge(self, name: str, description: str, unit: str = "1"):
+        self.register_gauge(name, description, unit)
+
+    def register_counter(self, name: str, description: str, unit: str = "1") -> None:
+        """Register a synchronous counter for a feature-specific metrics adapter."""
+        if name in self.counters:
+            raise ValueError(f"Counter {name} is already registered")
+        self.counters[name] = self.create_counter(name, description, unit)
+
+    def register_gauge(self, name: str, description: str, unit: str = "1") -> None:
+        """Register a synchronous gauge for a feature-specific metrics adapter."""
+        if name in self.gauges or name in self.observable_gauges:
+            raise ValueError(f"Gauge {name} is already registered")
+        self.gauges[name] = self.create_gauge(name, description, unit)
+
+    def register_observable_gauge(
+        self,
+        name: str,
+        callback: Callable[[], Iterable[tuple[float, dict[str, str]]]],
+        description: str,
+        unit: str = "1",
+    ) -> None:
+        """Register a gauge whose current observations are produced at collection time."""
+        if name in self.gauges or name in self.observable_gauges:
+            raise ValueError(f"Metric {name} is already registered")
+        if self._should_skip():
+            self.observable_gauges[name] = None
+            return
+
+        def observe(_options):
+            return [Observation(value, {**self.attributes, **attributes}) for value, attributes in callback()]
+
+        self.observable_gauges[name] = self.meter.create_observable_gauge(
+            name=f"xrl_gateway.{name}",
+            callbacks=[observe],
+            description=description,
+            unit=unit,
+        )
+
+    def _init_basic_attributes(self, host: str, port: str, pod: str, env: str, role: str):
+        self.host = host
+        self.port = port
+        self.env = env
+        self.role = role
+        # The pod field is depended on by the dashboard, so it will not be deleted for now and will be removed later.
+        self.base_attributes = {
+            "host": self.host,
+            "pod": pod,
+            "ip": pod,
+            "env": self.env,
+            "role": self.role,
+        }
+        if self.user_defined_tags is not None:
+            self.base_attributes.update(self.user_defined_tags)
+
+    def _should_skip(self):
+        if self.env in {"daily", "aliyun", "local", "test"}:
+            return True
+        return False
+
+    def _init_telemetry(self, export_interval_millis: int):
+        if self._should_skip():
+            return
+        if self.env == "dev":
+            self.metric_reader = InMemoryMetricReader()
+        else:
+            self.otlp_exporter = OTLPMetricExporter(endpoint=self.endpoint)
+            self._wrap_exporter_with_logging()
+            self.metric_reader = PeriodicExportingMetricReader(
+                self.otlp_exporter,
+                export_interval_millis=export_interval_millis,
+            )
+        self.meter_provider = MeterProvider(metric_readers=[self.metric_reader])
+        self.meter = self.meter_provider.get_meter(MetricsConstants.METRICS_METER_NAME)
+        logger.info("init telemetry success")
+
+    def _wrap_exporter_with_logging(self):
+        """Patch otlp_exporter.export to log data point count and duration.
+
+        Runs on the PeriodicExportingMetricReader's daemon thread, off the asyncio loop.
+        """
+        if not hasattr(self, "otlp_exporter") or not hasattr(self.otlp_exporter, "export"):
+            return
+        original_export = self.otlp_exporter.export
+        endpoint = self.endpoint
+
+        def export_with_logging(metrics_data, *args, **kwargs):
+            n_points = sum(
+                len(metric.data.data_points)
+                for rm in metrics_data.resource_metrics
+                for sm in rm.scope_metrics
+                for metric in sm.metrics
+                if hasattr(metric.data, "data_points")
+            )
+            t0 = time.perf_counter()
+            result = original_export(metrics_data, *args, **kwargs)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            logger.info(
+                "OTLP export metric_prefix=%s endpoint=%s data_points=%d duration_ms=%.1f result=%s",
+                self.metric_prefix,
+                endpoint,
+                n_points,
+                elapsed_ms,
+                result,
+            )
+            return result
+
+        self.otlp_exporter.export = export_with_logging
+
+    def create_counter(self, name: str, description: str, unit: str = "1") -> Counter:
+        """Create counter"""
+        if self._should_skip():
+            return
+        logger.info(f"Creating counter {name}")
+        return self.meter.create_counter(name=f"xrl_gateway.{name}", description=description, unit=unit)
+
+    def create_gauge(self, name: str, description: str, unit: str = "1") -> _Gauge:
+        """Create gauge"""
+        if self._should_skip():
+            return
+        logger.info(f"Creating gauge {name}")
+        return self.meter.create_gauge(name=f"xrl_gateway.{name}", description=description, unit=unit)
+
+    def record_counter(self, counter: Counter, value: int = 1, attributes: dict[str, str] | None = None):
+        if self._should_skip():
+            return
+        if attributes:
+            merged_attributes = {**self.attributes, **attributes}
+        else:
+            merged_attributes = self.attributes
+        counter.add(value, merged_attributes)
+
+    def record_counter_by_name(self, counter: str, value: int = 1, attributes: dict[str, str] | None = None):
+        if self._should_skip():
+            return
+        c: Counter = self.counters[counter]
+        if c is None:
+            raise ValueError(f"Counter {counter} not found")
+        self.record_counter(c, value, attributes)
+
+    def record_gauge(self, gauge: _Gauge, value: float, attributes: dict[str, str] | None = None):
+        if self._should_skip():
+            return
+        if attributes:
+            merged_attributes = {**self.attributes, **attributes}
+        else:
+            merged_attributes = self.attributes
+        gauge.set(value, merged_attributes)
+
+    def record_gauge_by_name(self, gauge: str, value: float, attributes: dict[str, str] | None = None):
+        if self._should_skip():
+            return
+        g: _Gauge = self.gauges[gauge]
+        if g is None:
+            raise ValueError(f"Gauge {gauge} not found")
+        self.record_gauge(g, value, attributes)
+
+    def force_flush(self, timeout_millis: float = 10_000) -> bool:
+        if self._should_skip():
+            return True
+        return self.meter_provider.force_flush(timeout_millis=timeout_millis)
+
+    def shutdown(self, timeout_millis: float = 30_000) -> None:
+        if self._should_skip():
+            return
+        try:
+            self.meter_provider.force_flush(timeout_millis=timeout_millis)
+        except Exception:
+            logger.exception("Final metrics flush failed during monitor shutdown")
+        finally:
+            self.meter_provider.shutdown(timeout_millis=timeout_millis)
+
+    @property
+    def attributes(self) -> dict[str, str]:
+        """Get basic attributes"""
+        return self.base_attributes
+
+
+def aggregate_metrics(metrics: dict[str, dict[str, str]], key: str) -> dict[str, int]:
+    return dict(CollectionsCounter(metric_value[key] for metric_value in metrics.values()))

@@ -1,0 +1,5382 @@
+//! Bridge from the legacy capability-query shapes to the
+//! fold-backed query path.
+//!
+//! Centralizes filter-shape translation, post-query predicate
+//! filtering (range predicates the fold's secondary index
+//! doesn't index natively), and scope-filter composition for
+//! callers using [`Fold<CapabilityFold>`](super::Fold) as the
+//! source of truth (the legacy `CapabilityIndex` was deleted in
+//! Multifold Phase 3B; see `docs/internal/plans/MULTIFOLD_PHASE_3B_CUTOVER.md`).
+//!
+//! ## What's here
+//!
+//! - [`translate_filter`] — legacy `CapabilityFilter` →
+//!   [`super::CapabilityFilter`]. Handles the indexable axes
+//!   (tags, models, tools).
+//! - [`membership_passes_post_filter`] — for the predicates the
+//!   fold's secondary index doesn't surface (memory_gb,
+//!   vram_gb, GPU presence, GPU vendor).
+//! - [`find_nodes_matching`] — combine the two: query the fold,
+//!   post-filter the returned memberships, dedupe by node_id.
+//! - `scope_from_membership_tags` (private) — derive a
+//!   `CapabilityScope` from the string-tag form the fold's
+//!   payload carries.
+//! - [`find_nodes_matching_scoped`] — the fold-flavored
+//!   replacement for the legacy `find_nodes_scoped`.
+
+use super::super::capability::{
+    CapabilityAnnouncement, CapabilityFilter as LegacyFilter, CapabilityScope, GpuVendor,
+    PreparedScope, ScopeFilter,
+};
+use super::super::org::OrgId;
+use super::super::org_revocation::OrgRevocationState;
+use super::capability::{
+    resolve_candidate_keys, CapabilityFilter, CapabilityFold, CapabilityMembership,
+    HardwareSummary, VerifiedOwner,
+};
+// `FoldError` and `ApplyOutcome` type only `apply_legacy_announcement`'s
+// signature, and that helper is itself `#[cfg(any(test, feature = "fixtures"))]`
+// — so without the same gate these two dangle in every build that does NOT
+// enable `fixtures`, which is every build except `--all-features`. CI's clippy
+// job passes `--all-features`, so it cannot see the breakage; keep the gates in
+// lockstep with the helper below.
+#[cfg(any(test, feature = "fixtures"))]
+use super::state::FoldError;
+use super::state::FoldState;
+#[cfg(any(test, feature = "fixtures"))]
+use super::ApplyOutcome;
+use super::{EnvelopeMeta, Fold, FoldKind, NodeId, NodeState, SignedAnnouncement, TagStr};
+
+/// Translate the legacy
+/// [`behavior::capability::CapabilityFilter`](super::super::capability::CapabilityFilter)
+/// into the fold's composite filter shape. The `require_models`,
+/// `require_tools`, `require_gpu`, and `gpu_vendor` axes become
+/// `tag_groups_all` entries built from the index-only synthetic
+/// tags (`model:<id>`, `tool:<id>`, `gpu:present`,
+/// `gpu:vendor:<v>`) the fold derives at insert, so the fold's
+/// secondary index resolves them with no per-candidate parse —
+/// each axis is one group (OR within the axis, AND across axes).
+///
+/// The true range predicates (`min_memory_gb`, `min_vram_gb`) and
+/// free-form fields (`require_modalities`, `min_context_length`)
+/// are NOT carried here — the *bulk* path runs the ranges through
+/// [`membership_passes_range_filter`] against each borrowed
+/// candidate, and the single-target path runs the full
+/// [`membership_passes_post_filter`]. The `require_modalities` and
+/// `min_context_length` axes are silently dropped on the fold path
+/// because the fold's [`CapabilityMembership`] payload doesn't
+/// carry the model metadata needed to evaluate them; callers that
+/// need them keep the legacy index until the fold's payload is
+/// extended.
+pub fn translate_filter(legacy: &LegacyFilter) -> CapabilityFilter {
+    // Each non-tag axis becomes one `tag_groups_all` group of
+    // index-only synthetic tags. `require_models` / `require_tools`
+    // are "any of" (union → multi-element group); `require_gpu` /
+    // `gpu_vendor` are single-element groups. The synthetic tags
+    // are manufactured at insert by `derive_synthetic_index_tags`
+    // from the canonical `software.model.<i>.id=` /
+    // `software.tool.<i>.tool_id=` bundles and the hardware
+    // projection, and `tag_groups_all` resolves against the
+    // index's separate `by_synthetic` map — so a raw published tag
+    // whose string happens to equal a synthetic key (e.g. a
+    // `Tag::Legacy("model:llama3")`) can never satisfy these axes.
+    let mut tag_groups_all: Vec<Vec<String>> = Vec::new();
+    if !legacy.require_models.is_empty() {
+        tag_groups_all.push(
+            legacy
+                .require_models
+                .iter()
+                .map(|m| format!("model:{m}"))
+                .collect(),
+        );
+    }
+    if !legacy.require_tools.is_empty() {
+        tag_groups_all.push(
+            legacy
+                .require_tools
+                .iter()
+                .map(|t| format!("tool:{t}"))
+                .collect(),
+        );
+    }
+    if legacy.require_gpu {
+        tag_groups_all.push(vec!["gpu:present".to_string()]);
+    }
+    if let Some(vendor) = legacy.gpu_vendor {
+        tag_groups_all.push(vec![format!("gpu:vendor:{}", gpu_vendor_canonical(vendor))]);
+    }
+    CapabilityFilter {
+        class: None,
+        tags_all: legacy.require_tags.clone(),
+        tags_any: Vec::new(),
+        tag_groups_all,
+        state: None,
+        region: None,
+        limit: 0,
+    }
+}
+
+/// `true` if `membership` satisfies the *range* predicates the
+/// fold's secondary index can't resolve — `min_memory_gb` and
+/// `min_vram_gb`. The bulk filter path uses this against borrowed
+/// candidates after the index has already resolved the tag /
+/// model / tool / gpu axes (the latter three via the synthetic-tag
+/// groups `translate_filter` builds), so re-checking those here
+/// would be redundant work.
+pub fn membership_passes_range_filter(
+    membership: &CapabilityMembership,
+    legacy: &LegacyFilter,
+) -> bool {
+    if let Some(min_mem) = legacy.min_memory_gb {
+        let mem = membership
+            .hardware
+            .as_ref()
+            .and_then(|h| h.memory_gb)
+            .unwrap_or(0);
+        if mem < min_mem {
+            return false;
+        }
+    }
+    if let Some(min_vram) = legacy.min_vram_gb {
+        let vram = membership
+            .hardware
+            .as_ref()
+            .and_then(|h| h.vram_gb)
+            .unwrap_or(0);
+        if vram < min_vram {
+            return false;
+        }
+    }
+    true
+}
+
+/// `true` if `membership` satisfies every post-query predicate the
+/// fold's tag intersection doesn't itself enforce: the range
+/// predicates ([`membership_passes_range_filter`]) plus GPU
+/// presence / vendor and model / tool membership.
+///
+/// This is the full, self-contained matcher used by the
+/// single-target path ([`target_matches_filter`]), which walks one
+/// publisher's entries directly and does NOT consult the secondary
+/// index. The bulk path resolves the gpu / model / tool axes
+/// through the index's synthetic-tag groups instead and only needs
+/// [`membership_passes_range_filter`];
+/// `target_matches_filter_agrees_with_find_nodes_matching` pins
+/// that the two stay equivalent.
+pub fn membership_passes_post_filter(
+    membership: &CapabilityMembership,
+    legacy: &LegacyFilter,
+) -> bool {
+    if !membership_passes_range_filter(membership, legacy) {
+        return false;
+    }
+    if legacy.require_gpu {
+        let has_gpu = match &membership.hardware {
+            Some(h) => h.gpu_count > 0 || h.gpu_vendor.is_some(),
+            None => false,
+        };
+        if !has_gpu {
+            return false;
+        }
+    }
+    if let Some(want_vendor) = legacy.gpu_vendor {
+        let got = membership
+            .hardware
+            .as_ref()
+            .and_then(|h| h.gpu_vendor.as_deref())
+            .unwrap_or("");
+        if !gpu_vendor_matches(got, want_vendor) {
+            return false;
+        }
+    }
+    // Models + tools are encoded as multi-tag bundles
+    // (`software.model.<i>.id=<name>`, `software.tool.<i>.tool_id=<name>`)
+    // on the wire. Reuse the legacy `CapabilitySet::has_model` /
+    // `has_tool` scan against a synthesized set so the same
+    // canonical-tag predicate runs here as in the legacy matcher.
+    // `require_models` / `require_tools` are "any must match"
+    // (union semantics), per the legacy `CapabilityFilter::matches`
+    // impl.
+    if !legacy.require_models.is_empty() || !legacy.require_tools.is_empty() {
+        let mut caps = super::super::capability::CapabilitySet::new();
+        for s in &membership.tags {
+            if let Ok(tag) = super::super::tag::Tag::parse(s) {
+                caps.tags.insert(tag);
+            }
+        }
+        if !legacy.require_models.is_empty()
+            && !legacy.require_models.iter().any(|m| caps.has_model(m))
+        {
+            return false;
+        }
+        if !legacy.require_tools.is_empty()
+            && !legacy.require_tools.iter().any(|t| caps.has_tool(t))
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn gpu_vendor_matches(canonical: &str, want: GpuVendor) -> bool {
+    matches!(
+        (canonical, want),
+        ("nvidia", GpuVendor::Nvidia)
+            | ("amd", GpuVendor::Amd)
+            | ("intel", GpuVendor::Intel)
+            | ("apple", GpuVendor::Apple)
+            | ("qualcomm", GpuVendor::Qualcomm)
+            | ("unknown", GpuVendor::Unknown)
+    )
+}
+
+fn gpu_vendor_canonical(vendor: GpuVendor) -> &'static str {
+    match vendor {
+        GpuVendor::Nvidia => "nvidia",
+        GpuVendor::Amd => "amd",
+        GpuVendor::Intel => "intel",
+        GpuVendor::Apple => "apple",
+        GpuVendor::Qualcomm => "qualcomm",
+        GpuVendor::Unknown => "unknown",
+    }
+}
+
+/// Apply a legacy [`CapabilityAnnouncement`] to the fold via
+/// [`translate_announcement`]. Test fixtures use this to prime
+/// a `Fold<CapabilityFold>` with the same legacy-shape
+/// announcement the production dispatch path would produce.
+///
+/// Returns the [`ApplyOutcome`] from the underlying `fold.apply`
+/// call so callers can distinguish `Inserted` / `Replaced` from
+/// `IgnoredOlder` / `IgnoredEqual`, and so a failing apply (invalid
+/// generation, signature mismatch — anything `FoldError` grows into)
+/// surfaces instead of being silently dropped. Test fixtures
+/// typically `.expect("apply")`.
+///
+/// # Not a production ingest path
+///
+/// This is a FIXTURE helper. It passes `floors = None`, meaning every
+/// certificate generation is admissible — the revocation floor check is
+/// skipped entirely — because a fixture priming a bare fold has no node state
+/// to check against. Real ingest goes through the dispatch path in `mesh.rs`,
+/// which supplies the node's live floors and pairs the apply with a
+/// `recheck_projected_owner_floor`.
+///
+/// `floors` is EXPLICIT (§12 residual, Kyra). It used to be hardcoded `None`
+/// inside this function, silently skipping the revocation floor check — and
+/// because `MeshNode::capability_fold()` is also `pub`, a release build let
+/// any caller pair the two and install an ownership projection for a
+/// certificate already below a live floor, outside the revocation-aware
+/// ingest path and with no callback left to retract it (the floor raise that
+/// would have fired had already happened).
+///
+/// Pass the node's live floors to get production semantics. `None` is still
+/// permitted — a fixture priming a bare fold has no floors to check — but it
+/// is now a visible decision at each call site rather than a default buried
+/// in the helper.
+///
+/// It is ALSO gated behind `#[cfg(any(test, feature = "fixtures"))]`, so a
+/// downstream `cargo add net-mesh` cannot reach it at all. `#[cfg(test)]`
+/// alone was never sufficient: benches AND four integration tests link the
+/// library as an external crate and cannot see `#[cfg(test)]` items, so the
+/// helper had to stay `pub` for them — which is exactly how it stayed
+/// reachable from a release build.
+///
+/// The two gates are complementary. The feature removes the helper from
+/// consumer builds; the explicit `floors` parameter makes the skip visible to
+/// the fixture authors who legitimately keep it.
+///
+/// Callers are `#[cfg(test)]` modules, benches (`net`, `placement` — both now
+/// `required-features = [..., "fixtures"]`), and the four integration tests in
+/// the CI `net` group (which now runs `--features "net fixtures"`). No
+/// production call site remains, which makes the "~30 production call sites"
+/// note in `CODE_REVIEW_2026_05_23_MULTIFOLD_DEFERRED.md` MD-1 stale.
+///
+/// The unretractable-projection hazard this used to carry is closed at the
+/// producer instead: `verify_announced_owner_cert` now refuses a cert whose
+/// entity does not derive the announced node id (§12), so no caller of this
+/// helper can install ownership that a floor raise could never clear.
+#[cfg(any(test, feature = "fixtures"))]
+pub fn apply_legacy_announcement(
+    fold: &Fold<CapabilityFold>,
+    ann: CapabilityAnnouncement,
+    floors: Option<&OrgRevocationState>,
+    skew_secs: u64,
+) -> Result<ApplyOutcome, FoldError> {
+    // Mirror the production dispatch path's OA-1 ingest verification,
+    // INCLUDING the outer-signature precondition.
+    let outer_signature_verified = ann.verify().is_ok();
+    let verified_owner =
+        verify_announced_owner_cert(&ann, outer_signature_verified, floors, skew_secs);
+    let fold_ann = translate_announcement(&ann, verified_owner);
+    fold.apply(fold_ann)
+}
+
+/// OA-1 ingest verification for an announcement's `owner_cert` —
+/// the ONLY producer of a `Some` value for the fold's
+/// [`CapabilityMembership::owner`] projection.
+///
+/// Returns `Some(VerifiedOwner)` iff ALL of:
+///
+/// 1. `outer_signature_verified` — the ENCLOSING announcement's
+///    signature verified (review-8 §1). A membership certificate
+///    proves that an entity belongs to an organization; it binds
+///    neither the advertised capabilities nor this announcement's
+///    version, so a valid replayed cert must never lend an owned
+///    projection to an unsigned (or signature-invalid) capability
+///    statement. The precondition is part of the function
+///    signature so no future caller can forget it.
+/// 2. the announcement carries a cert,
+/// 3. the cert's `member` equals the announcement's `entity_id`
+///    (a cert vouches for exactly the announcing entity — a valid
+///    cert for someone else is not belonging),
+/// 4. the cert verifies structurally and cryptographically
+///    (`verify_strict` under `net-org-cert-v1`, TTL ceiling) and
+///    is inside its validity window with `skew_secs` tolerance,
+/// 5. the cert's `generation` is at or above the node's persisted
+///    revocation floor for `(org, member)` (`floors = None` means
+///    this node tracks no floors — every generation admissible,
+///    identical to an empty state).
+///
+/// On any failure the cert is dropped and announcement HANDLING is
+/// unchanged (OA-1 exit-gate contract: "ingest drops bad certs,
+/// not announcements"): an unsigned announcement stays governed by
+/// the caller's existing `require_signed` policy — discoverable in
+/// unsigned-discovery mode, merely never owned.
+///
+/// Belonging only: the returned projection feeds discovery, never
+/// `may_execute`.
+///
+/// `pub(crate)` (review-9): `outer_signature_verified` is a
+/// caller-asserted fact, so only the in-crate dispatch/self-index
+/// paths — which computed it from a real signature check — may
+/// call this. Combined with [`VerifiedOwner`]'s private
+/// construction, verified ingest is structurally the only
+/// ownership producer.
+pub(crate) fn verify_announced_owner_cert(
+    ann: &CapabilityAnnouncement,
+    outer_signature_verified: bool,
+    floors: Option<&OrgRevocationState>,
+    skew_secs: u64,
+) -> Option<VerifiedOwner> {
+    let cert = ann.owner_cert.as_ref()?;
+    if !outer_signature_verified {
+        tracing::debug!(
+            node_id = format!("{:#x}", ann.node_id),
+            org = %cert.org_id,
+            "dropping owner cert: enclosing announcement is not signature-verified \
+             (announcement handling unchanged)"
+        );
+        return None;
+    }
+    if cert.member != ann.entity_id {
+        tracing::debug!(
+            node_id = format!("{:#x}", ann.node_id),
+            org = %cert.org_id,
+            "dropping owner cert: member does not match announcing entity (announcement kept)"
+        );
+        return None;
+    }
+    // §12 — the entity must actually BE the announcing node.
+    //
+    // `retract_floored_ownership` locates entries to retract via
+    // `member.node_id()`, and the install sweep and post-apply recheck both
+    // search `by_node[entity.node_id()]`. That only works because production
+    // ingest guarantees `ann.entity_id.node_id() == ann.node_id` (enforced at
+    // the dispatch site). An announcement violating it lands the projection in
+    // `by_node[ann.node_id]` while every retraction path looks under
+    // `by_node[entity.node_id()]` — so NO floor raise, no store install, and no
+    // recheck can ever clear it, and `owner_org_for` keeps reporting the
+    // revoked org indefinitely.
+    //
+    // Checked HERE rather than only at the dispatch site because this function
+    // is the single producer of a `Some(VerifiedOwner)`: the `#[doc(hidden)]`
+    // `MeshNode::test_inject_capability_announcement` seam (which ships in
+    // release builds and is re-exported by the Python / Node / Go bindings as a
+    // synthetic-peer helper) and the `pub` `apply_legacy_announcement` fixture
+    // helper both reach the fold without passing the dispatch check. Enforcing
+    // the bind at the producer makes the retraction invariant hold for every
+    // path, present and future.
+    //
+    // Synthetic-peer injection is unaffected: those announcements carry no
+    // `owner_cert`, so they return at the `?` above and never reach this check.
+    if ann.entity_id.node_id() != ann.node_id {
+        tracing::debug!(
+            node_id = format!("{:#x}", ann.node_id),
+            entity_node_id = format!("{:#x}", ann.entity_id.node_id()),
+            org = %cert.org_id,
+            "dropping owner cert: announcing entity does not derive the announced node id \
+             — an ownership projection under a mismatched node id could never be \
+             retracted (announcement kept)"
+        );
+        return None;
+    }
+    if let Err(e) = cert.is_valid_with_skew(skew_secs) {
+        tracing::debug!(
+            node_id = format!("{:#x}", ann.node_id),
+            org = %cert.org_id,
+            error = %e,
+            "dropping unverifiable owner cert (announcement kept)"
+        );
+        return None;
+    }
+    if let Some(floors) = floors {
+        let floor = floors.floor_for(&cert.org_id, &cert.member);
+        if cert.generation < floor {
+            tracing::debug!(
+                node_id = format!("{:#x}", ann.node_id),
+                org = %cert.org_id,
+                generation = cert.generation,
+                floor,
+                "dropping owner cert below revocation floor (announcement kept)"
+            );
+            return None;
+        }
+    }
+    // `cert.member == ann.entity_id` was checked above, so this records
+    // the announcing entity itself — the identity a discovery consumer
+    // must pin against, not the node id that merely derives from it.
+    Some(VerifiedOwner::new(
+        &cert.member,
+        cert.org_id,
+        cert.generation,
+    ))
+}
+
+/// Post-apply floor recheck (review-9): a floor can rise BETWEEN
+/// owner-cert verification and the fold apply — the raise callback
+/// completes while the projection is not yet in the fold, the
+/// delayed apply then installs it, and no future callback fires.
+/// Every production apply that installed a `Some(VerifiedOwner)`
+/// therefore rereads the CURRENT floors afterwards and retracts if
+/// the just-applied projection is already below them. Combined
+/// with the raise callback, every ordering retracts:
+///
+/// ```text
+/// raise after apply:                the callback retracts
+/// raise before the delayed apply:   this recheck retracts
+/// raise between apply and recheck:  callback or recheck retracts
+/// ```
+///
+/// The generation comparison stays exact — a newer projection is
+/// never over-cleared. Returns how many entries were retracted.
+pub(crate) fn recheck_projected_owner_floor(
+    fold: &Fold<CapabilityFold>,
+    floors: Option<&OrgRevocationState>,
+    member: &crate::adapter::net::identity::EntityId,
+    owner: &VerifiedOwner,
+) -> usize {
+    let Some(floors) = floors else {
+        return 0;
+    };
+    let floor = floors.floor_for(&owner.org(), member);
+    if owner.generation() < floor {
+        retract_floored_ownership(fold, owner.org(), member, floor)
+    } else {
+        0
+    }
+}
+
+/// The verified owner org projected for `node_id`, if any — walks
+/// the publisher's fold entries via the `by_node` reverse index and
+/// returns the first `Some` (mirrors `reflex_addr_for`'s
+/// one-publisher-one-value shape).
+pub fn owner_org_for(fold: &Fold<CapabilityFold>, node_id: NodeId) -> Option<OrgId> {
+    fold.with_state(|state| {
+        let keys = state.keys_for(node_id)?;
+        keys.iter().find_map(|key| {
+            state
+                .entries
+                .get(key)
+                .and_then(|entry| entry.payload.owner.map(|owner| owner.org()))
+        })
+    })
+}
+
+/// One publisher of a publicly announced service, with the exact
+/// identity and owner organization its verified ownership projection
+/// carried — all three sampled from ONE fold acquisition
+/// (SUBNET_AUTH_SDK_PLAN.md R1, review-10 P1-1/P1-2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedPublisher {
+    /// The routing node id the entry was published under.
+    pub node_id: NodeId,
+    /// The entity whose owner cert ingest verified. NOT derived from
+    /// `node_id` — a consumer pins against this.
+    pub member: crate::adapter::net::identity::EntityId,
+    /// The organization that vouched for `member`.
+    pub owner_org: OrgId,
+}
+
+/// Every public candidate for `tag` together with the VERIFIED
+/// PUBLISHER IDENTITY and owner organization its projection carried,
+/// from ONE fold snapshot (SUBNET_AUTH_SDK_PLAN.md R1).
+///
+/// The triple is sampled under a single read acquisition on purpose: a
+/// caller that enumerated candidates via [`find_nodes_matching`] and
+/// then resolved owners via [`owner_org_for`] could interleave an
+/// announcement replacement or a floor retraction between the two
+/// reads and pair a live candidate with a dead projection, or the
+/// inverse. Sampling all three from one snapshot makes that tear
+/// unrepresentable.
+///
+/// **The `member` is returned, not just the node id** (review-10
+/// P1-1). A `NodeId` is the low 8 bytes of an entity id, so it names a
+/// route, not an identity. A consumer that resolved `NodeId →
+/// EntityId` through the live session pin *after* this query returned
+/// could pair this projection's owner org with a different entity that
+/// currently holds the pin — peer death removes pin and fold record in
+/// separate operations, and a fresh direct announcement installs its
+/// pin before applying its fold record. Returning the exact verified
+/// publisher lets the caller require the pin to equal it and drop the
+/// candidate otherwise.
+///
+/// Entries with no current owner projection are not returned at all —
+/// an unowned public announcement is not an eligible exported
+/// candidate, and this query deliberately cannot express "candidate,
+/// owner unknown".
+///
+/// **Conflict exclusion spans the publisher's WHOLE live footprint**
+/// (review-10 P1-2), not only its entries carrying `tag`. Candidate
+/// discovery is tag-filtered, but once a publisher is a candidate every
+/// one of its live entries is inspected through `by_node`, in the same
+/// acquisition; a publisher whose simultaneously-live projections
+/// disagree on either member identity or owner org is excluded
+/// entirely. Restricting the conflict scan to the requested tag would
+/// let a publisher hold an unrelated live class under a second org and
+/// still be selected under the first — disclosing an org-scoped proof
+/// to a publisher whose authority relation is ambiguous. Ambiguity is
+/// never resolved silently (the `AmbiguousCapabilityGrant` doctrine),
+/// and an attacker-influenced tiebreak here would pick which org's
+/// grants a caller matches against.
+///
+/// Results are deduplicated per publisher and returned in ascending
+/// node-id order. Authority-relevant ordering (by provider `EntityId`)
+/// belongs to the caller.
+pub fn public_owned_providers(fold: &Fold<CapabilityFold>, tag: &str) -> Vec<OwnedPublisher> {
+    let legacy = LegacyFilter::default().require_tag(tag.to_string());
+    let fold_filter = translate_filter(&legacy);
+    fold.with_state_and_index(|state, index| {
+        let candidates = resolve_candidate_keys(state, index, &fold_filter);
+
+        // Phase 1 — which publishers advertise `tag` at all. Tag-filtered
+        // by construction; ownership is NOT decided here.
+        let mut publishers: Vec<NodeId> = candidates.keys().map(|(_, node)| node).collect();
+        publishers.sort_unstable();
+        publishers.dedup();
+
+        // Phase 2 — for each candidate publisher, fold its ENTIRE live
+        // footprint into one verdict, still under this acquisition. A
+        // publisher survives only if every live entry it owns agrees on
+        // both the verified member and the owner org, and at least one
+        // carries a projection at all.
+        let mut out: Vec<OwnedPublisher> = Vec::with_capacity(publishers.len());
+        for node_id in publishers {
+            let Some(keys) = state.keys_for(node_id) else {
+                continue;
+            };
+            let mut agreed: Option<VerifiedOwner> = None;
+            let mut conflicted = false;
+            for key in keys {
+                let Some(entry) = state.entries.get(key) else {
+                    continue;
+                };
+                let Some(owner) = entry.payload.owner else {
+                    // An unowned entry is not a conflict: ownership is a
+                    // per-announcement projection, and a publisher may
+                    // legitimately hold unowned classes alongside owned
+                    // ones. Only two DISAGREEING projections are ambiguous.
+                    continue;
+                };
+                match agreed {
+                    None => agreed = Some(owner),
+                    Some(seen) => {
+                        if seen.member_bytes() != owner.member_bytes() || seen.org() != owner.org()
+                        {
+                            conflicted = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if conflicted {
+                continue;
+            }
+            if let Some(owner) = agreed {
+                out.push(OwnedPublisher {
+                    node_id,
+                    member: owner.member(),
+                    owner_org: owner.org(),
+                });
+            }
+        }
+        out
+    })
+}
+
+/// The per-advertisement tag caps ([`super::MAX_CAPABILITY_TAGS`],
+/// [`super::MAX_CAPABILITY_TAG_LEN`]) applied to a [`CapabilitySet`]
+/// before it is announced, measuring each tag in its rendered wire form,
+/// so a local publisher is refused with a reason instead of every
+/// receiver dropping the advertisement. Renders into one reused buffer.
+pub(crate) fn validate_capability_set_tags(
+    caps: &super::super::capability::CapabilitySet,
+) -> Result<(), super::PayloadRejection> {
+    use super::{PayloadRejection, MAX_CAPABILITY_TAGS, MAX_CAPABILITY_TAG_LEN};
+    if caps.tags.len() > MAX_CAPABILITY_TAGS {
+        return Err(PayloadRejection::TooManyTags {
+            count: caps.tags.len(),
+            max: MAX_CAPABILITY_TAGS,
+        });
+    }
+    let mut rendered = String::new();
+    for (index, tag) in caps.tags.iter().enumerate() {
+        rendered.clear();
+        let _ = std::fmt::Write::write_fmt(&mut rendered, format_args!("{tag}"));
+        if rendered.len() > MAX_CAPABILITY_TAG_LEN {
+            return Err(PayloadRejection::TagTooLong {
+                index,
+                len: rendered.len(),
+                max: MAX_CAPABILITY_TAG_LEN,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Retract ownership projections a rising revocation floor just
+/// invalidated (review-8 §9): every fold entry published by
+/// `member` whose projection came from a cert of `org` with
+/// `generation < floor` loses ONLY its `owner` field — the
+/// capability entry stays present and queryable, and `may_execute`
+/// is untouched. Projections from higher-generation certs survive:
+/// the retained generation makes retraction exact, never an
+/// over-clear.
+///
+/// The publisher's fold identity is derived from the member key
+/// (`member.node_id()`) — the same entity→node binding announcement
+/// ingest verified. Returns how many entries were retracted.
+///
+/// A retraction changes query-visible state (`owner_org_for`), so
+/// it bumps the fold change generation exactly like an `apply`
+/// (review-9): watch-based consumers and generation-keyed caches
+/// observe it.
+pub fn retract_floored_ownership(
+    fold: &Fold<CapabilityFold>,
+    org: OrgId,
+    member: &crate::adapter::net::identity::EntityId,
+    floor: u32,
+) -> usize {
+    let node_id = member.node_id();
+    // §14: probe under a SHARED read first. `update_payloads` takes an
+    // exclusive write lock unconditionally, before it even checks whether this
+    // node has any entries — and the install sweep calls this once per floor
+    // in the persisted state, the overwhelming majority of which retract
+    // nothing. Paying a write lock to discover "no entries for this node"
+    // serialized every concurrent `may_execute` / `has_local_capability` /
+    // discovery query behind a walk that had nothing to do.
+    //
+    // Not a TOCTOU: an entry appearing between the probe and the write can
+    // only be a NEWER announcement, which carries its own ingest-time floor
+    // check, and the post-apply `recheck_projected_owner_floor` covers the
+    // interleaving explicitly. Missing it here is the same outcome as the
+    // sweep having run a moment earlier.
+    if fold.with_state(|state| !state.by_node.contains_key(&node_id)) {
+        return 0;
+    }
+    // Advances the publisher's revision when anything is retracted, so
+    // a `CapabilitySetCache` entry for it misses even though synthesis
+    // reads no owner today.
+    let retracted = fold.update_payloads(node_id, |payload| match payload.owner {
+        Some(owner) if owner.org() == org && owner.generation() < floor => {
+            payload.owner = None;
+            true
+        }
+        _ => false,
+    });
+    if retracted > 0 {
+        // §15: on the AUDIT plane, not only `tracing`. This is the one
+        // security-relevant fold transition the org feature produces, and it
+        // was the only one an installed `FoldAuditSink` never saw.
+        fold.notify_projection_retracted(
+            format!("node:{node_id:#x}"),
+            format!("ownership retracted under org {org} at floor {floor} ({retracted} entries)"),
+        );
+    }
+    retracted
+}
+
+/// Synthesize a legacy [`CapabilitySet`](super::super::capability::CapabilitySet)
+/// for `node_id` from every fold entry the publisher owns
+/// (walked via the `by_node` reverse index). Tags are merged
+/// into the set's `HashSet<Tag>`; the metadata BTreeMaps from
+/// each entry's [`CapabilityMembership`] are merged into the
+/// set's `metadata` field, with later entries overwriting
+/// earlier ones on key collision.
+///
+/// Returns an empty `CapabilitySet` when the publisher has no
+/// fold entries — matches the legacy `.unwrap_or_default()`
+/// fallback for subscribe-before-announce / cap-propagation
+/// races.
+///
+/// Routes the per-tag parse through [`super::super::tag::Tag::parse`]
+/// (not `parse_user`) so reserved-prefix tags (`causal:`,
+/// `heat:`, `fork-of:`, `scope:`) round-trip cleanly into the
+/// `Tag::Reserved` variant. `parse_user` rejects reserved
+/// prefixes by design; the fold-side synthesis is operating on
+/// values the substrate already accepted, so we want the
+/// permissive parse.
+pub fn synthesize_capability_set(
+    fold: &Fold<CapabilityFold>,
+    node_id: NodeId,
+) -> super::super::capability::CapabilitySet {
+    synthesize_capability_set_if_known(fold, node_id).unwrap_or_default()
+}
+
+/// `synthesize_capability_set` with an explicit "known to the fold"
+/// signal: returns `None` when `node_id` has no fold entries at all
+/// (matches the placement-side hard-veto contract: "unindexed
+/// candidate" → reject without scoring).
+///
+/// Per PERF_AUDIT §4.9 — placement_score previously took the fold's
+/// read lock twice per candidate: once for a `by_node.contains_key`
+/// known-check, once for the full synthesize. Both can be served by
+/// a single `with_state` that probes `by_node`, returns `None` on
+/// miss, and synthesizes the set on hit. Cuts the per-candidate
+/// lock acquisitions from 2 to 1, halving the lock-contention
+/// surface area on the read side under high candidate counts.
+pub fn synthesize_capability_set_if_known(
+    fold: &Fold<CapabilityFold>,
+    node_id: NodeId,
+) -> Option<super::super::capability::CapabilitySet> {
+    fold.with_state(|state| synthesize_capability_set_in_state(state, node_id))
+}
+
+/// [`synthesize_capability_set_if_known`] against a state that is
+/// ALREADY BORROWED, for callers running inside
+/// [`Fold::with_state`] / [`Fold::with_state_and_index`].
+///
+/// The fold-taking forms re-enter the fold, so a caller that has
+/// already selected candidates under one snapshot cannot use them
+/// without dropping its locks first. That split is what lets a
+/// selection combine membership observed in one fold generation
+/// with capability facts from another — a result that never existed
+/// in any single state. Selection paths take this form and stay
+/// inside one snapshot; see [`best_node_matching`].
+///
+/// Merges EVERY key in `state.by_node[node_id]`, not just the entry
+/// that matched the query. Today the legacy announcement path gives
+/// a publisher exactly one `(class=0, node)` entry, so the merge is
+/// a one-element loop — but per-class sharding would otherwise make
+/// the synthesized set depend on whichever class the index happened
+/// to resolve first.
+pub(crate) fn synthesize_capability_set_in_state(
+    state: &FoldState<CapabilityFold>,
+    node_id: NodeId,
+) -> Option<super::super::capability::CapabilitySet> {
+    let keys = state.keys_for(node_id)?;
+    let mut caps = super::super::capability::CapabilitySet::new();
+    for k in keys {
+        let Some(entry) = state.entries.get(k) else {
+            continue;
+        };
+        for s in &entry.payload.tags {
+            if let Ok(tag) = super::super::tag::Tag::parse(s) {
+                caps.tags.insert(tag);
+            }
+        }
+        for (mk, mv) in &entry.payload.metadata {
+            caps.metadata.insert(mk.clone(), mv.clone());
+        }
+    }
+    Some(caps)
+}
+
+/// Default capacity for the per-fold capability-set cache. Covers
+/// typical mesh sizes; an operator-tuned `MeshNode` can override
+/// via [`CapabilitySetCache::with_capacity`].
+const CAPABILITY_SET_CACHE_DEFAULT_CAPACITY: usize = 256;
+
+/// Bounded LRU cache of synthesized `Arc<CapabilitySet>` per node,
+/// validated per publisher. Eliminates the multi-µs re-parse +
+/// re-allocate that `synthesize_capability_set` does per call on the
+/// cached consumers (per-packet greedy admission, per-call
+/// `may_execute` retain loops). Per
+/// PERF_AUDIT_2026_06_10_FULL_CRATE.md §4.1.
+///
+/// Two consumers deliberately do NOT come through here.
+/// `StandardPlacement::placement_score` calls the uncached
+/// [`synthesize_capability_set_if_known`]. `best_node_matching`
+/// synthesizes inside the snapshot that admitted its candidates, to
+/// keep membership and capabilities on one fold state, and a cache
+/// lookup would re-enter the fold from an already-held snapshot. See
+/// `candidates_for_selection` for why that is the accepted trade.
+///
+/// # Validity
+///
+/// An entry is valid while its publisher's mutation revision
+/// ([`FoldState::publisher_rev`]) is unchanged. The revision advances
+/// on every change to the publisher's own entries (insert or replace
+/// of any class, removal of any class, eviction), so a cached set
+/// survives every OTHER publisher's announcements and misses once
+/// after its own publisher's. It replaced a fold-wide change
+/// generation, which every announcement in the fleet moved: at
+/// thousands of announcements per second that invalidated the whole
+/// cache continuously (CAPABILITY_FOLD_SCALE_PLAN.md, Slice 1).
+///
+/// The revision covers in-place payload updates too: an ownership
+/// projection retraction goes through `Fold::update_payloads`, which
+/// advances it, so a cached set can never outlive any change to its
+/// publisher's payloads, including fields synthesis does not read today.
+///
+/// An absent publisher reads as revision `0` and synthesizes the
+/// empty set, so an entry cached for an absent node stays correct for
+/// as long as the node is absent. Revisions come from one fold-wide
+/// counter that a restore does not reset, so a publisher that leaves
+/// and returns, or is restored from a snapshot, gets a revision no
+/// cached entry carries.
+///
+/// Entries record which [`Fold`] they came from and validate against
+/// the publisher's record itself, not just its revision number, which
+/// is only unique within one fold. A cache used with several folds, or
+/// kept past its fold, misses rather than serve another fold's set.
+///
+/// Capacity is fixed at construction. Hot sets larger than the
+/// capacity lose lookups to LRU eviction, which validity does not
+/// change: see [`CapabilitySetCacheStats`].
+///
+/// A hit for a present publisher returns a refcount-bumped `Arc` after
+/// one cache mutex and one atomic load, WITHOUT the fold's state lock
+/// (see [`Self::get_or_synthesize`]), so the per-packet path does not
+/// queue behind apply or expiry-sweep write holds. Misses, and lookups
+/// of absent publishers, take the fold read lock and pay the
+/// `synthesize_capability_set` cost plus one Arc alloc.
+pub struct CapabilitySetCache {
+    inner: parking_lot::Mutex<lru::LruCache<NodeId, CachedCapabilitySetEntry>>,
+    hits: std::sync::atomic::AtomicU64,
+    stale_misses: std::sync::atomic::AtomicU64,
+    absent_misses: std::sync::atomic::AtomicU64,
+}
+
+/// Lookup outcome counters for a [`CapabilitySetCache`], from
+/// [`CapabilitySetCache::stats`].
+///
+/// The two miss kinds have different causes. A *stale* miss found an
+/// entry for the node but at an older revision of that node: a
+/// coherence miss, caused by a change to the node's own entries since
+/// it was cached. An *absent* miss found no entry: the node's first
+/// lookup, a capacity eviction, a lookup after [`CapabilitySetCache::clear`],
+/// or a racing lookup of a node another caller is still populating.
+/// The cache cannot tell these apart. Only over a single-threaded
+/// interval with no `clear()` can a caller that knows how many distinct
+/// nodes it looked up derive capacity evictions, as absent misses minus
+/// distinct nodes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CapabilitySetCacheStats {
+    /// Lookups served from the cache.
+    pub hits: u64,
+    /// Lookups that found an entry at an older revision of the node.
+    pub stale_misses: u64,
+    /// Lookups that found no entry for the node.
+    pub absent_misses: u64,
+}
+
+struct CachedCapabilitySetEntry {
+    /// [`Fold::instance_id`] of the fold the entry was synthesized from.
+    /// An entry from any other fold is a miss, on both paths.
+    fold: u64,
+    rev: u64,
+    /// Lock-free handle on the publisher record's revision, `None` for
+    /// an entry cached while the publisher was absent (revision `0`).
+    /// Such entries are validated under the fold read lock instead.
+    handle: Option<super::state::PublisherRevision>,
+    caps: std::sync::Arc<super::super::capability::CapabilitySet>,
+}
+
+impl CachedCapabilitySetEntry {
+    /// Valid without the fold lock: the entry came from `fold`, and the
+    /// publisher record it was cached against still exists and has not
+    /// moved its revision.
+    fn valid_lock_free(&self, fold: u64) -> bool {
+        self.fold == fold
+            && self
+                .handle
+                .as_ref()
+                .is_some_and(|handle| handle.current() == Some(self.rev))
+    }
+
+    /// Valid against the publisher's current record, read under the
+    /// fold lock: either the publisher was absent then and is absent
+    /// now (the empty set is still right), or it is the SAME record at
+    /// the same revision. Comparing records and not bare revision
+    /// numbers keeps a cache that outlives its fold, or is shared with
+    /// another, from accepting a number the other fold issued.
+    fn valid_against(&self, fold: u64, current: Option<&super::state::PublisherRevision>) -> bool {
+        if self.fold != fold {
+            return false;
+        }
+        match (&self.handle, current) {
+            (None, None) => true,
+            (Some(cached), Some(current)) => {
+                cached.same_record(current) && current.current() == Some(self.rev)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl CapabilitySetCache {
+    /// Construct with the default capacity (256 entries).
+    pub fn new() -> Self {
+        Self::with_capacity(CAPABILITY_SET_CACHE_DEFAULT_CAPACITY)
+    }
+
+    /// Construct with a caller-supplied capacity. `capacity == 0`
+    /// is treated as 1 to satisfy `lru::LruCache`'s NonZero
+    /// contract — the caller would have to deliberately defeat
+    /// the cache to set 0, so silently rounding up is friendlier
+    /// than panicking.
+    pub fn with_capacity(capacity: usize) -> Self {
+        let cap =
+            std::num::NonZeroUsize::new(capacity.max(1)).unwrap_or(std::num::NonZeroUsize::MIN);
+        Self {
+            inner: parking_lot::Mutex::new(lru::LruCache::new(cap)),
+            hits: std::sync::atomic::AtomicU64::new(0),
+            stale_misses: std::sync::atomic::AtomicU64::new(0),
+            absent_misses: std::sync::atomic::AtomicU64::new(0),
+        }
+    }
+
+    /// Return a refcount-shareable snapshot of `node_id`'s capability
+    /// set as of the current fold state. A hit returns an
+    /// `Arc::clone`; a miss synthesizes and caches against the node's
+    /// revision.
+    ///
+    /// # Hit without the fold lock
+    ///
+    /// The first check reads the entry's
+    /// [`PublisherRevision`](super::state::PublisherRevision)
+    /// handle, an atomic the fold's writers store to while they hold
+    /// the state write lock. It matches only while the record the
+    /// entry was cached against still exists at the cached revision, so
+    /// a hit here is exactly a hit the locked check below would also
+    /// score; a write that is still in flight is ordered after it. Any
+    /// mismatch falls through to the locked path.
+    ///
+    /// # Locked path
+    ///
+    /// Everything runs inside ONE fold read borrow: the revision read,
+    /// the validity check, and on a miss the synthesis and the store.
+    /// No writer can change the node's entries inside that borrow, so
+    /// the set stored is exactly the state the stored revision names,
+    /// and a hit can never serve a set from before a mutation the
+    /// same borrow observed. A concurrent apply that lands after the
+    /// borrow advances the revision, and the next lookup misses once.
+    /// Racing misses cannot store revisions out of order: a writer
+    /// needs every read borrow released, so two misses whose borrows
+    /// overlap read the same revision, and two that do not are
+    /// separated by any write between them. Synthesis runs outside the
+    /// cache mutex so a slow synthesize does not serialize other
+    /// callers' hits.
+    pub fn get_or_synthesize(
+        &self,
+        fold: &Fold<CapabilityFold>,
+        node_id: NodeId,
+    ) -> std::sync::Arc<super::super::capability::CapabilitySet> {
+        use std::sync::atomic::Ordering::Relaxed;
+        let fold_id = fold.instance_id();
+        {
+            let mut lru = self.inner.lock();
+            if let Some(entry) = lru.get(&node_id) {
+                if entry.valid_lock_free(fold_id) {
+                    self.hits.fetch_add(1, Relaxed);
+                    return entry.caps.clone();
+                }
+            }
+        }
+        fold.with_state(|state| {
+            let handle = state.publisher_revision(node_id);
+            let rev = handle.as_ref().and_then(|h| h.current()).unwrap_or(0);
+            {
+                let mut lru = self.inner.lock();
+                match lru.get(&node_id) {
+                    Some(entry) if entry.valid_against(fold_id, handle.as_ref()) => {
+                        self.hits.fetch_add(1, Relaxed);
+                        return entry.caps.clone();
+                    }
+                    Some(_) => self.stale_misses.fetch_add(1, Relaxed),
+                    None => self.absent_misses.fetch_add(1, Relaxed),
+                };
+            }
+            let caps = std::sync::Arc::new(
+                synthesize_capability_set_in_state(state, node_id).unwrap_or_default(),
+            );
+            self.inner.lock().put(
+                node_id,
+                CachedCapabilitySetEntry {
+                    fold: fold_id,
+                    rev,
+                    handle,
+                    caps: caps.clone(),
+                },
+            );
+            caps
+        })
+    }
+
+    /// Drop every cached entry. Useful in tests; production code
+    /// relies on per-publisher revision validity.
+    pub fn clear(&self) {
+        self.inner.lock().clear();
+    }
+
+    /// Lookup outcome counters since construction. Relaxed loads,
+    /// so a snapshot taken during concurrent lookups may be off by
+    /// in-flight calls.
+    pub fn stats(&self) -> CapabilitySetCacheStats {
+        use std::sync::atomic::Ordering::Relaxed;
+        CapabilitySetCacheStats {
+            hits: self.hits.load(Relaxed),
+            stale_misses: self.stale_misses.load(Relaxed),
+            absent_misses: self.absent_misses.load(Relaxed),
+        }
+    }
+
+    /// Number of currently-cached entries (any generation).
+    /// Used by tests + operator metrics. Cheap; takes the lock.
+    pub fn len(&self) -> usize {
+        self.inner.lock().len()
+    }
+
+    /// True if no entries are cached.
+    pub fn is_empty(&self) -> bool {
+        self.inner.lock().is_empty()
+    }
+}
+
+impl Default for CapabilitySetCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for CapabilitySetCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CapabilitySetCache")
+            .field("len", &self.len())
+            .finish()
+    }
+}
+
+/// `true` if `caller_node` is authorized to invoke `target_node`
+/// for `capability_tag`. Mirrors the legacy
+/// `CapabilityIndex::may_execute` semantics against the fold's
+/// state:
+///
+/// - `target` must have an entry carrying `capability_tag`.
+/// - If `target`'s allow-lists are all empty, the call is
+///   permitted (permissive default).
+/// - Otherwise the caller matches iff at least one populated
+///   axis (node / subnet / group) matches. Caller's subnet and
+///   groups are read from the caller's own fold entries via
+///   `subnet:` / `group:` membership tags.
+///
+/// # This is a ROUTING predicate — it must never gate admission
+///
+/// S1 of SUBNET_AUTH_PLAN.md: the `allowed_subnets` /
+/// `allowed_groups` axes read self-declared tags off the caller's
+/// own announcement, and the target publishes both lists in a
+/// broadcast announcement that forwards up to `MAX_CAPABILITY_HOPS`
+/// — any peer that has seen one provider announcement learns the
+/// admitted values and can claim them with a single `add_tag`. A
+/// match on those axes is therefore only useful to *narrow*: the
+/// caller-side `candidates.retain(...)` path uses this predicate to
+/// skip providers it cannot match, which admits nothing. The
+/// callee-side admission gate is [`may_admit`], where the
+/// self-declared axes never produce an admit.
+pub fn may_execute(
+    fold: &Fold<CapabilityFold>,
+    target_node: NodeId,
+    capability_tag: &str,
+    caller_node: NodeId,
+) -> bool {
+    fold.with_state(|state| {
+        let (caller_subnet, caller_groups) = derive_caller_axes(state, caller_node);
+        may_execute_with_caller(
+            state,
+            target_node,
+            capability_tag,
+            caller_node,
+            caller_subnet.as_ref(),
+            &caller_groups,
+        )
+    })
+}
+
+/// Callee-side admission gate (S1 of SUBNET_AUTH_PLAN.md).
+///
+/// Admits iff the target carries `capability_tag` AND either every
+/// allow-list is empty (permissive default) or `allowed_nodes`
+/// contains the caller. `ann.node_id` is blake2s-bound to
+/// `entity_id` at dispatch, so a peer cannot present another node's
+/// identity — that is the one load-bearing axis.
+///
+/// The self-declared `allowed_subnets` / `allowed_groups` axes never
+/// admit here: their values are publicly disclosed by the provider's
+/// own broadcast and claimable by any observer with one `add_tag`.
+/// A capability restricted by those axes alone denies every caller.
+/// Real membership admission is org/provider admission
+/// (`verify_org_admission`) or, for transport, a `SubnetGrant`.
+///
+/// [`may_execute`] keeps matching the self-declared axes for
+/// caller-side narrowing, which admits nothing.
+pub fn may_admit(
+    fold: &Fold<CapabilityFold>,
+    target_node: NodeId,
+    capability_tag: &str,
+    caller_node: NodeId,
+) -> bool {
+    fold.with_state(|state| {
+        let Some(keys) = state.keys_for(target_node) else {
+            return false;
+        };
+        let mut target_carries_tag = false;
+        let mut allowed_nodes: Vec<u64> = Vec::new();
+        let mut restricted_by_demoted_axis = false;
+        for k in keys {
+            let Some(entry) = state.entries.get(k) else {
+                continue;
+            };
+            if entry.payload.tags.iter().any(|t| t == capability_tag) {
+                target_carries_tag = true;
+            }
+            allowed_nodes.extend(entry.payload.allowed_nodes.iter().copied());
+            restricted_by_demoted_axis |= !entry.payload.allowed_subnets.is_empty()
+                || !entry.payload.allowed_groups.is_empty();
+        }
+        if !target_carries_tag {
+            return false;
+        }
+        if allowed_nodes.is_empty() && !restricted_by_demoted_axis {
+            return true;
+        }
+        allowed_nodes.contains(&caller_node)
+    })
+}
+
+/// OA-2 §2.4a: does `target_node` carry `capability_tag` in the
+/// fold, evaluating NO legacy allow-lists?
+///
+/// The narrow companion to [`may_execute`] for the
+/// organization-admission seam. `may_execute` unions
+/// `allowed_nodes` / `allowed_subnets` / `allowed_groups`
+/// TARGET-WIDE across EVERY capability entry the target carries, so
+/// an unrelated restricted capability (e.g. an admin service with a
+/// tight `allowed_nodes`) on the same provider would gate a
+/// protected service's callers before `OrgAdmission` ever ran. A
+/// service whose admission is `OwnerDelegated` / `CrossOrgGranted`
+/// therefore resolves its registered admission FIRST and uses THIS
+/// check — "is the exact service locally registered and capable?"
+/// — as its only fold precondition, then runs the OA-2 admission
+/// engine
+/// ([`verify_org_admission`](crate::adapter::net::behavior::org_admission::verify_org_admission))
+/// as the load-bearing authority.
+///
+/// Reads ONLY tag presence — it evaluates no allow-lists and
+/// confers no authority on its own, so `may_execute` stays
+/// byte-for-byte unchanged for existing public / v0.4 services.
+pub fn has_local_capability(
+    fold: &Fold<CapabilityFold>,
+    target_node: NodeId,
+    capability_tag: &str,
+) -> bool {
+    fold.with_state(|state| {
+        let Some(keys) = state.keys_for(target_node) else {
+            return false;
+        };
+        keys.iter().any(|k| {
+            state
+                .entries
+                .get(k)
+                .is_some_and(|entry| entry.payload.tags.iter().any(|t| t == capability_tag))
+        })
+    })
+}
+
+/// Batched `may_execute` for the caller-side `candidates.retain(...)`
+/// path: takes ONE fold read lock for the whole batch and derives
+/// the caller's subnet + group membership ONCE outside the per-
+/// target loop. Returns a `Vec<bool>` parallel to `targets` — index
+/// `i` is `true` iff `caller_node` may execute `capability_tag` on
+/// `targets[i]`.
+///
+/// Per PERF_AUDIT §4.2 — pre-fix the retain-style callers at
+/// `mesh_rpc.rs:3093` and `:3185` called the single-target
+/// [`may_execute`] per candidate. Each call took a fresh
+/// `with_state` read lock, walked the caller's entries to re-parse
+/// `subnet:` / `group:` tags from the string form, and allocated
+/// three allow-list Vecs. With 100 candidates that's 100 lock
+/// acquisitions + 100 parses of the caller's tag bag + 300 Vec
+/// allocations for the same answer.
+pub fn may_execute_batch(
+    fold: &Fold<CapabilityFold>,
+    targets: &[NodeId],
+    capability_tag: &str,
+    caller_node: NodeId,
+) -> Vec<bool> {
+    if targets.is_empty() {
+        return Vec::new();
+    }
+    fold.with_state(|state| {
+        // Hoist the caller's subnet + groups out of the per-target
+        // loop. Identical across every iteration; pre-fix this re-
+        // walked + re-parsed every retain step.
+        let (caller_subnet, caller_groups) = derive_caller_axes(state, caller_node);
+        targets
+            .iter()
+            .map(|target_node| {
+                may_execute_with_caller(
+                    state,
+                    *target_node,
+                    capability_tag,
+                    caller_node,
+                    caller_subnet.as_ref(),
+                    &caller_groups,
+                )
+            })
+            .collect()
+    })
+}
+
+/// Internal: derive `(subnet, groups)` for `caller_node` from the
+/// fold's `by_node` reverse index. `subnet:<hex>` / `group:<hex>`
+/// tags are mapped through `SubnetId::from_tag` / `GroupId::from_tag`.
+/// Returns `(None, Vec::new())` for an unknown caller.
+///
+/// The substrate treats subnet membership as single-valued, so
+/// multiple *distinct* `subnet:` tags are out-of-model malformed
+/// input and collapse to `None` (no membership). This keeps the
+/// verdict deterministic across receivers: the pre-S1 implementation
+/// kept whichever tag the entry walk surfaced last, which is
+/// wire-order dependent — two receivers holding the same signed
+/// announcement could disagree. Distinct `group:` tags accumulate,
+/// deduplicated and sorted by byte value so iteration order agrees
+/// everywhere. (This is the rule the retired
+/// `parse_membership_tags` in `behavior/capability.rs` documented;
+/// this is now its single live home.)
+fn derive_caller_axes(
+    state: &super::state::FoldState<CapabilityFold>,
+    caller_node: NodeId,
+) -> (
+    Option<super::super::subnet::SubnetId>,
+    Vec<super::super::group::GroupId>,
+) {
+    let Some(caller_keys) = state.keys_for(caller_node) else {
+        return (None, Vec::new());
+    };
+    let mut subnet_candidates: Vec<super::super::subnet::SubnetId> = Vec::new();
+    let mut caller_groups: Vec<super::super::group::GroupId> = Vec::new();
+    for k in caller_keys {
+        let Some(entry) = state.entries.get(k) else {
+            continue;
+        };
+        for raw in &entry.payload.tags {
+            if let Some(subnet) = super::super::subnet::SubnetId::from_tag(raw) {
+                if !subnet_candidates.contains(&subnet) {
+                    subnet_candidates.push(subnet);
+                }
+                continue;
+            }
+            if let Some(group) = super::super::group::GroupId::from_tag(raw) {
+                if !caller_groups.contains(&group) {
+                    caller_groups.push(group);
+                }
+            }
+        }
+    }
+    let caller_subnet = if subnet_candidates.len() == 1 {
+        Some(subnet_candidates[0])
+    } else {
+        None
+    };
+    caller_groups.sort_by_key(|g| g.0);
+    (caller_subnet, caller_groups)
+}
+
+/// Internal: per-target verdict that takes the pre-derived caller
+/// axes instead of re-walking the caller's entries per call. Same
+/// semantics as the inner body of [`may_execute`].
+fn may_execute_with_caller(
+    state: &super::state::FoldState<CapabilityFold>,
+    target_node: NodeId,
+    capability_tag: &str,
+    caller_node: NodeId,
+    caller_subnet: Option<&super::super::subnet::SubnetId>,
+    caller_groups: &[super::super::group::GroupId],
+) -> bool {
+    let Some(keys) = state.keys_for(target_node) else {
+        return false;
+    };
+    let mut target_carries_tag = false;
+    let mut allowed_nodes: Vec<u64> = Vec::new();
+    let mut allowed_subnets: Vec<super::super::subnet::SubnetId> = Vec::new();
+    let mut allowed_groups: Vec<super::super::group::GroupId> = Vec::new();
+    for k in keys {
+        let Some(entry) = state.entries.get(k) else {
+            continue;
+        };
+        if entry.payload.tags.iter().any(|t| t == capability_tag) {
+            target_carries_tag = true;
+        }
+        allowed_nodes.extend(entry.payload.allowed_nodes.iter().copied());
+        allowed_subnets.extend(entry.payload.allowed_subnets.iter().copied());
+        allowed_groups.extend(entry.payload.allowed_groups.iter().cloned());
+    }
+    if !target_carries_tag {
+        return false;
+    }
+    if allowed_nodes.is_empty() && allowed_subnets.is_empty() && allowed_groups.is_empty() {
+        return true;
+    }
+    if allowed_nodes.contains(&caller_node) {
+        return true;
+    }
+    if !allowed_subnets.is_empty() {
+        if let Some(subnet) = caller_subnet {
+            if allowed_subnets.contains(subnet) {
+                return true;
+            }
+        }
+    }
+    if !allowed_groups.is_empty() {
+        for g in caller_groups {
+            if allowed_groups.contains(g) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Clock skew tolerated when bounding a forwarded announcement's lifetime
+/// by its origin's signed timestamp.
+pub const FORWARDED_ANNOUNCEMENT_SKEW_SECS: u64 = 30;
+
+/// The lifetime the fold grants an announcement. A DIRECT announcement
+/// lives its signed `ttl_secs` from receipt, as before. A FORWARDED one
+/// (`hop_count > 0`) — including one a hub replays to a peer that attached
+/// later — lives only what remains of its origin-signed lifetime (measured
+/// from its signed `timestamp_ns`, with [`FORWARDED_ANNOUNCEMENT_SKEW_SECS`]
+/// of clock-skew slack): forwarding or replaying it never refreshes stale
+/// authority. Already past that bound, it lives zero seconds.
+pub fn effective_ttl_secs(ann: &CapabilityAnnouncement) -> u32 {
+    if ann.hop_count == 0 {
+        return ann.ttl_secs;
+    }
+    let now_ns = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let age_secs = now_ns.saturating_sub(ann.timestamp_ns) / 1_000_000_000;
+    let consumed = age_secs.saturating_sub(FORWARDED_ANNOUNCEMENT_SKEW_SECS);
+    u64::from(ann.ttl_secs)
+        .saturating_sub(consumed)
+        .min(u64::from(ann.ttl_secs)) as u32
+}
+
+/// The payload's tag strings, its region, and the hardware projection,
+/// from ONE pass over `tags`, which may arrive in any order (the caller
+/// passes a `HashSet`, whose order is unspecified).
+///
+/// The hardware projection decodes only the hardware-axis subset, sorted:
+/// `hardware_from_tags` skips every other axis, and the tags are distinct,
+/// so the sorted subset decodes exactly like the full sorted set the
+/// `views()` path used. The sort is what makes the result independent of
+/// arrival order when two tags set the same field (last one wins);
+/// `translate_projection_is_independent_of_tag_order` pins it with a
+/// deterministic adversarial order.
+///
+/// Each tag renders into one reused scratch buffer and is stored as an
+/// exact-length copy. The stored strings live in the fold for the entry's
+/// lifetime, so they carry no spare capacity: rendering straight into a
+/// per-tag `String` left growth or pre-sizing slack resident in every
+/// payload (~620 B per entry on the bench fixture).
+fn project_tags<'a>(
+    tags: impl IntoIterator<Item = &'a super::super::tag::Tag>,
+) -> (
+    Vec<TagStr>,
+    Option<String>,
+    super::super::capability::HardwareCapabilities,
+) {
+    let tags = tags.into_iter();
+    let mut rendered: Vec<TagStr> = Vec::with_capacity(tags.size_hint().0);
+    let mut region: Option<String> = None;
+    let mut hardware_tags: Vec<super::super::tag::Tag> = Vec::new();
+    let mut scratch = String::new();
+    for tag in tags {
+        scratch.clear();
+        let _ = std::fmt::Write::write_fmt(&mut scratch, format_args!("{tag}"));
+        if region.is_none() {
+            if let Some(r) = scratch.strip_prefix("scope:region:") {
+                region = Some(r.to_owned());
+            }
+        }
+        rendered.push(TagStr::from(scratch.as_str()));
+        if matches!(
+            tag.axis_key_ref(),
+            Some((super::super::tag::TaxonomyAxis::Hardware, _))
+        ) {
+            hardware_tags.push(tag.clone());
+        }
+    }
+    hardware_tags.sort_unstable();
+    let hardware = super::super::tag_codec::hardware_from_tags(&hardware_tags);
+    (rendered, region, hardware)
+}
+
+/// Translate a legacy [`CapabilityAnnouncement`] into a
+/// fold-shaped [`SignedAnnouncement<CapabilityMembership>`]
+/// suitable for [`Fold::apply`] dual-population during the
+/// Phase 3b cutover. The fold-side envelope is stamped with
+/// the [`super::wire::placeholder_signature`] sentinel — apply
+/// trusts its input (the dispatch layer is the one that
+/// verifies), so the placeholder is fine here. The legacy
+/// announcement's own signature has already been verified by
+/// the cap-ann dispatch handler upstream.
+///
+/// `class_hash = 0` is a cutover sentinel: legacy announcements
+/// don't carry the fold's per-class sharding model, so every
+/// translated entry shares the same `(class=0, node_id)` key.
+/// Queries that don't constrain on class — which is every
+/// caller in this codebase per the prior survey — work
+/// transparently against this layout.
+///
+/// `verified_owner` is the OA-1 ownership projection and MUST
+/// come from `verify_announced_owner_cert` (or be `None`). The
+/// parameter is deliberately explicit rather than derived here:
+/// this function is pure and is also reached from paths that never
+/// verified anything (test injection, fixture priming), so the
+/// authority decision has to be visible at every call site.
+pub fn translate_announcement(
+    ann: &CapabilityAnnouncement,
+    verified_owner: Option<VerifiedOwner>,
+) -> SignedAnnouncement<CapabilityMembership> {
+    let (tags, region, hw_view) = project_tags(&ann.capabilities.tags);
+    let primary_gpu = hw_view.gpu.as_ref();
+    let gpu_count =
+        (primary_gpu.is_some() as u8).saturating_add(hw_view.additional_gpus.len() as u8);
+    let gpu_vendor = primary_gpu.map(|g| gpu_vendor_canonical(g.vendor).to_string());
+    let vram_gb = {
+        let mut total: u32 = 0;
+        if let Some(g) = primary_gpu {
+            total = total.saturating_add(g.vram_gb);
+        }
+        for g in &hw_view.additional_gpus {
+            total = total.saturating_add(g.vram_gb);
+        }
+        (gpu_count > 0).then_some(total)
+    };
+    let memory_gb = (hw_view.memory_gb > 0).then_some(hw_view.memory_gb);
+    let hardware = if primary_gpu.is_some() || memory_gb.is_some() {
+        Some(HardwareSummary {
+            gpu_vendor,
+            gpu_count,
+            memory_gb,
+            vram_gb,
+        })
+    } else {
+        None
+    };
+
+    SignedAnnouncement::placeholder(
+        CapabilityFold::KIND_ID,
+        0,
+        ann.node_id,
+        ann.version.max(1),
+        EnvelopeMeta {
+            announced_at: ann.timestamp_ns / 1_000,
+            ttl_secs: Some(effective_ttl_secs(ann)),
+            flags: 0,
+        },
+        CapabilityMembership {
+            class_hash: 0,
+            tags,
+            hardware,
+            state: NodeState::Idle,
+            region,
+            price_quote: None,
+            reflex_addr: ann.reflex_addr,
+            noise_pubkey: ann.noise_pubkey,
+            rtc_bootstrap: ann.rtc_bootstrap.clone(),
+            rtc_addr: ann.rtc_addr,
+            rtc_stun_addr: ann.rtc_stun_addr.clone(),
+            allowed_nodes: ann.allowed_nodes.clone(),
+            allowed_subnets: ann.allowed_subnets.clone(),
+            allowed_groups: ann.allowed_groups.clone(),
+            metadata: ann.capabilities.metadata.clone(),
+            owner: verified_owner,
+        },
+    )
+}
+
+/// Run a legacy-filter query against the fold and return the
+/// matching node ids. Handles the two-stage shape: fold's
+/// secondary index for the indexable axes, then in-memory
+/// post-filter for the range predicates. Dedupes across
+/// per-`(class, node)` entries that may match (a publisher in
+/// multiple classes counts once).
+pub fn find_nodes_matching(fold: &Fold<CapabilityFold>, legacy: &LegacyFilter) -> Vec<NodeId> {
+    let fold_filter = translate_filter(legacy);
+    let range_predicates_present = legacy.min_memory_gb.is_some()
+        || legacy.min_vram_gb.is_some()
+        || !legacy.require_modalities.is_empty()
+        || legacy.min_context_length.is_some();
+    // PERF_AUDIT §4.11 — permissive fast path: when no field of
+    // the translated filter constrains the candidate set AND no
+    // legacy range/modality predicate would tighten the post-
+    // filter, the result is simply "every distinct publisher
+    // node id in the fold". Skip the full `HashSet<(class,
+    // NodeId)>` build + per-key retain loops that the general
+    // path runs, and the per-entry payload borrow + range check
+    // the legacy post-filter does. `state.by_node` already keys
+    // by NodeId so iteration is dedup-free; sort to preserve the
+    // deterministic-order contract callers rely on.
+    if fold_filter.is_permissive() && !range_predicates_present {
+        return fold.with_state(|state| {
+            let mut ids: Vec<NodeId> = state.by_node.keys().copied().collect();
+            ids.sort_unstable();
+            ids
+        });
+    }
+    // Resolve the indexed-axis candidate keys and run the
+    // non-indexed post-filter against *borrowed* payloads, all
+    // under one read-lock acquisition. The bulk path only needs
+    // node ids out, so we never clone a `CapabilityMembership` —
+    // unlike the `Vec<CapabilityMatch>` query path, which clones
+    // every match before the caller can discard it.
+    let mut out: Vec<NodeId> = fold.with_state_and_index(|state, index| {
+        let candidates = resolve_candidate_keys(state, index, &fold_filter);
+        let mut ids: Vec<NodeId> = Vec::with_capacity(candidates.len());
+        for key in candidates.keys() {
+            let Some(entry) = state.entries.get(&key) else {
+                continue;
+            };
+            // The index already resolved the tag / model / tool /
+            // gpu axes; only the range predicates remain.
+            if membership_passes_range_filter(&entry.payload, legacy) {
+                ids.push(key.1);
+            }
+        }
+        ids
+    });
+    // Sort + dedup: callers (e.g. the scheduler's `FirstMatch`
+    // placement) need a deterministic order across processes, and a
+    // publisher present in multiple classes must count once. Sorting
+    // the Vec and deduping is cheaper than routing through a
+    // `HashSet<NodeId>` first.
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// `true` if `node_id` has any fold entry that satisfies `legacy`.
+/// Single-target variant of [`find_nodes_matching`] — avoids the
+/// full composite query when callers (the placement layer's
+/// per-target scorer) only need a yes/no for one specific node.
+///
+/// Walks the publisher's class entries via the `by_node` reverse
+/// index (O(num classes the publisher owns), typically 0-3) and
+/// runs the same `tags_all` intersection + post-filter the bulk
+/// path applies. Returns `false` for unknown publishers, matching
+/// the bulk path's "missing publishers don't appear" contract.
+pub fn target_matches_filter(
+    fold: &Fold<CapabilityFold>,
+    node_id: NodeId,
+    legacy: &LegacyFilter,
+) -> bool {
+    fold.with_state(|state| {
+        let Some(keys) = state.keys_for(node_id) else {
+            return false;
+        };
+        for key in keys {
+            let Some(entry) = state.entries.get(key) else {
+                continue;
+            };
+            let membership = &entry.payload;
+            // Same tag-intersection rule the fold's secondary
+            // index applies (`tags_all` ⊆ membership.tags), then
+            // the range / vendor / model / tool post-filter.
+            let tags_ok = legacy
+                .require_tags
+                .iter()
+                .all(|t| membership.tags.iter().any(|m| m == t));
+            if !tags_ok {
+                continue;
+            }
+            if !membership_passes_post_filter(membership, legacy) {
+                continue;
+            }
+            return true;
+        }
+        false
+    })
+}
+
+/// Derive a [`CapabilityScope`] from a [`CapabilityMembership`]'s
+/// string-tag set. Reads the canonical string form the fold's
+/// payload carries — `"scope:global"`, `"scope:subnet-local"`,
+/// `"scope:tenant:<id>"`, `"scope:region:<name>"`.
+///
+/// `pub(crate)` because [`CapabilityScope`] is itself
+/// `pub(crate)`; downstream callers reach scope filtering
+/// through [`find_nodes_matching_scoped`].
+///
+/// No longer on the query path — that now runs
+/// [`PreparedScope::matches`](super::super::capability::PreparedScope::matches),
+/// which reaches the same verdict without allocating a `String` per
+/// scope tag while the fold's read locks are held. (The
+/// `tags_match_scope` wrapper is NOT the query path: it rebuilds the
+/// prepared selector sets per call, so it allocates for the `Tenants` /
+/// `Regions` forms and is for tests and single-shot callers.)
+///
+/// Retained as the readable reference definition and as the oracle for
+/// `tags_match_scope_agrees_with_materialized_scope`, which pins the
+/// two to identical verdicts across the scope matrix.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scope_from_membership_tags(tags: &[String]) -> CapabilityScope {
+    let mut tenants: Vec<String> = Vec::new();
+    let mut regions: Vec<String> = Vec::new();
+    let mut subnet_local = false;
+    for tag in tags {
+        // Reserved-tag prefix lives at "scope:"; everything after
+        // is the body.
+        let Some(body) = tag.strip_prefix("scope:") else {
+            continue;
+        };
+        if body == "subnet-local" {
+            subnet_local = true;
+        } else if let Some(id) = body.strip_prefix("tenant:") {
+            if !id.is_empty() {
+                tenants.push(id.to_string());
+            }
+        } else if let Some(name) = body.strip_prefix("region:") {
+            if !name.is_empty() {
+                regions.push(name.to_string());
+            }
+        }
+        // "scope:global" is the default; presence is a no-op.
+    }
+    if subnet_local {
+        CapabilityScope::SubnetLocal
+    } else {
+        match (tenants.is_empty(), regions.is_empty()) {
+            (true, true) => CapabilityScope::Global,
+            (false, true) => CapabilityScope::Tenants(tenants),
+            (true, false) => CapabilityScope::Regions(regions),
+            (false, false) => CapabilityScope::TenantsAndRegions { tenants, regions },
+        }
+    }
+}
+
+/// Run a [`Predicate`](super::super::predicate::Predicate)
+/// against every publisher in the fold and return the matching
+/// `(node_id, synthesized_caps)` pairs. Walks the fold's
+/// `by_node` reverse index and builds the `EvalContext` from a
+/// synthesized
+/// [`CapabilitySet`](super::super::capability::CapabilitySet).
+///
+/// Tag-based predicates work fully — reserved-prefix tags
+/// round-trip through `Tag::parse` inside
+/// [`synthesize_capability_set`]. Metadata-based predicates
+/// see the merged BTreeMap from every entry the publisher owns,
+/// per [`synthesize_capability_set`]'s last-write-wins merge
+/// on key collision.
+pub fn filter_by_predicate(
+    fold: &Fold<CapabilityFold>,
+    predicate: &super::super::predicate::Predicate,
+) -> Vec<(NodeId, super::super::capability::CapabilitySet)> {
+    let publishers: Vec<NodeId> = fold.with_state(|state| state.by_node.keys().copied().collect());
+    let mut out = Vec::new();
+    for node_id in publishers {
+        let caps = synthesize_capability_set(fold, node_id);
+        let owned_tags: Vec<super::super::tag::Tag> = caps.tags.iter().cloned().collect();
+        let ctx = super::super::predicate::EvalContext::new(&owned_tags, &caps.metadata);
+        if predicate.evaluate_unplanned(&ctx) {
+            out.push((node_id, caps));
+        }
+    }
+    out
+}
+
+/// Scoped variant of [`find_nodes_matching`]. Filters
+/// candidates through `scope` (resolved from each
+/// publisher's `scope:*` tags) on top of the capability
+/// filter. `same_subnet_lookup(node_id, tags) -> bool` is supplied
+/// by the caller; the bridge has no native subnet state.
+///
+/// `same_subnet_lookup(node_id, tags)` is invoked ONLY under a
+/// [`ScopeFilter::SameSubnet`] query, where every arm of the scope
+/// decision reduces to `same_subnet` and the candidate's own tags cannot
+/// change the verdict. Under every other filter the verdict is fully
+/// determined from the tags — including for a `scope:subnet-local`
+/// candidate, which those filters reject outright — so the closure is
+/// never reached. It used to run eagerly for every candidate of every
+/// scoped query even though the result was then discarded.
+///
+/// # Single snapshot
+///
+/// The closure receives the candidate's tags BORROWED FROM THE SAME
+/// fold snapshot that selected it, and runs while that snapshot's locks
+/// are held. That is deliberate: the previous shape passed only a
+/// `NodeId`, so a `MeshNode` resolving a forwarded peer had to reacquire
+/// the fold after the selection locks dropped — two observations, which
+/// a concurrent replacement between them could combine into a result
+/// that never existed in any single fold state (matched on the old
+/// entry's capabilities, judged on the new entry's subnet).
+///
+/// The closure must therefore be PURE with respect to the fold: it may
+/// read caller-side state, but must not query the fold, or it will
+/// deadlock or re-enter. Deriving a subnet from the borrowed tags needs
+/// no fold access, so this costs nothing.
+pub fn find_nodes_matching_scoped(
+    fold: &Fold<CapabilityFold>,
+    legacy: &LegacyFilter,
+    scope: &ScopeFilter<'_>,
+    same_subnet_lookup: impl Fn(NodeId, &[TagStr]) -> bool,
+) -> Vec<NodeId> {
+    let fold_filter = translate_filter(legacy);
+    // Borrow-and-filter, same as `find_nodes_matching`: resolve
+    // candidate keys via the index and run the range post-filter
+    // against borrowed payloads without cloning.
+    //
+    // The scope decision runs here too, but through
+    // `PreparedScope::matches`, which streams the borrowed tag strings
+    // without materializing a `CapabilityScope`. The materializing
+    // form allocated a `String` per scope tag plus a `Vec` per
+    // candidate, per query, while these read locks were held — cost an
+    // announcer controls, paid by every peer on every scoped query.
+    // Note this is `matches` on the ALREADY-prepared filter, not the
+    // `tags_match_scope` wrapper — that one rebuilds the selector sets
+    // per call and would reintroduce an allocation inside the locks.
+    //
+    // `same_subnet_lookup` runs INSIDE the same snapshot, against the
+    // borrowed tags of the entry that was just selected — see the
+    // "Single snapshot" note above for why the two observations must
+    // not be split. It is fold-pure by contract, so there is no
+    // re-entrancy hazard.
+    //
+    // Under `ScopeFilter::SameSubnet` every arm of the scope decision
+    // reduces to `same_subnet`, so the tags are not consulted for scope
+    // at all and the subnet closure alone decides. Under every other
+    // filter the verdict comes entirely from the tags and the closure
+    // is never called.
+    let subnet_decides = matches!(scope, ScopeFilter::SameSubnet);
+    // Hoist the filter's selector lists into hash sets BEFORE taking the
+    // locks. Inside, each selector test is then O(1) rather than a scan
+    // of the caller's list per matching scope tag per candidate.
+    let prepared = PreparedScope::new(scope);
+    let mut out: Vec<NodeId> = fold.with_state_and_index(|state, index| {
+        let candidates = resolve_candidate_keys(state, index, &fold_filter);
+        let mut acc: Vec<NodeId> = Vec::with_capacity(candidates.len());
+        for key in candidates.keys() {
+            let Some(entry) = state.entries.get(&key) else {
+                continue;
+            };
+            let membership = &entry.payload;
+            // The index already resolved the tag / model / tool /
+            // gpu axes; only the range predicates remain.
+            if !membership_passes_range_filter(membership, legacy) {
+                continue;
+            }
+            let admitted = if subnet_decides {
+                same_subnet_lookup(key.1, &membership.tags)
+            } else {
+                // `same_subnet` is unread on every arm reachable here,
+                // so the placeholder never affects the verdict.
+                prepared.matches(&membership.tags, false)
+            };
+            if admitted {
+                acc.push(key.1);
+            }
+        }
+        acc
+    });
+    // Sort + dedup: deterministic order and one entry per publisher
+    // (a publisher may match under multiple classes).
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// Highest-scoring publisher matching `legacy`, or `None` when
+/// nothing matches. Single-winner counterpart to
+/// [`find_nodes_matching`].
+///
+/// `score` is applied to each admitted candidate's synthesized
+/// [`CapabilitySet`](super::super::capability::CapabilitySet) —
+/// canonical tags merged across the publisher's fold entries, which
+/// the set's lazy `views()` projections decode back into hardware
+/// and model facts. The caller supplies it (typically
+/// `CapabilityRequirement::score`) because the bridge holds no
+/// placement policy.
+///
+/// Ties resolve to the lowest `node_id`: candidates are scored in
+/// ascending id order and a later candidate only wins on a strictly
+/// greater score. A requirement whose weights are all zero scores
+/// every candidate equally and so returns the lowest matching id,
+/// matching [`find_nodes_matching`]'s leading element.
+///
+/// A `NaN` score is not a low score, it is the absence of one: the
+/// candidate is skipped rather than ranked. Comparison against `NaN`
+/// is false in both directions, so a `NaN` incumbent could not be
+/// displaced by anything — one unscoreable candidate arriving first
+/// would win outright over every real one behind it. If EVERY
+/// candidate is unscoreable the result is still the lowest matching
+/// id: they matched the filter, so "no winner" would be the wrong
+/// answer, and the tie-break is what an all-equal set already
+/// returns.
+///
+/// `score` runs after the fold guards are released, so it may read
+/// or even mutate the fold without deadlocking. It sees the
+/// capability sets captured by the selecting snapshot regardless.
+pub(crate) fn best_node_matching(
+    fold: &Fold<CapabilityFold>,
+    legacy: &LegacyFilter,
+    score: impl Fn(&super::super::capability::CapabilitySet) -> f32,
+) -> Option<NodeId> {
+    best_node_inner(fold, legacy, None, |_, _| false, score)
+}
+
+/// Scoped variant of [`best_node_matching`] — the single-winner
+/// counterpart to [`find_nodes_matching_scoped`], with that
+/// function's scope semantics and `same_subnet_lookup` contract
+/// (fold-pure, invoked only under [`ScopeFilter::SameSubnet`],
+/// against tags borrowed from the selecting snapshot).
+///
+/// Scope narrows the candidate set BEFORE scoring, so an
+/// out-of-scope publisher cannot win on score.
+pub(crate) fn best_node_matching_scoped(
+    fold: &Fold<CapabilityFold>,
+    legacy: &LegacyFilter,
+    scope: &ScopeFilter<'_>,
+    same_subnet_lookup: impl Fn(NodeId, &[TagStr]) -> bool,
+    score: impl Fn(&super::super::capability::CapabilitySet) -> f32,
+) -> Option<NodeId> {
+    best_node_inner(fold, legacy, Some(scope), same_subnet_lookup, score)
+}
+
+/// # One snapshot, then score
+///
+/// Filtering, scope evaluation and per-candidate capability
+/// synthesis all happen inside a single `with_state_and_index`,
+/// which hands back OWNED `(NodeId, CapabilitySet)` pairs. Scoring
+/// runs afterwards, with both fold guards released.
+///
+/// Capturing the sets under one read is what makes the result
+/// coherent; holding the guards across `score` is not. The composed
+/// alternative — `find_nodes_matching*` for the ids, then
+/// `synthesize_capability_set` per id — reads the fold once for
+/// membership and again per candidate for scoring. A replacement
+/// landing between those reads yields a winner selected on one
+/// generation's capabilities and scored on another's, or scored
+/// against `CapabilitySet::default()` after an eviction: a
+/// zero-capacity node beating a live one under a memory weight.
+/// Neither result existed in any single fold state.
+///
+/// Scoring is deliberately outside. `score` is caller-supplied and
+/// carries no fold-purity contract — unlike `same_subnet_lookup`,
+/// which is documented fold-pure precisely because it IS called
+/// under the guards. A scorer that touched the fold would otherwise
+/// deadlock against the read guards its own caller holds, and every
+/// scorer would hold both guards, and each writer queued behind
+/// them, across candidate-controlled work.
+fn best_node_inner(
+    fold: &Fold<CapabilityFold>,
+    legacy: &LegacyFilter,
+    scope: Option<&ScopeFilter<'_>>,
+    same_subnet_lookup: impl Fn(NodeId, &[TagStr]) -> bool,
+    score: impl Fn(&super::super::capability::CapabilitySet) -> f32,
+) -> Option<NodeId> {
+    let mut best: Option<(NodeId, f32)> = None;
+    // The lowest matching id, held separately so an all-unscoreable candidate
+    // set still resolves to the tie-break rather than to "no match". Candidates
+    // arrive in ascending id order, so this is the first one seen.
+    let mut lowest_matching: Option<NodeId> = None;
+    for (node_id, caps) in candidates_for_selection(fold, legacy, scope, same_subnet_lookup) {
+        lowest_matching.get_or_insert(node_id);
+        let s = score(&caps);
+        // Skipped, not ranked. `NaN` compares false against everything, so a
+        // `NaN` incumbent is one nothing can displace — leaving the winner
+        // decided by whichever unscoreable candidate happened to sort first.
+        if s.is_nan() {
+            continue;
+        }
+        let displaces = match best {
+            Some((_, incumbent)) => s > incumbent,
+            None => true,
+        };
+        if displaces {
+            best = Some((node_id, s));
+        }
+    }
+    best.map(|(node_id, _)| node_id).or(lowest_matching)
+}
+
+/// Every publisher matching `legacy` — and `scope`, when given —
+/// paired with the capability set the admitting fold state held for
+/// it, in ascending node-id order.
+///
+/// One `with_state_and_index` covers the whole traversal, so each
+/// returned set comes from the same fold generation as the
+/// membership decision that admitted it. The ordering IS
+/// [`best_node_inner`]'s tie-break, since scoring there only
+/// displaces an incumbent on a strictly greater score.
+///
+/// # What coherence costs here
+///
+/// Both of these follow from doing the synthesis inside the read,
+/// and neither is free:
+///
+/// - **Lock hold time scales with the candidate set, not with the
+///   membership decision.** A full `Tag::parse` per tag plus a
+///   metadata clone per entry, for every admitted candidate, runs
+///   under both fold read guards — where [`find_nodes_matching`]
+///   holds them only long enough to decide membership and hands back
+///   bare ids. Fold writers queue behind all of it. That is the
+///   multi-µs-per-node cost `CapabilitySetCache` exists to keep off
+///   the hot paths, and this path cannot use the cache: a lookup
+///   re-enters the fold for its generation stamp, which is the
+///   second read the whole shape exists to avoid.
+/// - **Peak memory holds every candidate's set at once**, rather
+///   than one at a time as a scored-in-a-loop shape would.
+///
+/// Both are bounded by the candidate set the filter admits, and
+/// accepted because the callers are the FFI and binding surfaces —
+/// operator-initiated placement queries, not per-packet work.
+/// `placement_score` and greedy admission, which ARE per-packet,
+/// stay on the cached single-node path. A hot caller appearing on
+/// this one is the signal to revisit, not a reason to widen it:
+/// re-splitting the read is what let a winner be selected on one
+/// generation's capabilities and scored on another's.
+fn candidates_for_selection(
+    fold: &Fold<CapabilityFold>,
+    legacy: &LegacyFilter,
+    scope: Option<&ScopeFilter<'_>>,
+    same_subnet_lookup: impl Fn(NodeId, &[TagStr]) -> bool,
+) -> Vec<(NodeId, super::super::capability::CapabilitySet)> {
+    let fold_filter = translate_filter(legacy);
+    // Same hoisting as `find_nodes_matching_scoped`: prepare the
+    // selector sets before taking the locks, and let the subnet
+    // closure decide alone under `SameSubnet` (where the candidate's
+    // own tags cannot change the verdict).
+    let subnet_decides = matches!(scope, Some(ScopeFilter::SameSubnet));
+    let prepared = scope.map(PreparedScope::new);
+    fold.with_state_and_index(|state, index| {
+        let candidates = resolve_candidate_keys(state, index, &fold_filter);
+        let mut admitted: Vec<NodeId> = Vec::with_capacity(candidates.len());
+        for key in candidates.keys() {
+            let Some(entry) = state.entries.get(&key) else {
+                continue;
+            };
+            let membership = &entry.payload;
+            if !membership_passes_range_filter(membership, legacy) {
+                continue;
+            }
+            if let Some(prepared) = prepared.as_ref() {
+                let in_scope = if subnet_decides {
+                    same_subnet_lookup(key.1, &membership.tags)
+                } else {
+                    // `same_subnet` is unread on every arm reachable
+                    // here, so the placeholder cannot affect it.
+                    prepared.matches(&membership.tags, false)
+                };
+                if !in_scope {
+                    continue;
+                }
+            }
+            admitted.push(key.1);
+        }
+        // Ascending ids, one entry per publisher — this ordering IS
+        // the caller's tie-break, since scoring only displaces on a
+        // strictly greater score.
+        admitted.sort_unstable();
+        admitted.dedup();
+
+        admitted
+            .into_iter()
+            .filter_map(|node_id| {
+                // A candidate resolved from the index always has a
+                // `by_node` entry in this same state, so the `None`
+                // arm is unreachable; dropping the candidate rather
+                // than substituting an empty set keeps an unindexed
+                // one from outscoring a real one if that ever stops
+                // holding.
+                //
+                // The state-local helper, not the fold-taking one:
+                // re-entering the fold here would deadlock on the
+                // read guards this closure holds.
+                Some((node_id, synthesize_capability_set_in_state(state, node_id)?))
+            })
+            .collect()
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::net::behavior::fold::{
+        EnvelopeMeta, FoldKind, NodeState, SignedAnnouncement,
+    };
+    use crate::adapter::net::identity::EntityKeypair;
+    use std::collections::HashSet;
+    use std::time::Duration;
+
+    fn sign_member(
+        kp: &EntityKeypair,
+        node_id: NodeId,
+        class: u64,
+        tags: Vec<&str>,
+        hardware: Option<super::super::capability::HardwareSummary>,
+    ) -> SignedAnnouncement<CapabilityMembership> {
+        SignedAnnouncement::sign(
+            kp,
+            super::super::capability::CapabilityFold::KIND_ID,
+            class,
+            node_id,
+            1,
+            EnvelopeMeta::default(),
+            CapabilityMembership {
+                class_hash: class,
+                tags: tags.into_iter().map(Into::into).collect(),
+                hardware,
+                state: NodeState::Idle,
+                region: None,
+                price_quote: None,
+                reflex_addr: None,
+                noise_pubkey: None,
+                rtc_bootstrap: None,
+                rtc_addr: None,
+                rtc_stun_addr: None,
+                allowed_nodes: Vec::new(),
+                allowed_subnets: Vec::new(),
+                allowed_groups: Vec::new(),
+                metadata: std::collections::BTreeMap::new(),
+                owner: None,
+            },
+        )
+        .expect("sign")
+    }
+
+    fn new_fold() -> Fold<CapabilityFold> {
+        Fold::with_sweep_interval(Duration::ZERO)
+    }
+
+    /// [`sign_member`] with an explicit version and owner projection —
+    /// the shape verified public ingest produces for an announcement
+    /// that carried a valid owner cert.
+    fn sign_member_owned(
+        kp: &EntityKeypair,
+        node_id: NodeId,
+        class: u64,
+        version: u64,
+        tags: Vec<&str>,
+        owner: Option<VerifiedOwner>,
+    ) -> SignedAnnouncement<CapabilityMembership> {
+        SignedAnnouncement::sign(
+            kp,
+            super::super::capability::CapabilityFold::KIND_ID,
+            class,
+            node_id,
+            version,
+            EnvelopeMeta::default(),
+            CapabilityMembership {
+                class_hash: class,
+                tags: tags.into_iter().map(Into::into).collect(),
+                hardware: None,
+                state: NodeState::Idle,
+                region: None,
+                price_quote: None,
+                reflex_addr: None,
+                noise_pubkey: None,
+                rtc_bootstrap: None,
+                rtc_addr: None,
+                rtc_stun_addr: None,
+                allowed_nodes: Vec::new(),
+                allowed_subnets: Vec::new(),
+                allowed_groups: Vec::new(),
+                metadata: std::collections::BTreeMap::new(),
+                owner,
+            },
+        )
+        .expect("sign")
+    }
+
+    // -----------------------------------------------------------------
+    // public_owned_providers (SUBNET_AUTH_SDK_PLAN.md R1)
+    // -----------------------------------------------------------------
+
+    const EXPORTED_TAG: &str = "nrpc:fleet.telemetry";
+
+    /// The shape production ingest produces: the projection names the
+    /// announcing entity, and the node id derives from it.
+    fn owned(kp: &EntityKeypair, org: OrgId, generation: u32) -> Option<VerifiedOwner> {
+        Some(VerifiedOwner::new(kp.entity_id(), org, generation))
+    }
+
+    fn one(node_id: NodeId, kp: &EntityKeypair, owner_org: OrgId) -> Vec<OwnedPublisher> {
+        vec![OwnedPublisher {
+            node_id,
+            member: kp.entity_id().clone(),
+            owner_org,
+        }]
+    }
+
+    /// A candidate without a verified owner projection is ineligible —
+    /// the query cannot express "candidate, owner unknown", so an
+    /// unowned public announcement simply does not appear.
+    #[test]
+    fn public_owned_providers_exclude_unowned_candidates() {
+        let fold = new_fold();
+        let owned_kp = EntityKeypair::generate();
+        let plain_kp = EntityKeypair::generate();
+        let org = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        fold.apply(sign_member_owned(
+            &owned_kp,
+            0xA1,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&owned_kp, org, 1),
+        ))
+        .expect("apply owned");
+        fold.apply(sign_member_owned(
+            &plain_kp,
+            0xB2,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            None,
+        ))
+        .expect("apply unowned");
+
+        assert_eq!(
+            public_owned_providers(&fold, EXPORTED_TAG),
+            one(0xA1, &owned_kp, org),
+            "only the owned candidate is eligible, with its verified publisher",
+        );
+        // The unowned publisher is still an ordinary public candidate —
+        // eligibility for the exported plane is what it lacks.
+        let legacy = LegacyFilter::default().require_tag(EXPORTED_TAG.to_string());
+        assert_eq!(find_nodes_matching(&fold, &legacy), vec![0xA1, 0xB2]);
+    }
+
+    /// A floor retraction removes the TRIPLE while the capability entry
+    /// stays present and discoverable — the exact tear a two-read
+    /// caller (`find_nodes_matching` then `owner_org_for`) could
+    /// observe halfway, made unrepresentable by the one-snapshot query.
+    #[test]
+    fn public_owned_providers_see_floor_retraction_atomically() {
+        let fold = new_fold();
+        let member = EntityKeypair::generate();
+        let node_id = member.entity_id().node_id();
+        let org = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        fold.apply(sign_member_owned(
+            &member,
+            node_id,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&member, org, 1),
+        ))
+        .expect("apply");
+        assert_eq!(
+            public_owned_providers(&fold, EXPORTED_TAG),
+            one(node_id, &member, org),
+        );
+
+        let retracted = retract_floored_ownership(&fold, org, member.entity_id(), 2);
+        assert_eq!(retracted, 1, "generation 1 sits below floor 2");
+
+        assert!(
+            public_owned_providers(&fold, EXPORTED_TAG).is_empty(),
+            "a retracted projection must remove the triple, not orphan it",
+        );
+        let legacy = LegacyFilter::default().require_tag(EXPORTED_TAG.to_string());
+        assert_eq!(
+            find_nodes_matching(&fold, &legacy),
+            vec![node_id],
+            "retraction clears ONLY the owner field; the entry stays discoverable",
+        );
+    }
+
+    /// An announcement replacement that drops the owner cert removes
+    /// the triple — the other half of the coherence claim.
+    #[test]
+    fn public_owned_providers_see_announcement_replacement_atomically() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let org = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        fold.apply(sign_member_owned(
+            &kp,
+            0xC3,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&kp, org, 1),
+        ))
+        .expect("apply v1");
+        assert_eq!(
+            public_owned_providers(&fold, EXPORTED_TAG),
+            one(0xC3, &kp, org),
+        );
+
+        // Version 2 replaces the payload wholesale, owner gone.
+        fold.apply(sign_member_owned(&kp, 0xC3, 1, 2, vec![EXPORTED_TAG], None))
+            .expect("apply v2");
+        assert!(
+            public_owned_providers(&fold, EXPORTED_TAG).is_empty(),
+            "a replacement without an owner cert must remove the triple",
+        );
+    }
+
+    /// A publisher whose simultaneously-live entries project different
+    /// owner orgs is excluded whole: ambiguity is never resolved
+    /// silently, and a tiebreak here would choose which org's grants a
+    /// caller matches against.
+    #[test]
+    fn public_owned_providers_exclude_conflicting_projections() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let org_x = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+        let org_y = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        fold.apply(sign_member_owned(
+            &kp,
+            0xD4,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&kp, org_x, 1),
+        ))
+        .expect("apply class 1");
+        fold.apply(sign_member_owned(
+            &kp,
+            0xD4,
+            2,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&kp, org_y, 1),
+        ))
+        .expect("apply class 2");
+
+        assert!(
+            public_owned_providers(&fold, EXPORTED_TAG).is_empty(),
+            "conflicting projections exclude the publisher entirely",
+        );
+    }
+
+    /// Review-10 P1-2 inverse — the conflict scan spans the publisher's
+    /// WHOLE live footprint, not only its entries carrying the
+    /// requested tag.
+    ///
+    /// Two live classes for one publisher, only ONE of which advertises
+    /// the requested service, projecting different owner orgs. A
+    /// tag-scoped conflict scan sees exactly one projection under the
+    /// requested tag, finds no disagreement, and returns the publisher
+    /// as owned by that org — disclosing an org-scoped proof to a
+    /// publisher whose live authority relation is ambiguous. The
+    /// footprint-wide scan excludes it.
+    #[test]
+    fn public_owned_providers_exclude_conflicts_outside_the_requested_tag() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let org_x = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+        let org_y = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        // Class 1 carries the requested tag, owned by X.
+        fold.apply(sign_member_owned(
+            &kp,
+            0xE5,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&kp, org_x, 1),
+        ))
+        .expect("apply tagged class");
+        // Class 2 is live under the SAME publisher, carries an unrelated
+        // tag, and is owned by Y.
+        fold.apply(sign_member_owned(
+            &kp,
+            0xE5,
+            2,
+            1,
+            vec!["nrpc:unrelated.service"],
+            owned(&kp, org_y, 1),
+        ))
+        .expect("apply untagged class");
+
+        assert!(
+            public_owned_providers(&fold, EXPORTED_TAG).is_empty(),
+            "an owner conflict OUTSIDE the requested tag must still exclude the publisher",
+        );
+        // The publisher is still an ordinary discoverable candidate —
+        // only exported-plane eligibility is withheld.
+        let legacy = LegacyFilter::default().require_tag(EXPORTED_TAG.to_string());
+        assert_eq!(find_nodes_matching(&fold, &legacy), vec![0xE5]);
+    }
+
+    /// An unowned live class alongside an owned one is NOT a conflict:
+    /// ownership is a per-announcement projection, and a publisher may
+    /// legitimately hold unowned classes. Only two DISAGREEING
+    /// projections are ambiguous — this pins that the P1-2 widening did
+    /// not over-exclude.
+    #[test]
+    fn public_owned_providers_tolerate_an_unowned_sibling_class() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let org = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        fold.apply(sign_member_owned(
+            &kp,
+            0xF6,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&kp, org, 1),
+        ))
+        .expect("apply owned class");
+        fold.apply(sign_member_owned(
+            &kp,
+            0xF6,
+            2,
+            1,
+            vec!["nrpc:unrelated.service"],
+            None,
+        ))
+        .expect("apply unowned class");
+
+        assert_eq!(
+            public_owned_providers(&fold, EXPORTED_TAG),
+            one(0xF6, &kp, org),
+            "an unowned sibling class must not exclude an unambiguously owned publisher",
+        );
+    }
+
+    /// Review-10 P1-1 — the query returns the VERIFIED PUBLISHER, so a
+    /// consumer can pin against it rather than re-deriving identity
+    /// from the node id.
+    ///
+    /// Two distinct entities can present the same `NodeId` (it is the
+    /// low 8 bytes of an entity id). Here entity A's owned projection is
+    /// live under node X; the returned member is A, never merely "the
+    /// entity currently reachable at X". `MeshNode::
+    /// public_owned_service_providers` is what compares this against the
+    /// live session pin and drops the candidate on mismatch.
+    #[test]
+    fn public_owned_providers_name_the_verified_publisher_not_the_node() {
+        let fold = new_fold();
+        let entity_a = EntityKeypair::generate();
+        let entity_b = EntityKeypair::generate();
+        assert_ne!(entity_a.entity_id(), entity_b.entity_id());
+        let org = crate::adapter::net::behavior::org::OrgKeypair::generate().org_id();
+
+        // A's projection, published under a node id neither entity
+        // derives — the collision shape the pin check has to survive.
+        const SHARED_NODE: NodeId = 0xAB;
+        fold.apply(sign_member_owned(
+            &entity_a,
+            SHARED_NODE,
+            1,
+            1,
+            vec![EXPORTED_TAG],
+            owned(&entity_a, org, 1),
+        ))
+        .expect("apply A");
+
+        let found = public_owned_providers(&fold, EXPORTED_TAG);
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            &found[0].member,
+            entity_a.entity_id(),
+            "the projection must name the entity whose cert verified",
+        );
+        assert_ne!(
+            &found[0].member,
+            entity_b.entity_id(),
+            "a different entity holding the same node id is not this publisher",
+        );
+        assert_eq!(found[0].node_id, SHARED_NODE);
+    }
+
+    #[test]
+    fn translate_filter_passes_require_tags_through_and_groups_models_tools_gpu() {
+        let legacy = LegacyFilter {
+            require_tags: vec!["gpu".into()],
+            require_models: vec!["llama3".into(), "mistral".into()],
+            require_tools: vec!["ffmpeg".into()],
+            require_gpu: true,
+            gpu_vendor: Some(GpuVendor::Nvidia),
+            ..LegacyFilter::default()
+        };
+        let fold_filter = translate_filter(&legacy);
+        // `require_tags` go directly through to `tags_all` (AND).
+        assert_eq!(fold_filter.tags_all, vec!["gpu".to_string()]);
+        // Models / tools / gpu / vendor are encoded as the
+        // index-only synthetic-tag groups the fold derives at
+        // insert — one group per axis (OR within, AND across).
+        // `require_models` is "any of", so both models land in a
+        // single group.
+        assert_eq!(
+            fold_filter.tag_groups_all,
+            vec![
+                vec!["model:llama3".to_string(), "model:mistral".to_string()],
+                vec!["tool:ffmpeg".to_string()],
+                vec!["gpu:present".to_string()],
+                vec!["gpu:vendor:nvidia".to_string()],
+            ]
+        );
+    }
+
+    #[test]
+    fn synthetic_index_tags_are_queryable_but_never_leak_into_enumeration() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let hw = HardwareSummary {
+            gpu_vendor: Some("nvidia".into()),
+            gpu_count: 1,
+            memory_gb: Some(64),
+            vram_gb: Some(24),
+        };
+        fold.apply(sign_member(
+            &kp,
+            0xAA,
+            0x100,
+            vec![
+                "gpu",
+                "software.model.0.id=llama3",
+                "software.tool.0.tool_id=ffmpeg",
+            ],
+            Some(hw),
+        ))
+        .expect("apply AA");
+
+        // Tag enumeration returns the real published tags...
+        let tags = super::super::capability::capability_tags_for(&fold, 0xAA);
+        assert!(tags.contains(&"gpu".to_string()));
+        assert!(tags.contains(&"software.model.0.id=llama3".to_string()));
+        // ...but never the index-only synthetic tags.
+        assert!(
+            !tags.iter().any(|t| t.starts_with("model:")
+                || t.starts_with("tool:")
+                || t.starts_with("gpu:")),
+            "synthetic index tags leaked into enumeration: {tags:?}"
+        );
+
+        // Yet the synthetic tags ARE resolvable through the index.
+        let by_model = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                require_models: vec!["llama3".into()],
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(by_model, vec![0xAA]);
+        let by_tool_and_gpu = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                require_tools: vec!["ffmpeg".into()],
+                require_gpu: true,
+                gpu_vendor: Some(GpuVendor::Nvidia),
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(by_tool_and_gpu, vec![0xAA]);
+    }
+
+    #[test]
+    fn membership_passes_post_filter_matches_models_via_canonical_tag_bundle() {
+        let legacy = LegacyFilter {
+            require_models: vec!["llama3".into()],
+            ..LegacyFilter::default()
+        };
+        let pass = CapabilityMembership {
+            class_hash: 0x100,
+            tags: vec!["software.model.0.id=llama3".into()],
+            hardware: None,
+            state: NodeState::Idle,
+            region: None,
+            price_quote: None,
+            reflex_addr: None,
+            noise_pubkey: None,
+            rtc_bootstrap: None,
+            rtc_addr: None,
+            rtc_stun_addr: None,
+            allowed_nodes: Vec::new(),
+            allowed_subnets: Vec::new(),
+            allowed_groups: Vec::new(),
+            metadata: std::collections::BTreeMap::new(),
+            owner: None,
+        };
+        assert!(membership_passes_post_filter(&pass, &legacy));
+
+        let fail = CapabilityMembership {
+            tags: vec!["software.model.0.id=mistral".into()],
+            ..pass.clone()
+        };
+        assert!(!membership_passes_post_filter(&fail, &legacy));
+
+        // No models advertised at all → reject.
+        let bare = CapabilityMembership {
+            tags: vec![],
+            ..pass
+        };
+        assert!(!membership_passes_post_filter(&bare, &legacy));
+    }
+
+    #[test]
+    fn membership_passes_post_filter_enforces_min_memory_and_gpu() {
+        let legacy = LegacyFilter {
+            min_memory_gb: Some(64),
+            require_gpu: true,
+            ..LegacyFilter::default()
+        };
+
+        let ok = CapabilityMembership {
+            class_hash: 0x100,
+            tags: vec![],
+            hardware: Some(super::super::capability::HardwareSummary {
+                gpu_vendor: Some("nvidia".into()),
+                gpu_count: 2,
+                memory_gb: Some(128),
+                vram_gb: Some(80),
+            }),
+            state: NodeState::Idle,
+            region: None,
+            price_quote: None,
+            reflex_addr: None,
+            noise_pubkey: None,
+            rtc_bootstrap: None,
+            rtc_addr: None,
+            rtc_stun_addr: None,
+            allowed_nodes: Vec::new(),
+            allowed_subnets: Vec::new(),
+            allowed_groups: Vec::new(),
+            metadata: std::collections::BTreeMap::new(),
+            owner: None,
+        };
+        assert!(membership_passes_post_filter(&ok, &legacy));
+
+        // Same shape but only 32 GB memory — rejected.
+        let low_mem = CapabilityMembership {
+            hardware: Some(super::super::capability::HardwareSummary {
+                gpu_vendor: Some("nvidia".into()),
+                gpu_count: 2,
+                memory_gb: Some(32),
+                vram_gb: Some(80),
+            }),
+            ..ok.clone()
+        };
+        assert!(!membership_passes_post_filter(&low_mem, &legacy));
+
+        // No hardware reported — require_gpu fails closed.
+        let no_hw = CapabilityMembership {
+            hardware: None,
+            ..ok
+        };
+        assert!(!membership_passes_post_filter(&no_hw, &legacy));
+    }
+
+    #[test]
+    fn find_nodes_matching_dedupes_publisher_across_classes() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        // Same publisher 0xAA in two classes, both carrying "gpu".
+        fold.apply(sign_member(&kp, 0xAA, 0x100, vec!["gpu"], None))
+            .expect("apply 0x100");
+        fold.apply(sign_member(&kp, 0xAA, 0x101, vec!["gpu"], None))
+            .expect("apply 0x101");
+
+        let mut legacy = LegacyFilter::default();
+        legacy.require_tags.push("gpu".into());
+
+        let nodes = find_nodes_matching(&fold, &legacy);
+        assert_eq!(nodes, vec![0xAA]);
+    }
+
+    /// PERF_AUDIT §4.11 — a filter whose only constraint is a
+    /// range predicate translates to a permissive fold filter
+    /// (`is_permissive() == true`), so it MUST NOT take the
+    /// permissive fast path: the range post-filter still tightens
+    /// the result. Pins the `range_predicates_present` guard in
+    /// `find_nodes_matching` — dropping it would make a
+    /// `min_memory_gb` query return every node in the fold.
+    #[test]
+    fn find_nodes_matching_range_only_filter_skips_permissive_fast_path() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let big = HardwareSummary {
+            gpu_vendor: None,
+            gpu_count: 0,
+            memory_gb: Some(128),
+            vram_gb: None,
+        };
+        fold.apply(sign_member(&kp, 0xA1, 0x100, vec!["gpu"], Some(big)))
+            .expect("apply big");
+        fold.apply(sign_member(&kp, 0xA2, 0x100, vec!["gpu"], None))
+            .expect("apply no-hw");
+
+        let range_only = LegacyFilter {
+            min_memory_gb: Some(64),
+            ..LegacyFilter::default()
+        };
+        // The translated fold filter carries no constraint...
+        assert!(translate_filter(&range_only).is_permissive());
+        // ...but the range predicate must still apply: only the
+        // 128 GB node passes; the hardware-less node fails closed.
+        let nodes = find_nodes_matching(&fold, &range_only);
+        assert_eq!(nodes, vec![0xA1]);
+
+        // Sanity: the truly permissive filter returns both, sorted.
+        let all = find_nodes_matching(&fold, &LegacyFilter::default());
+        assert_eq!(all, vec![0xA1, 0xA2]);
+    }
+
+    #[test]
+    fn target_matches_filter_agrees_with_find_nodes_matching() {
+        // Two publishers, mixed tag sets — both filter inputs must
+        // get the same yes/no verdict from the per-target check and
+        // the bulk find. Pins parity so the placement layer's O(1)
+        // fast path can't silently drift from the bulk query.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let nvidia_hw = HardwareSummary {
+            gpu_vendor: Some("nvidia".into()),
+            gpu_count: 2,
+            memory_gb: Some(128),
+            vram_gb: Some(80),
+        };
+        // AA: gpu tags + a model/tool bundle + nvidia hardware.
+        fold.apply(sign_member(
+            &kp,
+            0xAA,
+            0x100,
+            vec![
+                "gpu",
+                "cuda",
+                "software.model.0.id=llama3",
+                "software.tool.0.tool_id=ffmpeg",
+            ],
+            Some(nvidia_hw),
+        ))
+        .expect("apply AA");
+        // BB: cpu-only, no hardware, no bundles.
+        fold.apply(sign_member(&kp, 0xBB, 0x100, vec!["cpu-only"], None))
+            .expect("apply BB");
+        // CC: a spoofer. Emits raw tags whose strings collide with
+        // the index-only synthetic namespace, but carries no real
+        // model/tool bundle and no hardware. Both paths must agree
+        // it matches none of the model/tool/gpu axes — the synthetic
+        // index is fed only by `derive_synthetic_index_tags`, never
+        // by raw published tag strings.
+        fold.apply(sign_member(
+            &kp,
+            0xCC,
+            0x100,
+            vec![
+                "model:llama3",
+                "tool:ffmpeg",
+                "gpu:present",
+                "gpu:vendor:nvidia",
+            ],
+            None,
+        ))
+        .expect("apply CC");
+
+        let probe = |legacy: &LegacyFilter, candidates: &[NodeId]| {
+            let bulk: HashSet<NodeId> = find_nodes_matching(&fold, legacy).into_iter().collect();
+            for &n in candidates {
+                assert_eq!(
+                    bulk.contains(&n),
+                    target_matches_filter(&fold, n, legacy),
+                    "node 0x{:x} verdict mismatch for filter {:?}",
+                    n,
+                    legacy
+                );
+            }
+        };
+
+        // Permissive filter: both publishers pass either path.
+        probe(&LegacyFilter::default(), &[0xAA, 0xBB, 0xCC]);
+
+        // `require_tags = ["gpu"]`: only AA passes.
+        let mut f = LegacyFilter::default();
+        f.require_tags.push("gpu".into());
+        probe(&f, &[0xAA, 0xBB, 0xCC]);
+
+        // The index-resolved axes must agree between paths too:
+        // a present model, a missing model, a present tool, GPU
+        // presence, and a matching/mismatching vendor.
+        // 0xCC is probed on every index-resolved axis: its raw
+        // colliding tags must NOT satisfy any of them on either path.
+        let model_hit = LegacyFilter {
+            require_models: vec!["llama3".into()],
+            ..LegacyFilter::default()
+        };
+        probe(&model_hit, &[0xAA, 0xBB, 0xCC]);
+        let model_miss = LegacyFilter {
+            require_models: vec!["does-not-exist".into()],
+            ..LegacyFilter::default()
+        };
+        probe(&model_miss, &[0xAA, 0xBB, 0xCC]);
+        let tool_hit = LegacyFilter {
+            require_tools: vec!["ffmpeg".into()],
+            ..LegacyFilter::default()
+        };
+        probe(&tool_hit, &[0xAA, 0xBB, 0xCC]);
+        let gpu = LegacyFilter {
+            require_gpu: true,
+            ..LegacyFilter::default()
+        };
+        probe(&gpu, &[0xAA, 0xBB, 0xCC]);
+        let vendor_hit = LegacyFilter {
+            gpu_vendor: Some(GpuVendor::Nvidia),
+            ..LegacyFilter::default()
+        };
+        probe(&vendor_hit, &[0xAA, 0xBB, 0xCC]);
+        let vendor_miss = LegacyFilter {
+            gpu_vendor: Some(GpuVendor::Amd),
+            ..LegacyFilter::default()
+        };
+        probe(&vendor_miss, &[0xAA, 0xBB]);
+
+        // Unknown publisher: per-target check returns false (matches
+        // bulk path's "missing publishers don't appear").
+        assert!(!target_matches_filter(
+            &fold,
+            0xDEAD,
+            &LegacyFilter::default()
+        ));
+    }
+
+    #[test]
+    fn raw_tags_cannot_spoof_the_synthetic_model_tool_gpu_namespace() {
+        // The model / tool / gpu axes resolve through the index-only
+        // synthetic tag map, which is fed solely by
+        // `derive_synthetic_index_tags`. A publisher must not be able
+        // to satisfy those axes by emitting a raw tag string that
+        // happens to equal a synthetic key — published tags are
+        // arbitrary (`Tag::Legacy` round-trips verbatim), so this
+        // would otherwise be a free capability spoof on the bulk
+        // path while the single-target path (which scans the real
+        // bundle / hardware) disagreed.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let nvidia_hw = HardwareSummary {
+            gpu_vendor: Some("nvidia".into()),
+            gpu_count: 1,
+            memory_gb: Some(64),
+            vram_gb: Some(24),
+        };
+        // Honest node: real model/tool bundle + nvidia hardware.
+        fold.apply(sign_member(
+            &kp,
+            0xAA,
+            0x100,
+            vec![
+                "software.model.0.id=llama3",
+                "software.tool.0.tool_id=ffmpeg",
+            ],
+            Some(nvidia_hw),
+        ))
+        .expect("apply AA");
+        // Spoofer: raw tags string-equal to the synthetic keys, but
+        // no bundle and no hardware.
+        fold.apply(sign_member(
+            &kp,
+            0xBB,
+            0x100,
+            vec![
+                "model:llama3",
+                "tool:ffmpeg",
+                "gpu:present",
+                "gpu:vendor:nvidia",
+            ],
+            None,
+        ))
+        .expect("apply BB");
+
+        // Only the honest node resolves on each axis — the spoofer is
+        // invisible to the synthetic index.
+        let model = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                require_models: vec!["llama3".into()],
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(model, vec![0xAA]);
+        let tool = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                require_tools: vec!["ffmpeg".into()],
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(tool, vec![0xAA]);
+        let gpu = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                require_gpu: true,
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(gpu, vec![0xAA]);
+        let vendor = find_nodes_matching(
+            &fold,
+            &LegacyFilter {
+                gpu_vendor: Some(GpuVendor::Nvidia),
+                ..LegacyFilter::default()
+            },
+        );
+        assert_eq!(vendor, vec![0xAA]);
+
+        // And the bulk verdict for the spoofer matches the
+        // single-target path on every axis (both: no match).
+        for legacy in [
+            LegacyFilter {
+                require_models: vec!["llama3".into()],
+                ..LegacyFilter::default()
+            },
+            LegacyFilter {
+                require_tools: vec!["ffmpeg".into()],
+                ..LegacyFilter::default()
+            },
+            LegacyFilter {
+                require_gpu: true,
+                ..LegacyFilter::default()
+            },
+            LegacyFilter {
+                gpu_vendor: Some(GpuVendor::Nvidia),
+                ..LegacyFilter::default()
+            },
+        ] {
+            assert!(
+                !target_matches_filter(&fold, 0xBB, &legacy),
+                "spoofer unexpectedly matched single-target path for {legacy:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn target_matches_filter_applies_post_filter_predicates() {
+        // Min-memory predicate is in the post-filter slice; pin
+        // that the per-target check honors it, not just the
+        // indexable tag intersection.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let hw = HardwareSummary {
+            gpu_vendor: None,
+            gpu_count: 0,
+            memory_gb: Some(32),
+            vram_gb: None,
+        };
+        fold.apply(sign_member(&kp, 0xAA, 0x100, vec!["gpu"], Some(hw)))
+            .expect("apply AA");
+
+        let mut tight = LegacyFilter::default();
+        tight.require_tags.push("gpu".into());
+        tight.min_memory_gb = Some(64);
+        assert!(!target_matches_filter(&fold, 0xAA, &tight));
+
+        let mut loose = LegacyFilter::default();
+        loose.require_tags.push("gpu".into());
+        loose.min_memory_gb = Some(16);
+        assert!(target_matches_filter(&fold, 0xAA, &loose));
+    }
+
+    #[test]
+    fn scope_from_membership_tags_parses_canonical_strings() {
+        let global = scope_from_membership_tags(&["gpu".into(), "scope:global".into()]);
+        assert!(matches!(global, CapabilityScope::Global));
+
+        let subnet_local = scope_from_membership_tags(&["scope:subnet-local".into(), "gpu".into()]);
+        assert!(matches!(subnet_local, CapabilityScope::SubnetLocal));
+
+        let tenant = scope_from_membership_tags(&["scope:tenant:acme".into()]);
+        match tenant {
+            CapabilityScope::Tenants(ts) => assert_eq!(ts, vec!["acme".to_string()]),
+            other => panic!("expected Tenants, got {other:?}"),
+        }
+
+        let region = scope_from_membership_tags(&["scope:region:us-east".into()]);
+        match region {
+            CapabilityScope::Regions(rs) => assert_eq!(rs, vec!["us-east".to_string()]),
+            other => panic!("expected Regions, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn translate_announcement_projects_legacy_hardware_into_summary() {
+        use crate::adapter::net::behavior::capability::{
+            CapabilityAnnouncement, CapabilitySet, GpuInfo, GpuVendor as LegacyGpuVendor,
+            HardwareCapabilities,
+        };
+        use crate::adapter::net::identity::EntityId;
+
+        let caps = CapabilitySet::new().with_hardware(
+            HardwareCapabilities::new()
+                .with_memory(128)
+                .with_gpu(GpuInfo {
+                    vendor: LegacyGpuVendor::Nvidia,
+                    model: "h100".into(),
+                    vram_gb: 80,
+                    compute_units: 0,
+                    tensor_cores: 0,
+                    fp16_tflops_x10: 0,
+                }),
+        );
+        let ann = CapabilityAnnouncement::new(0xAA, EntityId::from_bytes([0u8; 32]), 7, caps);
+
+        let translated = translate_announcement(&ann, None);
+        assert_eq!(translated.node_id, 0xAA);
+        assert_eq!(translated.generation, 7);
+        let hw = translated.payload.hardware.expect("hardware summary set");
+        assert_eq!(hw.memory_gb, Some(128));
+        assert_eq!(hw.gpu_count, 1);
+        assert_eq!(hw.gpu_vendor.as_deref(), Some("nvidia"));
+        assert_eq!(hw.vram_gb, Some(80));
+    }
+
+    /// CAPABILITY_FOLD_SCALE_PLAN.md Slice 3 (pinned in review): an
+    /// accepted Replace from the same owner and key leaves the reverse
+    /// index's `keys` untouched, yet still advances the publisher
+    /// revision, so the cached set misses exactly once.
+    #[test]
+    fn same_key_replace_advances_rev_without_touching_membership() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(cache_member(&kp, 0xA, 0x100, 1, vec!["gpu"], None))
+            .expect("v1");
+        let cache = CapabilitySetCache::new();
+        let before = cache.get_or_synthesize(&fold, 0xA);
+        let (keys_before, rev_before) =
+            fold.with_state(|s| (s.keys_for(0xA).map(<[_]>::to_vec), s.publisher_rev(0xA)));
+
+        // Index-equivalent refresh, then index-changing replace. Each is
+        // checked on its own, so one case cannot mask the other: both
+        // must keep membership, advance the revision, and make the
+        // cached set miss exactly once.
+        let mut cached = before;
+        let mut rev_prev = rev_before;
+        for (case, (version, tags)) in [
+            ("index-equivalent", (2, vec!["gpu"])),
+            ("index-changing", (3, vec!["gpu", "cuda"])),
+        ] {
+            let misses_before = cache.stats().stale_misses;
+            fold.apply(cache_member(&kp, 0xA, 0x100, version, tags, None))
+                .expect("replace");
+            let (keys_now, rev_now) =
+                fold.with_state(|s| (s.keys_for(0xA).map(<[_]>::to_vec), s.publisher_rev(0xA)));
+            assert_eq!(keys_now, keys_before, "{case}: membership changed");
+            assert!(rev_now > rev_prev, "{case}: revision did not advance");
+            let now = cache.get_or_synthesize(&fold, 0xA);
+            assert!(!std::sync::Arc::ptr_eq(&cached, &now), "{case}: no miss");
+            assert_eq!(
+                cache.stats().stale_misses,
+                misses_before + 1,
+                "{case}: not one miss"
+            );
+            assert!(
+                std::sync::Arc::ptr_eq(&now, &cache.get_or_synthesize(&fold, 0xA)),
+                "{case}: no hit after the miss"
+            );
+            cached = now;
+            rev_prev = rev_now;
+        }
+        assert!(has_tag(&cached, "cuda"));
+    }
+
+    /// The pre-Slice-3 hardware summary, through the full sorted
+    /// `views()` projection. The single-pass translate must match it.
+    fn hardware_summary_via_views(ann: &CapabilityAnnouncement) -> Option<HardwareSummary> {
+        let views = ann.capabilities.views();
+        let hw_view = views.hardware();
+        let primary_gpu = hw_view.gpu.as_ref();
+        let gpu_count =
+            (primary_gpu.is_some() as u8).saturating_add(hw_view.additional_gpus.len() as u8);
+        let gpu_vendor = primary_gpu.map(|g| gpu_vendor_canonical(g.vendor).to_string());
+        let vram_gb = {
+            let mut total: u32 = 0;
+            if let Some(g) = primary_gpu {
+                total = total.saturating_add(g.vram_gb);
+            }
+            for g in &hw_view.additional_gpus {
+                total = total.saturating_add(g.vram_gb);
+            }
+            (gpu_count > 0).then_some(total)
+        };
+        let memory_gb = (hw_view.memory_gb > 0).then_some(hw_view.memory_gb);
+        (primary_gpu.is_some() || memory_gb.is_some()).then_some(HardwareSummary {
+            gpu_vendor,
+            gpu_count,
+            memory_gb,
+            vram_gb,
+        })
+    }
+
+    /// CAPABILITY_FOLD_SCALE_PLAN.md Slice 3: the single-pass translate
+    /// (hardware decoded from the hardware-axis subset only) produces
+    /// the same hardware summary, tag set and region as the full
+    /// `views()` path.
+    ///
+    /// Decode order is observable only when two tags set the same
+    /// hardware field, so the raw fixtures carry conflicting
+    /// `memory_gb` and GPU vendor values, plus malformed numbers,
+    /// presence-only, unknown-subkey and colon-separated tags. Regions
+    /// come from `with_region_scope` (an `add_tag("scope:...")` is
+    /// dropped by `parse_user`) and from raw multiple / empty region
+    /// tags. The expected region is the first `scope:region:` tag in the
+    /// set's own iteration order, which is what production selects; no
+    /// lexicographic precedence is imposed.
+    ///
+    /// The codec does not encode `additional_gpus` (`hardware_to_tags`),
+    /// so a multi-GPU `HardwareCapabilities` reaches translation as its
+    /// primary GPU only; that shape is asserted, not a multi-GPU decode.
+    #[test]
+    fn single_pass_translate_matches_views_projection() {
+        use crate::adapter::net::behavior::capability::{
+            CapabilityAnnouncement, CapabilitySet, GpuInfo, GpuVendor as LegacyGpuVendor,
+            HardwareCapabilities,
+        };
+        use crate::adapter::net::behavior::tag::Tag;
+        use crate::adapter::net::identity::EntityId;
+
+        enum Region {
+            Absent,
+            Exact(&'static str),
+            OneOf(&'static [&'static str]),
+        }
+        let with_raw = |mut caps: CapabilitySet, raw: &[&str]| {
+            for t in raw {
+                caps.tags
+                    .insert(Tag::parse(t).expect("raw fixture tag parses"));
+            }
+            caps
+        };
+        let gpu = |vendor, vram| GpuInfo::new(vendor, "card", vram);
+        let fixtures: Vec<(&str, CapabilitySet, Region, Option<HardwareSummary>)> = vec![
+            ("empty", CapabilitySet::new(), Region::Absent, None),
+            (
+                "memory only",
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_memory(128)),
+                Region::Absent,
+                Some(HardwareSummary {
+                    gpu_vendor: None,
+                    gpu_count: 0,
+                    memory_gb: Some(128),
+                    vram_gb: None,
+                }),
+            ),
+            (
+                // additional_gpus are not encoded: one GPU survives.
+                "multi-gpu builder (primary only)",
+                CapabilitySet::new().with_hardware(
+                    HardwareCapabilities::new()
+                        .with_cpu(16, 32)
+                        .with_memory(512)
+                        .with_gpu(gpu(LegacyGpuVendor::Nvidia, 80))
+                        .add_gpu(gpu(LegacyGpuVendor::Amd, 64)),
+                ),
+                Region::Absent,
+                Some(HardwareSummary {
+                    gpu_vendor: Some("nvidia".into()),
+                    gpu_count: 1,
+                    memory_gb: Some(512),
+                    vram_gb: Some(80),
+                }),
+            ),
+            (
+                "real region",
+                CapabilitySet::new()
+                    .with_hardware(
+                        HardwareCapabilities::new()
+                            .with_memory(64)
+                            .with_gpu(gpu(LegacyGpuVendor::Amd, 16)),
+                    )
+                    .add_tag("inference")
+                    .with_region_scope("eu-west"),
+                Region::Exact("eu-west"),
+                Some(HardwareSummary {
+                    gpu_vendor: Some("amd".into()),
+                    gpu_count: 1,
+                    memory_gb: Some(64),
+                    vram_gb: Some(16),
+                }),
+            ),
+            (
+                "multiple regions",
+                with_raw(
+                    CapabilitySet::new(),
+                    &[
+                        "scope:region:eu-west",
+                        "scope:region:us-east",
+                        "scope:region:ap-south",
+                    ],
+                ),
+                Region::OneOf(&["eu-west", "us-east", "ap-south"]),
+                None,
+            ),
+            (
+                "empty region",
+                with_raw(CapabilitySet::new(), &["scope:region:"]),
+                Region::Exact(""),
+                None,
+            ),
+            (
+                // Two values for the same field: the decoder's order
+                // decides which wins, in both paths.
+                "conflicting hardware",
+                with_raw(
+                    CapabilitySet::new(),
+                    &[
+                        "hardware.memory_gb=64",
+                        "hardware.memory_gb=128",
+                        "hardware.gpu",
+                        "hardware.gpu.vendor=nvidia",
+                        "hardware.gpu.vendor=amd",
+                        "hardware.gpu.vram_gb=24",
+                        "hardware.gpu.vram_gb=80",
+                    ],
+                ),
+                Region::Absent,
+                None,
+            ),
+            (
+                "malformed, presence-only, unknown, colon",
+                with_raw(
+                    CapabilitySet::new(),
+                    &[
+                        "hardware.memory_gb=abc",
+                        "hardware.memory_gb:96",
+                        "hardware.cpu_cores=",
+                        "hardware.gpu.vram_gb=lots",
+                        "hardware.gpu.vendor:intel",
+                        "hardware.frobnicator=7",
+                        "hardware.gpu.flux=1",
+                        "hardware.storage_gb",
+                    ],
+                ),
+                Region::Absent,
+                None,
+            ),
+        ];
+
+        for (i, (name, caps, region_shape, expected_hw)) in fixtures.into_iter().enumerate() {
+            let ann =
+                CapabilityAnnouncement::new(i as u64 + 1, EntityId::from_bytes([0u8; 32]), 1, caps);
+            let translated = translate_announcement(&ann, None);
+
+            assert_eq!(
+                translated.payload.hardware,
+                hardware_summary_via_views(&ann),
+                "hardware summary differs from the views() path for {name}"
+            );
+            if let Some(expected) = expected_hw {
+                assert_eq!(
+                    translated.payload.hardware,
+                    Some(expected),
+                    "unexpected decoded shape for {name}"
+                );
+            }
+
+            // Region: the first match in the set's iteration order,
+            // taken BEFORE any sorting.
+            let first_region = ann
+                .capabilities
+                .tags
+                .iter()
+                .map(|t| t.to_string())
+                .find_map(|t| t.strip_prefix("scope:region:").map(String::from));
+            assert_eq!(
+                translated.payload.region, first_region,
+                "region differs for {name}"
+            );
+            match region_shape {
+                Region::Absent => assert_eq!(translated.payload.region, None, "{name}"),
+                Region::Exact(r) => {
+                    assert_eq!(translated.payload.region.as_deref(), Some(r), "{name}")
+                }
+                Region::OneOf(rs) => {
+                    let got = translated.payload.region.as_deref().expect("a region");
+                    assert!(rs.contains(&got), "{name}: region {got:?} not among {rs:?}");
+                }
+            }
+
+            let mut expected_tags: Vec<String> = ann
+                .capabilities
+                .tags
+                .iter()
+                .map(|t| t.to_string())
+                .collect();
+            let mut got_tags = translated.payload.tags.clone();
+            expected_tags.sort();
+            got_tags.sort();
+            assert_eq!(got_tags, expected_tags, "tag set differs for {name}");
+        }
+    }
+
+    /// The payload's tag strings stay resident in the fold for the
+    /// entry's lifetime, so translate must store them without spare
+    /// capacity (PR #1198 review). Rendering straight into a pre-sized
+    /// or growing per-tag `String` left ~620 B of slack per entry on the
+    /// bench fixture.
+    #[test]
+    fn translate_stores_tags_without_spare_capacity() {
+        use crate::adapter::net::behavior::capability::{
+            CapabilityAnnouncement, CapabilitySet, GpuInfo, GpuVendor as LegacyGpuVendor,
+            HardwareCapabilities,
+        };
+        use crate::adapter::net::identity::EntityId;
+
+        let caps = CapabilitySet::new()
+            .with_hardware(
+                HardwareCapabilities::new()
+                    .with_cpu(16, 32)
+                    .with_memory(64)
+                    .with_gpu(GpuInfo::new(LegacyGpuVendor::Nvidia, "h100", 80)),
+            )
+            .add_tag("a")
+            .add_tag("inference")
+            .add_tag("a-rather-long-custom-tag-well-past-forty-eight-bytes-in-length")
+            .with_region_scope("eu-west");
+        let ann = CapabilityAnnouncement::new(1, EntityId::from_bytes([0u8; 32]), 1, caps);
+        let translated = translate_announcement(&ann, None);
+        assert!(
+            translated.payload.tags.len() > 5,
+            "fixture renders several tags"
+        );
+        // Tags are `TagStr`s (`Arc<str>`), exact-length by construction:
+        // nothing to check per tag. The region is still a `String`.
+        let region = translated.payload.region.as_ref().expect("a region");
+        assert_eq!(
+            region.capacity(),
+            region.len(),
+            "region carries spare capacity"
+        );
+    }
+
+    /// The hardware projection must not depend on tag arrival order
+    /// (Slice 3 review, S3-3). A `HashSet` fixture only USUALLY arrives
+    /// in a discriminating order, so with the sort removed it can still
+    /// pass. This drives `project_tags` with deterministic orders,
+    /// including the adversarial one, reverse-sorted, in which last-wins
+    /// decoding of the conflicting fields picks the opposite value of
+    /// every pair. The setup proves that order discriminates before
+    /// relying on it.
+    #[test]
+    fn translate_projection_is_independent_of_tag_order() {
+        use crate::adapter::net::behavior::tag::Tag;
+        use crate::adapter::net::behavior::tag_codec::hardware_from_tags;
+
+        let raw = [
+            "hardware.memory_gb=64",
+            "hardware.memory_gb=128",
+            "hardware.gpu",
+            "hardware.gpu.vendor=amd",
+            "hardware.gpu.vendor=nvidia",
+            "hardware.gpu.vram_gb=24",
+            "hardware.gpu.vram_gb=80",
+            "inference",
+            "scope:region:eu-west",
+        ];
+        let mut sorted: Vec<Tag> = raw.iter().map(|t| Tag::parse(t).expect("parses")).collect();
+        sorted.sort_unstable();
+        let canonical = hardware_from_tags(&sorted);
+        let reversed: Vec<Tag> = sorted.iter().rev().cloned().collect();
+
+        // Precondition: decoded WITHOUT sorting, the adversarial order
+        // gives a different projection. If it did not, the witness below
+        // could not detect a missing sort, so fail setup instead.
+        assert_ne!(
+            hardware_from_tags(&reversed),
+            canonical,
+            "fixture is not order-sensitive; the witness would be vacuous"
+        );
+
+        let rotated: Vec<Tag> = sorted
+            .iter()
+            .cycle()
+            .skip(3)
+            .take(sorted.len())
+            .cloned()
+            .collect();
+        for (name, order) in [
+            ("sorted", &sorted),
+            ("reversed", &reversed),
+            ("rotated", &rotated),
+        ] {
+            let (tags, region, hardware) = project_tags(order.iter());
+            assert_eq!(
+                hardware, canonical,
+                "hardware projection depends on order ({name})"
+            );
+            assert_eq!(tags.len(), raw.len(), "{name}");
+            assert_eq!(region.as_deref(), Some("eu-west"), "{name}");
+        }
+    }
+
+    #[test]
+    fn translate_announcement_promotes_version_zero_to_generation_one() {
+        // The fold rejects generation == 0 (wire sentinel). The
+        // legacy CapabilityAnnouncement::new defaults version to
+        // whatever the caller passes; if a legacy caller used 0
+        // we must promote to 1 so the fold accepts the apply.
+        use crate::adapter::net::behavior::capability::{CapabilityAnnouncement, CapabilitySet};
+        use crate::adapter::net::identity::EntityId;
+
+        let ann = CapabilityAnnouncement::new(
+            0xAA,
+            EntityId::from_bytes([0u8; 32]),
+            0,
+            CapabilitySet::new(),
+        );
+        let translated = translate_announcement(&ann, None);
+        assert_eq!(translated.generation, 1);
+    }
+
+    #[test]
+    fn find_nodes_matching_scoped_excludes_subnet_local_non_same_subnet() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        // Two publishers; one is scope:subnet-local. SameSubnet
+        // filter admits only candidates the lookup says are
+        // co-resident.
+        fold.apply(sign_member(
+            &kp,
+            0xAA,
+            0x100,
+            vec!["gpu", "scope:subnet-local"],
+            None,
+        ))
+        .expect("apply AA subnet-local");
+        fold.apply(sign_member(&kp, 0xBB, 0x100, vec!["gpu"], None))
+            .expect("apply BB global");
+
+        let mut legacy = LegacyFilter::default();
+        legacy.require_tags.push("gpu".into());
+
+        // SameSubnet lookup says BB is co-resident, AA isn't. The
+        // closure now also receives the candidate's tags, borrowed from
+        // the same snapshot that selected it.
+        let lookup = |nid: NodeId, _tags: &[TagStr]| nid == 0xBB;
+        let mut nodes =
+            find_nodes_matching_scoped(&fold, &legacy, &ScopeFilter::SameSubnet, lookup);
+        nodes.sort();
+        assert_eq!(nodes, vec![0xBB]);
+    }
+
+    /// The closure sees the tags of the entry that was selected in the
+    /// SAME snapshot. Pre-fix it received only a `NodeId` and the
+    /// `MeshNode` implementation reacquired the fold to look the tags
+    /// up, so a concurrent replacement between the two reads could
+    /// produce a result that matched one announcement's capabilities
+    /// while being judged against its replacement's subnet
+    /// (SECURITY_AUDIT_2026_07_31_SCOPED_CAPABILITIES.md).
+    #[test]
+    fn scoped_subnet_lookup_sees_the_selected_entry_tags() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(
+            &kp,
+            0xCC,
+            0x100,
+            vec!["gpu", "region:eu"],
+            None,
+        ))
+        .expect("apply CC");
+
+        let mut legacy = LegacyFilter::default();
+        legacy.require_tags.push("gpu".into());
+
+        let seen = std::cell::RefCell::new(Vec::new());
+        let nodes =
+            find_nodes_matching_scoped(&fold, &legacy, &ScopeFilter::SameSubnet, |nid, tags| {
+                seen.borrow_mut().push((nid, tags.to_vec()));
+                // Admit on a tag the closure could only know by having
+                // been handed the selected entry's payload.
+                tags.iter().any(|t| t == "region:eu")
+            });
+
+        assert_eq!(nodes, vec![0xCC]);
+        let seen = seen.into_inner();
+        assert_eq!(seen.len(), 1, "closure must run once per candidate");
+        assert_eq!(seen[0].0, 0xCC);
+        assert!(
+            seen[0].1.iter().any(|t| t == "region:eu"),
+            "closure must receive the selected entry's tags; got {:?}",
+            seen[0].1
+        );
+    }
+
+    /// PERF_AUDIT §4.1 — cache hits return the SAME `Arc` instance
+    /// across calls without re-synthesizing. Pre-fix, every call
+    /// to `synthesize_capability_set` allocated a fresh
+    /// `CapabilitySet`; with the cache, hits are refcount bumps of
+    /// one shared snapshot.
+    #[test]
+    fn capability_set_cache_returns_same_arc_on_hit() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xAB, 0x100, vec!["gpu"], None))
+            .expect("apply AB");
+
+        let cache = CapabilitySetCache::new();
+        let first = cache.get_or_synthesize(&fold, 0xAB);
+        let second = cache.get_or_synthesize(&fold, 0xAB);
+        // Arc::ptr_eq is the strict guarantee the audit asks for —
+        // hits must be refcount bumps, not fresh allocations.
+        assert!(
+            std::sync::Arc::ptr_eq(&first, &second),
+            "cache hit must return the same Arc instance"
+        );
+        // And the content must reflect the fold state.
+        // Tag::Display round-trips byte-for-byte across all variants,
+        // so checking the display form is the robust shape-agnostic
+        // way to assert the published "gpu" tag landed in the cache.
+        assert!(
+            first.tags.iter().any(|t| t.to_string() == "gpu"),
+            "synthesized capability set should contain the published `gpu` tag: {:?}",
+            first.tags
+        );
+    }
+
+    /// PERF_AUDIT §4.1 — a fold mutation must invalidate the
+    /// cached entry on the next access, returning a fresh `Arc`
+    /// whose contents reflect the post-mutation state.
+    #[test]
+    fn capability_set_cache_invalidates_on_fold_change() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xCD, 0x100, vec!["gpu"], None))
+            .expect("apply CD v1");
+        let cache = CapabilitySetCache::new();
+        let v1 = cache.get_or_synthesize(&fold, 0xCD);
+        let v1_tag_count = v1.tags.len();
+
+        // Replace announcement with a richer tag set (bumps the
+        // fold's change generation via the apply path).
+        let v2_ann = SignedAnnouncement::sign(
+            &kp,
+            super::super::capability::CapabilityFold::KIND_ID,
+            0x100,
+            0xCD,
+            2,
+            EnvelopeMeta::default(),
+            CapabilityMembership {
+                class_hash: 0x100,
+                tags: vec!["gpu".into(), "cuda".into(), "fp16".into()],
+                hardware: None,
+                state: NodeState::Idle,
+                region: None,
+                price_quote: None,
+                reflex_addr: None,
+                noise_pubkey: None,
+                rtc_bootstrap: None,
+                rtc_addr: None,
+                rtc_stun_addr: None,
+                allowed_nodes: Vec::new(),
+                allowed_subnets: Vec::new(),
+                allowed_groups: Vec::new(),
+                metadata: std::collections::BTreeMap::new(),
+                owner: None,
+            },
+        )
+        .expect("sign v2");
+        fold.apply(v2_ann).expect("apply CD v2");
+
+        let v2 = cache.get_or_synthesize(&fold, 0xCD);
+        assert!(
+            !std::sync::Arc::ptr_eq(&v1, &v2),
+            "fold change must invalidate the cached entry"
+        );
+        assert!(
+            v2.tags.len() > v1_tag_count,
+            "post-mutation cache miss must reflect the new tag set"
+        );
+    }
+
+    /// CAPABILITY_FOLD_SCALE_PLAN.md Slice 0 — the cache's outcome
+    /// counters tell an absent entry (first lookup or capacity
+    /// eviction) from a stale one (the node's own entries changed
+    /// since caching).
+    #[test]
+    fn capability_set_cache_stats_split_absent_and_stale_misses() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xCD, 0x100, vec!["gpu"], None))
+            .expect("apply CD");
+        let cache = CapabilitySetCache::new();
+
+        cache.get_or_synthesize(&fold, 0xCD);
+        cache.get_or_synthesize(&fold, 0xCD);
+        assert_eq!(
+            cache.stats(),
+            CapabilitySetCacheStats {
+                hits: 1,
+                stale_misses: 0,
+                absent_misses: 1,
+            }
+        );
+
+        fold.apply(cache_member(&kp, 0xCD, 0x100, 2, vec!["gpu", "cuda"], None))
+            .expect("replace CD");
+        cache.get_or_synthesize(&fold, 0xCD);
+        assert_eq!(
+            cache.stats(),
+            CapabilitySetCacheStats {
+                hits: 1,
+                stale_misses: 1,
+                absent_misses: 1,
+            }
+        );
+    }
+
+    // --- Slice 1: publisher-revision validity ---------------------
+    //
+    // CAPABILITY_FOLD_SCALE_PLAN.md Track D. The cache is valid per
+    // publisher: every lifecycle transition of a publisher's OWN
+    // entries must miss exactly once, and nothing else may.
+
+    /// A member announcement with an explicit version and TTL.
+    /// `Fold::apply` trusts its caller, so the TTL override after
+    /// signing is fine for these direct-apply tests.
+    fn cache_member(
+        kp: &EntityKeypair,
+        node_id: NodeId,
+        class: u64,
+        version: u64,
+        tags: Vec<&str>,
+        ttl_secs: Option<u32>,
+    ) -> SignedAnnouncement<CapabilityMembership> {
+        let mut ann = sign_member_owned(kp, node_id, class, version, tags, None);
+        ann.ttl_secs = ttl_secs;
+        ann
+    }
+
+    fn has_tag(caps: &crate::adapter::net::behavior::capability::CapabilitySet, tag: &str) -> bool {
+        caps.tags.iter().any(|t| t.to_string() == tag)
+    }
+
+    fn rev(fold: &Fold<CapabilityFold>, node: NodeId) -> u64 {
+        fold.with_state(|s| s.publisher_rev(node))
+    }
+
+    /// A hit for a present publisher does not take the fold's state
+    /// lock: the per-packet admission path calls this and must not queue
+    /// behind an apply or a sweep. The lookup runs while this thread
+    /// holds the state WRITE lock; if the hit took the read lock it
+    /// would block until the timeout.
+    #[test]
+    fn cache_hit_does_not_wait_for_a_fold_writer() {
+        let fold = std::sync::Arc::new(new_fold());
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        let cache = std::sync::Arc::new(CapabilitySetCache::new());
+        let first = cache.get_or_synthesize(&fold, 0xA);
+
+        let writer = fold.state.write();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let lookup = {
+            let (fold, cache) = (fold.clone(), cache.clone());
+            std::thread::spawn(move || {
+                let _ = tx.send(cache.get_or_synthesize(&fold, 0xA));
+            })
+        };
+        let got = rx.recv_timeout(Duration::from_secs(10));
+        drop(writer);
+        lookup.join().expect("lookup thread");
+        let got = got.expect("a hit must complete while a writer holds the fold");
+        assert!(std::sync::Arc::ptr_eq(&first, &got));
+        assert_eq!(cache.stats().hits, 1);
+    }
+
+    /// A cache used with two folds, or kept past one, never serves one
+    /// fold's set for the other. Revision numbers are per fold, so A's
+    /// first revision is the same number in both; only the fold id and
+    /// the record identity tell the entries apart.
+    #[test]
+    fn a_cache_never_serves_one_folds_set_for_another() {
+        let kp = EntityKeypair::generate();
+        let cache = CapabilitySetCache::new();
+        let x = new_fold();
+        x.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("X");
+        let y = new_fold();
+        y.apply(sign_member(&kp, 0xA, 0x100, vec!["cpu"], None))
+            .expect("Y");
+        assert_eq!(rev(&x, 0xA), rev(&y, 0xA), "same number in both folds");
+
+        assert!(has_tag(&cache.get_or_synthesize(&x, 0xA), "gpu"));
+        let from_y = cache.get_or_synthesize(&y, 0xA);
+        assert!(
+            has_tag(&from_y, "cpu") && !has_tag(&from_y, "gpu"),
+            "both folds alive"
+        );
+
+        // Cache X's set again, then drop X.
+        assert!(has_tag(&cache.get_or_synthesize(&x, 0xA), "gpu"));
+        drop(x);
+        let after_drop = cache.get_or_synthesize(&y, 0xA);
+        assert!(
+            has_tag(&after_drop, "cpu") && !has_tag(&after_drop, "gpu"),
+            "the dropped fold's entry is not served for the live one"
+        );
+    }
+
+    /// Dropping a fold retires every outstanding revision handle: a
+    /// record that goes away with its state reads as gone, exactly like
+    /// one removed by eviction.
+    #[test]
+    fn dropping_a_fold_retires_its_publisher_revisions() {
+        let kp = EntityKeypair::generate();
+        let fold = new_fold();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        let handle = fold
+            .with_state(|s| s.publisher_revision(0xA))
+            .expect("A present");
+        assert!(handle.current().is_some());
+        drop(fold);
+        assert_eq!(handle.current(), None);
+    }
+
+    /// The lock-free check never outlives the record it was cached
+    /// against: eviction, a return under a new record, and a restore
+    /// each make the next lookup miss and serve current state.
+    #[test]
+    fn lock_free_hit_misses_after_eviction_return_and_restore() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        let cache = CapabilitySetCache::new();
+        let first = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&first, "gpu"));
+
+        fold.evict_node(0xA, "test");
+        let gone = cache.get_or_synthesize(&fold, 0xA);
+        assert!(gone.tags.is_empty(), "evicted publisher synthesizes empty");
+
+        fold.apply(cache_member(&kp, 0xA, 0x100, 1, vec!["cpu"], None))
+            .expect("A returns");
+        let back = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&back, "cpu") && !has_tag(&back, "gpu"));
+        let again = cache.get_or_synthesize(&fold, 0xA);
+        assert!(std::sync::Arc::ptr_eq(&back, &again));
+
+        fold.restore(fold.snapshot(), true).expect("restore");
+        let restored = cache.get_or_synthesize(&fold, 0xA);
+        assert!(
+            !std::sync::Arc::ptr_eq(&back, &restored),
+            "a restore retires every record the cache holds"
+        );
+        assert!(has_tag(&restored, "cpu"));
+    }
+
+    #[test]
+    fn cache_survives_other_publishers_announcements() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        fold.apply(sign_member(&kp, 0xB, 0x100, vec!["cpu"], None))
+            .expect("apply B");
+        let cache = CapabilitySetCache::new();
+        let first = cache.get_or_synthesize(&fold, 0xA);
+
+        // B's refresh moves the fold's generation but not A's revision.
+        fold.apply(cache_member(&kp, 0xB, 0x100, 2, vec!["cpu"], None))
+            .expect("refresh B");
+        let after_b = cache.get_or_synthesize(&fold, 0xA);
+        assert!(
+            std::sync::Arc::ptr_eq(&first, &after_b),
+            "another publisher's announcement must not invalidate A"
+        );
+        assert_eq!(cache.stats().stale_misses, 0);
+
+        // A's own refresh misses once, then hits again.
+        fold.apply(cache_member(&kp, 0xA, 0x100, 2, vec!["gpu"], None))
+            .expect("refresh A");
+        let after_a = cache.get_or_synthesize(&fold, 0xA);
+        assert!(!std::sync::Arc::ptr_eq(&first, &after_a));
+        assert_eq!(cache.stats().stale_misses, 1);
+        let again = cache.get_or_synthesize(&fold, 0xA);
+        assert!(std::sync::Arc::ptr_eq(&after_a, &again));
+    }
+
+    #[test]
+    fn cache_misses_on_sibling_class_change() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(cache_member(&kp, 0xA, 0x1, 1, vec!["alpha"], None))
+            .expect("class 1");
+        fold.apply(cache_member(&kp, 0xA, 0x2, 1, vec!["beta"], None))
+            .expect("class 2");
+        let cache = CapabilitySetCache::new();
+        let before = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&before, "alpha") && has_tag(&before, "beta"));
+
+        // Change class 1 only; the cached set merges both classes.
+        fold.apply(cache_member(&kp, 0xA, 0x1, 2, vec!["gamma"], None))
+            .expect("replace class 1");
+        let after = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&after, "gamma") && has_tag(&after, "beta"));
+        assert!(!has_tag(&after, "alpha"), "served the pre-change set");
+    }
+
+    /// The counterexample a per-entry stamp fails: with classes
+    /// written at revisions 5 and 9, expiring the older one leaves
+    /// the maximum stamp at 9 while the merged set changes.
+    #[test]
+    fn cache_misses_on_older_sibling_expiry() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(cache_member(&kp, 0xA, 0x1, 1, vec!["old"], Some(0)))
+            .expect("expiring class, written first");
+        fold.apply(cache_member(&kp, 0xA, 0x2, 1, vec!["new"], Some(3600)))
+            .expect("live class, written second");
+        let cache = CapabilitySetCache::new();
+        let before = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&before, "old") && has_tag(&before, "new"));
+        let rev_before = rev(&fold, 0xA);
+
+        std::thread::sleep(Duration::from_millis(10));
+        assert_eq!(fold.sweep_expired_now(), 1, "only the older class expires");
+        assert!(
+            rev(&fold, 0xA) > rev_before,
+            "partial expiry advances the revision"
+        );
+        let after = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&after, "new"));
+        assert!(!has_tag(&after, "old"), "served the pre-expiry set");
+        assert_eq!(cache.stats().stale_misses, 1);
+    }
+
+    #[test]
+    fn cache_unknown_to_known() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let cache = CapabilitySetCache::new();
+        assert_eq!(
+            rev(&fold, 0xA),
+            0,
+            "an absent publisher reads as revision 0"
+        );
+        let absent = cache.get_or_synthesize(&fold, 0xA);
+        assert!(absent.tags.is_empty());
+        let absent_again = cache.get_or_synthesize(&fold, 0xA);
+        assert!(std::sync::Arc::ptr_eq(&absent, &absent_again));
+
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("first announcement");
+        let known = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&known, "gpu"), "served the cached absent set");
+    }
+
+    #[test]
+    fn cache_misses_after_eviction_and_reannouncement() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        let cache = CapabilitySetCache::new();
+        let first_rev = rev(&fold, 0xA);
+        assert!(has_tag(&cache.get_or_synthesize(&fold, 0xA), "gpu"));
+
+        fold.evict_node(0xA, "test");
+        assert_eq!(rev(&fold, 0xA), 0);
+        let evicted = cache.get_or_synthesize(&fold, 0xA);
+        assert!(evicted.tags.is_empty(), "served the pre-eviction set");
+
+        // Same version as before: the eviction removed the entry, so
+        // this is an Insert, and the revision must be new.
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["cpu"], None))
+            .expect("reannounce A");
+        let second_rev = rev(&fold, 0xA);
+        assert!(
+            second_rev > first_rev,
+            "a returning publisher gets a fresh revision"
+        );
+        let back = cache.get_or_synthesize(&fold, 0xA);
+        assert!(has_tag(&back, "cpu") && !has_tag(&back, "gpu"));
+    }
+
+    #[test]
+    fn cache_misses_after_forced_restore() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xA, 0x100, vec!["gpu"], None))
+            .expect("apply A");
+        let cache = CapabilitySetCache::new();
+        let before = cache.get_or_synthesize(&fold, 0xA);
+        let rev_before = rev(&fold, 0xA);
+
+        let snap = fold.snapshot();
+        fold.restore(snap, true).expect("forced restore");
+        assert!(
+            rev(&fold, 0xA) > rev_before,
+            "restore must allocate fresh revisions, not reuse old ones"
+        );
+        let after = cache.get_or_synthesize(&fold, 0xA);
+        assert!(
+            !std::sync::Arc::ptr_eq(&before, &after),
+            "the first lookup after a restore must miss"
+        );
+        assert!(has_tag(&after, "gpu"));
+    }
+
+    /// No lookup that starts after an apply returns may serve the
+    /// set from before that apply. The writer publishes the version
+    /// it has finished applying; every lookup reads that value first
+    /// and must see at least that version in the set it gets back.
+    #[test]
+    fn cache_concurrent_miss_populate_never_serves_stale() {
+        use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+        const ROUNDS: u64 = 2_000;
+
+        let fold = std::sync::Arc::new(new_fold());
+        let kp = std::sync::Arc::new(EntityKeypair::generate());
+        fold.apply(cache_member(&kp, 0xA, 0x100, 1, vec!["ver-1"], None))
+            .expect("seed");
+        let cache = std::sync::Arc::new(CapabilitySetCache::new());
+        let applied = std::sync::Arc::new(AtomicU64::new(1));
+        let done = std::sync::Arc::new(AtomicBool::new(false));
+
+        let version_in = |caps: &crate::adapter::net::behavior::capability::CapabilitySet| {
+            caps.tags
+                .iter()
+                .filter_map(|t| t.to_string().strip_prefix("ver-")?.parse::<u64>().ok())
+                .max()
+                .expect("a version tag")
+        };
+
+        let readers: Vec<_> = (0..3)
+            .map(|_| {
+                let (fold, cache, applied, done) = (
+                    std::sync::Arc::clone(&fold),
+                    std::sync::Arc::clone(&cache),
+                    std::sync::Arc::clone(&applied),
+                    std::sync::Arc::clone(&done),
+                );
+                std::thread::spawn(move || {
+                    let mut lookups = 0u64;
+                    while !done.load(Ordering::Acquire) {
+                        let floor = applied.load(Ordering::Acquire);
+                        let caps = cache.get_or_synthesize(&fold, 0xA);
+                        let seen = version_in(&caps);
+                        assert!(
+                            seen >= floor,
+                            "served version {seen} after {floor} was applied"
+                        );
+                        lookups += 1;
+                    }
+                    lookups
+                })
+            })
+            .collect();
+
+        for version in 2..=ROUNDS {
+            let tag = format!("ver-{version}");
+            fold.apply(cache_member(
+                &kp,
+                0xA,
+                0x100,
+                version,
+                vec![tag.as_str()],
+                None,
+            ))
+            .expect("writer apply");
+            applied.store(version, Ordering::Release);
+        }
+        done.store(true, Ordering::Release);
+        let lookups: u64 = readers.into_iter().map(|r| r.join().expect("reader")).sum();
+        assert!(lookups > 0, "the readers ran");
+        assert_eq!(version_in(&cache.get_or_synthesize(&fold, 0xA)), ROUNDS);
+    }
+
+    /// PERF_AUDIT §4.1 — unknown node (no fold entry) returns an
+    /// empty set; the cache should still populate against it so a
+    /// subsequent lookup is a refcount hit, not a no-op
+    /// re-synthesize.
+    #[test]
+    fn capability_set_cache_populates_for_unknown_node() {
+        let fold = new_fold();
+        let cache = CapabilitySetCache::new();
+        let first = cache.get_or_synthesize(&fold, 0xDEAD_BEEF);
+        assert!(first.tags.is_empty());
+        assert!(first.metadata.is_empty());
+        let second = cache.get_or_synthesize(&fold, 0xDEAD_BEEF);
+        assert!(
+            std::sync::Arc::ptr_eq(&first, &second),
+            "unknown-node entries still hit the cache on repeat access"
+        );
+    }
+
+    /// PERF_AUDIT §4.9 — `synthesize_capability_set_if_known`
+    /// folds the placement-side known-check and the synthesize
+    /// into one lock acquisition. Pin its three-branch contract:
+    /// unknown publisher → `None` (placement hard-veto), known
+    /// publisher with no tags → `Some(empty)` (indexed, proceeds
+    /// to scoring), known publisher with tags → `Some(populated)`.
+    /// The legacy `synthesize_capability_set` wrapper must map
+    /// `None` to an empty set (its pre-fix shape).
+    #[test]
+    fn synthesize_if_known_distinguishes_unknown_from_empty() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xB1, 0x100, vec!["gpu"], None))
+            .expect("apply tagged");
+        fold.apply(sign_member(&kp, 0xB2, 0x100, vec![], None))
+            .expect("apply untagged");
+
+        // Unknown → None (hard veto).
+        assert!(synthesize_capability_set_if_known(&fold, 0xDEAD).is_none());
+        // Known + tags → Some(populated).
+        let tagged =
+            synthesize_capability_set_if_known(&fold, 0xB1).expect("tagged publisher is known");
+        assert!(tagged.tags.iter().any(|t| t.to_string() == "gpu"));
+        // Known + no tags → Some(empty) — indexed candidates with
+        // empty tag sets still proceed to scoring.
+        let untagged = synthesize_capability_set_if_known(&fold, 0xB2)
+            .expect("untagged publisher is still known");
+        assert!(untagged.tags.is_empty());
+        // Wrapper parity: unknown maps to the empty default.
+        assert!(synthesize_capability_set(&fold, 0xDEAD).tags.is_empty());
+    }
+
+    /// PERF_AUDIT §4.1 — node REMOVAL (`evict_node`, which the
+    /// SWIM death path drives) must invalidate the cached entry:
+    /// the eviction bumps the fold's change generation, so the
+    /// next lookup misses and re-synthesizes an empty set instead
+    /// of serving the dead node's capabilities forever.
+    #[test]
+    fn capability_set_cache_invalidates_on_node_eviction() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        fold.apply(sign_member(&kp, 0xEE, 0x100, vec!["gpu"], None))
+            .expect("apply EE");
+        let cache = CapabilitySetCache::new();
+        let live = cache.get_or_synthesize(&fold, 0xEE);
+        assert!(
+            live.tags.iter().any(|t| t.to_string() == "gpu"),
+            "pre-eviction lookup should see the published tag"
+        );
+
+        fold.evict_node(0xEE, "swim-dead");
+
+        let after = cache.get_or_synthesize(&fold, 0xEE);
+        assert!(
+            !std::sync::Arc::ptr_eq(&live, &after),
+            "eviction must invalidate the cached entry"
+        );
+        assert!(
+            after.tags.is_empty(),
+            "post-eviction set must be empty, not the dead node's cached tags: {:?}",
+            after.tags
+        );
+    }
+
+    /// PERF_AUDIT §4.2 — `may_execute_batch` must produce
+    /// byte-identical verdicts to the per-target `may_execute`
+    /// across every realistic shape (target known / unknown,
+    /// target carries / doesn't carry tag, allow-lists empty /
+    /// populated). The retain-loop callers replaced their per-
+    /// candidate `may_execute` calls with `may_execute_batch`,
+    /// so any divergence between the two produces silent auth
+    /// behavior drift.
+    #[test]
+    fn may_execute_batch_matches_per_target_may_execute() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        // Three publishers: a target carrying the gated tag with
+        // empty allow-lists (permissive), a target carrying it
+        // with a populated allow-list, and a target not carrying
+        // the tag at all. Plus the caller itself.
+        let caller: NodeId = 0xCA;
+        let permissive: NodeId = 0xAA;
+        let restricted: NodeId = 0xBB;
+        let no_tag: NodeId = 0xCC;
+        fold.apply(sign_member(&kp, permissive, 0x100, vec!["nrpc:echo"], None))
+            .expect("permissive");
+        // Restricted: allow only the caller.
+        let restricted_ann = SignedAnnouncement::sign(
+            &kp,
+            super::super::capability::CapabilityFold::KIND_ID,
+            0x100,
+            restricted,
+            1,
+            EnvelopeMeta::default(),
+            CapabilityMembership {
+                class_hash: 0x100,
+                tags: vec!["nrpc:echo".into()],
+                hardware: None,
+                state: NodeState::Idle,
+                region: None,
+                price_quote: None,
+                reflex_addr: None,
+                noise_pubkey: None,
+                rtc_bootstrap: None,
+                rtc_addr: None,
+                rtc_stun_addr: None,
+                allowed_nodes: vec![caller],
+                allowed_subnets: Vec::new(),
+                allowed_groups: Vec::new(),
+                metadata: std::collections::BTreeMap::new(),
+                owner: None,
+            },
+        )
+        .expect("sign restricted");
+        fold.apply(restricted_ann).expect("restricted apply");
+        fold.apply(sign_member(&kp, no_tag, 0x100, vec!["gpu"], None))
+            .expect("no-tag apply");
+        // Caller's own self-ann so subnet/group derivation has
+        // something to walk (it doesn't carry subnet/group tags
+        // here — that's OK, derivation returns (None, []) and
+        // the allow-list match falls back to the node axis).
+        fold.apply(sign_member(&kp, caller, 0x100, vec!["scope:user"], None))
+            .expect("caller apply");
+
+        let targets = vec![permissive, restricted, no_tag, 0xDEAD /* unknown */];
+        let tag = "nrpc:echo";
+        let batch = may_execute_batch(&fold, &targets, tag, caller);
+        let per_target: Vec<bool> = targets
+            .iter()
+            .map(|t| may_execute(&fold, *t, tag, caller))
+            .collect();
+        assert_eq!(
+            batch, per_target,
+            "batched verdicts must equal per-target verdicts"
+        );
+        // Pin the explicit per-target outcomes so a refactor that
+        // breaks the verdict semantics fails loudly here, not
+        // only via a downstream auth integration test.
+        assert_eq!(
+            batch,
+            vec![true, true, false, false],
+            "permissive admits, restricted admits caller via node axis, \
+             no-tag denies, unknown denies"
+        );
+    }
+
+    /// OA-2 §2.4a: `has_local_capability` reports tag presence
+    /// only, evaluating NO allow-lists — the red-witnessed point
+    /// that the OA-2 admission engine, not the legacy gate, is the
+    /// authority for protected services. A restricted target that
+    /// `may_execute` would DENY for an unrelated caller still
+    /// `has_local_capability` == true.
+    #[test]
+    fn has_local_capability_ignores_allow_lists() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let restricted: NodeId = 0xBB;
+        let no_tag: NodeId = 0xCC;
+        let outsider: NodeId = 0xDD;
+
+        // A target carrying the tag but restricted to a specific
+        // (different) node — may_execute denies the outsider.
+        let restricted_ann = SignedAnnouncement::sign(
+            &kp,
+            super::super::capability::CapabilityFold::KIND_ID,
+            0x100,
+            restricted,
+            1,
+            EnvelopeMeta::default(),
+            CapabilityMembership {
+                class_hash: 0x100,
+                tags: vec!["nrpc:echo".into()],
+                hardware: None,
+                state: NodeState::Idle,
+                region: None,
+                price_quote: None,
+                reflex_addr: None,
+                noise_pubkey: None,
+                rtc_bootstrap: None,
+                rtc_addr: None,
+                rtc_stun_addr: None,
+                allowed_nodes: vec![0x1234], // NOT the outsider
+                allowed_subnets: Vec::new(),
+                allowed_groups: Vec::new(),
+                metadata: std::collections::BTreeMap::new(),
+                owner: None,
+            },
+        )
+        .expect("sign restricted");
+        fold.apply(restricted_ann).expect("apply restricted");
+        fold.apply(sign_member(&kp, no_tag, 0x100, vec!["gpu"], None))
+            .expect("apply no-tag");
+
+        // may_execute DENIES the outsider (allow-list miss)…
+        assert!(!may_execute(&fold, restricted, "nrpc:echo", outsider));
+        // …but has_local_capability sees the tag regardless of the
+        // allow-list — the exact service IS locally registered.
+        assert!(has_local_capability(&fold, restricted, "nrpc:echo"));
+
+        // Absent tag / unknown node / wrong tag are all false.
+        assert!(!has_local_capability(&fold, no_tag, "nrpc:echo"));
+        assert!(!has_local_capability(&fold, restricted, "nrpc:other"));
+        assert!(!has_local_capability(&fold, 0xDEAD, "nrpc:echo"));
+    }
+
+    /// PERF_AUDIT §4.2 — empty `targets` slice short-circuits
+    /// without taking the fold lock. Pin the zero-allocation
+    /// contract: an empty input must return an empty Vec.
+    #[test]
+    fn may_execute_batch_empty_targets_returns_empty() {
+        let fold = new_fold();
+        let got = may_execute_batch(&fold, &[], "nrpc:noop", 0xCA);
+        assert!(got.is_empty());
+    }
+
+    /// PERF_AUDIT §4.2 — exercise the hoisted `derive_caller_axes`
+    /// path with REAL `subnet:` / `group:` membership tags. The
+    /// node-axis test above never reaches the subnet/group
+    /// derivation, so a regression in the once-per-batch hoist
+    /// (e.g. deriving from the wrong node, or dropping the parse)
+    /// would slip past it. Three restricted targets: subnet-allowed
+    /// (admit), group-allowed (admit), foreign-subnet (deny) — and
+    /// the batched verdicts must equal the per-target ones.
+    #[test]
+    fn may_execute_batch_derives_caller_subnet_and_groups_once() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let caller: NodeId = 0xCA;
+        let by_subnet: NodeId = 0xA1;
+        let by_group: NodeId = 0xA2;
+        let foreign: NodeId = 0xA3;
+
+        let caller_subnet =
+            super::super::super::subnet::SubnetId::from_tag(&format!("subnet:{}", "11".repeat(16)))
+                .expect("parse caller subnet tag");
+        let other_subnet =
+            super::super::super::subnet::SubnetId::from_tag(&format!("subnet:{}", "22".repeat(16)))
+                .expect("parse other subnet tag");
+        let caller_group =
+            super::super::super::group::GroupId::from_tag(&format!("group:{}", "33".repeat(32)))
+                .expect("parse caller group tag");
+
+        // Caller publishes its subnet + group membership tags.
+        let caller_subnet_tag = caller_subnet.to_tag();
+        let caller_group_tag = caller_group.to_tag();
+        fold.apply(sign_member(
+            &kp,
+            caller,
+            0x100,
+            vec![
+                "scope:user",
+                caller_subnet_tag.as_str(),
+                caller_group_tag.as_str(),
+            ],
+            None,
+        ))
+        .expect("caller apply");
+
+        let restricted =
+            |node: NodeId,
+             subnets: Vec<super::super::super::subnet::SubnetId>,
+             groups: Vec<super::super::super::group::GroupId>| {
+                SignedAnnouncement::sign(
+                    &kp,
+                    super::super::capability::CapabilityFold::KIND_ID,
+                    0x100,
+                    node,
+                    1,
+                    EnvelopeMeta::default(),
+                    CapabilityMembership {
+                        class_hash: 0x100,
+                        tags: vec!["nrpc:echo".into()],
+                        hardware: None,
+                        state: NodeState::Idle,
+                        region: None,
+                        price_quote: None,
+                        reflex_addr: None,
+                        noise_pubkey: None,
+                        rtc_bootstrap: None,
+                        rtc_addr: None,
+                        rtc_stun_addr: None,
+                        allowed_nodes: Vec::new(),
+                        allowed_subnets: subnets,
+                        allowed_groups: groups,
+                        metadata: std::collections::BTreeMap::new(),
+                        owner: None,
+                    },
+                )
+                .expect("sign restricted")
+            };
+        fold.apply(restricted(by_subnet, vec![caller_subnet], Vec::new()))
+            .expect("by_subnet apply");
+        fold.apply(restricted(by_group, Vec::new(), vec![caller_group]))
+            .expect("by_group apply");
+        fold.apply(restricted(foreign, vec![other_subnet], Vec::new()))
+            .expect("foreign apply");
+
+        let targets = vec![by_subnet, by_group, foreign];
+        let tag = "nrpc:echo";
+        let batch = may_execute_batch(&fold, &targets, tag, caller);
+        let per_target: Vec<bool> = targets
+            .iter()
+            .map(|t| may_execute(&fold, *t, tag, caller))
+            .collect();
+        assert_eq!(
+            batch, per_target,
+            "batched subnet/group verdicts must equal per-target verdicts"
+        );
+        assert_eq!(
+            batch,
+            vec![true, true, false],
+            "subnet-allowed admits, group-allowed admits, foreign subnet denies"
+        );
+    }
+
+    /// S1 (SUBNET_AUTH_PLAN.md): `may_admit` is the callee-side gate
+    /// and the self-declared subnet/group axes never admit there,
+    /// while `may_execute` keeps matching them for caller-side
+    /// narrowing. Same fold, same caller, deliberately divergent
+    /// verdicts — that divergence IS the fix, so it is pinned
+    /// directly rather than inferred from an integration test.
+    #[test]
+    fn may_admit_denies_what_may_execute_narrows_to() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let caller: NodeId = 0xCA;
+        let by_subnet: NodeId = 0xA1;
+        let by_group: NodeId = 0xA2;
+        let by_node: NodeId = 0xA4;
+        let open: NodeId = 0xA5;
+
+        let caller_subnet =
+            super::super::super::subnet::SubnetId::from_tag(&format!("subnet:{}", "11".repeat(16)))
+                .expect("parse caller subnet tag");
+        let caller_group =
+            super::super::super::group::GroupId::from_tag(&format!("group:{}", "33".repeat(32)))
+                .expect("parse caller group tag");
+
+        let caller_subnet_tag = caller_subnet.to_tag();
+        let caller_group_tag = caller_group.to_tag();
+        fold.apply(sign_member(
+            &kp,
+            caller,
+            0x100,
+            vec![caller_subnet_tag.as_str(), caller_group_tag.as_str()],
+            None,
+        ))
+        .expect("caller apply");
+
+        let restricted =
+            |node: NodeId,
+             nodes: Vec<u64>,
+             subnets: Vec<super::super::super::subnet::SubnetId>,
+             groups: Vec<super::super::super::group::GroupId>| {
+                SignedAnnouncement::sign(
+                    &kp,
+                    super::super::capability::CapabilityFold::KIND_ID,
+                    0x100,
+                    node,
+                    1,
+                    EnvelopeMeta::default(),
+                    CapabilityMembership {
+                        class_hash: 0x100,
+                        tags: vec!["nrpc:echo".into()],
+                        hardware: None,
+                        state: NodeState::Idle,
+                        region: None,
+                        price_quote: None,
+                        reflex_addr: None,
+                        noise_pubkey: None,
+                        rtc_bootstrap: None,
+                        rtc_addr: None,
+                        rtc_stun_addr: None,
+                        allowed_nodes: nodes,
+                        allowed_subnets: subnets,
+                        allowed_groups: groups,
+                        metadata: std::collections::BTreeMap::new(),
+                        owner: None,
+                    },
+                )
+                .expect("sign restricted")
+            };
+        fold.apply(restricted(
+            by_subnet,
+            Vec::new(),
+            vec![caller_subnet],
+            Vec::new(),
+        ))
+        .expect("by_subnet apply");
+        fold.apply(restricted(
+            by_group,
+            Vec::new(),
+            Vec::new(),
+            vec![caller_group],
+        ))
+        .expect("by_group apply");
+        fold.apply(restricted(by_node, vec![caller], Vec::new(), Vec::new()))
+            .expect("by_node apply");
+        fold.apply(restricted(open, Vec::new(), Vec::new(), Vec::new()))
+            .expect("open apply");
+
+        // Routing predicate: the demoted axes still narrow.
+        assert!(may_execute(&fold, by_subnet, "nrpc:echo", caller));
+        assert!(may_execute(&fold, by_group, "nrpc:echo", caller));
+
+        // Admission gate: they do not admit.
+        assert!(
+            !may_admit(&fold, by_subnet, "nrpc:echo", caller),
+            "self-declared subnet membership must not admit",
+        );
+        assert!(
+            !may_admit(&fold, by_group, "nrpc:echo", caller),
+            "self-declared group membership must not admit",
+        );
+
+        // The load-bearing axis and the permissive default are intact.
+        assert!(may_admit(&fold, by_node, "nrpc:echo", caller));
+        assert!(may_admit(&fold, open, "nrpc:echo", caller));
+
+        // Unknown target / absent tag deny.
+        assert!(!may_admit(&fold, 0xDEAD, "nrpc:echo", caller));
+        assert!(!may_admit(&fold, by_node, "nrpc:other", caller));
+    }
+
+    /// S1: two distinct `subnet:` tags on one caller collapse to "no
+    /// membership" rather than the pre-S1 last-wins walk, so the
+    /// verdict cannot depend on entry/tag order. Both declared
+    /// subnets are in the target's allow-list, so last-wins would
+    /// have narrowed to `true` either way — the deterministic rule
+    /// yields `false`.
+    #[test]
+    fn multiple_subnet_tags_collapse_to_no_membership() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let caller: NodeId = 0xCB;
+        let target: NodeId = 0xA6;
+
+        let s1 =
+            super::super::super::subnet::SubnetId::from_tag(&format!("subnet:{}", "aa".repeat(16)))
+                .expect("parse s1");
+        let s2 =
+            super::super::super::subnet::SubnetId::from_tag(&format!("subnet:{}", "bb".repeat(16)))
+                .expect("parse s2");
+        let (t1, t2) = (s1.to_tag(), s2.to_tag());
+        fold.apply(sign_member(
+            &kp,
+            caller,
+            0x100,
+            vec![t1.as_str(), t2.as_str()],
+            None,
+        ))
+        .expect("caller apply");
+
+        fold.apply(
+            SignedAnnouncement::sign(
+                &kp,
+                super::super::capability::CapabilityFold::KIND_ID,
+                0x100,
+                target,
+                1,
+                EnvelopeMeta::default(),
+                CapabilityMembership {
+                    class_hash: 0x100,
+                    tags: vec!["nrpc:echo".into()],
+                    hardware: None,
+                    state: NodeState::Idle,
+                    region: None,
+                    price_quote: None,
+                    reflex_addr: None,
+                    noise_pubkey: None,
+                    rtc_bootstrap: None,
+                    rtc_addr: None,
+                    rtc_stun_addr: None,
+                    allowed_nodes: Vec::new(),
+                    allowed_subnets: vec![s1, s2],
+                    allowed_groups: Vec::new(),
+                    metadata: std::collections::BTreeMap::new(),
+                    owner: None,
+                },
+            )
+            .expect("sign target"),
+        )
+        .expect("target apply");
+
+        assert!(
+            !may_execute(&fold, target, "nrpc:echo", caller),
+            "multiple distinct subnet tags contribute no membership",
+        );
+        assert!(!may_admit(&fold, target, "nrpc:echo", caller));
+    }
+
+    // ------------- OA-1: owner-cert ingest verification -------------
+
+    use crate::adapter::net::behavior::org::{OrgKeypair, OrgMembershipCert};
+    use crate::adapter::net::behavior::org_revocation::OrgRevocationState;
+
+    fn org_root() -> OrgKeypair {
+        OrgKeypair::from_bytes([0x42u8; 32])
+    }
+
+    /// Build a signed announcement the way PRODUCTION dispatch would.
+    ///
+    /// `node_id` is derived from the keypair rather than taken as a parameter:
+    /// real ingest enforces `ann.entity_id.node_id() == ann.node_id`, and
+    /// `verify_announced_owner_cert` now refuses a cert that violates it (§12),
+    /// because an ownership projection filed under a mismatched node id could
+    /// never be retracted. Fixtures that passed an unrelated literal were
+    /// building announcements the wire could not carry.
+    fn signed_announcement_with_cert(
+        kp: &EntityKeypair,
+        cert: Option<OrgMembershipCert>,
+    ) -> CapabilityAnnouncement {
+        let node_id = kp.entity_id().node_id();
+        use crate::adapter::net::behavior::capability::CapabilitySet;
+        let caps = CapabilitySet::new().add_tag("nrpc:echo".to_string());
+        let mut ann = CapabilityAnnouncement::new(node_id, kp.entity_id().clone(), 1, caps)
+            .with_owner_cert(cert);
+        ann.sign(kp);
+        ann
+    }
+
+    /// A verified cert projects `owner_org` into the fold; the
+    /// entry itself is a normal, queryable membership.
+    #[test]
+    fn verified_owner_cert_projects_owner_org() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+        assert_eq!(
+            owner_org_for(&fold, kp.entity_id().node_id()),
+            Some(org_root().org_id())
+        );
+    }
+
+    /// §12 — a cert on an announcement whose entity does not derive the
+    /// announced node id is DROPPED, so no ownership projection can be filed
+    /// where retraction would never find it.
+    ///
+    /// `retract_floored_ownership` locates entries via `member.node_id()`, and
+    /// the install sweep and post-apply recheck both search
+    /// `by_node[entity.node_id()]`. A projection filed under a mismatched
+    /// `ann.node_id` therefore sits in a bucket no retraction path ever
+    /// visits: no floor raise, no store install, and no recheck can clear it,
+    /// and `owner_org_for` keeps reporting the revoked org forever.
+    ///
+    /// Production dispatch already enforced the bind, but
+    /// `verify_announced_owner_cert` is the single producer of a
+    /// `Some(VerifiedOwner)` and two other callers reach it: the
+    /// `#[doc(hidden)]` `MeshNode::test_inject_capability_announcement` seam,
+    /// which ships in release builds and is re-exported through the Python /
+    /// Node / Go bindings, and the `pub` `apply_legacy_announcement` fixture
+    /// helper. Enforcing at the producer covers all three.
+    ///
+    /// The announcement itself is KEPT (OA-1 exit-gate contract: ingest drops
+    /// bad certs, not announcements) — only the ownership projection is
+    /// refused.
+    ///
+    /// Red-witness: removing the bind check makes `owner_org_for` return the
+    /// org under the mismatched node id.
+    #[test]
+    fn a_cert_whose_entity_does_not_derive_the_node_id_is_dropped() {
+        let kp = EntityKeypair::generate();
+        let real_node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+            .expect("issue");
+
+        // Hand-build the announcement production could never emit: a node id
+        // unrelated to the announcing entity.
+        use crate::adapter::net::behavior::capability::CapabilitySet;
+        let mismatched: NodeId = real_node_id ^ 0xFFFF_FFFF;
+        assert_ne!(mismatched, real_node_id, "fixture must actually differ");
+        let caps = CapabilitySet::new().add_tag("nrpc:echo".to_string());
+        let mut ann = CapabilityAnnouncement::new(mismatched, kp.entity_id().clone(), 1, caps)
+            .with_owner_cert(Some(cert));
+        ann.sign(&kp);
+
+        // The cert is refused even though it is otherwise entirely valid:
+        // signed, in-window, member matches the announcing entity, no floors.
+        assert_eq!(
+            verify_announced_owner_cert(&ann, true, None, 0),
+            None,
+            "a cert under a mismatched node id must not project ownership",
+        );
+
+        // …and the announcement survives: the publisher stays discoverable,
+        // just unowned.
+        let fold = new_fold();
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+        let filter = LegacyFilter {
+            require_tags: vec!["nrpc:echo".into()],
+            ..LegacyFilter::default()
+        };
+        assert!(
+            find_nodes_matching(&fold, &filter).contains(&mismatched),
+            "the announcement itself must be kept",
+        );
+        assert_eq!(
+            owner_org_for(&fold, mismatched),
+            None,
+            "no ownership may be projected under the mismatched node id",
+        );
+
+        // Positive control: the same cert on a correctly-bound announcement
+        // DOES project — so the refusal above is the bind, not the fixture.
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+            .expect("issue");
+        let bound = signed_announcement_with_cert(&kp, Some(cert));
+        let fold = new_fold();
+        apply_legacy_announcement(&fold, bound, None, 0).expect("apply");
+        assert_eq!(
+            owner_org_for(&fold, real_node_id),
+            Some(org_root().org_id()),
+            "a correctly-bound announcement still projects ownership",
+        );
+    }
+
+    /// OA-1 exit-gate contract: ingest drops bad CERTS, not
+    /// announcements. Every failure mode leaves the publisher
+    /// discoverable with `owner_org = None`.
+    #[test]
+    fn bad_owner_cert_is_dropped_but_announcement_is_kept() {
+        use crate::adapter::net::identity::EntityId;
+        let kp = EntityKeypair::generate();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_secs();
+
+        // (a) member mismatch — a valid cert vouching for someone else.
+        let stranger = EntityId::from_bytes([0x77u8; 32]);
+        let wrong_member =
+            OrgMembershipCert::try_issue(&org_root(), stranger, 1, 3600).expect("issue");
+        // (b) tampered signature.
+        let mut tampered =
+            OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+                .expect("issue");
+        tampered.signature[0] ^= 1;
+        // (c) expired window.
+        let expired = OrgMembershipCert::issue_at(
+            &org_root(),
+            kp.entity_id().clone(),
+            1,
+            now - 2000,
+            now - 1000,
+            7,
+        );
+
+        let node_id = kp.entity_id().node_id();
+        for (label, cert) in [
+            ("member mismatch", wrong_member),
+            ("tampered signature", tampered),
+            ("expired window", expired),
+        ] {
+            let fold = new_fold();
+            let ann = signed_announcement_with_cert(&kp, Some(cert));
+            apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+            // Announcement kept: the publisher is in the fold and
+            // queryable by tag.
+            let filter = LegacyFilter {
+                require_tags: vec!["nrpc:echo".into()],
+                ..LegacyFilter::default()
+            };
+            assert!(
+                find_nodes_matching(&fold, &filter).contains(&node_id),
+                "{label}: announcement must be kept"
+            );
+            // Cert dropped: no ownership projected.
+            assert_eq!(
+                owner_org_for(&fold, node_id),
+                None,
+                "{label}: cert must be dropped"
+            );
+        }
+    }
+
+    /// A cert below the node's persisted revocation floor is
+    /// dropped at ingest; at or above the floor it projects.
+    #[test]
+    fn floored_cert_is_dropped_at_ingest() {
+        use crate::adapter::net::behavior::org::OrgRevocationBundle;
+        let kp = EntityKeypair::generate();
+
+        let mut floors_map = std::collections::BTreeMap::new();
+        floors_map.insert(kp.entity_id().clone(), 5u32);
+        let bundle = OrgRevocationBundle::try_issue(&org_root(), &floors_map).expect("issue");
+        bundle.verify().expect("bundle verifies");
+        let mut floors = OrgRevocationState::empty();
+        floors.merge_bundle(&bundle);
+
+        let below = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let at = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 5, 3600)
+            .expect("issue");
+
+        let ann_below = signed_announcement_with_cert(&kp, Some(below));
+        let ann_at = signed_announcement_with_cert(&kp, Some(at));
+
+        assert_eq!(
+            verify_announced_owner_cert(&ann_below, true, Some(&floors), 0),
+            None,
+            "generation below floor must be dropped"
+        );
+        assert_eq!(
+            verify_announced_owner_cert(&ann_at, true, Some(&floors), 0),
+            Some(VerifiedOwner::new(kp.entity_id(), org_root().org_id(), 5)),
+            "generation at floor must project"
+        );
+        // No floors tracked (un-adopted node) ⇒ implicit floor 0.
+        assert_eq!(
+            verify_announced_owner_cert(&ann_below, true, None, 0),
+            Some(VerifiedOwner::new(kp.entity_id(), org_root().org_id(), 4)),
+            "no floor state ⇒ every generation admissible"
+        );
+    }
+
+    /// Review-8 §1 witness: a valid replayed membership cert on an
+    /// UNSIGNED (or signature-invalid) announcement must never
+    /// produce an ownership projection — the announcement itself
+    /// may remain discoverable (unsigned-discovery mode), merely
+    /// unowned.
+    #[test]
+    fn unsigned_announcement_never_projects_ownership() {
+        use crate::adapter::net::behavior::capability::CapabilitySet;
+        let kp = EntityKeypair::generate();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+            .expect("issue");
+
+        // Unsigned outer announcement carrying the valid cert.
+        let fold = new_fold();
+        let unsigned = CapabilityAnnouncement::new(
+            0xE1,
+            kp.entity_id().clone(),
+            1,
+            CapabilitySet::new().add_tag("nrpc:echo"),
+        )
+        .with_owner_cert(Some(cert.clone()));
+        assert!(unsigned.signature.is_none());
+        apply_legacy_announcement(&fold, unsigned, None, 0).expect("apply");
+        // Discoverable in unsigned mode…
+        let filter = LegacyFilter {
+            require_tags: vec!["nrpc:echo".into()],
+            ..LegacyFilter::default()
+        };
+        assert!(find_nodes_matching(&fold, &filter).contains(&0xE1));
+        // …but never owned.
+        assert_eq!(
+            owner_org_for(&fold, 0xE1),
+            None,
+            "unsigned announcement must not project ownership"
+        );
+
+        // Signature-INVALID outer announcement: same refusal.
+        let fold = new_fold();
+        let mut tampered = signed_announcement_with_cert(&kp, Some(cert));
+        tampered.version += 1; // breaks the outer signature
+        apply_legacy_announcement(&fold, tampered, None, 0).expect("apply");
+        assert_eq!(
+            owner_org_for(&fold, 0xE2),
+            None,
+            "signature-invalid announcement must not project ownership"
+        );
+    }
+
+    /// Review-9 race witness, deterministic: a floor rises AFTER
+    /// owner-cert verification but BEFORE the fold apply — the
+    /// raise's retraction callback completes against a fold that
+    /// does not yet hold the projection, the delayed apply then
+    /// installs it, and no future callback fires. The production
+    /// post-apply recheck must retract it.
+    #[test]
+    fn delayed_apply_after_floor_raise_still_retracts() {
+        use crate::adapter::net::behavior::org::OrgRevocationBundle;
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+
+        // 1. Ingest verifies the cert at floor 0 (no floors yet).
+        let owner = verify_announced_owner_cert(&ann, true, None, 0).expect("verifies at floor 0");
+
+        // 2. THE RACE: the floor rises to 5 and its retraction
+        //    callback completes — against a fold that does not yet
+        //    hold the projection (a no-op).
+        let mut floors = OrgRevocationState::empty();
+        let mut floors_map = std::collections::BTreeMap::new();
+        floors_map.insert(kp.entity_id().clone(), 5u32);
+        let bundle = OrgRevocationBundle::try_issue(&org_root(), &floors_map).expect("issue");
+        bundle.verify().expect("bundle verifies");
+        floors.merge_bundle(&bundle);
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(
+            retracted, 0,
+            "callback fires before the apply — nothing to retract"
+        );
+
+        // 3. The DELAYED apply installs the stale projection…
+        let fold_ann = translate_announcement(&ann, Some(owner));
+        fold.apply(fold_ann).expect("apply");
+        assert_eq!(
+            owner_org_for(&fold, node_id),
+            Some(org_root().org_id()),
+            "without the recheck the revoked projection would persist — the review-9 red"
+        );
+
+        // 4. …and the production post-apply recheck retracts it.
+        let retracted = recheck_projected_owner_floor(&fold, Some(&floors), kp.entity_id(), &owner);
+        assert_eq!(retracted, 1);
+        assert_eq!(
+            owner_org_for(&fold, node_id),
+            None,
+            "final owner must be None"
+        );
+        // Capability entry remains; verdicts untouched.
+        assert!(may_execute(&fold, node_id, "nrpc:echo", 0xCA11));
+    }
+
+    /// Review-9: retraction changes query-visible state, so it
+    /// advances the fold change generation exactly like an apply;
+    /// a no-op retraction does not.
+    #[test]
+    fn retraction_advances_the_fold_change_generation() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+        assert_eq!(owner_org_for(&fold, node_id), Some(org_root().org_id()));
+
+        let before = fold.change_generation();
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(retracted, 1);
+        assert!(
+            fold.change_generation() > before,
+            "retraction must signal fold subscribers"
+        );
+
+        // A retraction that clears nothing leaves the generation
+        // untouched (no spurious wakeups).
+        let before = fold.change_generation();
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(retracted, 0);
+        assert_eq!(fold.change_generation(), before);
+    }
+
+    /// Retraction rewrites payloads in place, so it advances the
+    /// publisher's revision: a revision-keyed cache cannot serve a set
+    /// from before the rewrite, whatever fields synthesis reads. A
+    /// retraction that clears nothing leaves the revision alone.
+    #[test]
+    fn retraction_advances_the_publisher_revision() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+
+        let before = rev(&fold, node_id);
+        assert!(before > 0);
+        assert_eq!(
+            retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5),
+            1
+        );
+        assert!(
+            rev(&fold, node_id) > before,
+            "retraction advances the revision"
+        );
+
+        let before = rev(&fold, node_id);
+        assert_eq!(
+            retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5),
+            0
+        );
+        assert_eq!(rev(&fold, node_id), before, "a no-op retraction does not");
+    }
+
+    /// §15 — ownership retraction is recorded on the AUDIT plane.
+    ///
+    /// Every other fold transition (create, replace, evict, expire) emits an
+    /// `AuditEvent`. Retraction emitted none, so a deployment with an
+    /// installed `FoldAuditSink` logged capability lifecycle faithfully and
+    /// was silent on the one security-relevant transition the org feature
+    /// produces: a revocation floor rising and stripping a node's proven
+    /// ownership. The only trace was a `tracing::info!`, which is not the
+    /// audit plane and is not what a compliance consumer reads.
+    ///
+    /// Red-witness: reverting to `notify_projection_changed` records nothing
+    /// and the sink stays empty.
+    #[test]
+    fn ownership_retraction_is_recorded_on_the_audit_plane() {
+        use crate::adapter::net::behavior::fold::audit::VecFoldAuditSink;
+        use crate::adapter::net::behavior::fold::AuditKind;
+
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+        assert_eq!(owner_org_for(&fold, node_id), Some(org_root().org_id()));
+
+        // Install the sink AFTER the apply so the only event we can observe is
+        // the retraction itself.
+        let sink = std::sync::Arc::new(VecFoldAuditSink::new());
+        fold.set_audit_sink(Some(sink.clone()));
+        assert!(sink.is_empty(), "sink starts clean");
+
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(retracted, 1, "the stale projection was retracted");
+        assert_eq!(owner_org_for(&fold, node_id), None);
+
+        let events = sink.snapshot();
+        assert_eq!(events.len(), 1, "exactly one audit event; got {events:?}");
+        assert_eq!(
+            events[0].kind,
+            AuditKind::Custom("ownership-retracted"),
+            "the retraction is its own audit kind",
+        );
+        let detail = events[0].detail.as_deref().unwrap_or_default();
+        assert!(
+            detail.contains("floor 5") && detail.contains(&org_root().org_id().to_string()),
+            "the detail must name the org and the floor for an auditor; got {detail:?}",
+        );
+
+        // A retraction that changes nothing must NOT emit — otherwise the
+        // install sweep would flood the audit plane with no-ops.
+        let before = sink.len();
+        assert_eq!(
+            retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 9),
+            0,
+        );
+        assert_eq!(sink.len(), before, "a no-op retraction emits nothing");
+    }
+
+    /// Review-8 §9 witness: a rising floor retracts a stale
+    /// ownership projection IMMEDIATELY — no re-announcement — while
+    /// the capability entry stays present, `may_execute` verdicts
+    /// are untouched, and higher-generation projections survive
+    /// (the retained generation makes retraction exact).
+    #[test]
+    fn floor_raise_retracts_stale_ownership_immediately() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let node_id = kp.entity_id().node_id();
+        let cert = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 4, 3600)
+            .expect("issue");
+        let ann = signed_announcement_with_cert(&kp, Some(cert));
+        apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+        assert_eq!(owner_org_for(&fold, node_id), Some(org_root().org_id()));
+
+        // Floor rises to 5: the generation-4 projection retracts.
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(retracted, 1);
+        assert_eq!(
+            owner_org_for(&fold, node_id),
+            None,
+            "stale projection must retract without a re-announcement"
+        );
+        // The capability entry itself is untouched: still
+        // discoverable, still the same permissive verdict.
+        let filter = LegacyFilter {
+            require_tags: vec!["nrpc:echo".into()],
+            ..LegacyFilter::default()
+        };
+        assert!(find_nodes_matching(&fold, &filter).contains(&node_id));
+        assert!(may_execute(&fold, node_id, "nrpc:echo", 0xCA11));
+
+        // A higher-generation projection SURVIVES the same floor.
+        let fold = new_fold();
+        let cert7 = OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 7, 3600)
+            .expect("issue");
+        let ann7 = signed_announcement_with_cert(&kp, Some(cert7));
+        apply_legacy_announcement(&fold, ann7, None, 0).expect("apply");
+        let retracted = retract_floored_ownership(&fold, org_root().org_id(), kp.entity_id(), 5);
+        assert_eq!(retracted, 0, "generation 7 ≥ floor 5 must survive");
+        assert_eq!(owner_org_for(&fold, node_id), Some(org_root().org_id()));
+    }
+
+    /// Authority-dark pin: `owner_org` never enters `may_execute`.
+    /// A cert-bearing permissive announcement admits everyone; a
+    /// restricted one denies the same caller — identical verdicts
+    /// to the cert-free announcements. (The full exit-gate pin runs
+    /// end-to-end in the integration suite.)
+    #[test]
+    fn owner_org_never_enters_may_execute() {
+        let kp = EntityKeypair::generate();
+        let caller: NodeId = 0xCA11;
+        let cert = || {
+            OrgMembershipCert::try_issue(&org_root(), kp.entity_id().clone(), 1, 3600)
+                .expect("issue")
+        };
+
+        // Permissive (no allow-lists): admitted with or without cert.
+        for with_cert in [false, true] {
+            let fold = new_fold();
+            let ann = signed_announcement_with_cert(&kp, with_cert.then(cert));
+            apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+            assert!(
+                may_execute(&fold, kp.entity_id().node_id(), "nrpc:echo", caller),
+                "permissive verdict must not depend on owner_org (with_cert={with_cert})"
+            );
+        }
+
+        // Restricted to a different node: denied with or without cert.
+        for with_cert in [false, true] {
+            let fold = new_fold();
+            let mut ann = signed_announcement_with_cert(&kp, with_cert.then(cert));
+            ann.allowed_nodes = vec![0xFFFF];
+            ann.sign(&kp);
+            apply_legacy_announcement(&fold, ann, None, 0).expect("apply");
+            assert!(
+                !may_execute(&fold, kp.entity_id().node_id(), "nrpc:echo", caller),
+                "restricted verdict must not depend on owner_org (with_cert={with_cert})"
+            );
+        }
+    }
+
+    // ================================================================
+    // Weighted selection witnesses
+    // ================================================================
+    //
+    // `best_node_matching` is the single-winner discovery path, and
+    // every binding that exposes it (Rust, Go, C, and now Node and
+    // Python) documents its four preference weights as load-bearing.
+    // That claim is only worth making while these tests pass.
+    //
+    // Each witness stages TWO matching candidates whose node-id order
+    // is the OPPOSITE of their capacity order, then asserts the same
+    // fold twice, mutating only the requirement:
+    //
+    //   - all weights zero  → the lower node id wins (the tie-break);
+    //   - the axis weighted → the higher-capacity node wins.
+    //
+    // A single candidate would pass both assertions no matter what
+    // scoring did, and same-order ids would let a lexicographic
+    // selection masquerade as a weighted one. Both halves are needed:
+    // the first pins the tie-break, the second proves the weight
+    // actually moved the winner.
+    //
+    // This is the shape that catches a regression to the pre-2026-08
+    // behavior, where the fold payload carried no hardware/model
+    // projection, every score tied, and selection silently degraded to
+    // "lowest matching node id" while still being documented as
+    // weighted.
+    mod weighted_selection {
+        use super::*;
+        use crate::adapter::net::behavior::capability::{
+            CapabilityAnnouncement, CapabilityRequirement, CapabilitySet, GpuInfo,
+            GpuVendor as LegacyGpuVendor, HardwareCapabilities, ModelCapability,
+        };
+        use crate::adapter::net::identity::EntityId;
+
+        /// The lower of the two node ids used by every witness, and
+        /// the one an unweighted requirement must return.
+        const LOW_ID: NodeId = 0x11;
+        /// The higher node id — always given the STRONGER capability,
+        /// so a weighted requirement has to overcome the tie-break to
+        /// pick it.
+        const HIGH_ID: NodeId = 0x22;
+
+        /// Publish `caps` for `node_id` through the production
+        /// translate → apply path, so the fold entry carries exactly
+        /// the canonical tags a real announcement would.
+        fn announce(fold: &Fold<CapabilityFold>, node_id: NodeId, caps: CapabilitySet) {
+            let ann = CapabilityAnnouncement::new(
+                node_id,
+                EntityId::from_bytes([node_id as u8; 32]),
+                1,
+                caps,
+            );
+            apply_legacy_announcement(fold, ann, None, 0).expect("apply");
+        }
+
+        fn gpu(vram_gb: u32) -> GpuInfo {
+            GpuInfo::new(LegacyGpuVendor::Nvidia, "test-gpu", vram_gb)
+        }
+
+        /// A requirement with an empty filter (matches every
+        /// publisher) and no weights — the tie-break baseline.
+        fn unweighted() -> CapabilityRequirement {
+            CapabilityRequirement::from_filter(LegacyFilter::default())
+        }
+
+        fn winner(fold: &Fold<CapabilityFold>, req: &CapabilityRequirement) -> Option<NodeId> {
+            best_node_matching(fold, &req.filter, |caps| req.score(caps))
+        }
+
+        /// The paired assertion every axis witness runs: same fold,
+        /// same candidates, only the preference changes.
+        fn assert_weight_flips_the_winner(
+            fold: &Fold<CapabilityFold>,
+            weighted: CapabilityRequirement,
+            axis: &str,
+        ) {
+            assert_eq!(
+                winner(fold, &unweighted()),
+                Some(LOW_ID),
+                "{axis}: with no weights the lowest matching node id must win — \
+                 if this fails the tie-break changed, and the weighted half below \
+                 proves nothing",
+            );
+            assert_eq!(
+                winner(fold, &weighted),
+                Some(HIGH_ID),
+                "{axis}: weighting the axis must pick the higher-capacity node \
+                 over the lower node id — a dead weight leaves the tie-break \
+                 winner in place",
+            );
+        }
+
+        #[test]
+        fn find_best_node_prefers_higher_vram_over_lower_node_id() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(8))),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(80))),
+            );
+            assert_weight_flips_the_winner(&fold, unweighted().prefer_vram(1.0), "vram");
+        }
+
+        #[test]
+        fn find_best_node_prefers_more_memory_over_lower_node_id() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_memory(8)),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_memory(256)),
+            );
+            assert_weight_flips_the_winner(&fold, unweighted().prefer_memory(1.0), "memory");
+        }
+
+        #[test]
+        fn find_best_node_prefers_faster_inference_over_lower_node_id() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new()
+                    .add_model(ModelCapability::new("slow-model", "test").with_tokens_per_sec(10)),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new()
+                    .add_model(ModelCapability::new("fast-model", "test").with_tokens_per_sec(900)),
+            );
+            assert_weight_flips_the_winner(&fold, unweighted().prefer_speed(1.0), "tokens/sec");
+        }
+
+        #[test]
+        fn find_best_node_prefers_loaded_models_over_lower_node_id() {
+            let fold = new_fold();
+            // The axis is the LOADED RATIO, not the loaded count, so
+            // the low-id node carries more models — one loaded out of
+            // two (0.5) against one out of one (1.0). A scorer that
+            // counted instead of ratioing would tie here and fall back
+            // to the node id, failing the second assertion.
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new()
+                    .add_model(ModelCapability::new("a", "test").with_loaded(true))
+                    .add_model(ModelCapability::new("b", "test").with_loaded(false)),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new().add_model(ModelCapability::new("c", "test").with_loaded(true)),
+            );
+            assert_weight_flips_the_winner(
+                &fold,
+                unweighted().prefer_loaded(1.0),
+                "loaded-model ratio",
+            );
+        }
+
+        /// Scope narrows the candidate set BEFORE scoring. The
+        /// strongest node in the fold belongs to another tenant, so a
+        /// scoped query must not return it however heavily the axis is
+        /// weighted — and the unscoped query on the same fold must,
+        /// or the test would pass on a fold where the strong candidate
+        /// simply wasn't there.
+        #[test]
+        fn scoped_selection_filters_before_scoring() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new()
+                    .with_hardware(HardwareCapabilities::new().with_gpu(gpu(8)))
+                    .with_tenant_scope("red"),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new()
+                    .with_hardware(HardwareCapabilities::new().with_gpu(gpu(80)))
+                    .with_tenant_scope("blue"),
+            );
+
+            let req = unweighted().prefer_vram(1.0);
+            assert_eq!(
+                winner(&fold, &req),
+                Some(HIGH_ID),
+                "unscoped, the 80GB blue-tenant node is the strongest candidate",
+            );
+            assert_eq!(
+                best_node_matching_scoped(
+                    &fold,
+                    &req.filter,
+                    &ScopeFilter::Tenant("red"),
+                    |_, _| false,
+                    |caps| req.score(caps),
+                ),
+                Some(LOW_ID),
+                "scoped to tenant red, the stronger blue-tenant node must be \
+                 excluded before scoring, not out-scored after it",
+            );
+        }
+
+        #[test]
+        fn no_match_returns_none_and_node_id_zero_is_a_valid_winner() {
+            let fold = new_fold();
+            assert_eq!(
+                winner(&fold, &unweighted()),
+                None,
+                "an empty fold has no winner",
+            );
+
+            // Node id 0 is a legitimate id, not a sentinel — this is
+            // why the C and Go surfaces carry a separate has-match
+            // out-param and the Node/Python surfaces return
+            // `null` / `None` rather than 0.
+            announce(&fold, 0, CapabilitySet::new());
+            assert_eq!(
+                winner(&fold, &unweighted()),
+                Some(0),
+                "node id 0 must be returned as a winner, not read as no-match",
+            );
+
+            let unsatisfiable = CapabilityRequirement::from_filter(LegacyFilter {
+                require_tags: vec!["tag-nobody-announced".into()],
+                ..LegacyFilter::default()
+            });
+            assert_eq!(
+                winner(&fold, &unsatisfiable),
+                None,
+                "a filter nothing matches must return None, not the id-0 node",
+            );
+        }
+
+        /// An unscoreable candidate loses to every scoreable one, no
+        /// matter which order they arrive in.
+        ///
+        /// `NaN` compares false in both directions, so the natural
+        /// "later candidates win only on a strictly greater score"
+        /// loop admits the first candidate unconditionally and then
+        /// can never displace it — a `NaN` on the LOWEST id wins
+        /// outright over every real score behind it, which is the
+        /// opposite of what a scorer returning `NaN` means. Both
+        /// orders are staged here because only the low-id case fails
+        /// under that shape; scoring the high id `NaN` passes either
+        /// way and would have proved nothing on its own.
+        ///
+        /// Unreachable through `CapabilityRequirement::score`, which
+        /// divides by constants and guards its one ratio — and
+        /// unreachable through the Node and Python surfaces, which
+        /// refuse a non-finite weight outright. The bridge takes an
+        /// arbitrary caller-supplied `Fn` though, so it is reachable
+        /// here, and total is cheaper than documented-as-impossible.
+        #[test]
+        fn an_unscoreable_candidate_never_beats_a_scoreable_one() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(8))),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(80))),
+            );
+            let filter = LegacyFilter::default();
+            let vram = |caps: &CapabilitySet| caps.views().hardware().total_vram_gb();
+
+            assert_eq!(
+                best_node_matching(&fold, &filter, |caps| {
+                    if vram(caps) == 8 {
+                        f32::NAN
+                    } else {
+                        1.0
+                    }
+                }),
+                Some(HIGH_ID),
+                "the unscoreable candidate sorts first, so a shape that lets it \
+                 become an undisplaceable incumbent returns it here",
+            );
+
+            assert_eq!(
+                best_node_matching(&fold, &filter, |caps| {
+                    if vram(caps) == 80 {
+                        f32::NAN
+                    } else {
+                        1.0
+                    }
+                }),
+                Some(LOW_ID),
+                "and it loses from the other side too, where it never had a \
+                 chance to become the incumbent",
+            );
+        }
+
+        /// When NOTHING is scoreable the answer is still the lowest
+        /// matching id, not `None`.
+        ///
+        /// Skipping unscoreable candidates outright would make this
+        /// report no match at all — but they did match the filter,
+        /// and "no winner among equals" is exactly the case the
+        /// tie-break already answers.
+        #[test]
+        fn every_candidate_unscoreable_falls_back_to_the_tie_break() {
+            let fold = new_fold();
+            announce(&fold, LOW_ID, CapabilitySet::new());
+            announce(&fold, HIGH_ID, CapabilitySet::new());
+
+            assert_eq!(
+                best_node_matching(&fold, &LegacyFilter::default(), |_| f32::NAN),
+                Some(LOW_ID),
+                "both candidates matched the filter, so an unrankable set is a \
+                 tie, not an empty result",
+            );
+
+            // And a filter nothing matches is still `None`, so the
+            // fallback above cannot manufacture a winner.
+            assert_eq!(
+                best_node_matching(
+                    &fold,
+                    &LegacyFilter {
+                        require_tags: vec!["tag-nobody-announced".into()],
+                        ..LegacyFilter::default()
+                    },
+                    |_| f32::NAN,
+                ),
+                None,
+                "the fallback is the lowest MATCHING id — with no match there is \
+                 nothing to fall back to",
+            );
+        }
+
+        /// Every candidate is scored against the capability set the
+        /// SAME fold read admitted it from, even when the fold moves
+        /// on between admission and scoring.
+        ///
+        /// The mutation is the point. An eviction staged BEFORE the
+        /// query proves nothing: the evicted node is simply absent
+        /// from both the coherent and the split-read shape, and both
+        /// pass. So the scorer itself evicts `HIGH_ID` while scoring
+        /// `LOW_ID` — deterministically between candidate
+        /// materialization and the scoring of the candidate that
+        /// eviction would change.
+        ///
+        /// The shape this replaced resolved ids from one fold read and
+        /// then re-entered the fold once per candidate to synthesize
+        /// scoring input. Restore it and `HIGH_ID`'s second read finds
+        /// nothing, defaults to an empty set (the negative control
+        /// below), and the 8GB node wins a VRAM-weighted query over an
+        /// 80GB one that was live when it was admitted.
+        ///
+        /// This also witnesses that scoring runs with the fold guards
+        /// released: `evict_node` takes both write locks, and
+        /// `parking_lot`'s locks are not reentrant, so a scorer called
+        /// from inside `with_state_and_index` would deadlock here.
+        /// The failure mode for that regression is a hung test, not a
+        /// failed assertion.
+        #[test]
+        fn selection_scores_each_candidate_against_the_state_that_admitted_it() {
+            let fold = new_fold();
+            announce(
+                &fold,
+                LOW_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(8))),
+            );
+            announce(
+                &fold,
+                HIGH_ID,
+                CapabilitySet::new().with_hardware(HardwareCapabilities::new().with_gpu(gpu(80))),
+            );
+
+            let req = unweighted().prefer_vram(1.0);
+            // `RefCell` because the bridge takes `Fn`, not `FnMut` —
+            // a scorer has no business mutating anything; this one is
+            // a test probe.
+            let observed: std::cell::RefCell<Vec<u32>> = std::cell::RefCell::new(Vec::new());
+            let winner = best_node_matching(&fold, &req.filter, |caps| {
+                let vram = caps.views().hardware().total_vram_gb();
+                observed.borrow_mut().push(vram);
+                // Candidates arrive in ascending id order, so this
+                // fires while scoring LOW_ID — after both candidates
+                // were materialized, before HIGH_ID is scored.
+                if vram == 8 {
+                    fold.evict_node(HIGH_ID, "test: publisher leaves mid-selection");
+                }
+                req.score(caps)
+            });
+
+            assert_eq!(
+                observed.into_inner(),
+                vec![8, 80],
+                "both candidates are scored against the state that admitted \
+                 them — a publisher evicted after admission must still be \
+                 scored on the capabilities it was admitted with, not on a \
+                 set re-read from the fold it has since left",
+            );
+            assert_eq!(
+                winner,
+                Some(HIGH_ID),
+                "the 80GB node was live when the snapshot was taken, so it \
+                 wins the VRAM-weighted query",
+            );
+
+            // Negative control: what the composed shape's second fold
+            // read would have handed the scorer for the evicted node.
+            let stale = synthesize_capability_set(&fold, HIGH_ID);
+            assert_eq!(
+                stale.views().hardware().total_vram_gb(),
+                0,
+                "the fold-taking synthesis defaults an unknown publisher to an \
+                 empty set — the value a split-read selection would have scored",
+            );
+        }
+    }
+}

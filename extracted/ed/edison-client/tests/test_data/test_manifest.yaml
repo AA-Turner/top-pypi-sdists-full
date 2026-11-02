@@ -1,0 +1,6 @@
+test_data:
+  description: "The directory holding all the test data"
+  test_file.txt:
+    description: "Random test file"
+  test_information.txt:
+    description: "Another random test file"

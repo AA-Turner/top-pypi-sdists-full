@@ -1,0 +1,84 @@
+# The rules the weather's effects follow: conditional distributions, which
+# openodd reads (its docs/rules.md), that give the distribution of a quantity
+# a run sets in a weather (docs/odd.md, "Weather rules").  A run draws a
+# quantile and sets the value at it.
+#
+# Each quantity is one or more parts; each part reads some of the weather's
+# fields (`at`, with the points it is written at) and gives a distribution
+# (here `uniform`, from `low` to `high`) at each point, interpolated linearly
+# between them and held beyond them.  With more than one part, every part
+# gives its value at the run's quantile and `combine` (`min` or `max`) joins
+# them.
+#
+# The inputs a part may read: the weather's `cloudiness`, `precipitation`,
+# `precipitation_deposits`, `wetness`, `wind_intensity`, `fog_density`,
+# `fog_distance`, `sun_altitude_angle` and `sun_azimuth_angle`, and `water`,
+# the larger of `wetness` and `precipitation_deposits`.
+#
+# A run reads another file with `environment.rules` in its config, merged
+# over these: it names only what it changes, may `extends` other files (by
+# path, https:// URL or git source), and may differ by vehicle.
+version: 2
+quantities:
+  # The grip a tyre keeps on the road, as a share of CARLA's dry road's, by
+  # how wet the road is.  Measured tyre-road friction coefficients are about
+  # 0.8-1.0 on dry asphalt, 0.5-0.7 on wet and 0.3-0.5 under a water film
+  # (what heavy rain leaves): a wet road keeps about three quarters of the dry
+  # grip, a flooded one about half.  Each range spans what tyres, their wear
+  # and the asphalt make of the same water; a dry road's is centred on CARLA's
+  # own grip, so a dry run at its median drives as it did before.
+  tire_friction:
+    parts:
+      water:
+        at: {water: [0, 50, 100]}        # dry, wet, flooded
+        uniform:
+          low:  [0.90, 0.65, 0.45]
+          high: [1.10, 0.85, 0.65]
+
+  # How far a driver sees, metres.  The fog, the rain and the light each bound
+  # it, and the shortest bound holds: fog at night is seen through no further
+  # than either.  Each range spans what eyes, windscreens, headlights and the
+  # road's own lighting make of the same weather.
+  visibility:
+    combine: min
+    parts:
+      # A clear day's is what a driver looks ahead on an open road; dense
+      # fog's is meteorology's dense fog (under 50 m).
+      fog:
+        at: {fog_density: [0, 30, 70, 100]}       # clear, mist, fog, dense
+        uniform:
+          low:  [250, 120, 40, 15]
+          high: [400, 250, 100, 40]
+      # Falling rain and the spray the traffic throws up shorten the view less
+      # than fog does.
+      rain:
+        at: {precipitation: [0, 30, 70, 100]}     # dry, light, heavy, torrential
+        uniform:
+          low:  [250, 180, 100, 60]
+          high: [400, 320, 220, 150]
+      # By the sun's altitude, degrees: from sunset to the end of civil
+      # twilight (6 degrees below the horizon, the ODD's `night`) down to what
+      # headlights light, from a dipped beam's 50 m to a main beam's or a lit
+      # street's 150 m.
+      light:
+        at: {sun_altitude_angle: [-6, 0]}         # night below, day above
+        uniform:
+          low:  [50, 250]
+          high: [150, 400]
+
+  # The speed a driver keeps, m/s, from how far they see: a part reading the
+  # visibility above, so the rules chain (weather -> visibility -> speed).
+  # Written for SUMO's default car, braking at 4.5 m/s^2 a second after it
+  # sees: `high` is the speed it stops from within the visibility (8 m/s in
+  # 15 m, 26 m/s in 100 m; visibility.sight_speed), and most drivers keep a
+  # little below it.  A vehicle that brakes or reacts otherwise scales it by
+  # its own stopping speed (visibility.sight_speed_at), and each traffic
+  # vehicle draws a quantile of its own.
+  sight_speed:
+    parts:
+      sight:
+        at: {visibility: [15, 30, 50, 100, 150, 250, 400]}
+        triangular:
+          low:  [6.0, 9.4, 12.9, 19.4, 24.4, 32.4, 41.8]
+          mode: [7.6, 11.9, 16.3, 24.5, 30.9, 41.0, 52.9]
+          high: [8.0, 12.5, 17.2, 25.8, 32.5, 43.1, 55.7]

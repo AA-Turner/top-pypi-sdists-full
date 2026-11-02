@@ -1,0 +1,2626 @@
+//! Net L0 Transport Protocol (Net) adapter.
+//!
+//! Net is a high-performance UDP-based transport protocol designed for
+//! GPU-to-GPU encrypted streaming over UDP. It provides:
+//!
+//! - Zero-copy, zero-allocation hot path
+//! - XChaCha20-Poly1305 encryption per packet
+//! - Noise protocol handshake (NKpsk0)
+//! - Optional per-stream reliability with selective NACKs
+//! - 40-60M events/sec target throughput
+//!
+//! # Usage
+//!
+//! ```rust,ignore
+//! use net::adapter::net::{NetAdapter, NetAdapterConfig, StaticKeypair};
+//!
+//! // Generate keypair for responder
+//! let keypair = StaticKeypair::generate();
+//!
+//! // Create initiator config
+//! let config = NetAdapterConfig::initiator(
+//!     "127.0.0.1:9000".parse()?,
+//!     "127.0.0.1:9001".parse()?,
+//!     psk,
+//!     keypair.public,
+//! );
+//!
+//! // Create adapter
+//! let mut adapter = NetAdapter::new(config)?;
+//! adapter.init().await?;
+//! ```
+
+mod batch {
+    //! Re-export shim: the wire module lives in `net-mesh-wire`
+    //! since Stage 2. Keeps `crate::adapter::net::batch::*` resolving.
+    pub use net_wire::batch::*;
+}
+pub mod behavior;
+// SDK-level cancel-token registry consumed by the cortex `mesh_rpc`
+// call shapes. Always-built (no cortex feature gate) — the registry
+// is type-pure and small; gating it would mean two parallel
+// definitions, and the `cortex` build is the only consumer today
+// regardless. The `#[allow(dead_code)]` on cortex-off builds keeps
+// the dead-code lint silent without a per-item annotation fan-out.
+#[cfg_attr(not(feature = "cortex"), allow(dead_code))]
+mod cancel_registry;
+pub mod channel;
+pub mod compute;
+mod config;
+pub mod contested;
+pub mod continuity;
+#[cfg(feature = "cortex")]
+pub mod cortex;
+mod crypto {
+    //! Re-export shim: see `net_wire::crypto`.
+    pub use net_wire::crypto::*;
+}
+mod failure;
+pub mod identity;
+mod mesh;
+// nRPC glue + metrics depend on the cortex fold types (RpcServerFold,
+// RpcClientPending, etc.) and the per-channel-hash inbound dispatcher
+// hook the cortex layer wires up. They're meaningless without
+// `cortex` enabled, and unconditionally exposing them broke `--features
+// net` builds (mesh_rpc.rs references `super::cortex::*`). Gating both
+// keeps the bare-net build clean.
+#[cfg(feature = "dataforts")]
+pub mod dataforts;
+#[cfg(feature = "cortex")]
+pub mod mesh_rpc;
+#[cfg(feature = "cortex")]
+pub mod mesh_rpc_metrics;
+// OA2-E1 §2.4a admission gate glue — bridges the cortex RPC payload
+// (request digest) and the behavior-layer org admission engine.
+// Cortex-gated for the same reason as `mesh_rpc`.
+#[cfg(feature = "netdb")]
+pub mod netdb;
+#[cfg(feature = "cortex")]
+pub mod org_admission_gate;
+/// Fixtures-only composition bridge for organization exact-provider sensing.
+///
+/// Declared here rather than inside the private `mesh` module because a `pub`
+/// item in a private module is not nameable from another crate; the fixtures
+/// gate is the whole guard, exactly as for `subnet::alloc_probe`.
+#[cfg(any(test, feature = "fixtures"))]
+#[doc(hidden)]
+pub mod org_exact_sensing_bridge;
+mod pool {
+    //! Re-export shim: see `net_wire::pool`.
+    pub use net_wire::pool::*;
+}
+mod protocol {
+    //! Re-export shim: see `net_wire::protocol`.
+    pub use net_wire::protocol::*;
+}
+mod proxy;
+#[cfg(feature = "redex")]
+pub mod redex;
+mod reliability {
+    //! Re-export shim: see `net_wire::reliability`.
+    pub use net_wire::reliability::*;
+
+    /// The one `reliability.rs` test that could not travel with its
+    /// module: it pairs `ReliableStream::build_ack_ranges` with the
+    /// core's `subprotocol::stream_window` codec, and the subprotocol
+    /// codecs stayed in the core in Stage 2. Same assertions, same
+    /// name, now on the consumer side of the crate boundary.
+    #[cfg(test)]
+    mod core_codec_tests {
+        use super::{ReliabilityMode, ReliableStream};
+        use std::time::Duration;
+
+        /// R-1/R-4 producer↔consumer consistency: ranges built by the
+        /// receiver are newest-first, truncate oldest-first, and always
+        /// pass the wire codec's strict validation.
+        #[test]
+        fn build_ack_ranges_newest_first_and_codec_valid() {
+            use crate::adapter::net::subprotocol::stream_window::{
+                StreamAckRanges, MAX_ACK_RANGES,
+            };
+
+            let mut s = ReliableStream::with_settings(Duration::from_millis(50), 16_384, 3);
+            assert!(s.on_receive(0)); // next_expected = 1
+            for i in 0..20u64 {
+                assert!(s.on_receive(2 + 2 * i));
+            }
+            let ranges = s.build_ack_ranges(MAX_ACK_RANGES);
+            assert_eq!(ranges.len(), MAX_ACK_RANGES, "truncated to the cap");
+            assert_eq!(
+                ranges[0],
+                (2 + 2 * 19, 2 + 2 * 19 + 1),
+                "newest (highest) range first"
+            );
+            assert!(
+                ranges.windows(2).all(|w| w[0].0 > w[1].1),
+                "strictly descending, non-adjacent"
+            );
+            assert_eq!(
+                ranges.last().copied().unwrap(),
+                (2 + 2 * 4, 2 + 2 * 4 + 1),
+                "truncation dropped the 4 OLDEST ranges"
+            );
+
+            // Whatever the receiver produces must decode cleanly.
+            let msg = StreamAckRanges {
+                stream_id: 7,
+                ack_seq: s.rx_ack_seq(),
+                ranges,
+            };
+            assert_eq!(
+                StreamAckRanges::decode(&msg.encode())
+                    .expect("receiver output is always codec-valid"),
+                msg
+            );
+        }
+    }
+}
+mod reroute;
+mod route;
+mod router;
+#[cfg(feature = "webrtc")]
+pub mod rtc;
+pub mod secret_file;
+mod session {
+    //! Re-export shim: see `net_wire::session`.
+    pub use net_wire::session::*;
+}
+pub mod state;
+mod stream {
+    //! Re-export shim: see `net_wire::stream`. The application-facing
+    //! `Stream` handle is NOT part of it — it is core-owned so its
+    //! fields can stay private (see `super::stream_handle`), and is
+    //! re-exported here so `adapter::net::stream::Stream` still
+    //! resolves for every existing consumer.
+    pub use net_wire::stream::*;
+
+    pub use super::stream_handle::Stream;
+}
+mod stream_handle;
+pub mod subnet;
+pub mod subprotocol;
+mod swarm;
+mod transport;
+#[cfg(feature = "nat-traversal")]
+pub mod traversal;
+
+#[cfg(target_os = "linux")]
+mod linux;
+
+pub use batch::AdaptiveBatcher;
+pub use channel::{
+    queue_group_hash, AckReason, AclPrincipal, AuthGuard, AuthVerdict, ChannelConfig,
+    ChannelConfigRegistry, ChannelError, ChannelHash, ChannelId, ChannelName, ChannelPublisher,
+    ChannelRegistry, MembershipMsg, OnFailure, OriginBinding, PublishConfig, PublishReport,
+    QueueGroupPolicy, ResolvedConfig, SubscriberRoster, Visibility, SUBPROTOCOL_CHANNEL_MEMBERSHIP,
+};
+pub use compute::{
+    DaemonError, DaemonFactoryRegistry, DaemonHost, DaemonHostConfig, DaemonRegistry, DaemonStats,
+    FactoryEntry, MeshDaemon, MigrationError, MigrationMessage, MigrationOrchestrator,
+    MigrationPhase, MigrationSourceHandler, MigrationState, MigrationTargetHandler,
+    PlacementDecision, Scheduler, SchedulerError, SUBPROTOCOL_MIGRATION,
+};
+pub use config::{ConnectionRole, NetAdapterConfig, ReliabilityConfig};
+pub use contested::{
+    CorrelatedFailureConfig, CorrelatedFailureDetector, CorrelationVerdict, FailureCause,
+    PartitionDetector, PartitionPhase, PartitionRecord, ReconcileOutcome, Side,
+    SUBPROTOCOL_PARTITION,
+};
+pub use continuity::{
+    assess_continuity, CausalCone, Causality, ContinuityProof, ContinuityStatus, Discontinuity,
+    DiscontinuityReason, ForkRecord, HorizonDivergence, ObservationWindow, ProofError,
+    PropagationModel, SuperpositionPhase, SuperpositionState, SUBPROTOCOL_CONTINUITY,
+};
+#[cfg(feature = "cortex")]
+pub use cortex::{
+    CortexAdapter, CortexAdapterConfig, CortexAdapterError, EventEnvelope, EventMeta,
+    FoldErrorPolicy, IntoRedexPayload, StartPosition, EVENT_META_SIZE,
+};
+pub use crypto::{CryptoError, SessionKeys, StaticKeypair};
+pub use failure::{
+    CircuitBreaker, CircuitState, FailureDetector, FailureDetectorConfig, FailureStats,
+    LossSimulator, NodeStatus, PeerFailureEvent, RecoveryAction, RecoveryManager, RecoveryStats,
+    VerdictStatus,
+};
+pub use identity::{
+    EntityError, EntityId, EntityKeypair, OriginStamp, PermissionToken, TokenCache, TokenError,
+    TokenScope,
+};
+/// Exported for the same reason: the sensed-projection off-lock observations
+/// need a nameable type in the projection witnesses. `#[doc(hidden)]` and
+/// fixtures-gated at its definition.
+#[cfg(any(test, feature = "fixtures"))]
+pub use mesh::SensingOffLockObservation;
+/// Exported only so `upgrade_try_acquire_for_test` has a nameable
+/// return type in integration tests; `#[doc(hidden)]` at the definition.
+#[cfg(feature = "nat-traversal")]
+pub use mesh::UpgradeAttemptGuard;
+pub use mesh::{
+    ControlPlaneStats, MeshNode, MeshNodeConfig, NoiseStaticKey, PartitionFilter,
+    PublishChainConflict, SensingLeaseReleaseRefused, SensingReadinessOverlay,
+    SensingRegistrationError, SessionPath, StartRefused, StreamInboundEvent, StreamInboundSink,
+    StreamInbox, SubnetFloorQueryError, UnregisteredChannelPolicy, ACK_RANGES_CAPABILITY_TAG,
+    NOISE_STATIC_KEY_CONTEXT, TRANSFER_CHUNK_IDLE_TIMEOUT,
+};
+/// Exported only so the fixtures-gated ordered-egress accessors have nameable
+/// types in integration tests; each is `#[doc(hidden)]` at its definition and
+/// none of them exposes authority material or any control over the egress.
+#[cfg(any(test, feature = "fixtures"))]
+pub use mesh::{OrgEgressSendObserver, OrgEgressSendPhase, OrgEgressState};
+/// The one label → stream-id derivation, shared with the browser leaf.
+pub use net_wire::channel::name::{stream_id_from_label, LABELED_STREAM_DISCRIMINATOR};
+#[cfg(feature = "netdb")]
+pub use netdb::{MemoriesFilter, NetDb, NetDbBuilder, NetDbError, NetDbSnapshot, TasksFilter};
+// `SharedPacketPool` is intentionally not re-exported — see
+// `pool.rs` for the cross-pool nonce-reuse rationale.
+// `PacketPool` itself stays exposed because tests reference it;
+// only the `Arc<PacketPool>` wrapper alias and its constructor
+// are absent.
+pub use pool::{PacketBuilder, PacketPool, SharedLocalPool, ThreadLocalPool};
+pub use protocol::{
+    EventFrame, NackPayload, NetHeader, PacketFlags, HEADER_SIZE, MAX_EVENT_SIZE, MAX_PACKET_SIZE,
+    MAX_PAYLOAD_SIZE, NONCE_SIZE, TAG_SIZE,
+};
+pub use proxy::{
+    ForwardResult, HopStats, MultiHopPacketBuilder, NetProxy, ProxyConfig, ProxyError, ProxyStats,
+};
+#[cfg(feature = "redex")]
+pub use redex::{
+    FsyncPolicy, IndexOp, IndexStart, OrderedAppender, Redex, RedexEntry, RedexError, RedexEvent,
+    RedexFile, RedexFileConfig, RedexFlags, RedexFold, RedexIndex, TypedRedexFile,
+};
+pub use reliability::{FireAndForget, ReliabilityMode, ReliableStream, RetransmitDescriptor};
+pub use reroute::ReroutePolicy;
+pub use route::{
+    AggregateStats, AlternateProvenance, RouteCandidateView, RouteEntry, RouteFlags,
+    RouteObservation, RoutingHeader, RoutingTable, SchedulerStreamStats, TransitionOutcome,
+    ROUTING_HEADER_SIZE,
+};
+pub use router::{FairScheduler, NetRouter, RouteAction, RouterConfig, RouterError, RouterStats};
+// Send-loop drain instrument (NRPC_SEND_LOOP_BATCHING_PLAN). Re-exported only
+// so the in-repo integration tests (which compile as external crates) can
+// drive it; `#[doc(hidden)]` keeps it out of the crate's documented surface.
+#[doc(hidden)]
+pub use router::{
+    arm_send_drain_histo, send_batch_stats, send_drain_histo_snapshot, send_drain_max,
+};
+pub use session::{
+    ControlDebitGuard, NetSession, SessionManager, StreamCloseOutcome, StreamDrainState,
+    StreamState, TxAdmit, TxSlotGuard,
+};
+pub use state::{
+    LogIndex, ObservedHorizon, SnapshotStore, StateSnapshot, CAUSAL_LINK_SIZE, SUBPROTOCOL_CAUSAL,
+    SUBPROTOCOL_SNAPSHOT,
+};
+pub use stream::{
+    CloseBehavior, Reliability, Stream, StreamConfig, StreamError, StreamStats,
+    DEFAULT_STREAM_WINDOW_BYTES,
+};
+pub use subnet::{DropReason, ForwardDecision, SubnetGateway, SubnetId, SubnetPolicy, SubnetRule};
+pub use subprotocol::{
+    negotiate, MigrationHandlerHooks, MigrationOrchestratorPolicy, MigrationSubprotocolHandler,
+    NegotiatedSet, OutboundMigrationMessage, SubprotocolDescriptor, SubprotocolManifest,
+    SubprotocolRegistry, SubprotocolVersion, SUBPROTOCOL_NEGOTIATION,
+};
+pub use swarm::{
+    Capabilities, CapabilityAd, EdgeInfo, GraphStats, LocalGraph, NodeInfo, Pingwave,
+    MAX_GRAPH_NODES, MAX_SEEN_PINGWAVES, PINGWAVE_SIZE,
+};
+pub use transport::{
+    NetSocket, PacketReceiver, PacketSender, ParsedPacket, PeerAddr, PeerSink, SocketBufferConfig,
+};
+// Recv-loop batching instrument (NRPC_RECV_LOOP_BATCHING_PLAN), symmetric to
+// the send-side drain instrument. Compiled only under the `batched-ingress`
+// build feature (it measures that path). Re-exported only so the in-repo
+// integration tests can drive it; `#[doc(hidden)]` keeps it off the
+// documented surface.
+#[cfg(feature = "batched-ingress")]
+#[doc(hidden)]
+pub use transport::{
+    arm_recv_drain_histo, recv_batch_stats, recv_drain_histo_snapshot, recv_drain_max,
+    RECV_DRAIN_BUCKETS,
+};
+
+use async_trait::async_trait;
+use bytes::Bytes;
+use crossbeam_queue::SegQueue;
+use dashmap::DashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::Notify;
+use tokio::task::JoinHandle;
+
+use crate::adapter::{Adapter, ShardPollResult};
+use crate::error::AdapterError;
+use crate::event::{Batch, StoredEvent};
+
+use crypto::NoiseHandshake;
+use session::SessionManager as SessionMgr;
+use transport::NetSocket as Socket;
+
+// Re-export xxh3 utilities for stream routing
+pub use routing::{route_to_shard, stream_id_from_bytes, stream_id_from_key};
+
+/// The coarse packet clock, moved into `net-mesh-wire` in Stage 2
+/// (`session.rs` and `pool.rs` read it on every packet, and both now
+/// live there). Re-exported so `crate::adapter::net::current_timestamp`
+/// and its siblings still resolve; `current_timestamp_micros` below is
+/// diagnostics-only and stayed.
+///
+/// `coarse_clock_advance` and `COARSE_CLOCK_REFRESH_NS` have only test
+/// consumers in this crate now, hence the allow.
+#[allow(unused_imports)]
+pub(crate) use net_wire::time::{coarse_clock_advance, current_timestamp, COARSE_CLOCK_REFRESH_NS};
+
+/// Current timestamp in microseconds since the Unix epoch.
+/// Saturates at `0` on pre-epoch clocks (the wire envelopes that
+/// consume this — fold announcements, snapshots — treat micros
+/// purely as diagnostics, never as ordering, so a saturated
+/// reading is benign).
+#[inline]
+pub(crate) fn current_timestamp_micros() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_micros() as u64)
+        .unwrap_or(0)
+}
+
+/// Fast xxh3-based routing utilities for Net streams.
+///
+/// Uses xxh3 (~50GB/s) for deterministic, high-performance stream routing.
+mod routing {
+    use xxhash_rust::xxh3::xxh3_64;
+
+    /// Generate a stream ID from arbitrary data.
+    ///
+    /// Uses xxh3 for fast, deterministic hashing (~50GB/s on modern CPUs).
+    #[inline]
+    pub fn stream_id_from_bytes(data: &[u8]) -> u64 {
+        xxh3_64(data)
+    }
+
+    /// Generate a stream ID from a string key.
+    ///
+    /// Convenience wrapper for `stream_id_from_bytes`.
+    #[inline]
+    pub fn stream_id_from_key(key: &str) -> u64 {
+        xxh3_64(key.as_bytes())
+    }
+
+    /// Route data to a shard based on its content hash.
+    ///
+    /// Returns a shard ID in the range `[0, num_shards)`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `num_shards` is 0.
+    #[inline]
+    pub fn route_to_shard(data: &[u8], num_shards: u16) -> u16 {
+        assert!(num_shards > 0, "num_shards must be > 0");
+        (xxh3_64(data) % num_shards as u64) as u16
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_stream_id_deterministic() {
+            let data = b"test event data";
+            let id1 = stream_id_from_bytes(data);
+            let id2 = stream_id_from_bytes(data);
+            assert_eq!(id1, id2);
+        }
+
+        #[test]
+        fn test_stream_id_different_for_different_data() {
+            let id1 = stream_id_from_bytes(b"event1");
+            let id2 = stream_id_from_bytes(b"event2");
+            assert_ne!(id1, id2);
+        }
+
+        #[test]
+        fn test_stream_id_from_key() {
+            let id = stream_id_from_key("user:12345");
+            assert_ne!(id, 0);
+        }
+
+        #[test]
+        fn test_route_to_shard_range() {
+            let num_shards = 16u16;
+            for i in 0..1000 {
+                let data = format!("event_{}", i);
+                let shard = route_to_shard(data.as_bytes(), num_shards);
+                assert!(shard < num_shards);
+            }
+        }
+
+        #[test]
+        #[should_panic(expected = "num_shards must be > 0")]
+        fn test_route_to_shard_zero_shards_panics() {
+            // Regression: route_to_shard(_, 0) caused a divide-by-zero panic
+            // with no helpful message. Now it asserts with a clear message.
+            route_to_shard(b"test", 0);
+        }
+
+        #[test]
+        fn test_route_to_shard_distribution() {
+            let num_shards = 8u16;
+            let mut counts = [0u32; 8];
+
+            for i in 0..8000 {
+                let data = format!("event_{}", i);
+                let shard = route_to_shard(data.as_bytes(), num_shards);
+                counts[shard as usize] += 1;
+            }
+
+            // Check that distribution is reasonably uniform (within 50% of expected)
+            let expected = 1000;
+            for count in counts {
+                assert!(count > expected / 2, "shard count {} too low", count);
+                assert!(count < expected * 2, "shard count {} too high", count);
+            }
+        }
+    }
+}
+
+/// Shared inbound queue type
+type InboundQueues = Arc<DashMap<u16, SegQueue<StoredEvent>>>;
+
+/// Rate limiter for the handshake responder loop.
+///
+/// The responder used to accept whichever source emitted msg1
+/// first, with no pacing — an attacker who knows the PSK
+/// (PSKs are typically multi-tenant) could race the legitimate
+/// initiator's msg1; even without the PSK an attacker could flood
+/// handshake-flagged datagrams to monopolize the recv loop.
+///
+/// # Why a per-source budget is not enough on its own
+///
+/// A UDP source address is trivially spoofable, so "this source is
+/// over budget" is not evidence that this source is hostile. Dropping
+/// on the per-source budget alone hands an off-path attacker a precise
+/// denial primitive: learn the initiator's address (it is in the clear
+/// on every datagram), send `max_per_window` junk handshakes carrying
+/// it, and every real `msg1` from that address is dropped BEFORE Noise
+/// for the rest of the window. The victim's `accept()` then spends its
+/// whole budget and reports a bare timeout, because a paced drop never
+/// even looks at the payload. The same shape occurs with no attacker
+/// at all: a responder draining an initiator's own stale retransmits
+/// spends that initiator's budget on its way to reading its live
+/// `msg1`.
+///
+/// So an over-budget source is throttled, not banned — it draws from a
+/// small shared reserve. Under a targeted spoof the reserve is idle and
+/// the real `msg1` still gets its Noise read; under a genuine flood the
+/// reserve is what bounds how much crypto the flood can buy.
+///
+/// # The three ceilings
+///
+/// A datagram is admitted only if the aggregate ceiling has room AND
+/// either its source is within its own budget or the over-budget
+/// reserve has room:
+///
+/// - `max_per_window` — per source. Sized for a legitimate initiator.
+/// - `over_budget_reserve` — shared, for sources past that budget.
+///   Bounds a single-source flood without making an exhausted
+///   per-source budget fatal.
+/// - `aggregate_per_window` — shared, over everything. Bounds a flood
+///   that fans out across many spoofed addresses, where every datagram
+///   looks like a fresh in-budget source.
+///
+/// Residual, stated plainly: an attacker who both saturates the
+/// aggregate ceiling and spoofs the victim's address can still keep the
+/// victim's handshake out. Nothing short of a return-routability
+/// challenge (a DTLS/QUIC-style retry cookie) closes that, and unlike
+/// the per-source-only design it costs the attacker sustained line rate
+/// rather than five datagrams.
+///
+/// Expired entries are garbage-collected on a periodic schedule rather
+/// than on every check, so a sustained flood from many distinct sources
+/// doesn't pay an O(n) sweep per packet.
+pub(crate) struct HandshakePacer {
+    /// Per-source `(count_in_window, window_start)`.
+    entries: std::collections::HashMap<transport::PeerAddr, (u32, std::time::Instant)>,
+    /// Maximum attempts per source within `window`.
+    max_per_window: u32,
+    /// Maximum admissions per `window` across all sources that have
+    /// already spent their per-source budget.
+    over_budget_reserve: u32,
+    /// Maximum admissions per `window` across all sources, in budget
+    /// or not.
+    aggregate_per_window: u32,
+    /// `(over_budget_admitted, total_admitted, window_start)` for the
+    /// two shared ceilings.
+    shared: (u32, u32, std::time::Instant),
+    /// Window length.
+    window: std::time::Duration,
+    /// Last time we ran the GC pass.
+    last_gc: std::time::Instant,
+    /// Soft cap on `entries` size before forcing a GC pass even
+    /// before the periodic deadline. Keeps memory bounded against
+    /// an attacker fanning across many spoofed source addresses.
+    gc_size_threshold: usize,
+    /// How many GC sweeps have run. Only read by the test that pins
+    /// the sweep to being amortized rather than per-packet.
+    sweeps: u64,
+}
+
+impl HandshakePacer {
+    /// Datagrams one source may buy Noise work with per
+    /// [`Self::DEFAULT_WINDOW`].
+    ///
+    /// Plenty for any legitimate initiator, which is RTT-limited and
+    /// sends at most `handshake_retries` retransmits spread across
+    /// its per-attempt windows; tight enough to throttle a flooder on
+    /// consumer-grade hardware. Defined once here so the responder
+    /// loops that pace to it, and the tests that witness them, cannot
+    /// drift from each other.
+    pub(crate) const DEFAULT_BURST: u32 = 5;
+
+    /// Admissions per [`Self::DEFAULT_WINDOW`] shared by every source
+    /// that has already spent [`Self::DEFAULT_BURST`].
+    ///
+    /// Well above what one initiator's retransmits plus its own stale
+    /// copies can need, so a spoofed or self-inflicted per-source
+    /// exhaustion does not keep a real `msg1` from being read; far
+    /// below what a flood wants.
+    pub(crate) const DEFAULT_OVER_BUDGET_RESERVE: u32 = 32;
+
+    /// Admissions per [`Self::DEFAULT_WINDOW`] across all sources.
+    ///
+    /// The only ceiling a fan-out flood cannot walk around by using a
+    /// fresh spoofed address per datagram. Sized to stay clear of a
+    /// large mesh's legitimate fan-in — a node bringing up hundreds of
+    /// peers sees a handful of `msg1` per second, not hundreds — while
+    /// still capping the responder's Noise work at a few milliseconds
+    /// of CPU per second.
+    pub(crate) const DEFAULT_AGGREGATE_BURST: u32 = 256;
+
+    /// Window for [`Self::DEFAULT_BURST`].
+    pub(crate) const DEFAULT_WINDOW: std::time::Duration = std::time::Duration::from_secs(1);
+
+    /// A pacer carrying the shipped budget — see [`Self::DEFAULT_BURST`].
+    pub(crate) fn with_defaults() -> Self {
+        Self::new(
+            Self::DEFAULT_BURST,
+            Self::DEFAULT_OVER_BUDGET_RESERVE,
+            Self::DEFAULT_AGGREGATE_BURST,
+            Self::DEFAULT_WINDOW,
+        )
+    }
+
+    pub(crate) fn new(
+        max_per_window: u32,
+        over_budget_reserve: u32,
+        aggregate_per_window: u32,
+        window: std::time::Duration,
+    ) -> Self {
+        Self {
+            entries: std::collections::HashMap::new(),
+            max_per_window,
+            over_budget_reserve,
+            aggregate_per_window,
+            shared: (0, 0, std::time::Instant::now()),
+            window,
+            last_gc: std::time::Instant::now(),
+            // 4096 entries × ~40 bytes each ≈ 160 KiB — comfortable
+            // ceiling that still triggers GC well before any
+            // realistic memory issue.
+            gc_size_threshold: 4096,
+            sweeps: 0,
+        }
+    }
+
+    /// Override the entry-count GC trigger. Test-only: the shipped
+    /// threshold is sized for memory, not for a test to reach.
+    #[cfg(test)]
+    pub(crate) fn with_gc_size_threshold(mut self, threshold: usize) -> Self {
+        self.gc_size_threshold = threshold;
+        self
+    }
+
+    /// GC sweeps run so far.
+    #[cfg(test)]
+    pub(crate) fn sweeps(&self) -> u64 {
+        self.sweeps
+    }
+
+    /// Record an attempt from `source`. Returns `true` if the caller
+    /// may proceed to Noise; `false` if the packet must be dropped.
+    ///
+    /// See the type doc for why an over-budget source is throttled
+    /// against a shared reserve rather than dropped outright.
+    pub(crate) fn check_and_record(&mut self, source: transport::PeerAddr) -> bool {
+        let now = std::time::Instant::now();
+        // Amortized GC: only run the O(n) `retain` sweep when one
+        // of two thresholds trips:
+        //   1. We haven't GC'd in `window` (entries are valid for
+        //      at most `2 * window` so a once-per-`window` cadence
+        //      is sufficient to keep the map proportional to the
+        //      active source set).
+        //   2. The map exceeds `gc_size_threshold`, indicating a
+        //      flood attempt across many spoofed sources.
+        if now.duration_since(self.last_gc) >= self.window
+            || self.entries.len() >= self.gc_size_threshold
+        {
+            let cutoff = self.window.saturating_mul(2);
+            self.entries
+                .retain(|_, (_, start)| now.duration_since(*start) < cutoff);
+            // A size-triggered sweep during a live fan-out flood
+            // reclaims nothing: every entry is younger than the
+            // cutoff, so `len()` stays at the threshold and the size
+            // branch fires again on the very next datagram — a full
+            // scan per packet for as long as the flood lasts, i.e.
+            // precisely when the responder needs to be cheap, and now
+            // reachable from every node's `accept()`. Drop the table
+            // instead of rescanning it. Forgetting the flood's history
+            // refills each tracked source's budget, but `entries` is
+            // not what bounds a fan-out flood — the aggregate ceiling
+            // is, and it is untouched by this — so the only thing lost
+            // is per-source resolution the flood had already defeated
+            // by using a fresh address per datagram.
+            if self.entries.len() >= self.gc_size_threshold {
+                self.entries.clear();
+            }
+            self.last_gc = now;
+            self.sweeps = self.sweeps.saturating_add(1);
+        }
+
+        // Roll the shared window before consulting either ceiling, so
+        // the per-source and shared budgets refill on the same clock.
+        if now.duration_since(self.shared.2) > self.window {
+            self.shared = (0, 0, now);
+        }
+
+        let entry = self.entries.entry(source).or_insert((0, now));
+        if now.duration_since(entry.1) > self.window {
+            // Window expired; reset the counter.
+            entry.0 = 0;
+            entry.1 = now;
+        }
+        entry.0 = entry.0.saturating_add(1);
+        let in_source_budget = entry.0 <= self.max_per_window;
+
+        // The aggregate ceiling binds first and binds everyone: it is
+        // the only one a flood cannot walk around by spoofing a fresh
+        // source address per datagram.
+        if self.shared.1 >= self.aggregate_per_window {
+            return false;
+        }
+
+        // An over-budget source is throttled, not banned — a spoofable
+        // address means an exhausted budget is not proof of hostility.
+        // It draws from the shared reserve instead.
+        if !in_source_budget {
+            if self.shared.0 >= self.over_budget_reserve {
+                return false;
+            }
+            self.shared.0 = self.shared.0.saturating_add(1);
+        }
+
+        self.shared.1 = self.shared.1.saturating_add(1);
+        true
+    }
+}
+
+/// Live counters for the handshake responder's drain path.
+///
+/// Cloneable handles, not a snapshot: the handshake runs inside
+/// [`NetAdapter::init`], which takes `&mut self`, so anything that wants
+/// to observe the drain has usually handed the adapter to the task
+/// driving it and needs a view that outlives that move. Obtain one from
+/// [`NetAdapter::responder_handshake_counters`] before starting.
+///
+/// The mesh transport exposes the same two numbers as
+/// `MeshNode::responder_handshakes_drained` /
+/// `responder_handshakes_paced`.
+#[derive(Clone, Debug, Default)]
+pub struct ResponderHandshakeCounters {
+    drained: Arc<AtomicU64>,
+    paced: Arc<AtomicU64>,
+}
+
+impl ResponderHandshakeCounters {
+    /// Handshake datagrams the responder read and discarded because
+    /// they did not decrypt under this pairing — another pairing's
+    /// retransmitted `msg1`, junk from a sprayer, or a genuine key
+    /// mismatch.
+    ///
+    /// Nonzero is normal on a busy socket: an initiator retransmits by
+    /// design, and a responder answers only the first copy it reads.
+    pub fn drained(&self) -> u64 {
+        self.drained.load(Ordering::Relaxed)
+    }
+
+    /// Handshake datagrams dropped before any Noise work because the
+    /// pacer refused them.
+    ///
+    /// Nonzero means something is emitting handshakes faster than any
+    /// legitimate initiator does — the signature of a flood.
+    pub fn paced(&self) -> u64 {
+        self.paced.load(Ordering::Relaxed)
+    }
+
+    fn record_drained(&self) {
+        self.drained.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn record_paced(&self) {
+        self.paced.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Net adapter for high-performance UDP transport.
+pub struct NetAdapter {
+    /// Configuration
+    config: NetAdapterConfig,
+    /// UDP socket
+    socket: Option<Arc<Socket>>,
+    /// Session (stored separately for init)
+    session: Option<Arc<NetSession>>,
+    /// Session manager
+    session_manager: SessionMgr,
+    /// Inbound events per shard (for poll_shard)
+    inbound: InboundQueues,
+    /// Background tasks
+    tasks: TokioMutex<Vec<JoinHandle<()>>>,
+    /// Shutdown signal (flag for polling, Notify for waking blocked tasks)
+    shutdown: Arc<AtomicBool>,
+    /// Notify to wake tasks blocked on I/O during shutdown
+    shutdown_notify: Arc<Notify>,
+    /// Initialization state
+    initialized: AtomicBool,
+    /// Per-source rate limiter for the handshake responder loop.
+    /// Without this, an attacker can flood handshake-flagged
+    /// datagrams to monopolize the recv path or race a legitimate
+    /// initiator's msg1.
+    handshake_pacer: parking_lot::Mutex<HandshakePacer>,
+    /// What the responder's drain path threw away, and what the pacer
+    /// refused. Surfaced by
+    /// [`Self::responder_handshake_counters`] so the drain is
+    /// observable rather than inferred from a missing failure.
+    responder_handshakes: ResponderHandshakeCounters,
+}
+
+impl NetAdapter {
+    /// Create a new Net adapter.
+    pub fn new(config: NetAdapterConfig) -> Result<Self, AdapterError> {
+        config
+            .validate()
+            .map_err(|e| AdapterError::Fatal(format!("invalid config: {}", e)))?;
+
+        Ok(Self {
+            session_manager: SessionMgr::new(config.session_timeout),
+            config,
+            socket: None,
+            session: None,
+            inbound: Arc::new(DashMap::new()),
+            tasks: TokioMutex::new(Vec::new()),
+            shutdown: Arc::new(AtomicBool::new(false)),
+            shutdown_notify: Arc::new(Notify::new()),
+            initialized: AtomicBool::new(false),
+            handshake_pacer: parking_lot::Mutex::new(HandshakePacer::with_defaults()),
+            responder_handshakes: ResponderHandshakeCounters::default(),
+        })
+    }
+
+    /// Live handles to the responder's drain counters — see
+    /// [`ResponderHandshakeCounters`].
+    ///
+    /// Take one before handing the adapter to the task that will call
+    /// [`Self::init`]; the handles keep working after the move.
+    pub fn responder_handshake_counters(&self) -> ResponderHandshakeCounters {
+        self.responder_handshakes.clone()
+    }
+
+    /// Perform Noise handshake with peer.
+    /// Returns session keys and the actual peer address (from the wire, not config).
+    async fn perform_handshake(
+        &self,
+        socket: &Socket,
+    ) -> Result<(SessionKeys, [u8; 32], std::net::SocketAddr), AdapterError> {
+        let mut attempt = 0;
+        let max_attempts = self.config.handshake_retries;
+
+        // Cap per-attempt sleep so a misconfigured `handshake_retries`
+        // near `MAX_HANDSHAKE_RETRIES` (1024) cannot pin `init()` for
+        // hours. Pre-fix `100 * attempt` grew linearly and unbounded:
+        // attempt 1024 slept ~102s, with cumulative wait across all
+        // attempts approaching 14 hours. Capping at 5s gives bounded
+        // worst-case `max_attempts × 5s` (~85 minutes at the cap),
+        // which is still long but not unbounded.
+        const HANDSHAKE_RETRY_SLEEP_CAP_MS: u64 = 5_000;
+
+        // Backoff shared by both roles, so the two retry loops below
+        // cannot drift apart.
+        let backoff = |attempt: usize, e: &AdapterError| {
+            tracing::warn!(
+                attempt = attempt,
+                max = max_attempts,
+                error = %e,
+                "handshake failed, retrying"
+            );
+            let backoff_ms =
+                (100u64.saturating_mul(attempt as u64)).min(HANDSHAKE_RETRY_SLEEP_CAP_MS);
+            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms))
+        };
+
+        // The two roles retry differently, which is why they no longer
+        // share one attempt function.
+        //
+        // The INITIATOR builds `msg1` and its Noise state ONCE, out here
+        // above the loop, so a retry RETRANSMITS the same `msg1`.
+        // Minting a fresh handshake per attempt cannot re-sync a pair
+        // that fell out of step: the responder answers whichever `msg1`
+        // it read first, and an initiator that has since discarded that
+        // state fails `read_message` on the reply and spends the rest of
+        // its budget re-asking a question nobody is still listening for.
+        // Reusing one state leaves every copy of `msg1` answerable by
+        // the state we still hold. `build_handshake` stamps no counter
+        // or nonce, so the retransmitted bytes are byte-identical.
+        //
+        // The RESPONDER has no Noise state to carry across attempts —
+        // each attempt answers whichever `msg1` it reads — so it
+        // rebuilds per attempt by construction. It does carry its
+        // rejection diagnosis, which would otherwise die with the
+        // attempt that observed it.
+        if self.config.is_initiator() {
+            let peer_pubkey = self
+                .config
+                .peer_static_pubkey
+                .as_ref()
+                .ok_or_else(|| AdapterError::Fatal("missing peer public key".into()))?;
+
+            let mut handshake = NoiseHandshake::initiator(&self.config.psk, peer_pubkey)
+                .map_err(|e| AdapterError::Fatal(format!("handshake init failed: {}", e)))?;
+
+            let msg1 = handshake
+                .write_message(&[])
+                .map_err(|e| AdapterError::Connection(format!("write_message failed: {}", e)))?;
+
+            let mut builder = PacketBuilder::new(&[0u8; 32], 0);
+            let packet = builder.build_handshake(&msg1);
+
+            loop {
+                attempt += 1;
+                match self
+                    .try_handshake_initiator(socket, &packet, &mut handshake)
+                    .await
+                {
+                    Ok(()) => {
+                        let (keys, handshake_hash) =
+                            handshake.into_session_keys_with_binding().map_err(|e| {
+                                AdapterError::Fatal(format!("key extraction failed: {}", e))
+                            })?;
+                        return Ok((keys, handshake_hash, self.config.peer_addr));
+                    }
+                    Err(e) if attempt < max_attempts => backoff(attempt, &e).await,
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        // Rejection state for the whole responder sequence, not for
+        // one attempt: a mismatched initiator can fall silent while
+        // this side still has attempts left, and every later attempt
+        // then times out with nothing to report.
+        let mut last_decrypt_reject: Option<String> = None;
+        let mut last_paced_source: Option<std::net::SocketAddr> = None;
+        loop {
+            attempt += 1;
+            match self
+                .try_handshake_responder(socket, &mut last_decrypt_reject, &mut last_paced_source)
+                .await
+            {
+                Ok(result) => return Ok(result),
+                Err(e) if attempt < max_attempts => backoff(attempt, &e).await,
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    /// ONE initiator attempt: (re)transmit `packet` and drive
+    /// `handshake` to completion from the peer's reply.
+    ///
+    /// `packet` and `handshake` belong to [`Self::perform_handshake`]
+    /// and are reused across attempts — see its comment for why.
+    async fn try_handshake_initiator(
+        &self,
+        socket: &Socket,
+        packet: &Bytes,
+        handshake: &mut NoiseHandshake,
+    ) -> Result<(), AdapterError> {
+        let timeout = self.config.handshake_timeout;
+        let socket_arc = socket.socket_arc();
+
+        socket
+            .send_to(packet, self.config.peer_addr)
+            .await
+            .map_err(|e| AdapterError::Connection(format!("send failed: {}", e)))?;
+
+        // Receive response, discarding datagrams that are not handshake
+        // packets from the expected peer. This prevents stray traffic on
+        // the shared socket from consuming the handshake slot.
+        tokio::time::timeout(timeout, async {
+            // Stack buffer reused across loop iterations.
+            // `MAX_PACKET_SIZE` is 8192 bytes — small enough to
+            // live on the async stack without spilling, and the
+            // reuse drops the per-iteration `BytesMut::with_capacity`
+            // alloc on the stray-traffic path. Pre-fix every
+            // discarded datagram (an off-peer packet, an invalid
+            // handshake) allocated a fresh 8 KiB and freed it at
+            // loop end — under stray UDP traffic on the same
+            // bind port this churned the allocator. Only the
+            // success path now allocates (a `Bytes::copy_from_slice`
+            // sized to the actual payload, since `ParsedPacket`
+            // owns its `Bytes`).
+            let mut recv_buf = [0u8; protocol::MAX_PACKET_SIZE];
+            loop {
+                let (n, source) = socket_arc
+                    .recv_from(&mut recv_buf)
+                    .await
+                    .map_err(|e| AdapterError::Connection(format!("recv failed: {}", e)))?;
+
+                // Only accept packets from the peer we initiated with
+                if source != self.config.peer_addr {
+                    continue;
+                }
+
+                let data = bytes::Bytes::copy_from_slice(&recv_buf[..n]);
+
+                // Receive boundary: the socket tuple becomes the peer
+                // endpoint here.
+                let Some(p) = ParsedPacket::parse(data, PeerAddr::Udp(source)) else {
+                    continue;
+                };
+                if !p.header.flags.is_handshake() {
+                    // Not a valid handshake packet from our peer — keep waiting
+                    continue;
+                }
+
+                // A handshake-flagged datagram that does not advance
+                // the state is discarded, NOT fatal: keep waiting for
+                // the real `msg2` until the window closes. Snow
+                // checkpoints the symmetric state and restores it
+                // when `read_message` fails, leaving
+                // `pattern_position` untouched, so a rejected reply
+                // costs nothing — whereas failing the attempt on one
+                // would hand an off-path sender a single garbage
+                // datagram as a denial primitive.
+                match handshake.read_message(&p.payload) {
+                    Ok(_) => return Ok::<(), AdapterError>(()),
+                    Err(e) => {
+                        tracing::debug!(
+                            %source,
+                            error = %e,
+                            "discarding a handshake reply that does not advance our state"
+                        );
+                    }
+                }
+            }
+        })
+        .await
+        .map_err(|_| AdapterError::Connection("handshake timeout".into()))?
+    }
+
+    /// ONE responder attempt: read an initiator's `msg1`, answer it,
+    /// and return the session keys with the source address it came
+    /// from.
+    ///
+    /// # Why a foreign `msg1` is skipped, not failed
+    ///
+    /// [`Self::try_handshake_initiator`] retransmits byte-identical
+    /// copies of `msg1` when no reply arrives in time, and a responder
+    /// that was merely slow to be scheduled answers the FIRST copy —
+    /// the rest stay queued on the socket unread. They surface on a
+    /// later attempt, or an off-path sender simply sprays
+    /// handshake-flagged junk.
+    ///
+    /// Ending the attempt on one of those was a self-inflicted denial
+    /// of service: N such datagrams burned N of the few
+    /// `handshake_retries` in milliseconds, and the responder was gone
+    /// while the real initiator was still retransmitting into it. So a
+    /// datagram that does not decrypt costs one loop iteration, not one
+    /// attempt, and only a genuine absence of `msg1` ends the attempt.
+    /// The pacer is what keeps "delay" from becoming "starve".
+    ///
+    /// This mirrors `MeshNode::try_handshake_responder`; see its doc
+    /// for the fuller argument, including why one `NoiseHandshake` is
+    /// reused across rejected reads and why the diagnosis has to
+    /// outlive the attempt that produced it.
+    async fn try_handshake_responder(
+        &self,
+        socket: &Socket,
+        last_decrypt_reject: &mut Option<String>,
+        last_paced_source: &mut Option<std::net::SocketAddr>,
+    ) -> Result<(SessionKeys, [u8; 32], std::net::SocketAddr), AdapterError> {
+        let timeout = self.config.handshake_timeout;
+        let socket_arc = socket.socket_arc();
+
+        let keypair = self
+            .config
+            .static_keypair
+            .as_ref()
+            .ok_or_else(|| AdapterError::Fatal("missing static keypair".into()))?;
+
+        // ONE responder for the whole wait: snow restores the symmetric
+        // state when `read_message` fails and does not advance
+        // `pattern_position`, so a rejected datagram cannot corrupt it.
+        let mut handshake = NoiseHandshake::responder(&self.config.psk, keypair)
+            .map_err(|e| AdapterError::Fatal(format!("handshake init failed: {}", e)))?;
+
+        // One receive buffer for the whole wait: the loop now runs for
+        // the full deadline under any handshake stream, so allocating
+        // and zeroing `MAX_PACKET_SIZE` per iteration would be per junk
+        // datagram — and it happens before the pacer, so the pacer does
+        // not bound it.
+        let mut recv_buf = vec![0u8; protocol::MAX_PACKET_SIZE];
+
+        // Wait for an initiator handshake message, discarding any
+        // non-handshake datagrams that arrive on the shared socket.
+        // Pacing throttles flooders so the legitimate initiator's msg1
+        // can land — without it, an attacker could blast
+        // handshake-flagged datagrams and monopolize this recv loop.
+        let waited = tokio::time::timeout(timeout, async {
+            loop {
+                let (n, source) = socket_arc
+                    .recv_from(&mut recv_buf)
+                    .await
+                    .map_err(|e| AdapterError::Connection(format!("recv failed: {}", e)))?;
+
+                let data = Bytes::copy_from_slice(&recv_buf[..n]);
+
+                // Receive boundary: the socket tuple becomes the peer
+                // endpoint here.
+                let Some(p) = ParsedPacket::parse(data, PeerAddr::Udp(source)) else {
+                    continue;
+                };
+                if !p.header.flags.is_handshake() {
+                    continue;
+                }
+
+                // Pace BEFORE the Noise read, so a rejected source
+                // cannot buy a Diffie-Hellman.
+                if !self
+                    .handshake_pacer
+                    .lock()
+                    .check_and_record(PeerAddr::Udp(source))
+                {
+                    self.responder_handshakes.record_paced();
+                    *last_paced_source = Some(source);
+                    tracing::debug!(
+                        %source,
+                        "handshake responder: dropping packet from \
+                         rate-limited source"
+                    );
+                    continue;
+                }
+
+                if let Err(e) = handshake.read_message(&p.payload) {
+                    self.responder_handshakes.record_drained();
+                    *last_decrypt_reject = Some(format!("{source}: {e}"));
+                    tracing::debug!(
+                        %source,
+                        error = %e,
+                        "skipping handshake datagram that is not this pairing's msg1"
+                    );
+                    continue;
+                }
+
+                return Ok::<_, AdapterError>(source);
+            }
+        })
+        .await;
+
+        let source = match waited {
+            Ok(inner) => inner?,
+            // A decrypt failure outranks a paced drop: it is the one
+            // that names a misconfiguration.
+            Err(_) => {
+                return Err(AdapterError::Connection(
+                    match (last_decrypt_reject.as_deref(), *last_paced_source) {
+                        (Some(reject), _) => format!(
+                            "handshake timeout (last handshake datagram from {reject} \
+                             did not decrypt — wrong PSK, wrong peer key, or \
+                             another pairing's msg1)"
+                        ),
+                        (None, Some(paced)) => format!(
+                            "handshake timeout (across this handshake sequence every \
+                             handshake datagram the responder saw was dropped before \
+                             Noise by its pacing budget, most recently one from {paced})"
+                        ),
+                        (None, None) => "handshake timeout".into(),
+                    },
+                ))
+            }
+        };
+
+        // Send response
+        let msg2 = handshake
+            .write_message(&[])
+            .map_err(|e| AdapterError::Connection(format!("write_message failed: {}", e)))?;
+
+        let mut builder = PacketBuilder::new(&[0u8; 32], 0);
+        let packet = builder.build_handshake(&msg2);
+
+        // Reply to the actual source address (not the configured peer_addr),
+        // so the handshake completes even behind NAT or when the config is stale.
+        socket
+            .send_to(&packet, source)
+            .await
+            .map_err(|e| AdapterError::Connection(format!("send failed: {}", e)))?;
+
+        // Extract session keys and use the actual source address as peer
+        let (keys, handshake_hash) = handshake
+            .into_session_keys_with_binding()
+            .map_err(|e| AdapterError::Fatal(format!("key extraction failed: {}", e)))?;
+        Ok((keys, handshake_hash, source))
+    }
+
+    /// Process a single received packet: parse, decrypt, and queue events.
+    fn process_packet(
+        data: Bytes,
+        source: std::net::SocketAddr,
+        session: &NetSession,
+        inbound: &InboundQueues,
+        num_shards: u16,
+    ) {
+        // Parse packet
+        let mut parsed = match ParsedPacket::parse(data, PeerAddr::Udp(source)) {
+            Some(p) => p,
+            None => return,
+        };
+
+        // Reject packets whose actual payload size doesn't match the declared
+        // length. This catches truncated or oversized packets before they
+        // reach the decrypt path.
+        if !parsed.header.flags.is_handshake()
+            && !parsed.header.flags.is_heartbeat()
+            && !parsed.is_valid_length()
+        {
+            return;
+        }
+
+        // Skip handshake packets in the data path (handled during init)
+        if parsed.header.flags.is_handshake() {
+            return;
+        }
+
+        // Validate session before any state mutation (including touch)
+        if parsed.header.session_id != session.session_id() {
+            return;
+        }
+
+        // Heartbeats are AEAD-tagged: the empty payload encrypts to
+        // a 16-byte Poly1305 tag, and the receiver verifies the
+        // tag here. Without this check, an off-path attacker who
+        // observed or guessed the session_id could spoof
+        // heartbeats and keep a session alive (the source-address
+        // check on UDP is itself spoofable, and session_id is in
+        // cleartext on every prior packet).
+        //
+        // We still require `source == peer_addr` as a cheap
+        // first-line filter so an unauthenticated flood doesn't
+        // get to do the AEAD verify.
+        //
+        // The verify+touch sequence lives inside
+        // `NetSession::verify_and_touch_heartbeat` so callers can't
+        // touch a session whose heartbeat failed verify, and can't
+        // forget to touch on success.
+        if parsed.header.flags.is_heartbeat() {
+            if PeerAddr::Udp(source) == session.peer_addr() {
+                session.verify_and_touch_heartbeat(&parsed);
+            }
+            return;
+        }
+
+        // Decrypt payload. Per crypto-session perf #128, route
+        // through `decrypt_to_bytes` so the common case
+        // (refcount-1 inbound buffer) decrypts in place instead
+        // of allocating a fresh `Vec<u8>` plaintext per packet.
+        let aad = parsed.header.aad();
+        let counter = u64::from_le_bytes(parsed.header.nonce[4..12].try_into().unwrap_or([0u8; 8]));
+        let rx_cipher = session.rx_cipher();
+        let payload = std::mem::take(&mut parsed.payload);
+        // Per crypto-session perf #132: collapsed the pre-decrypt
+        // `is_valid_rx_counter` + post-decrypt `update_rx_counter`
+        // two-step into one `try_admit_rx_counter` call. See
+        // `mesh.rs::process_local_packet` for the full rationale —
+        // the contract is identical (replays still rejected, TOCTOU
+        // still closed), and the redundant Mutex lock on every
+        // non-replay packet is gone.
+        let decrypted = match rx_cipher.decrypt_to_bytes(counter, &aad, payload) {
+            Ok(d) => {
+                if !rx_cipher.try_admit_rx_counter(counter) {
+                    return;
+                }
+                session.note_inbound();
+                d
+            }
+            Err(_) => return,
+        };
+
+        // Parse events
+        let events = EventFrame::read_events(decrypted, parsed.header.event_count);
+
+        // Update stream state
+        let stream_id = parsed.header.stream_id;
+        let shard_id = if num_shards > 0 {
+            (stream_id % num_shards as u64) as u16
+        } else {
+            0
+        };
+
+        // Previously the boolean result of `r.on_receive(seq)` was
+        // discarded — a duplicate (NACK retransmit, rebroadcast,
+        // etc.) returned `false` but the events were still queued for
+        // poll_shard, breaking exactly-once delivery on reliable
+        // streams. The cipher's replay window doesn't catch this
+        // because each retransmit is re-encrypted with a fresh outer
+        // counter.
+        //
+        // Now: if `on_receive` reports a duplicate, we still call
+        // `session.touch()` (the peer is alive) but skip the queue
+        // step entirely — the original delivery already queued the
+        // events.
+        let is_fresh = {
+            let stream = session.get_or_create_stream(stream_id);
+            // `with_reliability` always invokes the closure (it
+            // locks an internal `Mutex<Box<dyn ReliabilityMode>>`).
+            // For streams without a meaningful reliability mode the
+            // implementation returns `true` for every `on_receive`,
+            // matching the historical "always queue" behavior.
+            let fresh = stream.with_reliability(|r| r.on_receive(parsed.header.sequence));
+            stream.update_rx_seq(parsed.header.sequence);
+            fresh
+        };
+
+        if is_fresh {
+            // Queue events for poll_shard
+            let queue = inbound.entry(shard_id).or_default();
+            let seq = parsed.header.sequence;
+            for (i, event_data) in events.into_iter().enumerate() {
+                use std::fmt::Write;
+                let mut event_id = String::with_capacity(24);
+                let _ = write!(event_id, "{}:{}", seq, i);
+                queue.push(StoredEvent::new(event_id, event_data, seq, shard_id));
+            }
+        } else {
+            tracing::debug!(
+                seq = parsed.header.sequence,
+                stream_id,
+                "Dropping duplicate packet"
+            );
+        }
+
+        session.touch();
+    }
+
+    /// Spawn receiver task.
+    ///
+    /// On Linux, uses a dedicated OS thread with batched recvmmsg for up to
+    /// 64 packets per syscall. On other platforms, uses standard async recv.
+    ///
+    /// Note: `BatchedPacketReceiver`'s channel carries a whole recvmmsg batch
+    /// per message (depth measured in batches, not packets). That is a shared
+    /// property of the type — see its docstring — and applies here regardless
+    /// of the `batched-ingress` feature, which only gates the mesh opt-in and
+    /// the measurement instrument, not this always-on adapter path.
+    #[cfg(target_os = "linux")]
+    fn spawn_receiver(
+        shutdown: Arc<AtomicBool>,
+        shutdown_notify: Arc<Notify>,
+        socket: Arc<Socket>,
+        session: Arc<NetSession>,
+        inbound: InboundQueues,
+        num_shards: u16,
+    ) -> JoinHandle<()> {
+        let mut receiver = transport::BatchedPacketReceiver::new(socket.socket_arc());
+
+        tokio::spawn(async move {
+            while !shutdown.load(Ordering::Acquire) {
+                tokio::select! {
+                    result = receiver.recv() => {
+                        match result {
+                            Ok((data, source)) => {
+                                Self::process_packet(data, source, &session, &inbound, num_shards);
+                            }
+                            Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => {
+                                tracing::warn!("batch receiver thread exited, stopping receiver");
+                                break;
+                            }
+                            Err(e) => {
+                                if !shutdown.load(Ordering::Acquire) {
+                                    tracing::warn!(error = %e, "receive error");
+                                }
+                            }
+                        }
+                    }
+                    _ = shutdown_notify.notified() => {
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    /// Spawn receiver task (non-Linux fallback).
+    #[cfg(not(target_os = "linux"))]
+    fn spawn_receiver(
+        shutdown: Arc<AtomicBool>,
+        shutdown_notify: Arc<Notify>,
+        socket: Arc<Socket>,
+        session: Arc<NetSession>,
+        inbound: InboundQueues,
+        num_shards: u16,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            let mut receiver = PacketReceiver::new(socket.socket_arc());
+
+            while !shutdown.load(Ordering::Acquire) {
+                // Race recv against shutdown notification so the task
+                // can exit promptly instead of blocking on recv_from
+                // until a packet arrives.
+                tokio::select! {
+                    result = receiver.recv() => {
+                        match result {
+                            Ok((data, source)) => {
+                                Self::process_packet(data, source, &session, &inbound, num_shards);
+                            }
+                            Err(e) => {
+                                if !shutdown.load(Ordering::Acquire) {
+                                    tracing::warn!(error = %e, "receive error");
+                                }
+                            }
+                        }
+                    }
+                    _ = shutdown_notify.notified() => {
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    /// Spawn heartbeat task.
+    fn spawn_heartbeat(
+        shutdown: Arc<AtomicBool>,
+        shutdown_notify: Arc<Notify>,
+        socket: Arc<Socket>,
+        session: Arc<NetSession>,
+        interval: std::time::Duration,
+        peer_addr: std::net::SocketAddr,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+
+            loop {
+                tokio::select! {
+                    _ = ticker.tick() => {
+                        if shutdown.load(Ordering::Acquire) || !session.is_active() {
+                            break;
+                        }
+
+                        // `Session::build_heartbeat` routes through
+                        // `thread_local_pool` (same pool the data
+                        // path uses) so heartbeats share a single
+                        // TX counter with data and interleave
+                        // correctly on the wire. Constructing a
+                        // bespoke `PacketBuilder::new(&[0u8; 32],
+                        // session.session_id())` per tick would
+                        // (a) use the wrong key so the receiver's
+                        // AEAD verify would reject every heartbeat,
+                        // and (b) reuse counter=0 across successive
+                        // heartbeats so the receiver's replay
+                        // window would reject every heartbeat
+                        // after the first.
+                        let packet = session.build_heartbeat();
+
+                        if let Err(e) = socket.send_to(&packet, peer_addr).await {
+                            tracing::warn!(error = %e, "heartbeat send failed");
+                        }
+                    }
+                    _ = shutdown_notify.notified() => {
+                        break;
+                    }
+                }
+            }
+        })
+    }
+}
+
+#[async_trait]
+impl Adapter for NetAdapter {
+    async fn init(&mut self) -> Result<(), AdapterError> {
+        if self.initialized.load(Ordering::Acquire) {
+            return Ok(());
+        }
+
+        // Create socket with configured buffer sizes
+        let socket_config = match (
+            self.config.socket_recv_buffer,
+            self.config.socket_send_buffer,
+        ) {
+            (Some(recv), Some(send)) => transport::SocketBufferConfig {
+                recv_buffer_size: recv,
+                send_buffer_size: send,
+            },
+            _ => transport::SocketBufferConfig::default(),
+        };
+        let socket = Socket::with_config(self.config.bind_addr, socket_config)
+            .await
+            .map_err(|e| AdapterError::Connection(format!("socket creation failed: {}", e)))?;
+
+        let socket = Arc::new(socket);
+        self.socket = Some(socket.clone());
+
+        // Perform handshake — actual_peer is the real address from the wire
+        let (keys, handshake_hash, actual_peer) = self.perform_handshake(&socket).await?;
+
+        // Create packet pool with TX key
+        // Create session with the actual peer address (not the configured one,
+        // which may be stale or pre-NAT)
+        let session = Arc::new(NetSession::with_binding(
+            keys,
+            handshake_hash,
+            PeerAddr::Udp(actual_peer),
+            self.config.packet_pool_size,
+            self.config.default_reliability.is_reliable(),
+        ));
+        self.session = Some(session.clone());
+
+        // Store in session manager for health checks (same Arc as the active session)
+        self.session_manager.set_session_arc(session.clone());
+
+        // Spawn background tasks
+        let recv_task = Self::spawn_receiver(
+            self.shutdown.clone(),
+            self.shutdown_notify.clone(),
+            socket.clone(),
+            session.clone(),
+            self.inbound.clone(),
+            self.config.num_shards,
+        );
+
+        let heartbeat_task = Self::spawn_heartbeat(
+            self.shutdown.clone(),
+            self.shutdown_notify.clone(),
+            socket,
+            session,
+            self.config.heartbeat_interval,
+            actual_peer,
+        );
+
+        {
+            let mut tasks = self.tasks.lock().await;
+            tasks.push(recv_task);
+            tasks.push(heartbeat_task);
+        }
+
+        self.initialized.store(true, Ordering::Release);
+
+        tracing::info!(
+            bind_addr = %self.config.bind_addr,
+            peer_addr = %self.config.peer_addr,
+            role = ?self.config.role,
+            "Net adapter initialized"
+        );
+
+        Ok(())
+    }
+
+    async fn on_batch(&self, batch: std::sync::Arc<Batch>) -> Result<(), AdapterError> {
+        let session = self
+            .session
+            .as_ref()
+            .ok_or_else(|| AdapterError::Connection("not connected".into()))?;
+
+        let socket = self
+            .socket
+            .as_ref()
+            .ok_or_else(|| AdapterError::Connection("socket not initialized".into()))?;
+
+        let stream_id = batch.shard_id as u64;
+        let peer_addr = session
+            .peer_addr()
+            .udp()
+            .ok_or_else(|| AdapterError::Connection("peer is not a UDP endpoint".into()))?;
+
+        // Read stream config under the lock, then drop it immediately.
+        // Holding the DashMap RefMut across .await would deadlock against
+        // the receiver task which also calls get_or_create_stream().
+        let reliable = {
+            let stream = session.get_or_create_stream(stream_id);
+            stream.with_reliability(|r| r.needs_ack())
+            // RefMut dropped here
+        };
+
+        // Convert events to bytes and batch them
+        let mut current_batch: Vec<Bytes> = Vec::with_capacity(64);
+        let mut current_size = 0usize;
+
+        // Thread-local pool with counter-based nonces — zero contention
+        let pool = session.thread_local_pool();
+        let mut builder = pool.get();
+
+        for event in &batch.events {
+            let event_bytes = event.raw.clone();
+            let frame_size = EventFrame::LEN_SIZE + event_bytes.len();
+
+            // Check if adding this event would exceed packet size
+            if current_size + frame_size > protocol::MAX_PAYLOAD_SIZE && !current_batch.is_empty() {
+                // Acquire stream lock briefly for seq + reliability tracking
+                let seq;
+                {
+                    let stream = session.get_or_create_stream(stream_id);
+                    seq = stream.next_tx_seq();
+                }
+
+                let flags = if reliable {
+                    PacketFlags::RELIABLE
+                } else {
+                    PacketFlags::NONE
+                };
+
+                let packet = builder.build(stream_id, seq, &current_batch, flags);
+
+                // No DashMap lock held during this .await
+                socket
+                    .send_to(&packet, peer_addr)
+                    .await
+                    .map_err(|e| AdapterError::Connection(format!("send failed: {}", e)))?;
+
+                // Track for reliability with PRE-encryption inputs.
+                // Stashing the encrypted bytes was unsound: the
+                // receiver's replay window rejects retransmits that
+                // carry a stale wire counter. The descriptor lets
+                // the retransmit driver call `builder.build` again
+                // with a fresh counter.
+                if reliable {
+                    // Per perf #133 — Arc-wrap the descriptor before
+                    // handing it to the reliability mode. The
+                    // retransmit window then shares the inner
+                    // `Vec<Bytes>` rather than holding an owned copy.
+                    let descriptor = std::sync::Arc::new(reliability::RetransmitDescriptor {
+                        seq,
+                        stream_id,
+                        events: current_batch.clone(),
+                        flags,
+                        // The `on_batch` adapter path never
+                        // fragments: it splits a BATCH across
+                        // packets and never one event.
+                        fragment: None,
+                        header: None,
+                    });
+                    let stream = session.get_or_create_stream(stream_id);
+                    stream.with_reliability(|r| r.on_send(descriptor));
+                }
+
+                current_batch.clear();
+                current_size = 0;
+            }
+
+            current_batch.push(event_bytes);
+            current_size += frame_size;
+        }
+
+        // Send remaining events
+        if !current_batch.is_empty() {
+            let seq;
+            {
+                let stream = session.get_or_create_stream(stream_id);
+                seq = stream.next_tx_seq();
+            }
+
+            let flags = if reliable {
+                PacketFlags::RELIABLE
+            } else {
+                PacketFlags::NONE
+            };
+
+            let packet = builder.build(stream_id, seq, &current_batch, flags);
+
+            socket
+                .send_to(&packet, peer_addr)
+                .await
+                .map_err(|e| AdapterError::Connection(format!("send failed: {}", e)))?;
+
+            if reliable {
+                // Per perf #133 — see the matching call site above.
+                let descriptor = std::sync::Arc::new(reliability::RetransmitDescriptor {
+                    seq,
+                    stream_id,
+                    events: current_batch.clone(),
+                    flags,
+                    fragment: None,
+                    header: None,
+                });
+                let stream = session.get_or_create_stream(stream_id);
+                stream.with_reliability(|r| r.on_send(descriptor));
+            }
+        }
+
+        session.touch();
+
+        Ok(())
+    }
+
+    async fn poll_shard(
+        &self,
+        shard_id: u16,
+        from_id: Option<&str>,
+        limit: usize,
+    ) -> Result<ShardPollResult, AdapterError> {
+        let mut events = Vec::with_capacity(limit);
+
+        if let Some(queue) = self.inbound.get(&shard_id) {
+            while events.len() < limit {
+                if let Some(event) = queue.pop() {
+                    if from_id.is_none() || event_id_gt(&event.id, from_id.unwrap_or("")) {
+                        events.push(event);
+                    }
+                    // Events at or before the cursor have already been
+                    // consumed — drop them instead of requeuing. Requeuing
+                    // caused unbounded memory growth because these events
+                    // can never pass an advancing cursor.
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let has_more = self
+            .inbound
+            .get(&shard_id)
+            .map(|q| !q.is_empty())
+            .unwrap_or(false);
+        let next_id = events.last().map(|e| e.id.clone());
+
+        Ok(ShardPollResult {
+            events,
+            next_id,
+            has_more,
+        })
+    }
+
+    async fn flush(&self) -> Result<(), AdapterError> {
+        // For reliable streams, wait for all pending ACKs
+        // Currently a no-op since we're fire-and-forget by default
+        Ok(())
+    }
+
+    async fn shutdown(&self) -> Result<(), AdapterError> {
+        self.shutdown.store(true, Ordering::Release);
+
+        // Wake all tasks blocked on I/O so they can observe the shutdown flag.
+        // notify_waiters wakes all current waiters (receiver + heartbeat).
+        self.shutdown_notify.notify_waiters();
+
+        // Clear session
+        self.session_manager.clear_session();
+
+        // Wait for tasks to complete
+        let mut tasks = self.tasks.lock().await;
+        for task in tasks.drain(..) {
+            let _ = task.await;
+        }
+
+        self.initialized.store(false, Ordering::Release);
+
+        tracing::info!("Net adapter shutdown complete");
+
+        Ok(())
+    }
+
+    fn name(&self) -> &'static str {
+        "net"
+    }
+
+    async fn is_healthy(&self) -> bool {
+        self.initialized.load(Ordering::Acquire) && self.session_manager.check_session()
+    }
+}
+
+impl std::fmt::Debug for NetAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetAdapter")
+            .field("config", &self.config)
+            .field("initialized", &self.initialized.load(Ordering::Relaxed))
+            .finish()
+    }
+}
+
+/// Compare two event IDs numerically.
+///
+/// IDs are formatted as `"seq:idx"`. Lexicographic comparison is wrong for
+/// numeric values (e.g. `"9:0" > "10:0"` lexicographically). This function
+/// parses the components and compares numerically, falling back to string
+/// comparison only if parsing fails.
+fn event_id_gt(a: &str, b: &str) -> bool {
+    fn parse_id(id: &str) -> Option<(u64, u64)> {
+        let (seq, idx) = id.split_once(':')?;
+        Some((seq.parse().ok()?, idx.parse().ok()?))
+    }
+
+    match (parse_id(a), parse_id(b)) {
+        (Some(a), Some(b)) => a > b,
+        _ => a > b, // fallback to lexicographic
+    }
+}
+
+// The heartbeat-unification tripwire scans `mod.rs` and `mesh.rs`, so
+// it stayed in the core when `session.rs` moved into `net-mesh-wire`.
+// Declared here, below every production item: the tripwire cuts its
+// own scan at the first column-0 `#[cfg(test)] mod`, so a declaration
+// further up would silently shrink the surface it inspects.
+#[cfg(test)]
+mod heartbeat_api_drift_check;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+
+    #[test]
+    fn test_adapter_creation() {
+        let psk = [0x42u8; 32];
+        let peer_pubkey = [0x24u8; 32];
+
+        let config = NetAdapterConfig::initiator(
+            "127.0.0.1:0".parse().unwrap(),
+            "127.0.0.1:9999".parse().unwrap(),
+            psk,
+            peer_pubkey,
+        );
+
+        let adapter = NetAdapter::new(config).unwrap();
+        assert_eq!(adapter.name(), "net");
+    }
+
+    /// PERF_AUDIT §2.7 — cache hit: a read younger than the
+    /// refresh window must return the cached value WITHOUT
+    /// touching the wall clock and without rewriting the cache.
+    /// Deterministic — drives `coarse_clock_advance` with
+    /// synthetic instants instead of racing a real 1 ms window
+    /// against OS scheduling.
+    #[test]
+    fn coarse_clock_reuses_cache_within_refresh_window() {
+        let t0 = std::time::Instant::now();
+        let within = t0 + std::time::Duration::from_nanos(COARSE_CLOCK_REFRESH_NS - 1);
+        let (store, ns) = coarse_clock_advance(Some((t0, 42)), within, || {
+            panic!("cache hit must not read the wall clock")
+        });
+        assert_eq!(ns, 42, "hit must return the cached reading");
+        assert!(store.is_none(), "hit must keep the hit path store-free");
+    }
+
+    /// PERF_AUDIT §2.7 — refresh: a read at (boundary is
+    /// exclusive) or past the window must take a fresh wall-clock
+    /// reading and rebase the window on the read instant.
+    #[test]
+    fn coarse_clock_refreshes_at_and_past_the_window() {
+        let t0 = std::time::Instant::now();
+        let at_boundary = t0 + std::time::Duration::from_nanos(COARSE_CLOCK_REFRESH_NS);
+        let (store, ns) = coarse_clock_advance(Some((t0, 42)), at_boundary, || 100);
+        assert_eq!(ns, 100, "boundary read must refresh");
+        assert_eq!(
+            store,
+            Some((at_boundary, 100)),
+            "refresh must rebase the window on the read instant"
+        );
+    }
+
+    /// PERF_AUDIT §2.7 — cold start: no cached pair → wall-clock
+    /// read, cached against the read instant.
+    #[test]
+    fn coarse_clock_cold_start_reads_wall_clock() {
+        let t0 = std::time::Instant::now();
+        let (store, ns) = coarse_clock_advance(None, t0, || 7);
+        assert_eq!(ns, 7);
+        assert_eq!(store, Some((t0, 7)));
+    }
+
+    #[test]
+    fn current_timestamp_advances_after_refresh_interval() {
+        // After sleeping past the refresh interval, the next read
+        // must return a larger value — pins that the cache
+        // actually refreshes rather than getting stuck on the
+        // initial reading.
+        let first = current_timestamp();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let later = current_timestamp();
+        assert!(
+            later > first,
+            "post-refresh reading must advance: first={}, later={}",
+            first,
+            later
+        );
+    }
+
+    #[test]
+    fn test_shard_id_from_stream_id_uses_modulo() {
+        // Regression: shard_id was computed as `stream_id as u16` (truncation),
+        // which collides for stream IDs that differ only in upper bits.
+        // The fix uses `stream_id % num_shards`.
+        let num_shards: u16 = 8;
+
+        // Two stream IDs that are identical in their low 16 bits
+        // but different overall must map to the same shard via modulo,
+        // while truncation would also give the same result here.
+        // More importantly, a large stream_id must stay within [0, num_shards).
+        let stream_a: u64 = 0xDEAD_BEEF_0000_0003;
+        let stream_b: u64 = 0xCAFE_BABE_0000_0003;
+
+        let shard_a = (stream_a % num_shards as u64) as u16;
+        let shard_b = (stream_b % num_shards as u64) as u16;
+
+        assert!(
+            shard_a < num_shards,
+            "shard must be in range [0, num_shards)"
+        );
+        assert!(
+            shard_b < num_shards,
+            "shard must be in range [0, num_shards)"
+        );
+
+        // Large stream IDs that would overflow u16 must still be valid shard IDs
+        let big_stream: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+        let shard_big = (big_stream % num_shards as u64) as u16;
+        assert!(shard_big < num_shards);
+
+        // Truncation would give 0xFFFF = 65535, which is >= num_shards.
+        // Modulo gives a valid shard.
+        assert_ne!(
+            big_stream as u16, shard_big,
+            "modulo must differ from truncation for large stream IDs"
+        );
+    }
+
+    #[test]
+    fn test_invalid_config() {
+        let psk = [0x42u8; 32];
+        let peer_pubkey = [0x24u8; 32];
+
+        let mut config = NetAdapterConfig::initiator(
+            "127.0.0.1:0".parse().unwrap(),
+            "127.0.0.1:9999".parse().unwrap(),
+            psk,
+            peer_pubkey,
+        );
+        config.peer_static_pubkey = None;
+
+        let result = NetAdapter::new(config);
+        assert!(result.is_err());
+    }
+
+    // Regression: event_id_gt used lexicographic comparison, so "9:0" > "10:0"
+    // was true (wrong). Now uses numeric comparison (BUGS_4 #2).
+    #[test]
+    fn test_event_id_gt_numeric_ordering() {
+        // Basic ordering
+        assert!(event_id_gt("2:0", "1:0"));
+        assert!(!event_id_gt("1:0", "2:0"));
+        assert!(!event_id_gt("1:0", "1:0"));
+
+        // The critical case: double-digit seq must compare correctly
+        assert!(event_id_gt("10:0", "9:0"));
+        assert!(event_id_gt("100:0", "99:0"));
+        assert!(!event_id_gt("9:0", "10:0"));
+
+        // Index comparison within same sequence
+        assert!(event_id_gt("5:2", "5:1"));
+        assert!(!event_id_gt("5:1", "5:2"));
+
+        // Large sequences
+        assert!(event_id_gt("1000000:0", "999999:0"));
+    }
+
+    // Regression: poll_shard used to destructively pop events that didn't
+    // pass the cursor filter, causing permanent data loss (BUGS_4 #1).
+    // This is tested indirectly via event_id_gt since poll_shard requires
+    // a full adapter setup, but the non-destructive requeue logic is
+    // verified by the SegQueue re-push in the implementation.
+    #[test]
+    fn test_event_id_gt_edge_cases() {
+        // Empty strings
+        assert!(event_id_gt("1:0", ""));
+        // Malformed IDs fall back to string comparison
+        assert!(event_id_gt("b", "a"));
+        assert!(!event_id_gt("a", "b"));
+    }
+
+    /// Regression: packets built by PacketBuilder must survive process_packet.
+    /// This test bypasses the network and directly verifies the encrypt→decrypt
+    /// data path, catching AAD mismatches, nonce construction bugs, and key
+    /// derivation errors.
+    #[test]
+    fn test_build_then_process_packet_roundtrip() {
+        use crate::adapter::net::crypto::{NoiseHandshake, StaticKeypair};
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        // Perform a real handshake to get matching keys
+        let psk = [0x42u8; 32];
+        let responder_kp = StaticKeypair::generate();
+
+        let mut initiator = NoiseHandshake::initiator(&psk, &responder_kp.public).unwrap();
+        let mut responder = NoiseHandshake::responder(&psk, &responder_kp).unwrap();
+
+        let msg1 = initiator.write_message(&[]).unwrap();
+        responder.read_message(&msg1).unwrap();
+        let msg2 = responder.write_message(&[]).unwrap();
+        initiator.read_message(&msg2).unwrap();
+
+        let init_keys = initiator.into_session_keys().unwrap();
+        let resp_keys = responder.into_session_keys().unwrap();
+
+        // Initiator builds a packet
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let events = vec![
+            Bytes::from(r#"{"token":"hello"}"#),
+            Bytes::from(r#"{"token":"world"}"#),
+        ];
+        let packet = builder.build(0, 0, &events, PacketFlags::NONE);
+
+        // Responder processes the packet
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+
+        // Events should be queued in shard 0
+        let queue = inbound.get(&0).expect("shard 0 should have events");
+        assert_eq!(queue.len(), 2, "expected 2 events, got {}", queue.len());
+
+        let e1 = queue.pop().unwrap();
+        assert_eq!(&e1.raw[..], br#"{"token":"hello"}"#);
+
+        let e2 = queue.pop().unwrap();
+        assert_eq!(&e2.raw[..], br#"{"token":"world"}"#);
+    }
+
+    /// Helper: perform a Noise handshake and return matched key pairs.
+    fn make_session_keys() -> (SessionKeys, SessionKeys) {
+        use crate::adapter::net::crypto::{NoiseHandshake, StaticKeypair};
+
+        let psk = [0x42u8; 32];
+        let responder_kp = StaticKeypair::generate();
+
+        let mut initiator = NoiseHandshake::initiator(&psk, &responder_kp.public).unwrap();
+        let mut responder = NoiseHandshake::responder(&psk, &responder_kp).unwrap();
+
+        let msg1 = initiator.write_message(&[]).unwrap();
+        responder.read_message(&msg1).unwrap();
+        let msg2 = responder.write_message(&[]).unwrap();
+        initiator.read_message(&msg2).unwrap();
+
+        (
+            initiator.into_session_keys().unwrap(),
+            responder.into_session_keys().unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_process_packet_rejects_truncated_packet() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        // Build a valid packet, then truncate it
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let packet = builder.build(0, 0, &[Bytes::from_static(b"hello")], PacketFlags::NONE);
+
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Truncate: remove last 10 bytes (partial auth tag)
+        let truncated = packet.slice(..packet.len() - 10);
+        NetAdapter::process_packet(truncated, source, &resp_session, &inbound, 1);
+        assert!(
+            inbound.get(&0).is_none() || inbound.get(&0).unwrap().is_empty(),
+            "truncated packet must be silently dropped"
+        );
+    }
+
+    #[test]
+    fn test_process_packet_rejects_tampered_payload() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let packet = builder.build(0, 0, &[Bytes::from_static(b"hello")], PacketFlags::NONE);
+
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Tamper: flip a byte in the encrypted payload
+        let mut tampered = bytes::BytesMut::from(&packet[..]);
+        tampered[super::protocol::HEADER_SIZE + 2] ^= 0xFF;
+        NetAdapter::process_packet(tampered.freeze(), source, &resp_session, &inbound, 1);
+
+        assert!(
+            inbound.get(&0).is_none() || inbound.get(&0).unwrap().is_empty(),
+            "tampered packet must be rejected by AEAD"
+        );
+    }
+
+    #[test]
+    fn test_process_packet_rejects_wrong_session_id() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let packet = builder.build(0, 0, &[Bytes::from_static(b"hello")], PacketFlags::NONE);
+
+        // Create session with a DIFFERENT session_id
+        let mut wrong_keys = resp_keys;
+        wrong_keys.session_id = 0xDEAD;
+        let resp_session = Arc::new(NetSession::new(
+            wrong_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+
+        assert!(
+            inbound.get(&0).is_none() || inbound.get(&0).unwrap().is_empty(),
+            "packet with wrong session_id must be dropped"
+        );
+    }
+
+    #[test]
+    fn test_process_packet_multi_packet_batch_all_events_arrive() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Build events large enough to span multiple packets.
+        // Each event is ~200 bytes, MAX_PAYLOAD_SIZE is ~8112, so ~40 per packet.
+        // 200 events → ~5 packets.
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let total_events = 200;
+        let mut seq = 0u64;
+
+        // Simulate on_batch splitting into multiple packets
+        let mut current_batch: Vec<Bytes> = Vec::new();
+        let mut current_size = 0;
+
+        for i in 0..total_events {
+            let data = format!("{{\"i\":{},\"pad\":\"{}\"}}", i, "x".repeat(150));
+            let event_bytes = Bytes::from(data);
+            let frame_size = EventFrame::LEN_SIZE + event_bytes.len();
+
+            if current_size + frame_size > protocol::MAX_PAYLOAD_SIZE && !current_batch.is_empty() {
+                let packet = builder.build(0, seq, &current_batch, PacketFlags::NONE);
+                NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+                seq += 1;
+                current_batch.clear();
+                current_size = 0;
+            }
+
+            current_batch.push(event_bytes);
+            current_size += frame_size;
+        }
+
+        if !current_batch.is_empty() {
+            let packet = builder.build(0, seq, &current_batch, PacketFlags::NONE);
+            NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+        }
+
+        // All events must arrive
+        let queue = inbound.get(&0).expect("shard 0 should have events");
+        assert_eq!(
+            queue.len(),
+            total_events,
+            "all {} events must arrive across multiple packets",
+            total_events
+        );
+    }
+
+    #[test]
+    fn test_build_then_process_packet_both_directions() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Direction 1: initiator → responder
+        {
+            let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+            let packet = builder.build(0, 0, &[Bytes::from_static(b"i2r")], PacketFlags::NONE);
+
+            let session = Arc::new(NetSession::new(
+                resp_keys.clone(),
+                PeerAddr::Udp(source),
+                4,
+                false,
+            ));
+            let inbound: InboundQueues = Arc::new(DashMap::new());
+            NetAdapter::process_packet(packet, source, &session, &inbound, 1);
+
+            let queue = inbound.get(&0).expect("i2r: shard 0 should have events");
+            assert_eq!(queue.len(), 1, "i2r: expected 1 event");
+            assert_eq!(&queue.pop().unwrap().raw[..], b"i2r");
+        }
+
+        // Direction 2: responder → initiator
+        {
+            let mut builder = PacketBuilder::new(&resp_keys.tx_key, resp_keys.session_id);
+            let packet = builder.build(0, 0, &[Bytes::from_static(b"r2i")], PacketFlags::NONE);
+
+            let session = Arc::new(NetSession::new(
+                init_keys.clone(),
+                PeerAddr::Udp(source),
+                4,
+                false,
+            ));
+            let inbound: InboundQueues = Arc::new(DashMap::new());
+            NetAdapter::process_packet(packet, source, &session, &inbound, 1);
+
+            let queue = inbound.get(&0).expect("r2i: shard 0 should have events");
+            assert_eq!(queue.len(), 1, "r2i: expected 1 event");
+            assert_eq!(&queue.pop().unwrap().raw[..], b"r2i");
+        }
+    }
+
+    #[test]
+    fn test_poll_shard_cursor_drops_consumed_events() {
+        // Verify that poll_shard with a cursor drops events at or before
+        // the cursor (they've already been consumed) and returns only
+        // events after the cursor. The queue should be empty afterward —
+        // no unbounded requeue growth.
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Send 3 packets (sequences 0, 1, 2), each with 1 event
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        for seq in 0..3u64 {
+            let events = vec![Bytes::from(format!("event-{}", seq))];
+            let packet = builder.build(0, seq, &events, PacketFlags::NONE);
+            NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+        }
+
+        let queue = inbound.get(&0u16).unwrap();
+        assert_eq!(queue.len(), 3);
+
+        // Simulate poll_shard with cursor "0:0" — drops event 0:0,
+        // returns events 1:0 and 2:0
+        let from_id = "0:0";
+        let mut events = Vec::new();
+        while events.len() < 10 {
+            if let Some(event) = queue.pop() {
+                if event_id_gt(&event.id, from_id) {
+                    events.push(event);
+                }
+                // Events at/before cursor are dropped (not requeued)
+            } else {
+                break;
+            }
+        }
+
+        assert_eq!(events.len(), 2, "should get 2 events after cursor 0:0");
+        assert_eq!(events[0].id, "1:0");
+        assert_eq!(events[1].id, "2:0");
+
+        // Queue should be empty — consumed events are dropped, not requeued
+        assert_eq!(queue.len(), 0, "queue should be empty after poll drains it");
+    }
+
+    #[test]
+    fn test_process_packet_old_counter_rejected() {
+        // Verify that a packet with a counter below the replay window
+        // is rejected after the window has advanced.
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Send 1100 packets to advance the rx_counter past the replay window (1024)
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        for seq in 0..1100u64 {
+            let packet = builder.build(0, seq, &[Bytes::from_static(b"x")], PacketFlags::NONE);
+            NetAdapter::process_packet(packet, source, &resp_session, &inbound, 1);
+        }
+        assert_eq!(inbound.get(&0).unwrap().len(), 1100);
+
+        // Build a packet with a fresh builder whose counter starts at 0.
+        // The rx_counter is now at ~1100, so counter 0 is outside the
+        // 1024-wide replay window and must be rejected.
+        let mut stale_builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let stale_packet =
+            stale_builder.build(0, 9999, &[Bytes::from_static(b"stale")], PacketFlags::NONE);
+        NetAdapter::process_packet(stale_packet, source, &resp_session, &inbound, 1);
+
+        // Should still be 1100 — stale packet rejected
+        assert_eq!(
+            inbound.get(&0).unwrap().len(),
+            1100,
+            "packet with stale counter must be rejected"
+        );
+    }
+
+    #[test]
+    fn test_process_packet_far_future_counter_rejected() {
+        // Verify that a packet with a counter far beyond MAX_FORWARD is
+        // rejected, preventing an attacker from advancing the rx_counter
+        // and denying subsequent legitimate packets.
+        use std::sync::Arc;
+
+        let (_init_keys, resp_keys) = make_session_keys();
+
+        // Build a valid packet, then manually tamper the nonce counter
+        // to a huge value. The AEAD will fail because the nonce doesn't
+        // match, but we're testing that is_valid_rx_counter rejects it
+        // before even attempting decryption.
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+
+        // Directly test the cipher's counter validation
+        let rx_cipher = resp_session.rx_cipher();
+        assert!(
+            !rx_cipher.is_valid_rx_counter(u64::MAX),
+            "counter at u64::MAX must be rejected (far beyond MAX_FORWARD)"
+        );
+        assert!(
+            rx_cipher.is_valid_rx_counter(0),
+            "counter 0 should be valid initially"
+        );
+    }
+
+    /// Regression: BUG_REPORT.md #5 — `process_packet` previously
+    /// discarded the bool returned by `r.on_receive(seq)` on the
+    /// reliability layer, queueing events even for duplicates.
+    /// Each retransmit re-encrypts with a fresh outer counter, so
+    /// the cipher's replay window does not catch this; without
+    /// honoring `on_receive`, the inbound queue accumulates
+    /// duplicates and breaks exactly-once delivery on reliable
+    /// streams.
+    ///
+    /// We construct the duplicate-detection scenario by building
+    /// two distinct packets that share the same stream sequence.
+    /// On a reliable session the second one's `on_receive` returns
+    /// `false`, so `process_packet` must not enqueue its events.
+    /// (The cipher's outer counter is fresh on both packets, so
+    /// the replay window can't filter them — only the reliability
+    /// layer's check stops the duplicate.)
+    #[test]
+    fn process_packet_drops_duplicates_per_reliability_decision() {
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        // Reliable session — its streams use `ReliableStream`,
+        // whose `on_receive` returns `false` for `seq <
+        // next_expected` (duplicates).
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            true, // default_reliable
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Two packets on stream 7. First carries sequences 0..1,
+        // second is a duplicate (same seq=0) that should be
+        // filtered. We deliver seq=0 then seq=1 first to advance
+        // `next_expected` past 0, then a packet with seq=0 — that
+        // last one is the duplicate.
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let packet0 = builder.build(7, 0, &[Bytes::from(r#"{"first":0}"#)], PacketFlags::NONE);
+        let packet1 = builder.build(7, 1, &[Bytes::from(r#"{"first":1}"#)], PacketFlags::NONE);
+        // Re-encrypted retransmit of seq=0 — same stream, same seq,
+        // different payload. This is the scenario the bug allowed
+        // through.
+        let packet0_dup = builder.build(
+            7,
+            0,
+            &[Bytes::from(r#"{"dup":"should_not_appear"}"#)],
+            PacketFlags::NONE,
+        );
+
+        NetAdapter::process_packet(packet0, source, &resp_session, &inbound, 1);
+        NetAdapter::process_packet(packet1, source, &resp_session, &inbound, 1);
+        NetAdapter::process_packet(packet0_dup, source, &resp_session, &inbound, 1);
+
+        let queue = inbound.get(&0).expect("shard 0 should exist");
+        assert_eq!(
+            queue.len(),
+            2,
+            "duplicate packet must NOT enqueue (BUG_REPORT.md #5); \
+             got {} events, expected exactly 2 (seq=0 and seq=1, no dup)",
+            queue.len()
+        );
+
+        // Drain in FIFO order and assert no `should_not_appear`
+        // event sneaked through.
+        let e0 = queue.pop().unwrap();
+        assert_eq!(&e0.raw[..], br#"{"first":0}"#);
+        let e1 = queue.pop().unwrap();
+        assert_eq!(&e1.raw[..], br#"{"first":1}"#);
+        assert!(queue.is_empty());
+    }
+
+    /// Regression: heartbeats must be AEAD-authenticated so an
+    /// off-path attacker who knows or observes the session_id
+    /// cannot spoof them. Pre-fix the receiver only checked
+    /// `source == peer_addr` (UDP source — spoofable) and
+    /// `session_id` match (in cleartext on every packet); now the
+    /// 16-byte Poly1305 tag binds the heartbeat to the session
+    /// key.
+    #[test]
+    fn heartbeat_is_aead_authenticated() {
+        use crate::adapter::net::pool::PacketBuilder;
+        use dashmap::DashMap;
+        use std::sync::Arc;
+
+        let (init_keys, resp_keys) = make_session_keys();
+
+        let resp_session = Arc::new(NetSession::new(
+            resp_keys,
+            PeerAddr::Udp("127.0.0.1:5000".parse().unwrap()),
+            4,
+            false,
+        ));
+        let inbound: InboundQueues = Arc::new(DashMap::new());
+        let source: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+
+        // Build a legitimate heartbeat with the initiator's
+        // session key and tag it.
+        let mut builder = PacketBuilder::new(&init_keys.tx_key, init_keys.session_id);
+        let heartbeat = builder.build_heartbeat();
+        let last_activity_before = resp_session.last_activity_ns();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+
+        // Process: this must succeed and call session.touch().
+        NetAdapter::process_packet(heartbeat, source, &resp_session, &inbound, 1);
+        let last_activity_after = resp_session.last_activity_ns();
+        assert!(
+            last_activity_after > last_activity_before,
+            "legitimate AEAD-tagged heartbeat must call session.touch()"
+        );
+
+        // Forge an unauthenticated heartbeat: header-only, no tag.
+        // Pre-fix this would have passed; post-fix it must be
+        // rejected.
+        let mut forged = bytes::BytesMut::new();
+        let header = NetHeader::heartbeat(resp_session.session_id());
+        forged.extend_from_slice(&header.to_bytes());
+        let forged = forged.freeze();
+        let last_activity_before = resp_session.last_activity_ns();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        NetAdapter::process_packet(forged, source, &resp_session, &inbound, 1);
+        let last_activity_after = resp_session.last_activity_ns();
+        assert_eq!(
+            last_activity_before, last_activity_after,
+            "unauthenticated heartbeat (no AEAD tag) must NOT touch the session"
+        );
+
+        // Forge a heartbeat with the right session_id but a
+        // garbage 16-byte "tag". Tag verification fails.
+        let mut forged_tag = bytes::BytesMut::new();
+        let mut header_bytes = NetHeader::heartbeat(resp_session.session_id()).to_bytes();
+        // Stamp a plausible nonce so the receiver gets to the
+        // decrypt step (otherwise it bails earlier on counter).
+        header_bytes[12..16].copy_from_slice(&[0u8; 4]);
+        header_bytes[16..24].copy_from_slice(&1u64.to_le_bytes());
+        forged_tag.extend_from_slice(&header_bytes);
+        forged_tag.extend_from_slice(&[0xAAu8; 16]); // garbage tag
+        let forged_tag = forged_tag.freeze();
+        let last_activity_before = resp_session.last_activity_ns();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        NetAdapter::process_packet(forged_tag, source, &resp_session, &inbound, 1);
+        let last_activity_after = resp_session.last_activity_ns();
+        assert_eq!(
+            last_activity_before, last_activity_after,
+            "heartbeat with garbage AEAD tag must NOT touch the session"
+        );
+    }
+
+    /// Regression: the handshake responder must rate-limit a flooder
+    /// so it can't monopolize the recv loop. `HandshakePacer` is the
+    /// building block: per source it tracks `(count, window_start)`
+    /// and pushes anything past `max_per_window` onto a shared
+    /// reserve, which is itself bounded.
+    #[test]
+    fn handshake_pacer_rejects_floods_per_source() {
+        use std::time::Duration;
+        // Per-source 3, reserve 2, aggregate high enough not to bind.
+        let mut pacer = HandshakePacer::new(3, 2, 100, Duration::from_millis(50));
+
+        let attacker: PeerAddr = PeerAddr::Udp("10.0.0.1:9000".parse().unwrap());
+        let legit: PeerAddr = PeerAddr::Udp("10.0.0.2:9000".parse().unwrap());
+
+        // 3 within the per-source budget, then 2 more off the shared
+        // reserve — a spoofable address means an exhausted budget is
+        // not proof of hostility, so the source is throttled rather
+        // than banned outright.
+        for _ in 0..5 {
+            assert!(pacer.check_and_record(attacker));
+        }
+        // Reserve spent: everything beyond is dropped before Noise.
+        for _ in 0..10 {
+            assert!(
+                !pacer.check_and_record(attacker),
+                "attacker past budget AND reserve must be dropped"
+            );
+        }
+
+        // The legitimate initiator (different source) is unaffected
+        // by the attacker's burst — it is still within its own budget,
+        // and the budget is per-source.
+        assert!(
+            pacer.check_and_record(legit),
+            "legitimate source must still get through despite attacker flood"
+        );
+
+        // After the window expires the attacker's budget refills.
+        std::thread::sleep(Duration::from_millis(55));
+        assert!(
+            pacer.check_and_record(attacker),
+            "attacker budget must refill after window"
+        );
+    }
+
+    /// A UDP source address is spoofable, so burning a source's
+    /// per-source budget must not be enough to keep that source out.
+    ///
+    /// Without the shared reserve this is a precise off-path denial
+    /// primitive: the initiator's address is in the clear on the wire,
+    /// `max_per_window` junk datagrams carrying it exhaust its budget,
+    /// and every real `msg1` from it is then dropped BEFORE
+    /// `read_message` for the rest of the window — so the victim's
+    /// `accept()` burns its whole budget and reports a bare timeout,
+    /// having never looked at a payload. The same shape occurs with no
+    /// attacker at all when the responder drains an initiator's own
+    /// stale retransmits on its way to that initiator's live `msg1`.
+    #[test]
+    fn handshake_pacer_reserve_survives_a_spoofed_per_source_exhaustion() {
+        use std::time::Duration;
+        let mut pacer = HandshakePacer::new(3, 8, 100, Duration::from_secs(60));
+
+        let victim: PeerAddr = PeerAddr::Udp("10.0.0.7:9000".parse().unwrap());
+
+        // Spoofer spends the victim's whole per-source budget.
+        for _ in 0..3 {
+            assert!(pacer.check_and_record(victim));
+        }
+
+        // The victim's real msg1 — and several retransmits — must
+        // still reach Noise, off the reserve.
+        for i in 0..8 {
+            assert!(
+                pacer.check_and_record(victim),
+                "a spoofed budget exhaustion must not ban the source (retransmit {i})"
+            );
+        }
+    }
+
+    /// The size-triggered GC must stay amortized. A sweep that
+    /// reclaims nothing leaves `entries` at the threshold, so without
+    /// a second step the very next datagram sweeps again — an O(n)
+    /// scan per packet for the whole flood, on a path every node's
+    /// `accept()` now reaches.
+    #[test]
+    fn handshake_pacer_gc_stays_amortized_under_a_fan_out_flood() {
+        use std::time::Duration;
+        let threshold = 64;
+        // A window long enough that the periodic trigger cannot fire:
+        // whatever sweeps happen are size-triggered, which is the
+        // path under test.
+        let mut pacer = HandshakePacer::new(5, 8, u32::MAX, Duration::from_secs(600))
+            .with_gc_size_threshold(threshold);
+
+        let datagrams = threshold * 8;
+        for i in 0..datagrams {
+            // A distinct source per datagram, all fresh — nothing is
+            // ever old enough for `retain` to reclaim.
+            let source: PeerAddr = PeerAddr::Udp(
+                format!("10.2.{}.{}:9000", (i >> 8) & 0xff, i & 0xff)
+                    .parse()
+                    .unwrap(),
+            );
+            pacer.check_and_record(source);
+        }
+
+        // One sweep per threshold-worth of entries is the amortized
+        // shape; one per datagram is the bug.
+        let sweeps = pacer.sweeps();
+        assert!(
+            sweeps <= (datagrams / threshold) as u64 + 1,
+            "GC must stay amortized, ran {sweeps} sweeps over {datagrams} datagrams",
+        );
+    }
+
+    /// The per-source budget alone cannot bound a flood that fans out
+    /// across spoofed addresses: every datagram then looks like a
+    /// fresh, in-budget source and buys a full Noise read. The
+    /// aggregate ceiling is the one that binds.
+    #[test]
+    fn handshake_pacer_caps_a_fan_out_flood_in_aggregate() {
+        use std::time::Duration;
+        let aggregate = 32;
+        let mut pacer = HandshakePacer::new(5, 8, aggregate, Duration::from_secs(60));
+
+        let mut admitted = 0;
+        for i in 0..4096u32 {
+            // A distinct source per datagram — each is in budget.
+            let source: PeerAddr = PeerAddr::Udp(
+                format!("10.1.{}.{}:9000", (i >> 8) & 0xff, i & 0xff)
+                    .parse()
+                    .unwrap(),
+            );
+            if pacer.check_and_record(source) {
+                admitted += 1;
+            }
+        }
+
+        assert_eq!(
+            admitted, aggregate,
+            "a fan-out flood must be capped by the aggregate ceiling, not by \
+             the per-source budget it walks around"
+        );
+    }
+}

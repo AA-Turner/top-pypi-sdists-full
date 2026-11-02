@@ -31,8 +31,10 @@ import json
 
 import pytest
 
-from probe.cli import capabilities, setup, updater
-from probe.cli.capabilities import Capabilities
+from probe.cli.wizard import state as capabilities
+from probe.cli import wizard as setup
+from probe.cli.install import updater
+from probe.cli.wizard.state.state import Capabilities
 from probe.shared.updates.updates import Comparison, VersionStatus, compare, overall
 
 MANIFEST = {

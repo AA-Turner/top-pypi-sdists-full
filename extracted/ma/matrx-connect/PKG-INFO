@@ -1,0 +1,127 @@
+Metadata-Version: 2.5
+Name: matrx-connect
+Version: 0.1.257
+Summary: FastAPI middleware, auth, streaming infrastructure, and context management for the Matrx ecosystem
+Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Issues, https://github.com/AI-Matrix-Engine/aidream-current/issues
+Author-email: Matrx <admin@aimatrx.com>
+Maintainer-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: auth,fastapi,matrx,middleware,sse,streaming
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: matrx-utils>=2.0.101
+Requires-Dist: orjson>=3.10
+Requires-Dist: pydantic-settings>=2.0
+Requires-Dist: pydantic>=2.12
+Requires-Dist: pyjwt[crypto]>=2.8
+Requires-Dist: sse-starlette>=1.8
+Requires-Dist: typing-extensions>=4.14.1
+Description-Content-Type: text/markdown
+
+# matrx-connect
+
+FastAPI connectivity layer for the Matrx ecosystem: **auth middleware, streaming-response infrastructure, request-scoped `AppContext`, and the `Emitter` protocol**. Despite the name, "connect" is about connecting a FastAPI app to the Matrx streaming + auth contract — not database connectivity.
+
+## Install
+
+```bash
+pip install matrx-connect
+```
+
+Python 3.12+ required. Depends only on `matrx-utils` from the Matrx family.
+
+## What's in the box
+
+| Module | What it does |
+|---|---|
+| `matrx_connect.context.app_context` | `AppContext` dataclass + sealed tenant factories (`require_tenant_context`, `tenant_system_context`, `tenant_resource_context`) + `ContextVar` helpers |
+| `matrx_connect.context.emitter_protocol` | `Emitter` protocol — every method any producer can call (`send_chunk`, `send_reasoning`, `send_phase`, `send_data`, `send_info`, `send_warning`, `fatal_error`, `send_end`, tool events, …) |
+| `matrx_connect.context.events` | Pydantic event payload schemas shared with the frontend |
+| `matrx_connect.emitters.stream_emitter` | `StreamEmitter` — the JSONL/NDJSON HTTP streaming implementation |
+| `matrx_connect.emitters.console_emitter` | `ConsoleEmitter` — dev/test implementation that prints to stdout |
+| `matrx_connect.middleware.auth` | `AuthMiddleware` — pluggable JWT + admin-token + fingerprint resolution, with a `resolve_guest` callback hook |
+| `matrx_connect.streaming.response` | `create_streaming_response(ctx, task, *args, ...)` — the ONLY public entry point for streaming endpoints |
+| `matrx_connect.dependencies` | `context_dep` reads `AppContext`; `authenticated_resource_bootstrap` authenticates a declared resource route and returns only its literal `X-Organization-Id` claim |
+
+## The streaming endpoint pattern
+
+Every streaming route follows this exact shape. It's enforced across every repo that uses matrx-connect, so that the behavior of heartbeats, client disconnects, and error handling stays consistent:
+
+```python
+from fastapi import APIRouter, Depends
+from matrx_connect import AppContext, context_dep
+from matrx_connect.streaming import create_streaming_response
+
+router = APIRouter()
+
+@router.post("/topics/{topic_id}/search")
+async def trigger_search(topic_id: str, ctx: AppContext = Depends(context_dep)):
+    return create_streaming_response(
+        ctx, _run_search, topic_id,
+        initial_message="Starting search…", debug_label="ResearchSearch",
+    )
+
+async def _run_search(emitter, topic_id: str):
+    # AppContext is already set on the ContextVar.
+    # Cancellation + exception handling are done for you.
+    result = await do_work(topic_id)
+    await emitter.send_data(SearchResult(...).model_dump())
+    await emitter.send_end()
+```
+
+What `create_streaming_response` does for you:
+- Creates the `StreamEmitter`, attaches it to `AppContext`, and pushes `AppContext` onto the `ContextVar`.
+- Spawns the task as a background `asyncio.Task`.
+- Catches `CancelledError` (client disconnect) and generic exceptions — the latter are surfaced via `emitter.fatal_error(...)`.
+- Emits heartbeat keepalives while the task is running.
+- Clears the `ContextVar` on exit.
+
+Your task function never touches `set_app_context` / `clear_app_context` / `CancelledError`. If you find yourself reaching for those symbols in application code, extend `create_streaming_response` instead.
+
+## Wiring the auth middleware
+
+```python
+from fastapi import FastAPI
+from matrx_connect.middleware.auth import AuthMiddleware
+
+app = FastAPI()
+app.add_middleware(
+    AuthMiddleware,
+    jwt_secret=settings.JWT_SECRET,
+    admin_token=settings.ADMIN_TOKEN,
+    admin_user_id=settings.ADMIN_USER_ID,
+    resolve_guest=my_guest_resolver,   # optional callback for fingerprint-based guests
+)
+```
+
+After this, every request has an `AppContext` on `request.state.context` and `context_dep` will hand it to any route handler that depends on it.
+
+Resource handlers that authorize a named row after middleware admission use
+`authenticated_resource_bootstrap`. Pair it with the exact
+`authenticated_resource_routes(app, authenticated_resource_bootstrap)` output
+when configuring `AuthMiddleware`; it defers organization *pre-refusal* for
+those method/path declarations without creating an organization-free or tenant
+context. The handler still owns row authorization.
+
+## Standalone-friendliness
+
+`matrx-connect` has a single sibling dependency (`matrx-utils`, for verbose-logging). It assumes no ORM, no database, no Supabase — wire those in from your app. The `Emitter` is a `typing.Protocol`, so you can hand `create_streaming_response` any object that satisfies the shape.
+
+## Contributing
+
+See [CLAUDE.md](CLAUDE.md) for package-specific import rules and conventions. This package lives in the aidream monorepo at [github.com/AI-Matrix-Engine/aidream-current](https://github.com/AI-Matrix-Engine/aidream-current/tree/main/packages/matrx-connect).
+
+## License
+
+MIT.

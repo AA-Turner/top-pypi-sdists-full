@@ -1,0 +1,220 @@
+[project]
+name = "fastapi-redis-sdk"
+version = "0.9.1"
+description = "The official Redis integration with FastAPI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = [
+    "redis",
+    "fastapi",
+    "python",
+    "database",
+    "cache",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+    "Framework :: FastAPI",
+    "Framework :: Pydantic",
+    "Typing :: Typed",
+]
+dependencies = [
+    "redis>=6.0.0",
+    "fastapi>=0.115.0",
+    "pydantic-settings>=2.7.0",
+    "pydantic>=2.12.5",
+    "anyio>=4.13.0",
+]
+
+[[project.authors]]
+name = "Redis"
+email = "oss@redis.com"
+
+[project.optional-dependencies]
+otel = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+]
+
+[project.urls]
+Homepage = "https://github.com/redis/fastapi-redis-sdk"
+Repository = "https://github.com/redis/fastapi-redis-sdk"
+Issues = "https://github.com/redis/fastapi-redis-sdk/issues"
+
+[build-system]
+requires = ["uv_build>=0.8.3,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "redis_fastapi"
+module-root = "src"
+
+[tool.fastapi]
+entrypoint = "examples.main:app"
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "build",
+    "dist",
+]
+skips = ["B101"]
+
+[tool.bandit.assert_used]
+skips = [
+    "*_test.py",
+    "*/test_*.py",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--cov=src",
+    "--cov-report=html",
+    "--cov-report=term",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow running",
+]
+asyncio_mode = "auto"
+strict_xfail = true
+timeout = 20
+filterwarnings = [
+    "default",
+    "error:::redis_fastapi",
+    'error:::redis_fastapi\..*',
+]
+
+[tool.coverage.run]
+parallel = true
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+sort = "-Cover"
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    'class .*\bProtocol\):',
+    '@(abc\.)?abstractmethod',
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+]
+ignore = [
+    "E501",
+    "B008",
+    "C901",
+    "W191",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"examples/*.py" = ["E402"]
+"src/redis_fastapi/deps.py" = ["UP007"]
+"src/redis_fastapi/types.py" = ["UP007"]
+
+[tool.ruff.lint.isort]
+known-third-party = [
+    "fastapi",
+    "redis",
+    "pydantic",
+]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+strict = true
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[dependency-groups]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    { include-group = "typecheck" },
+    { include-group = "security" },
+    { include-group = "docs" },
+    "nox>=2026.4.10",
+    "safety>=3.8.1",
+    "twine>=4.0",
+]
+test = [
+    "anyio[trio]>=3.2.1,<5.0.0",
+    "coverage[toml]>=7.10.1",
+    "fakeredis[lua]>=2.36.2",
+    "httpx>=0.23.0,<1.0.0",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.4.0",
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+]
+lint = ["ruff>=0.12.5"]
+typecheck = ["mypy>=2.1.0"]
+security = ["bandit[toml]>=1.8.6"]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "mike>=2.2.0",
+]

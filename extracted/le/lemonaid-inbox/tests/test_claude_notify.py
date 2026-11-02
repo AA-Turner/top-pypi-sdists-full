@@ -1,0 +1,314 @@
+"""Tests for lemonaid.claude.notify module."""
+
+from contextlib import ExitStack, contextmanager
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from lemonaid.claude import notify
+
+
+@pytest.fixture(autouse=True)
+def _no_handoff_reclaim(monkeypatch):
+    monkeypatch.setattr(notify.handoff_transfer, "reclaim", lambda _conn, _channel: False)
+
+
+@contextmanager
+def _fake_connect():
+    yield object()
+
+
+def test_handle_submit_registers_working():
+    payload = '{"session_id":"abc123","cwd":"/tmp/project","hook_event_name":"UserPromptSubmit"}'
+
+    with (
+        patch("lemonaid.claude.notify.db.connect", _fake_connect),
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("Test Session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys001"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+        patch("lemonaid.claude.notify.db.register_working") as mock_register,
+    ):
+        notify.handle_submit(stdin_data=payload)
+
+    kwargs = mock_register.call_args.kwargs
+    assert kwargs["channel"] == "claude:abc123"
+    assert kwargs["name"] == "Test Session"
+    assert kwargs["message"] == "Working in tmp/project"
+    assert kwargs["metadata"]["session_id"] == "abc123"
+    assert kwargs["metadata"]["tty"] == "/dev/ttys001"
+    assert kwargs["switch_source"] == "tmux"
+
+
+def test_handle_submit_headless_has_no_switch_source():
+    payload = '{"session_id":"abc123","cwd":"/tmp/project"}'
+
+    with (
+        patch("lemonaid.claude.notify.db.connect", _fake_connect),
+        patch("lemonaid.claude.notify.resolve_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_name_from_cwd", return_value="project"),
+        patch("lemonaid.claude.notify.get_tty", return_value=None),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="unknown"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value=None),
+        patch("lemonaid.claude.notify.db.register_working") as mock_register,
+    ):
+        notify.handle_submit(stdin_data=payload)
+
+    assert mock_register.call_args.kwargs["switch_source"] is None
+
+
+def _submit_with(tmux_session, tmux_window, register):
+    """Run the submit hook with the tmux environment stubbed out."""
+    return (
+        patch("lemonaid.claude.notify.db.connect", _fake_connect),
+        patch("lemonaid.claude.notify.resolve_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=tmux_session),
+        patch("lemonaid.claude.notify.get_tmux_window_index", return_value=tmux_window),
+        patch("lemonaid.claude.notify.get_name_from_cwd", return_value="project"),
+        patch("lemonaid.claude.notify.get_tty", return_value=None),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value=None),
+        patch("lemonaid.claude.notify.db.register_working", register),
+    )
+
+
+def test_submit_records_where_the_session_is_running(monkeypatch):
+    monkeypatch.setenv("TMUX_PANE", "%8")
+    monkeypatch.setattr(notify, "get_tmux_session_order", lambda: (100, 50, 2))
+    """Without this the inbox survives a tmux crash but can't rebuild the layout."""
+    payload = '{"session_id":"abc123","cwd":"/tmp/project"}'
+    register = MagicMock()
+
+    with ExitStack() as stack:
+        for ctx in _submit_with("relay", "4", register):
+            stack.enter_context(ctx)
+        notify.handle_submit(stdin_data=payload)
+
+    metadata = register.call_args.kwargs["metadata"]
+    assert metadata["tmux_session"] == "relay"
+    assert metadata["tmux_window"] == "4"
+    assert metadata["tmux_pane_identity"] == ["%8", 50]
+
+
+def test_submit_records_no_location_outside_tmux():
+    payload = '{"session_id":"abc123","cwd":"/tmp/project"}'
+    register = MagicMock()
+
+    with ExitStack() as stack:
+        for ctx in _submit_with(None, None, register):
+            stack.enter_context(ctx)
+        notify.handle_submit(stdin_data=payload)
+
+    metadata = register.call_args.kwargs["metadata"]
+    assert "tmux_session" not in metadata
+    assert "tmux_window" not in metadata
+
+
+def _message_for(payload: str) -> str:
+    """The inbox message a hook payload produces."""
+    with (
+        patch("lemonaid.claude.notify.db.connect", _fake_connect),
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("Test Session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys001"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+        patch("lemonaid.claude.notify.db.get_by_channel", return_value=None),
+        patch("lemonaid.claude.notify.db.add") as mock_add,
+    ):
+        notify.handle_notification(stdin_data=payload)
+
+    return mock_add.call_args.kwargs["message"]
+
+
+def test_a_finished_turn_says_it_is_waiting():
+    """Stop carries no notification_type, and used to report its hook's name."""
+    message = _message_for('{"session_id":"abc123","cwd":"/tmp/project","hook_event_name":"Stop"}')
+    assert message == "Waiting in tmp/project"
+    assert "Stop" not in message
+
+
+def test_a_permission_prompt_still_says_permission():
+    assert (
+        _message_for(
+            '{"session_id":"abc123","cwd":"/tmp/project",'
+            '"hook_event_name":"Notification","notification_type":"permission_prompt"}'
+        )
+        == "Permission needed in tmp/project"
+    )
+
+
+def test_stop_leaves_a_real_message_alone(tmp_path, monkeypatch):
+    """The watcher's message is the better one, and it does not get rewritten.
+
+    It only writes when the transcript itself changes, so a message Stop
+    overwrites stays overwritten until the session says something new.
+    """
+    monkeypatch.setenv("LEMONAID_DB", str(tmp_path / "inbox.db"))
+    from lemonaid.inbox import db as real_db
+
+    with real_db.connect() as conn:
+        real_db.add(conn, "claude:keep1", "The five unresolved are from tiny runs.", "a-session")
+
+    with (
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("a-session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys001"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+    ):
+        notify.handle_notification(
+            stdin_data='{"session_id":"keep1","cwd":"/tmp/project","hook_event_name":"Stop"}'
+        )
+
+    with real_db.connect() as conn:
+        assert (
+            real_db.get_by_channel(conn, "claude:keep1", unread_only=False).message
+            == "The five unresolved are from tiny runs."
+        )
+
+
+def test_stop_on_a_new_session_still_gets_a_message(tmp_path, monkeypatch):
+    """Nothing to preserve, so the generic message is the only one there is."""
+    monkeypatch.setenv("LEMONAID_DB", str(tmp_path / "inbox.db"))
+    from lemonaid.inbox import db as real_db
+
+    with (
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("fresh", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys002"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+    ):
+        notify.handle_notification(
+            stdin_data='{"session_id":"fresh1","cwd":"/tmp/project","hook_event_name":"Stop"}'
+        )
+
+    with real_db.connect() as conn:
+        assert (
+            real_db.get_by_channel(conn, "claude:fresh1", unread_only=False).message
+            == "Waiting in tmp/project"
+        )
+
+
+def test_a_permission_prompt_does_overwrite(tmp_path, monkeypatch):
+    """A question is news the transcript does not carry, so it replaces."""
+    monkeypatch.setenv("LEMONAID_DB", str(tmp_path / "inbox.db"))
+    from lemonaid.inbox import db as real_db
+
+    with real_db.connect() as conn:
+        real_db.add(conn, "claude:perm1", "Some earlier chatter.", "a-session")
+
+    with (
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("a-session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys003"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+    ):
+        notify.handle_notification(
+            stdin_data='{"session_id":"perm1","cwd":"/tmp/project",'
+            '"hook_event_name":"Notification","notification_type":"permission_prompt"}'
+        )
+
+    with real_db.connect() as conn:
+        assert (
+            real_db.get_by_channel(conn, "claude:perm1", unread_only=False).message
+            == "Permission needed in tmp/project"
+        )
+
+
+def test_a_question_keeps_its_text_through_the_permission_prompt_after_it(tmp_path, monkeypatch):
+    """Claude sends a generic permission_prompt just after an AskUserQuestion request."""
+    monkeypatch.setenv("LEMONAID_DB", str(tmp_path / "inbox.db"))
+    from lemonaid.inbox import db as real_db
+
+    with (
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("a-session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys004"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+    ):
+        notify.handle_notification(
+            stdin_data='{"session_id":"ask1","cwd":"/tmp/project",'
+            '"hook_event_name":"PermissionRequest","tool_name":"AskUserQuestion",'
+            '"tool_input":{"questions":[{"question":"How should the smoke test run?"}]}}'
+        )
+        notify.handle_notification(
+            stdin_data='{"session_id":"ask1","cwd":"/tmp/project",'
+            '"hook_event_name":"Notification","notification_type":"permission_prompt"}'
+        )
+
+    with real_db.connect() as conn:
+        row = real_db.get_by_channel(conn, "claude:ask1", unread_only=False)
+    assert row.message == "How should the smoke test run?"
+    assert row.asks
+
+
+def test_a_tool_permission_request_does_not_hold_its_message(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEMONAID_DB", str(tmp_path / "inbox.db"))
+    from lemonaid.inbox import db as real_db
+
+    with (
+        patch(
+            "lemonaid.claude.notify.resolve_session_name",
+            return_value=notify.SessionName("a-session", notify.TITLE_SOURCE),
+        ),
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value="/dev/ttys005"),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="tmux"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value="main"),
+    ):
+        notify.handle_notification(
+            stdin_data='{"session_id":"tool1","cwd":"/tmp/project",'
+            '"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{}}'
+        )
+        notify.handle_notification(
+            stdin_data='{"session_id":"tool1","cwd":"/tmp/project",'
+            '"hook_event_name":"Notification","notification_type":"permission_prompt"}'
+        )
+
+    with real_db.connect() as conn:
+        row = real_db.get_by_channel(conn, "claude:tool1", unread_only=False)
+    assert row.message == "Permission needed in tmp/project"
+
+
+def test_the_hook_names_a_session_from_the_transcript_it_reports():
+    payload = (
+        '{"session_id":"abc123","cwd":"/tmp/project/notes",'
+        '"transcript_path":"/tmp/claude/abc123.jsonl","hook_event_name":"UserPromptSubmit"}'
+    )
+
+    with (
+        patch("lemonaid.claude.notify.db.connect", _fake_connect),
+        patch("lemonaid.claude.notify.resolve_session_name", return_value=None) as mock_resolve,
+        patch("lemonaid.claude.notify.get_tmux_session_name", return_value=None),
+        patch("lemonaid.claude.notify.get_tty", return_value=None),
+        patch("lemonaid.claude.notify.detect_terminal_switch_source", return_value="unknown"),
+        patch("lemonaid.claude.notify.get_git_branch", return_value=None),
+        patch("lemonaid.claude.notify.db.register_working"),
+    ):
+        notify.handle_submit(stdin_data=payload)
+
+    mock_resolve.assert_called_once_with("abc123", "/tmp/project/notes", "/tmp/claude/abc123.jsonl")

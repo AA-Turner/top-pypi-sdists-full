@@ -1,0 +1,60 @@
+[project]
+name = "requests-http-signature"
+description = "A Requests auth module for HTTP Message Signatures"
+readme = "README.rst"
+requires-python = ">=3.10"
+license = {text = "Apache Software License"}
+authors = [{ name = "Andrey Kislyuk"}, {email = "kislyuk@gmail.com" }]
+maintainers = [{ name = "Andrey Kislyuk"}, {email = "kislyuk@gmail.com" }]
+dynamic = ["version"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "http-message-signatures >= 3.0.0",
+    "requests >= 2.34.2",
+    "urllib3 >= 2.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pyauth/requests-http-signature"
+
+[project.optional-dependencies]
+docs = ["sphinx >= 7", "furo", "sphinx-copybutton"]
+tests = [
+    "coverage",
+    "build",
+    "wheel",
+    "mypy",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/AGENTS.md"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 120
+
+[lint]
+unfixable = ["F401"]

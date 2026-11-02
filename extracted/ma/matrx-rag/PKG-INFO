@@ -1,0 +1,72 @@
+Metadata-Version: 2.5
+Name: matrx-rag
+Version: 0.1.392
+Summary: Multi-tenant RAG: hybrid retrieval, chunking, embeddings, ingestion, PDF + image + repo pipelines, agent-extraction indexing, priority-aware ranking.
+Author-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: embeddings,matrx,pgvector,rag,retrieval,supabase
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.13
+Requires-Dist: asyncpg>=0.30
+Requires-Dist: langchain-text-splitters>=0.3
+Requires-Dist: matrx-files[ocr,pdf]>=0.2.328
+Requires-Dist: matrx-orm>=3.1.275
+Requires-Dist: matrx-utils>=2.0.109
+Requires-Dist: openai>=2.0
+Requires-Dist: pdfplumber>=0.11
+Requires-Dist: pydantic>=2.12
+Requires-Dist: tiktoken>=0.8
+Requires-Dist: voyageai>=0.3
+Provides-Extra: api
+Requires-Dist: fastapi>=0.115; extra == 'api'
+Requires-Dist: matrx-connect>=0.1.257; extra == 'api'
+Provides-Extra: dev
+Requires-Dist: fastapi>=0.115; extra == 'dev'
+Requires-Dist: httpx>=0.27; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Provides-Extra: host
+Requires-Dist: matrx-connect>=0.1.257; extra == 'host'
+Description-Content-Type: text/markdown
+
+# matrx-rag
+
+Multi-tenant RAG: hybrid retrieval, chunking, embeddings, ingestion,
+PDF + image + repo pipelines, agent-extraction indexing, NER/KG writes,
+priority-aware ranking — extracted from `aidream/services/rag/` so any
+host (aidream's cloud server, matrx-local) can consume the same stack.
+
+Cross-repo system-of-record: /Users/armanisadeghi/code/common-docs/systems/knowledge/rag/STATE.md — read it before touching this feature in ANY repo.
+
+Editing rules for this package: [`CLAUDE.md`](CLAUDE.md) · [`matrx_rag/FEATURE.md`](matrx_rag/FEATURE.md).
+
+## What it does
+
+- **Ingestion**: `ingest_source(source_kind, source_id, ...)` — chunk → embed → upsert; NER inline for non-code sources.
+- **PDF / image / code repo** pipelines with provenance.
+- **Hybrid search**: pgvector HNSW + lexical FTS → RRF → optional Cohere → MMR.
+- **Priority-aware ranking**: agent-extracted chunks with non-zero `priority`.
+- **Agent-extraction → RAG**: `extraction_indexing` materializes page-extraction payloads as chunks.
+- **Data stores**: curated buckets with scoped search.
+- **Eval harness**: retrieval + answer quality assessment.
+
+## Host integration
+
+- **aidream** wires the package in `aidream/package_integration.py::_configure_matrx_rag` (NER extractor, embedding cache, ORM models, search callable).
+- **aidream/services/rag/** is a re-export shim; HTTP routes live in `aidream/api/routers/rag.py`.
+- **Auto-ingest** (gates, budget, scope suggestions) lives in `aidream/services/auto_ingest/` — not in this package.
+
+## Schema
+
+Migrations: `matrx_rag/migrations/` (mirrored in `db/migrations/` until package owns the runner).  
+ORM / pgvector notes: [`/Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md`](/Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md).
+
+## Package development
+
+See [`CLAUDE.md`](CLAUDE.md) for injection seams, test baselines, and the no-`aidream`-imports rule.

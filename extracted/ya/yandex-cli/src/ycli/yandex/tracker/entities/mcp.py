@@ -1,0 +1,789 @@
+"""Tracker Entities FastMCP tools (projects / portfolios / goals) — reads + writes.
+
+Mirrors the SDK with honest ARCH-3 annotations: entity CRUD, comments, checklists, links,
+attachments, permissions and bulk change. Only the binary attachment download stays CLI/SDK-only
+(a base64 blob is not a useful MCP payload) — its ``…_list`` / ``…_get`` metadata siblings are
+the MCP entry points; attaching also needs a ``temp_file_id`` from the (unwrapped) upload
+endpoint.
+"""
+
+from typing import Annotated
+
+from fastmcp.dependencies import Depends
+from pydantic import Field
+
+from ycli.settings import AppConfig
+from ycli.yandex.models import Ack, ItemList, Listed
+from ycli.yandex.tracker.client import TrackerClient
+from ycli.yandex.tracker.dependencies import (
+    DESTRUCTIVE,
+    GRANTS_ACCESS,
+    LIMIT_CAP,
+    RO,
+    WRITE,
+    WRITE_IDEMPOTENT,
+    AddToFollowers,
+    All,
+    Expand,
+    Next,
+    Notify,
+    NotifyAuthor,
+    ReplyFields,
+    app_config,
+    new_server,
+    tracker_client,
+)
+from ycli.yandex.tracker.entities.models import (
+    ACL,
+    Attachment,
+    BulkChangeOperation,
+    BulkChangeUpdate,
+    ChecklistItemInput,
+    ChecklistMove,
+    Comment,
+    CommentUpdate,
+    DirectPermissionsUpdate,
+    Entity,
+    EntityCreate,
+    EntityEvent,
+    EntitySearch,
+    EntityUpdate,
+    ExtendedPermissions,
+    Link,
+    LinkInput,
+    PermissionsUpdate,
+    ReportCreate,
+)
+from ycli.yandex.tracker.models import CommentCreate
+
+mcp = new_server("tracker-entities")
+
+EntityTypeName = Annotated[
+    str, Field(description="Entity type: ``project``, ``portfolio`` or ``goal``.")
+]
+SearchTypeArg = Annotated[
+    str,
+    Field(
+        description="Entity type: ``project``, ``portfolio``, ``goal`` or ``report`` "
+        "(issue reports)."
+    ),
+]
+EntityID = Annotated[str, Field(description="Entity id (or shortId).")]
+
+
+ChecklistItems = Annotated[
+    ItemList[ChecklistItemInput], Field(description="A bare array of checklist items.")
+]
+
+
+@mcp.tool(name="entities_get", annotations={**RO, "title": "Get Tracker entity"})
+def get(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    fields: Annotated[
+        str | None,
+        Field(description="Comma-separated extra fields, e.g. ``keyResultItems,checklistItems``."),
+    ] = None,
+    expand: Annotated[str | None, Field(description="Extra info, e.g. ``attachments``.")] = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """A single Tracker entity (project, portfolio or goal) by id, with its ``fields`` block.
+
+    Pass ``fields`` to pull extra parameters into the response — ``keyResultItems`` for a goal's
+    key results, ``checklistItems`` for a project/portfolio checklist, ``metricItems`` for its
+    metric widgets, or ``summary,description,entityStatus`` for the basics. Use
+    ``entities_search`` to discover ids first.
+    """
+    return client.entities.get(entity_type, entity_id, expand=expand, fields=fields)
+
+
+@mcp.tool(name="entities_search", annotations={**RO, "title": "Search Tracker entities"})
+def search(
+    entity_type: SearchTypeArg,
+    body: Annotated[
+        EntitySearch | None,
+        Field(description="What to find: name substring, filter, sort order; omit for all."),
+    ] = None,
+    fields: Annotated[
+        str | None, Field(description="Comma-separated extra fields to include.")
+    ] = None,
+    limit: Annotated[
+        int | None, Field(ge=1, description=f"Max entities to return; {LIMIT_CAP}")
+    ] = None,
+    all: All = False,
+    next: Next = None,
+    client: TrackerClient = Depends(tracker_client),
+    config: AppConfig = Depends(app_config),
+) -> Listed[Entity]:
+    """Entities of a given type that match a name substring and a filter, sorted server-side.
+
+    Returns the entities, and whether there are more. ``body.input`` matches part of the name,
+    ``body.filter`` is a field → value object (author, status, followers, …), ``body.orderBy`` with
+    ``body.orderAsc`` sorts, and ``body.rootOnly`` keeps the entities with no parent.
+    """
+    cap = config.http.tool_cap(limit, all_=all)
+    return client.entities.search(entity_type, body, fields=fields, limit=cap, next=next).collect()
+
+
+@mcp.tool(
+    name="entities_events_list",
+    annotations={**RO, "title": "List Tracker entity history"},
+)
+def events_list(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    limit: Annotated[
+        int | None, Field(ge=1, description="Max events (omitted: the configured cap).")
+    ] = None,
+    all: All = False,
+    next: Next = None,
+    selected: Annotated[
+        str | None,
+        Field(description="Event id to build the list around, instead of from the start."),
+    ] = None,
+    new_events_on_top: Annotated[bool | None, Field(description="Newest events first.")] = None,
+    direction: Annotated[
+        str | None, Field(description="``forward`` (the default) or ``backward``.")
+    ] = None,
+    client: TrackerClient = Depends(tracker_client),
+    config: AppConfig = Depends(app_config),
+) -> Listed[EntityEvent]:
+    """An entity's event history (created/updated/commented/…), auto-paginated.
+
+    Each event carries an author, a timestamp, a display title and the individual field changes.
+    Capped at the configured item cap unless ``limit`` is given.
+    """
+    cap = config.http.tool_cap(limit, all_=all)
+    return client.entities.events_list(
+        entity_type,
+        entity_id,
+        limit=cap,
+        next=next,
+        selected=selected,
+        new_events_on_top=new_events_on_top,
+        direction=direction,
+    ).collect()
+
+
+@mcp.tool(
+    name="entities_permissions_get",
+    annotations={**RO, "title": "Get Tracker entity permissions"},
+)
+def permissions_get(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    client: TrackerClient = Depends(tracker_client),
+) -> ExtendedPermissions:
+    """An entity's access settings — the READ/WRITE/GRANT ACL plus inheritance sources.
+
+    ``acl`` lists the users, groups and roles granted each level; ``permissionSources`` names the
+    parent entities this one inherits permissions from. Change them with
+    ``entities_permissions_update``.
+    """
+    return client.entities.permissions_get(entity_type, entity_id)
+
+
+@mcp.tool(
+    name="entities_permissions_get_direct",
+    annotations={**RO, "title": "Get Tracker entity direct permissions"},
+)
+def permissions_get_direct(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    client: TrackerClient = Depends(tracker_client),
+) -> ACL:
+    """An entity's direct READ / WRITE / GRANT rights — the users, groups and roles holding each.
+
+    Unlike ``entities_permissions_get`` this leaves out inheritance (``permissionSources``).
+    Change the rights with ``entities_permissions_update_direct``.
+    """
+    return client.entities.permissions_get_direct(entity_type, entity_id)
+
+
+@mcp.tool(
+    name="entities_comments_list",
+    annotations={**RO, "title": "List Tracker entity comments"},
+)
+def comments_list(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    expand: Expand = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> ItemList[Comment]:
+    """All comments on an entity — author, text, timestamps and summoned users."""
+    return client.entities.comments_list(entity_type, entity_id, expand=expand)
+
+
+@mcp.tool(
+    name="entities_comments_get",
+    annotations={**RO, "title": "Get Tracker entity comment"},
+)
+def comments_get(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    comment_id: Annotated[str, Field(description="Comment id (numeric id or longId).")],
+    expand: Expand = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Comment:
+    """A single comment on an entity by id."""
+    return client.entities.comments_get(entity_type, entity_id, comment_id, expand=expand)
+
+
+@mcp.tool(name="entities_links_list", annotations={**RO, "title": "List Tracker entity links"})
+def links_list(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    fields: ReplyFields = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> ItemList[Link]:
+    """An entity's links to other entities — the link type and the linked entity's summary + id."""
+    return client.entities.links_list(entity_type, entity_id, fields=fields)
+
+
+@mcp.tool(
+    name="entities_attachments_list",
+    annotations={**RO, "title": "List Tracker entity attachments"},
+)
+def attachments_list(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    client: TrackerClient = Depends(tracker_client),
+) -> ItemList[Attachment]:
+    """Files attached to an entity — name, size, MIME type, uploader and download URL.
+
+    Returns metadata only. Downloading the raw bytes is CLI/SDK-only — run
+    ``ycli tracker entities attachments download <FILE_ID> <FILENAME>`` — because binary blobs
+    are not an MCP payload.
+    """
+    return client.entities.attachments_list(entity_type, entity_id)
+
+
+@mcp.tool(
+    name="entities_attachments_get",
+    annotations={**RO, "title": "Get Tracker entity attachment"},
+)
+def attachments_get(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    file_id: Annotated[str, Field(description="Attachment file id.")],
+    client: TrackerClient = Depends(tracker_client),
+) -> Attachment:
+    """One attachment's metadata (name, size, MIME type, download URL).
+
+    Downloading the raw bytes is CLI/SDK-only (``tracker entities attachments download``).
+    """
+    return client.entities.attachments_get(entity_type, entity_id, file_id)
+
+
+@mcp.tool(
+    name="entities_bulk_get",
+    annotations={**RO, "title": "Get Tracker entity bulk-change status"},
+)
+def bulk_get(
+    bulk_id: Annotated[str, Field(description="Operation id returned by entities_update_bulk.")],
+    client: TrackerClient = Depends(tracker_client),
+) -> BulkChangeOperation:
+    """Current status of an async entity bulk-change operation started by ``entities_update_bulk``.
+
+    ``status`` runs ``CREATED`` → ``COMPLETE`` / ``FAILED``; poll until it settles.
+    """
+    return client.entities.bulk_get(bulk_id)
+
+
+# violation(arch-1): one CLI command, `tracker entities comments list --relative`, where MCP serves
+# the relative-id page walk as its own tool
+@mcp.tool(
+    name="entities_comments_list_relative",
+    annotations={**RO, "title": "List Tracker entity comments (relative)"},
+)
+def comments_list_relative(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    limit: Annotated[
+        int | None, Field(ge=1, description="Max comments (omitted: the configured cap).")
+    ] = None,
+    all: All = False,
+    next: Next = None,
+    client: TrackerClient = Depends(tracker_client),
+    config: AppConfig = Depends(app_config),
+) -> Listed[Comment]:
+    """An entity's comments via the cursor-paginated ``…/comments/_relative`` endpoint.
+
+    Prefer this over ``entities_comments_list`` when the comment thread is long — it drains
+    pages up to ``limit`` (the configured item cap by default).
+    """
+    cap = config.http.tool_cap(limit, all_=all)
+    return client.entities.comments_list_relative(
+        entity_type, entity_id, limit=cap, next=next
+    ).collect()
+
+
+@mcp.tool(name="entities_create", annotations={**WRITE, "title": "Create Tracker entity"})
+def create(
+    entity_type: EntityTypeName,
+    body: EntityCreate,
+    fields: ReplyFields = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Create a Tracker entity (project, portfolio or goal); returns it with its id."""
+    return client.entities.create(entity_type, body, fields=fields)
+
+
+@mcp.tool(
+    name="entities_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Edit Tracker entity"},
+)
+def update(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: EntityUpdate,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Edit a Tracker entity; only the ``fields`` keys present in ``body`` are changed.
+
+    Returns the updated entity.
+    """
+    return client.entities.update(
+        entity_type,
+        entity_id,
+        body,
+        expand=expand,
+        fields=fields,
+    )
+
+
+@mcp.tool(
+    name="entities_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity"},
+)
+def delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    with_board: Annotated[
+        bool | None, Field(description="Also delete the project's linked board.")
+    ] = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Ack:
+    """Permanently delete a Tracker entity (project/portfolio/goal) — irreversible.
+
+    Pass ``with_board=true`` to also delete a project's linked agile board. Returns an
+    acknowledgement on success.
+    """
+    client.entities.delete(entity_type, entity_id, with_board=with_board)
+    return Ack.deleted(entity_type, entity_id)
+
+
+@mcp.tool(
+    name="entities_permissions_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Set Tracker entity permissions"},
+    meta=GRANTS_ACCESS,
+)
+def permissions_update(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: PermissionsUpdate,
+    client: TrackerClient = Depends(tracker_client),
+) -> ExtendedPermissions:
+    """Change an entity's access rules; returns the resulting permission set.
+
+    The ``acl`` object of ``body`` accepts only ``grant`` / ``revoke``
+    actions, each mapping an access level (``READ``/``WRITE``/``GRANT``) to users/groups/roles,
+    e.g. ``{"acl": {"grant": {"READ": {"users": ["8000000000000002"]}}}}``. Read the current
+    ACL first with ``entities_permissions_get``.
+    """
+    return client.entities.permissions_update(entity_type, entity_id, body)
+
+
+@mcp.tool(
+    name="entities_permissions_update_direct",
+    annotations={**WRITE_IDEMPOTENT, "title": "Set Tracker entity direct permissions"},
+    meta=GRANTS_ACCESS,
+)
+def permissions_update_direct(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: DirectPermissionsUpdate,
+    client: TrackerClient = Depends(tracker_client),
+) -> ACL:
+    """Grant and revoke an entity's direct rights; the rest stay as they are.
+
+    ``grant`` and ``revoke`` each map READ / WRITE / GRANT to ``users`` (logins or ids),
+    ``groups`` (ids) and ``roles`` (AUTHOR, OWNER, CLIENT, FOLLOWER, MEMBER). Returns the
+    resulting rights. Read them first with ``entities_permissions_get_direct``.
+    """
+    return client.entities.permissions_update_direct(entity_type, entity_id, body)
+
+
+@mcp.tool(
+    name="entities_update_bulk",
+    annotations={**WRITE, "title": "Bulk-update Tracker entities"},
+)
+def update_bulk(
+    entity_type: EntityTypeName,
+    body: BulkChangeUpdate,
+    client: TrackerClient = Depends(tracker_client),
+) -> BulkChangeOperation:
+    """Start an async bulk field update over many entities; returns the operation.
+
+    Poll the returned operation id with ``entities_bulk_get``.
+    """
+    return client.entities.update_bulk(entity_type, body)
+
+
+@mcp.tool(
+    name="entities_reports_create",
+    annotations={**WRITE, "title": "Create Tracker entity report"},
+)
+def reports_create(body: ReportCreate, client: TrackerClient = Depends(tracker_client)) -> Entity:
+    """Request a report over Tracker entities (``POST /entities/report/``).
+
+    Returns the report entity.
+    """
+    return client.entities.reports_create(body)
+
+
+@mcp.tool(
+    name="entities_comments_create",
+    annotations={**WRITE, "title": "Add Tracker entity comment"},
+)
+def comments_create(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: CommentCreate,
+    expand: Expand = None,
+    is_add_to_followers: AddToFollowers = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Comment:
+    """Add a comment to a Tracker entity; returns the created comment."""
+    return client.entities.comments_create(
+        entity_type,
+        entity_id,
+        body,
+        expand=expand,
+        is_add_to_followers=is_add_to_followers,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_comments_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Edit Tracker entity comment"},
+)
+def comments_update(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    comment_id: Annotated[str, Field(description="Comment id (from entities_comments_list).")],
+    body: CommentUpdate,
+    expand: Expand = None,
+    is_add_to_followers: AddToFollowers = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Comment:
+    """Edit a comment on a Tracker entity; returns the updated comment.
+
+    ``comment_id`` addresses the comment (get it from ``entities_comments_list``).
+    """
+    return client.entities.comments_update(
+        entity_type,
+        entity_id,
+        comment_id,
+        body,
+        expand=expand,
+        is_add_to_followers=is_add_to_followers,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_comments_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity comment"},
+)
+def comments_delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    comment_id: Annotated[str, Field(description="Comment id (from entities_comments_list).")],
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Ack:
+    """Permanently delete one comment from a Tracker entity (irreversible).
+
+    Returns an acknowledgement on success.
+    """
+    client.entities.comments_delete(
+        entity_type, entity_id, comment_id, notify=notify, notify_author=notify_author
+    )
+    return Ack.deleted("comment", comment_id, on=f"{entity_type} {entity_id}")
+
+
+@mcp.tool(
+    name="entities_checklists_create",
+    annotations={**WRITE, "title": "Add Tracker entity checklist items"},
+)
+def checklists_create(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: ChecklistItems,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Add checklist item(s) to a Tracker entity; returns the entity with its checklist.
+
+    ``body`` is a bare array of items, e.g. ``[{"text": "…"}]``.
+    """
+    return client.entities.checklists_create(
+        entity_type,
+        entity_id,
+        body,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_checklists_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Edit Tracker entity checklist"},
+)
+def checklists_update(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: ChecklistItems,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Replace/update a Tracker entity's checklist items in one call.
+
+    ``body`` is a bare array of items, each with ``id``/``text``/``checked``. To edit a single
+    item by id use ``entities_checklists_items_update``. Returns the entity with its checklist.
+    """
+    return client.entities.checklists_update(
+        entity_type,
+        entity_id,
+        body,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_checklists_items_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Edit Tracker entity checklist item"},
+)
+def checklists_items_update(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    item_id: Annotated[str, Field(description="Checklist item id.")],
+    body: ChecklistItemInput,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Edit one checklist item on a Tracker entity (text, checked state, assignee, deadline).
+
+    Returns the entity with its updated checklist.
+    """
+    return client.entities.checklists_items_update(
+        entity_type,
+        entity_id,
+        item_id,
+        body,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_checklists_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity checklist"},
+)
+def checklists_delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Permanently delete the ENTIRE checklist of a Tracker entity (all items, irreversible).
+
+    To remove a single item use ``entities_checklists_items_delete``. Returns the entity.
+    """
+    return client.entities.checklists_delete(
+        entity_type,
+        entity_id,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_checklists_items_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity checklist item"},
+)
+def checklists_items_delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    item_id: Annotated[str, Field(description="Checklist item id.")],
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Permanently remove one item from a Tracker entity's checklist (irreversible).
+
+    Returns the entity with its remaining checklist.
+    """
+    return client.entities.checklists_items_delete(
+        entity_type,
+        entity_id,
+        item_id,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_checklists_move",
+    annotations={**WRITE, "title": "Move Tracker entity checklist item"},
+)
+def checklists_move(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    item_id: Annotated[str, Field(description="Checklist item id to move.")],
+    body: ChecklistMove,
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Reorder a checklist item within a Tracker entity's checklist.
+
+    Returns the entity with its reordered checklist.
+    """
+    return client.entities.checklists_move(
+        entity_type,
+        entity_id,
+        item_id,
+        body,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_links_create",
+    annotations={**WRITE, "title": "Link Tracker entities"},
+)
+def links_create(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    body: LinkInput,
+    client: TrackerClient = Depends(tracker_client),
+) -> Ack:
+    """Link a Tracker entity to another entity (e.g. ``relates``, ``depends on``).
+
+    Returns an acknowledgement on success.
+    """
+    client.entities.links_create(entity_type, entity_id, body)
+    return Ack.linked(entity_type, entity_id, body.entity, body.relationship)
+
+
+@mcp.tool(
+    name="entities_links_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity link"},
+)
+def links_delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    right: Annotated[str, Field(description="Id of the linked entity to unlink.")],
+    client: TrackerClient = Depends(tracker_client),
+) -> Ack:
+    """Remove the link between a Tracker entity and another entity (irreversible).
+
+    ``right`` is the id of the entity on the other end (see ``entities_links_list``). Returns
+    an acknowledgement on success.
+    """
+    client.entities.links_delete(entity_type, entity_id, right)
+    return Ack.unlinked(entity_type, entity_id, right)
+
+
+@mcp.tool(
+    name="entities_attachments_attach",
+    annotations={**WRITE, "title": "Attach Tracker entity file"},
+)
+def attachments_attach(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    temp_file_id: Annotated[
+        str, Field(description="Temporary file id from a prior POST /attachments upload.")
+    ],
+    expand: Expand = None,
+    fields: ReplyFields = None,
+    notify: Notify = None,
+    notify_author: NotifyAuthor = None,
+    client: TrackerClient = Depends(tracker_client),
+) -> Entity:
+    """Attach a previously uploaded temporary file to a Tracker entity.
+
+    Requires a ``temp_file_id`` from the Tracker temporary-upload endpoint (not wrapped by
+    ycli — files are usually seeded via the UI). Returns the entity.
+    """
+    return client.entities.attachments_attach(
+        entity_type,
+        entity_id,
+        temp_file_id,
+        expand=expand,
+        fields=fields,
+        notify=notify,
+        notify_author=notify_author,
+    )
+
+
+@mcp.tool(
+    name="entities_attachments_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Tracker entity attachment"},
+)
+def attachments_delete(
+    entity_type: EntityTypeName,
+    entity_id: EntityID,
+    file_id: Annotated[
+        str, Field(description="Attachment file id (from entities_attachments_list).")
+    ],
+    client: TrackerClient = Depends(tracker_client),
+) -> Ack:
+    """Permanently delete an attachment from a Tracker entity (irreversible).
+
+    The API answers with an empty body; returns an acknowledgement on success.
+    """
+    client.entities.attachments_delete(entity_type, entity_id, file_id)
+    return Ack.deleted("attachment", file_id, on=f"{entity_type} {entity_id}")

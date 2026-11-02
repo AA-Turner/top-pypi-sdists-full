@@ -1,0 +1,98 @@
+id: "finalize-public-api-docs-and-release-tooling"
+title: "Finalize public API, docs, and release tooling"
+worktree: "main"
+priority: "Medium-High"
+status: "Completed"
+description: |
+  Close the remaining publication-readiness gaps after the core behavior and
+  test issues are fixed. This includes defining the supported public API
+  boundary, documenting it clearly, and making local contributor tooling match
+  CI so release verification is reproducible outside GitHub.
+category: "Documentation"
+work:
+  - id: w1
+    summary: "Decide which aliases and BenchBox-derived factory helpers are part of the supported public API"
+    status: done
+  - id: w2
+    summary: "Update README and package docs with stable examples, caveats, and support promises"
+    needs: [w1]
+    status: done
+  - id: w3
+    summary: "Make local dev tooling match CI, including lint/test commands and dependencies"
+    status: done
+  - id: w4
+    summary: "Run a final release-readiness pass covering build, docs, tests, and metadata"
+    needs: [w2, w3]
+    status: done
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "release"
+    - "docs"
+    - "packaging"
+  estimated_effort: "Medium"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T09:20:00"
+impact:
+  business_value: |
+    Reduces support burden by publishing a deliberate API instead of leaking
+    internal extraction details.
+  user_impact: |
+    New users get clearer examples, install instructions, and expectations
+    around stability and supported entry points.
+  technical_debt: |
+    Aligns repository tooling and documentation with the actual release
+    process, reducing hidden tribal knowledge.
+files_affected:
+  modified:
+    - "src/textcharts/__init__.py"
+    - "README.md"
+    - "pyproject.toml"
+    - ".github/workflows/ci.yml"
+must_preserve:
+  - "Preferred clean aliases like BarChart and ChartOptions remain available"
+  - "Build metadata and package name remain compatible with the planned publication target"
+  - "Wheel and sdist generation continue to work"
+approach: |
+  Use the current __init__.py export surface as the starting point, then decide
+  explicitly which names are supported for outside users and which exist only
+  for BenchBox compatibility. Reflect that decision in README examples,
+  package-level docs, and contributor setup. Ensure the repo has a documented
+  local verification path that matches CI, including any lint dependencies.
+anti_patterns:
+  - "DO NOT keep every extracted alias public by default — because that creates long-term semver burden — explicitly document or trim the supported surface"
+  - "DO NOT rely on GitHub Actions as the only place linting works — because contributors need a reproducible local release path — declare the tools and commands in-repo"
+verification:
+  - description: "Contributor setup installs the tools needed to reproduce CI checks locally"
+    command: ".venv/bin/python -m pytest -q"
+    expected_output: "tests pass in the documented local workflow"
+  - description: "Package artifacts still build after API and tooling cleanup"
+    command: "uv build"
+    expected_output: "sdist and wheel build successfully"
+scope_limit:
+  only_modify:
+    - "src/textcharts/__init__.py"
+    - "README.md"
+    - "pyproject.toml"
+    - ".github/workflows/ci.yml"
+deps:
+  needs:
+    - "restore-standalone-renderer-regression-coverage"
+success_metrics:
+  - "README defines the supported public entry points and verification steps"
+  - "A contributor can reproduce CI checks locally from repository instructions"
+completed_date: "2026-03-06"
+
+sections:
+  "Implementation Summary": |
+    Documented the preferred public API versus the BenchBox compatibility layer
+    in both the package docstring and README. Added explicit local development
+    and golden-update commands, aligned CI to use the declared dev group for
+    linting, and declared Ruff in the dev dependency group so local workflows
+    match CI.
+
+  "Verification": |
+    .venv/bin/python -m pytest -q
+    uv run --group dev ruff check src/ tests/
+    uv build

@@ -1,0 +1,61 @@
+name: Setup python
+
+description: Setup python and install dependencies
+
+inputs:
+  python-version:
+    description: "Python version (e.g. '3.7', '3.8.13', '3.11.0-alpha.1', '3.x')."
+    required: true
+  install-seed-packages:
+    description: >
+      Set to 'true' to install and/or upgrade seed packages (pip, setuptools, and wheel)
+      before installing other packages.
+    required: false
+    default: "false"
+  requirements:
+    description: "Optional list of arguments passed to `uv pip install` (e.g. 'numpy==1.19.5', '-r requirements.txt')."
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "${{ inputs.python-version }}"
+
+    - name: Install uv
+      shell: bash
+      run: pip install --upgrade uv
+
+    # >>>>>>>> Caching uv packages >>>>>>>>
+
+    - name: Get uv cache dir
+      id: uv-cache
+      shell: bash
+      run: echo "dir=$(uv cache dir)" >> $GITHUB_OUTPUT
+
+    - name: Get the current date in format YYYYWW (year and week-of-year)
+      id: get-date
+      shell: bash
+      run: echo "date=$(/bin/date -u "+%Y%U")" >> $GITHUB_OUTPUT
+
+    - name: uv cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.uv-cache.outputs.dir }}
+        # The cache's TTL is 7 days (one week)
+        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ steps.get-date.outputs.date }}
+        # Fall back to the previous week's cache
+        restore-keys: uv-${{ runner.os }}-${{ inputs.python-version }}-
+
+    # <<<<<<<< Caching uv packages <<<<<<<<
+
+    - name: Install and/or upgrade seed packages
+      if: ${{ inputs.install-seed-packages == 'true' }}
+      shell: bash
+      run: uv pip install --verbose --system --upgrade pip setuptools wheel
+
+    - name: Install requirements
+      if: ${{ inputs.requirements != '' }}
+      shell: bash
+      run: uv pip install --verbose --system ${{ inputs.requirements }}

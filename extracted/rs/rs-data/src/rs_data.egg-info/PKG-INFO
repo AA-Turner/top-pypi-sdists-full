@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: rs-data
+Version: 1.5.0
+Summary: RegScale gRPC contract library — assets, issues, and vulnerabilities
+Author: RegScale
+Keywords: regscale,grpc,protobuf,assets,compliance
+Requires-Python: >=3.9
+Requires-Dist: grpcio>=1.80.0
+Requires-Dist: protobuf>=4.25.0
+Provides-Extra: dev
+Requires-Dist: grpcio-tools>=1.80.0; extra == "dev"
+Requires-Dist: mypy-protobuf>=3.6.0; extra == "dev"
+Requires-Dist: ruff>=0.4.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: pytest>=8.0.0; extra == "dev"

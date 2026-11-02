@@ -1,0 +1,1082 @@
+"""Core entity kinds plus a validated vault-owned extension registry.
+
+The core kinds ship in `vocabulary/packs/core/entity-types.yaml`. The vault
+overlay `_Schema/entity-types.yaml` keeps its own grammar and is read and
+cached through the generic vocabulary loader (`SPEC`); this module is the
+registry's adapter and keeps its public API.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import unicodedata
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, TypeAlias
+
+import yaml
+
+from . import vault
+from .kbdir import kb_dirname
+from .vocabulary import registry as vocabulary_registry
+
+EXTENSION_SCHEMA_VERSION = 1
+CORE_REGISTRY_VERSION = 1
+_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+_STATUSES = frozenset({"active", "deprecated"})
+ENTITY_WRITER_OPTIONAL_FRONTMATTER = (
+    "affiliation",
+    "relationship",
+    "domain",
+    "language",
+    "repo",
+    "license",
+    "used_in",
+    "decided",
+    "project",
+    "decision_status",
+)
+SUPPORTED_OPTIONAL_FRONTMATTER = frozenset(ENTITY_WRITER_OPTIONAL_FRONTMATTER)
+#: Vault-declared facets (`facets:` in the extension registry, keyed by an
+#: active type id, core or vault-defined). Bounded: a facet is a name, one
+#: cardinality and one value kind; a type declares at most 16.
+MAX_ENTITY_FACETS = 16
+MAX_FACET_VALUES = 16
+MAX_FACET_TEXT_CHARS = 256
+FACET_CARDINALITIES = ("single", "multi")
+FACET_VALUE_KINDS = ("text", "wikilink", "date")
+_FACET_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+#: Frontmatter keys the entity writer, graph, recall or lifecycle already own.
+#: A facet can never shadow one, so a declared facet cannot change what an
+#: existing key means.
+RESERVED_ENTITY_FRONTMATTER = frozenset(
+    {
+        "type",
+        "exomem_id",
+        "id",
+        "title",
+        "name",
+        "summary",
+        "entity_type",
+        "status",
+        "created",
+        "updated",
+        "captured",
+        "tags",
+        "aliases",
+        "sources",
+        "evidence",
+        "evidences",
+        "evidence_paths",
+        "supersedes",
+        "superseded_by",
+        "related",
+        "replaced_by",
+        "project",
+        "projects",
+        "scope",
+        "category",
+        "categories",
+        "kind",
+        "note_type",
+        "facets",
+        *ENTITY_WRITER_OPTIONAL_FRONTMATTER,
+    }
+)
+_RESERVED_PATH_CHARS = frozenset('<>:"/\\|?*')
+_RESERVED_WINDOWS_NAMES = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{index}" for index in range(1, 10)}
+    | {f"lpt{index}" for index in range(1, 10)}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class EntityTypeDefinition:
+    """One entity kind and its durable routing metadata."""
+
+    id: str
+    folder: str
+    label: str
+    aliases: tuple[str, ...]
+    capture_guidance: str
+    optional_frontmatter: tuple[str, ...] = ()
+    cue_nouns: tuple[str, ...] = ()
+    parent: str | None = None
+    status: str = "active"
+    replaced_by: str | None = None
+    core: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class EntityFacetDefinition:
+    """One vault-declared facet a type's entities may carry in frontmatter."""
+
+    name: str
+    cardinality: str
+    value: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"cardinality": self.cardinality, "value": self.value}
+
+
+def _pack_definitions() -> tuple[EntityTypeDefinition, ...]:
+    """The core kinds from the shipped pack, in pack order."""
+    out: list[EntityTypeDefinition] = []
+    for entry in vocabulary_registry.pack_entries("entity-types.yaml"):
+        attributes = entry.attributes
+        out.append(
+            EntityTypeDefinition(
+                id=entry.key,
+                folder=str(attributes["folder"]),
+                label=entry.label,
+                aliases=entry.aliases,
+                capture_guidance=entry.guidance,
+                optional_frontmatter=tuple(attributes.get("optional_frontmatter") or ()),
+                cue_nouns=tuple(attributes.get("cue_nouns") or ()),
+            )
+        )
+    return tuple(out)
+
+
+#: The core-only definitions, read from the shipped pack.
+ENTITY_TYPE_REGISTRY: tuple[EntityTypeDefinition, ...] = _pack_definitions()
+
+
+def normalize_entity_token(value: str) -> str:
+    """Return the canonical comparison token for entity registry values."""
+    return re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+
+
+def _normalized(value: str) -> str:
+    """Backward-compatible private alias for older internal callers."""
+    return normalize_entity_token(value)
+
+
+def _core_indexes() -> tuple[
+    Mapping[str, EntityTypeDefinition],
+    Mapping[str, EntityTypeDefinition],
+    Mapping[str, EntityTypeDefinition],
+]:
+    by_id: dict[str, EntityTypeDefinition] = {}
+    by_folder: dict[str, EntityTypeDefinition] = {}
+    by_alias: dict[str, EntityTypeDefinition] = {}
+    for definition in ENTITY_TYPE_REGISTRY:
+        if definition.id != _normalized(definition.id):
+            raise ValueError(f"entity type id must be normalized: {definition.id!r}")
+        if definition.id in by_id:
+            raise ValueError(f"duplicate entity type id: {definition.id!r}")
+        folder_key = definition.folder.casefold()
+        if folder_key in by_folder:
+            raise ValueError(f"duplicate entity folder: {definition.folder!r}")
+        by_id[definition.id] = definition
+        by_folder[folder_key] = definition
+        for raw_alias in definition.aliases:
+            alias = _normalized(raw_alias)
+            if not alias or alias in by_id or alias in by_alias:
+                raise ValueError(f"duplicate or invalid entity alias: {raw_alias!r}")
+            by_alias[alias] = definition
+    return (
+        MappingProxyType(by_id),
+        MappingProxyType(by_folder),
+        MappingProxyType(by_alias),
+    )
+
+
+ENTITY_TYPES_BY_ID, ENTITY_TYPES_BY_FOLDER, ENTITY_TYPES_BY_ALIAS = _core_indexes()
+ENTITY_TYPE_IDS: tuple[str, ...] = tuple(ENTITY_TYPES_BY_ID)
+EntityTypeId: TypeAlias = str
+ENTITY_TYPE_TO_FOLDER: Mapping[str, str] = MappingProxyType(
+    {key: definition.folder for key, definition in ENTITY_TYPES_BY_ID.items()}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class EntityTypeRegistry:
+    """One immutable core-plus-extension registry snapshot."""
+
+    core_version: int
+    extension_hash: str
+    fingerprint_value: str
+    core: Mapping[str, EntityTypeDefinition]
+    extensions: Mapping[str, EntityTypeDefinition] = field(default_factory=dict)
+    findings: tuple[dict[str, str], ...] = ()
+    by_id: Mapping[str, EntityTypeDefinition] = field(default_factory=dict)
+    by_folder: Mapping[str, EntityTypeDefinition] = field(default_factory=dict)
+    by_alias: Mapping[str, EntityTypeDefinition] = field(default_factory=dict)
+    facets: Mapping[str, tuple[EntityFacetDefinition, ...]] = field(default_factory=dict)
+
+    def facets_for(self, type_id: str) -> tuple[EntityFacetDefinition, ...]:
+        """The facets declared for one active canonical type id."""
+        return self.facets.get(type_id, ())
+
+    @property
+    def active_definitions(self) -> tuple[EntityTypeDefinition, ...]:
+        return tuple(self.by_id.values())
+
+    @property
+    def active_ids(self) -> tuple[str, ...]:
+        return tuple(self.by_id)
+
+    @property
+    def fingerprint(self) -> str:
+        """Stable identity of every input that can change derived families."""
+        return self.fingerprint_value
+
+    @property
+    def families(self) -> Mapping[str, tuple[str, ...]]:
+        """Deterministic family -> active leaf IDs derived from this snapshot."""
+        grouped: dict[str, list[str]] = {}
+        for definition in self.active_definitions:
+            family = definition.id if definition.core else definition.parent or definition.id
+            grouped.setdefault(family, []).append(definition.id)
+        return MappingProxyType(
+            {
+                family: tuple(sorted(members))
+                for family, members in sorted(grouped.items())
+            }
+        )
+
+    def family_of(self, value: str) -> str | None:
+        """Return the one derived family of an active leaf or registry token."""
+        definition = self.resolve(value)
+        if definition is None:
+            return None
+        return definition.id if definition.core else definition.parent or definition.id
+
+    def family_members(self, family: str) -> tuple[str, ...]:
+        """Return active leaves in ``family`` without broadening exact filters."""
+        normalized = _normalized(family)
+        resolved = self.resolve(family)
+        family_id = self.family_of(resolved.id) if resolved is not None else normalized
+        return self.families.get(family_id or normalized, ())
+
+    def matches_family(self, leaf: str, family: str) -> bool:
+        """Whether one active canonical leaf belongs to an explicit family."""
+        actual = self.family_of(leaf)
+        wanted = self.family_of(family) or _normalized(family)
+        return actual is not None and actual == wanted
+
+    def resolve(self, value: str) -> EntityTypeDefinition | None:
+        normalized = _normalized(value)
+        direct = (
+            self.by_id.get(normalized)
+            or self.by_alias.get(normalized)
+            or self.by_folder.get(str(value or "").strip().casefold())
+        )
+        if direct is not None:
+            return direct
+        return next(
+            (
+                definition
+                for folder, definition in self.by_folder.items()
+                if _normalized(folder) == normalized
+            ),
+            None,
+        )
+
+
+def _registry(
+    core_version: int,
+    extension_hash: str,
+    core: Mapping[str, EntityTypeDefinition],
+    extensions: Mapping[str, EntityTypeDefinition] | None = None,
+    findings: tuple[dict[str, str], ...] = (),
+    facets: Mapping[str, tuple[EntityFacetDefinition, ...]] | None = None,
+) -> EntityTypeRegistry:
+    extension_map = dict(extensions or {})
+    active = [
+        *core.values(),
+        *(item for item in extension_map.values() if item.status == "active"),
+    ]
+    by_id = {item.id: item for item in active}
+    by_folder = {item.folder.casefold(): item for item in active}
+    by_alias: dict[str, EntityTypeDefinition] = {}
+    for item in active:
+        for value in (item.label, *item.aliases):
+            by_alias[_normalized(value)] = item
+    fingerprint_payload = [
+        {
+            "id": item.id,
+            "folder": item.folder,
+            "label": item.label,
+            "aliases": list(item.aliases),
+            "cue_nouns": list(item.cue_nouns),
+            "parent": item.parent,
+            "status": item.status,
+        }
+        for item in sorted([*core.values(), *extension_map.values()], key=lambda row: row.id)
+    ]
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            fingerprint_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return EntityTypeRegistry(
+        core_version=core_version,
+        extension_hash=extension_hash,
+        fingerprint_value=fingerprint,
+        core=MappingProxyType(dict(core)),
+        extensions=MappingProxyType(extension_map),
+        findings=findings,
+        by_id=MappingProxyType(by_id),
+        by_folder=MappingProxyType(by_folder),
+        by_alias=MappingProxyType(by_alias),
+        facets=MappingProxyType(
+            {type_id: declared for type_id, declared in (facets or {}).items() if type_id in by_id}
+        ),
+    )
+
+
+@lru_cache(maxsize=1)
+def core_registry() -> EntityTypeRegistry:
+    return _registry(CORE_REGISTRY_VERSION, "none", ENTITY_TYPES_BY_ID)
+
+
+def extension_registry_path(vault_root: Path) -> Path:
+    return Path(vault_root) / kb_dirname() / "_Schema" / "entity-types.yaml"
+
+
+def load_entity_types(
+    vault_root: Path | None = None,
+    *,
+    proposal: dict[str, Any] | None = None,
+    registry_scope: str | None = None,
+) -> EntityTypeRegistry:
+    """Load the core registry plus the valid remainder of one vault extension."""
+    core = core_registry()
+    if proposal is not None:
+        raw = yaml.safe_dump(proposal, sort_keys=True, allow_unicode=True)
+        return _parse_extension_data(proposal, _content_hash(raw), core)
+    if vault_root is None:
+        return core
+    from .vocabulary import instances
+
+    selected = instances.select(Path(vault_root), SPEC, registry_scope)
+    return vocabulary_registry.load(selected, Path(vault_root)).typed
+
+
+def clear_cache() -> None:
+    """Drop every vault's cached entity-type snapshot."""
+    vocabulary_registry.invalidate_registry(SPEC.name)
+
+
+def _parse_overlay_text(raw: str | None, digest: str) -> EntityTypeRegistry:
+    core = core_registry()
+    if raw is None:
+        return core
+    try:
+        data = vault.yaml_safe_load(raw)
+    except yaml.YAMLError as exc:
+        return _registry(
+            core.core_version,
+            digest,
+            core.core,
+            findings=(_finding("invalid_yaml", "registry", str(exc)),),
+        )
+    return _parse_extension_data(data, digest, core)
+
+
+def validate_proposal(proposal: dict[str, Any]) -> list[dict[str, str]]:
+    return list(load_entity_types(proposal=proposal).findings)
+
+
+def save_registry(
+    vault_root: Path,
+    proposal: dict[str, Any],
+    *,
+    expected_hash: str | None,
+    observed_ids: Iterable[str],
+    why: str | None = None,
+    operation: str = "save-entity-types",
+) -> dict[str, Any]:
+    """Replace the overlay with one complete reviewed document, keeping history."""
+    from .governance import connector_boundary
+
+    connector_boundary.require_global_observation(vault_root)
+    registry = load_entity_types(proposal=proposal)
+    if registry.findings:
+        raise ValueError(f"INVALID_ENTITY_TYPE_REGISTRY: {list(registry.findings)!r}")
+    removed = sorted(set(observed_ids) - set(registry.extensions) - set(registry.core))
+    if removed:
+        raise ValueError(
+            "OBSERVED_ENTITY_TYPE_DELETION: deprecate observed ids instead: "
+            f"{removed}"
+        )
+    from .vocabulary import instances
+
+    path = instances.selected_overlay(vault_root, SPEC, authoring=True)
+    inspected = vocabulary_registry.load(SPEC, Path(vault_root))
+    current_hash: str | None = None
+    if inspected.overlay_text is not None:
+        current_hash = inspected.content_hash
+        if expected_hash is None:
+            raise ValueError("REGISTRY_EXISTS: provide current expected_hash")
+        if expected_hash != current_hash:
+            raise ValueError(
+                "STALE_ENTITY_TYPE_REGISTRY: expected_hash does not match current hash"
+            )
+    rendered = yaml.safe_dump(proposal, sort_keys=False, allow_unicode=True)
+    history = vocabulary_registry.commit(
+        SPEC,
+        Path(vault_root),
+        rendered,
+        operation=operation,
+        why=why,
+        before_hash=current_hash or vocabulary_registry.NO_OVERLAY_HASH,
+        previous=inspected.overlay_text,
+        added=vocabulary_registry.added_keys(
+            inspected.entries,
+            SPEC.adapter.entries(registry),
+        ),
+    )
+    return {
+        "path": path,
+        "content_hash": _content_hash(rendered),
+        "previous_hash": current_hash,
+        "created": current_hash is None,
+        "history": history,
+    }
+
+
+def empty_proposal() -> dict[str, Any]:
+    return {"schema_version": EXTENSION_SCHEMA_VERSION, "entity_types": {}}
+
+
+def observed_extension_ids(vault_root: Path) -> frozenset[str]:
+    """Return currently registered extension IDs authored under ``Entities``."""
+    from .governance import connector_boundary
+
+    connector_boundary.require_global_observation(vault_root)
+    entities = Path(vault_root) / kb_dirname() / "Entities"
+    registry = load_entity_types(vault_root)
+    observed: set[str] = set()
+    if not entities.is_dir():
+        return frozenset()
+    for page in entities.rglob("*.md"):
+        if page.name == "index.md" or any(
+            part.startswith("_") for part in page.relative_to(entities).parts[:-1]
+        ):
+            continue
+        try:
+            frontmatter, _body, _error = vault.parse_frontmatter(
+                page.read_text(encoding="utf-8")
+            )
+        except OSError:
+            continue
+        raw = frontmatter.get("entity_type")
+        if isinstance(raw, str) and raw.strip():
+            resolved = registry.resolve(raw)
+            if resolved is not None and resolved.id in registry.extensions:
+                observed.add(resolved.id)
+    return frozenset(observed)
+
+
+def resolve_entity_type(value: str) -> EntityTypeDefinition | None:
+    """Backward-compatible core-only resolution."""
+    return core_registry().resolve(value)
+
+
+def _parse_extension_data(
+    data: Any,
+    digest: str,
+    core: EntityTypeRegistry,
+) -> EntityTypeRegistry:
+    findings: list[dict[str, str]] = []
+    if not isinstance(data, dict):
+        return _registry(
+            core.core_version,
+            digest,
+            core.core,
+            findings=(_finding("invalid_registry", "registry", "must be an object"),),
+        )
+    for key in sorted(
+        set(data) - {"schema_version", "entity_types", "facets"}, key=lambda value: str(value)
+    ):
+        findings.append(_finding("unknown_field", str(key), "unknown registry field"))
+    if data.get("schema_version") != EXTENSION_SCHEMA_VERSION:
+        findings.append(
+            _finding(
+                "invalid_version",
+                "schema_version",
+                f"must be {EXTENSION_SCHEMA_VERSION}",
+            )
+        )
+    raw_types = data.get("entity_types") or {}
+    if not isinstance(raw_types, dict):
+        findings.append(
+            _finding("invalid_entity_types", "entity_types", "must be an object")
+        )
+        raw_types = {}
+
+    allowed_fields = {
+        "folder",
+        "label",
+        "aliases",
+        "cue_nouns",
+        "optional_frontmatter",
+        "capture_guidance",
+        "parent",
+        "status",
+        "replaced_by",
+    }
+    core_token_owners: dict[str, str] = {}
+    for definition in core.core.values():
+        for value in (
+            definition.id,
+            definition.label,
+            definition.folder,
+            *definition.aliases,
+        ):
+            core_token_owners[_normalized(value)] = definition.id
+    folder_owners = {item.folder.casefold(): item.id for item in core.core.values()}
+    token_owners = dict(core_token_owners)
+    extensions: dict[str, EntityTypeDefinition] = {}
+
+    for raw_id, raw_value in raw_types.items():
+        type_id = str(raw_id)
+        span = f"entity_types.{type_id}"
+        local: list[dict[str, str]] = []
+        if not _ID_RE.fullmatch(type_id):
+            local.append(
+                _finding(
+                    "invalid_id",
+                    span,
+                    "must match ^[a-z][a-z0-9-]*$",
+                    entity_type=type_id,
+                )
+            )
+        owner = token_owners.get(_normalized(type_id))
+        if owner is not None:
+            local.append(
+                _finding(
+                    "collision",
+                    span,
+                    f"id collides with {owner!r}",
+                    entity_type=type_id,
+                )
+            )
+        if not isinstance(raw_value, dict):
+            local.append(
+                _finding(
+                    "invalid_definition",
+                    span,
+                    "must be an object",
+                    entity_type=type_id,
+                )
+            )
+            findings.extend(local)
+            continue
+        for unknown in sorted(
+            set(raw_value) - allowed_fields, key=lambda value: str(value)
+        ):
+            local.append(
+                _finding(
+                    "unknown_field",
+                    f"{span}.{unknown}",
+                    "unknown definition field",
+                    entity_type=type_id,
+                )
+            )
+        folder = str(raw_value.get("folder") or "").strip()
+        label = str(raw_value.get("label") or "").strip()
+        capture_guidance = str(raw_value.get("capture_guidance") or "").strip()
+        aliases = _strings(raw_value.get("aliases"), f"{span}.aliases", local, type_id)
+        cue_value = raw_value.get("cue_nouns", aliases)
+        cue_nouns = _strings(cue_value, f"{span}.cue_nouns", local, type_id)
+        optional_frontmatter = _strings(
+            raw_value.get("optional_frontmatter", []),
+            f"{span}.optional_frontmatter",
+            local,
+            type_id,
+        )
+        unsupported_optional = sorted(
+            set(optional_frontmatter) - SUPPORTED_OPTIONAL_FRONTMATTER
+        )
+        if unsupported_optional:
+            local.append(
+                _finding(
+                    "unsupported_optional_frontmatter",
+                    f"{span}.optional_frontmatter",
+                    f"unsupported field(s): {unsupported_optional}",
+                    entity_type=type_id,
+                )
+            )
+        if not _safe_folder(folder):
+            local.append(
+                _finding(
+                    "invalid_folder",
+                    f"{span}.folder",
+                    "must be one safe path segment",
+                    entity_type=type_id,
+                )
+            )
+        folder_owner = folder_owners.get(folder.casefold())
+        if folder_owner is not None and folder_owner != type_id:
+            local.append(
+                _finding(
+                    "collision",
+                    f"{span}.folder",
+                    f"folder collides with {folder_owner!r}",
+                    entity_type=type_id,
+                )
+            )
+        for field_name, field_value in (("label", label), ("folder", folder)):
+            token_owner = token_owners.get(_normalized(field_value))
+            if token_owner is not None and token_owner != type_id and not (
+                field_name == "folder" and folder_owner is not None
+            ):
+                local.append(
+                    _finding(
+                        "collision",
+                        f"{span}.{field_name}",
+                        f"{field_name} collides with {token_owner!r}",
+                        entity_type=type_id,
+                    )
+                )
+        if not label:
+            local.append(
+                _finding(
+                    "missing_label",
+                    f"{span}.label",
+                    "is required",
+                    entity_type=type_id,
+                )
+            )
+        if not capture_guidance:
+            local.append(
+                _finding(
+                    "missing_capture_guidance",
+                    f"{span}.capture_guidance",
+                    "is required",
+                    entity_type=type_id,
+                )
+            )
+        own_tokens = {_normalized(type_id), _normalized(label), _normalized(folder)}
+        alias_keys: set[str] = set()
+        for alias in aliases:
+            alias_key = _normalized(alias)
+            alias_owner = token_owners.get(alias_key)
+            if not alias_key or alias_key in alias_keys or alias_key in own_tokens or (
+                alias_owner is not None and alias_owner != type_id
+            ):
+                local.append(
+                    _finding(
+                        "collision",
+                        f"{span}.aliases",
+                        f"alias {alias!r} collides",
+                        entity_type=type_id,
+                    )
+                )
+            alias_keys.add(alias_key)
+        parent = _optional(raw_value.get("parent"))
+        # A vault-defined parent is checked once every definition is parsed.
+        status = str(raw_value.get("status") or "active").strip().casefold()
+        if status not in _STATUSES:
+            local.append(
+                _finding(
+                    "invalid_status",
+                    f"{span}.status",
+                    f"must be one of {sorted(_STATUSES)}",
+                    entity_type=type_id,
+                )
+            )
+        replaced_by = _optional(raw_value.get("replaced_by"))
+
+        if local:
+            findings.extend(local)
+            continue
+        definition = EntityTypeDefinition(
+            id=type_id,
+            folder=folder,
+            label=label,
+            aliases=tuple(aliases),
+            cue_nouns=tuple(dict.fromkeys(cue_nouns)),
+            optional_frontmatter=tuple(dict.fromkeys(optional_frontmatter)),
+            capture_guidance=capture_guidance,
+            parent=parent,
+            status=status,
+            replaced_by=replaced_by,
+            core=False,
+        )
+        extensions[type_id] = definition
+        folder_owners[folder.casefold()] = type_id
+        for token in own_tokens | {_normalized(alias) for alias in aliases}:
+            if token:
+                token_owners[token] = type_id
+
+    # A parent is a core type or an active, parentless vault-defined type, so a
+    # family is always one level deep and its root is a real registered kind.
+    for type_id, definition in tuple(extensions.items()):
+        parent = definition.parent
+        if parent is None or parent in core.core:
+            continue
+        root = extensions.get(parent)
+        if (
+            parent == type_id
+            or root is None
+            or root.parent is not None
+            or root.status != "active"
+        ):
+            findings.append(
+                _finding(
+                    "invalid_parent",
+                    f"entity_types.{type_id}.parent",
+                    "must name a core entity type or an active vault-defined type "
+                    "that has no parent",
+                    entity_type=type_id,
+                )
+            )
+            extensions.pop(type_id)
+    canonical = set(core.core) | set(extensions)
+    for type_id, definition in tuple(extensions.items()):
+        if definition.replaced_by and definition.replaced_by not in canonical:
+            findings.append(
+                _finding(
+                    "invalid_replacement",
+                    f"entity_types.{type_id}.replaced_by",
+                    "must name a registered entity type",
+                    entity_type=type_id,
+                )
+            )
+            extensions.pop(type_id)
+    declared_facets = _parse_facets(
+        data.get("facets"),
+        active={
+            *core.core,
+            *(type_id for type_id, item in extensions.items() if item.status == "active"),
+        },
+        findings=findings,
+    )
+    ordered_findings = tuple(
+        sorted(findings, key=lambda item: (item["path"], item["code"], item["detail"]))
+    )
+    return _registry(
+        core.core_version,
+        digest,
+        core.core,
+        extensions,
+        ordered_findings,
+        declared_facets,
+    )
+
+
+def _parse_facets(
+    raw: Any,
+    *,
+    active: set[str],
+    findings: list[dict[str, str]],
+) -> dict[str, tuple[EntityFacetDefinition, ...]]:
+    """Validate `facets: {type_id: {name: {cardinality, value}}}`.
+
+    A type whose declaration has any finding keeps no facets at all, so a
+    partly valid declaration never widens what the writer accepts.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        findings.append(_finding("invalid_facets", "facets", "must be an object"))
+        return {}
+    declared: dict[str, tuple[EntityFacetDefinition, ...]] = {}
+    for raw_type, raw_facets in raw.items():
+        type_id = str(raw_type)
+        span = f"facets.{type_id}"
+        local: list[dict[str, str]] = []
+        if type_id not in active:
+            local.append(
+                _finding(
+                    "unknown_facet_type",
+                    span,
+                    "must name an active canonical entity type id",
+                    entity_type=type_id,
+                )
+            )
+        if not isinstance(raw_facets, dict) or not raw_facets:
+            local.append(
+                _finding("invalid_facets", span, "must be a non-empty object", entity_type=type_id)
+            )
+            findings.extend(local)
+            continue
+        if len(raw_facets) > MAX_ENTITY_FACETS:
+            local.append(
+                _finding(
+                    "too_many_facets",
+                    span,
+                    f"at most {MAX_ENTITY_FACETS} facets per type",
+                    entity_type=type_id,
+                )
+            )
+        definitions: list[EntityFacetDefinition] = []
+        for raw_name, raw_definition in raw_facets.items():
+            name = str(raw_name)
+            facet_span = f"{span}.{name}"
+            if not _FACET_NAME_RE.fullmatch(name):
+                local.append(
+                    _finding(
+                        "invalid_facet_name",
+                        facet_span,
+                        "must match ^[a-z][a-z0-9_]{0,39}$",
+                        entity_type=type_id,
+                    )
+                )
+                continue
+            if name in RESERVED_ENTITY_FRONTMATTER or name.startswith("exomem"):
+                local.append(
+                    _finding(
+                        "reserved_facet_name",
+                        facet_span,
+                        "names a field the entity writer already owns",
+                        entity_type=type_id,
+                    )
+                )
+                continue
+            if not isinstance(raw_definition, dict):
+                local.append(
+                    _finding("invalid_facet", facet_span, "must be an object", entity_type=type_id)
+                )
+                continue
+            for unknown in sorted(set(raw_definition) - {"cardinality", "value"}, key=str):
+                local.append(
+                    _finding(
+                        "unknown_field",
+                        f"{facet_span}.{unknown}",
+                        "unknown facet field",
+                        entity_type=type_id,
+                    )
+                )
+            cardinality = raw_definition.get("cardinality", "single")
+            value = raw_definition.get("value", "text")
+            if cardinality not in FACET_CARDINALITIES:
+                local.append(
+                    _finding(
+                        "invalid_facet_cardinality",
+                        f"{facet_span}.cardinality",
+                        f"must be one of {list(FACET_CARDINALITIES)}",
+                        entity_type=type_id,
+                    )
+                )
+            if value not in FACET_VALUE_KINDS:
+                local.append(
+                    _finding(
+                        "invalid_facet_value",
+                        f"{facet_span}.value",
+                        f"must be one of {list(FACET_VALUE_KINDS)}",
+                        entity_type=type_id,
+                    )
+                )
+            definitions.append(EntityFacetDefinition(name, str(cardinality), str(value)))
+        if local:
+            findings.extend(local)
+            continue
+        declared[type_id] = tuple(definitions)
+    return declared
+
+
+def _safe_folder(value: str) -> bool:
+    cleaned = unicodedata.normalize("NFKC", value).strip()
+    device_name = cleaned.partition(".")[0].casefold()
+    return bool(
+        cleaned
+        and cleaned not in {".", ".."}
+        and cleaned == value
+        and not cleaned.endswith(".")
+        and device_name not in _RESERVED_WINDOWS_NAMES
+        and not any(
+            char in _RESERVED_PATH_CHARS or ord(char) < 32 for char in cleaned
+        )
+    )
+
+
+def _strings(
+    value: Any,
+    path: str,
+    findings: list[dict[str, str]],
+    entity_type: str,
+) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        findings.append(
+            _finding(
+                "invalid_list",
+                path,
+                "must be a list of strings",
+                entity_type=entity_type,
+            )
+        )
+        return []
+    return [item.strip() for item in value if item.strip()]
+
+
+def _optional(value: Any) -> str | None:
+    return str(value).strip() if value not in (None, "") else None
+
+
+def _finding(
+    code: str,
+    path: str,
+    detail: str,
+    *,
+    entity_type: str | None = None,
+) -> dict[str, str]:
+    finding = {
+        "code": code,
+        "path": path,
+        "span": path,
+        "severity": "error",
+        "detail": detail,
+    }
+    if entity_type is not None:
+        finding["entity_type"] = entity_type
+    return finding
+
+
+def _content_hash(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# The registry adapter (`add-vocabulary-registries`)
+# --------------------------------------------------------------------------- #
+
+
+class _Adapter:
+    """`_Schema/entity-types.yaml` in its own grammar, as generic entries."""
+
+    def parse(self, text: str | None, digest: str) -> EntityTypeRegistry:
+        # Looked up at call time so a test can time or replace the parser.
+        return _parse_overlay_text(text, digest)
+
+    def parse_document(self, document: Mapping[str, Any]) -> EntityTypeRegistry:
+        return load_entity_types(proposal=dict(document))
+
+    def entries(self, typed: EntityTypeRegistry) -> dict[str, vocabulary_registry.Entry]:
+        out: dict[str, vocabulary_registry.Entry] = {}
+        for definition in (*typed.core.values(), *typed.extensions.values()):
+            attributes: dict[str, Any] = {"folder": definition.folder}
+            if definition.optional_frontmatter:
+                attributes["optional_frontmatter"] = list(definition.optional_frontmatter)
+            # Cue nouns default to the aliases; only a declared list is an attribute.
+            if definition.cue_nouns and definition.cue_nouns != definition.aliases:
+                attributes["cue_nouns"] = list(definition.cue_nouns)
+            out[definition.id] = vocabulary_registry.Entry(
+                key=definition.id,
+                label=definition.label,
+                aliases=definition.aliases,
+                status=definition.status,
+                replaced_by=definition.replaced_by,
+                parent=definition.parent,
+                attributes=MappingProxyType(attributes),
+                guidance=definition.capture_guidance,
+                origin="pack" if definition.core else "vault",
+            )
+        return out
+
+    def findings(self, typed: EntityTypeRegistry) -> tuple[dict[str, str], ...]:
+        return typed.findings
+
+    def document(self, text: str | None) -> dict[str, Any]:
+        if text is None:
+            return empty_proposal()
+        try:
+            data = vault.yaml_safe_load(text)
+        except yaml.YAMLError as exc:
+            raise vocabulary_registry.RegistryError(
+                "INVALID_REGISTRY_OVERLAY: entity-types.yaml does not parse; fix it or "
+                f"restore a kept version ({exc})"
+            ) from exc
+        if not isinstance(data, dict) or not isinstance(data.get("entity_types") or {}, dict):
+            raise vocabulary_registry.RegistryError(
+                "INVALID_REGISTRY_OVERLAY: entity-types.yaml is not a registry document; fix "
+                "it or restore a kept version"
+            )
+        data.setdefault("schema_version", EXTENSION_SCHEMA_VERSION)
+        data["entity_types"] = dict(data.get("entity_types") or {})
+        return data
+
+    def put(
+        self,
+        document: dict[str, Any],
+        key: str,
+        entry: vocabulary_registry.Entry,
+        *,
+        existing: bool,
+    ) -> None:
+        if key in ENTITY_TYPES_BY_ID:
+            raise vocabulary_registry.RegistryError(
+                f"PACK_ENTRY_FIXED: {key!r} ships with Exomem; this overlay grammar cannot "
+                "patch a shipped entity type"
+            )
+        rows = document["entity_types"]
+        raw = rows.get(key)
+        if existing and isinstance(raw, dict):
+            # The parent and folder were checked unchanged; only the mutable
+            # fields move, so the rest of the row keeps its bytes.
+            raw["label"] = entry.label
+            raw["aliases"] = list(entry.aliases)
+            raw["capture_guidance"] = entry.guidance
+            for name in ("cue_nouns", "optional_frontmatter"):
+                if name in entry.attributes:
+                    raw[name] = list(entry.attributes[name] or ())
+            raw["status"] = entry.status
+            if entry.replaced_by:
+                raw["replaced_by"] = entry.replaced_by
+            return
+        row: dict[str, Any] = {
+            "folder": entry.attributes.get("folder"),
+            "label": entry.label,
+            "aliases": list(entry.aliases),
+            "capture_guidance": entry.guidance,
+        }
+        for name in ("cue_nouns", "optional_frontmatter"):
+            if name in entry.attributes:
+                row[name] = list(entry.attributes[name] or ())
+        if entry.parent:
+            row["parent"] = entry.parent
+        row["status"] = entry.status
+        if entry.replaced_by:
+            row["replaced_by"] = entry.replaced_by
+        rows[key] = row
+
+    def remove(self, document: dict[str, Any], key: str) -> None:
+        document["entity_types"].pop(key, None)
+
+    def render(self, document: Mapping[str, Any]) -> str:
+        return yaml.safe_dump(dict(document), sort_keys=False, allow_unicode=True)
+
+    def normalize_key(self, raw: str) -> str:
+        key = normalize_entity_token(raw)
+        if not _ID_RE.fullmatch(key):
+            raise vocabulary_registry.RegistryError(
+                f"INVALID_REGISTRY_KEY: {raw!r} cannot become an entity type id ({_ID_RE.pattern})"
+            )
+        return key
+
+
+def _usage(vault_root: Path, snapshot: vocabulary_registry.Snapshot) -> Any:
+    from .vocabulary import usage
+
+    return usage.entity_types(vault_root, snapshot)
+
+
+SPEC = vocabulary_registry.RegistrySpec(
+    name="entity-types",
+    stem="entity-types",
+    overlay=extension_registry_path,
+    adapter=_Adapter(),
+    fields=frozenset(
+        {"label", "aliases", "status", "replaced_by", "parent", "attributes", "guidance"}
+    ),
+    attributes=frozenset({"folder", "cue_nouns", "optional_frontmatter"}),
+    # A type's family and its folder are what its pages already rely on.
+    immutable=frozenset({"parent", "attributes.folder"}),
+    family="entity-type/v1",
+    cap=256,
+    usage=_usage,
+)

@@ -1,0 +1,367 @@
+"""Tests for ``/.well-known/adcp-agents.json`` discovery endpoint.
+
+Per AdCP spec (``schemas/source/adcp-agents.json``), every AdCP host
+publishes an origin-scoped manifest enumerating the agents it serves.
+The SDK's ``serve()`` exposes this on every HTTP transport
+(``streamable-http``, ``a2a``, ``both``); ``stdio`` has no HTTP surface
+and skips the route.
+
+Coverage:
+
+* GET on each transport returns 200 with a schema-conformant manifest.
+* Non-GET methods at the discovery path do not serve the manifest.
+* The :func:`build_manifest` builder is pure and validates standalone.
+* agent_id normalization handles whitespace / mixed-case input names.
+"""
+
+from __future__ import annotations
+
+import json
+
+import jsonschema
+import pytest
+
+starlette = pytest.importorskip("starlette")
+
+from starlette.applications import Starlette
+from starlette.testclient import TestClient
+
+from adcp.schemas import ADCP_AGENTS, load_schema
+from adcp.server import ADCPHandler, ToolContext
+from adcp.server.discovery import (
+    DISCOVERY_PATH,
+    build_manifest,
+    make_discovery_route,
+    resolve_base_url,
+)
+from adcp.server.responses import capabilities_response
+from adcp.server.serve import (
+    _build_mcp_and_a2a_app,
+    _wrap_with_discovery,
+)
+
+# Schema sourced from adcp.schemas (adcontextprotocol/adcp PR #3903, commit 5c3e3e626).
+_DISCOVERY_SCHEMA: dict = load_schema(ADCP_AGENTS)
+
+
+def _validate_manifest(payload: dict) -> None:
+    """Raise on schema-mismatch — pytest reports the JSON-Pointer."""
+    jsonschema.validate(payload, _DISCOVERY_SCHEMA)
+
+
+# ----- build_manifest pure builder --------------------------------------
+
+
+def test_build_manifest_minimal_validates() -> None:
+    """Default-args manifest matches the spec — placeholder specialism
+    keeps the schema's ``minItems: 1`` constraint happy without forcing
+    every adopter to declare specialisms before they can publish."""
+    manifest = build_manifest(
+        name="my-agent",
+        transports=["mcp"],
+        base_url="https://example.com",
+    )
+    _validate_manifest(manifest)
+    assert manifest["agents"][0]["agent_id"] == "my-agent"
+    assert manifest["agents"][0]["url"] == "https://example.com/mcp"
+    assert manifest["agents"][0]["transport"] == "mcp"
+
+
+def test_build_manifest_both_transports_unique_agent_ids() -> None:
+    """When the binary serves both transports, the manifest emits two
+    rows with distinct agent_ids — required by readers that key on
+    agent_id, and required by the schema's no-duplicate-id contract."""
+    manifest = build_manifest(
+        name="seller",
+        transports=["mcp", "a2a"],
+        base_url="https://seller.example.com",
+        specialisms=["sales-non-guaranteed"],
+    )
+    _validate_manifest(manifest)
+    ids = [a["agent_id"] for a in manifest["agents"]]
+    assert ids == ["seller-mcp", "seller-a2a"]
+    transports = [a["transport"] for a in manifest["agents"]]
+    assert transports == ["mcp", "a2a"]
+
+
+def test_build_manifest_normalizes_agent_id() -> None:
+    """Human-friendly names with spaces / mixed case become legal
+    agent_ids — the schema's character class is lowercase + hyphens
+    + underscores only, so we coerce eagerly rather than reject."""
+    manifest = build_manifest(
+        name="My Cool Seller!",
+        transports=["mcp"],
+        base_url="https://example.com",
+    )
+    _validate_manifest(manifest)
+    assert manifest["agents"][0]["agent_id"] == "my-cool-seller"
+
+
+def test_build_manifest_a2a_url_has_no_mcp_suffix() -> None:
+    """A2A's url is the agent's base URL (the agent-card lives at
+    ``<url>/.well-known/agent-card.json``); the ``/mcp`` suffix only
+    applies to the MCP transport."""
+    manifest = build_manifest(
+        name="a2a-agent",
+        transports=["a2a"],
+        base_url="https://example.com",
+    )
+    _validate_manifest(manifest)
+    assert manifest["agents"][0]["url"] == "https://example.com"
+
+
+def test_build_manifest_passes_through_specialisms_and_description() -> None:
+    """Operator-supplied specialisms + description appear verbatim in
+    the manifest entry — buyers route on these and can't infer them."""
+    manifest = build_manifest(
+        name="seller",
+        transports=["mcp"],
+        base_url="https://example.com",
+        description="A handcrafted ad agent.",
+        specialisms=["sales-guaranteed", "sales-non-guaranteed"],
+    )
+    _validate_manifest(manifest)
+    entry = manifest["agents"][0]
+    assert entry["specialisms"] == ["sales-guaranteed", "sales-non-guaranteed"]
+    assert entry["description"] == "A handcrafted ad agent."
+
+
+def test_resolve_base_url_projects_wildcard_to_localhost() -> None:
+    """``0.0.0.0`` is a wildcard bind, not a routable URL — the manifest
+    uses a localhost projection so a default-config dev binary serves
+    a usable URL for local testing. Loopback hosts keep ``http://``
+    because the schema allows that exception."""
+    assert resolve_base_url("0.0.0.0", 3001) == "http://127.0.0.1:3001"
+    assert resolve_base_url("127.0.0.1", 3001) == "http://127.0.0.1:3001"
+    assert resolve_base_url("localhost", 3001) == "http://localhost:3001"
+
+
+def test_resolve_base_url_rejects_non_localhost_without_base_url() -> None:
+    """The discovery schema mandates ``https://`` on every agent ``url``;
+    the SDK refuses to synthesize an ``http://`` URL for a routable
+    interface so the operator notices at boot rather than publishing a
+    non-conformant manifest to a CDN."""
+    with pytest.raises(ValueError, match="base_url"):
+        resolve_base_url("my-internal.example.com", 8080)
+
+
+def test_resolve_base_url_passes_through_https_base_url() -> None:
+    """Operator-supplied ``https://`` URLs are returned verbatim — no
+    re-projection through host/port, since the public origin frequently
+    differs from the bound socket (TLS terminates upstream)."""
+    assert (
+        resolve_base_url("0.0.0.0", 3001, base_url="https://sales.example.com")
+        == "https://sales.example.com"
+    )
+    assert (
+        resolve_base_url(
+            "my-internal.example.com",
+            8080,
+            base_url="https://sales.example.com",
+        )
+        == "https://sales.example.com"
+    )
+
+
+def test_resolve_base_url_rejects_http_base_url_for_non_loopback() -> None:
+    """An explicit ``http://`` ``base_url`` against a non-loopback host
+    is a configuration mistake — the manifest would publish an URL
+    that fails the schema's ``^https://`` pattern, so we raise instead
+    of silently emitting it."""
+    with pytest.raises(ValueError, match="https://"):
+        resolve_base_url(
+            "my-internal.example.com",
+            8080,
+            base_url="http://my-internal.example.com:8080",
+        )
+
+
+def test_resolve_base_url_allows_http_base_url_for_loopback() -> None:
+    """An explicit ``http://localhost`` ``base_url`` is fine — the
+    schema's documented loopback exception covers it, and adopters
+    sometimes set this to override the default 127.0.0.1 projection."""
+    assert (
+        resolve_base_url("127.0.0.1", 3001, base_url="http://localhost:3001")
+        == "http://localhost:3001"
+    )
+
+
+# ----- ASGI integration --------------------------------------------------
+
+
+class _DiscoveryTestHandler(ADCPHandler[ToolContext]):
+    """Minimal handler — discovery endpoint serves regardless of the
+    handler's tool surface, but we need a real one to build the apps."""
+
+    advertised_tools = {"get_adcp_capabilities"}
+
+    async def get_adcp_capabilities(self, params, context=None):
+        return capabilities_response(["media_buy"])
+
+
+def _inner_404_app() -> Starlette:
+    """Bare Starlette app — Inner 404s confirm the discovery wrapper
+    only intercepts the well-known path and lets everything else fall
+    through unchanged."""
+    return Starlette()
+
+
+def test_discovery_route_serves_get_with_valid_json() -> None:
+    """A standalone Route built by :func:`make_discovery_route` returns
+    a schema-valid JSON document — exercises the route in isolation
+    without the full transport stack."""
+    route = make_discovery_route(
+        name="standalone",
+        transports=["mcp"],
+        base_url="https://example.com",
+    )
+    app = Starlette(routes=[route])
+    with TestClient(app, base_url="http://localhost:3001") as client:
+        resp = client.get(DISCOVERY_PATH)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/json")
+    payload = resp.json()
+    _validate_manifest(payload)
+
+
+def test_discovery_route_rejects_post() -> None:
+    """The discovery endpoint is read-only — POST returns 405,
+    confirming Starlette's default method-not-allowed handler covers
+    the unauthenticated public surface."""
+    route = make_discovery_route(
+        name="standalone",
+        transports=["mcp"],
+        base_url="https://example.com",
+    )
+    app = Starlette(routes=[route])
+    with TestClient(app, base_url="http://localhost:3001") as client:
+        resp = client.post(DISCOVERY_PATH, json={})
+    assert resp.status_code == 405
+
+
+def test_wrap_with_discovery_on_streamable_http_transport() -> None:
+    """The MCP streamable-http wrapper serves the manifest at the
+    well-known path; non-discovery requests fall through to the inner
+    app unchanged."""
+    inner = _inner_404_app()
+    wrapped = _wrap_with_discovery(
+        inner,
+        name="mcp-only",
+        transports=["mcp"],
+        base_url="https://mcp.example.com",
+    )
+    with TestClient(wrapped) as client:
+        resp = client.get(DISCOVERY_PATH)
+        assert resp.status_code == 200
+        payload = resp.json()
+        _validate_manifest(payload)
+        assert payload["agents"][0]["transport"] == "mcp"
+
+        # Non-discovery requests pass through unchanged.
+        passthrough = client.get("/mcp")
+        assert passthrough.status_code == 404
+
+
+def test_wrap_with_discovery_on_a2a_transport() -> None:
+    """The A2A wrapper serves the manifest with ``transport: "a2a"``
+    and a base URL that has no ``/mcp`` suffix."""
+    inner = _inner_404_app()
+    wrapped = _wrap_with_discovery(
+        inner,
+        name="a2a-only",
+        transports=["a2a"],
+        base_url="https://a2a.example.com",
+    )
+    with TestClient(wrapped) as client:
+        resp = client.get(DISCOVERY_PATH)
+    assert resp.status_code == 200
+    payload = resp.json()
+    _validate_manifest(payload)
+    assert payload["agents"][0]["transport"] == "a2a"
+    assert payload["agents"][0]["url"] == "https://a2a.example.com"
+
+
+def test_discovery_endpoint_on_unified_transport() -> None:
+    """``transport="both"`` exposes a manifest with two agent rows —
+    one for MCP, one for A2A — at the same well-known path that
+    standalone transports use."""
+    app = _build_mcp_and_a2a_app(
+        _DiscoveryTestHandler(),
+        name="unified",
+        port=3001,
+        host="127.0.0.1",
+        instructions=None,
+        test_controller=None,
+        base_url="https://unified.example.com",
+        specialisms=["sales-non-guaranteed"],
+    )
+    with TestClient(app, base_url="http://localhost:3001") as client:
+        resp = client.get(DISCOVERY_PATH)
+    assert resp.status_code == 200
+    payload = resp.json()
+    _validate_manifest(payload)
+    transports_seen = {a["transport"] for a in payload["agents"]}
+    assert transports_seen == {"mcp", "a2a"}
+    urls = {a["url"] for a in payload["agents"]}
+    assert urls == {
+        "https://unified.example.com/mcp",
+        "https://unified.example.com",
+    }
+
+
+def test_discovery_endpoint_post_falls_through_on_unified() -> None:
+    """POST to ``/.well-known/adcp-agents.json`` is not the discovery
+    GET — the wrapper must NOT serve the manifest on POST, leaving
+    the inner transport apps to return their own response."""
+    app = _build_mcp_and_a2a_app(
+        _DiscoveryTestHandler(),
+        name="unified",
+        port=3001,
+        host="127.0.0.1",
+        instructions=None,
+        test_controller=None,
+    )
+    with TestClient(app, base_url="http://localhost:3001") as client:
+        resp = client.post(DISCOVERY_PATH, json={})
+    # The wrapper passes through to A2A (which doesn't route this
+    # path); the response MUST NOT be the manifest. Anything other
+    # than 200-with-manifest-body is acceptable here.
+    if resp.status_code == 200:
+        body = json.loads(resp.text)
+        assert "agents" not in body, (
+            "POST should not return the discovery manifest — wrapper "
+            "leaked GET response on POST."
+        )
+
+
+@pytest.mark.parametrize("protection", [True, False])
+def test_public_discovery_supports_configured_cors_without_widening_protocol_access(
+    protection: bool,
+) -> None:
+    from starlette.middleware.cors import CORSMiddleware
+
+    app = _build_mcp_and_a2a_app(
+        _DiscoveryTestHandler(),
+        name="public-discovery",
+        port=3001,
+        host="127.0.0.1",
+        instructions=None,
+        test_controller=None,
+        allowed_hosts=["seller.example"],
+        allowed_origins=["https://buyer.example"],
+        enable_dns_rebinding_protection=protection,
+    )
+    app = CORSMiddleware(app, allow_origins=["*"])
+    with TestClient(app, base_url="https://seller.example") as client:
+        headers = {"origin": "https://directory.example"}
+        for path in [DISCOVERY_PATH, "/.well-known/agent-card.json", "/.well-known/agent.json"]:
+            response = client.get(path, headers=headers)
+            assert response.status_code == 200
+            assert response.headers["access-control-allow-origin"] == "*"
+            assert client.post(path, headers=headers).status_code == 403
+            assert client.get(path, headers={**headers, "host": "evil.example"}).status_code == (
+                421 if protection else 200
+            )
+        assert client.post("/mcp", headers=headers, json={}).status_code == 403
+        assert client.post("/", headers=headers, json={}).status_code == 403
+        assert client.get("/healthz", headers=headers).status_code == 403

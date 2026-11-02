@@ -1,0 +1,1438 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_native_deps.py
+# Purpose:   Unit tests for native dependency (apt) management
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+import http.server
+import io
+import shutil
+import socket
+import subprocess
+import threading
+import zipfile
+from collections.abc import Iterator
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from hyperi_ci import common, llvm_version, native_deps
+from hyperi_ci.llvm_version import LLVMVersionError
+from hyperi_ci.native_deps import (
+    AptRepo,
+    _add_apt_repo,
+    _expand_template_vars,
+    _load_dep_groups,
+    _repo_already_configured,
+)
+from hyperi_ci.versions import runtime_version, tool_version
+
+# second-primary-key.asc is a throwaway public key with no private half anywhere.
+DATA_DIR = Path(__file__).parent / "data"
+
+
+def _seed_apt_tree(tmp_path: Path, files: dict[str, str]) -> tuple[Path, Path]:
+    """Create a fake /etc/apt hierarchy under tmp_path.
+
+    Returns (sources_list_path, sources_dir_path).
+    Keys in `files` are filenames relative to sources.list.d/ except the
+    special key "sources.list" which writes /etc/apt/sources.list.
+    """
+    apt = tmp_path / "etc" / "apt"
+    sources_dir = apt / "sources.list.d"
+    sources_dir.mkdir(parents=True)
+    sources_list = apt / "sources.list"
+    for name, content in files.items():
+        if name == "sources.list":
+            sources_list.write_text(content)
+        else:
+            (sources_dir / name).write_text(content)
+    return sources_list, sources_dir
+
+
+def _patch_apt_paths(
+    monkeypatch: pytest.MonkeyPatch, sources_list: Path, sources_dir: Path
+) -> None:
+    """Redirect the two /etc/apt Path() constructions in native_deps.
+
+    native_deps._repo_already_configured calls Path("/etc/apt/sources.list")
+    and Path("/etc/apt/sources.list.d"). Monkey-patch the module-level
+    Path symbol to route those specific strings to our tmp locations.
+    """
+    real_path = Path
+
+    def fake_path(p):
+        s = str(p)
+        if s == "/etc/apt/sources.list":
+            return sources_list
+        if s == "/etc/apt/sources.list.d":
+            return sources_dir
+        return real_path(p)
+
+    monkeypatch.setattr(native_deps, "Path", fake_path)
+
+
+class TestTemplateExpansion:
+    """${HYPERCI_LLVM_VERSION} expansion in native-deps YAML."""
+
+    def test_default_version_is_23(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        result = _expand_template_vars("bolt-${HYPERCI_LLVM_VERSION}")
+        assert result == "bolt-23"
+
+    def test_env_var_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "19")
+        result = _expand_template_vars("apt-${HYPERCI_LLVM_VERSION}")
+        assert result == "apt-19"
+
+    def test_unknown_placeholders_pass_through(self) -> None:
+        # Unknown ${VAR} must NOT be silently replaced -- surfaces as a
+        # clear "package not found" error at apt-cache time.
+        result = _expand_template_vars("pkg-${UNKNOWN_VAR}")
+        assert result == "pkg-${UNKNOWN_VAR}"
+
+
+class TestRepoAlreadyConfigured:
+    """Cross-file duplicate-detection for pre-configured APT repos."""
+
+    def test_returns_none_when_no_sources_match(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        assert (
+            _repo_already_configured(
+                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+            )
+            is None
+        )
+
+    def test_matches_one_line_deb_entry_https(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "llvm-toolchain.list": (
+                    "deb [signed-by=/usr/share/keyrings/llvm.gpg arch=amd64] "
+                    "https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main\n"
+                )
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        found = _repo_already_configured(
+            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+        )
+        assert found == sources_dir / "llvm-toolchain.list"
+
+    def test_matches_http_when_searching_https(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Runner pre-provisioned with http://; our config uses https:// -- must match."""
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "llvm.list": (
+                    "deb [arch=amd64] http://apt.llvm.org/noble/ "
+                    "llvm-toolchain-noble-22 main\n"
+                )
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        found = _repo_already_configured(
+            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+        )
+        assert found == sources_dir / "llvm.list"
+
+    def test_matches_deb822_sources_format(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "llvm.sources": (
+                    "Types: deb\n"
+                    "URIs: https://apt.llvm.org/noble/\n"
+                    "Suites: llvm-toolchain-noble-22\n"
+                    "Components: main\n"
+                )
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        found = _repo_already_configured(
+            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+        )
+        assert found == sources_dir / "llvm.sources"
+
+    def test_ignores_unrelated_repos(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "confluent.list": (
+                    "deb https://packages.confluent.io/clients/deb noble main\n"
+                ),
+                "sources.list": "deb http://archive.ubuntu.com/ubuntu noble main\n",
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        assert (
+            _repo_already_configured(
+                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+            )
+            is None
+        )
+
+    def test_ignores_wrong_codename(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pre-existing LLVM repo for version 19 must NOT match our request for 22."""
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "llvm.list": (
+                    "deb [arch=amd64] http://apt.llvm.org/noble/ "
+                    "llvm-toolchain-noble-19 main\n"
+                )
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        assert (
+            _repo_already_configured(
+                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+            )
+            is None
+        )
+
+    def test_handles_unreadable_files_gracefully(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        apt = tmp_path / "etc" / "apt"
+        sources_dir = apt / "sources.list.d"
+        sources_dir.mkdir(parents=True)
+        (sources_dir / "corrupt.list").write_bytes(b"\xff\xfe\xfdnot-utf8")
+        sources_list = apt / "sources.list"
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        result = _repo_already_configured(
+            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
+        )
+        assert result is None
+
+
+class TestAddAptRepoIdempotency:
+    """_add_apt_repo must not rewrite when the repo is already configured."""
+
+    def test_skips_all_work_when_repo_pre_configured(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pre-configured apt.llvm.org under a different filename → skip entirely.
+
+        Exercise the full flow: keyring exists + different-named source
+        file present. No subprocess calls should be made (no curl, no tee).
+        """
+        # Pre-existing keyring and source file (simulating runner-provisioned state)
+        fake_keyring = tmp_path / "llvm.gpg"
+        fake_keyring.write_bytes(b"fake-key")
+
+        sources_list, sources_dir = _seed_apt_tree(
+            tmp_path,
+            {
+                "llvm-toolchain.list": (
+                    "deb [arch=amd64] http://apt.llvm.org/noble/ "
+                    "llvm-toolchain-noble-22 main\n"
+                )
+            },
+        )
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+
+        repo = AptRepo(
+            key_url="https://apt.llvm.org/llvm-snapshot.gpg.key",
+            keyring=str(fake_keyring),
+            url="https://apt.llvm.org/noble/",
+            codename="llvm-toolchain-noble-22",
+            components="main",
+        )
+
+        with patch("hyperi_ci.native_deps.subprocess.run") as mock_run:
+            rc = _add_apt_repo(repo)
+
+        assert rc == 0
+        # None of the "expensive/side-effecting" commands were invoked --
+        # no key download, no gpg dearmor, no writing to sources.list.d.
+        invoked = [
+            call.args[0][0] if call.args and call.args[0] else None
+            for call in mock_run.call_args_list
+        ]
+        assert "curl" not in invoked, f"unexpected curl call: {invoked}"
+        assert "gpg" not in invoked, f"unexpected gpg call: {invoked}"
+        assert "sudo" not in invoked, f"unexpected sudo (tee) call: {invoked}"
+        # Our own filename (derived from keyring stem "llvm" + ".list") NOT created
+        assert not (sources_dir / "llvm.list").exists()
+
+    def test_multi_version_writes_append_not_overwrite(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Multiple _add_apt_repo calls sharing a keyring must accumulate.
+
+        Every apt.llvm.org entry reuses one keyring file, and the baked default
+        and a project's designated major can differ, so one sources filename
+        carries a line per major. Before v1.11.1 the writer used
+        `tee` (overwrite), so only the last version's `deb` line survived.
+        Regression check: after four calls the file contains four lines.
+        """
+        fake_keyring = tmp_path / "llvm.gpg"
+        fake_keyring.write_bytes(b"fake-key")
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        # Force ``["sudo"]`` prefix regardless of platform/uid -- the macOS
+        # CI runner is non-Linux (so _sudo_prefix returns []), Linux CI is
+        # non-root. Both cases land in this test; pin to the sudo path.
+        monkeypatch.setattr(native_deps, "sudo_prefix", lambda: ["sudo"])
+
+        target_file = sources_dir / "llvm.list"
+
+        def fake_sudo_run(cmd, **kwargs):
+            # dpkg arch probe -- return amd64
+            if cmd[:2] == ["dpkg", "--print-architecture"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="amd64\n", stderr="")
+            # Simulate sudo tee -a: append stdin to the target file
+            if cmd[:3] == ["sudo", "tee", "-a"]:
+                path = Path(cmd[3])
+                mode = "ab" if path.exists() else "wb"
+                with open(path, mode) as f:
+                    f.write(kwargs.get("input", b""))
+                return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+            # Legacy `sudo tee` (no -a) would land here; kept for regression detection.
+            if cmd[:2] == ["sudo", "tee"]:
+                path = Path(cmd[2])
+                with open(path, "wb") as f:
+                    f.write(kwargs.get("input", b""))
+                return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(native_deps.subprocess, "run", fake_sudo_run)
+
+        for version in ("19", "20", "21", "22"):
+            repo = AptRepo(
+                key_url="https://apt.llvm.org/llvm-snapshot.gpg.key",
+                keyring=str(fake_keyring),
+                url="https://apt.llvm.org/noble/",
+                codename=f"llvm-toolchain-noble-{version}",
+                components="main",
+            )
+            rc = _add_apt_repo(repo)
+            assert rc == 0, f"failed adding v{version}"
+
+        content = target_file.read_text()
+        for v in ("19", "20", "21", "22"):
+            assert f"llvm-toolchain-noble-{v}" in content, (
+                f"v{v} entry missing — writer clobbered earlier versions"
+            )
+
+    def test_idempotent_when_exact_line_already_present(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Second call with identical repo is a no-op (not a duplicate line)."""
+        fake_keyring = tmp_path / "llvm.gpg"
+        fake_keyring.write_bytes(b"fake-key")
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        monkeypatch.setattr(native_deps, "sudo_prefix", lambda: ["sudo"])
+        target_file = sources_dir / "llvm.list"
+
+        writes = {"count": 0}
+
+        def fake_sudo_run(cmd, **kwargs):
+            if cmd[:2] == ["dpkg", "--print-architecture"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="amd64\n", stderr="")
+            if cmd[:3] == ["sudo", "tee", "-a"]:
+                writes["count"] += 1
+                path = Path(cmd[3])
+                mode = "ab" if path.exists() else "wb"
+                with open(path, mode) as f:
+                    f.write(kwargs.get("input", b""))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(native_deps.subprocess, "run", fake_sudo_run)
+
+        repo = AptRepo(
+            key_url="https://apt.llvm.org/llvm-snapshot.gpg.key",
+            keyring=str(fake_keyring),
+            url="https://apt.llvm.org/noble/",
+            codename="llvm-toolchain-noble-22",
+            components="main",
+        )
+        assert _add_apt_repo(repo) == 0
+        assert _add_apt_repo(repo) == 0  # no-op
+        assert writes["count"] == 1, "second identical add triggered a write"
+        assert target_file.read_text().count("llvm-toolchain-noble-22") == 1
+
+
+class TestAptKeyFingerprint:
+    """A declared `key_fingerprint` gates the key before it reaches the keyring.
+
+    HTTPS says who served the key, not which key it is. Without the check a
+    swapped apt.llvm.org key installs silently and signs every package after.
+    """
+
+    # gpg --with-colons output: primary key first, then its encryption subkey.
+    _COLONS = (
+        b"pub:-:4096:1:15CF4D18AF4F7421:1362990124:::-:::scESC::::::23::0:\n"
+        b"fpr:::::::::6084F3CF814B57C1CF12EFD515CF4D18AF4F7421:\n"
+        b"sub:-:4096:1:5B3D8846AF9463CE:1362990124::::::e::::::23:\n"
+        b"fpr:::::::::56E1477F57BAB5ECF37818045B3D8846AF9463CE:\n"
+    )
+    _PRIMARY = "6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
+    _SUBKEY = "56E1477F57BAB5ECF37818045B3D8846AF9463CE"
+    # The pinned key followed by Ubuntu's 2018 archive key in one file.
+    _TWO_PRIMARIES = _COLONS + (
+        b"pub:-:4096:1:871920D1991BC93C:1537196506:::-:::scSC::::::23::0:\n"
+        b"fpr:::::::::F6ECB3762474EDA9D21B7022871920D1991BC93C:\n"
+    )
+
+    def _install(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        fingerprint: str,
+        colons: bytes = _COLONS,
+    ) -> tuple[int, list[list[str]]]:
+        """Run _add_apt_repo against a fake gpg; return (rc, commands invoked)."""
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        monkeypatch.setattr(native_deps, "sudo_prefix", lambda: [])
+
+        invoked: list[list[str]] = []
+
+        def fake_run(cmd, **kwargs):
+            invoked.append(list(cmd))
+            if cmd[0] == "curl":
+                Path(cmd[cmd.index("-o") + 1]).write_bytes(b"ARMOURED-KEY")
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            if cmd[:2] == ["gpg", "--show-keys"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout=colons)
+            if cmd[:2] == ["dpkg", "--print-architecture"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="amd64\n", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+        monkeypatch.setattr(native_deps.subprocess, "run", fake_run)
+
+        repo = AptRepo(
+            key_url="https://apt.llvm.org/llvm-snapshot.gpg.key",
+            keyring=str(tmp_path / "llvm.gpg"),
+            url="https://apt.llvm.org/noble/",
+            codename="llvm-toolchain-noble-23",
+            key_fingerprint=fingerprint,
+        )
+        return _add_apt_repo(repo), invoked
+
+    def test_matching_fingerprint_installs(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rc, invoked = self._install(tmp_path, monkeypatch, self._PRIMARY)
+        assert rc == 0
+        assert any(cmd == ["tee", str(tmp_path / "llvm.gpg")] for cmd in invoked)
+
+    def test_the_key_is_fetched_to_a_file_with_a_time_limit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, invoked = self._install(tmp_path, monkeypatch, self._PRIMARY)
+        [curl] = [cmd for cmd in invoked if cmd[0] == "curl"]
+        assert "-o" in curl
+        assert "--max-time" in curl
+
+    def test_a_failed_key_fetch_returns_curls_exit_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
+        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
+        monkeypatch.setattr(
+            native_deps.subprocess,
+            "run",
+            lambda cmd, **_kw: subprocess.CompletedProcess(cmd, 22, stdout="404"),
+        )
+        repo = AptRepo(
+            key_url="https://apt.llvm.org/llvm-snapshot.gpg.key",
+            keyring=str(tmp_path / "llvm.gpg"),
+            url="https://apt.llvm.org/noble/",
+            codename="llvm-toolchain-noble-23",
+        )
+        assert _add_apt_repo(repo) == 22
+        assert not (tmp_path / "llvm.gpg").exists()
+
+    def test_spaced_lowercase_fingerprint_still_matches(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The value is copied off apt.llvm.org, which prints it spaced."""
+        spaced = "6084 f3cf 814b 57c1 cf12 efd5 15cf 4d18 af4f 7421"
+        rc, _ = self._install(tmp_path, monkeypatch, spaced)
+        assert rc == 0
+
+    def test_mismatch_refuses_before_the_keyring_is_written(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rc, invoked = self._install(tmp_path, monkeypatch, "DEADBEEF" * 5)
+        assert rc != 0
+        assert not any(cmd[0] == "tee" for cmd in invoked)
+
+    def test_subkey_fingerprint_is_not_accepted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Only the primary key counts -- a subkey match would weaken the pin."""
+        rc, invoked = self._install(tmp_path, monkeypatch, self._SUBKEY)
+        assert rc != 0
+        assert not any(cmd[0] == "tee" for cmd in invoked)
+
+    def test_no_fingerprint_declared_skips_the_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rc, invoked = self._install(tmp_path, monkeypatch, "")
+        assert rc == 0
+        assert not any(cmd[:2] == ["gpg", "--show-keys"] for cmd in invoked)
+
+    def test_a_second_primary_beside_the_pinned_one_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Dearmor keeps every key in the file, so a passenger key gets trusted."""
+        rc, invoked = self._install(
+            tmp_path, monkeypatch, self._PRIMARY, colons=self._TWO_PRIMARIES
+        )
+        assert rc != 0
+        assert not any(cmd[0] == "tee" for cmd in invoked)
+
+    @pytest.mark.parametrize("label", ["MESSAGE", "SIGNATURE"])
+    @pytest.mark.skipif(shutil.which("gpg") is None, reason="gpg not installed")
+    def test_a_key_hidden_in_a_non_key_armour_block_never_reaches_the_keyring(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, label: str
+    ) -> None:
+        """`--show-keys` skips the block, but dearmor decodes it into the keyring."""
+        pinned = native_deps._AWS_CLI_KEY_FILE.read_bytes()
+        extra = (DATA_DIR / "second-primary-key.asc").read_bytes()
+        hidden = extra.replace(b"PUBLIC KEY BLOCK", label.encode())
+        _patch_apt_paths(monkeypatch, *_seed_apt_tree(tmp_path, {}))
+        monkeypatch.setattr(native_deps, "curl_read", lambda _url: (0, pinned + hidden))
+        monkeypatch.setattr(native_deps, "sudo_prefix", lambda: [])
+        keyring = tmp_path / "pinned.gpg"
+        repo = AptRepo(
+            key_url="https://example.invalid/key.asc",
+            keyring=str(keyring),
+            url="https://example.invalid/apt/",
+            codename="noble",
+            key_fingerprint=native_deps._AWS_CLI_KEY_FPR,
+        )
+        assert _add_apt_repo(repo) == 1
+        assert not keyring.exists()
+
+    @pytest.mark.skipif(shutil.which("gpg") is None, reason="gpg not installed")
+    def test_real_gpg_two_key_file_fails_and_one_key_file_passes(self) -> None:
+        """Run the check against real gpg output, not a transcription of it."""
+        pinned = native_deps._AWS_CLI_KEY_FILE.read_bytes()
+        extra = (DATA_DIR / "second-primary-key.asc").read_bytes()
+        pin = native_deps._AWS_CLI_KEY_FPR
+        assert native_deps._verify_pinned_key(pinned, pin)
+        assert not native_deps._verify_pinned_key(pinned + extra, pin)
+
+
+class TestSudoPrefix:
+    """`sudo_prefix()` skips sudo when already root.
+
+    Runner image bake (Dockerfile ``RUN``) runs as root where sudo isn't
+    configured; the previous 'sudo apt-get install' produced
+    'root is not in the sudoers file' and failed the build.
+    """
+
+    def test_non_root_prepends_sudo(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(common.sys, "platform", "linux")
+        monkeypatch.setattr(common.os, "geteuid", lambda: 1000)
+        assert common.sudo_prefix() == ["sudo"]
+
+    def test_root_skips_sudo(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(common.sys, "platform", "linux")
+        monkeypatch.setattr(common.os, "geteuid", lambda: 0)
+        assert common.sudo_prefix() == []
+
+    def test_non_linux_skips_sudo(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # macOS dev path -- apt isn't used, but the helper must be safe to call
+        monkeypatch.setattr(common.sys, "platform", "darwin")
+        assert common.sudo_prefix() == []
+
+
+class TestDepGroupLoading:
+    """End-to-end: native-deps YAML loads with env-var templating."""
+
+    def test_rust_yaml_bolt_version_defaults_to_23(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        groups = _load_dep_groups("rust")
+        bolt_groups = [g for g in groups if g.name == "llvm-bolt"]
+        assert len(bolt_groups) == 1
+        bolt = bolt_groups[0]
+        assert bolt.dpkg_check == "bolt-23"
+        assert "bolt-23" in bolt.apt_packages
+        assert bolt.apt_repos[0].codename == "llvm-toolchain-noble-23"
+        assert (
+            bolt.apt_repos[0].key_fingerprint
+            == "6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
+        )
+
+    def test_rust_yaml_bolt_version_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "19")
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        groups = _load_dep_groups("rust")
+        bolt = next(g for g in groups if g.name == "llvm-bolt")
+        assert bolt.dpkg_check == "bolt-19"
+        assert "bolt-19" in bolt.apt_packages
+        assert bolt.apt_repos[0].codename == "llvm-toolchain-noble-19"
+
+    def test_rust_yaml_bolt_version_from_project_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        (tmp_path / ".hyperi-ci.yaml").write_text(
+            "build:\n  rust:\n    llvm_version: 21\n", encoding="utf-8"
+        )
+        groups = _load_dep_groups("rust", project_dir=tmp_path)
+        bolt = next(g for g in groups if g.name == "llvm-bolt")
+        assert bolt.dpkg_check == "bolt-21"
+        assert {"bolt-21", "lld-21"} <= set(bolt.apt_packages)
+        assert bolt.apt_repos[0].codename == "llvm-toolchain-noble-21"
+
+    def test_env_beats_project_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "20")
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        (tmp_path / ".hyperi-ci.yaml").write_text(
+            "build:\n  rust:\n    llvm_version: 21\n", encoding="utf-8"
+        )
+        groups = _load_dep_groups("rust", project_dir=tmp_path)
+        bolt = next(g for g in groups if g.name == "llvm-bolt")
+        assert bolt.dpkg_check == "bolt-20"
+
+    def test_bad_llvm_version_fails_the_install(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "latest")
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        errors: list[str] = []
+        monkeypatch.setattr(native_deps.logger, "error", errors.append)
+        installed: list[str] = []
+        monkeypatch.setattr(
+            native_deps, "_apt_install", lambda pkgs: installed.extend(pkgs) or 0
+        )
+
+        assert native_deps.install_native_deps("rust", project_dir=tmp_path) == 1
+        assert installed == []
+        assert len(errors) == 1
+        assert "HYPERCI_LLVM_VERSION" in errors[0]
+
+    def test_bad_llvm_version_on_dry_run_is_an_error_not_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "latest")
+        errors: list[str] = []
+        monkeypatch.setattr(native_deps.logger, "error", errors.append)
+
+        native_deps.print_needed("rust", project_dir=tmp_path)
+
+        assert len(errors) == 1
+        assert "HYPERCI_LLVM_VERSION" in errors[0]
+
+    def test_bad_llvm_version_does_not_touch_yaml_without_the_placeholder(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "latest")
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        assert _expand_template_vars("pkg-${OS_CODENAME}") == "pkg-noble"
+
+    def test_rust_yaml_clang_follows_the_designated_major(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """clang-NN comes from the same apt.llvm.org major as bolt-NN."""
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        (tmp_path / ".hyperi-ci.yaml").write_text(
+            "build:\n  rust:\n    llvm_version: 21\n", encoding="utf-8"
+        )
+        groups = _load_dep_groups("rust", project_dir=tmp_path)
+        clang = next(g for g in groups if g.name == "llvm-clang")
+        bolt = next(g for g in groups if g.name == "llvm-bolt")
+        assert clang.dpkg_check == "clang-21"
+        assert clang.apt_packages == ["clang-21"]
+        assert clang.apt_repos[0].codename == bolt.apt_repos[0].codename
+        assert clang.apt_repos[0].key_fingerprint == bolt.apt_repos[0].key_fingerprint
+
+    def test_rust_yaml_clang_defaults_to_versions_yaml(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        groups = _load_dep_groups("rust", project_dir=tmp_path)
+        clang = next(g for g in groups if g.name == "llvm-clang")
+        assert clang.dpkg_check == f"clang-{runtime_version('llvm')}"
+
+    @staticmethod
+    def _conditional_install(
+        monkeypatch: pytest.MonkeyPatch, project: Path
+    ) -> list[str]:
+        """Packages a CI-time `install-native-deps rust` would install."""
+        monkeypatch.delenv("HYPERCI_LLVM_VERSION", raising=False)
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(native_deps, "_is_dpkg_installed", lambda *_a: False)
+        monkeypatch.setattr(native_deps, "_add_apt_repo", lambda _repo: 0)
+        monkeypatch.setattr(native_deps, "_install_language_tools", lambda _l: 0)
+        installed: list[str] = []
+        monkeypatch.setattr(
+            native_deps, "_apt_install", lambda pkgs: installed.extend(pkgs) or 0
+        )
+        assert native_deps.install_native_deps("rust", project_dir=project) == 0
+        return installed
+
+    @pytest.mark.parametrize(
+        "cargo_config",
+        [
+            '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\n',
+            '[target.aarch64-unknown-linux-gnu]\nlinker="clang"\n',
+            '[build]\nrustflags = ["-C", "linker=clang"]\n',
+        ],
+    )
+    def test_clang_nn_installs_for_a_repo_that_links_through_clang(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, cargo_config: str
+    ) -> None:
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+        (tmp_path / ".cargo").mkdir()
+        (tmp_path / ".cargo" / "config.toml").write_text(cargo_config)
+        installed = self._conditional_install(monkeypatch, tmp_path)
+        assert f"clang-{runtime_version('llvm')}" in installed
+        assert "clang" not in installed
+
+    @pytest.mark.parametrize(
+        "cargo_config",
+        [
+            None,
+            '[target.x86_64-unknown-linux-gnu]\nlinker = "gcc"\n',
+            '[target.aarch64-unknown-linux-gnu]\nlinker = "aarch64-linux-gnu-gcc"\n',
+        ],
+    )
+    def test_clang_nn_stays_off_a_repo_that_does_not(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, cargo_config: str | None
+    ) -> None:
+        """No apt.llvm.org clang, and no libclang1-NN, for a gcc-linked repo."""
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+        if cargo_config is not None:
+            (tmp_path / ".cargo").mkdir()
+            (tmp_path / ".cargo" / "config.toml").write_text(cargo_config)
+        installed = self._conditional_install(monkeypatch, tmp_path)
+        assert f"clang-{runtime_version('llvm')}" not in installed
+        assert "clang" not in installed
+        assert f"bolt-{runtime_version('llvm')}" in installed
+
+    @pytest.mark.parametrize(
+        ("cargo_config", "expected"),
+        [
+            ('[target.aarch64-unknown-linux-gnu]\nlinker = "clang"\n', True),
+            ('[target.aarch64-unknown-linux-gnu]\nlinker = "gcc"\n', False),
+            (None, False),
+        ],
+    )
+    def test_group_matches_answers_what_the_install_would_pick(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        cargo_config: str | None,
+        expected: bool,
+    ) -> None:
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        if cargo_config is not None:
+            (tmp_path / ".cargo").mkdir()
+            (tmp_path / ".cargo" / "config.toml").write_text(cargo_config)
+        assert native_deps.group_matches("rust", "llvm-clang", tmp_path) is expected
+
+    @pytest.mark.parametrize(
+        ("lock", "expected"),
+        [
+            ('[[package]]\nname = "odbc-sys"\nversion = "0.29.0"\n', True),
+            ('[[package]]\nname = "libsqlite3-sys"\nversion = "0.35.0"\n', False),
+            (None, False),
+        ],
+    )
+    def test_unixodbc_follows_odbc_sys_in_the_lock(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        lock: str | None,
+        expected: bool,
+    ) -> None:
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        if lock is not None:
+            (tmp_path / "Cargo.lock").write_text(lock)
+        assert native_deps.group_matches("rust", "unixodbc", tmp_path) is expected
+
+    def test_group_matches_refuses_an_unknown_group(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        with pytest.raises(ValueError, match="no-such-group"):
+            native_deps.group_matches("rust", "no-such-group", tmp_path)
+
+    # The groups every Rust project gets regardless of its dependencies.
+    _ALWAYS_ON = ("C toolchain", "mold linker", "llvm-bolt")
+
+    def test_rust_yaml_c_toolchain_installs_build_essential(self) -> None:
+        """No crate with a build script or proc macro builds without `cc` (#678)."""
+        group = next(g for g in _load_dep_groups("rust") if g.name == "C toolchain")
+        assert group.dpkg_check == "build-essential"
+        assert group.apt_packages == ["build-essential"]
+        assert group.manifest_files == ["Cargo.toml"]
+
+    @pytest.mark.parametrize("group_name", _ALWAYS_ON)
+    def test_rust_yaml_always_on_group_matches_a_plain_package_root(
+        self, group_name: str
+    ) -> None:
+        group = next(g for g in _load_dep_groups("rust") if g.name == group_name)
+        manifest = '[package]\nname = "app"\nversion = "1.0.0"\n'
+        assert native_deps._patterns_match(manifest, group.patterns)
+
+    @pytest.mark.parametrize("group_name", _ALWAYS_ON)
+    def test_rust_yaml_always_on_group_matches_a_virtual_workspace_root(
+        self, group_name: str
+    ) -> None:
+        """A virtual workspace root has no [package] and still needs every one."""
+        group = next(g for g in _load_dep_groups("rust") if g.name == group_name)
+        manifest = '[workspace]\nmembers = ["crates/archiver"]\nresolver = "2"\n'
+        assert native_deps._patterns_match(manifest, group.patterns)
+
+
+class TestToolchains:
+    """The toolchains category: LLVM bakes versions.yaml `llvm` alone."""
+
+    def test_llvm_yaml_bakes_one_group_for_the_default_major(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        major = runtime_version("llvm")
+        groups = _load_dep_groups("llvm", category="toolchains")
+        assert [g.name for g in groups] == [f"llvm-toolchain v{major}"]
+        llvm = groups[0]
+        assert llvm.bake is True
+        assert llvm.dpkg_check == f"clang-{major}"
+        assert {f"clang-{major}", f"lld-{major}", f"bolt-{major}"} <= set(
+            llvm.apt_packages
+        )
+        assert llvm.apt_repos[0].codename == f"llvm-toolchain-noble-{major}"
+        assert not any("${" in p for p in llvm.apt_packages)
+
+    def test_llvm_yaml_ignores_the_designated_major(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Neither the env var nor a project pin can move what the image bakes."""
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "19")
+        (tmp_path / ".hyperi-ci.yaml").write_text(
+            "build:\n  rust:\n    llvm_version: 21\n", encoding="utf-8"
+        )
+        major = runtime_version("llvm")
+        groups = _load_dep_groups("llvm", category="toolchains", project_dir=tmp_path)
+        assert [g.dpkg_check for g in groups] == [f"clang-{major}"]
+
+    def test_bad_default_llvm_fails_the_bake(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(llvm_version, "runtime_version", lambda _name: "latest")
+        with pytest.raises(LLVMVersionError, match="runtimes.llvm"):
+            _load_dep_groups("llvm", category="toolchains")
+
+    def test_a_bake_splits_default_and_designated(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """install-all with HYPERCI_LLVM_VERSION set bakes two majors.
+
+        toolchains/llvm.yaml stays on versions.yaml `llvm`, while the
+        native-deps bolt, lld and clang follow the designated major.
+        """
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        monkeypatch.setenv("HYPERCI_LLVM_VERSION", "19")
+        major = runtime_version("llvm")
+
+        toolchain = _load_dep_groups(
+            "llvm", category="toolchains", project_dir=tmp_path
+        )
+        rust = _load_dep_groups("rust", project_dir=tmp_path)
+
+        assert [g.dpkg_check for g in toolchain] == [f"clang-{major}"]
+        assert next(g for g in rust if g.name == "llvm-bolt").dpkg_check == "bolt-19"
+        assert next(g for g in rust if g.name == "llvm-clang").dpkg_check == "clang-19"
+
+    @staticmethod
+    def _no_llvm_runtime(_name: str) -> str:
+        raise KeyError("`runtimes.llvm` is missing from versions.yaml")
+
+    def test_missing_default_llvm_fails_the_bake_cleanly(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """An error line and exit 1, never a KeyError traceback."""
+        monkeypatch.setattr(llvm_version, "runtime_version", self._no_llvm_runtime)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        errors: list[str] = []
+        monkeypatch.setattr(native_deps.logger, "error", errors.append)
+
+        rc = native_deps.install_native_deps(
+            "llvm", project_dir=tmp_path, category="toolchains", all_mode=True
+        )
+
+        assert rc == 1
+        assert len(errors) == 1
+        assert "runtimes.llvm" in errors[0]
+
+    def test_missing_default_llvm_on_dry_run_is_an_error_not_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(llvm_version, "runtime_version", self._no_llvm_runtime)
+        errors: list[str] = []
+        monkeypatch.setattr(native_deps.logger, "error", errors.append)
+
+        native_deps.print_needed(
+            "llvm", project_dir=tmp_path, category="toolchains", all_mode=True
+        )
+
+        assert len(errors) == 1
+        assert "runtimes.llvm" in errors[0]
+
+
+class TestBakeFlag:
+    """`bake: false` skips an entry in --all mode regardless of category.
+
+    Standard pattern for toolsets that only support one version at a time
+    (libc++-N-dev, lldb-N, etc. declare Conflicts:x.y on apt.llvm.org).
+    Applies to ANY YAML entry in any category.
+    """
+
+    def test_bake_defaults_to_true_when_key_absent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Existing YAMLs without a `bake` key stay unconditionally baked."""
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        groups = _load_dep_groups("llvm", category="toolchains")
+        assert [g.bake for g in groups] == [True]
+
+    def test_all_mode_skips_bake_false_entries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """--all mode installs bake:true entries, skips bake:false."""
+        bogus_dir = tmp_path / "toolchains"
+        bogus_dir.mkdir()
+        (bogus_dir / "pair.yaml").write_text(
+            "- name: always-bake\n"
+            "  patterns: []\n"
+            "  manifest_files: []\n"
+            "  dpkg_check: 'clang-22'\n"
+            "  apt_packages:\n"
+            "    - 'clang-22'\n"
+            "- name: never-bake\n"
+            "  bake: false\n"
+            "  patterns: []\n"
+            "  manifest_files: []\n"
+            "  dpkg_check: 'lldb-22'\n"
+            "  apt_packages:\n"
+            "    - 'lldb-22'\n"
+        )
+        monkeypatch.setitem(native_deps._CATEGORY_DIRS, "toolchains", bogus_dir)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+
+        installed: list[str] = []
+
+        def fake_apt_install(packages: list[str]) -> int:
+            installed.extend(packages)
+            return 0
+
+        monkeypatch.setattr(native_deps, "_apt_install", fake_apt_install)
+        monkeypatch.setattr(
+            native_deps, "_is_dpkg_installed", lambda pkg, min_v="": False
+        )
+        monkeypatch.setattr(native_deps, "_add_apt_repo", lambda repo: 0)
+
+        rc = native_deps.install_native_deps(
+            "pair", project_dir=tmp_path, category="toolchains", all_mode=True
+        )
+        assert rc == 0
+        assert "clang-22" in installed  # bake: true default
+        assert "lldb-22" not in installed  # bake: false skipped
+
+    def test_conditional_mode_ignores_bake_flag(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Conditional mode installs based on patterns regardless of bake flag."""
+        bogus_dir = tmp_path / "toolchains"
+        bogus_dir.mkdir()
+        (bogus_dir / "pair.yaml").write_text(
+            "- name: never-bake\n"
+            "  bake: false\n"
+            "  patterns:\n"
+            "    - 'trigger-me'\n"
+            "  manifest_files:\n"
+            "    - 'Trigger.toml'\n"
+            "  dpkg_check: 'lldb-22'\n"
+            "  apt_packages:\n"
+            "    - 'lldb-22'\n"
+        )
+        (tmp_path / "Trigger.toml").write_text("trigger-me here\n")
+        monkeypatch.setitem(native_deps._CATEGORY_DIRS, "toolchains", bogus_dir)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+
+        installed: list[str] = []
+
+        def fake_apt_install(packages: list[str]) -> int:
+            installed.extend(packages)
+            return 0
+
+        monkeypatch.setattr(native_deps, "_apt_install", fake_apt_install)
+        monkeypatch.setattr(
+            native_deps, "_is_dpkg_installed", lambda pkg, min_v="": False
+        )
+        monkeypatch.setattr(native_deps, "_add_apt_repo", lambda repo: 0)
+
+        # all_mode=False (conditional) -- bake flag does NOT affect the decision
+        rc = native_deps.install_native_deps(
+            "pair", project_dir=tmp_path, category="toolchains", all_mode=False
+        )
+        assert rc == 0
+        assert "lldb-22" in installed  # pattern matched → installed regardless of bake
+
+    def test_substitutes_os_codename_and_version_in_repo(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Repo URL takes OS codename; repo codename takes both OS + version."""
+        monkeypatch.setenv("OS_CODENAME", "resolute")
+        major = runtime_version("llvm")
+        groups = _load_dep_groups("llvm", category="toolchains")
+        assert groups[0].apt_repos[0].url == "https://apt.llvm.org/resolute/"
+        assert groups[0].apt_repos[0].codename == f"llvm-toolchain-resolute-{major}"
+
+    def test_unknown_category_returns_empty(self) -> None:
+        assert _load_dep_groups("llvm", category="bogus") == []
+
+
+class TestExpandTemplateVarsOsCodename:
+    """`${OS_CODENAME}` expansion resolves from env var or lsb_release."""
+
+    def test_env_override_wins_over_lsb_release(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OS_CODENAME", "resolute")
+        assert _expand_template_vars("url: ${OS_CODENAME}/") == "url: resolute/"
+
+    def test_env_empty_falls_back_to_lsb_release(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OS_CODENAME", raising=False)
+        with patch.object(native_deps, "_get_os_codename", return_value="noble"):
+            assert _expand_template_vars("${OS_CODENAME}") == "noble"
+
+    def test_lsb_release_missing_falls_back_to_noble(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OS_CODENAME", raising=False)
+        with patch.object(native_deps, "_get_os_codename", return_value=""):
+            assert _expand_template_vars("${OS_CODENAME}") == "noble"
+
+    def test_get_os_codename_tolerates_missing_lsb_release(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """macOS CI runners have no lsb_release -- must return "" not raise."""
+
+        def _raise_not_found(*_args, **_kwargs):
+            raise FileNotFoundError(2, "No such file", "lsb_release")
+
+        monkeypatch.setattr(native_deps.subprocess, "run", _raise_not_found)
+        assert native_deps._get_os_codename() == ""
+
+
+class TestAllModeBypass:
+    """`all_mode=True` bypasses pattern matching for runner image bake."""
+
+    def test_all_mode_ignores_patterns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """A group whose patterns don't match should still install in --all mode."""
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        # Stub platform.system to "Linux" so install logic runs
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        # Record which groups reach the install step
+        installed_packages: list[str] = []
+
+        def fake_apt_install(packages: list[str]) -> int:
+            installed_packages.extend(packages)
+            return 0
+
+        monkeypatch.setattr(native_deps, "_apt_install", fake_apt_install)
+        monkeypatch.setattr(
+            native_deps, "_is_dpkg_installed", lambda pkg, min_v="": False
+        )
+        monkeypatch.setattr(native_deps, "_add_apt_repo", lambda repo: 0)
+
+        # Empty project dir → no manifests → patterns would normally match nothing
+        rc = native_deps.install_native_deps(
+            "llvm",
+            project_dir=tmp_path,
+            category="toolchains",
+            all_mode=True,
+        )
+        assert rc == 0
+        assert f"clang-{runtime_version('llvm')}" in installed_packages
+
+    def test_conditional_mode_skips_when_no_manifest_match(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Default (conditional) mode must skip when manifest patterns miss."""
+        monkeypatch.setenv("OS_CODENAME", "noble")
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        installed_packages: list[str] = []
+
+        def fake_apt_install(packages: list[str]) -> int:
+            installed_packages.extend(packages)
+            return 0
+
+        monkeypatch.setattr(native_deps, "_apt_install", fake_apt_install)
+        monkeypatch.setattr(
+            native_deps, "_is_dpkg_installed", lambda pkg, min_v="": False
+        )
+        monkeypatch.setattr(native_deps, "_add_apt_repo", lambda repo: 0)
+
+        # Empty project dir → no patterns match → nothing installed
+        rc = native_deps.install_native_deps(
+            "llvm",
+            project_dir=tmp_path,
+            category="toolchains",
+            all_mode=False,
+        )
+        assert rc == 0
+        assert installed_packages == []
+
+
+class TestLanguageToolInstallerAbsent:
+    """issue #91: a missing installer degrades, it does not crash.
+
+    `install_language_tools` documents itself as non-fatal, but
+    `subprocess.run(..., check=False)` only suppresses a non-zero EXIT --
+    a missing executable raises FileNotFoundError before the process starts.
+    Rust reaches this before the workflow installs rustup.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _empty_home(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        # The probe also checks ~/<bin_dir>/<binary>, so a host that already
+        # has the tool would skip the install and never reach these paths.
+        monkeypatch.setenv("HOME", str(tmp_path))
+
+    def test_missing_installer_binary_warns_and_continues(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        # cargo absent, and the tool it would install is absent too.
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _cmd: None)
+
+        def explode(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("must not invoke a missing installer")
+
+        monkeypatch.setattr(native_deps.subprocess, "run", explode)
+
+        assert native_deps._install_language_tools("rust") == 0
+
+    def test_present_installer_is_still_invoked(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The skip stays narrow -- a real cargo still installs the tool."""
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(
+            native_deps.shutil,
+            "which",
+            lambda cmd: "/usr/bin/cargo" if cmd == "cargo" else None,
+        )
+        calls: list[list[str]] = []
+
+        def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0)
+
+        monkeypatch.setattr(native_deps.subprocess, "run", fake_run)
+
+        assert native_deps._install_language_tools("rust") == 0
+        assert calls, "a present cargo must still be invoked"
+        assert calls[0][0] == "cargo"
+
+
+class TestEnsureAwsCli:
+    """AWS CLI v2 arrives as a signed zip, because apt cannot supply it."""
+
+    @pytest.mark.skipif(shutil.which("gpg") is None, reason="gpg not installed")
+    def test_shipped_key_carries_the_pinned_fingerprint(self) -> None:
+        """The .asc in the package is the key the code claims to trust.
+
+        A transcription slip or an unannounced rotation both land here rather
+        than as a signature failure on a release runner.
+        """
+        key = native_deps._AWS_CLI_KEY_FILE.read_bytes()
+        assert native_deps._verify_pinned_key(key, native_deps._AWS_CLI_KEY_FPR)
+
+    def test_existing_aws_is_returned_without_downloading(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: "/usr/bin/aws")
+
+        def explode(*_a: object, **_k: object) -> None:
+            raise AssertionError("must not download when aws is already present")
+
+        monkeypatch.setattr(native_deps, "download_artefact", explode)
+        assert native_deps.ensure_aws_cli() == "/usr/bin/aws"
+
+    def test_non_linux_declines_rather_than_installing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A dev machine gets the brew notice, not a system-wide install."""
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: None)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Darwin")
+        assert native_deps.ensure_aws_cli() is None
+
+    def test_unsupported_arch_declines(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: None)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(native_deps.platform, "machine", lambda: "riscv64")
+        assert native_deps.ensure_aws_cli() is None
+
+    def test_a_bad_signature_installs_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verification is the gate, so a failure stops before extraction."""
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: None)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(native_deps.platform, "machine", lambda: "x86_64")
+        monkeypatch.setattr(
+            native_deps, "download_artefact", lambda _n, _u: b"not-a-zip"
+        )
+        monkeypatch.setattr(
+            native_deps, "_verify_detached_signature", lambda *_a: False
+        )
+
+        def explode(*_a: object, **_k: object) -> None:
+            raise AssertionError("must not extract an unverified archive")
+
+        monkeypatch.setattr(native_deps, "_extract_zip", explode)
+        assert native_deps.ensure_aws_cli() is None
+
+    @pytest.mark.parametrize(
+        ("machine", "arch"), [("x86_64", "x86_64"), ("aarch64", "aarch64")]
+    )
+    def test_downloads_the_release_pinned_in_versions_yaml(
+        self, monkeypatch: pytest.MonkeyPatch, machine: str, arch: str
+    ) -> None:
+        """An unpinned URL let an upstream release change `aws s3` unannounced."""
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: None)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(native_deps.platform, "machine", lambda: machine)
+        urls: list[str] = []
+
+        def record(_name: str, url: str) -> None:
+            urls.append(url)
+
+        monkeypatch.setattr(native_deps, "download_artefact", record)
+        assert native_deps.ensure_aws_cli() is None
+
+        version = tool_version("aws-cli")
+        zip_url = f"https://awscli.amazonaws.com/awscli-exe-linux-{arch}-{version}.zip"
+        assert urls == [zip_url, f"{zip_url}.sig"]
+
+    def test_a_failed_download_installs_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(native_deps.shutil, "which", lambda _c: None)
+        monkeypatch.setattr(native_deps.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(native_deps.platform, "machine", lambda: "x86_64")
+        monkeypatch.setattr(native_deps, "download_artefact", lambda _n, _u: None)
+
+        def explode(*_a: object, **_k: object) -> None:
+            raise AssertionError("must not verify a download that never arrived")
+
+        monkeypatch.setattr(native_deps, "_verify_detached_signature", explode)
+        assert native_deps.ensure_aws_cli() is None
+
+    def test_extract_preserves_the_executable_bit(self, tmp_path: Path) -> None:
+        """ZipFile.extract drops the mode, which would leave `install` unrunnable."""
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            info = zipfile.ZipInfo("aws/install")
+            info.external_attr = 0o755 << 16
+            zf.writestr(info, "#!/bin/sh\n")
+
+        assert native_deps._extract_zip(buf.getvalue(), tmp_path) is True
+        extracted = tmp_path / "aws" / "install"
+        assert extracted.stat().st_mode & 0o111, "install script is not executable"
+
+    def test_a_corrupt_archive_is_reported_not_raised(self, tmp_path: Path) -> None:
+        assert native_deps._extract_zip(b"not-a-zip", tmp_path) is False
+
+
+def _loopback_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a proxy in the environment off loopback requests, and skip backoff."""
+    monkeypatch.setenv("no_proxy", "*")
+    monkeypatch.setattr(common.time, "sleep", lambda _s: None)
+
+
+@pytest.fixture
+def apt_repo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[tuple[str, dict[str, list[int]], list[str]]]:
+    """Answer ``HEAD dists/<codename>/Release`` on localhost with scripted statuses.
+
+    ``plan`` maps a codename to the statuses its requests get in order, the
+    last one repeating. An unplanned codename answers 404, a dist the repo
+    does not publish.
+    """
+    plan: dict[str, list[int]] = {}
+    hits: list[str] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_HEAD(self) -> None:
+            parts = self.path.split("/")
+            codename = parts[parts.index("dists") + 1]
+            statuses = plan.get(codename, [404])
+            status = statuses.pop(0) if len(statuses) > 1 else statuses[0]
+            hits.append(f"{codename} {status}")
+            self.send_response(status)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, format: str, *args: object) -> None:
+            pass
+
+    _loopback_only(monkeypatch)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/deb", plan, hits
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+class TestResolveCodename:
+    """Only a 404 moves an auto codename on. A network failure never does."""
+
+    @pytest.fixture(autouse=True)
+    def _on_noble(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(native_deps, "_get_os_codename", lambda: "noble")
+
+    @pytest.fixture
+    def warnings(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        logged: list[str] = []
+        monkeypatch.setattr(native_deps, "warn", logged.append)
+        return logged
+
+    @staticmethod
+    def _resolve(url: str) -> str:
+        return native_deps._resolve_codename(
+            AptRepo(key_url="unused", keyring="unused", url=url)
+        )
+
+    def test_one_500_does_not_change_the_codename(
+        self,
+        apt_repo: tuple[str, dict[str, list[int]], list[str]],
+        warnings: list[str],
+    ) -> None:
+        url, plan, hits = apt_repo
+        plan["noble"] = [500, 200]
+
+        assert self._resolve(url) == "noble"
+        assert hits == ["noble 500", "noble 200"]
+        assert warnings == []
+
+    def test_a_404_falls_back_to_the_next_codename(
+        self,
+        apt_repo: tuple[str, dict[str, list[int]], list[str]],
+        warnings: list[str],
+    ) -> None:
+        url, plan, hits = apt_repo
+        plan["resolute"] = [200]
+
+        assert self._resolve(url) == "resolute"
+        assert hits == ["noble 404", "resolute 200"]
+        assert warnings == []
+
+    def test_an_unreachable_repo_keeps_the_codename_and_warns(
+        self,
+        apt_repo: tuple[str, dict[str, list[int]], list[str]],
+        warnings: list[str],
+    ) -> None:
+        url, plan, hits = apt_repo
+        plan["noble"] = [503]
+
+        assert self._resolve(url) == "noble"
+        # Every attempt went to noble, none walked on to an older codename.
+        assert hits == ["noble 503"] * common.URL_ATTEMPTS
+        [warning] = warnings
+        assert "'noble'" in warning
+        assert "503" in warning
+
+    def test_a_fallback_that_cannot_be_checked_is_used_not_skipped(
+        self,
+        apt_repo: tuple[str, dict[str, list[int]], list[str]],
+        warnings: list[str],
+    ) -> None:
+        url, plan, hits = apt_repo
+        plan["resolute"] = [502]
+
+        assert self._resolve(url) == "resolute"
+        assert hits == ["noble 404"] + ["resolute 502"] * common.URL_ATTEMPTS
+        [warning] = warnings
+        assert "'resolute'" in warning
+
+    def test_a_repo_with_no_matching_codename_keeps_the_os_one_and_warns(
+        self,
+        apt_repo: tuple[str, dict[str, list[int]], list[str]],
+        warnings: list[str],
+    ) -> None:
+        url, _, hits = apt_repo
+
+        assert self._resolve(url) == "noble"
+        assert hits == [
+            "noble 404",
+            "resolute 404",
+            "jammy 404",
+            "focal 404",
+            "trixie 404",
+        ]
+        assert warnings == [f"No supported codename found for {url}"]
+
+    def test_a_refused_connection_is_not_read_as_a_missing_codename(
+        self, monkeypatch: pytest.MonkeyPatch, warnings: list[str]
+    ) -> None:
+        _loopback_only(monkeypatch)
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+
+        assert self._resolve(f"http://127.0.0.1:{port}/deb") == "noble"
+        [warning] = warnings
+        assert "'noble'" in warning
+        assert "refused" in warning.lower()

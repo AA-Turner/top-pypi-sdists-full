@@ -8,6 +8,7 @@
 import io
 import sys
 import tempfile
+from decimal import Decimal
 
 import pytest
 
@@ -19,6 +20,19 @@ def test_invalid_chunk_size(cs):
     s = io.StringIO('"foo"')
     with pytest.raises((ValueError, TypeError)):
         rj.load(s, chunk_size=cs)
+
+
+@pytest.mark.parametrize('chunk_size', [4, 5, 65536])
+@pytest.mark.parametrize('stream_type', [io.StringIO, io.BytesIO])
+@pytest.mark.parametrize('use_decoder', [False, True])
+def test_null_at_chunk_boundary(chunk_size, stream_type, use_decoder):
+    document = '1234\0garbage'
+    stream = stream_type(document.encode() if stream_type is io.BytesIO else document)
+    with pytest.raises(rj.JSONDecodeError, match='Parse error at offset 4:'):
+        if use_decoder:
+            rj.Decoder()(stream, chunk_size=chunk_size)
+        else:
+            rj.load(stream, chunk_size=chunk_size)
 
 
 class ChunkedStream(io.StringIO):
@@ -74,6 +88,24 @@ def test_underlying_stream_write_error():
     stream = CattyStream()
     with pytest.raises(CattyError):
         rj.dump('1234567890', stream)
+
+
+@pytest.mark.parametrize('value', [
+    Decimal('NaN'), Decimal('sNaN'), Decimal('-NaN123'),
+    Decimal('1.5'), float('nan'),
+])
+@pytest.mark.parametrize('use_encoder', [False, True])
+@pytest.mark.parametrize('nested', [False, True])
+def test_nonfinite_closed_stream_error(value, use_encoder, nested):
+    stream = io.StringIO()
+    stream.close()
+    mode = rj.NM_DECIMAL | rj.NM_NAN
+    datum = [value] if nested else value
+    with pytest.raises(ValueError, match='I/O operation on closed file'):
+        if use_encoder:
+            rj.Encoder(number_mode=mode)(datum, stream=stream)
+        else:
+            rj.dump(datum, stream, number_mode=mode)
 
 
 def test_file_object():

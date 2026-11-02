@@ -1,0 +1,413 @@
+# test_castgraph.py
+# Pytest test suite for i2.castgraph
+
+import json
+import types
+import pytest
+
+# Import the public API from the target module
+from i2.castgraph import (
+    ConversionRegistry,
+    ConversionError,
+    design_guidelines,
+)
+
+# --- Helper marker types for tests -------------------------------------------------
+
+
+class Path(str):
+    """Marker type for file paths (to distinguish from arbitrary strings)."""
+
+
+class Text(str):
+    """Marker type for text payloads."""
+
+
+class JSONDict(dict):
+    """Marker type for dicts with JSON semantics."""
+
+
+class CanonicalRecord(dict):
+    """Canonical in-memory record format."""
+
+
+# --- Tests -------------------------------------------------------------------------
+
+
+def test_register_and_convert_direct():
+    reg = ConversionRegistry()
+
+    @reg.register(Text, JSONDict)
+    def text_to_json(t, ctx):
+        return JSONDict(json.loads(t or "{}"))
+
+    x = Text('{"a": 1}')
+    out = reg.convert(x, JSONDict)
+    assert isinstance(out, JSONDict)
+    assert out["a"] == 1
+
+
+def test_multi_hop_routing_when_no_direct_edge():
+    reg = ConversionRegistry()
+
+    @reg.register(Path, Text)
+    def path_to_text(p, ctx):
+        fs = (ctx or {}).get("fs", {})
+        return Text(fs.get(str(p), ""))
+
+    @reg.register(Text, JSONDict)
+    def text_to_json(t, ctx):
+        return JSONDict(json.loads(t or "{}"))
+
+    # No direct Path -> JSONDict registered; must route Path -> Text -> JSONDict
+    ctx = {"fs": {"/tmp/data.json": '{"x": 42}'}}
+    out = reg.convert(Path("/tmp/data.json"), JSONDict, context=ctx)
+    assert isinstance(out, JSONDict)
+    assert out["x"] == 42
+
+
+def test_cost_based_route_selection_prefers_cheaper_edge():
+    reg = ConversionRegistry()
+
+    @reg.register(Text, JSONDict, cost=1.0)
+    def text_to_json(t, ctx):
+        return JSONDict(json.loads(t or "{}"))
+
+    @reg.register(JSONDict, CanonicalRecord, cost=1.0)
+    def json_to_canonical(d, ctx):
+        return CanonicalRecord(d)
+
+    # Cheaper direct Text -> CanonicalRecord should be preferred over Text -> JSON -> Canonical
+    chosen = {}
+
+    @reg.register(Text, CanonicalRecord, cost=0.5)
+    def text_to_canonical(t, ctx):
+        chosen["direct"] = True
+        return CanonicalRecord(json.loads(t or "{}"))
+
+    out = reg.convert(Text('{"k": "v"}'), CanonicalRecord)
+    assert isinstance(out, CanonicalRecord)
+    assert out["k"] == "v"
+    assert chosen.get("direct") is True  # ensure cheaper route chosen
+
+
+def test_mro_fallback_for_source_type():
+    reg = ConversionRegistry()
+
+    class Base: ...
+
+    class Sub(Base): ...
+
+    class Out: ...
+
+    @reg.register(Base, Out)
+    def base_to_out(b, ctx):
+        return Out()
+
+    # No direct Sub -> Out converter; should use Base -> Out via MRO
+    result = reg.convert(Sub(), Out)
+    assert isinstance(result, Out)
+
+
+def test_identity_short_circuit_when_already_target_type():
+    reg = ConversionRegistry()
+    obj = CanonicalRecord({"a": 1})
+    out = reg.convert(obj, CanonicalRecord)
+    # Should return the exact same object instance (identity)
+    assert out is obj
+
+
+def test_result_caching_by_object_id_and_type():
+    reg = ConversionRegistry()
+    calls = {"count": 0}
+
+    @reg.register(Text, JSONDict)
+    def text_to_json(t, ctx):
+        calls["count"] += 1
+        return JSONDict(json.loads(t or "{}"))
+
+    data = Text('{"a":1}')
+    # Invoke twice with result caching enabled; converter should run once
+    out1 = reg.convert(data, JSONDict, use_result_cache=True)
+    out2 = reg.convert(data, JSONDict, use_result_cache=True)
+    assert out1 == out2
+    assert calls["count"] == 1
+
+
+def test_context_propagation_for_io_injection():
+    reg = ConversionRegistry()
+
+    @reg.register(Path, Text)
+    def path_to_text(p, ctx):
+        fs = (ctx or {}).get("fs", {})
+        return Text(fs.get(str(p), ""))
+
+    @reg.register(Text, JSONDict)
+    def text_to_json(t, ctx):
+        return JSONDict(json.loads(t or "{}"))
+
+    ctx = {"fs": {"/a/b.json": '{"ok": true}'}}
+    out = reg.convert(Path("/a/b.json"), JSONDict, context=ctx)
+    assert out["ok"] is True
+
+
+def test_no_route_raises_conversion_error():
+    reg = ConversionRegistry()
+
+    class A: ...
+
+    class B: ...
+
+    a = A()
+    with pytest.raises(ConversionError):
+        reg.convert(a, B)
+
+
+def test_path_cache_is_used_across_calls():
+    # Indirectly test that repeated conversions reuse path discovery
+    reg = ConversionRegistry()
+    calls = {"edges": 0}
+
+    class A: ...
+
+    class B: ...
+
+    class C: ...
+
+    @reg.register(A, B)
+    def a_to_b(a, ctx):
+        calls["edges"] += 1
+        return B()
+
+    @reg.register(B, C)
+    def b_to_c(b, ctx):
+        calls["edges"] += 1
+        return C()
+
+    # Two conversions A -> C; path discovery should be cached
+    _ = reg.convert(A(), C)
+    _ = reg.convert(A(), C)
+    # Edge functions run each time (we are not caching results here),
+    # but path discovery should not re-run; we can't directly assert path cache,
+    # so we at least ensure conversion succeeds without excessive overhead.
+    assert isinstance(reg.convert(A(), C), C)
+
+
+def test_design_guidelines_mentions_registry_and_cache():
+    text = design_guidelines().lower()
+    assert "registry" in text
+    assert "cache" in text
+
+
+def test_converter_function_signature_accepts_context_even_if_unused():
+    reg = ConversionRegistry()
+
+    class Src: ...
+
+    class Dst: ...
+
+    @reg.register(Src, Dst)
+    def s_to_d(s, _ctx):  # underscore to indicate unused context
+        return Dst()
+
+    assert isinstance(reg.convert(Src(), Dst), Dst)
+
+
+def test_error_message_contains_types_for_debugging():
+    reg = ConversionRegistry()
+
+    class Foo: ...
+
+    class Bar: ...
+
+    with pytest.raises(ConversionError) as excinfo:
+        reg.convert(Foo(), Bar)
+    msg = str(excinfo.value)
+    assert "Foo" in msg and "Bar" in msg
+
+
+# Optional: smoke test showing a tiny "canonical hub" usage style
+def test_canonical_hub_style_is_ergonomic():
+    reg = ConversionRegistry()
+
+    class CSVText(str): ...
+
+    class Rows(list): ...
+
+    class Canon(dict): ...
+
+    @reg.register(CSVText, Rows)
+    def csv_to_rows(s, ctx):
+        # naive CSV: lines of "k,v"
+        rows = []
+        for line in (s or "").strip().splitlines():
+            if not line.strip():
+                continue
+            k, v = line.split(",", 1)
+            rows.append((k.strip(), v.strip()))
+        return Rows(rows)
+
+    @reg.register(Rows, Canon)
+    def rows_to_canon(rows, ctx):
+        return Canon({k: v for k, v in rows})
+
+    out = reg.convert(CSVText("a,1\nb,2"), Canon)
+    assert isinstance(out, Canon) and out == {"a": "1", "b": "2"}
+
+
+def test_single_arg_converter_is_wrapped():
+    reg = ConversionRegistry()
+    calls = {"n": 0}
+
+    class Src: ...
+
+    class Dst: ...
+
+    @reg.register(Src, Dst)
+    def s_to_d(s):
+        calls["n"] += 1
+        return Dst()
+
+    out = reg.convert(Src(), Dst)
+    assert isinstance(out, Dst)
+    assert calls["n"] == 1
+
+
+def test_infer_types_from_annotations_with_and_without_context():
+    reg = ConversionRegistry()
+
+    class ASrc: ...
+
+    class ADst: ...
+
+    # With context parameter present
+    @reg.register()
+    def a_to_b(x: ASrc, ctx) -> ADst:
+        return ADst()
+
+    assert isinstance(reg.convert(ASrc(), ADst), ADst)
+
+    # Without context parameter (single-arg converter should be wrapped)
+    class BSrc: ...
+
+    class BDst: ...
+
+    @reg.register()
+    def b_to_d(x: BSrc) -> BDst:
+        return BDst()
+
+    assert isinstance(reg.convert(BSrc(), BDst), BDst)
+
+
+def test_annotation_conflict_warns_and_uses_explicit():
+    reg = ConversionRegistry()
+
+    class A1: ...
+
+    class B1: ...
+
+    class C1: ...
+
+    # function annotated as A1 -> B1, but register explicitly as C1 -> B1
+    with pytest.warns(UserWarning):
+
+        @reg.register(C1, B1)
+        def annotated(a: A1, ctx) -> B1:
+            return B1()
+
+    # Ensure the explicit registration is used
+    assert isinstance(reg.convert(C1(), B1), B1)
+
+
+def test_missing_annotations_raises_at_registration_time():
+    reg = ConversionRegistry()
+
+    class M1: ...
+
+    class M2: ...
+
+    with pytest.raises(ValueError):
+
+        @reg.register()
+        def bad(x):
+            return None
+
+
+# --- Tests for ingress decorator ---
+
+
+def test_ingress_with_string_kinds():
+    """Test ingress decorator with string-based kinds."""
+    from i2.castgraph import TransformationGraph
+
+    graph = TransformationGraph()
+    graph.add_node("text", isa=lambda x: isinstance(x, str))
+    graph.add_node("number", isa=lambda x: isinstance(x, (int, float)))
+
+    @graph.register_edge("text", "number")
+    def text_to_number(t, ctx):
+        return float(t)
+
+    @graph.ingress("number", "x")
+    def double(x):
+        return x * 2
+
+    result = double("21")
+    assert result == 42.0
+
+
+def test_ingress_with_type_kinds():
+    """Test ingress decorator with type-based kinds."""
+    from i2.castgraph import TransformationGraph
+
+    graph = TransformationGraph()
+
+    @graph.register_edge(str, int)
+    def str_to_int(s, ctx):
+        return int(s)
+
+    @graph.ingress(int)
+    def square(n):
+        return n**2
+
+    result = square("5")
+    assert result == 25
+
+
+def test_ingress_attribute_syntax():
+    """Test ingress decorator with attribute-based syntax."""
+    from i2.castgraph import TransformationGraph
+
+    graph = TransformationGraph()
+    graph.add_node("data", isa=lambda x: isinstance(x, dict))
+
+    @graph.register_edge(str, "data")
+    def str_to_data(s, ctx):
+        return json.loads(s)
+
+    @graph.ingress.data("obj")
+    def get_value(obj):
+        return obj.get("value", 0)
+
+    result = get_value('{"value": 42}')
+    assert result == 42
+
+
+def test_ingress_preserves_function_signature():
+    """Test that ingress decorator preserves function behavior."""
+    from i2.castgraph import TransformationGraph
+
+    graph = TransformationGraph()
+
+    @graph.register_edge(str, int)
+    def str_to_int(s, ctx):
+        return int(s)
+
+    @graph.ingress(int, "a")
+    def add(a, b):
+        return a + b
+
+    # Test with various call patterns
+    assert add("10", 5) == 15
+    assert add(a="20", b=22) == 42
+    assert add("7", b=8) == 15

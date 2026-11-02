@@ -461,7 +461,7 @@ def test_a_run_never_passes_its_busy_upload(tmp_path, monkeypatch):
     delivered: list[dict] = []
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce._execute", lambda j, client, path, op, run_ids: delivered.append(op))
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._execute", lambda j, client, path, op, run_ids: delivered.append(op))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     handle = _hold(journal, first["op_id"])
     try:
@@ -508,7 +508,6 @@ def test_an_admitted_upload_promotes_past_a_full_queue(tmp_path, monkeypatch):
     them behind this very upload."""
     journal = _journal(tmp_path)
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 1)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 1)
     _enqueue(journal, _source(tmp_path))
     journal.append_http("POST", "/v1/runs/run-1/metrics", {"loss": 0.1}, run_ref="run-1")
     assert journal.promote_waiting() == 1
@@ -535,7 +534,7 @@ def test_a_promotion_between_the_two_reads_cannot_release_the_close(tmp_path, mo
     delivered: list[dict] = []
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce._execute", lambda j, client, path, op, run_ids: delivered.append(op))
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._execute", lambda j, client, path, op, run_ids: delivered.append(op))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows._execute", lambda j, client, path, op, run_ids: delivered.append(op))
     real_positions, real_promote = Journal.waiting_positions, Journal.promote_waiting
 
@@ -560,7 +559,7 @@ def test_held_back_ops_are_reported_with_a_receipts_namespace_present(tmp_path, 
     assert len(journal.namespaces()) == 2
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler._execute", lambda *a, **k: None)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce._execute", lambda *a, **k: None)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._execute", lambda *a, **k: None)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._execute", lambda *a, **k: None)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows._execute", lambda *a, **k: None)
     handle = _hold(journal, first["op_id"])
     try:
@@ -628,7 +627,6 @@ def test_a_non_blocking_waiting_upload_holds_no_close(tmp_path):
 def test_waiting_uploads_count_against_the_op_ceiling(tmp_path, monkeypatch):
     journal = _journal(tmp_path)
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 2)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 2)
     _enqueue(journal, _source(tmp_path, name="a.jsonl"))
     _enqueue(journal, _source(tmp_path, name="b.jsonl"))
     with pytest.raises(journal_module.OutboxFull):
@@ -641,7 +639,6 @@ def test_the_disk_floor_prices_both_copies(tmp_path, monkeypatch):
     journal = _journal(tmp_path)
     src = _source(tmp_path, text="x" * 10_000)
     monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 1_000)
-    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 1_000)
     usage = journal_module.shutil.disk_usage(tmp_path)._replace(free=1_000 + 15_000)
     monkeypatch.setattr(journal_module.shutil, "disk_usage", lambda _path: usage)
     result = _enqueue(journal, src)

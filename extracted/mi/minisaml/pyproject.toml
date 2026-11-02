@@ -1,0 +1,86 @@
+[tool.poetry]
+name = "minisaml"
+version = "26.1"
+description = "Minimal SAML2 client"
+authors = ["Jonas Obrist <jonas.obrist@hennge.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/HENNGE/minisaml"
+repository = "https://github.com/HENNGE/minisaml"
+documentation = "https://minisaml.readthedocs.io"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed"
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+minisignxml = ">=26.1"
+lxml = "^6.0"
+yarl = ">=1.22.0"
+# poetry doesn't support extras in dev-dependencies, so these must be here as optional dependencies
+Sphinx = { version = "^8", optional = true }
+sphinxcontrib-mermaid = { version = "^2.0.0", optional = true }
+furo = { version = "^2025.12.19", optional = true }
+
+[tool.poetry.extras]
+docs = ["sphinx", "sphinxcontrib-mermaid", "furo"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=5.2"
+cryptography = "^46"
+cffi = "^2.0"
+flask = ">=3.1.2"
+mypy = ">=1.19"
+pytest-asyncio = "^0.18.3"
+time-machine = "^2.7.1"
+ruff = "^0.14.13"
+
+[tool.ruff]
+line-length = 88
+exclude = [
+    "examples/",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "E722", # Do not use bare `except`
+    "E501", # Line too long (104 > 88 characters)
+    "E731", # Do not assign a `lambda` expression, use a `def`
+    "UP046",
+    "UP047",
+]
+select = [
+    "DTZ",
+    "E",
+    "F",
+    "I",
+    "T201", # Don't commit print statements
+    "UP",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.mypy]
+strict = true
+files = "src/**/*.py,tests/*.py"
+
+[[tool.mypy.overrides]]
+module = "defusedxml.lxml"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "lxml.etree"
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

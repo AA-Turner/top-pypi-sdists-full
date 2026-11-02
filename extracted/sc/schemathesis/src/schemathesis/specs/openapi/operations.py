@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Generator, Iterator, Mapping, Sequence
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 from urllib.parse import unquote
 
@@ -26,7 +25,7 @@ from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transforms import decode_pointer, get_template_fields
 from schemathesis.core.transport import HTTP_METHODS_SCHEMA, is_http_method_schema
-from schemathesis.filters import FilterUsage
+from schemathesis.filters import FilterUsage, OperationContext
 from schemathesis.hooks import HookContext, dispatch_before_init_operation, dispatch_before_process_path
 from schemathesis.schemas import APIOperation, OperationDefinition
 from schemathesis.specs.openapi.adapter import OpenApiResponses
@@ -133,13 +132,6 @@ def _named_after_placeholder(parameters: list[OperationParameter], path: str) ->
     return [recovered if parameter is target else parameter for parameter in parameters]
 
 
-@dataclass(slots=True)
-class _FilterContext:
-    """`HasAPIOperation` wrapper; the inner operation is mutated per candidate during filtering."""
-
-    operation: APIOperation
-
-
 class RawSchemaVersion:
     """Bumped whenever the raw schema changes; shared by a schema and its clones, which share the raw schema."""
 
@@ -172,21 +164,22 @@ class OperationLoader:
             responses=None,
             security=None,
         )
-        self._filter_context = _FilterContext(operation=filter_operation)
+        self._filter_context = OperationContext(operation=filter_operation)
 
     def iter_all(self) -> Generator[Result[APIOperation, InvalidSchema], None, None]:
         """Yield every operation as `Ok` or `Err`.
 
-        Two `Err` shapes are possible: unresolved path-level reference (path known, methods unknown)
-        and per-operation parsing failure (path and method known).
+        Three `Err` shapes are possible: missing required `paths` (neither path nor method known),
+        unresolved path-level reference (path known, methods unknown) and per-operation parsing failure
+        (path and method known).
         """
         __tracebackhide__ = True
         schema = self.schema
         paths = schema._get_paths()
         if paths is None:
-            if parse_spec_version(schema.specification.version) >= _V3_1:
-                return
-            self._raise_invalid_schema(KeyError("paths"))
+            if parse_spec_version(schema.specification.version) < _V3_1:
+                yield self._into_err(KeyError("paths"), None, None)
+            return
 
         context = HookContext()
         filters_active = not schema.filter_set.is_empty()
@@ -601,4 +594,8 @@ class OperationLoader:
                 config=schema.config.output,
                 location=SchemaLocation.maybe_from_error_path(exc.instance_path, schema.specification.version),
             ) from None
+        if isinstance(error, InvalidSchema):
+            error.path = error.path or path
+            error.method = error.method or method
+            raise error
         raise InvalidSchema(SCHEMA_ERROR_SUGGESTION, path=path, method=method) from error

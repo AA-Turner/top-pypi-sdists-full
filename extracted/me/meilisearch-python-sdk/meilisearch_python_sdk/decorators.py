@@ -170,17 +170,17 @@ def add_documents(
                 )
                 return result
 
-            decorator_client = Client(
+            with Client(
                 url=connection_info.url, api_key=connection_info.api_key, verify=verify
-            )
-            _add_documents(
-                decorator_client,
-                index_name,
-                result,
-                batch_size,
-                primary_key,
-                wait_for_task,
-            )
+            ) as client:
+                _add_documents(
+                    client,
+                    index_name,
+                    result,
+                    batch_size,
+                    primary_key,
+                    wait_for_task,
+                )
 
             return result
 
@@ -210,7 +210,10 @@ async def _async_add_documents(
 
     if wait_for_task:
         async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-            [tg.create_task(async_client.wait_for_task(x.task_uid)) for x in tasks]
+            [
+                tg.create_task(async_client.wait_for_task(x.task_uid, timeout_in_ms=None))
+                for x in tasks
+            ]
 
 
 def _add_documents(
@@ -234,4 +237,4 @@ def _add_documents(
 
     if wait_for_task:
         for task in tasks:
-            client.wait_for_task(task.task_uid)
+            client.wait_for_task(task.task_uid, timeout_in_ms=None)

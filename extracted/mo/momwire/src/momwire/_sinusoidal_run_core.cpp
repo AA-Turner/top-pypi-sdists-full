@@ -5,6 +5,7 @@
 #pragma fp_contract(off)
 #endif
 
+#include "_libm_complex_inline.h"
 #include "_sinusoidal_run_core.h"
 
 #include <algorithm>
@@ -29,8 +30,14 @@ cd sig(int8_t s) { return cd(static_cast<double>(s), 0.0); }
 
 // `_evaluate_basis_at_points(seg_view, eval_seg, eval_s, alpha)` in free
 // space: each eval point's segment entries, `np.add.at` in entry order.
+std::vector<cd> basis_at_complex(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
+                                 const std::vector<cd> &alpha);
+std::vector<cd> slope_at_complex(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
+                                 const std::vector<cd> &alpha);
+
 std::vector<cd> basis_at(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
                          const std::vector<cd> &alpha) {
+    if (!fr.basis.k_entry.empty()) return basis_at_complex(fr, eval_seg, eval_s, alpha);
     const SegView &v = fr.basis;
     const double k = fr.k;
     std::vector<cd> out(eval_seg.size(), cd(0.0, 0.0));
@@ -52,6 +59,7 @@ std::vector<cd> basis_at(const Front &fr, const std::vector<ll> &eval_seg, const
 // `_evaluate_basis_slope_at_points(seg_view, eval_seg, eval_s, alpha)`
 std::vector<cd> slope_at(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
                          const std::vector<cd> &alpha) {
+    if (!fr.basis.k_entry.empty()) return slope_at_complex(fr, eval_seg, eval_s, alpha);
     const SegView &v = fr.basis;
     const double k = fr.k;
     std::vector<cd> out(eval_seg.size(), cd(0.0, 0.0));
@@ -64,6 +72,49 @@ std::vector<cd> slope_at(const Front &fr, const std::vector<ll> &eval_seg, const
             const cd ak = cm(alpha.at(static_cast<std::size_t>(v.jbasis[g])), cd(k, 0.0));
             const cd inner = csub(cm(v.B[g], cd(cos_e, 0.0)), cm(cm(sig(v.sigma[g]), v.C[g]), cd(sin_e, 0.0)));
             out[e] = cadd(out[e], cm(ak, inner));
+        }
+    }
+    return out;
+}
+
+// The `k_entry` branch of `_evaluate_basis_at_points` (a wholly-buried
+// deck's view, every entry at k_m, momwire#1607 B6a): per entry
+// `_basis_value(sig * AC, B, sig * C, k_e, s_e)`, times alpha, `np.add.at`
+std::vector<cd> basis_at_complex(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
+                                 const std::vector<cd> &alpha) {
+    const SegView &v = fr.basis;
+    std::vector<cd> out(eval_seg.size(), cd(0.0, 0.0));
+    for (std::size_t e = 0; e < eval_seg.size(); e++) {
+        const std::size_t s = static_cast<std::size_t>(eval_seg[e]);
+        const cd se(eval_s[e], 0.0);
+        for (ll q = v.starts[s]; q < v.starts[s + 1]; q++) {
+            const std::size_t g = static_cast<std::size_t>(q);
+            const cd k = v.k_entry[g];
+            const cd half = mw_libm_c::csin(cm(cm(cd(0.5, 0.0), k), se));  // `0.5 * k_e * s_e`
+            const cd sin_e = mw_libm_c::csin(cm(k, se));
+            const cd sig_ac = cm(sig(v.sigma[g]), v.AC[g]), sig_c = cm(sig(v.sigma[g]), v.C[g]);
+            const cd f = csub(cadd(sig_ac, cm(v.B[g], sin_e)), cm(cm(cd(2.0, 0.0), sig_c), cm(half, half)));
+            out[e] = cadd(out[e], cm(alpha.at(static_cast<std::size_t>(v.jbasis[g])), f));
+        }
+    }
+    return out;
+}
+
+// `_evaluate_basis_slope_at_points`' `k_entry` branch:
+// `k_e * (B * cos(k_e s) - sig * C * sin(k_e s))`
+std::vector<cd> slope_at_complex(const Front &fr, const std::vector<ll> &eval_seg, const std::vector<double> &eval_s,
+                                 const std::vector<cd> &alpha) {
+    const SegView &v = fr.basis;
+    std::vector<cd> out(eval_seg.size(), cd(0.0, 0.0));
+    for (std::size_t e = 0; e < eval_seg.size(); e++) {
+        const std::size_t s = static_cast<std::size_t>(eval_seg[e]);
+        for (ll q = v.starts[s]; q < v.starts[s + 1]; q++) {
+            const std::size_t g = static_cast<std::size_t>(q);
+            const cd k = v.k_entry[g];
+            const cd ks = cm(k, cd(eval_s[e], 0.0));
+            const cd cos_e = mw_libm_c::ccos(ks), sin_e = mw_libm_c::csin(ks);
+            const cd fd = cm(k, csub(cm(v.B[g], cos_e), cm(cm(sig(v.sigma[g]), v.C[g]), sin_e)));
+            out[e] = cadd(out[e], cm(alpha.at(static_cast<std::size_t>(v.jbasis[g])), fd));
         }
     }
     return out;
@@ -150,7 +201,7 @@ Engine::Engine(const nec4::StructureBuild &structure, const FillLinalg &la)
 const Front &Engine::front_at(std::size_t index) {
     if (!fronts_.at(index)) {
         try {
-            fronts_[index].reset(new Front(front(structure_.points[index].args)));
+            fronts_[index].reset(new Front(front(structure_.points[index].args, galerkin_)));
         } catch (const FrontError &e) {
             throw nec4::Refusal(e.message);  // the constructor's ValueError
         }
@@ -162,7 +213,12 @@ const nec4::EngineSolve &Engine::solve(std::size_t index) {
     if (!solves_.at(index)) {
         const Front &fr = front_at(index);
         const auto t0 = std::chrono::steady_clock::now();
-        const PortSolution ps = port_solution(fr, structure_.points[index].args, la_);
+        PortSolution ps;
+        try {
+            ps = port_solution(fr, fr.args, la_);  // the solved wires (momwire#1042)
+        } catch (const FrontError &e) {
+            throw nec4::Refusal(e.message);  // a ValueError the fill raises (the below remainder's)
+        }
         std::unique_ptr<nec4::EngineSolve> es(new nec4::EngineSolve);
         es->fill_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         es->n_basis = ps.n;
@@ -177,8 +233,7 @@ const nec4::EngineSolve &Engine::solve(std::size_t index) {
 }
 
 // `currents_at_knots(alpha)`: the knot path
-std::vector<std::vector<cd>> Engine::currents_at_knots(std::size_t index, const std::vector<cd> &alpha) {
-    const Front &fr = front_at(index);
+std::vector<std::vector<cd>> knot_currents(const Front &fr, const std::vector<cd> &alpha) {
     const Geometry &g = fr.geometry;
     std::vector<ll> eval_seg, target;
     std::vector<double> eval_s, weight;
@@ -210,12 +265,15 @@ std::vector<std::vector<cd>> Engine::currents_at_knots(std::size_t index, const 
     return out;
 }
 
+std::vector<std::vector<cd>> Engine::currents_at_knots(std::size_t index, const std::vector<cd> &alpha) {
+    return knot_currents(front_at(index), alpha);
+}
+
 // `currents_at_knots(alpha, s_array)` on one wire: a sample on an interior
 // knot (within 1e-12 of the wire's arc, or of 1 m) is the mean of the two
 // segments' edge values, any other the containing segment's value
-std::vector<cd> Engine::currents_at_arcs(std::size_t index, const std::vector<cd> &alpha, std::size_t w,
-                                         const std::vector<double> &sv) {
-    const Front &fr = front_at(index);
+std::vector<cd> arc_currents(const Front &fr, const std::vector<cd> &alpha, std::size_t w,
+                             const std::vector<double> &sv) {
     const Geometry &g = fr.geometry;
     if (w >= g.wire_first.size()) throw nec4::Declined("a sample on a wire the solver does not hold");
     const ll first = g.wire_first[w], n = g.wire_last[w] - first + 1;
@@ -275,16 +333,24 @@ std::vector<cd> Engine::currents_at_arcs(std::size_t index, const std::vector<cd
     return out;
 }
 
+std::vector<cd> Engine::currents_at_arcs(std::size_t index, const std::vector<cd> &alpha, std::size_t w,
+                                         const std::vector<double> &sv) {
+    return arc_currents(front_at(index), alpha, w, sv);
+}
+
 double Engine::solver_omega(std::size_t index) { return front_at(index).omega; }
+const nec4::WireDedup *Engine::dedup(std::size_t index) {
+    const Front &fr = front_at(index);
+    return fr.dedup.active ? &fr.dedup : nullptr;
+}
 double Engine::solver_eps0(std::size_t index) {
     (void)index;
     return 8.8541878188e-12;  // the sinusoidal solver's `eps` (the fill's eps~)
 }
 
 // `current_slopes(coeffs, s_array)`
-std::vector<std::vector<cd>> Engine::current_slopes(std::size_t index, const std::vector<cd> &alpha,
-                                                    const std::vector<std::vector<double>> &s) {
-    const Front &fr = front_at(index);
+std::vector<std::vector<cd>> slopes(const Front &fr, const std::vector<cd> &alpha,
+                                    const std::vector<std::vector<double>> &s) {
     const Geometry &g = fr.geometry;
     if (s.size() != g.wire_first.size()) throw nec4::Declined("a slope request for another wire count");
     std::vector<ll> segs;
@@ -321,18 +387,38 @@ std::vector<std::vector<cd>> Engine::current_slopes(std::size_t index, const std
     return out;
 }
 
+std::vector<std::vector<cd>> Engine::current_slopes(std::size_t index, const std::vector<cd> &alpha,
+                                                    const std::vector<std::vector<double>> &s) {
+    return slopes(front_at(index), alpha, s);
+}
+
 // `SinusoidalSolver.wire_loss_power(coeffs)[0]` (no lower medium, no
 // insulation): the I²R of each segment's current, |I|² integrated by
 // `_abs_shape_integrals`, summed per wire.
-double Engine::wire_loss_power(std::size_t index, const std::vector<cd> &coeffs) {
-    const Front &fr = front_at(index);
-    const nec4::SolverArgs &args = structure_.points[index].args;
+double loss_power(const Front &fr, const std::vector<cd> &coeffs) { return loss_power_at(fr, coeffs, fr.omega); }
+
+double loss_power_at(const Front &fr, const std::vector<cd> &coeffs, double omega) {
+    const nec4::SolverArgs &args = fr.args;  // the solved wires (momwire#1042)
     std::vector<cd> z_wire;
-    if (!wire_impedance_per_wire(fr, args, fr.omega, z_wire)) return 0.0;
-    const double k = fr.omega / fr.c;
-    if (k != fr.k) throw nec4::Declined("a loss readout at another wavenumber than the fill's");
+    if (!wire_impedance_per_wire(fr, args, omega, z_wire)) return 0.0;
+    const double k = omega / fr.c;
+    // a wholly-buried deck's view is at k_m, built for the fill's omega
+    if ((fr.buried || fr.crossing || fr.mixed) && k != fr.k)
+        throw nec4::Declined("a loss readout at another wavenumber than the fill's");
+    // `_buried_wire_loss_power`: the shapes at k_m, the view the fill built
+    // (`buried_medium` at omega / c is the front's medium)
+    // (a crossing deck: each segment at its medium's k, `np.where(below,
+    // k_m, k_p)`)
+    auto k_shape = [&](std::size_t s) {
+        if (fr.buried) return fr.medium.k_m;
+        if (fr.crossing || fr.mixed) return fr.below_seg[s] ? fr.medium.k_m : cd(fr.medium.k_p, 0.0);
+        return cd(k, 0.0);
+    };
+    // `_basis_coefs(geom, k)` at the readout's own k
+    SegView other;
+    if (k != fr.k) other = basis_coefs(fr, k);
     const Geometry &g = fr.geometry;
-    const SegView &v = fr.basis;
+    const SegView &v = k != fr.k ? other : fr.basis;
     const std::size_t n = static_cast<std::size_t>(g.n_segs);
     std::vector<cd> U(n, cd(0.0, 0.0)), Q(n, cd(0.0, 0.0)), R(n, cd(0.0, 0.0));
     for (std::size_t i = 0; i < n; i++)
@@ -351,7 +437,7 @@ double Engine::wire_loss_power(std::size_t index, const std::vector<cd> &coeffs)
         for (ll i = g.wire_first[w]; i <= g.wire_last[w]; i++) {
             const std::size_t s = static_cast<std::size_t>(i);
             const double h = g.seg_h[s];
-            const ShapeIntegrals si = abs_shape_integrals(cd(k, 0.0), h);
+            const ShapeIntegrals si = abs_shape_integrals(k_shape(s), h);
             const double au = cabs(U[s]), aq = cabs(Q[s]), ar = cabs(R[s]);
             const cd ur = elide ? cm(std::conj(R[s]), U[s]) : cm(U[s], std::conj(R[s]));
             const double cross = 2.0 * cm(ur, std::conj(si.i_g)).real();
@@ -359,6 +445,10 @@ double Engine::wire_loss_power(std::size_t index, const std::vector<cd> &coeffs)
             per_wire[w] = per_wire[w] + (0.5 * z_wire[w].real()) * i2;
         }
     return nec5::replay::np_pairwise(per_wire.data(), static_cast<int64_t>(per_wire.size()));
+}
+
+double Engine::wire_loss_power(std::size_t index, const std::vector<cd> &coeffs) {
+    return loss_power(front_at(index), coeffs);
 }
 
 nec4::RunEngine &Engines::engine_for(const nec4::StructureBuild &structure) {

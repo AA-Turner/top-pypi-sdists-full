@@ -1,7 +1,5 @@
 """KiaUvoApiCA.py"""
 
-# pylint:disable=unused-argument,missing-timeout,logging-fstring-interpolation,bare-except,invalid-name,missing-function-docstring
-
 import base64
 import datetime as dt
 import json
@@ -22,7 +20,7 @@ from urllib3.poolmanager import PoolManager, ProxyManager
 from urllib3.util.ssl_ import create_urllib3_context
 
 # Try to fix hyundai/cloudflare
-from .ApiImpl import ApiImpl, ClimateRequestOptions, OTPRequest
+from .ApiImpl import ApiImpl, ApiImplSession, ClimateRequestOptions, OTPRequest
 from .const import (
     BRAND_GENESIS,
     BRAND_HYUNDAI,
@@ -39,7 +37,10 @@ from .const import (
 )
 from .exceptions import (
     APIError,
+    AuthenticationBlockedError,
     AuthenticationError,
+    AuthenticationInvalidCredentialsError,
+    AuthenticationTokenExpiredError,
     InvalidAPIResponseError,
 )
 from .Token import Token
@@ -155,7 +156,7 @@ class SessionTicketAdapter(HTTPAdapter):
         return manager
 
 
-class RetrySession(requests.Session):
+class RetrySession(ApiImplSession):
     def __init__(self, max_retries=3, delay=2, backoff=2):
         super().__init__()
         self.mount("https://", SessionTicketAdapter())
@@ -273,23 +274,32 @@ class KiaUvoApiCA(ApiImpl):
         resCode / resMsg known values:
         - 0000: no error
         - 7110: OTP Required (MFA verification needed)
-        - 7402: Account Locked Out
+        - 7401: Wrong credential
+        - 7402 / 7530 / 7531 / 7532: Account Locked Out
         - 7403: Authentication expired
-        - 7404: Wrong username/password
+        - 7404 / 7435: Wrong username/password / account does not exist
         - 7445: Request could not be processed
-        - 7549: OTP verification failed (Genesis CA)
+        - 7549: Portal login captcha challenge required (
+          Hyundai-Kia-Connect/kia_uvo#2025)
         - 7602: Access token deleted
+        - 7603: Incorrect password
         - 7710: Device ID is not valid
 
         :param response: the API's JSON response
         """
 
         error_code_mapping = {
-            "7404": AuthenticationError,
-            "7402": AuthenticationError,
-            "7403": AuthenticationError,  # Auth expired - triggers re-login
-            "7549": AuthenticationError,  # OTP verification failed (Genesis CA)
-            "7602": AuthenticationError,  # Access token deleted - triggers re-login
+            "7401": AuthenticationInvalidCredentialsError,  # Wrong credential
+            "7404": AuthenticationInvalidCredentialsError,
+            "7435": AuthenticationInvalidCredentialsError,  # Account does not exist
+            "7603": AuthenticationInvalidCredentialsError,  # Incorrect password
+            "7402": AuthenticationBlockedError,  # Account locked out (7530-7532)
+            "7530": AuthenticationBlockedError,
+            "7531": AuthenticationBlockedError,
+            "7532": AuthenticationBlockedError,
+            "7403": AuthenticationTokenExpiredError,  # Expired - triggers re-login
+            "7602": AuthenticationTokenExpiredError,  # Access token deleted
+            "7549": AuthenticationError,  # Portal login captcha challenge
         }
         response_code = response.get("responseHeader", {}).get("responseCode")
         if response_code is None:
@@ -609,6 +619,9 @@ class KiaUvoApiCA(ApiImpl):
                 timezone=self.data_timezone,
                 dtc_count=entry["dtcCount"],
             )
+            vehicle.supports.window_control = False
+            vehicle.supports.valet_mode = False
+            vehicle.supports.svm = False
             result.append(vehicle)
         return result
 
@@ -643,6 +656,7 @@ class KiaUvoApiCA(ApiImpl):
         # Update service after the fact so we still have the old odometer
         # reading available for above.
         self._update_vehicle_properties_service(vehicle, service)
+        self._update_maintenance_report(token, vehicle)
         if vehicle.engine_type == ENGINE_TYPES.EV:
             charge = self._get_charge_limits(token, vehicle)
             self._update_vehicle_properties_charge(vehicle, charge)
@@ -701,11 +715,60 @@ class KiaUvoApiCA(ApiImpl):
         # Update service after the fact so we still have the old odometer
         # reading available for above.
         self._update_vehicle_properties_service(vehicle, service)
+        self._update_maintenance_report(token, vehicle)
 
         if vehicle.engine_type == ENGINE_TYPES.EV:
             charge = self._get_charge_limits(token, vehicle)
             self._update_vehicle_properties_charge(vehicle, charge)
             self._update_vehicle_properties_trip_details(token, vehicle)
+
+    def _update_maintenance_report(self, token: Token, vehicle: Vehicle) -> None:
+        """Fetch the newest monthly maintenance report when a new one appears.
+
+        The list call runs on every update (same per-poll pattern as the
+        next-service read); the report is re-fetched only when its id changes.
+        """
+        report_list = self._get_mvr_list(token, vehicle)
+        reports = report_list.get("MVRs") if isinstance(report_list, dict) else None
+        if not reports:
+            return
+        if get_child_value(reports[0], "reportId") in (
+            None,
+            vehicle.maintenance_report_last_id,
+        ):
+            return
+        vehicle.maintenance_report_last_id = get_child_value(reports[0], "reportId")
+        vehicle.maintenance_report_date = get_child_value(reports[0], "reportDate")
+        report = self._get_mvr_report(
+            token, vehicle, vehicle.maintenance_report_last_id
+        )
+        vehicle.maintenance_report_odometer = get_child_value(report, "odometer")
+        vehicle.maintenance_report_odometer_unit = report.get("odometerUnitStr")
+        vehicle.maintenance_report_systems = get_child_value(report, "systems")
+
+    def _get_mvr_list(self, token: Token, vehicle: Vehicle) -> dict[str, Any]:
+        url = self.API_URL + "gtmvrlst"
+        headers = self.API_HEADERS.copy()
+        headers["accessToken"] = token.access_token
+        headers["vehicleId"] = vehicle.id
+        response = self.sessions.post(url, headers=headers, json={})
+        response_json = response.json()
+        self._check_response_for_errors(response_json)
+        return response_json.get("result") or {}
+
+    def _get_mvr_report(
+        self, token: Token, vehicle: Vehicle, report_id: int
+    ) -> dict[str, Any]:
+        url = self.API_URL + "gtmvrrpt"
+        headers = self.API_HEADERS.copy()
+        headers["accessToken"] = token.access_token
+        headers["vehicleId"] = vehicle.id
+        response = self.sessions.post(
+            url, headers=headers, json={"reportId": report_id}
+        )
+        response_json = response.json()
+        self._check_response_for_errors(response_json)
+        return response_json.get("result", {}).get("MVR") or {}
 
     def _update_vehicle_properties_base(
         self, vehicle: Vehicle, state: dict[str, Any]

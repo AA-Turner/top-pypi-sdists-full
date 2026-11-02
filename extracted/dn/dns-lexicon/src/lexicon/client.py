@@ -8,16 +8,20 @@ import warnings
 from contextlib import AbstractContextManager
 from threading import local
 from types import TracebackType
-from typing import Any, Type
+from typing import Any
 
 import dns.resolver
 import tldextract
 
 from lexicon import config as helper_config
 from lexicon._private.discovery import find_providers as _find_providers
+from lexicon._private.discovery import is_installed as _is_installed
+from lexicon._private.discovery import list_extras as _list_extras
 from lexicon._private.discovery import load_provider_module as _load_provider_module
 from lexicon.exceptions import ProviderNotAvailableError
 from lexicon.interfaces import Provider
+
+LOGGER = logging.getLogger(__name__)
 
 
 class _ClientOperations:
@@ -102,15 +106,15 @@ class Client(AbstractContextManager):
         runtime_config = {}
 
         # Find the actual zone name for the domain
-        if self.config.resolve("lexicon:resolve_zone_name") is not None:
-            logging.debug(
-                "Parameter resolve_zone_name is set, use dnspython to resolve the actual zone name"
+        if self.config.resolve("lexicon:resolve_zone_name"):
+            LOGGER.debug(
+                "Parameter resolve_zone_name is enabled, use dnspython to resolve the actual zone name"
             )
             zone_name = dns.resolver.zone_for_name(domain)
             runtime_config["domain"] = zone_name.to_text(omit_final_dot=True)
         else:
-            logging.debug(
-                "Parameter resolve_zone_name is not set, use tldextract to guess the zone name from known TLDs"
+            LOGGER.debug(
+                "Parameter resolve_zone_name is not enabled, use tldextract to guess the zone name from known TLDs"
             )
             try:
                 domain_extractor = tldextract.TLDExtract(
@@ -119,11 +123,12 @@ class Client(AbstractContextManager):
                 )
             except TypeError:
                 domain_extractor = tldextract.TLDExtract(
-                    cache_file=_resolve_tldextract_cache_path(), include_psl_private_domains=True  # type: ignore
+                    cache_file=_resolve_tldextract_cache_path(),
+                    include_psl_private_domains=True,  # type: ignore
                 )
             domain_parts = domain_extractor(domain)
             runtime_config["domain"] = f"{domain_parts.domain}.{domain_parts.suffix}"
-        logging.debug(
+        LOGGER.debug(
             f"Actual zone name resolved for domain {domain}: {runtime_config['domain']}"
         )
 
@@ -139,7 +144,7 @@ class Client(AbstractContextManager):
                     delegated = delegated.rstrip(".")
                 # update domain
                 runtime_config["domain"] = f"{delegated}.{initial_domain}"
-            logging.debug(
+            LOGGER.debug(
                 f"Override resolved zone name because --delegated option is set: {runtime_config['domain']}"
             )
 
@@ -153,7 +158,7 @@ class Client(AbstractContextManager):
         self.config.add_config_source(helper_config.DictConfigSource(runtime_config), 0)
 
         provider_module = _load_provider_module(self.provider_name)
-        self.provider_class: Type[Provider] = getattr(provider_module, "Provider")
+        self.provider_class: type[Provider] = provider_module.Provider
 
         self._state = local()
         self._state.stack = []
@@ -166,15 +171,16 @@ class Client(AbstractContextManager):
             self._state.stack.append(provider)
 
             return _ClientOperations(provider)
-        except Exception as e:
+        except Exception:
             self._state.stack.append(None)
-            raise e
+            raise
 
     def __exit__(
         self,
-        __exc_type: type[BaseException] | None,
-        __exc_value: BaseException | None,
-        __traceback: TracebackType | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+        /,
     ) -> bool | None:
         provider: Provider | None = self._state.stack.pop(-1)
         if provider:
@@ -236,23 +242,26 @@ with Client(config) as operations:
         if not provider_name:
             raise AttributeError("provider_name")
 
-        try:
-            available = _find_providers()[provider_name]
-        except KeyError:
+        if provider_name not in _find_providers():
             raise ProviderNotAvailableError(
                 f"This provider ({provider_name}) is not supported by Lexicon."
             )
-        else:
-            if not available:
-                raise ProviderNotAvailableError(
-                    f"This provider ({provider_name}) has required extra dependencies that are missing. "
-                    f"Please run `pip install dns-lexicon[{provider_name}]` first before using it."
-                )
+
+        provider_class: type[Provider] = _load_provider_module(provider_name).Provider
+
+        required = provider_class.filter_required_extras(
+            _list_extras(provider_name), self.config
+        )
+        missing = [pkg for pkg in required if not _is_installed(pkg)]
+        if missing:
+            raise ProviderNotAvailableError(
+                provider_class.missing_extras_error(provider_name, missing)
+            )
 
 
 def _resolve_tldextract_cache_path() -> str:
     if os.environ.get("TLDEXTRACT_CACHE_FILE"):
-        logging.warning(
+        LOGGER.warning(
             "TLD_EXTRACT_CACHE_FILE environment variable is deprecated, please use TLDEXTRACT_CACHE_PATH instead."
         )
         os.environ["TLDEXTRACT_CACHE_PATH"] = os.environ["TLDEXTRACT_CACHE_FILE"]

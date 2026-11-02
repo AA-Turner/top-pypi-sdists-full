@@ -1,0 +1,11451 @@
+import asyncio
+import contextlib
+import json
+import logging
+import os
+import warnings
+import aiohttp
+import pyarrow as pa
+from meshagent.api.protocol import (
+    ClientProtocol,
+    Protocol,
+    ProtocolCloseKind,
+    ProtocolReconnectUnsupportedError,
+)
+from meshagent.api.specs.service import (
+    ContainerMountSpec,
+    ContainerTemplate,
+    ServiceSpec,
+)
+from meshagent.api.websocket_protocol import WebSocketClientProtocol
+from meshagent.api.participant_token import ApiScope
+from pydantic import (
+    BaseModel,
+    Field,
+    JsonValue,
+    ConfigDict,
+    PositiveInt,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+from typing import (
+    Optional,
+    Callable,
+    Dict,
+    List,
+    Any,
+    Literal,
+    Generic,
+    TypeVar,
+    AsyncIterator,
+    Awaitable,
+    NoReturn,
+)
+from collections.abc import AsyncIterable
+
+import base64
+import time
+import traceback
+
+from meshagent.api.chan import ChanClosed
+
+from meshagent.api.runtime import runtime, RuntimeDocument
+from meshagent.api.schema import MeshSchema
+from meshagent.api.messaging import MessageProtocolError, pack_message, unpack_message
+from meshagent.api.mime_types import guess_mime_type
+from meshagent.api.participant import Participant
+from meshagent.api.chan import Chan
+from meshagent.api.messaging import (
+    unpack_content,
+    unpack_content_parts,
+    BinaryContent,
+    ControlCloseStatus,
+    Content,
+    TextContent,
+    ErrorContent,
+    JsonContent,
+    EmptyContent,
+    FileContent,
+    pack_request_parts,
+    ensure_content,
+    _ControlContent,
+)
+from meshagent.api.error_codes import ErrorCode
+import uuid
+
+from datetime import date, datetime, timezone
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum, auto
+
+from meshagent.api.urls import websocket_room_url
+
+
+_ARROW_IPC_STREAM_MIME_TYPE = "application/vnd.apache.arrow.stream"
+
+
+def _schema_to_arrow_ipc(schema: pa.Schema) -> bytes:
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, schema):
+        pass
+    return sink.getvalue().to_pybytes()
+
+
+def _schema_from_arrow_ipc(data: bytes) -> pa.Schema:
+    return pa.ipc.open_stream(pa.BufferReader(data)).schema
+
+
+def _schema_to_required_table_json(schema: pa.Schema) -> str:
+    return base64.b64encode(_schema_to_arrow_ipc(schema)).decode("ascii")
+
+
+def _schema_from_required_table_json(value: object) -> pa.Schema:
+    if not isinstance(value, str):
+        raise RoomException("required table schema must be a base64 Arrow IPC schema")
+    try:
+        return _schema_from_arrow_ipc(base64.b64decode(value.encode("ascii")))
+    except Exception as exc:
+        raise RoomException(
+            "required table schema must be a base64 Arrow IPC schema"
+        ) from exc
+
+
+def _table_to_arrow_ipc(table: pa.Table | pa.RecordBatch) -> bytes:
+    if isinstance(table, pa.RecordBatch):
+        table = pa.Table.from_batches([table])
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    return sink.getvalue().to_pybytes()
+
+
+def _table_from_arrow_ipc(data: bytes) -> pa.Table:
+    return pa.ipc.open_stream(pa.BufferReader(data)).read_all()
+
+
+type DatasetSchemaInput = pa.Schema | dict[str, pa.DataType | pa.Field]
+
+
+def _normalize_dataset_schema(schema: DatasetSchemaInput) -> pa.Schema:
+    if isinstance(schema, pa.Schema):
+        return schema
+
+    fields = list[pa.Field]()
+    for name, value in schema.items():
+        if isinstance(value, pa.Field):
+            fields.append(
+                pa.field(
+                    name,
+                    value.type,
+                    nullable=value.nullable,
+                    metadata=value.metadata,
+                )
+            )
+            continue
+        if isinstance(value, pa.DataType):
+            fields.append(pa.field(name, value))
+            continue
+        raise TypeError(
+            f"dataset schema field '{name}' must be a pyarrow.DataType or pyarrow.Field"
+        )
+    return pa.schema(fields)
+
+
+class DatasetValueEncoder(ABC):
+    @abstractmethod
+    def encode_dataset_value(self) -> Any:
+        raise NotImplementedError
+
+
+type DatasetJsonScalarValue = None | bool | int | float | str
+type DatasetJsonValue = (
+    DatasetJsonScalarValue | list["DatasetJsonValue"] | dict[str, "DatasetJsonValue"]
+)
+
+TOOL_SEARCH_ANNOTATION = "meshagent.tool_search"
+
+
+def _normalize_dataset_json_value(
+    value: Any,
+    *,
+    path: str = "json",
+) -> DatasetJsonValue:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, list):
+        return [
+            _normalize_dataset_json_value(item, path=f"{path}[{index}]")
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, dict):
+        normalized = dict[str, DatasetJsonValue]()
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError(f"{path} object keys must be strings")
+            normalized[key] = _normalize_dataset_json_value(
+                item,
+                path=f"{path}.{key}",
+            )
+        return normalized
+    raise TypeError(f"{path} must contain only JSON-compatible values")
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetExpression(DatasetValueEncoder):
+    expression: str
+
+    def __post_init__(self) -> None:
+        normalized = self.expression.strip()
+        if normalized == "":
+            raise ValueError("dataset expression must not be empty")
+        object.__setattr__(self, "expression", normalized)
+
+    def encode_dataset_value(self) -> dict[str, str]:
+        return {"expression": self.expression}
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetStruct(DatasetValueEncoder):
+    fields: dict[str, "DatasetValue"]
+
+    def __post_init__(self) -> None:
+        normalized = dict[str, DatasetValue]()
+        for key, value in self.fields.items():
+            if not isinstance(key, str):
+                raise TypeError("dataset struct keys must be strings")
+            normalized[key] = value
+        object.__setattr__(self, "fields", normalized)
+
+    def to_json(self) -> dict[str, Any]:
+        return {key: _encode_record_value(value) for key, value in self.fields.items()}
+
+    def encode_dataset_value(self) -> dict[str, dict[str, Any]]:
+        return {"struct": self.to_json()}
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetJson(DatasetValueEncoder):
+    value: DatasetJsonValue
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "value",
+            _normalize_dataset_json_value(self.value),
+        )
+
+    def to_json(self) -> DatasetJsonValue:
+        return self.value
+
+    def encode_dataset_value(self) -> dict[str, DatasetJsonValue]:
+        return {"json": self.value}
+
+
+type DatasetScalarValue = (
+    None | bool | int | float | str | bytes | uuid.UUID | date | datetime
+)
+type DatasetValue = DatasetScalarValue | list["DatasetValue"] | DatasetValueEncoder
+type DatasetRecord = dict[str, DatasetValue]
+type DatasetRows = list[DatasetRecord]
+type DatasetRowChunks = AsyncIterable[DatasetRows] | list[DatasetRows]
+
+
+def _completed_future() -> asyncio.Future[None]:
+    fut = asyncio.get_running_loop().create_future()
+    fut.set_result(None)
+    return fut
+
+
+def _parse_dataset_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("dataset date value is not valid") from exc
+
+
+def _parse_dataset_timestamp(value: str) -> datetime:
+    normalized = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ValueError("dataset timestamp value is not valid") from exc
+
+
+def _decode_record_value(value: Any) -> DatasetValue:
+    if isinstance(value, dict):
+        if len(value) != 1:
+            raise ValueError("dataset object values must use a single-key type wrapper")
+        wrapper, payload = next(iter(value.items()))
+        if wrapper == "binary":
+            if not isinstance(payload, str):
+                raise ValueError("dataset binary values must be base64 strings")
+            return base64.b64decode(payload.encode())
+        if wrapper == "uuid":
+            if not isinstance(payload, str):
+                raise ValueError("dataset uuid values must be strings")
+            return uuid.UUID(payload)
+        if wrapper == "expression":
+            if not isinstance(payload, str):
+                raise ValueError("dataset expression values must be strings")
+            return DatasetExpression(payload)
+        if wrapper == "date":
+            if not isinstance(payload, str):
+                raise ValueError("dataset date values must be strings")
+            return _parse_dataset_date(payload)
+        if wrapper == "timestamp":
+            if not isinstance(payload, str):
+                raise ValueError("dataset timestamp values must be strings")
+            return _parse_dataset_timestamp(payload)
+        if wrapper == "list":
+            if not isinstance(payload, list):
+                raise ValueError("dataset list values must be arrays")
+            return [_decode_record_value(item) for item in payload]
+        if wrapper == "struct":
+            if not isinstance(payload, dict):
+                raise ValueError("dataset struct values must be objects")
+            return DatasetStruct(
+                {key: _decode_record_value(item) for key, item in payload.items()}
+            )
+        if wrapper == "json":
+            return DatasetJson(payload)
+        raise ValueError(f"unsupported dataset value wrapper '{wrapper}'")
+
+    if isinstance(value, list):
+        raise ValueError("dataset list values must use a {'list': [...]} wrapper")
+
+    return value
+
+
+def decode_records(records: list[dict[str, Any]]) -> DatasetRows:
+    decoded_records = list[dict[str, DatasetValue]]()
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("dataset records must be objects")
+        decoded_records.append(
+            {str(key): _decode_record_value(value) for key, value in record.items()}
+        )
+    return decoded_records
+
+
+def _encode_record_value(value: DatasetValue | Any) -> Any:
+    if isinstance(value, DatasetValueEncoder):
+        return value.encode_dataset_value()
+
+    if isinstance(value, bytes):
+        return {"binary": base64.b64encode(value).decode()}
+
+    if isinstance(value, uuid.UUID):
+        return {"uuid": str(value)}
+
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc)
+        return {"timestamp": value.isoformat().replace("+00:00", "Z")}
+
+    if isinstance(value, date):
+        return {"date": value.isoformat()}
+
+    if isinstance(value, list):
+        return {"list": [_encode_record_value(item) for item in value]}
+
+    if isinstance(value, dict):
+        raise TypeError("dataset object values must use DatasetStruct or DatasetJson")
+
+    return value
+
+
+def encode_records(records: DatasetRows):
+    transformed_records = list[dict[str, Any]]()
+    for record in records:
+        transformed_records.append(
+            {str(key): _encode_record_value(value) for key, value in record.items()}
+        )
+    return transformed_records
+
+
+logger = logging.getLogger("room_server_client")
+logger.setLevel(logging.WARN)
+
+
+def _normalize_sync_path(path: str) -> str:
+    normalized = path
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    while normalized.startswith("/"):
+        normalized = normalized[1:]
+    if normalized == ".":
+        return ""
+    return normalized
+
+
+class RoomException(Exception):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int = 400,
+        code: int | None = ErrorCode.INVALID_REQUEST,
+    ):
+        self.status_code = status_code
+        self.code = code
+        super().__init__(message)
+
+
+class RoomDisabledError(RoomException):
+    """The room exists but its desired state is disabled."""
+
+    def __init__(self, message: str = "This room is currently disabled.") -> None:
+        super().__init__(message, status_code=423, code=None)
+
+
+class RoomAccessDeniedException(RoomException):
+    def __init__(message: str):
+        super().__init__(message, status_code=403)
+
+
+_builtins = {
+    "thread",
+    "document",
+    "transcript",
+    "storage",
+}
+
+
+class Requirement(ABC):
+    def __init__(
+        self, *, name: str, callable: Optional[bool] = None, timeout: float = 30
+    ):
+        self.timeout = timeout
+        self.name = name
+        if callable is None and name in _builtins:
+            callable = True
+        else:
+            callable = False
+
+        self.callable = callable
+
+    @staticmethod
+    def from_json(r: dict) -> "Requirement":
+        if "toolkit" in r:
+            return RequiredToolkit(
+                name=r["toolkit"], tools=r["tools"], callable=r.get("callable", None)
+            )
+
+        if "table" in r:
+            return RequiredTable(
+                name=r["table"],
+                schema=_schema_from_required_table_json(r.get("schema")),
+                namespace=r.get("namespace"),
+                scalar_indexes=r.get("scalar_indexes"),
+                full_text_search_indexes=r.get("full_text_search_indexes"),
+                vector_indexes=r.get("vector_indexes"),
+            )
+
+        if "schema" in r:
+            json = r.get("json")
+            return RequiredSchema(
+                name=r["schema"],
+                schema=MeshSchema.from_json(json) if json is not None else None,
+            )
+
+        raise RoomException("invalid requirement json")
+
+    @abstractmethod
+    def to_json(self):
+        pass
+
+
+class _MakeCallRequest(BaseModel):
+    url: str
+    arguments: dict
+    name: str
+    api: Optional[ApiScope] = None
+
+
+class RequiredToolkit(Requirement):
+    # Require a toolkit to be present for this tool to execute, optionally a list of specific tools in the toolkit
+    def __init__(
+        self,
+        *,
+        name: str,
+        tools: Optional[list["str"]] = None,
+        callable: Optional[bool] = None,
+        participant_name: Optional[str] = None,
+        timeout: float = None,
+    ):
+        super().__init__(name=name, callable=callable, timeout=timeout)
+        self.tools = tools
+        self.participant_name = participant_name
+
+    def to_json(self):
+        return {
+            "toolkit": self.name,
+            "tools": self.tools,
+            "callable": self.callable,
+            "participant_name": self.participant_name,
+        }
+
+
+class RequiredSchema(Requirement):
+    def __init__(
+        self,
+        *,
+        name: str,
+        callable: Optional[bool] = None,
+        schema: Optional[MeshSchema] = None,
+        timeout: float = None,
+    ):
+        super().__init__(name=name, callable=callable, timeout=timeout)
+        self.schema = schema
+
+    def to_json(self):
+        return {
+            "schema": self.name,
+            "callable": self.callable,
+            "json": self.schema.to_json() if self.schema is not None else None,
+        }
+
+
+class RequiredTable(Requirement):
+    def __init__(
+        self,
+        *,
+        name: str,
+        schema: pa.Schema,
+        namespace: Optional[list[str]] = None,
+        scalar_indexes: Optional[list[str]] = None,
+        full_text_search_indexes: Optional[list[str]] = None,
+        vector_indexes: Optional[list[str]] = None,
+    ):
+        super().__init__(name=name)
+        self.schema = schema
+        self.namespace = namespace
+        self.scalar_indexes = scalar_indexes
+        self.full_text_search_indexes = full_text_search_indexes
+        self.vector_indexes = vector_indexes
+
+    def to_json(self):
+        return {
+            "table": self.name,
+            "schema": _schema_to_required_table_json(self.schema),
+            "namespace": self.namespace,
+            "scalar_indexes": self.scalar_indexes,
+            "full_text_search_indexes": self.full_text_search_indexes,
+            "vector_indexes": self.vector_indexes,
+        }
+
+
+class _QueuedSync:
+    def __init__(self, path: str, base64: str, protocol: ClientProtocol | None = None):
+        self.path = path
+        self.base64 = base64
+        self.protocol = protocol
+
+
+class _PendingRequest:
+    def __init__(
+        self,
+        *,
+        request_type: str,
+        created_at: float,
+        creation_trace: Optional[str] = None,
+    ):
+        self.request_type = request_type
+        self.created_at = created_at
+        self.creation_trace = creation_trace
+        self.fut = asyncio.Future[FileContent | None | dict | str]()
+
+
+@dataclass(frozen=True, slots=True)
+class _RoomClientTerminalState:
+    request_message: str
+    tool_call_message: str
+    message_send_message: str
+
+    def request_error(self) -> "RoomException":
+        return RoomException(self.request_message, code=None)
+
+    def tool_call_error(self) -> "RoomException":
+        return RoomException(self.tool_call_message, code=None)
+
+    def message_send_error(self) -> "RoomException":
+        return RoomException(self.message_send_message, code=None)
+
+
+class LocalParticipant(Participant):
+    def __init__(self, *, id: str, attributes: dict, room: "RoomClient"):
+        super().__init__(id=id, attributes=attributes)
+        self._room = room
+
+    @property
+    def room(self) -> "RoomClient":
+        return self._room
+
+    def _replace_identity(self, *, participant_id: str, attributes: dict) -> None:
+        self._id = participant_id
+        self._attributes = attributes.copy()
+
+    def set_attribute(self, name: str, value) -> asyncio.Future[None]:
+        self._attributes[name] = value
+        self._room._send_local_attributes_nowait({name: value})
+        return _completed_future()
+
+
+class RemoteParticipant(Participant):
+    def __init__(
+        self,
+        *,
+        id: str,
+        role: Optional[str] = None,
+        attributes: Optional[dict] = None,
+        online: bool | None = None,
+    ):
+        if attributes is None:
+            attributes = {}
+
+        if role is None:
+            role = "unknown"
+
+        self._role = role
+        self._online = online
+
+        super().__init__(id=id, attributes=attributes)
+
+    def set_attribute(self, name: str, value):
+        raise ("You can't set the attributes of another participant")
+
+    @property
+    def role(self):
+        return self._role
+
+    @property
+    def online(self) -> bool | None:
+        return self._online
+
+    def _set_online(self, online: bool) -> None:
+        self._online = online
+
+
+class MeshDocument(RuntimeDocument):
+    def __init__(self, **arguments):
+        super().__init__(**arguments)
+        self._synchronized = asyncio.Future()
+
+    @property
+    def synchronized(self) -> asyncio.Future:
+        return self._synchronized
+
+
+class FileHandle:
+    def __init__(self, id: str):
+        self._id = id
+
+    @property
+    def id(self):
+        return self._id
+
+
+class RoomMessage:
+    def __init__(
+        self,
+        *,
+        from_participant_id: str,
+        type: str,
+        message: dict,
+        attachment: Optional[bytes] = None,
+    ):
+        self.from_participant_id = from_participant_id
+        self.type = type
+        self.message = message
+        self.attachment = attachment
+
+
+class _QueuedRoomMessage(RoomMessage):
+    def __init__(
+        self,
+        *,
+        from_participant_id,
+        type,
+        message,
+        attachment=None,
+        to: Participant | None,
+        drop_if_offline: bool,
+    ):
+        super().__init__(
+            from_participant_id=from_participant_id,
+            type=type,
+            message=message,
+            attachment=attachment,
+        )
+        self.to = to
+        self.drop_if_offline = drop_if_offline
+        self.fut: asyncio.Future[bool] | None = (
+            None if drop_if_offline else asyncio.Future()
+        )
+
+
+class _ProtocolStartupFailure(Exception):
+    def __init__(
+        self,
+        *,
+        kind: ProtocolCloseKind,
+        reason: str | None,
+    ) -> None:
+        self.kind = kind
+        self.reason = reason
+        super().__init__(reason or kind.value)
+
+
+@dataclass(frozen=True, slots=True)
+class _ProtocolRetryResult:
+    connected: bool
+    close_kind: ProtocolCloseKind | None = None
+    close_reason: str | None = None
+
+
+def _is_retryable_startup_close(
+    *,
+    kind: ProtocolCloseKind,
+    reason: str | None,
+) -> bool:
+    if kind in (ProtocolCloseKind.ERROR, ProtocolCloseKind.SERVER):
+        return True
+
+    normalized_reason = (reason or "").lower()
+    return "1013" in normalized_reason
+
+
+class _RoomProtocolProxy:
+    def __init__(self, *, room: "RoomClient") -> None:
+        self._room = room
+        self._handlers = dict[str, Callable]()
+
+    def _bind(self, protocol: Protocol) -> None:
+        for typ, handler in self._handlers.items():
+            if protocol.get_handler(typ) == handler:
+                continue
+            protocol.register_handler(typ, handler)
+
+    def _unbind(self, protocol: Protocol) -> None:
+        for typ, handler in self._handlers.items():
+            current_handler = protocol.get_handler(typ)
+            if current_handler == handler:
+                protocol.unregister_handler(typ, current_handler)
+
+    def register_handler(self, typ: str, handler: Callable) -> None:
+        if typ in self._handlers:
+            raise Exception("already registered handler for " + typ)
+        self._handlers[typ] = handler
+        self._bind(self._room._protocol_instance)
+
+    def unregister_handler(self, typ: str, handler: Callable) -> None:
+        registered_handler = self._handlers[typ]
+        assert registered_handler == handler
+        self._handlers.pop(typ)
+        current_handler = self._room._protocol_instance.get_handler(typ)
+        if current_handler == registered_handler:
+            self._room._protocol_instance.unregister_handler(typ, current_handler)
+
+    def get_handler(self, typ: str) -> Callable | None:
+        return self._handlers.get(typ)
+
+    async def send(
+        self,
+        type: str,
+        data: bytes | str,
+        message_id: int | None = None,
+    ) -> int:
+        protocol = self._room._protocol_instance
+        if (
+            self._room._entered
+            and not self._room.is_connected
+            and not self._room._allow_disconnected_requests
+        ):
+            raise self._room._disconnected_error(
+                base_message="room connection is disconnected"
+            )
+        return await protocol.send(type=type, data=data, message_id=message_id)
+
+    def send_nowait(
+        self,
+        type: str,
+        data: bytes | str,
+        message_id: int | None = None,
+    ) -> int:
+        protocol = self._room._protocol_instance
+        if (
+            self._room._entered
+            and not self._room.is_connected
+            and not self._room._allow_disconnected_requests
+        ):
+            raise self._room._disconnected_error(
+                base_message="room connection is disconnected"
+            )
+        return protocol.send_nowait(type=type, data=data, message_id=message_id)
+
+    def next_message_id(self) -> int:
+        if (
+            self._room._entered
+            and not self._room.is_connected
+            and not self._room._allow_disconnected_requests
+        ):
+            raise self._room._disconnected_error(
+                base_message="room connection is disconnected"
+            )
+        return self._room._protocol_instance.next_message_id()
+
+    async def wait_for_close(self) -> None:
+        await self._room.wait_for_close()
+
+    def close_reason(self) -> str | None:
+        return self._room.close_reason()
+
+    def close_kind(self) -> ProtocolCloseKind | None:
+        return self._room.close_kind()
+
+    @property
+    def is_open(self) -> bool:
+        return self._room._protocol_instance.is_open
+
+    @property
+    def is_closed(self) -> bool:
+        return self._room.is_closed
+
+    @property
+    def token(self) -> str | None:
+        return self._room._protocol_instance.token
+
+    @property
+    def url(self) -> str | None:
+        return self._room._protocol_instance.url
+
+
+class RoomClient:
+    def __init__(
+        self,
+        *,
+        protocol_factory: Callable[[], Protocol] | None = None,
+        reconnect_timeout: float | None = None,
+        session: aiohttp.ClientSession | None = None,
+    ):
+        if reconnect_timeout is not None and reconnect_timeout < 0:
+            raise ValueError("reconnect_timeout must be None or a non-negative number")
+
+        if protocol_factory is None:
+            room_name = os.getenv("MESHAGENT_ROOM")
+            token = os.getenv("MESHAGENT_TOKEN")
+
+            if room_name is not None and token is not None:
+
+                def protocol_factory() -> Protocol:
+                    return WebSocketClientProtocol(
+                        url=websocket_room_url(room_name=room_name),
+                        token=token,
+                        session=session,
+                    )
+
+        if protocol_factory is None:
+            raise RoomException(
+                "protocol_factory or environment variables must be configured to create a room client"
+            )
+
+        self._protocol_factory = protocol_factory
+        self._reconnect_timeout = reconnect_timeout
+        self._reconnect_retry_base_delay_seconds = 0.5
+        self._reconnect_retry_max_delay_seconds = 30.0
+        self._protocol_instance = self._protocol_factory()
+        self.protocol = _RoomProtocolProxy(room=self)
+        self.protocol.register_handler("room_ready", self._handle_ready)
+        self.protocol.register_handler("room.status", self._handle_status)
+        self.protocol.register_handler("connected", self._handle_participant)
+        self.protocol.register_handler("__response__", self._handle_response)
+        self.protocol.register_handler(
+            "room.tool_call_response_chunk",
+            self._handle_tool_call_response_chunk,
+        )
+
+        self._pending_requests = dict[int, _PendingRequest]()
+        self._ignored_response_labels = dict[int, str]()
+        self._debug_pending_requests = os.getenv(
+            "MESHAGENT_DEBUG_PENDING_REQUESTS", ""
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self._debug_pending_request_stacks = os.getenv(
+            "MESHAGENT_DEBUG_PENDING_REQUESTS_STACK", ""
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self._local_participant = None
+        self._ready = asyncio.Future()
+        self._connection_ready = asyncio.Future[bool]()
+        self._local_participant_ready = asyncio.Future[bool]()
+        self._events = {}
+        self._tool_call_streams = dict[str, _ToolCallChunkStream]()
+        self._close_watcher_task: Optional[asyncio.Task[None]] = None
+        self._lifecycle_task: asyncio.Task[None] | None = None
+        self._terminal_state: _RoomClientTerminalState | None = None
+        self._room_closed = asyncio.Future[None]()
+        self._entered = False
+        self._closing = False
+        self._dismissed = False
+        self._dismiss_task: asyncio.Task[None] | None = None
+        self._connected = False
+        self._allow_disconnected_requests = False
+        self._close_kind: ProtocolCloseKind | None = None
+        self._close_reason: str | None = None
+
+        self.agents = AgentsClient(room=self)
+        self.storage = StorageClient(room=self)
+        self.messaging = MessagingClient(room=self)
+        self.sync = SyncClient(room=self)
+        self.livekit = LivekitClient(room=self)
+        self.developer = DeveloperClient(room=self)
+        self.queues = QueuesClient(room=self)
+        self.datasets = DatasetsClient(room=self)
+        self.sqlite = SqliteClient(room=self)
+        self.memory = MemoryClient(room=self)
+        self.containers = ContainersClient(room=self)
+        self.mounts = MountsClient(room=self)
+        self.services = ServicesClient(room=self)
+
+        self._room_url = None
+        self._room_name = None
+        self._session_id = None
+
+    def on(self, event_name: str, func: Callable):
+        if event_name not in self._events:
+            self._events[event_name] = []
+        self._events[event_name].append(func)
+
+    def off(self, event_name: str, func: Callable) -> None:
+        handlers = self._events.get(event_name)
+        if handlers is None:
+            return
+        with contextlib.suppress(ValueError):
+            handlers.remove(func)
+        if len(handlers) == 0:
+            self._events.pop(event_name, None)
+
+    def emit(self, event_name, **kwargs):
+        """Call all handlers associated with the given event."""
+        handlers = self._events.get(event_name, [])
+        for handler in handlers:
+            handler(**kwargs)
+
+    async def __aenter__(self):
+        try:
+            try:
+                await self._open_protocol(initial=True)
+            except _ProtocolStartupFailure as ex:
+                if (
+                    not _is_retryable_startup_close(kind=ex.kind, reason=ex.reason)
+                    or self._reconnect_timeout == 0
+                ):
+                    self._set_startup_terminal_state(
+                        close_kind=ex.kind,
+                        close_reason=ex.reason,
+                        protocol=self._protocol_instance,
+                    )
+                    raise self._startup_exception(
+                        close_kind=ex.kind,
+                        close_reason=ex.reason,
+                        protocol=self._protocol_instance,
+                    )
+
+                await self._close_protocol(self._protocol_instance)
+                retry_result = await self._retry_protocol_connection(
+                    disconnect_reason=ex.reason,
+                    protocol_factory_failure_log_message=(
+                        "unable to create replacement room protocol during initial startup"
+                    ),
+                    attempt_failure_log_message="room startup attempt failed",
+                    attempt=self._attempt_initial_protocol_startup,
+                )
+                if not retry_result.connected:
+                    self._finalize_initial_startup_retry_failure(
+                        retry_result=retry_result
+                    )
+            except Exception as ex:
+                non_retryable_failure = self._non_retryable_connect_failure(ex=ex)
+                if non_retryable_failure is not None:
+                    self._finalize_initial_startup_retry_failure(
+                        retry_result=non_retryable_failure
+                    )
+                if self._reconnect_timeout == 0:
+                    self._close_after_unexpected_disconnect(close_reason=str(ex))
+                    raise self._startup_exception(
+                        close_kind=ProtocolCloseKind.ERROR,
+                        close_reason=str(ex),
+                    ) from ex
+
+                await self._close_protocol(self._protocol_instance)
+                retry_result = await self._retry_protocol_connection(
+                    disconnect_reason=str(ex),
+                    protocol_factory_failure_log_message=(
+                        "unable to create replacement room protocol during initial startup"
+                    ),
+                    attempt_failure_log_message="room startup attempt failed",
+                    attempt=self._attempt_initial_protocol_startup,
+                )
+                if not retry_result.connected:
+                    self._finalize_initial_startup_retry_failure(
+                        retry_result=retry_result
+                    )
+            await self.sync.start()
+            await self.messaging.start()
+            self._entered = True
+            self._mark_connected()
+            self.messaging._on_room_reconnect()
+            self._lifecycle_task = asyncio.create_task(self._connection_lifecycle())
+            return self
+        except Exception:
+            with contextlib.suppress(Exception):
+                await self.sync.stop()
+            with contextlib.suppress(Exception):
+                await self.messaging.stop()
+            with contextlib.suppress(Exception):
+                await self._close_protocol(self._protocol_instance)
+            raise
+
+    @property
+    def is_connected(self) -> bool:
+        return self._connected
+
+    @property
+    def is_closed(self) -> bool:
+        return (
+            self._closing
+            or self._terminal_state is not None
+            or self._room_closed.done()
+        )
+
+    def close_kind(self) -> ProtocolCloseKind | None:
+        if self._close_kind is not None:
+            return self._close_kind
+        return self._protocol_instance.close_kind()
+
+    def close_reason(self) -> str | None:
+        if self._close_reason is not None:
+            return self._close_reason
+        return self._protocol_instance.close_reason()
+
+    async def wait_for_close(self) -> None:
+        if self._room_closed.done():
+            await asyncio.shield(self._room_closed)
+            return
+
+        if self._lifecycle_task is None:
+            await self._protocol_instance.wait_for_close()
+            return
+
+        await asyncio.shield(self._room_closed)
+
+    async def wait_until_connected(self) -> None:
+        while not self._connected:
+            self._raise_if_terminal()
+            if self._room_closed.done():
+                self._raise_if_terminal()
+                raise self._disconnected_error(
+                    base_message="room connection closed before reconnect completed"
+                )
+            await asyncio.sleep(0.05)
+
+    async def _wait_until_connected_for_messages(self) -> None:
+        while not self._connected:
+            self._raise_if_terminal_for_messages()
+            if self._room_closed.done():
+                self._raise_if_terminal_for_messages()
+                raise self._message_disconnected_error(
+                    base_message="room connection closed before message send completed"
+                )
+            await asyncio.sleep(0.05)
+
+    def _mark_connected(self) -> None:
+        self._connected = True
+        self._close_kind = None
+        self._close_reason = None
+
+    def _mark_disconnected(
+        self,
+        *,
+        reason: str | None,
+        kind: ProtocolCloseKind | None,
+    ) -> None:
+        self._connected = False
+        self._close_kind = kind
+        self._close_reason = self._normalize_close_reason(reason)
+        self._ignored_response_labels.clear()
+
+    async def _open_protocol(self, *, initial: bool) -> None:
+        protocol = self._protocol_instance
+        self._connection_ready = asyncio.Future[bool]()
+        self._local_participant_ready = asyncio.Future[bool]()
+        await protocol.__aenter__()
+
+        async def startup() -> None:
+            await self._connection_ready
+            await self._local_participant_ready
+
+        async def closed() -> None:
+            await protocol.wait_for_close()
+
+        startup_task = asyncio.create_task(startup())
+        close_task = asyncio.create_task(closed())
+
+        async def cancel_startup_tasks() -> None:
+            startup_task.cancel()
+            close_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await startup_task
+            with contextlib.suppress(asyncio.CancelledError):
+                await close_task
+
+        try:
+            done, _ = await asyncio.wait(
+                [startup_task, close_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if startup_task in done:
+                await startup_task
+                close_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await close_task
+                return
+
+            await close_task
+            startup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await startup_task
+        except asyncio.CancelledError:
+            await cancel_startup_tasks()
+            raise
+        except Exception:
+            await cancel_startup_tasks()
+            raise
+
+        raise _ProtocolStartupFailure(
+            kind=protocol.close_kind() or ProtocolCloseKind.ERROR,
+            reason=protocol.close_reason(),
+        )
+
+    async def _close_protocol(self, protocol: Protocol) -> None:
+        with contextlib.suppress(Exception):
+            await protocol.__aexit__(None, None, None)
+
+    async def _close_protocol_shielded(self, protocol: Protocol) -> None:
+        close_task = asyncio.create_task(self._close_protocol(protocol))
+        try:
+            await asyncio.shield(close_task)
+        except asyncio.CancelledError:
+            await asyncio.shield(close_task)
+            raise
+
+    def _replace_protocol(self, next_protocol: Protocol) -> None:
+        current_protocol = self._protocol_instance
+        self.protocol._unbind(current_protocol)
+        self._protocol_instance = next_protocol
+        self.protocol._bind(next_protocol)
+
+    async def _complete_reconnect(self) -> None:
+        await self._open_protocol(initial=False)
+        self._allow_disconnected_requests = True
+        try:
+            self._resend_local_attributes_nowait()
+            await self.sync._on_room_reconnect()
+            self.messaging._on_room_reconnect()
+            self._mark_connected()
+        finally:
+            self._allow_disconnected_requests = False
+
+    async def _attempt_initial_protocol_startup(
+        self,
+        *,
+        protocol: Protocol,
+        remaining: float | None,
+    ) -> None:
+        del protocol
+        if remaining is None:
+            await self._open_protocol(initial=False)
+        else:
+            await asyncio.wait_for(
+                self._open_protocol(initial=False), timeout=remaining
+            )
+
+    async def _attempt_reconnect(
+        self,
+        *,
+        protocol: Protocol,
+        remaining: float | None,
+    ) -> None:
+        reconnect_task = asyncio.create_task(self._complete_reconnect())
+        try:
+            if remaining is None:
+                await reconnect_task
+            else:
+                await asyncio.wait_for(reconnect_task, timeout=remaining)
+        except asyncio.TimeoutError:
+            reconnect_task.cancel()
+            await asyncio.gather(reconnect_task, return_exceptions=True)
+            self._allow_disconnected_requests = False
+            await self.sync._on_room_disconnect()
+            self.messaging._on_room_disconnect(reason=protocol.close_reason())
+            raise
+        except _ProtocolStartupFailure:
+            raise
+        except Exception:
+            self._allow_disconnected_requests = False
+            await self.sync._on_room_disconnect()
+            self.messaging._on_room_disconnect(reason=protocol.close_reason())
+            raise
+
+    def _non_retryable_connect_failure(
+        self, *, ex: Exception
+    ) -> _ProtocolRetryResult | None:
+        if isinstance(ex, aiohttp.ClientResponseError) and ex.status in (403, 404, 423):
+            close_reason = f"websocket connect failed with status {ex.status}"
+            if ex.status == 423:
+                close_reason = f"{close_reason}: This room is currently disabled."
+            elif ex.message != "":
+                close_reason = f"{close_reason}: {ex.message}"
+            return _ProtocolRetryResult(
+                connected=False,
+                close_kind=ProtocolCloseKind.ERROR,
+                close_reason=close_reason,
+            )
+        return None
+
+    async def _retry_protocol_connection(
+        self,
+        *,
+        disconnect_reason: str | None,
+        protocol_factory_failure_log_message: str,
+        attempt_failure_log_message: str,
+        attempt: Callable[[Protocol, float | None], Awaitable[None]],
+    ) -> _ProtocolRetryResult:
+        failure_reason = self._normalize_close_reason(disconnect_reason)
+
+        def record_failure_reason(reason: str | None) -> None:
+            nonlocal failure_reason
+            normalized_reason = self._normalize_close_reason(reason)
+            if failure_reason is None and normalized_reason is not None:
+                failure_reason = normalized_reason
+
+        deadline = None
+        if self._reconnect_timeout is not None:
+            deadline = time.monotonic() + self._reconnect_timeout
+
+        first_attempt = True
+        retry_count = 0
+        while not self._closing and not self._dismissed:
+            if first_attempt:
+                first_attempt = False
+                if self._reconnect_timeout is None:
+                    await asyncio.sleep(
+                        self._reconnect_retry_delay(retry_count=retry_count)
+                    )
+                    retry_count += 1
+            else:
+                remaining = self._remaining_reconnect_timeout(deadline=deadline)
+                if remaining is not None and remaining <= 0:
+                    return self._timed_out_retry_result(
+                        disconnect_reason=failure_reason
+                    )
+
+                if remaining is None:
+                    await asyncio.sleep(
+                        self._reconnect_retry_delay(retry_count=retry_count)
+                    )
+                else:
+                    await asyncio.sleep(
+                        min(
+                            self._reconnect_retry_delay(retry_count=retry_count),
+                            remaining,
+                        )
+                    )
+                retry_count += 1
+
+            remaining = self._remaining_reconnect_timeout(deadline=deadline)
+            if remaining is not None and remaining <= 0:
+                return self._timed_out_retry_result(disconnect_reason=failure_reason)
+
+            try:
+                next_protocol = self._protocol_factory()
+            except ProtocolReconnectUnsupportedError:
+                return _ProtocolRetryResult(
+                    connected=False,
+                    close_kind=ProtocolCloseKind.ERROR,
+                    close_reason=failure_reason,
+                )
+            except Exception as ex:
+                record_failure_reason(str(ex))
+                logger.debug(
+                    protocol_factory_failure_log_message,
+                    exc_info=ex,
+                )
+                continue
+
+            self._replace_protocol(next_protocol)
+            try:
+                await attempt(protocol=next_protocol, remaining=remaining)
+            except asyncio.TimeoutError:
+                record_failure_reason(next_protocol.close_reason())
+                await self._close_protocol(next_protocol)
+                return self._timed_out_retry_result(disconnect_reason=failure_reason)
+            except _ProtocolStartupFailure as ex:
+                record_failure_reason(ex.reason)
+                await self._close_protocol(next_protocol)
+                if not _is_retryable_startup_close(kind=ex.kind, reason=ex.reason):
+                    return _ProtocolRetryResult(
+                        connected=False,
+                        close_kind=ex.kind,
+                        close_reason=ex.reason,
+                    )
+            except Exception as ex:
+                non_retryable_failure = self._non_retryable_connect_failure(ex=ex)
+                if non_retryable_failure is not None:
+                    await self._close_protocol(next_protocol)
+                    return non_retryable_failure
+                record_failure_reason(str(ex))
+                logger.debug(attempt_failure_log_message, exc_info=ex)
+                await self._close_protocol(next_protocol)
+                continue
+            else:
+                return _ProtocolRetryResult(connected=True)
+
+        return _ProtocolRetryResult(
+            connected=False,
+            close_kind=ProtocolCloseKind.CLIENT,
+            close_reason=self.close_reason(),
+        )
+
+    def _remaining_reconnect_timeout(self, *, deadline: float | None) -> float | None:
+        if deadline is None:
+            return None
+        return max(0.0, deadline - time.monotonic())
+
+    def _reconnect_retry_delay(self, *, retry_count: int) -> float:
+        return min(
+            self._reconnect_retry_max_delay_seconds,
+            self._reconnect_retry_base_delay_seconds * (2**retry_count),
+        )
+
+    def _timed_out_retry_result(
+        self, *, disconnect_reason: str | None
+    ) -> _ProtocolRetryResult:
+        if self._reconnect_timeout is None:
+            raise AssertionError("timed out retry result requires a timeout value")
+        return _ProtocolRetryResult(
+            connected=False,
+            close_kind=ProtocolCloseKind.ERROR,
+            close_reason=self._reconnect_timeout_reason(
+                disconnect_reason=disconnect_reason
+            ),
+        )
+
+    def _reconnect_timeout_reason(self, *, disconnect_reason: str | None) -> str:
+        if self._reconnect_timeout is None:
+            raise AssertionError("reconnect timeout reason requires a timeout value")
+        timeout_display = f"{self._reconnect_timeout:g}s"
+        normalized_disconnect_reason = self._normalize_close_reason(disconnect_reason)
+        if normalized_disconnect_reason is None:
+            return f"room reconnect timed out after {timeout_display}"
+        return (
+            f"room reconnect timed out after {timeout_display} "
+            f"({normalized_disconnect_reason})"
+        )
+
+    def _close_after_unexpected_disconnect(self, *, close_reason: str | None) -> None:
+        normalized_close_reason = self._normalize_close_reason(close_reason)
+        self._close_kind = ProtocolCloseKind.ERROR
+        self._close_reason = normalized_close_reason
+        self._set_terminal_state(
+            state=self._unexpected_close_terminal_state(
+                close_reason=normalized_close_reason
+            )
+        )
+        if not self._room_closed.done():
+            self._room_closed.set_result(None)
+
+    def _set_startup_terminal_state(
+        self,
+        *,
+        close_kind: ProtocolCloseKind,
+        close_reason: str | None,
+        protocol: Protocol | None = None,
+    ) -> None:
+        normalized_close_reason = self._normalize_close_reason(close_reason)
+        self._close_kind = close_kind
+        self._close_reason = normalized_close_reason
+        if close_kind == ProtocolCloseKind.ERROR:
+            self._set_terminal_state(
+                state=self._unexpected_close_terminal_state(
+                    close_reason=normalized_close_reason
+                )
+            )
+        elif close_kind == ProtocolCloseKind.CLIENT:
+            self._set_terminal_state(state=self._client_closed_terminal_state())
+        else:
+            self._set_terminal_state(
+                state=self._protocol_terminal_state(protocol=protocol)
+            )
+        if not self._room_closed.done():
+            self._room_closed.set_result(None)
+
+    def _finalize_initial_startup_retry_failure(
+        self, *, retry_result: _ProtocolRetryResult
+    ) -> NoReturn:
+        close_kind = retry_result.close_kind
+        if close_kind is None:
+            raise AssertionError("initial startup retry failure requires a close kind")
+        self._set_startup_terminal_state(
+            close_kind=close_kind,
+            close_reason=retry_result.close_reason,
+            protocol=self._protocol_instance,
+        )
+        raise self._startup_exception(
+            close_kind=close_kind,
+            close_reason=retry_result.close_reason,
+            protocol=self._protocol_instance,
+        )
+
+    async def _reconnect(self, *, disconnect_reason: str | None) -> bool:
+        retry_result = await self._retry_protocol_connection(
+            disconnect_reason=disconnect_reason,
+            protocol_factory_failure_log_message=(
+                "unable to create replacement room protocol"
+            ),
+            attempt_failure_log_message="room reconnect attempt failed",
+            attempt=self._attempt_reconnect,
+        )
+        if retry_result.connected:
+            self.emit(
+                "room.status",
+                status="reconnected",
+                message="room connection restored",
+            )
+            self.emit("reconnected")
+            return True
+
+        close_kind = retry_result.close_kind
+        if close_kind == ProtocolCloseKind.ERROR:
+            if (
+                retry_result.close_reason is not None
+                and retry_result.close_reason.startswith(
+                    "room reconnect timed out after"
+                )
+            ):
+                logger.warning("%s; closing room client", retry_result.close_reason)
+            self._close_after_unexpected_disconnect(
+                close_reason=retry_result.close_reason
+            )
+            return False
+
+        if close_kind is None:
+            raise AssertionError("reconnect failure requires a close kind")
+        self._set_terminal_state(
+            state=self._protocol_terminal_state(protocol=self._protocol_instance)
+        )
+        self._close_kind = close_kind
+        self._close_reason = self._normalize_close_reason(retry_result.close_reason)
+        if not self._room_closed.done():
+            self._room_closed.set_result(None)
+        return False
+
+    async def _connection_lifecycle(self) -> None:
+        while True:
+            protocol = self._protocol_instance
+            await protocol.wait_for_close()
+            close_kind = protocol.close_kind() or ProtocolCloseKind.ERROR
+            close_reason = protocol.close_reason()
+            state = self._protocol_terminal_state(protocol=protocol)
+
+            if self._closing:
+                if not self._room_closed.done():
+                    self._room_closed.set_result(None)
+                return
+
+            if close_kind != ProtocolCloseKind.ERROR or self._dismissed:
+                self._set_terminal_state(state=state)
+
+            self._mark_disconnected(reason=close_reason, kind=close_kind)
+            self.emit(
+                "room.status",
+                status="disconnected",
+                message=close_reason or "room connection lost",
+            )
+            self.emit("disconnected", reason=close_reason)
+            await self.sync._on_room_disconnect()
+            self.messaging._on_room_disconnect(reason=close_reason)
+            await self._fail_pending_work(state=state)
+            await self._close_protocol(protocol)
+
+            if close_kind == ProtocolCloseKind.ERROR and not self._dismissed:
+                if self._reconnect_timeout == 0:
+                    if close_reason is None:
+                        logger.warning(
+                            "room connection lost; automatic reconnect disabled"
+                        )
+                    else:
+                        logger.warning(
+                            "room connection lost (%s); automatic reconnect disabled",
+                            close_reason,
+                        )
+                    self._close_after_unexpected_disconnect(close_reason=close_reason)
+                else:
+                    if close_reason is None:
+                        logger.warning(
+                            "room connection lost; automatically attempting to reconnect"
+                        )
+                    else:
+                        logger.warning(
+                            "room connection lost (%s); automatically attempting to reconnect",
+                            close_reason,
+                        )
+                if self._reconnect_timeout != 0 and await self._reconnect(
+                    disconnect_reason=close_reason
+                ):
+                    continue
+                return
+
+            self._close_kind = close_kind
+            self._close_reason = close_reason
+            if not self._room_closed.done():
+                self._room_closed.set_result(None)
+            return
+
+    def _dismiss(self) -> None:
+        if self._closing or self._dismissed:
+            return
+
+        self._dismissed = True
+        task = asyncio.create_task(self._close_protocol(self._protocol_instance))
+        self._dismiss_task = task
+
+        def clear_dismiss_task(completed: asyncio.Task[None]) -> None:
+            if self._dismiss_task is completed:
+                self._dismiss_task = None
+
+        task.add_done_callback(clear_dismiss_task)
+
+    @staticmethod
+    def _normalize_close_reason(reason: str | None) -> str | None:
+        if reason is None:
+            return None
+
+        normalized = reason.strip()
+        if normalized == "":
+            return None
+        return normalized
+
+    def _protocol_close_detail(self, *, protocol: Protocol | None = None) -> str | None:
+        close_reason = (
+            self._protocol_instance if protocol is None else protocol
+        ).close_reason()
+        return self._normalize_close_reason(close_reason)
+
+    def _format_closed_message(
+        self,
+        *,
+        base_message: str,
+        protocol: Protocol | None = None,
+        close_reason: str | None = None,
+    ) -> str:
+        close_detail = self._normalize_close_reason(close_reason)
+        if close_detail is None:
+            close_detail = self._protocol_close_detail(protocol=protocol)
+        if close_detail is None:
+            return base_message
+        return f"{base_message}: {close_detail}"
+
+    def _protocol_terminal_state(
+        self, *, protocol: Protocol | None = None
+    ) -> _RoomClientTerminalState:
+        return _RoomClientTerminalState(
+            request_message=self._format_closed_message(
+                base_message="room connection closed before request completed",
+                protocol=protocol,
+            ),
+            tool_call_message=self._format_closed_message(
+                base_message="room connection closed before tool call completed",
+                protocol=protocol,
+            ),
+            message_send_message=self._format_closed_message(
+                base_message="room connection closed before message send completed",
+                protocol=protocol,
+            ),
+        )
+
+    @staticmethod
+    def _client_closed_terminal_state() -> _RoomClientTerminalState:
+        return _RoomClientTerminalState(
+            request_message="room client was closed before request completed",
+            tool_call_message="room client was closed before tool call completed",
+            message_send_message="room client was closed before message send completed",
+        )
+
+    def _unexpected_close_terminal_state(
+        self, *, close_reason: str | None
+    ) -> _RoomClientTerminalState:
+        return _RoomClientTerminalState(
+            request_message=self._format_closed_message(
+                base_message="room connection unexpectedly closed before request completed",
+                close_reason=close_reason,
+            ),
+            tool_call_message=self._format_closed_message(
+                base_message="room connection unexpectedly closed before tool call completed",
+                close_reason=close_reason,
+            ),
+            message_send_message=self._format_closed_message(
+                base_message="room connection unexpectedly closed before message send completed",
+                close_reason=close_reason,
+            ),
+        )
+
+    def _set_terminal_state(
+        self, *, state: _RoomClientTerminalState
+    ) -> _RoomClientTerminalState:
+        if self._terminal_state is None:
+            self._terminal_state = state
+        return self._terminal_state
+
+    def _raise_if_terminal(self) -> None:
+        state = self._terminal_state
+        if state is not None:
+            raise state.request_error()
+
+    def _raise_if_terminal_for_messages(self) -> None:
+        state = self._terminal_state
+        if state is not None:
+            raise state.message_send_error()
+
+    def _disconnected_error(self, *, base_message: str) -> RoomException:
+        return RoomException(
+            self._format_closed_message(base_message=base_message),
+            code=ErrorCode.INVALID_STATE,
+        )
+
+    def _message_disconnected_error(self, *, base_message: str) -> RoomException:
+        return RoomException(
+            self._format_closed_message(base_message=base_message),
+            code=ErrorCode.INVALID_STATE,
+        )
+
+    def _coerce_message_send_error(self, error: RoomException) -> RoomException:
+        state = self._terminal_state
+        if state is None or str(error) not in (
+            state.request_message,
+            state.tool_call_message,
+        ):
+            return error
+        return state.message_send_error()
+
+    def _startup_exception(
+        self,
+        *,
+        close_kind: ProtocolCloseKind,
+        close_reason: str | None,
+        protocol: Protocol | None = None,
+    ) -> RoomException:
+        if (
+            close_reason is not None
+            and "websocket connect failed with status 423" in close_reason
+        ):
+            return RoomDisabledError()
+        if close_kind == ProtocolCloseKind.ERROR:
+            base_message = (
+                "room connection unexpectedly closed before the room became ready"
+            )
+        elif close_kind == ProtocolCloseKind.CLIENT:
+            base_message = "room client was closed before the room became ready"
+        else:
+            base_message = "room connection closed before the room became ready"
+        return RoomException(
+            self._format_closed_message(
+                base_message=base_message,
+                protocol=protocol,
+                close_reason=close_reason,
+            ),
+            code=None,
+        )
+
+    async def __aexit__(self, exc_type, exc, tb):
+        del exc_type, exc, tb
+        self._closing = True
+        self._mark_disconnected(
+            reason=self.close_reason(),
+            kind=self.close_kind() or ProtocolCloseKind.CLIENT,
+        )
+        closing_state = self._client_closed_terminal_state()
+        self._set_terminal_state(state=closing_state)
+        await self._fail_pending_work(state=closing_state)
+        close_watcher = self._close_watcher_task
+        self._close_watcher_task = None
+        if close_watcher is not None:
+            close_watcher.cancel()
+        close_cancelled = False
+        try:
+            try:
+                await self._close_protocol_shielded(self._protocol_instance)
+            except asyncio.CancelledError:
+                close_cancelled = True
+            lifecycle_task = self._lifecycle_task
+            if lifecycle_task is not None:
+                await asyncio.gather(lifecycle_task, return_exceptions=True)
+            await self.sync.stop()
+            await self.messaging.stop()
+            if close_cancelled:
+                raise asyncio.CancelledError
+        finally:
+            self._lifecycle_task = None
+            self._entered = False
+            if not self._room_closed.done():
+                self._room_closed.set_result(None)
+            if close_watcher is not None:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await close_watcher
+        return
+
+    @property
+    def session_id(self) -> str:
+        if self._session_id is None:
+            raise RoomException("session_id is not available before the room is ready")
+
+        return self._session_id
+
+    @property
+    def room_url(self) -> str:
+        if self._room_url is None:
+            raise RoomException("room url is not available before the room is ready")
+
+        return self._room_url
+
+    @property
+    def room_name(self) -> str:
+        if self._room_name is None:
+            raise RoomException("room name is not available before the room is ready")
+
+        return self._room_name
+
+    def _send_protocol_nowait(
+        self,
+        *,
+        type: str,
+        data: bytes | str,
+        label: str,
+        message_id: int | None = None,
+        expect_response: bool = False,
+    ) -> int | None:
+        try:
+            self._raise_if_terminal()
+        except RoomException as ex:
+            logger.debug("skipping %s because the room is closed", label, exc_info=ex)
+            return None
+
+        if (
+            self._entered
+            and not self._connected
+            and not self._allow_disconnected_requests
+        ):
+            logger.debug("skipping %s while room is disconnected", label)
+            return None
+
+        protocol = self._protocol_instance
+        resolved_message_id = message_id
+        if resolved_message_id is None:
+            resolved_message_id = protocol.next_message_id()
+
+        if expect_response:
+            self._ignored_response_labels[resolved_message_id] = label
+
+        try:
+            protocol.send_nowait(
+                type=type,
+                data=data,
+                message_id=resolved_message_id,
+            )
+        except Exception as ex:
+            self._ignored_response_labels.pop(resolved_message_id, None)
+            if self.is_closed or isinstance(ex, ChanClosed):
+                logger.debug(
+                    "skipping %s because the room is closed",
+                    label,
+                    exc_info=ex,
+                )
+            else:
+                logger.warning("unable to queue %s", label, exc_info=ex)
+            return None
+
+        return resolved_message_id
+
+    def _send_room_request_nowait(
+        self,
+        type: str,
+        request: dict,
+        data: bytes | None = None,
+        *,
+        label: str,
+        expect_response: bool = False,
+    ) -> int | None:
+        return self._send_protocol_nowait(
+            type=type,
+            data=pack_message(header=request, data=data),
+            label=label,
+            expect_response=expect_response,
+        )
+
+    def invoke_nowait(
+        self,
+        *,
+        toolkit: str,
+        tool: str,
+        input: str | dict | Content | None = None,
+        participant_id: Optional[str] = None,
+        on_behalf_of_id: Optional[str] = None,
+    ) -> None:
+        if input is None:
+            input = EmptyContent()
+
+        if isinstance(input, AsyncIterable):
+            raise RoomException("invoke_nowait does not support streamed tool inputs")
+
+        input_content = ensure_content(input)
+        request_header, invoke_data = pack_request_parts(input_content)
+        request_payload: Dict[str, Any] = {
+            "toolkit": toolkit,
+            "tool": tool,
+            "participant_id": participant_id,
+            "on_behalf_of_id": on_behalf_of_id,
+            "arguments": request_header,
+            "tool_call_id": uuid.uuid4().hex,
+        }
+        self._send_room_request_nowait(
+            "room.invoke_tool",
+            request_payload,
+            invoke_data,
+            label=f"{toolkit}.{tool}",
+            expect_response=True,
+        )
+
+    def _send_local_attributes_nowait(self, attributes: dict[str, Any]) -> None:
+        self._send_protocol_nowait(
+            type="set_attributes",
+            data=pack_message(attributes),
+            label="local participant attribute update",
+        )
+
+    def _resend_local_attributes_nowait(self) -> None:
+        local_participant = self._local_participant
+        if local_participant is None or len(local_participant.attributes) == 0:
+            return
+        self._send_local_attributes_nowait(local_participant.attributes)
+
+    # send a request, optionally with a binary trailer
+    async def send_request(
+        self,
+        type: str,
+        request: dict,
+        data: bytes | None = None,
+        *,
+        _after_send: Callable[[], None] | None = None,
+    ) -> FileContent | None | dict | str:
+        response = self._dispatch_request(type=type, request=request, data=data)
+        if _after_send is not None:
+            _after_send()
+        return await response
+
+    def _dispatch_request(
+        self,
+        *,
+        type: str,
+        request: dict,
+        data: bytes | None = None,
+    ) -> asyncio.Future[FileContent | None | dict | str]:
+        self._raise_if_terminal()
+        if (
+            self._entered
+            and not self._connected
+            and not self._allow_disconnected_requests
+        ):
+            raise self._disconnected_error(
+                base_message="room connection is disconnected"
+            )
+
+        protocol = self._protocol_instance
+        request_id = protocol.next_message_id()
+        logger.debug("sending request %s %s", request_id, type)
+
+        creation_trace = None
+        if self._debug_pending_request_stacks:
+            creation_trace = "".join(traceback.format_stack(limit=20))
+
+        pr = _PendingRequest(
+            request_type=type,
+            created_at=time.monotonic(),
+            creation_trace=creation_trace,
+        )
+        self._pending_requests[request_id] = pr
+        self._ensure_close_watcher()
+
+        message = pack_message(header=request, data=data)
+
+        try:
+            protocol.send_nowait(type=type, data=message, message_id=request_id)
+        except ChanClosed as ex:
+            self._pending_requests.pop(request_id, None)
+            if self._entered:
+                raise self._disconnected_error(
+                    base_message="room connection closed before request completed"
+                ) from ex
+            state = self._set_terminal_state(
+                state=self._protocol_terminal_state(protocol=protocol)
+            )
+            raise state.request_error() from ex
+        except Exception:
+            self._pending_requests.pop(request_id, None)
+            raise
+
+        def cleanup_response(
+            response: asyncio.Future[FileContent | None | dict | str],
+        ) -> None:
+            if response.cancelled():
+                pending = self._pending_requests.pop(request_id, None)
+                if pending is not None:
+                    if (
+                        self._debug_pending_requests
+                        and pending.creation_trace is not None
+                    ):
+                        logger.debug(
+                            "request creation trace id=%s:\n%s",
+                            request_id,
+                            pending.creation_trace,
+                        )
+                    pending.fut.cancel()
+            self._maybe_cancel_close_watcher()
+
+        pr.fut.add_done_callback(cleanup_response)
+        return pr.fut
+
+    async def _handle_status(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        if protocol is not self._protocol_instance:
+            return
+        init, _ = unpack_message(data)
+        self.emit("room.status", **init)
+
+    async def _handle_ready(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        if protocol is not self._protocol_instance:
+            return
+        init, _ = unpack_message(data)
+
+        self._room_name = init["room_name"]
+        self._room_url = init["room_url"]
+        self._session_id = init["session_id"]
+
+        if not self._ready.done():
+            self._ready.set_result(True)
+        if not self._connection_ready.done():
+            self._connection_ready.set_result(True)
+
+    async def _handle_response(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        if protocol is not self._protocol_instance:
+            return
+        response = unpack_content(data=data)
+
+        request_id = message_id
+        if request_id in self._pending_requests:
+            pr = self._pending_requests.pop(request_id)
+            if pr.fut.done():
+                logger.warning(
+                    "late/duplicate response for completed request (id=%s type=%s cancelled=%s age=%.3fs)",
+                    request_id,
+                    pr.request_type,
+                    pr.fut.cancelled(),
+                    time.monotonic() - pr.created_at,
+                )
+                if self._debug_pending_requests and pr.creation_trace is not None:
+                    logger.debug(
+                        "request creation trace id=%s:\n%s",
+                        request_id,
+                        pr.creation_trace,
+                    )
+                self._maybe_cancel_close_watcher()
+                return
+
+            if isinstance(response, ErrorContent):
+                try:
+                    pr.fut.set_exception(
+                        RoomException(response.text, code=response.code)
+                    )
+                except asyncio.InvalidStateError as ex:
+                    logger.error(
+                        "unable to set exception for request id=%s type=%s cancelled=%s",
+                        request_id,
+                        pr.request_type,
+                        pr.fut.cancelled(),
+                        exc_info=ex,
+                    )
+            else:
+                try:
+                    pr.fut.set_result(response)
+                except asyncio.InvalidStateError as ex:
+                    logger.error(
+                        "unable to set result for request id=%s type=%s cancelled=%s",
+                        request_id,
+                        pr.request_type,
+                        pr.fut.cancelled(),
+                        exc_info=ex,
+                    )
+        elif request_id in self._ignored_response_labels:
+            label = self._ignored_response_labels.pop(request_id)
+            if isinstance(response, ErrorContent):
+                logger.warning(
+                    "one-way room request failed for %s: %s",
+                    label,
+                    response.text,
+                )
+        else:
+            logger.debug(
+                "received a response for a request that is not pending {id}".format(
+                    id=request_id
+                )
+            )
+        self._maybe_cancel_close_watcher()
+        return
+
+    @property
+    def local_participant(self):
+        return self._local_participant
+
+    def _on_participant_init(self, participant_id: str, attributes: dict):
+        if self._local_participant is None:
+            self._local_participant = LocalParticipant(
+                id=participant_id,
+                attributes=attributes,
+                room=self,
+            )
+        else:
+            merged_attributes = attributes.copy()
+            merged_attributes.update(self._local_participant.attributes)
+            self._local_participant._replace_identity(
+                participant_id=participant_id,
+                attributes=merged_attributes,
+            )
+        if not self._local_participant_ready.done():
+            self._local_participant_ready.set_result(True)
+
+    async def _handle_participant(self, protocol, message_id, msg_type, data):
+        if protocol is not self._protocol_instance:
+            return
+        # Decode and parse the message
+        message, _ = unpack_message(data)
+        type = message["type"]
+
+        if type == "init":
+            participant_id = message["participantId"]
+            attributes = message["attributes"]
+            self._on_participant_init(participant_id, attributes)
+
+    def _ensure_close_watcher(self) -> None:
+        if self._lifecycle_task is not None:
+            return
+        if self._close_watcher_task is not None or self._terminal_state is not None:
+            return
+
+        watcher_task: asyncio.Task[None] | None = None
+
+        async def watch_for_close() -> None:
+            try:
+                protocol = self._protocol_instance
+                await protocol.wait_for_close()
+                state = self._set_terminal_state(
+                    state=self._protocol_terminal_state(protocol=protocol)
+                )
+                await self._fail_pending_work(state=state)
+            finally:
+                if (
+                    watcher_task is not None
+                    and self._close_watcher_task is watcher_task
+                ):
+                    self._close_watcher_task = None
+
+        watcher_task = asyncio.create_task(watch_for_close())
+        self._close_watcher_task = watcher_task
+
+    def _copy_exception(self, error: BaseException) -> BaseException:
+        if isinstance(error, RoomException):
+            return RoomException(
+                str(error),
+                status_code=error.status_code,
+                code=error.code,
+            )
+        return error
+
+    def _fail_pending_requests(self, *, error: BaseException) -> None:
+        open_requests = list(self._pending_requests.values())
+        self._pending_requests.clear()
+        for request in open_requests:
+            if request.fut.done():
+                continue
+            request.fut.set_exception(self._copy_exception(error))
+
+    def _maybe_cancel_close_watcher(self) -> None:
+        close_watcher = self._close_watcher_task
+        if close_watcher is None or self._terminal_state is not None:
+            return
+        if self._pending_requests or self._tool_call_streams:
+            return
+
+        self._close_watcher_task = None
+        close_watcher.cancel()
+
+    def _close_tool_call_streams(
+        self, *, error: BaseException
+    ) -> list[asyncio.Task[Any]]:
+        open_streams = list(self._tool_call_streams.values())
+        self._tool_call_streams.clear()
+        pending_tasks: list[asyncio.Task[Any]] = []
+        for stream in open_streams:
+            stream.close_with_error(self._copy_exception(error))
+            pending_tasks.extend(stream.pending_shutdown_tasks())
+        return pending_tasks
+
+    def _fail_tool_call_streams(self, *, error: BaseException) -> None:
+        self._close_tool_call_streams(error=error)
+
+    async def _fail_tool_call_streams_and_wait(self, *, error: BaseException) -> None:
+        pending_tasks = self._close_tool_call_streams(error=error)
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+
+    async def _fail_pending_work(self, *, state: _RoomClientTerminalState) -> None:
+        pending_stream_tasks = self._close_tool_call_streams(
+            error=state.tool_call_error()
+        )
+        self._fail_pending_requests(error=state.request_error())
+        if pending_stream_tasks:
+            await asyncio.gather(*pending_stream_tasks, return_exceptions=True)
+
+    async def _handle_tool_call_response_chunk(
+        self, protocol: Protocol, message_id: int, typ: str, data: bytes
+    ) -> None:
+        if protocol is not self._protocol_instance:
+            return
+        del message_id
+        del typ
+        header, payload = unpack_message(data)
+        tool_call_id = header.get("tool_call_id")
+        if not isinstance(tool_call_id, str) or tool_call_id == "":
+            logger.warning("ignoring tool call response chunk without tool_call_id")
+            return
+
+        chunk_payload = header.get("chunk")
+        if isinstance(chunk_payload, dict) and isinstance(
+            chunk_payload.get("type"), str
+        ):
+            try:
+                chunk_payload = unpack_content_parts(
+                    header=chunk_payload, payload=payload
+                )
+            except KeyError:
+                pass
+            except MessageProtocolError as ex:
+                if str(ex).startswith("unsupported content type:"):
+                    pass
+                else:
+                    error = RoomException(
+                        f"unable to unpack tool call response chunk payload: {ex}",
+                        code=ex.code,
+                    )
+                    stream = self._tool_call_streams.get(tool_call_id, None)
+                    if stream is not None:
+                        stream.close_with_error(error)
+                    self.emit(
+                        "room.tool_call_response_chunk",
+                        event={
+                            "tool_call_id": tool_call_id,
+                            "chunk": ErrorContent(text=str(error), code=error.code),
+                        },
+                    )
+                    return
+            except Exception as ex:
+                logger.warning(
+                    "unable to unpack tool call response chunk payload",
+                    exc_info=ex,
+                )
+
+        stream = self._tool_call_streams.get(tool_call_id, None)
+        if stream is not None:
+            try:
+                stream_chunk = (
+                    chunk_payload
+                    if isinstance(chunk_payload, Content)
+                    else ensure_content(chunk_payload)
+                )
+                stream._push_chunk(stream_chunk)
+            except Exception as ex:
+                error = RoomException(
+                    f"unable to decode tool call stream chunk: {ex}",
+                    code=ex.code if isinstance(ex, MessageProtocolError) else None,
+                )
+                stream.close_with_error(error)
+
+        self.emit(
+            "room.tool_call_response_chunk",
+            event={
+                "tool_call_id": tool_call_id,
+                "toolkit": header.get("toolkit"),
+                "tool": header.get("tool"),
+                "chunk": chunk_payload,
+            },
+        )
+
+    def _remove_tool_call_stream(self, *, tool_call_id: str) -> None:
+        self._tool_call_streams.pop(tool_call_id, None)
+        self._maybe_cancel_close_watcher()
+
+    def _make_tool_call_stream(
+        self, *, tool_call_id: str, request_task: asyncio.Future[Any]
+    ) -> "_ToolCallChunkStream":
+        call_stream = _ToolCallChunkStream(
+            tool_call_id=tool_call_id,
+            task=request_task,
+            on_close=lambda: self._remove_tool_call_stream(tool_call_id=tool_call_id),
+        )
+        self._tool_call_streams[tool_call_id] = call_stream
+        return call_stream
+
+    async def _send_tool_call_request_chunk(
+        self,
+        *,
+        tool_call_id: str,
+        chunk: Content,
+        _after_send: Callable[[], None] | None = None,
+    ) -> None:
+        self._dispatch_tool_call_request_chunk(
+            tool_call_id=tool_call_id,
+            chunk=chunk,
+        )
+        if _after_send is not None:
+            _after_send()
+
+    def _dispatch_tool_call_request_chunk(
+        self,
+        *,
+        tool_call_id: str,
+        chunk: Content,
+    ) -> None:
+        self._raise_if_terminal()
+        if (
+            self._entered
+            and not self._connected
+            and not self._allow_disconnected_requests
+        ):
+            raise self._disconnected_error(
+                base_message="room connection is disconnected"
+            )
+        request_header, request_data = pack_request_parts(chunk)
+        self._protocol_instance.send_nowait(
+            type="room.tool_call_request_chunk",
+            data=pack_message(
+                header={"tool_call_id": tool_call_id, "chunk": request_header},
+                data=request_data,
+            ),
+        )
+
+    async def _stream_tool_call_request_chunks(
+        self,
+        *,
+        tool_call_id: str,
+        request_stream_parts: AsyncIterable[Content],
+    ) -> None:
+        try:
+            async for item in request_stream_parts:
+                if not isinstance(item, Content):
+                    raise RoomException(
+                        "invoke_tool input stream items must be Content values"
+                    )
+                self._dispatch_tool_call_request_chunk(
+                    tool_call_id=tool_call_id,
+                    chunk=item,
+                )
+        finally:
+            self._dispatch_tool_call_request_chunk(
+                tool_call_id=tool_call_id,
+                chunk=_ControlContent(method="close"),
+            )
+
+    async def call(
+        self,
+        *,
+        name: str,
+        url: str,
+        arguments: dict,
+        api: Optional[ApiScope] = None,
+    ) -> None:
+        await self.send_request(
+            "room.call",
+            _MakeCallRequest(
+                name=name,
+                url=url,
+                arguments=arguments,
+                api=api,
+            ).model_dump(mode="json"),
+        )
+
+    async def invoke(
+        self,
+        *,
+        toolkit: str,
+        tool: str,
+        input: str | dict | Content | AsyncIterable[Content] | None = None,
+        participant_id: Optional[str] = None,
+        on_behalf_of_id: Optional[str] = None,
+        _after_send: Callable[[], None] | None = None,
+        **kwargs: Any,
+    ) -> Content | AsyncIterator[Content]:
+        if "arguments" in kwargs and input is None:
+            input = kwargs.pop("arguments")
+            logger.warning(
+                "invoke_tool(arguments=...) is deprecated; use invoke_tool(input=...)"
+            )
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs.keys()))
+            raise TypeError(
+                f"invoke_tool() got unexpected keyword argument(s): {unexpected}"
+            )
+        if input is None:
+            input = EmptyContent()
+
+        resolved_tool_call_id = uuid.uuid4().hex
+
+        request_payload: Dict[str, Any] = {
+            "toolkit": toolkit,
+            "tool": tool,
+            "participant_id": participant_id,
+            "on_behalf_of_id": on_behalf_of_id,
+        }
+
+        request_stream_parts: AsyncIterable[Content] | None = None
+        invoke_data: bytes | None = None
+        if isinstance(input, AsyncIterable):
+            # Request streaming starts with the initial open control chunk
+            # carried in invoke arguments.
+            request_header, _ = pack_request_parts(_ControlContent(method="open"))
+            request_payload["arguments"] = request_header
+            request_stream_parts = input
+        elif isinstance(input, (str, dict, Content)):
+            input_content = ensure_content(input)
+            request_header, invoke_data = pack_request_parts(input_content)
+            request_payload["arguments"] = request_header
+        else:
+            raise RoomException(
+                "invoke_tool input must be str, dict, Content, or an async iterable of Content values"
+            )
+
+        request_payload["tool_call_id"] = resolved_tool_call_id
+
+        invoke_response = self._dispatch_request(
+            type="room.invoke_tool",
+            request=request_payload,
+            data=invoke_data,
+        )
+        if _after_send is not None:
+            _after_send()
+
+        call_stream = self._make_tool_call_stream(
+            tool_call_id=resolved_tool_call_id, request_task=invoke_response
+        )
+        request_stream_task: Optional[asyncio.Task[None]] = None
+        if request_stream_parts is not None:
+            request_stream_task = asyncio.create_task(
+                self._stream_tool_call_request_chunks(
+                    tool_call_id=resolved_tool_call_id,
+                    request_stream_parts=request_stream_parts,
+                )
+            )
+        if request_stream_task is not None:
+
+            def on_request_stream_done(task: asyncio.Task[None]) -> None:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    return
+                except Exception as ex:
+                    if isinstance(ex, RoomException):
+                        wrapped_error = RoomException(
+                            f"request stream failed: {ex}",
+                            status_code=ex.status_code,
+                            code=ex.code,
+                        )
+                    else:
+                        wrapped_error = RoomException(f"request stream failed: {ex}")
+                    call_stream.close_with_error(wrapped_error)
+
+            request_stream_task.add_done_callback(on_request_stream_done)
+
+        try:
+            response = ensure_content(await invoke_response)
+        except asyncio.CancelledError as ex:
+            if request_stream_task is not None and not request_stream_task.done():
+                request_stream_task.cancel()
+                await asyncio.gather(request_stream_task, return_exceptions=True)
+            if call_stream.error is not None:
+                raise call_stream.error from ex
+            raise
+        except Exception:
+            if request_stream_task is not None and not request_stream_task.done():
+                request_stream_task.cancel()
+                await asyncio.gather(request_stream_task, return_exceptions=True)
+            raise
+
+        if isinstance(response, _ControlContent) and response.method == "open":
+            if request_stream_task is not None:
+                call_stream.attach_request_stream_task(request_stream_task)
+            return call_stream.stream()
+
+        if request_stream_task is not None:
+            await request_stream_task
+        return response
+
+    async def list_toolkits(
+        self,
+        *,
+        participant_id: Optional[str] = None,
+        participant_name: Optional[str] = None,
+        timeout: Optional[int] = None,
+    ) -> List["ToolkitDescription"]:
+        """
+        Fetch a list of available toolkits and parse into `ToolkitDescription` objects.
+        """
+        request: Dict[str, Any] = {}
+        if participant_id is not None:
+            request["participant_id"] = participant_id
+        if participant_name is not None:
+            request["participant_name"] = participant_name
+        if timeout is not None:
+            request["timeout"] = timeout
+
+        response = await self.send_request("room.list_toolkits", request)
+        # 'response["tools"]' is assumed to be a dict of toolkits by name
+        toolkits_data = response["tools"]
+
+        result = []
+        for toolkit_name, tk_json in toolkits_data.items():
+            # Parse top-level toolkit properties
+            title = tk_json.get("title", "")
+            description = tk_json.get("description", "")
+            participant_id = tk_json.get("participant_id", None)
+            annotations_json = tk_json.get("annotations", {})
+            annotations: dict[str, str] = {}
+            if isinstance(annotations_json, dict):
+                for key, value in annotations_json.items():
+                    if isinstance(key, str) and isinstance(value, str):
+                        annotations[key] = value
+
+            # Tools are usually a dict keyed by tool name
+            tools = []
+            raw_tools = tk_json.get("tools", {})
+            for tool_name, tool_json in raw_tools.items():
+                strict = tool_json.get("strict", None)
+                input_spec = ToolContentSpec.from_json(tool_json.get("input_spec"))
+                legacy_input_schema = tool_json.get("input_schema")
+                if legacy_input_schema is not None and input_spec is None:
+                    input_spec = ToolContentSpec(
+                        types=["json"],
+                        schema=legacy_input_schema,
+                    )
+                elif (
+                    legacy_input_schema is not None
+                    and input_spec is not None
+                    and input_spec.includes("json")
+                    and input_spec.schema is None
+                ):
+                    input_spec = ToolContentSpec(
+                        types=input_spec.types,
+                        stream=input_spec.stream,
+                        schema=legacy_input_schema,
+                    )
+
+                output_spec = ToolContentSpec.from_json(tool_json.get("output_spec"))
+                legacy_output_schema = tool_json.get("output_schema")
+                if legacy_output_schema is not None and output_spec is None:
+                    output_spec = ToolContentSpec(
+                        types=["json"],
+                        schema=legacy_output_schema,
+                    )
+                elif (
+                    legacy_output_schema is not None
+                    and output_spec is not None
+                    and output_spec.includes("json")
+                    and output_spec.schema is None
+                ):
+                    output_spec = ToolContentSpec(
+                        types=output_spec.types,
+                        stream=output_spec.stream,
+                        schema=legacy_output_schema,
+                    )
+
+                tools.append(
+                    ToolDescription(
+                        name=tool_name,
+                        title=tool_json.get("title", ""),
+                        description=tool_json.get("description", ""),
+                        input_spec=input_spec,
+                        output_spec=output_spec,
+                        defs=tool_json.get("defs", None),
+                        strict=strict if isinstance(strict, bool) else None,
+                    )
+                )
+
+            result.append(
+                ToolkitDescription(
+                    name=toolkit_name,
+                    title=title,
+                    description=description,
+                    tools=tools,
+                    participant_id=participant_id,
+                    annotations=annotations,
+                )
+            )
+        return result
+
+
+T = TypeVar("T")
+
+
+class _RefCount(Generic[T]):
+    def __init__(self, ref: T):
+        self.ref = ref
+        self.count = 1
+
+
+class _SyncOpenStartChunkHeaders(BaseModel):
+    kind: Literal["start"]
+    path: str
+    create: bool = True
+    vector: str | None = None
+    schema_value: dict[str, Any] | None = Field(default=None, alias="schema")
+    schema_path: str | None = None
+    initial_json: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class _SyncOpenInputChunkHeaders(BaseModel):
+    kind: Literal["sync"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _SyncOpenStateChunkHeaders(BaseModel):
+    kind: Literal["state"]
+    path: str
+    schema_value: dict[str, Any] = Field(alias="schema")
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class _SyncOpenOutputChunkHeaders(BaseModel):
+    kind: Literal["sync"]
+    path: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _SyncOpenStreamState:
+    _INPUT_STREAM_CLOSE = object()
+
+    def __init__(
+        self,
+        *,
+        path: str,
+        create: bool,
+        vector: str | None,
+        schema: dict[str, Any] | None,
+        schema_path: str | None,
+        initial_json: dict[str, Any] | None,
+    ) -> None:
+        self._path = path
+        self._create = create
+        self._vector = vector
+        self._schema = schema
+        self._schema_path = schema_path
+        self._initial_json = initial_json
+        self._input_q: asyncio.Queue[BinaryContent | object] = asyncio.Queue()
+        self._input_closed = False
+        self._task: asyncio.Task[None] | None = None
+        self._error: BaseException | None = None
+
+    @property
+    def error(self) -> BaseException | None:
+        return self._error
+
+    async def input_stream(self) -> AsyncIterator[Content]:
+        yield BinaryContent(
+            data=b"",
+            headers={
+                "kind": "start",
+                "path": self._path,
+                "create": self._create,
+                "vector": self._vector,
+                "schema": self._schema,
+                "schema_path": self._schema_path,
+                "initial_json": self._initial_json,
+            },
+        )
+
+        while True:
+            chunk = await self._input_q.get()
+            if chunk is self._INPUT_STREAM_CLOSE:
+                return
+            if not isinstance(chunk, BinaryContent):
+                raise RoomException("sync input queue produced an invalid stream chunk")
+            yield chunk
+
+    def attach_task(self, task: asyncio.Task[None]) -> None:
+        self._task = task
+        task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, task: asyncio.Task[None]) -> None:
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception as ex:
+            self._error = ex
+        finally:
+            self.close_input_stream()
+
+    def close_input_stream(self) -> None:
+        if self._input_closed:
+            return
+        self._input_closed = True
+        self._input_q.put_nowait(self._INPUT_STREAM_CLOSE)
+
+    def queue_sync(self, *, data: bytes) -> None:
+        if self._error is not None:
+            if isinstance(self._error, Exception):
+                raise self._error
+            raise RoomException(f"sync stream failed: {self._error}")
+        if self._input_closed:
+            raise RoomException(
+                "attempted to sync to a document that is not connected",
+                code=ErrorCode.SYNC_NOT_CONNECTED,
+            )
+        self._input_q.put_nowait(
+            BinaryContent(
+                data=data,
+                headers={"kind": "sync"},
+            )
+        )
+
+    async def wait(self) -> None:
+        if self._task is not None:
+            await self._task
+
+
+@dataclass(frozen=True, slots=True)
+class _SyncOpenDocumentConfig:
+    create: bool
+    schema: dict[str, Any] | None
+    schema_path: str | None
+
+
+class SyncClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+        self._connected_documents = dict[str, _RefCount[MeshDocument]]()
+        self._connecting_documents = dict[
+            str, asyncio.Future[_RefCount[MeshDocument]]
+        ]()
+        self._document_streams = dict[str, _SyncOpenStreamState]()
+        self._document_configs = dict[str, _SyncOpenDocumentConfig]()
+        self._reconnect_base_vectors = dict[str, bytes]()
+        self._started = False
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from sync.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    def get_open_documents(self) -> dict[str, MeshDocument]:
+        open_documents = {}
+        for k, v in self._connected_documents.items():
+            open_documents[k] = v.ref
+        return open_documents
+
+    @staticmethod
+    def _apply_sync_payload(*, doc: _RefCount[MeshDocument], payload: bytes) -> None:
+        if payload:
+            runtime.apply_backend_changes(doc.ref.id, payload.decode("utf-8"))
+        if not doc.ref.synchronized.done():
+            doc.ref.synchronized.set_result(True)
+
+    async def start(self):
+        if self._started:
+            raise Exception("client already started")
+        self._started = True
+
+    async def stop(self):
+        for path in list(self._connected_documents.keys()):
+            ref = self._connected_documents.get(path)
+            if ref is None:
+                continue
+            ref.count = 1
+            try:
+                await self.close(path=path)
+            except Exception as ex:
+                logger.debug("sync stream close failed for %s", path, exc_info=ex)
+        self._reconnect_base_vectors.clear()
+        self._started = False
+
+    async def _invoke(
+        self,
+        *,
+        operation: str,
+        input: dict | Content | AsyncIterable[Content],
+    ) -> Content | AsyncIterator[Content]:
+        return await self.room.invoke(
+            toolkit="sync",
+            tool=operation,
+            input=input,
+        )
+
+    async def create(
+        self,
+        *,
+        path: str,
+        json: Optional[dict] = None,
+        schema: Optional[MeshSchema] = None,
+    ) -> None:
+        normalized_path = _normalize_sync_path(path)
+        await self._invoke(
+            operation="create",
+            input={
+                "path": normalized_path,
+                "json": json,
+                "schema": None if schema is None else schema.to_json(),
+                "schema_path": None,
+            },
+        )
+
+    async def describe(self, *, path: str, create: bool = True) -> dict:
+        del create
+        response = await self._invoke(
+            operation="describe",
+            input={
+                "path": _normalize_sync_path(path),
+                "schema_path": None,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="describe")
+        if not isinstance(response.json, dict):
+            raise self._unexpected_response_error(operation="describe")
+        return response.json
+
+    async def open(
+        self,
+        *,
+        path: str,
+        create: bool = True,
+        initial_json: Optional[dict] = None,
+        schema: Optional[MeshSchema] = None,
+    ) -> MeshDocument:
+        path = _normalize_sync_path(path)
+        if path in self._connecting_documents:
+            await self._connecting_documents[path]
+
+        if path in self._connected_documents:
+            doc = self._connected_documents[path]
+            doc.count = doc.count + 1
+            return doc.ref
+
+        # todo: add support for state vector / partial updates
+        # todo: initial bytes loading
+
+        connecting_fut = asyncio.Future[_RefCount[MeshDocument]]()
+
+        def _consume_exception(fut: asyncio.Future[_RefCount[MeshDocument]]) -> None:
+            try:
+                fut.exception()
+            except asyncio.CancelledError:
+                pass
+
+        connecting_fut.add_done_callback(_consume_exception)
+        self._connecting_documents[path] = connecting_fut
+        try:
+            config = _SyncOpenDocumentConfig(
+                create=create,
+                schema=None if schema is None else schema.to_json(),
+                schema_path=None,
+            )
+            (
+                stream_state,
+                response_stream,
+                state_headers,
+                first_chunk,
+            ) = await self._open_stream(
+                path=path,
+                config=config,
+                vector=None,
+                initial_json=initial_json,
+            )
+
+            def publish_sync(base64: str) -> None:
+                current_stream = self._document_streams.get(path)
+                if current_stream is None:
+                    logger.debug(
+                        "dropping sync for disconnected document stream %s", path
+                    )
+                    return
+                try:
+                    current_stream.queue_sync(data=base64.encode("utf-8"))
+                except Exception as ex:
+                    logger.debug(
+                        "dropping sync for closed document stream %s",
+                        path,
+                        exc_info=ex,
+                    )
+
+            doc: MeshDocument = runtime.new_document(
+                schema=MeshSchema.from_json(state_headers.schema_value),
+                on_document_sync=publish_sync,
+                factory=MeshDocument,
+            )
+
+            ref = _RefCount(doc)
+            self._connected_documents[path] = ref
+            self._document_configs[path] = config
+            self._document_streams[path] = stream_state
+            self._reconnect_base_vectors.pop(path, None)
+            self._apply_sync_payload(doc=ref, payload=first_chunk.data)
+            self._attach_stream_consumer(
+                path=path,
+                doc=ref,
+                stream_state=stream_state,
+                response_stream=response_stream,
+            )
+            connecting_fut.set_result(ref)
+            self._connecting_documents.pop(path)
+
+            logger.info("Connected to %s", path)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            if "stream_state" in locals():
+                stream_state.close_input_stream()
+            connecting_fut.set_exception(e)
+            self._connecting_documents.pop(path)
+            raise
+
+        await doc.synchronized
+        return doc
+
+    async def close(self, *, path: str) -> None:
+        path = _normalize_sync_path(path)
+        if path not in self._connected_documents:
+            raise RoomException(
+                "Not connected to " + path,
+                code=ErrorCode.SYNC_NOT_CONNECTED,
+            )
+
+        ref = self._connected_documents[path]
+        ref.count = ref.count - 1
+        if ref.count == 0:
+            doc = self._connected_documents.pop(path)
+            self._document_configs.pop(path, None)
+            self._reconnect_base_vectors.pop(path, None)
+            stream_state = self._document_streams.pop(path, None)
+            if stream_state is not None:
+                stream_state.close_input_stream()
+                try:
+                    await stream_state.wait()
+                finally:
+                    runtime._unregister_document(doc=doc.ref)
+            else:
+                runtime._unregister_document(doc=doc.ref)
+
+    async def sync(self, *, path: str, data: bytes) -> None:
+        path = _normalize_sync_path(path)
+        if path not in self._connected_documents:
+            raise RoomException(
+                "attempted to sync to a document that is not connected",
+                code=ErrorCode.SYNC_NOT_CONNECTED,
+            )
+        stream_state = self._document_streams.get(path)
+        if stream_state is None:
+            raise RoomException(
+                "attempted to sync to a document that is not connected",
+                code=ErrorCode.SYNC_NOT_CONNECTED,
+            )
+        stream_state.queue_sync(data=data)
+
+    async def _consume_open_stream(
+        self,
+        *,
+        path: str,
+        doc: _RefCount[MeshDocument],
+        response_stream: AsyncIterator[Content],
+        stream_state: _SyncOpenStreamState,
+    ) -> None:
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation="open")
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation="open")
+
+                try:
+                    chunk_headers = _SyncOpenOutputChunkHeaders.model_validate(
+                        chunk.headers
+                    )
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation="open") from exc
+
+                if _normalize_sync_path(chunk_headers.path) != path:
+                    raise RoomException(
+                        "sync.open stream returned a mismatched path",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+
+                try:
+                    self._apply_sync_payload(doc=doc, payload=chunk.data)
+                except ChanClosed:
+                    pass
+        finally:
+            stream_state.close_input_stream()
+
+    async def _open_stream(
+        self,
+        *,
+        path: str,
+        config: _SyncOpenDocumentConfig,
+        vector: str | None,
+        initial_json: dict[str, Any] | None,
+    ) -> tuple[
+        _SyncOpenStreamState,
+        AsyncIterator[Content],
+        _SyncOpenStateChunkHeaders,
+        BinaryContent,
+    ]:
+        stream_state = _SyncOpenStreamState(
+            path=path,
+            create=config.create,
+            vector=vector,
+            schema=config.schema,
+            schema_path=config.schema_path,
+            initial_json=initial_json,
+        )
+        try:
+            response = await self._invoke(
+                operation="open",
+                input=stream_state.input_stream(),
+            )
+            if isinstance(response, Content):
+                raise self._unexpected_response_error(operation="open")
+
+            response_stream = response.__aiter__()
+            try:
+                first_chunk = await response_stream.__anext__()
+            except StopAsyncIteration as exc:
+                raise RoomException(
+                    "sync.open stream closed before the initial document state was returned",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                ) from exc
+
+            if isinstance(first_chunk, ErrorContent):
+                raise RoomException(first_chunk.text, code=first_chunk.code)
+            if not isinstance(first_chunk, BinaryContent):
+                raise self._unexpected_response_error(operation="open")
+
+            try:
+                state_headers = _SyncOpenStateChunkHeaders.model_validate(
+                    first_chunk.headers
+                )
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="open") from exc
+
+            if _normalize_sync_path(state_headers.path) != path:
+                raise RoomException(
+                    "sync.open stream returned a mismatched path",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+
+            return stream_state, response_stream, state_headers, first_chunk
+        except Exception:
+            stream_state.close_input_stream()
+            raise
+
+    def _attach_stream_consumer(
+        self,
+        *,
+        path: str,
+        doc: _RefCount[MeshDocument],
+        stream_state: _SyncOpenStreamState,
+        response_stream: AsyncIterator[Content],
+    ) -> None:
+        stream_state.attach_task(
+            asyncio.create_task(
+                self._consume_open_stream(
+                    path=path,
+                    doc=doc,
+                    response_stream=response_stream,
+                    stream_state=stream_state,
+                )
+            )
+        )
+
+    async def _on_room_disconnect(self) -> None:
+        for path, ref in self._connected_documents.items():
+            self._reconnect_base_vectors.setdefault(path, ref.ref.get_state_vector())
+        open_streams = list(self._document_streams.values())
+        self._document_streams.clear()
+        for stream_state in open_streams:
+            stream_state.close_input_stream()
+
+    async def _on_room_reconnect(self) -> None:
+        for path, ref in list(self._connected_documents.items()):
+            config = self._document_configs.get(path)
+            if config is None:
+                continue
+
+            reconnect_base_vector = self._reconnect_base_vectors.pop(path, None)
+            reconnect_sync_payload: bytes | None = None
+            if reconnect_base_vector is not None:
+                reconnect_state = ref.ref.get_state(vector=reconnect_base_vector)
+                if reconnect_state:
+                    reconnect_sync_payload = base64.standard_b64encode(reconnect_state)
+
+            vector = base64.standard_b64encode(ref.ref.get_state_vector()).decode(
+                "utf-8"
+            )
+            stream_state, response_stream, _, first_chunk = await self._open_stream(
+                path=path,
+                config=config,
+                vector=vector,
+                initial_json=None,
+            )
+            self._document_streams[path] = stream_state
+            self._apply_sync_payload(doc=ref, payload=first_chunk.data)
+            if reconnect_sync_payload is not None:
+                stream_state.queue_sync(data=reconnect_sync_payload)
+            self._attach_stream_consumer(
+                path=path,
+                doc=ref,
+                stream_state=stream_state,
+                response_stream=response_stream,
+            )
+
+    async def _handle_sync(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        del protocol, message_id, type, data
+        logger.debug("ignoring legacy room.sync message for streamed sync client")
+
+
+ToolContentType = Literal[
+    "binary",
+    "json",
+    "text",
+    "file",
+    "link",
+    "empty",
+]
+_SUPPORTED_TOOL_CONTENT_KINDS: set[str] = {
+    "binary",
+    "json",
+    "text",
+    "file",
+    "link",
+    "empty",
+}
+
+
+class ToolContentSpec:
+    def __init__(
+        self,
+        *,
+        types: list[ToolContentType],
+        stream: bool = False,
+        schema: dict | None = None,
+    ):
+        if not isinstance(types, list) or not all(
+            isinstance(item, str) for item in types
+        ):
+            raise TypeError("types must be a list of supported content type strings")
+        if len(types) == 0:
+            raise ValueError("types must include at least one content type")
+        unsupported = [
+            item for item in types if item not in _SUPPORTED_TOOL_CONTENT_KINDS
+        ]
+        if len(unsupported) > 0:
+            unsupported_list = ", ".join(sorted(set(unsupported)))
+            raise ValueError(f"unsupported tool content type(s): {unsupported_list}")
+        if not isinstance(stream, bool):
+            raise TypeError("stream must be a boolean")
+        if schema is not None and not isinstance(schema, dict):
+            raise TypeError("schema must be an object when provided")
+
+        self.types = [*types]
+        self.stream = stream
+        self.schema = schema
+
+    def includes(self, content_type: ToolContentType) -> bool:
+        return content_type in self.types
+
+    def to_json(self) -> dict:
+        value = {"types": [*self.types], "stream": self.stream}
+        if self.schema is not None:
+            value["schema"] = self.schema
+        return value
+
+    @staticmethod
+    def from_json(value: dict | None) -> "ToolContentSpec | None":
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise TypeError("tool content type descriptor must be an object")
+
+        raw_types = value.get("types", None)
+        if not isinstance(raw_types, list) or not all(
+            isinstance(item, str) for item in raw_types
+        ):
+            raise TypeError("tool content type descriptor requires a string[] 'types'")
+        unsupported = [
+            item for item in raw_types if item not in _SUPPORTED_TOOL_CONTENT_KINDS
+        ]
+        if len(unsupported) > 0:
+            unsupported_list = ", ".join(sorted(set(unsupported)))
+            raise ValueError(f"unsupported tool content type(s): {unsupported_list}")
+
+        raw_stream = value.get("stream", False)
+        if not isinstance(raw_stream, bool):
+            raise TypeError("tool content type descriptor 'stream' must be a boolean")
+
+        raw_schema = value.get("schema", None)
+        if raw_schema is not None and not isinstance(raw_schema, dict):
+            raise TypeError("tool content type descriptor 'schema' must be an object")
+
+        return ToolContentSpec(types=[*raw_types], stream=raw_stream, schema=raw_schema)
+
+
+class ToolDescription:
+    def __init__(
+        self,
+        *,
+        name: str,
+        title: str,
+        description: str,
+        input_spec: ToolContentSpec | None = None,
+        output_spec: ToolContentSpec | None = None,
+        defs: Optional[dict] = None,
+        strict: Optional[bool] = None,
+    ):
+        self.name = name
+        self.title = title
+        self.description = description
+        self.input_spec = input_spec
+        self.output_spec = output_spec
+
+        self.defs = defs
+        self.strict = strict
+
+    @property
+    def input_schema(self) -> dict | None:
+        if self.input_spec is None:
+            return None
+        return self.input_spec.schema
+
+    @property
+    def output_schema(self) -> dict | None:
+        if self.output_spec is None:
+            return None
+        return self.output_spec.schema
+
+    def to_json(self):
+        return {
+            "name": self.name,
+            "description": self.description,
+            "title": self.title,
+            "input_spec": None
+            if self.input_spec is None
+            else self.input_spec.to_json(),
+            "output_spec": None
+            if self.output_spec is None
+            else self.output_spec.to_json(),
+            "defs": self.defs,
+            "strict": self.strict,
+        }
+
+
+class ToolkitDescription:
+    def __init__(
+        self,
+        *,
+        name: str,
+        title: str,
+        description: str,
+        tools: List[ToolDescription],
+        participant_id: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ):
+        self.name = name
+        self.title = title
+        self.description = description
+        self.tools = tools
+        self.participant_id = participant_id
+        self.annotations = dict(annotations or {})
+
+    def get_tool(self, name: str) -> ToolDescription | None:
+        for t in self.tools:
+            if t.name == name:
+                return t
+
+        return None
+
+    def to_json(self):
+        return {
+            "name": self.name,
+            "description": self.description,
+            "title": self.title,
+            "tools": list(map(lambda x: x.to_json(), self.tools)),
+            "participant_id": self.participant_id,
+            "annotations": self.annotations,
+        }
+
+
+class ServiceRuntimeEvent(BaseModel):
+    type: str
+    reason: str
+    message: str
+    count: int = 1
+    first_timestamp: float
+    last_timestamp: float
+
+
+class ServicePortRuntimeState(BaseModel):
+    num: Literal["*"] | PositiveInt
+    liveness: Optional[str] = None
+    liveness_status: Literal["not_configured", "not_ready", "ready"] = "not_configured"
+    last_checked_at: Optional[float] = None
+    last_error: Optional[str] = None
+
+
+class ServiceRuntimeStatus(BaseModel):
+    ports: list[ServicePortRuntimeState] = Field(default_factory=list)
+
+
+class ServiceRuntimeState(BaseModel):
+    service_id: str
+    state: str
+    container_id: Optional[str] = None
+    restart_scheduled_at: Optional[float] = None
+    started_at: Optional[float] = None
+    restart_count: int = 0
+    last_exit_code: Optional[int] = None
+    last_exit_at: Optional[float] = None
+    last_start_error: Optional[str] = None
+    last_start_error_at: Optional[float] = None
+    status: ServiceRuntimeStatus = Field(default_factory=ServiceRuntimeStatus)
+    events: list[ServiceRuntimeEvent] = Field(default_factory=list)
+
+
+class ListServicesResult(BaseModel):
+    services: list[ServiceSpec]
+    service_states: Dict[str, ServiceRuntimeState] = Field(default_factory=dict)
+
+
+class _ListServicesResponse(ListServicesResult):
+    pass
+
+
+class _ListServicesToolkitResponse(BaseModel):
+    services_json: list[str] = Field(default_factory=list)
+    service_states: list[ServiceRuntimeState] = Field(default_factory=list)
+
+
+class _LivekitConnectionInfoResponse(BaseModel):
+    url: str
+    token: str
+
+
+class ServicesClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from services.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def list(
+        self,
+    ) -> ListServicesResult:
+        """
+        Fetch a list of services plus runtime state details from the service controller.
+        """
+
+        response = await self.room.invoke(
+            toolkit="services",
+            tool="list",
+            input={},
+        )
+
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list")
+
+        try:
+            payload = _ListServicesToolkitResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list") from exc
+
+        try:
+            services = [
+                ServiceSpec.model_validate_json(service_json)
+                for service_json in payload.services_json
+            ]
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list") from exc
+
+        return ListServicesResult(
+            services=services,
+            service_states={
+                state.service_id: state for state in payload.service_states
+            },
+        )
+
+    async def restart(self, *, service_id: str) -> None:
+        """
+        Restart a managed room service by service id.
+        """
+        await self.room.invoke(
+            toolkit="services",
+            tool="restart",
+            input={"service_id": service_id},
+        )
+
+
+class _ToolCallChunkStream:
+    def __init__(
+        self,
+        *,
+        tool_call_id: str,
+        task: asyncio.Future[Any],
+        on_close: Callable[[], None],
+    ):
+        self._tool_call_id = tool_call_id
+        self._task = task
+        self._on_close = on_close
+        self._queue = asyncio.Queue[Optional[Content]]()
+        self._error: Optional[BaseException] = None
+        self._closed = False
+        self._closed_with_result = False
+        self._opened = False
+        self._request_stream_task: Optional[asyncio.Task[None]] = None
+        self._request_stream_drain_task: Optional[asyncio.Task[None]] = None
+        task.add_done_callback(self._on_task_done)
+
+    @property
+    def tool_call_id(self) -> str:
+        return self._tool_call_id
+
+    @property
+    def result(self) -> asyncio.Future[Any]:
+        return self._task
+
+    @property
+    def error(self) -> Optional[BaseException]:
+        return self._error
+
+    def __await__(self):
+        return self.result.__await__()
+
+    def attach_request_stream_task(self, task: asyncio.Task[None]) -> None:
+        self._request_stream_task = task
+
+    async def _drain_request_stream_task(self, task: asyncio.Task[None]) -> None:
+        await asyncio.gather(task, return_exceptions=True)
+
+    def pending_shutdown_tasks(
+        self,
+    ) -> list[asyncio.Future[Any] | asyncio.Task[Any]]:
+        tasks: list[asyncio.Future[Any] | asyncio.Task[Any]] = []
+        if (
+            self._request_stream_drain_task is not None
+            and not self._request_stream_drain_task.done()
+        ):
+            tasks.append(self._request_stream_drain_task)
+        elif (
+            self._request_stream_task is not None
+            and not self._request_stream_task.done()
+        ):
+            tasks.append(self._request_stream_task)
+        if not self._task.done():
+            tasks.append(self._task)
+        return tasks
+
+    def _close(
+        self,
+        *,
+        error: Optional[BaseException] = None,
+        result: Optional[Content] = None,
+    ) -> None:
+        if self._closed:
+            return
+
+        self._closed = True
+        self._closed_with_result = result is not None
+
+        if error is not None:
+            self._error = error
+        elif result is not None:
+            self._queue.put_nowait(result)
+
+        self._queue.put_nowait(None)
+        if (
+            self._request_stream_task is not None
+            and not self._request_stream_task.done()
+            and not self._closed_with_result
+        ):
+            self._request_stream_task.cancel()
+            if (
+                self._request_stream_drain_task is None
+                or self._request_stream_drain_task.done()
+            ):
+                self._request_stream_drain_task = asyncio.create_task(
+                    self._drain_request_stream_task(self._request_stream_task)
+                )
+        try:
+            self._on_close()
+        except Exception as ex:
+            logger.error("tool call stream cleanup failed", exc_info=ex)
+
+    def close_with_error(self, error: BaseException) -> None:
+        self._close(error=error)
+        if not self._task.done():
+            self._task.cancel()
+
+    async def cancel(self) -> None:
+        request_stream_task = self._request_stream_task
+        task = self._task
+        self._close()
+        if not task.done():
+            task.cancel()
+
+        awaitables: list[asyncio.Future[Any] | asyncio.Task[Any]] = []
+        if request_stream_task is not None and not request_stream_task.done():
+            if self._closed_with_result:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(
+                        asyncio.shield(request_stream_task),
+                        timeout=0.5,
+                    )
+            if not request_stream_task.done():
+                request_stream_task.cancel()
+                awaitables.append(request_stream_task)
+        if not task.done():
+            awaitables.append(task)
+        if awaitables:
+            await asyncio.gather(*awaitables, return_exceptions=True)
+
+    def _on_task_done(self, task: asyncio.Future[Any]) -> None:
+        if self._closed:
+            return
+
+        try:
+            result = ensure_content(task.result())
+            if isinstance(result, _ControlContent) and result.method == "open":
+                self._opened = True
+                return
+            if (
+                isinstance(result, _ControlContent)
+                and result.method == "close"
+                and result.status_code is not None
+                and result.status_code != ControlCloseStatus.NORMAL
+            ):
+                detail = result.message or "tool call stream closed abnormally"
+                self._close(
+                    error=RoomException(
+                        detail,
+                        status_code=result.status_code,
+                    )
+                )
+                return
+            self._close(result=result)
+        except asyncio.CancelledError:
+            self._close()
+        except Exception as ex:
+            self._close(error=ex)
+
+    def _push_chunk(self, response_chunk: Content) -> None:
+        if self._closed:
+            return
+
+        if (
+            isinstance(response_chunk, _ControlContent)
+            and response_chunk.method == "close"
+        ):
+            if (
+                response_chunk.status_code is not None
+                and response_chunk.status_code != ControlCloseStatus.NORMAL
+            ):
+                detail = response_chunk.message or "tool call stream closed abnormally"
+                self._close(
+                    error=RoomException(
+                        detail,
+                        status_code=response_chunk.status_code,
+                    )
+                )
+            else:
+                self._close(result=response_chunk)
+            return
+
+        self._queue.put_nowait(response_chunk)
+
+    async def __aiter__(self) -> AsyncIterator[Content]:
+        while True:
+            item = await self._queue.get()
+            if item is None:
+                if self._error is not None:
+                    raise self._error
+                return
+            yield item
+
+    def stream(self) -> AsyncIterator[Content]:
+        async def wrapped() -> AsyncIterator[Content]:
+            try:
+                async for item in self:
+                    yield item
+            finally:
+                await self.cancel()
+
+        return wrapped()
+
+
+class AgentsClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    def _ensure_close_watcher(self) -> None:
+        self.room._ensure_close_watcher()
+
+    def _fail_tool_call_streams(self, *, error: BaseException) -> None:
+        self.room._fail_tool_call_streams(error=error)
+
+    async def _handle_tool_call_response_chunk(
+        self, protocol: Protocol, message_id: int, typ: str, data: bytes
+    ) -> None:
+        await self.room._handle_tool_call_response_chunk(
+            protocol=protocol,
+            message_id=message_id,
+            typ=typ,
+            data=data,
+        )
+
+    async def make_call(
+        self, *, name: str, url: str, arguments: dict, api: Optional[ApiScope] = None
+    ) -> None:
+        await self.room.call(
+            name=name,
+            url=url,
+            arguments=arguments,
+            api=api,
+        )
+        return None
+
+    def _make_tool_call_stream(
+        self, *, tool_call_id: str, request_task: asyncio.Future[Any]
+    ) -> _ToolCallChunkStream:
+        return self.room._make_tool_call_stream(
+            tool_call_id=tool_call_id,
+            request_task=request_task,
+        )
+
+    async def _send_tool_call_request_chunk(
+        self,
+        *,
+        tool_call_id: str,
+        chunk: Content,
+    ) -> None:
+        await self.room._send_tool_call_request_chunk(
+            tool_call_id=tool_call_id,
+            chunk=chunk,
+        )
+
+    async def _stream_tool_call_request_chunks(
+        self,
+        *,
+        tool_call_id: str,
+        request_stream_parts: AsyncIterable[Content],
+    ) -> None:
+        await self.room._stream_tool_call_request_chunks(
+            tool_call_id=tool_call_id,
+            request_stream_parts=request_stream_parts,
+        )
+
+    async def invoke_tool(
+        self,
+        *,
+        toolkit: str,
+        tool: str,
+        input: str | dict | Content | AsyncIterable[Content] | None = None,
+        participant_id: Optional[str] = None,
+        on_behalf_of_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Content | AsyncIterator[Content]:
+        return await self.room.invoke(
+            toolkit=toolkit,
+            tool=tool,
+            input=input,
+            participant_id=participant_id,
+            on_behalf_of_id=on_behalf_of_id,
+            **kwargs,
+        )
+
+    async def list_toolkits(
+        self,
+        *,
+        participant_id: Optional[str] = None,
+        participant_name: Optional[str] = None,
+        timeout: Optional[int] = None,
+    ) -> List[ToolkitDescription]:
+        """
+        Fetch a list of available toolkits and parse into `ToolkitDescription` objects.
+        """
+        return await self.room.list_toolkits(
+            participant_id=participant_id,
+            participant_name=participant_name,
+            timeout=timeout,
+        )
+
+
+class LivekitConnectionInfo:
+    def __init__(self, *, url: str, token: str):
+        self.url = url
+        self.token = token
+
+
+class LivekitClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error() -> RoomException:
+        return RoomException(
+            "unexpected return type from livekit.connect",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def get_connection_info(
+        self, *, breakout_room: Optional[str] = None
+    ) -> LivekitConnectionInfo:
+        response = await self.room.invoke(
+            toolkit="livekit",
+            tool="connect",
+            input={"breakout_room": breakout_room},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error()
+
+        try:
+            payload = _LivekitConnectionInfoResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error() from exc
+
+        return LivekitConnectionInfo(
+            url=payload.url,
+            token=payload.token,
+        )
+
+
+class StorageEntry(BaseModel):
+    name: str
+    is_folder: bool
+    size: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class _StoragePathToolInput(BaseModel):
+    path: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDeleteToolInput(BaseModel):
+    path: str
+    recursive: Optional[bool] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageMoveToolInput(BaseModel):
+    source_path: str
+    destination_path: str
+    overwrite: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadUrlToolInput(BaseModel):
+    path: str
+    download: Optional[bool] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageFileEventHeader(BaseModel):
+    path: str
+    participant_id: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageFileMovedEventHeader(BaseModel):
+    source_path: str
+    destination_path: str
+    participant_id: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageExistsToolResponse(BaseModel):
+    exists: bool
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageStatToolResponse(BaseModel):
+    exists: bool
+    name: Optional[str] = None
+    is_folder: Optional[bool] = None
+    size: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageListToolResponse(BaseModel):
+    files: list[StorageEntry]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadUrlToolResponse(BaseModel):
+    url: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageUploadStartHeaders(BaseModel):
+    kind: Literal["start"]
+    path: str
+    overwrite: bool = False
+    name: Optional[str] = None
+    mime_type: Optional[str] = None
+    size: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageUploadDataHeaders(BaseModel):
+    kind: Literal["data"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageUploadPullHeaders(BaseModel):
+    kind: Literal["pull"]
+    chunk_size: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadStartHeaders(BaseModel):
+    kind: Literal["start"]
+    path: str
+    chunk_size: int
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadPullHeaders(BaseModel):
+    kind: Literal["pull"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadStartResponseHeaders(BaseModel):
+    kind: Literal["start"]
+    name: str
+    mime_type: str
+    size: int
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StorageDownloadDataHeaders(BaseModel):
+    kind: Literal["data"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class StorageClient:
+    """
+    An API for managing files and folders within a remote storage system.
+    Methods are all async and must be awaited.
+    """
+
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+        self._events = {}
+        room.protocol.register_handler("storage.file.deleted", self._on_file_deleted)
+        room.protocol.register_handler("storage.file.moved", self._on_file_moved)
+        room.protocol.register_handler("storage.file.updated", self._on_file_updated)
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from storage.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    def on(self, event_name: str, func: Callable):
+        if event_name not in self._events:
+            self._events[event_name] = []
+        self._events[event_name].append(func)
+
+    def off(self, event_name: str, func: Callable):
+        if event_name in self._events:
+            self._events[event_name].remove(func)
+
+    def emit(self, event_name: str, **kwargs):
+        """Call all handlers associated with the given event."""
+        handlers = self._events.get(event_name, [])
+        for handler in handlers:
+            handler(**kwargs)
+
+    async def _on_file_deleted(self, protocol, message_id, msg_type, data):
+        payload, _ = unpack_message(data)
+        event = _StorageFileEventHeader.model_validate(payload)
+        self.emit(
+            "file.deleted",
+            path=event.path,
+            participant_id=event.participant_id,
+        )
+
+    async def _on_file_updated(self, protocol, message_id, msg_type, data):
+        payload, _ = unpack_message(data)
+        event = _StorageFileEventHeader.model_validate(payload)
+        self.emit(
+            "file.updated",
+            path=event.path,
+            participant_id=event.participant_id,
+        )
+
+    async def _on_file_moved(self, protocol, message_id, msg_type, data):
+        payload, _ = unpack_message(data)
+        event = _StorageFileMovedEventHeader.model_validate(payload)
+        self.emit(
+            "file.moved",
+            source_path=event.source_path,
+            destination_path=event.destination_path,
+            participant_id=event.participant_id,
+        )
+
+    async def _invoke(
+        self,
+        *,
+        operation: str,
+        input: dict | Content,
+    ) -> Content:
+        response = await self.room.invoke(
+            toolkit="storage",
+            tool=operation,
+            input=input,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def exists(self, *, path: str):
+        """
+        Determines whether a file or folder exists at the specified path.
+
+        Arguments:
+            path (str): The path to the file or folder.
+
+        Returns:
+            bool: True if the file or folder exists, otherwise False.
+
+        Example:
+            if await storage_client.exists(path="folder/data.json"):
+                print("Data file exists!")
+        """
+
+        response = await self._invoke(
+            operation="exists",
+            input=_StoragePathToolInput(path=path).model_dump(),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="exists")
+        try:
+            payload = _StorageExistsToolResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="exists") from exc
+        return payload.exists
+
+    async def stat(self, *, path: str) -> StorageEntry | None:
+        response = await self._invoke(
+            operation="stat",
+            input=_StoragePathToolInput(path=path).model_dump(),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="stat")
+        try:
+            payload = _StorageStatToolResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="stat") from exc
+        if not payload.exists:
+            return None
+        if payload.name is None or payload.is_folder is None:
+            raise self._unexpected_response_error(operation="stat")
+        return StorageEntry(
+            name=payload.name,
+            is_folder=payload.is_folder,
+            size=payload.size,
+            created_at=payload.created_at,
+            updated_at=payload.updated_at,
+        )
+
+    async def move(
+        self,
+        *,
+        source_path: str,
+        destination_path: str,
+        overwrite: bool = False,
+    ) -> None:
+        await self._invoke(
+            operation="move",
+            input=_StorageMoveToolInput(
+                source_path=source_path,
+                destination_path=destination_path,
+                overwrite=overwrite,
+            ).model_dump(),
+        )
+
+    @staticmethod
+    def _default_upload_name(*, path: str, name: str | None) -> str:
+        if isinstance(name, str) and name != "":
+            return name
+        return os.path.basename(path)
+
+    @staticmethod
+    def _default_upload_mime_type(*, name: str, mime_type: str | None) -> str:
+        if isinstance(mime_type, str) and mime_type != "":
+            return mime_type
+        guessed_mime_type = guess_mime_type(name)
+        if guessed_mime_type is None:
+            return "application/octet-stream"
+        return guessed_mime_type
+
+    async def upload_stream(
+        self,
+        *,
+        path: str,
+        chunks: AsyncIterable[bytes],
+        overwrite: bool = False,
+        chunk_size: int = 64 * 1024,
+        size: int | None = None,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> None:
+        resolved_name = self._default_upload_name(path=path, name=name)
+        resolved_mime_type = self._default_upload_mime_type(
+            name=resolved_name,
+            mime_type=mime_type,
+        )
+        input_stream = _StorageUploadInputStream(
+            path=path,
+            overwrite=overwrite,
+            chunks=chunks,
+            chunk_size=chunk_size,
+            size=size,
+            name=resolved_name,
+            mime_type=resolved_mime_type,
+        )
+        response = await self.room.invoke(
+            toolkit="storage",
+            tool="upload",
+            input=input_stream,
+        )
+        if isinstance(response, Content) or not isinstance(response, AsyncIterable):
+            input_stream.close()
+            raise self._unexpected_response_error(operation="upload")
+
+        try:
+            async for chunk in response:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation="upload")
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation="upload")
+                try:
+                    headers = _StorageUploadPullHeaders.model_validate(chunk.headers)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation="upload") from exc
+                if headers.kind != "pull":
+                    raise self._unexpected_response_error(operation="upload")
+                raw_chunk_size = headers.chunk_size
+                input_stream.request_next(
+                    raw_chunk_size
+                    if isinstance(raw_chunk_size, int) and raw_chunk_size > 0
+                    else None
+                )
+        finally:
+            input_stream.close()
+
+    async def upload(
+        self,
+        *,
+        path: str,
+        data: bytes,
+        overwrite: bool = False,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> None:
+        """
+        Uploads binary data to a storage path.
+
+        Arguments:
+            path (str): The destination file path.
+            data (bytes): The data to be written.
+            overwrite (bool): Whether to overwrite an existing file.
+            name (str | None): Optional file name metadata for the upload stream.
+            mime_type (str | None): Optional MIME type metadata for the upload stream.
+
+        Returns:
+            None
+
+        Example:
+            data_to_write = b"Sample data"
+            await storage_client.upload(
+                path="files/new.txt",
+                data=data_to_write,
+                overwrite=True,
+            )
+        """
+
+        async def single_chunk() -> AsyncIterator[bytes]:
+            yield data
+
+        await self.upload_stream(
+            path=path,
+            chunks=single_chunk(),
+            overwrite=overwrite,
+            size=len(data),
+            name=name,
+            mime_type=mime_type,
+        )
+
+    async def download_stream(
+        self, *, path: str, chunk_size: int = 64 * 1024
+    ) -> AsyncIterator[BinaryContent]:
+        input_stream = _StorageDownloadInputStream(path=path, chunk_size=chunk_size)
+        response = await self.room.invoke(
+            toolkit="storage",
+            tool="download",
+            input=input_stream,
+        )
+        if isinstance(response, Content) or not isinstance(response, AsyncIterable):
+            input_stream.close()
+            raise self._unexpected_response_error(operation="download")
+
+        response_stream = response
+        metadata_received = False
+        expected_size: int | None = None
+        bytes_received = 0
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        if not metadata_received:
+                            raise self._unexpected_response_error(operation="download")
+                        if expected_size is None or bytes_received != expected_size:
+                            raise self._unexpected_response_error(operation="download")
+                        return
+                    raise self._unexpected_response_error(operation="download")
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation="download")
+
+                kind = chunk.headers.get("kind")
+                if kind == "start":
+                    if metadata_received:
+                        raise self._unexpected_response_error(operation="download")
+                    try:
+                        headers = _StorageDownloadStartResponseHeaders.model_validate(
+                            chunk.headers
+                        )
+                    except ValidationError as exc:
+                        raise self._unexpected_response_error(
+                            operation="download"
+                        ) from exc
+                    if headers.size < 0:
+                        raise self._unexpected_response_error(operation="download")
+                    metadata_received = True
+                    expected_size = headers.size
+                    yield chunk
+                    if expected_size > 0:
+                        input_stream.request_next()
+                    continue
+
+                try:
+                    headers = _StorageDownloadDataHeaders.model_validate(chunk.headers)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation="download") from exc
+                if (
+                    headers.kind != "data"
+                    or not metadata_received
+                    or expected_size is None
+                ):
+                    raise self._unexpected_response_error(operation="download")
+
+                bytes_received += len(chunk.data)
+                if bytes_received > expected_size:
+                    raise self._unexpected_response_error(operation="download")
+                yield chunk
+                if bytes_received < expected_size:
+                    input_stream.request_next()
+        finally:
+            input_stream.close()
+
+    async def download(self, *, path: str) -> FileContent:
+        """
+        Retrieves the content of a file from the remote storage system.
+
+        Arguments:
+            path (str): The file path to download.
+
+        Returns:
+            FileContent: A response containing the downloaded data.
+
+        Example:
+            file_response = await storage_client.download(path="files/data.bin")
+            print(file_response.data)  # raw bytes
+        """
+        file_name: str | None = None
+        mime_type: str | None = None
+        expected_size: int | None = None
+        bytes_received = 0
+        chunks = bytearray()
+        async for chunk in self.download_stream(path=path):
+            kind = chunk.headers.get("kind")
+            if kind == "start":
+                try:
+                    headers = _StorageDownloadStartResponseHeaders.model_validate(
+                        chunk.headers
+                    )
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation="download") from exc
+                if headers.size < 0:
+                    raise self._unexpected_response_error(operation="download")
+                file_name = headers.name
+                mime_type = headers.mime_type
+                expected_size = headers.size
+                continue
+
+            try:
+                headers = _StorageDownloadDataHeaders.model_validate(chunk.headers)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="download") from exc
+            if headers.kind != "data":
+                raise self._unexpected_response_error(operation="download")
+            chunks.extend(chunk.data)
+            bytes_received += len(chunk.data)
+
+        if file_name is None or mime_type is None or expected_size is None:
+            raise self._unexpected_response_error(operation="download")
+        if bytes_received != expected_size:
+            raise self._unexpected_response_error(operation="download")
+
+        return FileContent(data=bytes(chunks), name=file_name, mime_type=mime_type)
+
+    async def download_url(self, *, path: str) -> str:
+        """
+        Requests a downloadable URL for the specified file path.
+        This URL may be an HTTP or WebSocket-based link,
+        depending on server implementation.
+
+        Arguments:
+            path (str): The file path.
+
+        Returns:
+            str: A URL string for downloading the file.
+
+        Example:
+            url = await storage_client.download_url(path="files/report.pdf")
+            print("Download using:", url)
+        """
+
+        response = await self._invoke(
+            operation="download_url",
+            input=_StorageDownloadUrlToolInput(path=path).model_dump(),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="download_url")
+        try:
+            payload = _StorageDownloadUrlToolResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="download_url") from exc
+        return payload.url
+
+    async def list(self, *, path: str) -> list[StorageEntry]:
+        """
+        Lists files and folders at the specified path.
+
+        Arguments:
+            path (str): The folder path to list.
+
+        Returns:
+            list[StorageEntry]: A list of storage entries,
+                                where each entry has a name and is_folder flag.
+
+        Example:
+            entries = await storage_client.list(path="folder")
+            for e in entries:
+                print(e.name, e.is_folder)
+        """
+
+        response = await self._invoke(
+            operation="list",
+            input=_StoragePathToolInput(path=path).model_dump(),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list")
+        try:
+            payload = _StorageListToolResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list") from exc
+        return payload.files
+
+    async def delete(self, path: str, recursive: Optional[bool] = None):
+        """
+        Deletes a file  at the given path.
+
+        Arguments:
+            path (str): The file to delete.
+
+        Returns:
+            None
+
+        Example:
+            await storage_client.delete("folder/old_file.txt")
+        """
+
+        await self._invoke(
+            operation="delete",
+            input=_StorageDeleteToolInput(
+                path=path,
+                recursive=recursive,
+            ).model_dump(),
+        )
+
+
+class _StorageDownloadInputStream:
+    def __init__(self, *, path: str, chunk_size: int):
+        self._path = path
+        self._chunk_size = chunk_size
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[object] = asyncio.Queue()
+
+    def request_next(self) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(object())
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(None)
+
+    def __aiter__(self) -> AsyncIterator[Content]:
+        return self._stream()
+
+    async def _stream(self) -> AsyncIterator[Content]:
+        yield BinaryContent(
+            data=b"",
+            headers=_StorageDownloadStartHeaders(
+                kind="start",
+                path=self._path,
+                chunk_size=self._chunk_size,
+            ).model_dump(),
+        )
+        while True:
+            await self._pulls.get()
+            if self._closed.is_set():
+                return
+            yield BinaryContent(
+                data=b"",
+                headers=_StorageDownloadPullHeaders(kind="pull").model_dump(),
+            )
+
+
+class _StorageUploadInputStream:
+    def __init__(
+        self,
+        *,
+        path: str,
+        overwrite: bool,
+        chunks: AsyncIterable[bytes],
+        chunk_size: int,
+        size: int | None,
+        name: str,
+        mime_type: str,
+    ):
+        self._path = path
+        self._overwrite = overwrite
+        self._source = chunks.__aiter__()
+        self._chunk_size = chunk_size
+        self._size = size
+        self._name = name
+        self._mime_type = mime_type
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[int | None] = asyncio.Queue()
+        self._pending_chunk = b""
+        self._pending_offset = 0
+        self._source_exhausted = False
+
+    def request_next(self, chunk_size: int | None = None) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(chunk_size)
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(None)
+
+    def __aiter__(self) -> AsyncIterator[Content]:
+        return self._stream()
+
+    async def _next_data_chunk(self, requested_chunk_size: int) -> bytes | None:
+        parts: list[bytes] = []
+        bytes_buffered = 0
+
+        while bytes_buffered < requested_chunk_size:
+            if self._pending_offset < len(self._pending_chunk):
+                start = self._pending_offset
+                end = min(
+                    start + (requested_chunk_size - bytes_buffered),
+                    len(self._pending_chunk),
+                )
+                self._pending_offset = end
+                part = self._pending_chunk[start:end]
+                parts.append(part)
+                bytes_buffered += len(part)
+                continue
+
+            if self._source_exhausted:
+                break
+
+            try:
+                next_chunk = bytes(await self._source.__anext__())
+            except StopAsyncIteration:
+                self._source_exhausted = True
+                break
+
+            if len(next_chunk) == 0:
+                continue
+
+            self._pending_chunk = next_chunk
+            self._pending_offset = 0
+
+        if bytes_buffered == 0:
+            return None
+        if len(parts) == 1:
+            return parts[0]
+        return b"".join(parts)
+
+    async def _stream(self) -> AsyncIterator[Content]:
+        yield BinaryContent(
+            data=b"",
+            headers=_StorageUploadStartHeaders(
+                kind="start",
+                path=self._path,
+                overwrite=self._overwrite,
+                name=self._name,
+                mime_type=self._mime_type,
+                size=self._size,
+            ).model_dump(),
+        )
+        while True:
+            requested_chunk_size = await self._pulls.get()
+            if self._closed.is_set():
+                return
+
+            next_chunk = await self._next_data_chunk(
+                requested_chunk_size
+                if isinstance(requested_chunk_size, int) and requested_chunk_size > 0
+                else self._chunk_size
+            )
+            if next_chunk is None:
+                return
+
+            yield BinaryContent(
+                data=next_chunk,
+                headers=_StorageUploadDataHeaders(kind="data").model_dump(),
+            )
+
+
+class Queue:
+    def __init__(self, *, name: str, size: int):
+        self._name = name
+        self._size = size
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def size(self):
+        return self._size
+
+
+class _QueueItemResponse(BaseModel):
+    name: str
+    size: Any
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class _QueueListResponse(BaseModel):
+    queues: list[_QueueItemResponse]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class QueuesClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from queues.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def _invoke(self, *, operation: str, arguments: dict) -> Content:
+        response = await self.room.invoke(
+            toolkit="queues",
+            tool=operation,
+            input=arguments,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def list(
+        self,
+        *,
+        name: str | None = None,
+        message: dict | None = None,
+        create: bool = True,
+    ) -> list[Queue]:
+        del name
+        del message
+        del create
+        response = await self._invoke(operation="list", arguments={})
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list")
+        try:
+            payload = _QueueListResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list") from exc
+        queues = []
+        for item in payload.queues:
+            try:
+                size = int(item.size)
+            except (TypeError, ValueError) as exc:
+                raise self._unexpected_response_error(operation="list") from exc
+            queues.append(Queue(name=item.name, size=size))
+        return queues
+
+    async def open(self, *, name: str) -> None:
+        response = await self._invoke(operation="open", arguments={"name": name})
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="open")
+
+    async def send(self, *, name: str, message: dict, create: bool = True) -> None:
+        response = await self._invoke(
+            operation="send",
+            arguments={"name": name, "create": create, "message": message},
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="send")
+
+    async def drain(self, *, name: str) -> None:
+        response = await self._invoke(operation="drain", arguments={"name": name})
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="drain")
+
+    async def close(self, *, name: str) -> None:
+        response = await self._invoke(operation="close", arguments={"name": name})
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="close")
+
+    async def receive(
+        self, *, name: str, create: bool = True, wait: bool = True
+    ) -> dict | str | None:
+        response = await self._invoke(
+            operation="receive",
+            arguments={"name": name, "create": create, "wait": wait},
+        )
+        if isinstance(response, EmptyContent):
+            return None
+        if isinstance(response, JsonContent):
+            return response.json
+        if isinstance(response, TextContent):
+            return response.text
+        raise self._unexpected_response_error(operation="receive")
+
+
+class _IncomingMessagingStreamState(Enum):
+    AWAITING_INITIAL_MESSAGE = auto()
+    PENDING_ACCEPTANCE = auto()
+    ACCEPTED = auto()
+    TERMINAL = auto()
+
+
+@dataclass(slots=True)
+class _IncomingMessagingStreamCall:
+    message_id: int
+    tool_call_id: str
+    caller_id: str
+    state: _IncomingMessagingStreamState = (
+        _IncomingMessagingStreamState.AWAITING_INITIAL_MESSAGE
+    )
+    request: "IncomingMessagingStreamRequest | None" = None
+    stream: "MessagingStream | None" = None
+
+
+class MessagingClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+        self._participants = dict[str, RemoteParticipant]()
+        self._events = {}
+        room.protocol.register_handler("messaging.send", self._handle_message_send)
+        room.protocol.register_handler(
+            "room.tool_call.messaging", self._handle_stream_tool_call
+        )
+        room.protocol.register_handler(
+            "room.tool_call_request_chunk.messaging",
+            self._handle_stream_tool_call_request_chunk,
+        )
+        self._message_queue = Chan[_QueuedRoomMessage]()
+        self._send_task: asyncio.Task[None] | None = None
+        self._send_operations = set[asyncio.Task[None]]()
+        self._desired_enabled = False
+        self._online = False
+        self._enable_in_flight = False
+        self._incoming_streams: dict[str, MessagingStream] = {}
+        self._pending_stream_requests: dict[str, IncomingMessagingStreamRequest] = {}
+        self._incoming_stream_calls: dict[str, _IncomingMessagingStreamCall] = {}
+
+    @staticmethod
+    def _message_json(message: dict) -> str:
+        return json.dumps(message)
+
+    @staticmethod
+    def _attachment_base64(attachment: Optional[bytes]) -> str | None:
+        if attachment is None:
+            return None
+        return base64.b64encode(attachment).decode("utf-8")
+
+    async def _invoke(
+        self,
+        *,
+        operation: str,
+        input: dict,
+        after_send: Callable[[], None] | None = None,
+    ) -> None:
+        if after_send is None:
+            await self.room.invoke(
+                toolkit="messaging",
+                tool=operation,
+                input=input,
+            )
+        else:
+            await self.room.invoke(
+                toolkit="messaging",
+                tool=operation,
+                input=input,
+                _after_send=after_send,
+            )
+
+    def _invoke_nowait(self, *, operation: str, input: dict) -> None:
+        self.room.invoke_nowait(
+            toolkit="messaging",
+            tool=operation,
+            input=input,
+        )
+
+    @property
+    def remote_participants(self) -> list[RemoteParticipant]:
+        """
+        get the other participants in the room with messaging enabled.
+        """
+        return list(self._participants.values())
+
+    @property
+    def is_enabled(self) -> bool:
+        return self._desired_enabled
+
+    @property
+    def online(self) -> bool:
+        return self._online
+
+    #
+    def on(self, event_name: str, func: Callable):
+        if event_name not in self._events:
+            self._events[event_name] = []
+        self._events[event_name].append(func)
+
+    def off(self, event_name: str, func: Callable):
+        if event_name in self._events:
+            self._events[event_name].remove(func)
+
+    def emit(self, event_name, **kwargs):
+        """Call all handlers associated with the given event."""
+        handlers = self._events.get(event_name, [])
+        for handler in handlers:
+            handler(**kwargs)
+
+    def get_participants(self) -> list[RemoteParticipant]:
+        return list(self._participants.values())
+
+    def get_participant(self, id: str) -> RemoteParticipant | None:
+        for part in self.remote_participants:
+            if part.id == id:
+                return part
+
+        return None
+
+    def get_participant_by_name(self, name: str) -> RemoteParticipant | None:
+        for part in self.remote_participants:
+            if part.get_attribute("name") == name:
+                return part
+
+        return None
+
+    def _drop_queued_message(
+        self, *, msg: _QueuedRoomMessage, error: RoomException
+    ) -> None:
+        logger.debug(
+            "Dropping queued message for offline participant",
+            extra={
+                "participant_id": None if msg.to is None else msg.to.id,
+                "type": msg.type,
+            },
+        )
+        if msg.fut is not None and not msg.fut.done():
+            msg.fut.set_exception(error)
+
+    def _drain_queued_messages(self, *, error: RoomException) -> None:
+        while True:
+            try:
+                queued = self._message_queue.recv_nowait()
+            except ChanClosed:
+                return
+            except Exception:
+                return
+            self._drop_queued_message(msg=queued, error=error)
+
+    def _remove_participant(self, participant_id: str) -> RemoteParticipant | None:
+        part = self._participants.pop(participant_id, None)
+        if part is None:
+            return None
+
+        part._set_online(False)
+        self.emit("participant_removed", participant=part)
+
+        return part
+
+    def _mark_participant_offline(self, participant: Participant | None) -> None:
+        if not isinstance(participant, RemoteParticipant):
+            return
+
+        participant._set_online(False)
+        current = self._participants.get(participant.id, None)
+        if current is not None:
+            self._remove_participant(participant.id)
+
+    def _resolve_message_recipient(
+        self, participant: Participant | None
+    ) -> Participant | None:
+        if participant is None:
+            return None
+
+        if not isinstance(participant, RemoteParticipant):
+            return participant
+
+        if participant.online is False:
+            return None
+
+        current = self._participants.get(participant.id, None)
+        if current is None:
+            return None
+
+        return current
+
+    def enable(self) -> asyncio.Future[None]:
+        self._desired_enabled = True
+        if self.room.is_connected:
+            self._enable_current_connection_nowait()
+        return _completed_future()
+
+    def disable(self) -> asyncio.Future[None]:
+        was_online = self._online
+        self._desired_enabled = False
+        self._clear_current_connection_state()
+        if self.room.is_connected and was_online:
+            self._disable_current_connection_nowait()
+        return _completed_future()
+
+    def _disable_current_connection_nowait(self) -> None:
+        self._invoke_nowait(operation="disable", input={})
+
+    async def _handle_message_send(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        if protocol is not self.room._protocol_instance:
+            return
+        header, payload = unpack_message(data)
+
+        message = RoomMessage(
+            from_participant_id=header["from_participant_id"],
+            type=header["type"],
+            message=header["message"],
+            attachment=payload,
+        )
+
+        if message.type == "messaging.enabled":
+            self._on_messaging_enabled(message)
+        elif message.type == "participant.attributes":
+            self._on_participant_attributes(message)
+        elif message.type == "participant.enabled":
+            self._on_participant_enabled(message)
+        elif message.type == "participant.disabled":
+            self._on_participant_disabled(message)
+        else:
+            if message.type == "dismiss":
+                self.room._dismiss()
+            self.emit("message", message=message)
+
+    async def _handle_stream_tool_call(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        del type
+        if protocol is not self.room._protocol_instance:
+            return
+        header, payload = unpack_message(data)
+        name = header.get("name")
+        caller_id = header.get("caller_id")
+        tool_call_id = header.get("tool_call_id")
+        arguments = header.get("arguments")
+        if (
+            name != "stream"
+            or not isinstance(caller_id, str)
+            or not isinstance(tool_call_id, str)
+            or not isinstance(arguments, dict)
+        ):
+            logger.warning("ignoring invalid messaging stream tool call")
+            return
+        try:
+            initial = unpack_content_parts(header=arguments, payload=payload)
+        except Exception as exc:
+            await self._send_stream_tool_response(
+                message_id=message_id,
+                response=ErrorContent(text=str(exc)),
+            )
+            return
+        if not (isinstance(initial, _ControlContent) and initial.method == "open"):
+            await self._send_stream_tool_response(
+                message_id=message_id,
+                response=ErrorContent(
+                    text="messaging.stream request must start with an open control chunk"
+                ),
+            )
+            return
+        existing = self._incoming_stream_calls.get(tool_call_id)
+        if (
+            existing is not None
+            and existing.state is not _IncomingMessagingStreamState.TERMINAL
+        ):
+            await self._send_stream_tool_response(
+                message_id=message_id,
+                response=ErrorContent(
+                    text="messaging stream tool_call_id is already active"
+                ),
+            )
+            return
+        self._incoming_stream_calls[tool_call_id] = _IncomingMessagingStreamCall(
+            message_id=message_id,
+            tool_call_id=tool_call_id,
+            caller_id=caller_id,
+        )
+
+    async def _handle_stream_tool_call_request_chunk(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        del message_id, type
+        if protocol is not self.room._protocol_instance:
+            return
+        header, attachment = unpack_message(data)
+        tool_call_id = header.get("tool_call_id")
+        chunk_header = header.get("chunk")
+        if not isinstance(tool_call_id, str) or not isinstance(chunk_header, dict):
+            logger.warning("ignoring invalid messaging stream request chunk")
+            return
+        call = self._incoming_stream_calls.get(tool_call_id)
+        if call is None:
+            logger.debug("ignoring chunk for unknown messaging stream %s", tool_call_id)
+            return
+        try:
+            content = unpack_content_parts(header=chunk_header, payload=attachment)
+        except Exception as exc:
+            await self._fail_stream_call(call=call, message=str(exc))
+            return
+        if isinstance(content, _ControlContent) and content.method == "close":
+            prior_state = call.state
+            if prior_state is _IncomingMessagingStreamState.TERMINAL:
+                return
+            call.state = _IncomingMessagingStreamState.TERMINAL
+            self._incoming_stream_calls.pop(tool_call_id, None)
+            request = call.request
+            if (
+                request is not None
+                and prior_state is not _IncomingMessagingStreamState.ACCEPTED
+            ):
+                self._pending_stream_requests.pop(tool_call_id, None)
+                request._mark_closed(
+                    reason="client_disconnected",
+                    message="the initiating client closed the messaging stream",
+                )
+            if prior_state is _IncomingMessagingStreamState.ACCEPTED:
+                stream = call.stream
+                if stream is None:
+                    return
+                call.stream._push_event(
+                    MessagingStreamClientDisconnected(
+                        stream_id=tool_call_id,
+                        participant_id=call.caller_id,
+                    )
+                )
+                call.stream._finish()
+            else:
+                await self._send_stream_tool_response(
+                    message_id=call.message_id,
+                    response=ErrorContent(
+                        text="messaging stream closed before acceptance"
+                    ),
+                )
+            return
+        if not isinstance(content, JsonContent) or not isinstance(content.json, dict):
+            await self._fail_stream_call(
+                call=call,
+                message="messaging.stream requires JSON object chunks",
+            )
+            return
+        raw = content.json
+        raw_type = raw.get("type")
+        raw_message_json = raw.get("message_json")
+        if not isinstance(raw_type, str) or not isinstance(raw_message_json, str):
+            await self._fail_stream_call(
+                call=call,
+                message="invalid messaging stream chunk",
+            )
+            return
+        try:
+            raw_message = self._message_from_json(raw_message_json)
+            raw_attachment = raw.get("attachment_base64")
+            attachment_bytes = (
+                None
+                if raw_attachment in (None, "")
+                else base64.b64decode(str(raw_attachment).encode("utf-8"))
+            )
+        except Exception as exc:
+            await self._fail_stream_call(call=call, message=str(exc))
+            return
+        if call.state is _IncomingMessagingStreamState.AWAITING_INITIAL_MESSAGE:
+            from_participant_id = raw.get("from_participant_id")
+            if not isinstance(from_participant_id, str):
+                await self._fail_stream_call(
+                    call=call,
+                    message="initial messaging stream chunk has no participant id",
+                )
+                return
+            request = IncomingMessagingStreamRequest(
+                client=self,
+                stream_id=tool_call_id,
+                from_participant_id=from_participant_id,
+                type=raw_type,
+                message=raw_message,
+                attachment=attachment_bytes,
+                call=call,
+            )
+            call.state = _IncomingMessagingStreamState.PENDING_ACCEPTANCE
+            call.request = request
+            self._pending_stream_requests[tool_call_id] = request
+            self.emit("stream_requested", request=request)
+            return
+        if call.state is _IncomingMessagingStreamState.PENDING_ACCEPTANCE:
+            await self._fail_stream_call(
+                call=call,
+                message="messaging stream received a message before acceptance",
+            )
+            return
+        if call.state is not _IncomingMessagingStreamState.ACCEPTED:
+            return
+        stream = call.stream
+        if stream is None:
+            await self._fail_stream_call(
+                call=call,
+                message="accepted messaging stream has no active receiver",
+            )
+            return
+        stream._push_message(
+            RoomMessage(
+                from_participant_id=stream.remote_participant_id,
+                type=raw_type,
+                message=raw_message,
+                attachment=attachment_bytes,
+            )
+        )
+
+    @staticmethod
+    def _message_from_json(message_json: str) -> dict:
+        message = json.loads(message_json)
+        if not isinstance(message, dict):
+            raise RoomException("messaging stream message must be a JSON object")
+        return message
+
+    async def _send_stream_tool_response(
+        self, *, message_id: int, response: Content
+    ) -> None:
+        await self.room.protocol.send(
+            type="room.tool_call_response",
+            message_id=message_id,
+            data=response.pack(),
+        )
+
+    def _send_stream_tool_response_chunk(
+        self, *, call: _IncomingMessagingStreamCall, chunk: Content
+    ) -> None:
+        chunk_header, chunk_data = pack_request_parts(chunk)
+        self.room.protocol.send_nowait(
+            type="room.tool_call_response_chunk",
+            message_id=call.message_id,
+            data=pack_message(
+                header={
+                    "tool_call_id": call.tool_call_id,
+                    "chunk": chunk_header,
+                },
+                data=chunk_data,
+            ),
+        )
+
+    async def _fail_stream_call(
+        self, *, call: _IncomingMessagingStreamCall, message: str
+    ) -> None:
+        prior_state = call.state
+        if prior_state is _IncomingMessagingStreamState.TERMINAL:
+            return
+        call.state = _IncomingMessagingStreamState.TERMINAL
+        self._incoming_stream_calls.pop(call.tool_call_id, None)
+        self._pending_stream_requests.pop(call.tool_call_id, None)
+        if call.request is not None:
+            call.request._mark_closed(reason="protocol_error", message=message)
+        if prior_state is _IncomingMessagingStreamState.ACCEPTED:
+            stream = call.stream
+            if stream is not None:
+                stream._push_event(
+                    MessagingStreamClosed(
+                        stream_id=call.tool_call_id,
+                        reason="protocol_error",
+                        message=message,
+                    )
+                )
+                stream._finish()
+            self._incoming_streams.pop(call.tool_call_id, None)
+            self._send_stream_tool_response_chunk(
+                call=call,
+                chunk=ErrorContent(text=message),
+            )
+            self._send_stream_tool_response_chunk(
+                call=call,
+                chunk=_ControlContent(
+                    method="close",
+                    status_code=ControlCloseStatus.INVALID_DATA,
+                    message=message,
+                ),
+            )
+            return
+        await self._send_stream_tool_response(
+            message_id=call.message_id,
+            response=ErrorContent(text=message),
+        )
+
+    async def stream(
+        self,
+        *,
+        to: Participant,
+        type: str,
+        message: dict,
+        attachment: Optional[bytes] = None,
+    ) -> "MessagingStream":
+        queue: asyncio.Queue[JsonContent | None] = asyncio.Queue()
+        queue.put_nowait(
+            JsonContent(
+                json={
+                    "to_participant_id": to.id,
+                    "type": type,
+                    "message_json": self._message_json(message),
+                    "attachment_base64": self._attachment_base64(attachment),
+                }
+            )
+        )
+
+        async def input_chunks() -> AsyncIterator[Content]:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    return
+                yield chunk
+
+        try:
+            output = await self.room.invoke(
+                toolkit="messaging",
+                tool="stream",
+                input=input_chunks(),
+            )
+            if not isinstance(output, AsyncIterable):
+                raise RoomException(
+                    "unexpected return type from messaging.stream",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+            iterator = output.__aiter__()
+            accepted = await anext(iterator)
+            if (
+                not isinstance(accepted, JsonContent)
+                or not isinstance(accepted.json, dict)
+                or accepted.json.get("kind") != "accepted"
+                or not isinstance(accepted.json.get("stream_id"), str)
+            ):
+                raise RoomException(
+                    "messaging.stream did not acknowledge acceptance",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+            stream = MessagingStream(
+                client=self,
+                stream_id=accepted.json["stream_id"],
+                remote_participant_id=to.id,
+                outgoing=queue,
+                output=iterator,
+            )
+            self._incoming_streams[stream.stream_id] = stream
+            return stream
+        except BaseException:
+            queue.put_nowait(None)
+            raise
+
+    async def _accept_stream_request(
+        self, request: "IncomingMessagingStreamRequest"
+    ) -> "MessagingStream":
+        if request.closed:
+            raise RoomException(
+                request.close_message or "the messaging stream is closed",
+                code=ErrorCode.INVALID_STATE,
+            )
+        if self._pending_stream_requests.get(request.stream_id) is not request:
+            raise RoomException(
+                "the messaging stream request is no longer pending",
+                code=ErrorCode.INVALID_STATE,
+            )
+        if request._call.state is not _IncomingMessagingStreamState.PENDING_ACCEPTANCE:
+            raise RoomException(
+                "the messaging stream request is no longer pending",
+                code=ErrorCode.INVALID_STATE,
+            )
+        stream = MessagingStream(
+            client=self,
+            stream_id=request.stream_id,
+            remote_participant_id=request.from_participant_id,
+            response_call=request._call,
+        )
+        request._call.stream = stream
+        self._incoming_streams[request.stream_id] = stream
+        request._call.state = _IncomingMessagingStreamState.ACCEPTED
+        try:
+            await self._send_stream_tool_response(
+                message_id=request._call.message_id,
+                response=_ControlContent(method="open"),
+            )
+        except BaseException:
+            request._call.state = _IncomingMessagingStreamState.TERMINAL
+            self._incoming_stream_calls.pop(request.stream_id, None)
+            self._pending_stream_requests.pop(request.stream_id, None)
+            self._incoming_streams.pop(request.stream_id, None)
+            request._mark_closed(
+                reason="accept_failed",
+                message="unable to accept the messaging stream",
+            )
+            stream._finish()
+            raise
+        self._pending_stream_requests.pop(request.stream_id, None)
+        request._accepted = True
+        return stream
+
+    async def _reject_stream_request(
+        self,
+        request: "IncomingMessagingStreamRequest",
+        *,
+        message: str | None,
+    ) -> None:
+        if self._pending_stream_requests.get(request.stream_id) is not request:
+            raise RoomException(
+                "the messaging stream request is no longer pending",
+                code=ErrorCode.INVALID_STATE,
+            )
+        if request._call.state is not _IncomingMessagingStreamState.PENDING_ACCEPTANCE:
+            raise RoomException(
+                "the messaging stream request is no longer pending",
+                code=ErrorCode.INVALID_STATE,
+            )
+        await self._fail_stream_call(
+            call=request._call,
+            message=message or "messaging stream rejected",
+        )
+        request._mark_closed(reason="rejected", message=message)
+
+    async def start(self):
+        if self._send_task is not None:
+            return
+        self._send_task = asyncio.create_task(self._send_messages())
+        if self._desired_enabled and self.room.is_connected:
+            self._enable_current_connection_nowait()
+
+    async def stop(self):
+        self._close_local_streams(reason="messaging stopped")
+        if self.room._closing and self.room._terminal_state is not None:
+            self._drain_queued_messages(
+                error=self.room._terminal_state.message_send_error()
+            )
+        else:
+            self._drain_queued_messages(
+                error=RoomException(
+                    "Cannot send messages because messaging has been stopped",
+                    code=ErrorCode.INVALID_STATE,
+                )
+            )
+        self._message_queue.close()
+        if self._send_task is not None:
+            await asyncio.gather(self._send_task, return_exceptions=True)
+        if self._send_operations:
+            await asyncio.gather(*self._send_operations, return_exceptions=True)
+        self._send_task = None
+        self._desired_enabled = False
+        self._clear_current_connection_state()
+
+    async def _wait_until_online(self) -> None:
+        while not self._online:
+            if (
+                not self.room.is_connected
+                and not self.room._allow_disconnected_requests
+            ):
+                await self.room._wait_until_connected_for_messages()
+                continue
+            self.room._raise_if_terminal_for_messages()
+            await asyncio.sleep(0.05)
+
+    def _set_online(self, online: bool) -> None:
+        if self._online == online:
+            return
+        self._online = online
+        self.emit("state", online=online)
+        self.emit("online" if online else "offline")
+
+    def _enable_current_connection_nowait(self) -> None:
+        if self._online or self._enable_in_flight:
+            return
+        self._enable_in_flight = True
+        self._invoke_nowait(operation="enable", input={})
+
+    def _clear_current_connection_state(self) -> None:
+        self._enable_in_flight = False
+        self._set_online(False)
+        for participant_id in list(self._participants.keys()):
+            self._remove_participant(participant_id)
+
+    def _on_room_disconnect(self, *, reason: str | None) -> None:
+        self._close_local_streams(reason=reason or "room disconnected")
+        self._clear_current_connection_state()
+
+    def _on_room_reconnect(self) -> None:
+        if self._desired_enabled:
+            self._enable_current_connection_nowait()
+
+    def _close_local_streams(self, *, reason: str) -> None:
+        for call in self._incoming_stream_calls.values():
+            call.state = _IncomingMessagingStreamState.TERMINAL
+        for request in self._pending_stream_requests.values():
+            request._mark_closed(reason="client_disconnected", message=reason)
+        self._pending_stream_requests.clear()
+        self._incoming_stream_calls.clear()
+        for stream in self._incoming_streams.values():
+            stream._push_event(
+                MessagingStreamClientDisconnected(
+                    stream_id=stream.stream_id,
+                    participant_id=stream.remote_participant_id,
+                )
+            )
+            stream._finish()
+        self._incoming_streams.clear()
+
+    async def _send_messages(self):
+        async for msg in self._message_queue:
+            try:
+                await self.room._wait_until_connected_for_messages()
+                if self._desired_enabled:
+                    await self._wait_until_online()
+            except RoomException as ex:
+                self._drop_queued_message(msg=msg, error=ex)
+                self._drain_queued_messages(error=ex)
+                return
+
+            resolved_to = self._resolve_message_recipient(msg.to)
+            if resolved_to is None:
+                self._drop_queued_message(
+                    msg=msg,
+                    error=RoomException(
+                        "the participant was not found", code=ErrorCode.NOT_FOUND
+                    ),
+                )
+                continue
+
+            # Preserve queue-order dispatch without making the next message wait for
+            # this request's round trip.
+            dispatched = asyncio.Event()
+            operation = asyncio.create_task(
+                self._send_queued_message(
+                    msg=msg,
+                    resolved_to=resolved_to,
+                    after_send=dispatched.set,
+                )
+            )
+            self._send_operations.add(operation)
+
+            def on_done(
+                completed: asyncio.Task[None],
+                dispatch_event: asyncio.Event = dispatched,
+            ) -> None:
+                self._send_operations.discard(completed)
+                dispatch_event.set()
+
+            operation.add_done_callback(on_done)
+            await dispatched.wait()
+
+    async def _send_queued_message(
+        self,
+        *,
+        msg: _QueuedRoomMessage,
+        resolved_to: Participant,
+        after_send: Callable[[], None],
+    ) -> None:
+        try:
+            await self._invoke(
+                operation="send",
+                input={
+                    "to_participant_id": resolved_to.id,
+                    "type": msg.type,
+                    "message_json": self._message_json(msg.message),
+                    "attachment_base64": self._attachment_base64(msg.attachment),
+                },
+                after_send=after_send,
+            )
+            if msg.fut is not None and not msg.fut.done():
+                msg.fut.set_result(True)
+
+        except asyncio.CancelledError:
+            raise
+
+        except RoomException as ex:
+            ex = self.room._coerce_message_send_error(ex)
+            if ex.code == ErrorCode.NOT_FOUND:
+                self._mark_participant_offline(msg.to)
+                if msg.drop_if_offline:
+                    self._drop_queued_message(msg=msg, error=ex)
+                    return
+
+            logger.info("Unable to send message to participant", exc_info=ex)
+            if msg.fut is not None and not msg.fut.done():
+                msg.fut.set_exception(ex)
+
+        except Exception as ex:
+            logger.info("Unable to send message to participant", exc_info=ex)
+            if msg.fut is not None and not msg.fut.done():
+                msg.fut.set_exception(ex)
+
+    def send_message_nowait(
+        self,
+        *,
+        to: Participant,
+        type: str,
+        message: dict,
+        attachment: Optional[bytes] = None,
+    ):
+        if self._send_task is None:
+            raise RoomException(
+                "Cannot send messages because messaging has not been started"
+            )
+
+        try:
+            self._message_queue.send_nowait(
+                _QueuedRoomMessage(
+                    from_participant_id=self.room.local_participant.id,
+                    to=to,
+                    type=type,
+                    message=message,
+                    attachment=attachment,
+                    drop_if_offline=True,
+                )
+            )
+        except ChanClosed as ex:
+            raise RoomException(
+                "Cannot send messages because messaging has been stopped",
+                code=ErrorCode.INVALID_STATE,
+            ) from ex
+
+    async def send_message(
+        self,
+        *,
+        to: Participant,
+        type: str,
+        message: dict,
+        attachment: Optional[bytes] = None,
+    ):
+        if self._send_task is None:
+            raise RoomException(
+                "Cannot send messages because messaging has not been started"
+            )
+
+        msg = _QueuedRoomMessage(
+            from_participant_id=self.room.local_participant.id,
+            to=to,
+            type=type,
+            message=message,
+            attachment=attachment,
+            drop_if_offline=False,
+        )
+
+        try:
+            self._message_queue.send_nowait(msg)
+        except ChanClosed as ex:
+            raise RoomException(
+                "Cannot send messages because messaging has been stopped",
+                code=ErrorCode.INVALID_STATE,
+            ) from ex
+
+        if msg.fut is None:
+            raise RoomException("queued messaging future was not created")
+
+        await msg.fut
+
+    async def broadcast_message(
+        self, *, type: str, message: dict, attachment: Optional[bytes] = None
+    ):
+        await self.room._wait_until_connected_for_messages()
+        if self._desired_enabled:
+            await self._wait_until_online()
+        try:
+            await self._invoke(
+                operation="broadcast",
+                input={
+                    "type": type,
+                    "message_json": self._message_json(message),
+                    "attachment_base64": self._attachment_base64(attachment),
+                },
+            )
+        except RoomException as ex:
+            raise self.room._coerce_message_send_error(ex) from ex
+
+    def _on_participant_enabled(self, message: RoomMessage):
+        data = message.message
+        participant = RemoteParticipant(id=data["id"], role=data["role"], online=True)
+
+        for k, v in data["attributes"].items():
+            participant._attributes[k] = v
+
+        self._participants[data["id"]] = participant
+
+        self.emit("participant_added", participant=participant)
+
+    def _on_participant_attributes(self, message: RoomMessage):
+        if message.from_participant_id in self._participants:
+            part = self._participants[message.from_participant_id]
+            for k, v in message.message["attributes"].items():
+                part._attributes[k] = v
+
+            self.emit("participant_attributes_updated", participant=part)
+
+    def _on_participant_disabled(self, message: RoomMessage):
+        self._remove_participant(message.message["id"])
+
+    def _on_messaging_enabled(self, message: RoomMessage):
+        self._enable_in_flight = False
+        self._participants.clear()
+        for data in message.message["participants"]:
+            participant = RemoteParticipant(
+                id=data["id"], role=data["role"], online=True
+            )
+
+            for k, v in data["attributes"].items():
+                participant._attributes[k] = v
+
+            self._participants[data["id"]] = participant
+
+        self._set_online(True)
+        if not self._desired_enabled:
+            self._disable_current_connection_nowait()
+            self._clear_current_connection_state()
+            return
+        self.emit("messaging_enabled")
+
+
+@dataclass(frozen=True, slots=True)
+class MessagingStreamClientDisconnected:
+    stream_id: str
+    participant_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class MessagingStreamClosed:
+    stream_id: str
+    reason: str
+    message: str | None = None
+
+
+MessagingStreamEvent = (
+    RoomMessage | MessagingStreamClientDisconnected | MessagingStreamClosed
+)
+
+
+class _MessagingStreamState(Enum):
+    ACCEPTED = auto()
+    TERMINAL = auto()
+
+
+class MessagingStream:
+    def __init__(
+        self,
+        *,
+        client: MessagingClient,
+        stream_id: str,
+        remote_participant_id: str,
+        outgoing: asyncio.Queue[JsonContent | None] | None = None,
+        output: AsyncIterator[Content] | None = None,
+        response_call: _IncomingMessagingStreamCall | None = None,
+    ) -> None:
+        self._client = client
+        self._stream_id = stream_id
+        self._remote_participant_id = remote_participant_id
+        self._outgoing = outgoing
+        self._output = output
+        self._response_call = response_call
+        self._events: asyncio.Queue[MessagingStreamEvent | None] = asyncio.Queue()
+        self._output_task: asyncio.Task[None] | None = None
+        self._send_queue: (
+            asyncio.Queue[tuple[dict[str, Any], asyncio.Future[None] | None] | None]
+            | None
+        ) = None
+        self._send_task: asyncio.Task[None] | None = None
+        self._state = _MessagingStreamState.ACCEPTED
+        if output is not None:
+            self._output_task = asyncio.create_task(self._read_output(output))
+        elif outgoing is None:
+            self._send_queue = asyncio.Queue()
+            self._send_task = asyncio.create_task(self._send_queued_messages())
+
+    @property
+    def stream_id(self) -> str:
+        return self._stream_id
+
+    @property
+    def remote_participant_id(self) -> str:
+        return self._remote_participant_id
+
+    @property
+    def closed(self) -> bool:
+        return self._state is _MessagingStreamState.TERMINAL
+
+    def _push_message(self, message: RoomMessage) -> None:
+        self._push_event(message)
+
+    def _push_event(self, event: MessagingStreamEvent) -> None:
+        if self._state is _MessagingStreamState.ACCEPTED:
+            self._events.put_nowait(event)
+
+    def _finish(self) -> None:
+        if self._state is _MessagingStreamState.TERMINAL:
+            return
+        self._state = _MessagingStreamState.TERMINAL
+        if self._send_queue is not None:
+            self._send_queue.put_nowait(None)
+        self._events.put_nowait(None)
+
+    async def _read_output(self, output: AsyncIterator[Content]) -> None:
+        try:
+            async for content in output:
+                if isinstance(content, _ControlContent) and content.method == "close":
+                    self._push_event(
+                        MessagingStreamClientDisconnected(
+                            stream_id=self.stream_id,
+                            participant_id=self.remote_participant_id,
+                        )
+                    )
+                    return
+                if not isinstance(content, JsonContent) or not isinstance(
+                    content.json, dict
+                ):
+                    raise RoomException(
+                        "unexpected chunk from messaging.stream",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+                raw = content.json
+                kind = raw.get("kind")
+                if kind == "message":
+                    raw_message = raw.get("message")
+                    raw_type = raw.get("type")
+                    if not isinstance(raw_message, dict) or not isinstance(
+                        raw_type, str
+                    ):
+                        raise RoomException(
+                            "invalid message chunk from messaging.stream",
+                            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                        )
+                    raw_attachment = raw.get("attachment_base64")
+                    attachment = (
+                        None
+                        if raw_attachment in (None, "")
+                        else base64.b64decode(str(raw_attachment).encode("utf-8"))
+                    )
+                    self._push_message(
+                        RoomMessage(
+                            from_participant_id=self.remote_participant_id,
+                            type=raw_type,
+                            message=raw_message,
+                            attachment=attachment,
+                        )
+                    )
+                elif kind == "client_disconnected":
+                    participant_id = raw.get("participant_id")
+                    if isinstance(participant_id, str):
+                        self._push_event(
+                            MessagingStreamClientDisconnected(
+                                stream_id=self.stream_id,
+                                participant_id=participant_id,
+                            )
+                        )
+                elif kind == "closed":
+                    self._push_event(
+                        MessagingStreamClosed(
+                            stream_id=self.stream_id,
+                            reason=str(raw.get("reason", "closed")),
+                            message=(
+                                raw.get("message")
+                                if isinstance(raw.get("message"), str)
+                                else None
+                            ),
+                        )
+                    )
+                    return
+                else:
+                    raise RoomException(
+                        "unexpected chunk from messaging.stream",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self._push_event(
+                MessagingStreamClosed(
+                    stream_id=self.stream_id,
+                    reason="error",
+                    message=str(exc),
+                )
+            )
+        finally:
+            self._client._incoming_streams.pop(self.stream_id, None)
+            self._finish()
+
+    async def _send_queued_messages(self) -> None:
+        queue = self._send_queue
+        if queue is None:
+            return
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    return
+                payload, future = item
+                await self._send_queued_message(payload=payload, future=future)
+        finally:
+            while not queue.empty():
+                item = queue.get_nowait()
+                if item is None:
+                    continue
+                _, future = item
+                if future is not None and not future.done():
+                    future.set_exception(
+                        RoomException(
+                            "the messaging stream is closed",
+                            code=ErrorCode.INVALID_STATE,
+                        )
+                    )
+
+    async def _send_queued_message(
+        self,
+        *,
+        payload: dict[str, Any],
+        future: asyncio.Future[None] | None,
+    ) -> None:
+        try:
+            call = self._response_call
+            if call is None:
+                raise RoomException(
+                    "the messaging response stream is unavailable",
+                    code=ErrorCode.INVALID_STATE,
+                )
+            if call.state is not _IncomingMessagingStreamState.ACCEPTED:
+                raise RoomException(
+                    "the messaging stream is not accepted",
+                    code=ErrorCode.INVALID_STATE,
+                )
+            self._client._send_stream_tool_response_chunk(
+                call=call,
+                chunk=JsonContent(
+                    json={
+                        "kind": "message",
+                        "type": payload["type"],
+                        "message": self._client._message_from_json(
+                            payload["message_json"]
+                        ),
+                        "attachment_base64": payload.get("attachment_base64"),
+                    }
+                ),
+            )
+        except BaseException as exc:
+            if future is not None and not future.done():
+                future.set_exception(exc)
+            self._push_event(
+                MessagingStreamClosed(
+                    stream_id=self.stream_id,
+                    reason="send_failed",
+                    message=str(exc),
+                )
+            )
+            self._finish()
+        else:
+            if future is not None and not future.done():
+                future.set_result(None)
+
+    def send_message_nowait(
+        self,
+        *,
+        type: str,
+        message: dict,
+        attachment: bytes | None = None,
+    ) -> None:
+        if self._state is not _MessagingStreamState.ACCEPTED:
+            raise RoomException(
+                "the messaging stream is closed",
+                code=ErrorCode.INVALID_STATE,
+            )
+        payload = {
+            "type": type,
+            "message_json": self._client._message_json(message),
+            "attachment_base64": self._client._attachment_base64(attachment),
+        }
+        if self._outgoing is not None:
+            self._outgoing.put_nowait(JsonContent(json=payload))
+            return
+        queue = self._send_queue
+        if queue is None:
+            raise RoomException(
+                "the messaging stream is closed",
+                code=ErrorCode.INVALID_STATE,
+            )
+        queue.put_nowait((payload, None))
+
+    async def send_message(
+        self,
+        *,
+        type: str,
+        message: dict,
+        attachment: bytes | None = None,
+    ) -> None:
+        if self._state is not _MessagingStreamState.ACCEPTED:
+            raise RoomException(
+                "the messaging stream is closed",
+                code=ErrorCode.INVALID_STATE,
+            )
+        payload = {
+            "type": type,
+            "message_json": self._client._message_json(message),
+            "attachment_base64": self._client._attachment_base64(attachment),
+        }
+        if self._outgoing is not None:
+            self._outgoing.put_nowait(JsonContent(json=payload))
+            return
+        queue = self._send_queue
+        if queue is None:
+            raise RoomException(
+                "the messaging stream is closed",
+                code=ErrorCode.INVALID_STATE,
+            )
+        future = asyncio.get_running_loop().create_future()
+        queue.put_nowait((payload, future))
+        await future
+
+    async def receive(self) -> MessagingStreamEvent | None:
+        return await self._events.get()
+
+    def __aiter__(self) -> AsyncIterator[MessagingStreamEvent]:
+        async def events() -> AsyncIterator[MessagingStreamEvent]:
+            while True:
+                event = await self.receive()
+                if event is None:
+                    return
+                yield event
+
+        return events()
+
+    async def close(self) -> None:
+        if self._state is _MessagingStreamState.TERMINAL:
+            return
+        self._state = _MessagingStreamState.TERMINAL
+        if self._outgoing is not None:
+            self._outgoing.put_nowait(None)
+        else:
+            try:
+                queue = self._send_queue
+                if queue is not None:
+                    queue.put_nowait(None)
+                send_task = self._send_task
+                if send_task is not None:
+                    await asyncio.gather(send_task, return_exceptions=True)
+                call = self._response_call
+                if call is not None:
+                    if call.state is not _IncomingMessagingStreamState.ACCEPTED:
+                        raise RoomException(
+                            "the messaging stream is not accepted",
+                            code=ErrorCode.INVALID_STATE,
+                        )
+                    self._client._send_stream_tool_response_chunk(
+                        call=call,
+                        chunk=_ControlContent(method="close"),
+                    )
+                    call.state = _IncomingMessagingStreamState.TERMINAL
+                    self._client._incoming_stream_calls.pop(call.tool_call_id, None)
+            finally:
+                self._client._incoming_streams.pop(self.stream_id, None)
+        self._client._incoming_streams.pop(self.stream_id, None)
+        output_task = self._output_task
+        if output_task is not None and output_task is not asyncio.current_task():
+            output_task.cancel()
+            await asyncio.gather(output_task, return_exceptions=True)
+        self._events.put_nowait(None)
+
+
+class IncomingMessagingStreamRequest:
+    def __init__(
+        self,
+        *,
+        client: MessagingClient,
+        stream_id: str,
+        from_participant_id: str,
+        type: str,
+        message: dict,
+        attachment: bytes | None,
+        call: _IncomingMessagingStreamCall,
+    ) -> None:
+        self._client = client
+        self._call = call
+        self.stream_id = stream_id
+        self.from_participant_id = from_participant_id
+        self.type = type
+        self.message = message
+        self.attachment = attachment
+        self._accepted = False
+        self._closed = False
+        self._close_reason: str | None = None
+        self._close_message: str | None = None
+
+    @property
+    def accepted(self) -> bool:
+        return self._accepted
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    @property
+    def close_reason(self) -> str | None:
+        return self._close_reason
+
+    @property
+    def close_message(self) -> str | None:
+        return self._close_message
+
+    def _mark_closed(self, *, reason: str, message: str | None) -> None:
+        self._closed = True
+        self._close_reason = reason
+        self._close_message = message
+
+    async def accept(self) -> MessagingStream:
+        return await self._client._accept_stream_request(self)
+
+    async def reject(self, *, message: str | None = None) -> None:
+        await self._client._reject_stream_request(self, message=message)
+
+
+@dataclass
+class RoomLogEvent:
+    type: str
+    data: dict[str, Any]
+
+
+class DeveloperClient:
+    def __init__(self, room: RoomClient):
+        self._room = room
+        self._room.protocol.register_handler("developer.log", self._handle_log)
+        self._events = dict[str, list[Callable]]()
+
+    def on(self, event_name: str, func: Callable):
+        if event_name not in self._events:
+            self._events[event_name] = []
+        self._events[event_name].append(func)
+
+    def off(self, event_name: str, func: Callable):
+        if event_name in self._events:
+            self._events[event_name].remove(func)
+
+    def emit(self, event_name: str, **kwargs):
+        """Call all handlers associated with the given event."""
+        handlers = self._events.get(event_name, [])
+        for handler in handlers:
+            handler(**kwargs)
+
+    async def _handle_log(
+        self, protocol: Protocol, message_id: int, type: str, data: bytes
+    ) -> None:
+        raw_json, _ = unpack_message(data)
+
+        log_type = raw_json.get("type", "unknown")
+        if not isinstance(log_type, str):
+            log_type = "unknown"
+        log_data = raw_json.get("data", {})
+
+        self.emit("log", type=log_type, data=log_data)
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from developer.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def _invoke(self, *, operation: str, input: dict) -> None:
+        await self._room.invoke(
+            toolkit="developer",
+            tool=operation,
+            input=input,
+        )
+
+    async def log(self, *, type: str, data: dict):
+        await self._invoke(operation="log", input={"type": type, "data": data})
+
+    def log_nowait(self, *, type: str, data: dict):
+        task = asyncio.ensure_future(
+            self._invoke(operation="log", input={"type": type, "data": data})
+        )
+        task.add_done_callback(
+            lambda t: self._handle_developer_log_result(
+                t, kind="log", payload={"type": type, "data": data}
+            )
+        )
+
+    def info(self, message: str, *, extra: Optional[dict] = None):
+        task = asyncio.ensure_future(
+            self._invoke(
+                operation="info",
+                input={"message": message, "extra": extra or {}},
+            )
+        )
+        task.add_done_callback(
+            lambda t: self._handle_developer_log_result(
+                t, kind="info", payload={"message": message, "extra": extra}
+            )
+        )
+
+    def warning(self, message: str, *, extra: Optional[dict] = None):
+        task = asyncio.ensure_future(
+            self._invoke(
+                operation="warning",
+                input={"message": message, "extra": extra or {}},
+            )
+        )
+        task.add_done_callback(
+            lambda t: self._handle_developer_log_result(
+                t, kind="warning", payload={"message": message, "extra": extra}
+            )
+        )
+
+    def error(self, message: str, *, extra: Optional[dict] = None):
+        task = asyncio.ensure_future(
+            self._invoke(
+                operation="error",
+                input={"message": message, "extra": extra or {}},
+            )
+        )
+        task.add_done_callback(
+            lambda t: self._handle_developer_log_result(
+                t, kind="error", payload={"message": message, "extra": extra}
+            )
+        )
+
+    @staticmethod
+    def _handle_developer_log_result(
+        task: asyncio.Task, *, kind: str, payload: dict
+    ) -> None:
+        try:
+            task.result()
+        except Exception as exc:
+            logger.warning(
+                "unable to write developer log",
+                extra={"type": kind, "payload": payload},
+                exc_info=exc,
+            )
+
+    async def logs(self) -> AsyncIterator[RoomLogEvent]:
+        input_stream = _DeveloperLogInputStream()
+        response = await self._room.invoke(
+            toolkit="developer",
+            tool="logs",
+            input=input_stream,
+        )
+        if isinstance(response, Content):
+            input_stream.close()
+            raise self._unexpected_response_error(operation="logs")
+
+        response_stream = response
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation="logs")
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation="logs")
+
+                log_type = chunk.headers.get("type")
+                if not isinstance(log_type, str):
+                    raise RoomException(
+                        "developer.logs returned a chunk without a valid type",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+
+                try:
+                    payload = (
+                        json.loads(chunk.data.decode("utf-8")) if chunk.data else {}
+                    )
+                except Exception as ex:
+                    raise RoomException(
+                        "developer.logs returned invalid JSON data",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    ) from ex
+
+                if not isinstance(payload, dict):
+                    raise RoomException(
+                        "developer.logs returned invalid JSON data",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+
+                event = RoomLogEvent(type=log_type, data=payload)
+                self.emit("log", type=event.type, data=event.data)
+                yield event
+        finally:
+            input_stream.close()
+
+
+class _DeveloperLogInputStream:
+    def __init__(self) -> None:
+        self._closed = asyncio.Event()
+
+    def close(self) -> None:
+        self._closed.set()
+
+    def __aiter__(self) -> "_DeveloperLogInputStream":
+        return self
+
+    async def __anext__(self) -> Content:
+        if self._closed.is_set():
+            raise StopAsyncIteration
+
+        await self._closed.wait()
+        raise StopAsyncIteration
+
+
+CreateMode = Literal["create", "overwrite", "create_if_not_exists"]
+
+
+def _require_non_empty_dataset_table_name(*, value: str, field_name: str) -> str:
+    normalized = value.strip()
+    if normalized == "":
+        raise ValueError(f"{field_name} must not be empty")
+    return normalized
+
+
+class _CreateTableRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    data: Optional[Any] = None
+    table_schema: Optional[dict[str, Any]] = Field(default=None, alias="schema")
+    mode: CreateMode = "create"
+    namespace: Optional[list[str]] = None
+    branch: Optional[str] = None
+    metadata: Optional[dict] = None
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        return _require_non_empty_dataset_table_name(
+            value=value,
+            field_name="table name",
+        )
+
+
+class _BranchRequest(BaseModel):
+    branch: Optional[str] = None
+
+
+class _ListTablesRequest(_BranchRequest):
+    namespace: Optional[list[str]] = None
+
+
+class _TableRequest(_BranchRequest):
+    table: str
+    namespace: Optional[list[str]] = None
+
+
+class _VersionedTableRequest(_TableRequest):
+    version: Optional[int] = None
+
+
+class _InspectTableRequest(_VersionedTableRequest):
+    pass
+
+
+class _DropTableRequest(_BranchRequest):
+    name: str
+    ignore_missing: bool = False
+    namespace: Optional[list[str]] = None
+
+
+class _DropIndexRequest(_TableRequest):
+    name: str
+
+
+class _DropColumnsRequest(_TableRequest):
+    columns: List[str]
+
+
+class _InsertRequest(_TableRequest):
+    records: List[Dict[str, Any]]
+
+
+class _UpdateRequest(_TableRequest):
+    where: str
+    values: Optional[Dict[str, Any]] = None
+    values_sql: Optional[Dict[str, str]] = None
+
+
+class _DeleteRequest(_TableRequest):
+    where: str
+
+
+class _MergeRequest(_TableRequest):
+    on: str
+    records: Any
+
+
+class _SearchRequest(_VersionedTableRequest):
+    text: Optional[str] = None
+    vector: Optional[list[float]] = None
+    text_columns: Optional[list[str]] = None
+    where: Optional[str] = None
+    offset: Optional[int] = None
+    limit: Optional[int] = None
+    select: Optional[List[str]] = None
+
+
+class _CountRequest(_VersionedTableRequest):
+    text: Optional[str] = None
+    vector: Optional[list[float]] = None
+    text_columns: Optional[list[str]] = None
+    where: Optional[str] = None
+
+
+class _OptimizeRequest(_TableRequest):
+    pass
+
+
+class _RestoreRequest(_TableRequest):
+    version: int
+
+
+class _ListVersionsRequest(_TableRequest):
+    pass
+
+
+class _ListIndexesRequest(_VersionedTableRequest):
+    pass
+
+
+class _CreateBranchRequest(BaseModel):
+    branch: str
+    from_branch: Optional[str] = None
+    namespace: Optional[list[str]] = None
+
+
+class _DeleteBranchRequest(BaseModel):
+    branch: str
+    namespace: Optional[list[str]] = None
+
+
+class _ListBranchesRequest(BaseModel):
+    namespace: Optional[list[str]] = None
+
+
+MemoryIngestStrategy = Literal["heuristic", "llm"]
+
+
+class MemoryEntityRecord(BaseModel):
+    entity_id: Optional[str] = None
+    name: str
+    entity_type: Optional[str] = None
+    context: Optional[str] = None
+    confidence: Optional[float] = None
+    created_at: Optional[str] = None
+    valid_at: Optional[str] = None
+    metadata: Optional[dict[str, str]] = None
+
+
+class MemoryRelationshipRecord(BaseModel):
+    source_entity_id: str
+    target_entity_id: str
+    relationship_type: str = "RELATED_TO"
+    description: Optional[str] = None
+    confidence: Optional[float] = None
+    created_at: Optional[str] = None
+    valid_at: Optional[str] = None
+    expired_at: Optional[str] = None
+    invalid_at: Optional[str] = None
+    source_entity_name: Optional[str] = None
+    target_entity_name: Optional[str] = None
+    metadata: Optional[dict[str, str]] = None
+
+
+class MemoryDatasetSummary(BaseModel):
+    name: str
+    rows: int
+    columns: list[str] = Field(default_factory=list)
+
+
+class MemoryDetails(BaseModel):
+    name: str
+    namespace: Optional[list[str]] = None
+    path: str
+    datasets: list[MemoryDatasetSummary] = Field(default_factory=list)
+
+
+class MemoryIngestStats(BaseModel):
+    entities: int = 0
+    relationships: int = 0
+    sources: int = 0
+
+
+class MemoryIngestResult(BaseModel):
+    name: str
+    stats: MemoryIngestStats
+    entity_ids: list[str] = Field(default_factory=list)
+
+
+class MemoryRecallRelationship(BaseModel):
+    source_entity_id: str
+    target_entity_id: str
+    relationship_type: str
+    description: Optional[str] = None
+    created_at: Optional[str] = None
+    valid_at: Optional[str] = None
+    expired_at: Optional[str] = None
+    invalid_at: Optional[str] = None
+
+
+class MemoryRecallItem(BaseModel):
+    entity_id: str
+    name: str
+    entity_type: str
+    context: Optional[str] = None
+    confidence: Optional[float] = None
+    created_at: Optional[str] = None
+    valid_at: Optional[str] = None
+    score: float
+    relationships: list[MemoryRecallRelationship] = Field(default_factory=list)
+
+
+class MemoryRecallResult(BaseModel):
+    name: str
+    query: str
+    items: list[MemoryRecallItem] = Field(default_factory=list)
+
+
+class MemoryDeleteEntitiesResult(BaseModel):
+    name: str
+    deleted_entities: int = 0
+    deleted_relationships: int = 0
+
+
+class MemoryDeleteRelationshipsResult(BaseModel):
+    name: str
+    deleted_relationships: int = 0
+
+
+class MemoryOptimizeDatasetStats(BaseModel):
+    dataset: str
+    fragments_added: int = 0
+    fragments_removed: int = 0
+    files_added: int = 0
+    files_removed: int = 0
+    old_versions_removed: int = 0
+    bytes_removed: int = 0
+
+
+class MemoryOptimizeResult(BaseModel):
+    name: str
+    datasets: list[MemoryOptimizeDatasetStats] = Field(default_factory=list)
+
+
+class _MemoryNamedRequest(BaseModel):
+    name: str
+    namespace: Optional[list[str]] = None
+
+
+class _MemoryListRequest(BaseModel):
+    namespace: Optional[list[str]] = None
+
+
+class _MemoryListResponse(BaseModel):
+    memories: list[str] = Field(default_factory=list)
+
+
+class _MemoryCreateRequest(_MemoryNamedRequest):
+    overwrite: bool = False
+    ignore_exists: bool = False
+
+
+class _MemoryDropRequest(_MemoryNamedRequest):
+    ignore_missing: bool = False
+
+
+class _MemoryQueryRequest(_MemoryNamedRequest):
+    statement: str
+
+
+class _MemoryInspectRequest(_MemoryNamedRequest):
+    pass
+
+
+class _MemoryUpsertTableRequest(_MemoryNamedRequest):
+    table: str
+    records: list[dict[str, Any]]
+    merge: bool = True
+
+
+class _MemoryUpsertNodesRequest(_MemoryNamedRequest):
+    records: list[MemoryEntityRecord]
+    merge: bool = True
+
+
+class _MemoryUpsertRelationshipsRequest(_MemoryNamedRequest):
+    records: list[MemoryRelationshipRecord]
+    merge: bool = True
+
+
+class _MemoryIngestRequest(_MemoryNamedRequest):
+    strategy: MemoryIngestStrategy = "heuristic"
+    llm_model: Optional[str] = None
+    llm_temperature: Optional[float] = None
+
+
+class _MemoryIngestTextRequest(_MemoryIngestRequest):
+    text: str
+
+
+class _MemoryIngestImageRequest(_MemoryIngestRequest):
+    caption: Optional[str] = None
+    mime_type: Optional[str] = None
+    source: Optional[str] = None
+    annotations: Optional[dict[str, str]] = None
+
+
+class _MemoryIngestFileRequest(_MemoryIngestRequest):
+    path: Optional[str] = None
+    text: Optional[str] = None
+    mime_type: Optional[str] = None
+
+
+class _MemoryIngestFromTableRequest(_MemoryIngestRequest):
+    table: str
+    table_namespace: Optional[list[str]] = None
+    text_columns: Optional[list[str]] = None
+    limit: Optional[int] = None
+
+
+class _MemoryIngestFromStorageRequest(_MemoryIngestRequest):
+    paths: list[str]
+
+
+class _MemoryRecallRequest(_MemoryNamedRequest):
+    query: str
+    limit: int = 5
+    include_relationships: bool = True
+
+
+class _MemoryDeleteEntitiesRequest(_MemoryNamedRequest):
+    entity_ids: list[str]
+
+
+class MemoryRelationshipSelector(BaseModel):
+    source_entity_id: str
+    target_entity_id: str
+    relationship_type: Optional[str] = None
+
+
+class _MemoryDeleteRelationshipsRequest(_MemoryNamedRequest):
+    relationships: list[MemoryRelationshipSelector]
+
+
+class _MemoryOptimizeRequest(_MemoryNamedRequest):
+    compact: bool = True
+    cleanup: bool = True
+
+
+class SqlTableReference(BaseModel):
+    name: str
+    namespace: Optional[list[str]] = None
+    alias: Optional[str] = None
+    branch: Optional[str] = None
+    version: Optional[int] = None
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSqlQuery:
+    schema: pa.Schema
+    query_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSqlStatement:
+    rows_affected: int
+
+
+DatasetSqlExecution = DatasetSqlQuery | DatasetSqlStatement
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSqlCancelResult:
+    status: Literal["cancelled", "cancelling", "not_cancellable"]
+
+
+class _DatasetListTablesResponse(BaseModel):
+    tables: list[str]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetCountResponse(BaseModel):
+    count: int
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetRowsAffectedResponse(BaseModel):
+    rows_affected: int
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetSqlStatementResponse(_DatasetRowsAffectedResponse):
+    kind: Literal["statement"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetSqlCancelResponse(BaseModel):
+    status: Literal["cancelled", "cancelling", "not_cancellable"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetSqlQueryHeaders(BaseModel):
+    kind: Literal["query"]
+    query_id: str
+    content_type: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetSchemaHeaders(BaseModel):
+    kind: Literal["schema"]
+    content_type: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetPullHeaders(BaseModel):
+    kind: Literal["pull"]
+    chunk_size: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetDataHeaders(BaseModel):
+    kind: Literal["data"]
+    content_type: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetWatchDataHeaders(BaseModel):
+    kind: Literal["data"]
+    content_type: Optional[str] = None
+    phase: Optional[str] = None
+    version: Optional[int | str] = None
+    change_type: Optional[str] = None
+    begin_version: Optional[int | str] = None
+    end_version: Optional[int | str] = None
+    watch_event: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetWatchReadyEvent(BaseModel):
+    kind: Literal["ready"]
+    phase: Optional[str] = None
+    version: Optional[int | str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetTableVersionEntry(BaseModel):
+    version: int
+    timestamp: str
+    metadata_json: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetListVersionsResponse(BaseModel):
+    versions: list[_DatasetTableVersionEntry]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetTableIndexEntry(BaseModel):
+    name: str
+    columns: list[str]
+    type: str
+    fields: list[int] = Field(default_factory=list)
+    type_url: Optional[str] = None
+    num_rows_indexed: Optional[int] = None
+    num_segments: Optional[int] = None
+    total_size_bytes: Optional[int] = None
+    details_json: str
+    statistics_json: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetListIndexesResponse(BaseModel):
+    indexes: list[_DatasetTableIndexEntry]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetListBranchesResponse(BaseModel):
+    branches: list[dict[str, Any]]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetOptimizeResponse(BaseModel):
+    compaction: Optional[dict[str, JsonValue]] = None
+    compaction_json: Optional[str] = None
+    optimized_indices: bool = False
+    cleanup: Optional[dict[str, JsonValue]] = None
+    cleanup_json: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DatasetStatsResponse(BaseModel):
+    dataset: Optional[dict[str, JsonValue]] = None
+    dataset_json: Optional[str] = None
+    data: Optional[dict[str, JsonValue]] = None
+    data_json: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+@dataclass(frozen=True, slots=True)
+class SqliteSqlCommand:
+    query: str
+    params: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class SqliteSqlQuery:
+    schema: pa.Schema
+    query_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class SqliteSqlStatement:
+    rows_affected: int
+
+
+SqliteSqlExecution = SqliteSqlQuery | SqliteSqlStatement
+
+
+@dataclass(frozen=True, slots=True)
+class SqliteSqlCancelResult:
+    status: Literal["cancelled", "cancelling", "not_cancellable"]
+
+
+class SqliteReplicationSettings(BaseModel):
+    replication_mode: Literal["synchronous", "asynchronous"] = "synchronous"
+    flush_interval_ms: int = Field(default=1000, ge=1, le=3600000)
+
+
+class SqliteDatabaseDetails(BaseModel):
+    name: str
+    namespace: Optional[list[str]] = None
+    tables: int | None = None
+    size_bytes: int | None = None
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteListDatabasesResponse(BaseModel):
+    databases: list[str]
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteListTablesResponse(BaseModel):
+    tables: list[str]
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteRowsAffectedResponse(BaseModel):
+    rows_affected: int
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteCountResponse(BaseModel):
+    count: int
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteStatementResponse(_SqliteRowsAffectedResponse):
+    kind: Literal["statement"]
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteBatchQueryResponse(BaseModel):
+    kind: Literal["query"]
+    query_id: str
+    schema_base64: str
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteBatchResponse(BaseModel):
+    results: list[_SqliteStatementResponse | _SqliteBatchQueryResponse]
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteCancelResponse(BaseModel):
+    status: Literal["cancelled", "cancelling", "not_cancellable"]
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteQueryHeaders(BaseModel):
+    kind: Literal["query"]
+    query_id: str
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class _SqliteKindHeaders(BaseModel):
+    kind: str
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetWatchEvent:
+    kind: Literal["data", "ready"]
+    phase: str | None = None
+    table: pa.Table | None = None
+    version: int | None = None
+    change_type: str | None = None
+    begin_version: int | None = None
+    end_version: int | None = None
+    watch_event: str | None = None
+
+
+def _dataset_optional_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _dataset_metadata_entries(metadata: dict | None) -> list[dict[str, str]] | None:
+    if metadata is None:
+        return None
+
+    entries = list[dict[str, str]]()
+    for key, value in metadata.items():
+        encoded_value = (
+            value if isinstance(value, str) else json.dumps(_encode_record_value(value))
+        )
+        entries.append({"key": str(key), "value": encoded_value})
+    return entries
+
+
+def _dataset_metadata_dict(metadata: object) -> dict[str, str]:
+    if metadata is None:
+        return {}
+    if not isinstance(metadata, list):
+        raise RoomException(
+            "unexpected return type from datasets.inspect",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    result = dict[str, str]()
+    for entry in metadata:
+        if not isinstance(entry, dict):
+            raise RoomException(
+                "unexpected return type from datasets.inspect",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        key = entry.get("key")
+        value = entry.get("value")
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise RoomException(
+                "unexpected return type from datasets.inspect",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        result[key] = value
+    return result
+
+
+def _dataset_records_json(records: object) -> str:
+    if not isinstance(records, list):
+        raise RoomException(
+            "datasets toolkit records must be a list of objects",
+            code=ErrorCode.INVALID_REQUEST,
+        )
+    return json.dumps(_encode_record_value(records))
+
+
+def _dataset_data_json(data: object | None) -> str | None:
+    if data is None:
+        return None
+    if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+        return json.dumps(encode_records(data))
+    return json.dumps(_encode_record_value(data))
+
+
+def _dataset_results_from_json(
+    *,
+    payload: dict[str, Any],
+    operation: str,
+) -> list[dict[str, Any]]:
+    results = payload.get("results")
+    if not isinstance(results, list):
+        raise RoomException(
+            f"unexpected return type from datasets.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+    return decode_records(results)
+
+
+def _dataset_value_json(value: Any) -> str:
+    return json.dumps(_encode_record_value(value))
+
+
+def _dataset_sql_literal(value: Any) -> str:
+    if isinstance(value, bool):
+        return str(value).upper()
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    if isinstance(value, uuid.UUID):
+        return f"X'{value.bytes.hex()}'"
+    if isinstance(value, bytes):
+        return f"X'{value.hex()}'"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if value is None:
+        return "NULL"
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc)
+        return f"'{value.isoformat().replace('+00:00', 'Z')}'"
+    if isinstance(value, date):
+        return f"'{value.isoformat()}'"
+    if isinstance(value, DatasetJson):
+        return "'" + json.dumps(value.to_json()).replace("'", "''") + "'"
+    if isinstance(value, DatasetStruct):
+        fields = ", ".join(
+            f"'{key}', {_dataset_sql_literal(inner)}"
+            for key, inner in value.fields.items()
+        )
+        return f"named_struct({fields})"
+    if isinstance(value, list):
+        return "[" + ", ".join(_dataset_sql_literal(item) for item in value) + "]"
+    if isinstance(value, dict):
+        raise RoomException(
+            "dataset object values must use DatasetStruct or DatasetJson",
+            code=ErrorCode.INVALID_REQUEST,
+        )
+    raise RoomException(
+        f"unsupported dataset value type {type(value).__name__}",
+        code=ErrorCode.INVALID_REQUEST,
+    )
+
+
+def _dataset_stream_encode_value(value: Any) -> Any:
+    return _encode_record_value(value)
+
+
+def _dataset_arrow_value(value: Any, data_type: pa.DataType | None = None) -> Any:
+    if isinstance(value, DatasetExpression):
+        raise RoomException(
+            "dataset Arrow writes do not support DatasetExpression values",
+            code=ErrorCode.INVALID_REQUEST,
+        )
+    if isinstance(value, DatasetJson):
+        return json.dumps(value.to_json())
+    if isinstance(value, DatasetStruct):
+        value = value.fields
+    if isinstance(value, uuid.UUID):
+        return (
+            value.bytes if data_type is not None and data_type == pa.uuid() else value
+        )
+    if isinstance(value, str) and data_type is not None:
+        if pa.types.is_date(data_type):
+            return date.fromisoformat(value)
+        if pa.types.is_timestamp(data_type):
+            normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+            return datetime.fromisoformat(normalized)
+    if isinstance(value, list):
+        item_type = (
+            data_type.value_type
+            if data_type is not None and pa.types.is_list(data_type)
+            else None
+        )
+        return [_dataset_arrow_value(item, item_type) for item in value]
+    if isinstance(value, dict):
+        field_types = dict[str, pa.DataType]()
+        if data_type is not None and pa.types.is_struct(data_type):
+            field_types = {field.name: field.type for field in data_type}
+        return {
+            str(key): _dataset_arrow_value(item, field_types.get(str(key)))
+            for key, item in value.items()
+        }
+    return value
+
+
+def _dataset_records_to_arrow_table(
+    records: DatasetRows,
+    *,
+    schema: pa.Schema | None = None,
+) -> pa.Table:
+    rows = list[dict[str, Any]]()
+    field_types = (
+        {field.name: field.type for field in schema}
+        if schema is not None
+        else dict[str, pa.DataType]()
+    )
+    for record in records:
+        rows.append(
+            {
+                str(key): _dataset_arrow_value(value, field_types.get(str(key)))
+                for key, value in record.items()
+            }
+        )
+    return pa.Table.from_pylist(rows, schema=schema)
+
+
+def _dataset_arrow_chunks(
+    chunks: Any,
+    *,
+    schema: pa.Schema | None = None,
+) -> Any:
+    if chunks is None:
+        return []
+    if isinstance(chunks, (pa.Table, pa.RecordBatch)):
+        return chunks
+    if isinstance(chunks, list):
+        if all(isinstance(item, dict) for item in chunks):
+            return _dataset_records_to_arrow_table(chunks, schema=schema)
+        if all(isinstance(item, (pa.Table, pa.RecordBatch)) for item in chunks):
+            return chunks
+    return chunks
+
+
+def _dataset_stream_decode_value(
+    value: object,
+    *,
+    operation: str,
+) -> Any:
+    try:
+        return _decode_record_value(value)
+    except Exception as exc:
+        raise RoomException(
+            f"unexpected return type from datasets.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        ) from exc
+
+
+def _dataset_stream_rows_chunk(records: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "kind": "rows",
+        "rows": [
+            {
+                "columns": [
+                    {
+                        "name": str(key),
+                        "value": _dataset_stream_encode_value(value),
+                    }
+                    for key, value in record.items()
+                ]
+            }
+            for record in records
+        ],
+    }
+
+
+def _typed_rows_records_from_chunk(
+    *,
+    payload: dict[str, Any],
+    operation: str,
+) -> list[dict[str, Any]]:
+    if payload.get("kind") != "rows":
+        raise RoomException(
+            f"unexpected return type from {operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    rows = payload.get("rows")
+    if not isinstance(rows, list):
+        raise RoomException(
+            f"unexpected return type from {operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    result = list[dict[str, Any]]()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise RoomException(
+                f"unexpected return type from {operation}",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        columns = row.get("columns")
+        if not isinstance(columns, list):
+            raise RoomException(
+                f"unexpected return type from {operation}",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        decoded_row = dict[str, Any]()
+        for column in columns:
+            if not isinstance(column, dict):
+                raise RoomException(
+                    f"unexpected return type from {operation}",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+            name = column.get("name")
+            if not isinstance(name, str):
+                raise RoomException(
+                    f"unexpected return type from {operation}",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+            decoded_row[name] = _dataset_stream_decode_value(
+                column.get("value"),
+                operation=operation,
+            )
+        result.append(decoded_row)
+    return result
+
+
+def _dataset_stream_records_from_chunk(
+    *,
+    payload: dict[str, Any],
+    operation: str,
+) -> list[dict[str, Any]]:
+    return _typed_rows_records_from_chunk(
+        payload=payload,
+        operation=f"dataset.{operation}",
+    )
+
+
+def _dataset_row_chunk_list(
+    records: DatasetRows,
+    *,
+    rows_per_chunk: int = 128,
+) -> list[DatasetRows]:
+    if not isinstance(records, list):
+        raise RoomException(
+            "datasets stream records must be a list of objects",
+            code=ErrorCode.INVALID_REQUEST,
+        )
+    if rows_per_chunk <= 0:
+        raise RoomException(
+            "rows_per_chunk must be greater than zero",
+            code=ErrorCode.INVALID_REQUEST,
+        )
+    return [
+        records[index : index + rows_per_chunk]
+        for index in range(0, len(records), rows_per_chunk)
+    ]
+
+
+async def _dataset_async_row_chunks(
+    chunks: DatasetRowChunks,
+) -> AsyncIterator[DatasetRows]:
+    if isinstance(chunks, AsyncIterable):
+        async for chunk in chunks:
+            yield chunk
+        return
+    for chunk in chunks:
+        yield chunk
+
+
+async def _dataset_async_arrow_chunks(
+    chunks: Any,
+) -> AsyncIterator[pa.Table | pa.RecordBatch]:
+    if isinstance(chunks, (pa.Table, pa.RecordBatch)):
+        yield chunks
+        return
+    if isinstance(chunks, AsyncIterable):
+        async for chunk in chunks:
+            yield chunk
+        return
+    for chunk in chunks:
+        yield chunk
+
+
+class _DatasetArrowWriteInputStream:
+    def __init__(
+        self,
+        *,
+        start: dict[str, Any],
+        schema: pa.Schema | None = None,
+        chunks: Any = (),
+    ) -> None:
+        self._start = start
+        self._schema = schema
+        self._source = _dataset_async_arrow_chunks(chunks).__aiter__()
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[object] = asyncio.Queue()
+        self._sent_start = False
+
+    def request_next(self) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(object())
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(object())
+
+    def __aiter__(self) -> "_DatasetArrowWriteInputStream":
+        return self
+
+    async def __anext__(self) -> Content:
+        if not self._sent_start:
+            self._sent_start = True
+            return BinaryContent(
+                data=_schema_to_arrow_ipc(self._schema)
+                if self._schema is not None
+                else b"",
+                headers=self._start,
+            )
+
+        await self._pulls.get()
+        if self._closed.is_set():
+            raise StopAsyncIteration
+
+        try:
+            next_chunk = await self._source.__anext__()
+        except StopAsyncIteration as exc:
+            raise StopAsyncIteration from exc
+
+        if not isinstance(next_chunk, (pa.Table, pa.RecordBatch)):
+            raise RoomException(
+                "dataset Arrow streams must yield pyarrow.Table or pyarrow.RecordBatch",
+                code=ErrorCode.INVALID_REQUEST,
+            )
+        return BinaryContent(
+            data=_table_to_arrow_ipc(next_chunk),
+            headers={
+                "kind": "data",
+                "content_type": _ARROW_IPC_STREAM_MIME_TYPE,
+            },
+        )
+
+
+class _DatasetArrowReadInputStream:
+    def __init__(self, *, start: dict[str, Any]) -> None:
+        self._start = start
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[object] = asyncio.Queue()
+        self._sent_start = False
+
+    def request_next(self) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(object())
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(object())
+
+    def __aiter__(self) -> "_DatasetArrowReadInputStream":
+        return self
+
+    async def __anext__(self) -> Content:
+        if not self._sent_start:
+            self._sent_start = True
+            return BinaryContent(data=b"", headers=self._start)
+
+        await self._pulls.get()
+        if self._closed.is_set():
+            raise StopAsyncIteration
+
+        return BinaryContent(data=b"", headers={"kind": "pull"})
+
+
+class _DatasetWriteInputStream:
+    def __init__(
+        self,
+        *,
+        start: dict[str, Any],
+        chunks: DatasetRowChunks,
+    ) -> None:
+        self._start = start
+        self._source = _dataset_async_row_chunks(chunks).__aiter__()
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[object] = asyncio.Queue()
+        self._sent_start = False
+
+    def request_next(self) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(object())
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(object())
+
+    def __aiter__(self) -> "_DatasetWriteInputStream":
+        return self
+
+    async def __anext__(self) -> Content:
+        if not self._sent_start:
+            self._sent_start = True
+            return JsonContent(json=self._start)
+
+        await self._pulls.get()
+        if self._closed.is_set():
+            raise StopAsyncIteration
+
+        try:
+            next_chunk = await self._source.__anext__()
+        except StopAsyncIteration as exc:
+            raise StopAsyncIteration from exc
+
+        return JsonContent(json=_dataset_stream_rows_chunk(next_chunk))
+
+
+class _DatasetReadInputStream:
+    def __init__(self, *, start: dict[str, Any]) -> None:
+        self._start = start
+        self._closed = asyncio.Event()
+        self._pulls: asyncio.Queue[object] = asyncio.Queue()
+        self._sent_start = False
+
+    def request_next(self) -> None:
+        if self._closed.is_set():
+            return
+        self._pulls.put_nowait(object())
+
+    def close(self) -> None:
+        if self._closed.is_set():
+            return
+        self._closed.set()
+        self._pulls.put_nowait(object())
+
+    def __aiter__(self) -> "_DatasetReadInputStream":
+        return self
+
+    async def __anext__(self) -> Content:
+        if not self._sent_start:
+            self._sent_start = True
+            return JsonContent(json=self._start)
+
+        await self._pulls.get()
+        if self._closed.is_set():
+            raise StopAsyncIteration
+
+        return JsonContent(json={"kind": "pull"})
+
+
+class DatasetsClient:
+    """
+    A client for interacting with the 'datasets' toolkit on the room server.
+    """
+
+    def __init__(self, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from datasets.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def _invoke(self, *, operation: str, input: dict) -> Content:
+        response = await self.room.invoke(
+            toolkit="dataset",
+            tool=operation,
+            input=input,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _invoke_content(self, *, operation: str, input: Content) -> Content:
+        response = await self.room.invoke(
+            toolkit="dataset",
+            tool=operation,
+            input=input,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _invoke_stream(
+        self,
+        *,
+        operation: str,
+        input: AsyncIterable[Content],
+    ) -> AsyncIterable[Content]:
+        response = await self.room.invoke(
+            toolkit="dataset",
+            tool=operation,
+            input=input,
+        )
+        if isinstance(response, Content) or not isinstance(response, AsyncIterable):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _drain_write_stream(
+        self,
+        *,
+        operation: str,
+        input_stream: _DatasetWriteInputStream | _DatasetArrowWriteInputStream,
+    ) -> None:
+        response_stream = await self._invoke_stream(
+            operation=operation,
+            input=input_stream,
+        )
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation=operation)
+                if isinstance(chunk, BinaryContent):
+                    try:
+                        _DatasetPullHeaders.model_validate(chunk.headers)
+                    except ValidationError as exc:
+                        raise self._unexpected_response_error(
+                            operation=operation
+                        ) from exc
+                    input_stream.request_next()
+                    continue
+                if not isinstance(chunk, JsonContent):
+                    raise self._unexpected_response_error(operation=operation)
+                try:
+                    _DatasetPullHeaders.model_validate(chunk.json)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation=operation) from exc
+                input_stream.request_next()
+        finally:
+            input_stream.close()
+
+    async def _stream_arrow(
+        self,
+        *,
+        operation: str,
+        start: dict[str, Any],
+    ) -> AsyncIterator[pa.Table]:
+        input_stream = _DatasetArrowReadInputStream(start=start)
+        response_stream = await self._invoke_stream(
+            operation=operation,
+            input=input_stream,
+        )
+        input_stream.request_next()
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation=operation)
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation=operation)
+                try:
+                    _DatasetDataHeaders.model_validate(chunk.headers)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation=operation) from exc
+                yield _table_from_arrow_ipc(chunk.data)
+                input_stream.request_next()
+        finally:
+            input_stream.close()
+
+    async def list_tables(
+        self,
+        *,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> List[str]:
+        response = await self._invoke(
+            operation="list_tables",
+            input={"namespace": namespace, "branch": branch},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_tables")
+        try:
+            payload = _DatasetListTablesResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_tables") from exc
+        return payload.tables
+
+    async def inspect(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> pa.Schema:
+        response = await self._invoke(
+            operation="inspect",
+            input={
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+                "version": version,
+            },
+        )
+        if not isinstance(response, BinaryContent):
+            raise self._unexpected_response_error(operation="inspect")
+        try:
+            _DatasetSchemaHeaders.model_validate(response.headers)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="inspect") from exc
+        return _schema_from_arrow_ipc(response.data)
+
+    async def _create_table(
+        self,
+        *,
+        name: str,
+        data: Any = None,
+        schema: Optional[DatasetSchemaInput] = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        normalized_name = _require_non_empty_dataset_table_name(
+            value=name,
+            field_name="table name",
+        )
+        arrow_schema = _normalize_dataset_schema(schema) if schema is not None else None
+        if arrow_schema is not None and metadata is not None:
+            arrow_schema = arrow_schema.with_metadata(
+                {
+                    **(arrow_schema.metadata or {}),
+                    **{
+                        str(key).encode("utf-8"): str(value).encode("utf-8")
+                        for key, value in metadata.items()
+                    },
+                }
+            )
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "name": normalized_name,
+                "mode": mode,
+                "namespace": namespace,
+                "branch": branch,
+                "metadata": _dataset_metadata_entries(metadata),
+            },
+            schema=arrow_schema,
+            chunks=_dataset_arrow_chunks(data, schema=arrow_schema),
+        )
+        await self._drain_write_stream(
+            operation="create_table",
+            input_stream=input_stream,
+        )
+
+    async def create_table_with_schema(
+        self,
+        *,
+        name: str,
+        schema: Optional[DatasetSchemaInput] = None,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        return await self._create_table(
+            name=name,
+            schema=schema,
+            mode=mode,
+            data=data,
+            namespace=namespace,
+            branch=branch,
+            metadata=metadata,
+        )
+
+    async def create_table_from_data(
+        self,
+        *,
+        name: str,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        return await self._create_table(
+            name=name,
+            data=data,
+            mode=mode,
+            namespace=namespace,
+            branch=branch,
+            metadata=metadata,
+        )
+
+    async def create_table_from_data_stream(
+        self,
+        *,
+        name: str,
+        chunks: Any,
+        schema: Optional[DatasetSchemaInput] = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "name": name,
+                "mode": mode,
+                "namespace": namespace,
+                "branch": branch,
+                "metadata": _dataset_metadata_entries(metadata),
+            },
+            schema=_normalize_dataset_schema(schema) if schema is not None else None,
+            chunks=_dataset_arrow_chunks(
+                chunks,
+                schema=_normalize_dataset_schema(schema)
+                if schema is not None
+                else None,
+            ),
+        )
+        await self._drain_write_stream(
+            operation="create_table",
+            input_stream=input_stream,
+        )
+
+    async def create_table_from_json_data(
+        self,
+        *,
+        name: str,
+        data: Optional[DatasetRows] = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        chunks = (
+            []
+            if data is None
+            else _dataset_row_chunk_list(
+                data if isinstance(data, list) else [data],
+            )
+        )
+        input_stream = _DatasetWriteInputStream(
+            start={
+                "kind": "start",
+                "name": _require_non_empty_dataset_table_name(
+                    value=name,
+                    field_name="table name",
+                ),
+                "mode": mode,
+                "namespace": namespace,
+                "branch": branch,
+                "metadata": _dataset_metadata_entries(metadata),
+            },
+            chunks=chunks,
+        )
+        await self._drain_write_stream(
+            operation="create_table",
+            input_stream=input_stream,
+        )
+
+    async def register_table(
+        self,
+        *,
+        name: str,
+        connection_id: str,
+        path: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        """Register an existing, read-only Lance dataset from room external storage."""
+        await self._invoke(
+            operation="register_table",
+            input={
+                "name": name,
+                "connection_id": connection_id,
+                "path": path,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def drop_table(
+        self,
+        *,
+        name: str,
+        ignore_missing: bool = False,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="drop_table",
+            input={
+                "name": name,
+                "ignore_missing": ignore_missing,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def rename_table(
+        self,
+        *,
+        name: str,
+        new_name: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="rename_table",
+            input={
+                "name": name,
+                "new_name": new_name,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def drop_index(
+        self,
+        *,
+        table: str,
+        name: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="drop_index",
+            input={
+                "table": table,
+                "name": name,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def add_columns(
+        self,
+        *,
+        table: str,
+        new_columns: Dict[str, str] | DatasetSchemaInput,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        if isinstance(new_columns, pa.Schema) or all(
+            isinstance(value, (pa.DataType, pa.Field)) for value in new_columns.values()
+        ):
+            schema = _normalize_dataset_schema(new_columns)
+            response = await self._invoke_content(
+                operation="add_columns",
+                input=BinaryContent(
+                    data=_schema_to_arrow_ipc(schema),
+                    headers={
+                        "table": table,
+                        "namespace": namespace,
+                        "branch": branch,
+                        "content_type": _ARROW_IPC_STREAM_MIME_TYPE,
+                    },
+                ),
+            )
+            if not isinstance(response, EmptyContent):
+                raise self._unexpected_response_error(operation="add_columns")
+            return
+
+        columns = [
+            {
+                "name": column_name,
+                "value_sql": column_value,
+            }
+            for column_name, column_value in new_columns.items()
+        ]
+        response = await self._invoke(
+            operation="add_columns",
+            input={
+                "table": table,
+                "columns": columns,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="add_columns")
+
+    async def drop_columns(
+        self,
+        *,
+        table: str,
+        columns: List[str],
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="drop_columns",
+            input={
+                "table": table,
+                "columns": columns,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def _write_chunks_for_table(
+        self,
+        *,
+        table: str,
+        chunks: Any,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> Any:
+        if isinstance(chunks, list) and all(isinstance(item, dict) for item in chunks):
+            schema = await self.inspect(table=table, namespace=namespace, branch=branch)
+            return _dataset_arrow_chunks(chunks, schema=schema)
+        return _dataset_arrow_chunks(chunks)
+
+    async def insert(
+        self,
+        *,
+        table: str,
+        records: pa.Table | pa.RecordBatch | DatasetRows,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self.insert_stream(
+            table=table,
+            chunks=await self._write_chunks_for_table(
+                table=table,
+                chunks=records,
+                namespace=namespace,
+                branch=branch,
+            ),
+            namespace=namespace,
+            branch=branch,
+        )
+
+    async def insert_stream(
+        self,
+        *,
+        table: str,
+        chunks: Any,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+            },
+            chunks=await self._write_chunks_for_table(
+                table=table,
+                chunks=chunks,
+                namespace=namespace,
+                branch=branch,
+            ),
+        )
+        await self._drain_write_stream(operation="insert", input_stream=input_stream)
+
+    async def update(
+        self,
+        *,
+        table: str,
+        where: str,
+        values: DatasetRecord,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="update",
+            input={
+                "table": table,
+                "where": where,
+                "values": [
+                    {
+                        "column": column,
+                        "value_json": _dataset_value_json(value),
+                    }
+                    for column, value in values.items()
+                ],
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def delete(
+        self,
+        *,
+        table: str,
+        where: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="delete",
+            input={
+                "table": table,
+                "where": where,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def merge(
+        self,
+        *,
+        table: str,
+        on: str,
+        records: pa.Table | pa.RecordBatch | DatasetRows,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self.merge_stream(
+            table=table,
+            on=on,
+            chunks=await self._write_chunks_for_table(
+                table=table,
+                chunks=records,
+                namespace=namespace,
+                branch=branch,
+            ),
+            namespace=namespace,
+            branch=branch,
+        )
+
+    async def merge_stream(
+        self,
+        *,
+        table: str,
+        on: str,
+        chunks: Any,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "table": table,
+                "on": on,
+                "namespace": namespace,
+                "branch": branch,
+            },
+            chunks=await self._write_chunks_for_table(
+                table=table,
+                chunks=chunks,
+                namespace=namespace,
+                branch=branch,
+            ),
+        )
+        await self._drain_write_stream(operation="merge", input_stream=input_stream)
+
+    async def sql(
+        self,
+        *,
+        query: str,
+        tables: Optional[List[SqlTableReference | str]] = None,
+        params: pa.Table | pa.RecordBatch | None = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> pa.Table:
+        batches = list[pa.Table]()
+        async for batch in self.sql_stream(
+            query=query,
+            tables=tables,
+            params=params,
+            namespace=namespace,
+            branch=branch,
+        ):
+            batches.append(batch)
+        if len(batches) == 0:
+            return pa.table({})
+        return pa.concat_tables(batches, promote_options="default")
+
+    async def open_sql_query(
+        self,
+        *,
+        query: str,
+        tables: Optional[List[SqlTableReference | str]] = None,
+        params: pa.Table | pa.RecordBatch | None = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> DatasetSqlQuery:
+        table_refs = [
+            SqlTableReference(name=table) if isinstance(table, str) else table
+            for table in (tables or [])
+        ]
+        response = await self._invoke_content(
+            operation="open_sql_query",
+            input=BinaryContent(
+                data=b"" if params is None else _table_to_arrow_ipc(params),
+                headers={
+                    "query": query,
+                    "tables": [table.model_dump() for table in table_refs],
+                    "namespace": namespace,
+                    "branch": branch,
+                },
+            ),
+        )
+        if not isinstance(response, BinaryContent):
+            raise self._unexpected_response_error(operation="open_sql_query")
+        try:
+            headers = _DatasetSqlQueryHeaders.model_validate(response.headers)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="open_sql_query") from exc
+        if headers.query_id == "":
+            raise self._unexpected_response_error(operation="open_sql_query")
+        return DatasetSqlQuery(
+            schema=_schema_from_arrow_ipc(response.data),
+            query_id=headers.query_id,
+        )
+
+    async def execute_sql(
+        self,
+        *,
+        query: str,
+        tables: Optional[List[SqlTableReference | str]] = None,
+        params: pa.Table | pa.RecordBatch | None = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> DatasetSqlExecution:
+        table_refs = [
+            SqlTableReference(name=table) if isinstance(table, str) else table
+            for table in (tables or [])
+        ]
+        response = await self._invoke_content(
+            operation="execute_sql",
+            input=BinaryContent(
+                data=b"" if params is None else _table_to_arrow_ipc(params),
+                headers={
+                    "query": query,
+                    "tables": [table.model_dump() for table in table_refs],
+                    "namespace": namespace,
+                    "branch": branch,
+                },
+            ),
+        )
+        if isinstance(response, BinaryContent):
+            try:
+                headers = _DatasetSqlQueryHeaders.model_validate(response.headers)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="execute_sql") from exc
+            if headers.query_id == "":
+                raise self._unexpected_response_error(operation="execute_sql")
+            return DatasetSqlQuery(
+                schema=_schema_from_arrow_ipc(response.data),
+                query_id=headers.query_id,
+            )
+        if isinstance(response, JsonContent):
+            try:
+                payload = _DatasetSqlStatementResponse.model_validate(response.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="execute_sql") from exc
+            return DatasetSqlStatement(rows_affected=payload.rows_affected)
+        raise self._unexpected_response_error(operation="execute_sql")
+
+    async def sql_stream(
+        self,
+        *,
+        query: str,
+        tables: Optional[List[SqlTableReference | str]] = None,
+        params: pa.Table | pa.RecordBatch | None = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> AsyncIterator[pa.Table]:
+        result = await self.execute_sql(
+            query=query,
+            tables=tables,
+            params=params,
+            namespace=namespace,
+            branch=branch,
+        )
+        if isinstance(result, DatasetSqlStatement):
+            raise RoomException(
+                f"SQL statement did not return rows; rows_affected={result.rows_affected}",
+                code=ErrorCode.INVALID_REQUEST,
+            )
+        opened = result
+        try:
+            async for batch in self.read_sql_query(query_id=opened.query_id):
+                yield batch
+        finally:
+            await self.close_sql_query(query_id=opened.query_id)
+
+    async def read_sql_query(self, *, query_id: str) -> AsyncIterator[pa.Table]:
+        async for batch in self._stream_arrow(
+            operation="read_sql_query",
+            start={
+                "kind": "start",
+                "query_id": query_id,
+            },
+        ):
+            yield batch
+
+    async def close_sql_query(self, *, query_id: str) -> None:
+        response = await self._invoke(
+            operation="close_sql_query",
+            input={"query_id": query_id},
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="close_sql_query")
+
+    async def cancel_sql_query(self, *, query_id: str) -> DatasetSqlCancelResult:
+        response = await self._invoke(
+            operation="cancel_sql_query",
+            input={"query_id": query_id},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="cancel_sql_query")
+        try:
+            payload = _DatasetSqlCancelResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="cancel_sql_query") from exc
+        return DatasetSqlCancelResult(status=payload.status)
+
+    async def execute_sql_statement(
+        self,
+        *,
+        query: str,
+        tables: Optional[List[SqlTableReference | str]] = None,
+        params: pa.Table | pa.RecordBatch | None = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> int:
+        table_refs = [
+            SqlTableReference(name=table) if isinstance(table, str) else table
+            for table in (tables or [])
+        ]
+        response = await self._invoke_content(
+            operation="execute_sql_statement",
+            input=BinaryContent(
+                data=b"" if params is None else _table_to_arrow_ipc(params),
+                headers={
+                    "query": query,
+                    "tables": [table.model_dump() for table in table_refs],
+                    "namespace": namespace,
+                    "branch": branch,
+                },
+            ),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="execute_sql_statement")
+        try:
+            payload = _DatasetRowsAffectedResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(
+                operation="execute_sql_statement"
+            ) from exc
+        return payload.rows_affected
+
+    async def search(
+        self,
+        *,
+        table: str,
+        text: Optional[str] = None,
+        vector: Optional[list[float]] = None,
+        where: Optional[str] | dict = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[List[str]] = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> pa.Table:
+        batches = list[pa.Table]()
+        async for batch in self.search_stream(
+            table=table,
+            text=text,
+            vector=vector,
+            where=where,
+            offset=offset,
+            limit=limit,
+            select=select,
+            namespace=namespace,
+            branch=branch,
+            version=version,
+        ):
+            batches.append(batch)
+        if len(batches) == 0:
+            return pa.table({})
+        return pa.concat_tables(batches, promote_options="default")
+
+    async def search_stream(
+        self,
+        *,
+        table: str,
+        text: Optional[str] = None,
+        vector: Optional[list[float]] = None,
+        where: Optional[str] | dict = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[List[str]] = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> AsyncIterator[pa.Table]:
+        if isinstance(where, dict):
+            where = " AND ".join(
+                f"{column} = {_dataset_sql_literal(value)}"
+                for column, value in where.items()
+            )
+        async for batch in self._stream_arrow(
+            operation="search",
+            start={
+                "kind": "start",
+                "table": table,
+                "text": text,
+                "vector": vector,
+                "text_columns": None,
+                "where": where,
+                "offset": offset,
+                "limit": limit,
+                "select": select,
+                "namespace": namespace,
+                "branch": branch,
+                "version": version,
+            },
+        ):
+            yield batch
+
+    async def watch_table(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        poll_interval_seconds: float = 0.5,
+    ) -> AsyncIterator[DatasetWatchEvent]:
+        input_stream = _DatasetArrowReadInputStream(
+            start={
+                "kind": "start",
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+                "poll_interval_seconds": poll_interval_seconds,
+            },
+        )
+        response_stream = await self._invoke_stream(
+            operation="watch_table",
+            input=input_stream,
+        )
+        input_stream.request_next()
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation="watch_table")
+                if isinstance(chunk, BinaryContent):
+                    try:
+                        headers = _DatasetWatchDataHeaders.model_validate(chunk.headers)
+                    except ValidationError as exc:
+                        raise self._unexpected_response_error(
+                            operation="watch_table"
+                        ) from exc
+                    yield DatasetWatchEvent(
+                        kind="data",
+                        phase=headers.phase,
+                        table=_table_from_arrow_ipc(chunk.data),
+                        version=_dataset_optional_int(headers.version),
+                        change_type=headers.change_type,
+                        begin_version=_dataset_optional_int(headers.begin_version),
+                        end_version=_dataset_optional_int(headers.end_version),
+                        watch_event=headers.watch_event,
+                    )
+                    input_stream.request_next()
+                    continue
+                if isinstance(chunk, JsonContent):
+                    try:
+                        event = _DatasetWatchReadyEvent.model_validate(chunk.json)
+                    except ValidationError as exc:
+                        raise self._unexpected_response_error(
+                            operation="watch_table"
+                        ) from exc
+                    yield DatasetWatchEvent(
+                        kind="ready",
+                        phase=event.phase,
+                        version=_dataset_optional_int(event.version),
+                    )
+                    input_stream.request_next()
+                    continue
+                raise self._unexpected_response_error(operation="watch_table")
+        finally:
+            input_stream.close()
+
+    async def count(
+        self,
+        *,
+        table: str,
+        text: Optional[str] = None,
+        vector: Optional[list[float]] = None,
+        where: Optional[str] | dict = None,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> int:
+        if isinstance(where, dict):
+            where = " AND ".join(
+                f"{column} = {_dataset_sql_literal(value)}"
+                for column, value in where.items()
+            )
+        response = await self._invoke(
+            operation="count",
+            input={
+                "table": table,
+                "text": text,
+                "vector": vector,
+                "text_columns": None,
+                "where": where,
+                "namespace": namespace,
+                "branch": branch,
+                "version": version,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="count")
+        try:
+            payload = _DatasetCountResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="count") from exc
+        return payload.count
+
+    async def optimize(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        config: Optional["DatasetOptimizeConfig"] = None,
+    ) -> "DatasetOptimizeResult":
+        response = await self._invoke(
+            operation="optimize",
+            input={
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+                "config": (
+                    config.model_dump(mode="json", exclude_none=True)
+                    if config is not None
+                    else None
+                ),
+            },
+        )
+        if isinstance(response, JsonContent):
+            try:
+                payload = _DatasetOptimizeResponse.model_validate(response.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="optimize") from exc
+            return DatasetOptimizeResult._from_tool_response(payload.model_dump())
+        raise self._unexpected_response_error(operation="optimize")
+
+    async def stats(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+        max_rows_per_group: Optional[int] = None,
+    ) -> "DatasetTableStats":
+        response = await self._invoke(
+            operation="stats",
+            input={
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+                "version": version,
+                "max_rows_per_group": max_rows_per_group,
+            },
+        )
+        if isinstance(response, JsonContent):
+            try:
+                payload = _DatasetStatsResponse.model_validate(response.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="stats") from exc
+            return DatasetTableStats._from_tool_response(payload.model_dump())
+        raise self._unexpected_response_error(operation="stats")
+
+    async def restore(
+        self,
+        *,
+        table: str,
+        version: int,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="restore",
+            input={
+                "table": table,
+                "version": version,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def list_versions(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> list["TableVersion"]:
+        response = await self._invoke(
+            operation="list_versions",
+            input={
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_versions")
+        try:
+            payload = _DatasetListVersionsResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_versions") from exc
+        parsed_versions = list[TableVersion]()
+        for version in payload.versions:
+            try:
+                metadata = json.loads(version.metadata_json)
+            except json.JSONDecodeError as exc:
+                raise self._unexpected_response_error(
+                    operation="list_versions"
+                ) from exc
+            parsed_versions.append(
+                TableVersion.model_validate(
+                    {
+                        "version": version.version,
+                        "timestamp": version.timestamp,
+                        "metadata": metadata,
+                    }
+                )
+            )
+        return parsed_versions
+
+    async def create_index(
+        self,
+        *,
+        table: str,
+        config: "DatasetIndexConfig",
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+    ) -> None:
+        await self._invoke(
+            operation="create_index",
+            input={
+                "table": table,
+                "config": config.model_dump(mode="json", exclude_none=True),
+                "namespace": namespace,
+                "branch": branch,
+            },
+        )
+
+    async def list_indexes(
+        self,
+        *,
+        table: str,
+        namespace: Optional[list[str]] = None,
+        branch: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> list["TableIndex"]:
+        response = await self._invoke(
+            operation="list_indexes",
+            input={
+                "table": table,
+                "namespace": namespace,
+                "branch": branch,
+                "version": version,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_indexes")
+        try:
+            payload = _DatasetListIndexesResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_indexes") from exc
+        return [
+            TableIndex._from_tool_response(index_data.model_dump())
+            for index_data in payload.indexes
+        ]
+
+    async def list_branches(
+        self, *, namespace: Optional[list[str]] = None
+    ) -> list["TableBranch"]:
+        response = await self._invoke(
+            operation="list_branches",
+            input={"namespace": namespace},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_branches")
+        try:
+            payload = _DatasetListBranchesResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_branches") from exc
+        return [TableBranch.model_validate(branch) for branch in payload.branches]
+
+    async def create_branch(
+        self,
+        *,
+        branch: str,
+        from_branch: Optional[str] = None,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        await self._invoke(
+            operation="create_branch",
+            input={
+                "branch": branch,
+                "from_branch": from_branch,
+                "namespace": namespace,
+            },
+        )
+
+    async def delete_branch(
+        self, *, branch: str, namespace: Optional[list[str]] = None
+    ) -> None:
+        await self._invoke(
+            operation="delete_branch",
+            input={"branch": branch, "namespace": namespace},
+        )
+
+
+class SqliteDatabaseClient:
+    def __init__(
+        self,
+        *,
+        client: "SqliteClient",
+        database: str,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        self._client = client
+        self.database = database
+        self.namespace = namespace
+
+    async def create_database(
+        self,
+        *,
+        mode: Optional[CreateMode] = "create",
+        replication_mode: Optional[Literal["synchronous", "asynchronous"]] = None,
+        flush_interval_ms: Optional[int] = None,
+    ) -> None:
+        await self._client.create_database(
+            name=self.database,
+            namespace=self.namespace,
+            mode=mode,
+            replication_mode=replication_mode,
+            flush_interval_ms=flush_interval_ms,
+        )
+
+    async def drop_database(self, *, ignore_missing: bool = False) -> None:
+        await self._client.drop_database(
+            name=self.database,
+            namespace=self.namespace,
+            ignore_missing=ignore_missing,
+        )
+
+    async def inspect_database(self) -> SqliteDatabaseDetails:
+        return await self._client.inspect_database(
+            name=self.database,
+            namespace=self.namespace,
+        )
+
+    async def list_tables(self) -> list[str]:
+        return await self._client.list_tables(
+            database=self.database,
+            namespace=self.namespace,
+        )
+
+    async def create_table_with_schema(
+        self,
+        *,
+        name: str,
+        schema: Optional[DatasetSchemaInput] = None,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+    ) -> None:
+        await self._client.create_table_with_schema(
+            database=self.database,
+            name=name,
+            schema=schema,
+            data=data,
+            mode=mode,
+            namespace=self.namespace,
+        )
+
+    async def create_table_from_data(
+        self,
+        *,
+        name: str,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+    ) -> None:
+        await self._client.create_table_from_data(
+            database=self.database,
+            name=name,
+            data=data,
+            mode=mode,
+            namespace=self.namespace,
+        )
+
+    async def drop_table(self, *, name: str, ignore_missing: bool = False) -> None:
+        await self._client.drop_table(
+            database=self.database,
+            name=name,
+            ignore_missing=ignore_missing,
+            namespace=self.namespace,
+        )
+
+    async def rename_table(self, *, name: str, new_name: str) -> None:
+        await self._client.rename_table(
+            database=self.database,
+            name=name,
+            new_name=new_name,
+            namespace=self.namespace,
+        )
+
+    async def inspect(self, *, table: str) -> pa.Schema:
+        return await self._client.inspect(
+            database=self.database,
+            table=table,
+            namespace=self.namespace,
+        )
+
+    async def add_columns(
+        self,
+        *,
+        table: str,
+        new_columns: DatasetSchemaInput,
+    ) -> None:
+        await self._client.add_columns(
+            database=self.database,
+            table=table,
+            new_columns=new_columns,
+            namespace=self.namespace,
+        )
+
+    async def drop_columns(self, *, table: str, columns: list[str]) -> None:
+        await self._client.drop_columns(
+            database=self.database,
+            table=table,
+            columns=columns,
+            namespace=self.namespace,
+        )
+
+    async def insert(
+        self,
+        *,
+        table: str,
+        records: pa.Table | pa.RecordBatch | DatasetRows,
+    ) -> None:
+        await self._client.insert(
+            database=self.database,
+            table=table,
+            records=records,
+            namespace=self.namespace,
+        )
+
+    async def update(
+        self,
+        *,
+        table: str,
+        where: str,
+        values: DatasetRecord,
+        params: Any = None,
+    ) -> int:
+        return await self._client.update(
+            database=self.database,
+            table=table,
+            where=where,
+            values=values,
+            params=params,
+            namespace=self.namespace,
+        )
+
+    async def delete(self, *, table: str, where: str, params: Any = None) -> int:
+        return await self._client.delete(
+            database=self.database,
+            table=table,
+            where=where,
+            params=params,
+            namespace=self.namespace,
+        )
+
+    async def search(
+        self,
+        *,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[list[str]] = None,
+    ) -> pa.Table:
+        return await self._client.search(
+            database=self.database,
+            table=table,
+            where=where,
+            params=params,
+            offset=offset,
+            limit=limit,
+            select=select,
+            namespace=self.namespace,
+        )
+
+    async def search_stream(
+        self,
+        *,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[list[str]] = None,
+    ) -> AsyncIterator[pa.Table]:
+        async for batch in self._client.search_stream(
+            database=self.database,
+            table=table,
+            where=where,
+            params=params,
+            offset=offset,
+            limit=limit,
+            select=select,
+            namespace=self.namespace,
+        ):
+            yield batch
+
+    async def count(
+        self,
+        *,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+    ) -> int:
+        return await self._client.count(
+            database=self.database,
+            table=table,
+            where=where,
+            params=params,
+            namespace=self.namespace,
+        )
+
+    async def sql(self, *, query: str, params: Any = None) -> pa.Table:
+        return await self._client.sql(
+            database=self.database,
+            query=query,
+            params=params,
+            namespace=self.namespace,
+        )
+
+    async def sql_stream(
+        self, *, query: str, params: Any = None
+    ) -> AsyncIterator[pa.Table]:
+        async for batch in self._client.sql_stream(
+            database=self.database,
+            query=query,
+            params=params,
+            namespace=self.namespace,
+        ):
+            yield batch
+
+    async def execute_sql_batch(
+        self, *, commands: list[SqliteSqlCommand]
+    ) -> list[SqliteSqlExecution]:
+        return await self._client.execute_sql_batch(
+            database=self.database, commands=commands, namespace=self.namespace
+        )
+
+    async def execute_sql(
+        self, *, query: str, params: Any = None
+    ) -> SqliteSqlExecution:
+        return await self._client.execute_sql(
+            database=self.database,
+            query=query,
+            params=params,
+            namespace=self.namespace,
+        )
+
+    async def execute_sql_statement(self, *, query: str, params: Any = None) -> int:
+        return await self._client.execute_sql_statement(
+            database=self.database,
+            query=query,
+            params=params,
+            namespace=self.namespace,
+        )
+
+
+class SqliteClient:
+    """
+    A client for interacting with the 'sqlite' toolkit on the room server.
+    """
+
+    def __init__(self, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from sqlite.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    def database(
+        self, name: str, *, namespace: Optional[list[str]] = None
+    ) -> SqliteDatabaseClient:
+        return SqliteDatabaseClient(client=self, database=name, namespace=namespace)
+
+    async def _invoke(self, *, operation: str, input: dict) -> Content:
+        response = await self.room.invoke(
+            toolkit="sqlite",
+            tool=operation,
+            input=input,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _invoke_content(self, *, operation: str, input: Content) -> Content:
+        response = await self.room.invoke(
+            toolkit="sqlite",
+            tool=operation,
+            input=input,
+        )
+        if not isinstance(response, Content):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _invoke_stream(
+        self,
+        *,
+        operation: str,
+        input: AsyncIterable[Content],
+    ) -> AsyncIterable[Content]:
+        response = await self.room.invoke(
+            toolkit="sqlite",
+            tool=operation,
+            input=input,
+        )
+        if isinstance(response, Content) or not isinstance(response, AsyncIterable):
+            raise self._unexpected_response_error(operation=operation)
+        return response
+
+    async def _drain_write_stream(
+        self,
+        *,
+        operation: str,
+        input_stream: _DatasetArrowWriteInputStream,
+    ) -> None:
+        response_stream = await self._invoke_stream(
+            operation=operation,
+            input=input_stream,
+        )
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation=operation)
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation=operation)
+                try:
+                    headers = _SqliteKindHeaders.model_validate(chunk.headers)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation=operation) from exc
+                if headers.kind != "pull":
+                    raise self._unexpected_response_error(operation=operation)
+                input_stream.request_next()
+        finally:
+            input_stream.close()
+
+    async def _stream_arrow(
+        self,
+        *,
+        operation: str,
+        start: dict[str, Any],
+    ) -> AsyncIterator[pa.Table]:
+        input_stream = _DatasetArrowReadInputStream(start=start)
+        response_stream = await self._invoke_stream(
+            operation=operation,
+            input=input_stream,
+        )
+        input_stream.request_next()
+        try:
+            async for chunk in response_stream:
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+                if isinstance(chunk, _ControlContent):
+                    if chunk.method == "close":
+                        return
+                    raise self._unexpected_response_error(operation=operation)
+                if not isinstance(chunk, BinaryContent):
+                    raise self._unexpected_response_error(operation=operation)
+                try:
+                    headers = _SqliteKindHeaders.model_validate(chunk.headers)
+                except ValidationError as exc:
+                    raise self._unexpected_response_error(operation=operation) from exc
+                if headers.kind != "data":
+                    raise self._unexpected_response_error(operation=operation)
+                yield _table_from_arrow_ipc(chunk.data)
+                input_stream.request_next()
+        finally:
+            input_stream.close()
+
+    async def backup(
+        self,
+        *,
+        database: str,
+        namespace: Optional[list[str]] = None,
+    ) -> AsyncIterator[bytes]:
+        """Stream a consistent SQLite file, verifying its size and SHA-256 at EOF.
+
+        Consume the entire iterator before publishing the downloaded file.
+        Requires unrestricted table access to this database.
+        """
+        from meshagent.api.sqlite_transfer import backup
+
+        async for chunk in backup(self, database, namespace):
+            yield chunk
+
+    async def restore(
+        self,
+        *,
+        database: str,
+        source: AsyncIterable[bytes],
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        """Restore chunks of at most 256 KiB as a new, durably stored database.
+
+        Existing names are rejected. The server validates integrity and foreign
+        keys before creating the target. A lost final acknowledgement leaves the
+        outcome uncertain; retries never overwrite an existing database.
+        """
+        from meshagent.api.sqlite_transfer import restore
+
+        await restore(self, database, namespace, source)
+
+    async def list_databases(
+        self, *, namespace: Optional[list[str]] = None
+    ) -> list[str]:
+        response = await self._invoke(
+            operation="list_databases",
+            input={"namespace": namespace},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_databases")
+        try:
+            payload = _SqliteListDatabasesResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_databases") from exc
+        return payload.databases
+
+    async def create_database(
+        self,
+        *,
+        name: str,
+        namespace: Optional[list[str]] = None,
+        mode: str = "create",
+        replication_mode: Optional[Literal["synchronous", "asynchronous"]] = None,
+        flush_interval_ms: Optional[int] = None,
+    ) -> None:
+        settings = {}
+        if replication_mode is not None:
+            settings["replication_mode"] = replication_mode
+        if flush_interval_ms is not None:
+            settings["flush_interval_ms"] = flush_interval_ms
+        response = await self._invoke(
+            operation="create_database",
+            input={"name": name, "namespace": namespace, "mode": mode, **settings},
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="create_database")
+
+    async def get_database_settings(
+        self, *, name: str, namespace: Optional[list[str]] = None
+    ) -> SqliteReplicationSettings:
+        response = await self._invoke(
+            operation="get_database_settings",
+            input={"name": name, "namespace": namespace},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="get_database_settings")
+        return SqliteReplicationSettings.model_validate(response.json)
+
+    async def update_database_settings(
+        self,
+        *,
+        name: str,
+        namespace: Optional[list[str]] = None,
+        replication_mode: Optional[Literal["synchronous", "asynchronous"]] = None,
+        flush_interval_ms: Optional[int] = None,
+    ) -> SqliteReplicationSettings:
+        values = {"name": name, "namespace": namespace}
+        if replication_mode is not None:
+            values["replication_mode"] = replication_mode
+        if flush_interval_ms is not None:
+            values["flush_interval_ms"] = flush_interval_ms
+        response = await self._invoke(
+            operation="update_database_settings", input=values
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="update_database_settings")
+        return SqliteReplicationSettings.model_validate(response.json)
+
+    async def flush_database(
+        self, *, name: str, namespace: Optional[list[str]] = None
+    ) -> None:
+        response = await self._invoke(
+            operation="flush_database", input={"name": name, "namespace": namespace}
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="flush_database")
+
+    async def drop_database(
+        self,
+        *,
+        name: str,
+        namespace: Optional[list[str]] = None,
+        ignore_missing: bool = False,
+    ) -> None:
+        response = await self._invoke(
+            operation="drop_database",
+            input={
+                "name": name,
+                "namespace": namespace,
+                "ignore_missing": ignore_missing,
+            },
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="drop_database")
+
+    async def inspect_database(
+        self, *, name: str, namespace: Optional[list[str]] = None
+    ) -> SqliteDatabaseDetails:
+        response = await self._invoke(
+            operation="inspect_database",
+            input={"name": name, "namespace": namespace},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="inspect_database")
+        try:
+            return SqliteDatabaseDetails.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="inspect_database") from exc
+
+    async def list_tables(
+        self, *, database: str, namespace: Optional[list[str]] = None
+    ) -> list[str]:
+        response = await self._invoke(
+            operation="list_tables",
+            input={"database": database, "namespace": namespace},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_tables")
+        try:
+            payload = _SqliteListTablesResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_tables") from exc
+        return payload.tables
+
+    async def _create_table(
+        self,
+        *,
+        database: str,
+        name: str,
+        data: Any = None,
+        schema: Optional[DatasetSchemaInput] = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        arrow_schema = _normalize_dataset_schema(schema) if schema is not None else None
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "database": database,
+                "name": name,
+                "mode": mode,
+                "namespace": namespace,
+            },
+            schema=arrow_schema,
+            chunks=_dataset_arrow_chunks(data, schema=arrow_schema),
+        )
+        await self._drain_write_stream(
+            operation="create_table",
+            input_stream=input_stream,
+        )
+
+    async def create_table_with_schema(
+        self,
+        *,
+        database: str,
+        name: str,
+        schema: Optional[DatasetSchemaInput] = None,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        await self._create_table(
+            database=database,
+            name=name,
+            schema=schema,
+            data=data,
+            mode=mode,
+            namespace=namespace,
+        )
+
+    async def create_table_from_data(
+        self,
+        *,
+        database: str,
+        name: str,
+        data: Any = None,
+        mode: Optional[CreateMode] = "create",
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        await self._create_table(
+            database=database,
+            name=name,
+            data=data,
+            mode=mode,
+            namespace=namespace,
+        )
+
+    async def drop_table(
+        self,
+        *,
+        database: str,
+        name: str,
+        ignore_missing: bool = False,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        response = await self._invoke(
+            operation="drop_table",
+            input={
+                "database": database,
+                "name": name,
+                "ignore_missing": ignore_missing,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="drop_table")
+
+    async def rename_table(
+        self,
+        *,
+        database: str,
+        name: str,
+        new_name: str,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        response = await self._invoke(
+            operation="rename_table",
+            input={
+                "database": database,
+                "name": name,
+                "new_name": new_name,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="rename_table")
+
+    async def inspect(
+        self,
+        *,
+        database: str,
+        table: str,
+        namespace: Optional[list[str]] = None,
+    ) -> pa.Schema:
+        response = await self._invoke(
+            operation="inspect",
+            input={"database": database, "table": table, "namespace": namespace},
+        )
+        if not isinstance(response, BinaryContent):
+            raise self._unexpected_response_error(operation="inspect")
+        return _schema_from_arrow_ipc(response.data)
+
+    async def add_columns(
+        self,
+        *,
+        database: str,
+        table: str,
+        new_columns: DatasetSchemaInput,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        schema = _normalize_dataset_schema(new_columns)
+        response = await self._invoke_content(
+            operation="add_columns",
+            input=BinaryContent(
+                data=_schema_to_arrow_ipc(schema),
+                headers={
+                    "database": database,
+                    "table": table,
+                    "namespace": namespace,
+                    "content_type": _ARROW_IPC_STREAM_MIME_TYPE,
+                },
+            ),
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="add_columns")
+
+    async def drop_columns(
+        self,
+        *,
+        database: str,
+        table: str,
+        columns: list[str],
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        response = await self._invoke(
+            operation="drop_columns",
+            input={
+                "database": database,
+                "table": table,
+                "columns": columns,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="drop_columns")
+
+    async def _write_chunks_for_table(
+        self,
+        *,
+        database: str,
+        table: str,
+        chunks: Any,
+        namespace: Optional[list[str]] = None,
+    ) -> Any:
+        if isinstance(chunks, list) and all(isinstance(item, dict) for item in chunks):
+            schema = await self.inspect(
+                database=database,
+                table=table,
+                namespace=namespace,
+            )
+            return _dataset_arrow_chunks(chunks, schema=schema)
+        return _dataset_arrow_chunks(chunks)
+
+    async def insert(
+        self,
+        *,
+        database: str,
+        table: str,
+        records: pa.Table | pa.RecordBatch | DatasetRows,
+        namespace: Optional[list[str]] = None,
+    ) -> None:
+        input_stream = _DatasetArrowWriteInputStream(
+            start={
+                "kind": "start",
+                "database": database,
+                "table": table,
+                "namespace": namespace,
+            },
+            chunks=await self._write_chunks_for_table(
+                database=database,
+                table=table,
+                chunks=records,
+                namespace=namespace,
+            ),
+        )
+        await self._drain_write_stream(operation="insert", input_stream=input_stream)
+
+    async def update(
+        self,
+        *,
+        database: str,
+        table: str,
+        where: str,
+        values: DatasetRecord,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> int:
+        response = await self._invoke(
+            operation="update",
+            input={
+                "database": database,
+                "table": table,
+                "where": where,
+                "values": [
+                    {"column": column, "value_json": _dataset_value_json(value)}
+                    for column, value in values.items()
+                ],
+                "params": params,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="update")
+        try:
+            payload = _SqliteRowsAffectedResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="update") from exc
+        return payload.rows_affected
+
+    async def delete(
+        self,
+        *,
+        database: str,
+        table: str,
+        where: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> int:
+        response = await self._invoke(
+            operation="delete",
+            input={
+                "database": database,
+                "table": table,
+                "where": where,
+                "params": params,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="delete")
+        try:
+            payload = _SqliteRowsAffectedResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="delete") from exc
+        return payload.rows_affected
+
+    async def search(
+        self,
+        *,
+        database: str,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[list[str]] = None,
+        namespace: Optional[list[str]] = None,
+    ) -> pa.Table:
+        batches = list[pa.Table]()
+        async for batch in self.search_stream(
+            database=database,
+            table=table,
+            where=where,
+            params=params,
+            offset=offset,
+            limit=limit,
+            select=select,
+            namespace=namespace,
+        ):
+            batches.append(batch)
+        if len(batches) == 0:
+            return pa.table({})
+        return pa.concat_tables(batches, promote_options="default")
+
+    async def search_stream(
+        self,
+        *,
+        database: str,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        select: Optional[list[str]] = None,
+        namespace: Optional[list[str]] = None,
+    ) -> AsyncIterator[pa.Table]:
+        async for batch in self._stream_arrow(
+            operation="search",
+            start={
+                "kind": "start",
+                "database": database,
+                "table": table,
+                "where": where,
+                "params": params,
+                "offset": offset,
+                "limit": limit,
+                "select": select,
+                "namespace": namespace,
+            },
+        ):
+            yield batch
+
+    async def count(
+        self,
+        *,
+        database: str,
+        table: str,
+        where: Optional[str] | dict = None,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> int:
+        response = await self._invoke(
+            operation="count",
+            input={
+                "database": database,
+                "table": table,
+                "where": where,
+                "params": params,
+                "namespace": namespace,
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="count")
+        try:
+            payload = _SqliteCountResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="count") from exc
+        return payload.count
+
+    async def sql(
+        self,
+        *,
+        database: str,
+        query: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> pa.Table:
+        batches = list[pa.Table]()
+        async for batch in self.sql_stream(
+            database=database,
+            query=query,
+            params=params,
+            namespace=namespace,
+        ):
+            batches.append(batch)
+        if len(batches) == 0:
+            return pa.table({})
+        return pa.concat_tables(batches, promote_options="default")
+
+    async def open_sql_query(
+        self,
+        *,
+        database: str,
+        query: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> SqliteSqlQuery:
+        response = await self._invoke_content(
+            operation="open_sql_query",
+            input=BinaryContent(
+                data=b"",
+                headers={
+                    "database": database,
+                    "query": query,
+                    "params": params,
+                    "namespace": namespace,
+                },
+            ),
+        )
+        if not isinstance(response, BinaryContent):
+            raise self._unexpected_response_error(operation="open_sql_query")
+        try:
+            headers = _SqliteQueryHeaders.model_validate(response.headers)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="open_sql_query") from exc
+        if headers.query_id == "":
+            raise self._unexpected_response_error(operation="open_sql_query")
+        return SqliteSqlQuery(
+            schema=_schema_from_arrow_ipc(response.data),
+            query_id=headers.query_id,
+        )
+
+    async def execute_sql_batch(
+        self,
+        *,
+        database: str,
+        commands: list[SqliteSqlCommand],
+        namespace: Optional[list[str]] = None,
+    ) -> list[SqliteSqlExecution]:
+        """Execute commands atomically in order. Close any returned query handles."""
+        response = await self._invoke(
+            operation="execute_sql_batch",
+            input={
+                "database": database,
+                "namespace": namespace,
+                "commands": [
+                    {"query": command.query, "params": command.params}
+                    for command in commands
+                ],
+            },
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="execute_sql_batch")
+        try:
+            payload = _SqliteBatchResponse.model_validate(response.json)
+            if len(payload.results) != len(commands):
+                raise ValueError("batch result count mismatch")
+            results: list[SqliteSqlExecution] = []
+            for result in payload.results:
+                if isinstance(result, _SqliteStatementResponse):
+                    results.append(
+                        SqliteSqlStatement(rows_affected=result.rows_affected)
+                    )
+                else:
+                    if not result.query_id:
+                        raise ValueError("empty query id")
+                    results.append(
+                        SqliteSqlQuery(
+                            schema=_schema_from_arrow_ipc(
+                                base64.b64decode(result.schema_base64, validate=True)
+                            ),
+                            query_id=result.query_id,
+                        )
+                    )
+            return results
+        except (ValidationError, ValueError, pa.ArrowException) as exc:
+            raise self._unexpected_response_error(
+                operation="execute_sql_batch"
+            ) from exc
+
+    async def execute_sql(
+        self,
+        *,
+        database: str,
+        query: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> SqliteSqlExecution:
+        response = await self._invoke_content(
+            operation="execute_sql",
+            input=BinaryContent(
+                data=b"",
+                headers={
+                    "database": database,
+                    "query": query,
+                    "params": params,
+                    "namespace": namespace,
+                },
+            ),
+        )
+        if isinstance(response, BinaryContent):
+            try:
+                headers = _SqliteQueryHeaders.model_validate(response.headers)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="execute_sql") from exc
+            if headers.query_id == "":
+                raise self._unexpected_response_error(operation="execute_sql")
+            return SqliteSqlQuery(
+                schema=_schema_from_arrow_ipc(response.data),
+                query_id=headers.query_id,
+            )
+        if isinstance(response, JsonContent):
+            try:
+                payload = _SqliteStatementResponse.model_validate(response.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="execute_sql") from exc
+            return SqliteSqlStatement(rows_affected=payload.rows_affected)
+        raise self._unexpected_response_error(operation="execute_sql")
+
+    async def sql_stream(
+        self,
+        *,
+        database: str,
+        query: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> AsyncIterator[pa.Table]:
+        result = await self.execute_sql(
+            database=database,
+            query=query,
+            params=params,
+            namespace=namespace,
+        )
+        if isinstance(result, SqliteSqlStatement):
+            raise RoomException(
+                f"SQL statement did not return rows; rows_affected={result.rows_affected}",
+                code=ErrorCode.INVALID_REQUEST,
+            )
+        opened = result
+        try:
+            async for batch in self.read_sql_query(query_id=opened.query_id):
+                yield batch
+        finally:
+            await self.close_sql_query(query_id=opened.query_id)
+
+    async def read_sql_query(self, *, query_id: str) -> AsyncIterator[pa.Table]:
+        async for batch in self._stream_arrow(
+            operation="read_sql_query",
+            start={"kind": "start", "query_id": query_id},
+        ):
+            yield batch
+
+    async def close_sql_query(self, *, query_id: str) -> None:
+        response = await self._invoke(
+            operation="close_sql_query",
+            input={"query_id": query_id},
+        )
+        if not isinstance(response, EmptyContent):
+            raise self._unexpected_response_error(operation="close_sql_query")
+
+    async def cancel_sql_query(self, *, query_id: str) -> SqliteSqlCancelResult:
+        response = await self._invoke(
+            operation="cancel_sql_query",
+            input={"query_id": query_id},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="cancel_sql_query")
+        try:
+            payload = _SqliteCancelResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="cancel_sql_query") from exc
+        return SqliteSqlCancelResult(status=payload.status)
+
+    async def execute_sql_statement(
+        self,
+        *,
+        database: str,
+        query: str,
+        params: Any = None,
+        namespace: Optional[list[str]] = None,
+    ) -> int:
+        response = await self._invoke_content(
+            operation="execute_sql_statement",
+            input=BinaryContent(
+                data=b"",
+                headers={
+                    "database": database,
+                    "query": query,
+                    "params": params,
+                    "namespace": namespace,
+                },
+            ),
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="execute_sql_statement")
+        try:
+            payload = _SqliteRowsAffectedResponse.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(
+                operation="execute_sql_statement"
+            ) from exc
+        return payload.rows_affected
+
+
+class MemoryClient:
+    """
+    A client for interacting with the 'memory' extension on the room server.
+    """
+
+    def __init__(self, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from memory.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    async def _invoke(self, *, operation: str, input: dict) -> Content:
+        return await self.room.invoke(
+            toolkit="memory",
+            tool=operation,
+            input=input,
+        )
+
+    async def list(self, *, namespace: Optional[List[str]] = None) -> List[str]:
+        request_model = _MemoryListRequest(namespace=namespace)
+        response = await self._invoke(
+            operation="list",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            try:
+                payload = _MemoryListResponse.model_validate(response.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="list") from exc
+            return payload.memories
+
+        raise self._unexpected_response_error(operation="list")
+
+    async def create(
+        self,
+        *,
+        name: str,
+        namespace: Optional[List[str]] = None,
+        overwrite: bool = False,
+        ignore_exists: bool = False,
+    ) -> None:
+        request_model = _MemoryCreateRequest(
+            name=name,
+            namespace=namespace,
+            overwrite=overwrite,
+            ignore_exists=ignore_exists,
+        )
+        await self._invoke(
+            operation="create",
+            input=request_model.model_dump(),
+        )
+
+    async def drop(
+        self,
+        *,
+        name: str,
+        namespace: Optional[List[str]] = None,
+        ignore_missing: bool = False,
+    ) -> None:
+        request_model = _MemoryDropRequest(
+            name=name,
+            namespace=namespace,
+            ignore_missing=ignore_missing,
+        )
+        await self._invoke(
+            operation="drop",
+            input=request_model.model_dump(),
+        )
+
+    async def inspect(
+        self, *, name: str, namespace: Optional[List[str]] = None
+    ) -> MemoryDetails:
+        request_model = _MemoryInspectRequest(name=name, namespace=namespace)
+        response = await self._invoke(
+            operation="inspect",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryDetails.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="inspect")
+
+    async def query(
+        self,
+        *,
+        name: str,
+        statement: str,
+        namespace: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        request_model = _MemoryQueryRequest(
+            name=name,
+            namespace=namespace,
+            statement=statement,
+        )
+        response = await self._invoke(
+            operation="query",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            if isinstance(response.json.get("results"), list):
+                return decode_records(response.json["results"])
+            return _typed_rows_records_from_chunk(
+                payload=response.json,
+                operation="memory.query",
+            )
+
+        raise self._unexpected_response_error(operation="query")
+
+    async def upsert_table(
+        self,
+        *,
+        name: str,
+        table: str,
+        records: DatasetRows,
+        merge: bool = True,
+        namespace: Optional[List[str]] = None,
+    ) -> None:
+        request_model = _MemoryUpsertTableRequest(
+            name=name,
+            namespace=namespace,
+            table=table,
+            records=encode_records(records),
+            merge=merge,
+        )
+        await self._invoke(
+            operation="upsert_table",
+            input={
+                "name": request_model.name,
+                "namespace": request_model.namespace,
+                "table": request_model.table,
+                "records_json": json.dumps(request_model.records),
+                "merge": request_model.merge,
+            },
+        )
+
+    async def upsert_nodes(
+        self,
+        *,
+        name: str,
+        records: List[MemoryEntityRecord],
+        merge: bool = True,
+        namespace: Optional[List[str]] = None,
+    ) -> None:
+        request_model = _MemoryUpsertNodesRequest(
+            name=name,
+            namespace=namespace,
+            records=records,
+            merge=merge,
+        )
+        await self._invoke(
+            operation="upsert_nodes",
+            input={
+                "name": request_model.name,
+                "namespace": request_model.namespace,
+                "records_json": json.dumps(
+                    [record.model_dump() for record in request_model.records]
+                ),
+                "merge": request_model.merge,
+            },
+        )
+
+    async def upsert_relationships(
+        self,
+        *,
+        name: str,
+        records: List[MemoryRelationshipRecord],
+        merge: bool = True,
+        namespace: Optional[List[str]] = None,
+    ) -> None:
+        request_model = _MemoryUpsertRelationshipsRequest(
+            name=name,
+            namespace=namespace,
+            records=records,
+            merge=merge,
+        )
+        await self._invoke(
+            operation="upsert_relationships",
+            input={
+                "name": request_model.name,
+                "namespace": request_model.namespace,
+                "records_json": json.dumps(
+                    [record.model_dump() for record in request_model.records]
+                ),
+                "merge": request_model.merge,
+            },
+        )
+
+    async def ingest_text(
+        self,
+        *,
+        name: str,
+        text: str,
+        namespace: Optional[List[str]] = None,
+        strategy: MemoryIngestStrategy = "heuristic",
+        llm_model: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+    ) -> MemoryIngestResult:
+        request_model = _MemoryIngestTextRequest(
+            name=name,
+            namespace=namespace,
+            text=text,
+            strategy=strategy,
+            llm_model=llm_model,
+            llm_temperature=llm_temperature,
+        )
+        response = await self._invoke(
+            operation="ingest_text",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryIngestResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="ingest_text")
+
+    async def ingest_image(
+        self,
+        *,
+        name: str,
+        caption: Optional[str] = None,
+        data: Optional[bytes] = None,
+        mime_type: Optional[str] = None,
+        source: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+        namespace: Optional[List[str]] = None,
+        strategy: MemoryIngestStrategy = "heuristic",
+        llm_model: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+    ) -> MemoryIngestResult:
+        request_model = _MemoryIngestImageRequest(
+            name=name,
+            namespace=namespace,
+            caption=caption,
+            mime_type=mime_type,
+            source=source,
+            annotations=annotations,
+            strategy=strategy,
+            llm_model=llm_model,
+            llm_temperature=llm_temperature,
+        )
+        response = await self._invoke(
+            operation="ingest_image",
+            input={
+                "name": request_model.name,
+                "namespace": request_model.namespace,
+                "caption": request_model.caption,
+                "data_base64": None
+                if data is None
+                else base64.b64encode(data).decode("utf-8"),
+                "mime_type": request_model.mime_type,
+                "source": request_model.source,
+                "annotations_json": None
+                if request_model.annotations is None
+                else json.dumps(request_model.annotations),
+                "strategy": request_model.strategy,
+                "llm_model": request_model.llm_model,
+                "llm_temperature": request_model.llm_temperature,
+            },
+        )
+        if isinstance(response, JsonContent):
+            return MemoryIngestResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="ingest_image")
+
+    async def ingest_file(
+        self,
+        *,
+        name: str,
+        path: Optional[str] = None,
+        text: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        namespace: Optional[List[str]] = None,
+        strategy: MemoryIngestStrategy = "heuristic",
+        llm_model: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+    ) -> MemoryIngestResult:
+        request_model = _MemoryIngestFileRequest(
+            name=name,
+            namespace=namespace,
+            path=path,
+            text=text,
+            mime_type=mime_type,
+            strategy=strategy,
+            llm_model=llm_model,
+            llm_temperature=llm_temperature,
+        )
+        response = await self._invoke(
+            operation="ingest_file",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryIngestResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="ingest_file")
+
+    async def ingest_from_table(
+        self,
+        *,
+        name: str,
+        table: str,
+        text_columns: Optional[List[str]] = None,
+        table_namespace: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+        namespace: Optional[List[str]] = None,
+        strategy: MemoryIngestStrategy = "heuristic",
+        llm_model: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+    ) -> MemoryIngestResult:
+        request_model = _MemoryIngestFromTableRequest(
+            name=name,
+            namespace=namespace,
+            table=table,
+            table_namespace=table_namespace,
+            text_columns=text_columns,
+            limit=limit,
+            strategy=strategy,
+            llm_model=llm_model,
+            llm_temperature=llm_temperature,
+        )
+        response = await self._invoke(
+            operation="ingest_from_table",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryIngestResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="ingest_from_table")
+
+    async def ingest_from_storage(
+        self,
+        *,
+        name: str,
+        paths: List[str],
+        namespace: Optional[List[str]] = None,
+        strategy: MemoryIngestStrategy = "heuristic",
+        llm_model: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+    ) -> MemoryIngestResult:
+        request_model = _MemoryIngestFromStorageRequest(
+            name=name,
+            namespace=namespace,
+            paths=paths,
+            strategy=strategy,
+            llm_model=llm_model,
+            llm_temperature=llm_temperature,
+        )
+        response = await self._invoke(
+            operation="ingest_from_storage",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryIngestResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="ingest_from_storage")
+
+    async def recall(
+        self,
+        *,
+        name: str,
+        query: str,
+        namespace: Optional[List[str]] = None,
+        limit: int = 5,
+        include_relationships: bool = True,
+    ) -> MemoryRecallResult:
+        request_model = _MemoryRecallRequest(
+            name=name,
+            namespace=namespace,
+            query=query,
+            limit=limit,
+            include_relationships=include_relationships,
+        )
+        response = await self._invoke(
+            operation="recall",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryRecallResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="recall")
+
+    async def delete_entities(
+        self,
+        *,
+        name: str,
+        entity_ids: List[str],
+        namespace: Optional[List[str]] = None,
+    ) -> MemoryDeleteEntitiesResult:
+        request_model = _MemoryDeleteEntitiesRequest(
+            name=name,
+            namespace=namespace,
+            entity_ids=entity_ids,
+        )
+        response = await self._invoke(
+            operation="delete_entities",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryDeleteEntitiesResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="delete_entities")
+
+    async def delete_relationships(
+        self,
+        *,
+        name: str,
+        relationships: List[MemoryRelationshipSelector],
+        namespace: Optional[List[str]] = None,
+    ) -> MemoryDeleteRelationshipsResult:
+        request_model = _MemoryDeleteRelationshipsRequest(
+            name=name,
+            namespace=namespace,
+            relationships=relationships,
+        )
+        response = await self._invoke(
+            operation="delete_relationships",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryDeleteRelationshipsResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="delete_relationships")
+
+    async def optimize(
+        self,
+        *,
+        name: str,
+        namespace: Optional[List[str]] = None,
+        compact: bool = True,
+        cleanup: bool = True,
+    ) -> MemoryOptimizeResult:
+        request_model = _MemoryOptimizeRequest(
+            name=name,
+            namespace=namespace,
+            compact=compact,
+            cleanup=cleanup,
+        )
+        response = await self._invoke(
+            operation="optimize",
+            input=request_model.model_dump(),
+        )
+        if isinstance(response, JsonContent):
+            return MemoryOptimizeResult.model_validate(response.json)
+
+        raise self._unexpected_response_error(operation="optimize")
+
+
+class TableVersion(BaseModel):
+    timestamp: datetime
+    version: int
+    metadata: dict[str, JsonValue]
+
+
+class TableBranch(BaseModel):
+    name: str
+    parent_branch: Optional[str] = None
+    parent_version: Optional[int] = None
+    created_at: Optional[datetime] = None
+    manifest_size: Optional[int] = None
+
+
+class TableIndex(BaseModel):
+    name: str
+    columns: list[str]
+    type: str
+    fields: list[int] = Field(default_factory=list)
+    type_url: Optional[str] = None
+    num_rows_indexed: Optional[int] = None
+    num_segments: Optional[int] = None
+    total_size_bytes: Optional[int] = None
+    details: dict[str, JsonValue] = Field(default_factory=dict)
+    statistics: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @classmethod
+    def _from_tool_response(cls, value: dict[str, Any]) -> "TableIndex":
+        data = dict(value)
+        details_json = data.pop("details_json", None)
+        statistics_json = data.pop("statistics_json", None)
+        if isinstance(details_json, str):
+            data["details"] = json.loads(details_json)
+        if isinstance(statistics_json, str):
+            data["statistics"] = json.loads(statistics_json)
+        return cls.model_validate(data)
+
+
+class DatasetOptimizeConfig(BaseModel):
+    compact_files: Optional[bool] = True
+    optimize_indices: Optional[bool] = True
+    cleanup_old_versions: Optional[bool] = False
+    target_rows_per_fragment: Optional[int] = None
+    max_rows_per_group: Optional[int] = None
+    max_bytes_per_file: Optional[int] = None
+    materialize_deletions: Optional[bool] = None
+    materialize_deletions_threshold: Optional[float] = None
+    defer_index_remap: Optional[bool] = None
+    num_threads: Optional[int] = None
+    batch_size: Optional[int] = None
+    compaction_mode: Optional[
+        Literal["reencode", "try_binary_copy", "force_binary_copy"]
+    ] = None
+    binary_copy_read_batch_bytes: Optional[int] = None
+    num_indices_to_merge: Optional[int] = None
+    index_names: Optional[list[str]] = None
+    retrain: Optional[bool] = None
+    older_than_seconds: Optional[float] = 604800
+    retain_versions: Optional[int] = None
+    delete_unverified: Optional[bool] = None
+    error_if_tagged_old_versions: Optional[bool] = None
+    delete_rate_limit: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class DatasetOptimizeResult(BaseModel):
+    compaction: Optional[dict[str, JsonValue]] = None
+    optimized_indices: bool = False
+    cleanup: Optional[dict[str, JsonValue]] = None
+
+    @classmethod
+    def _from_tool_response(cls, value: dict[str, Any]) -> "DatasetOptimizeResult":
+        data = dict(value)
+        compaction_json = data.pop("compaction_json", None)
+        cleanup_json = data.pop("cleanup_json", None)
+        if isinstance(compaction_json, str):
+            data["compaction"] = json.loads(compaction_json)
+        if isinstance(cleanup_json, str):
+            data["cleanup"] = json.loads(cleanup_json)
+        return cls.model_validate(data)
+
+
+class DatasetTableStats(BaseModel):
+    dataset: dict[str, JsonValue]
+    data: dict[str, JsonValue]
+
+    @classmethod
+    def _from_tool_response(cls, value: dict[str, Any]) -> "DatasetTableStats":
+        data = dict(value)
+        dataset_json = data.pop("dataset_json", None)
+        data_json = data.pop("data_json", None)
+        if isinstance(dataset_json, str):
+            data["dataset"] = json.loads(dataset_json)
+        if isinstance(data_json, str):
+            data["data"] = json.loads(data_json)
+        return cls.model_validate(data)
+
+
+VectorIndexType = Literal["IVF_PQ", "IVF_HNSW_PQ", "IVF_HNSW_SQ", "IVF_RQ"]
+ScalarIndexType = Literal[
+    "BTREE",
+    "BITMAP",
+    "LABEL_LIST",
+    "NGRAM",
+    "ZONEMAP",
+    "INVERTED",
+    "FTS",
+    "BLOOMFILTER",
+    "RTREE",
+]
+IndexType = VectorIndexType | ScalarIndexType
+
+
+class DatasetIndexConfig(BaseModel):
+    column: str | list[str]
+    index_type: IndexType
+    name: Optional[str] = None
+    metric: Optional[str] = None
+    replace: Optional[bool] = None
+    num_partitions: Optional[int] = None
+    ivf_centroids: Optional[list[list[float]]] = None
+    pq_codebook: Optional[list[list[float]]] = None
+    num_sub_vectors: Optional[int] = None
+    accelerator: Optional[str] = None
+    index_cache_size: Optional[int] = None
+    shuffle_partition_batches: Optional[int] = None
+    shuffle_partition_concurrency: Optional[int] = None
+    ivf_centroids_file: Optional[str] = None
+    precomputed_partition_dataset: Optional[str] = None
+    filter_nan: Optional[bool] = None
+    train: Optional[bool] = None
+    fragment_ids: Optional[list[int]] = None
+    index_uuid: Optional[str] = None
+    target_partition_size: Optional[int] = None
+    skip_transpose: Optional[bool] = None
+    num_bits: Optional[int] = None
+    index_file_version: Optional[str] = None
+    max_level: Optional[int] = None
+    m: Optional[int] = None
+    ef_construction: Optional[int] = None
+    with_position: Optional[bool] = None
+    memory_limit: Optional[int] = None
+    num_workers: Optional[int] = None
+    skip_merge: Optional[bool] = None
+    base_tokenizer: Optional[str] = None
+    language: Optional[str] = None
+    max_token_length: Optional[int] = None
+    lower_case: Optional[bool] = None
+    stem: Optional[bool] = None
+    remove_stop_words: Optional[bool] = None
+    custom_stop_words: Optional[list[str]] = None
+    ascii_folding: Optional[bool] = None
+
+
+class ProgressDetail(BaseModel):
+    current: Optional[int] = None
+    total: Optional[int] = None
+
+
+class LogProgress(BaseModel):
+    layer: Optional[str] = None
+    message: Optional[str] = None
+    current: Optional[int] = None
+    total: Optional[int] = None
+
+
+class ErrorDetail(BaseModel):
+    """Structured error information returned on failure."""
+
+    code: Optional[int] = None
+    message: str
+
+
+class PullMessage(BaseModel):
+    """
+    One JSON object emitted by the Engine while pulling *or* pushing.
+
+    Docker can add extra keys in new versions, so we allow unknown fields.
+    """
+
+    # Main variants ----------------------------------------------------------
+    status: Optional[str] = None  # layer status ("Downloading", "Extracting", ...)
+    id: Optional[str] = Field(None, alias="id")  # layer identifier / step number
+
+    # Progress bar -----------------------------------------------------------
+    progress: Optional[str] = None
+    progress_detail: Optional[ProgressDetail] = Field(None, alias="progressDetail")
+
+    # Success / aux payload --------------------------------------------------
+    aux: Optional[Any] = None  # e.g. {"Digest": "sha256:…", "Size": 123}
+
+    # Error handling ---------------------------------------------------------
+    error: Optional[str] = None
+    error_detail: Optional[ErrorDetail] = Field(None, alias="errorDetail")
+
+    # Misc extras sometimes present -----------------------------------------
+    time: Optional[int] = None  # seconds since epoch
+    from_: Optional[str] = Field(None, alias="from")  # reserve‑word workaround
+
+    model_config = ConfigDict(
+        validate_by_name=True,  # accept field aliases on input
+        extra="allow",  # keep unknown keys for forward‑compat
+    )
+
+
+def _normalize_string_map_field(value: Any) -> dict[str, str]:
+    if value is None:
+        return {}
+    if isinstance(value, list):
+        normalized = dict[str, str]()
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise TypeError("expected a list of {'key', 'value'} objects")
+            key = entry.get("key")
+            item_value = entry.get("value")
+            if not isinstance(key, str) or not isinstance(item_value, str):
+                raise TypeError(
+                    "string map entries must contain string key/value pairs"
+                )
+            normalized[key] = item_value
+        return normalized
+    if isinstance(value, dict):
+        normalized = dict[str, str]()
+        for key, item_value in value.items():
+            if not isinstance(key, str) or not isinstance(item_value, str):
+                raise TypeError("string map values must be strings")
+            normalized[key] = item_value
+        return normalized
+    raise TypeError("expected a string map or list of key/value pairs")
+
+
+class Image(BaseModel):
+    id: str
+    preferred_ref: Optional[str] = None
+    references: List[str] = Field(default_factory=list)
+    labels: Dict[str, str] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    target_media_type: Optional[str] = None
+
+    @field_validator("labels", mode="before")
+    @classmethod
+    def _validate_labels(cls, value: Any) -> dict[str, str]:
+        return _normalize_string_map_field(value)
+
+
+class ImageDescriptor(BaseModel):
+    digest: str
+    media_type: Optional[str] = None
+    size: Optional[int] = None
+    annotations: Dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("annotations", mode="before")
+    @classmethod
+    def _validate_annotations(cls, value: Any) -> dict[str, str]:
+        return _normalize_string_map_field(value)
+
+
+class ImageManifest(BaseModel):
+    descriptor: ImageDescriptor
+    platform_os: Optional[str] = None
+    platform_architecture: Optional[str] = None
+    platform_variant: Optional[str] = None
+
+
+class ImageInspection(BaseModel):
+    image: Image
+    target: ImageDescriptor
+    selected_manifest: Optional[ImageDescriptor] = None
+    manifests: List[ImageManifest] = Field(default_factory=list)
+    config: Optional[ImageDescriptor] = None
+    layers: List[ImageDescriptor] = Field(default_factory=list)
+    content_size: Optional[int] = None
+
+
+class DockerSecret(BaseModel):
+    registry: Optional[str] = None
+    username: str
+    password: str
+
+
+class ImagePullRequest(BaseModel):
+    tag: str
+    credentials: List[DockerSecret] = Field(default_factory=list)
+
+
+class ImagePushRequest(BaseModel):
+    tag: str
+    credentials: List[DockerSecret] = Field(default_factory=list)
+    private: bool = False
+
+
+class ImageImportRequest(BaseModel):
+    archive_path: str
+
+
+class ImageLoadRequest(BaseModel):
+    mounts: List[ContainerMountSpec]
+    archive_path: str
+    private: bool = False
+
+
+class ImageSaveRequest(BaseModel):
+    tag: str
+    mounts: List[ContainerMountSpec]
+    archive_path: str
+    private: bool = False
+
+
+class ListContainersRequest(BaseModel):
+    all: Optional[bool] = None
+
+
+class _RunRequest(BaseModel):
+    request_id: Optional[str] = None
+    image: str
+    command: Optional[str] = None
+    working_dir: Optional[str] = None
+    env: Dict[str, str] = Field(default_factory=dict)
+    mount_path: Optional[str] = None
+    mount_subpath: Optional[str] = None
+    role: Optional[str] = None
+    participant_name: Optional[str] = None
+    ports: Dict[int, int] = Field(default_factory=dict)
+    credentials: Optional[List[DockerSecret]] = None
+    name: Optional[str] = None
+    annotations: Optional[Dict[str, str]] = None
+    mounts: Optional[ContainerMountSpec] = None
+    template: Optional[ContainerTemplate] = "none"
+    writable_root_fs: Optional[bool] = None
+    private: Optional[bool] = None
+
+
+class _ExecRequest(BaseModel):
+    request_id: Optional[str] = None
+    container_id: str
+    command: Optional[list[str]] | str = None
+    tty: Optional[bool] = None
+
+
+class ContainerRunResult(BaseModel):
+    container_id: str
+    status: Optional[int] = None
+    logs: List[str] = Field(default_factory=list)
+
+
+class ImportedImage(BaseModel):
+    resolved_ref: str
+    refs: List[str] = Field(default_factory=list)
+
+
+class PublishedImageLayer(BaseModel):
+    digest: str
+    size_bytes: int
+    media_type: Optional[str] = None
+
+
+class PublishedImageStats(BaseModel):
+    manifest_media_type: str
+    layer_count: int
+    total_layer_size_bytes: int
+    total_size_bytes: int
+    layers: List[PublishedImageLayer] = Field(default_factory=list)
+    config_size_bytes: Optional[int] = None
+
+
+class PublishedBuildImage(BaseModel):
+    tag: str
+    digest: str
+    resolved_ref: str
+    optimized: bool
+    stats: Optional[PublishedImageStats] = None
+
+
+class BuildJob(BaseModel):
+    id: str
+    tag: str
+    status: Literal["queued", "running", "failed", "cancelled", "succeeded"]
+    exit_code: Optional[int] = None
+    published_images: List[PublishedBuildImage] = Field(default_factory=list)
+
+
+class _ContainerIdToolOutput(BaseModel):
+    container_id: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _BuildIdToolOutput(BaseModel):
+    build_id: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _ListBuildsToolOutput(BaseModel):
+    builds: List[BuildJob]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class _ListImagesToolOutput(BaseModel):
+    images: List[dict[str, Any]]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ContainerStartedBy(BaseModel):
+    id: str
+    name: str
+
+
+class RoomContainerPort(BaseModel):
+    container_port: int
+    host_port: int
+
+
+class RoomContainerStats(BaseModel):
+    cpu_usage_nano_cores: Optional[int] = None
+    memory_usage_bytes: Optional[int] = None
+    memory_working_set_bytes: Optional[int] = None
+    timestamp_ns: Optional[int] = None
+
+
+class ContainerExitStatus(BaseModel):
+    exit_code: int
+    reason: Optional[str] = None
+    message: Optional[str] = None
+    oom_killed: Optional[bool] = None
+
+
+class RoomContainer(BaseModel):
+    id: str
+    image: Optional[str] = None
+    image_id: Optional[str] = None
+    status: Optional[str] = None
+    name: Optional[str] = None
+    ports: list[RoomContainerPort] = Field(default_factory=list)
+    started_by: ContainerStartedBy
+    state: Literal["CREATED", "RUNNING", "EXITED", "UNKNOWN"]
+    private: bool
+    service_id: Optional[str] = None
+    mounts: Optional[ContainerMountSpec] = None
+    stats: Optional[RoomContainerStats] = None
+    exit_status: Optional[ContainerExitStatus] = None
+
+    # Accept arbitrary extras (names, created, state, etc.)
+    model_config = ConfigDict(extra="allow")
+
+
+# ---------------------------
+# LogStream (awaitable + async generators)
+# ---------------------------
+
+T = TypeVar("T")
+
+
+class LogStream(Generic[T]):
+    """
+    - await stream: waits for final result (T or None)
+    - stream.logs(): async iterator of text lines
+    - stream.progress(): async iterator of LogProgress
+    - stream.cancel(): cancels on server
+    """
+
+    def __init__(
+        self,
+        *,
+        task: asyncio.Task,
+        cancel_cb: Callable[[], asyncio.Future[Any]],
+    ):
+        self._logs_q = asyncio.Queue[Optional[str]]()
+        self._progress_q = asyncio.Queue[Optional[LogProgress]]()
+
+        self._cancel_cb = cancel_cb
+        self._task = task
+
+        task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, t):
+        self._logs_q.put_nowait(None)
+        self._progress_q.put_nowait(None)
+
+    @property
+    def result(self):
+        return asyncio.ensure_future(self._task)
+
+    def __await__(self):
+        return self.result.__await__()
+
+    async def cancel(self):
+        await self._cancel_cb()
+
+    async def logs(self) -> AsyncIterator[str]:
+        while True:
+            line = await self._logs_q.get()
+            if line is None:  # sentinel
+                return
+            yield line
+
+    async def progress(self) -> AsyncIterator[LogProgress]:
+        while True:
+            p = await self._progress_q.get()
+            if p is None:  # sentinel
+                return
+            yield p
+
+
+class _ContainerLogInputStream:
+    def __init__(
+        self,
+        *,
+        request_id: str,
+        container_id: str,
+        follow: bool,
+    ):
+        self._start_chunk = BinaryContent(
+            data=b"",
+            headers={
+                "kind": "start",
+                "request_id": request_id,
+                "container_id": container_id,
+                "follow": follow,
+            },
+        )
+        self._closed = asyncio.Event()
+
+    def close(self) -> None:
+        self._closed.set()
+
+    async def __aiter__(self) -> AsyncIterator[Content]:
+        yield self._start_chunk
+        await self._closed.wait()
+
+
+class _BuildLogInputStream:
+    def __init__(
+        self,
+        *,
+        request_id: str,
+        build_id: str,
+        follow: bool,
+    ):
+        self._start_chunk = BinaryContent(
+            data=b"",
+            headers={
+                "kind": "start",
+                "request_id": request_id,
+                "build_id": build_id,
+                "follow": follow,
+            },
+        )
+        self._closed = asyncio.Event()
+
+    def close(self) -> None:
+        self._closed.set()
+
+    async def __aiter__(self) -> AsyncIterator[Content]:
+        yield self._start_chunk
+        await self._closed.wait()
+
+
+class _BuildContextInputStream:
+    def __init__(
+        self,
+        *,
+        tags: list[str],
+        mount_path: str,
+        context_path: str,
+        dockerfile_path: str | None,
+        optimize_image: bool,
+        private: bool,
+        credentials: list[DockerSecret],
+        builder_name: str | None,
+        chunks: AsyncIterable[bytes],
+        size: int | None,
+    ) -> None:
+        self._start_chunk = BinaryContent(
+            data=b"",
+            headers={
+                "kind": "start",
+                "tags": list(tags),
+                "mount_path": mount_path,
+                "context_path": context_path,
+                "dockerfile_path": dockerfile_path,
+                "optimize_image": optimize_image,
+                "private": private,
+                "credentials": [
+                    credential.model_dump(mode="json") for credential in credentials
+                ],
+                "builder_name": builder_name,
+                "size": size,
+            },
+        )
+        self._chunks = chunks
+
+    async def __aiter__(self) -> AsyncIterator[Content]:
+        yield self._start_chunk
+        async for chunk in self._chunks:
+            yield BinaryContent(
+                data=bytes(chunk),
+                headers={"kind": "data"},
+            )
+
+
+class _ContainerLogStream(LogStream[T]):
+    async def logs(self) -> AsyncIterator[str]:
+        try:
+            async for line in super().logs():
+                yield line
+        finally:
+            await self.cancel()
+
+
+class _BuildLogStream(LogStream[T]):
+    async def logs(self) -> AsyncIterator[str]:
+        try:
+            async for line in super().logs():
+                yield line
+        finally:
+            await self.cancel()
+
+
+# ---------------------------
+# Container TTY
+# ---------------------------
+
+
+def _container_string_pairs(
+    value: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    return [{"key": key, "value": item} for key, item in value.items()]
+
+
+def _container_port_pairs(
+    value: dict[int, int] | None,
+) -> list[dict[str, int]]:
+    if value is None:
+        return []
+    return [
+        {"container_port": int(container_port), "host_port": int(host_port)}
+        for container_port, host_port in value.items()
+    ]
+
+
+def _container_status_from_bytes(*, operation: str, data: bytes) -> int:
+    try:
+        status_payload = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as ex:
+        raise RoomException(
+            f"containers.{operation} returned an invalid status payload",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        ) from ex
+    if not isinstance(status_payload, dict):
+        raise RoomException(
+            f"containers.{operation} returned an invalid status payload",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+    status = status_payload.get("status")
+    if isinstance(status, bool) or not isinstance(status, int):
+        raise RoomException(
+            f"containers.{operation} returned an invalid status payload",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+    return status
+
+
+class ExecSession:
+    """
+    Provides async input/output streams for an interactive container session.
+    """
+
+    _INPUT_STREAM_CLOSE = object()
+
+    def __init__(
+        self,
+        *,
+        room: RoomClient,
+        request_id: str,
+        container_id: str,
+        command: Optional[list[str]] | str,
+        tty: Optional[bool],
+        task: asyncio.Task[int],
+    ):
+        self._room = room
+        self._request_id = request_id
+        self._container_id = container_id
+        self._command = command
+        self._tty = tty
+        self._error_q: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
+        self._output_q: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
+        self._input_q: asyncio.Queue[BinaryContent | object] = asyncio.Queue()
+        self._closed = asyncio.ensure_future(task)
+        self._task = task
+        self._ready = asyncio.Future[bool]()
+        self._input_closed = False
+        self._last_resize_width: int | None = None
+        self._last_resize_height: int | None = None
+        task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, t):
+        del t
+        self._close_input_stream()
+        self._output_q.put_nowait(None)
+        self._error_q.put_nowait(None)
+        if not self._ready.done():
+            self._ready.set_exception(
+                RoomException("container did not start successfully")
+            )
+
+    @property
+    def result(self):
+        return self._closed
+
+    @property
+    def request_id(self):
+        return self._request_id
+
+    async def input_stream(self) -> AsyncIterator[Content]:
+        yield BinaryContent(
+            data=b"",
+            headers={
+                "kind": "start",
+                "request_id": self._request_id,
+                "container_id": self._container_id,
+                "command": self._command,
+                "tty": self._tty,
+            },
+        )
+
+        while True:
+            chunk = await self._input_q.get()
+            if chunk is self._INPUT_STREAM_CLOSE:
+                return
+            if not isinstance(chunk, BinaryContent):
+                raise RoomException(
+                    "container input queue produced an invalid stream chunk"
+                )
+            yield chunk
+
+    def _close_input_stream(self) -> None:
+        if self._input_closed:
+            return
+        self._input_closed = True
+        self._input_q.put_nowait(self._INPUT_STREAM_CLOSE)
+
+    def _queue_input(
+        self,
+        *,
+        channel: int,
+        data: bytes = b"",
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
+        if self._input_closed:
+            raise RoomException("container exec session is already closed")
+        self._input_q.put_nowait(
+            BinaryContent(
+                data=data,
+                headers={
+                    "kind": "input",
+                    "channel": channel,
+                    "width": width,
+                    "height": height,
+                },
+            )
+        )
+
+    async def close_stdin(self) -> None:
+        await self._ready
+        self._queue_input(channel=255)
+
+    async def write(self, data: bytes) -> None:
+        await self._ready
+        self._queue_input(channel=1, data=data)
+
+    async def wait_for_ready(self):
+        await self._ready
+
+    async def resize(self, *, width: int, height: int) -> None:
+        """
+        Resize the TTY for the running container.
+        This sends a control message (channel 4) to adjust terminal dimensions.
+        """
+        if self._last_resize_width == width and self._last_resize_height == height:
+            return
+        self._last_resize_width = width
+        self._last_resize_height = height
+        self._queue_input(channel=4, width=width, height=height)
+
+    async def stderr(self) -> AsyncIterator[bytes]:
+        while True:
+            chunk = await self._error_q.get()
+            if chunk is None:
+                return
+            yield chunk
+
+    async def stdout(self) -> AsyncIterator[bytes]:
+        while True:
+            chunk = await self._output_q.get()
+            if chunk is None:
+                return
+            yield chunk
+
+    async def stop(self):
+        self._close_input_stream()
+
+    def _mark_ready(self):
+        if not self._ready.done():
+            self._ready.set_result(True)
+
+    # Internal
+    def _push_output(self, data: bytes):
+        self._output_q.put_nowait(data)
+
+    # Internal
+    def _push_err(self, data: bytes):
+        self._error_q.put_nowait(data)
+
+    async def kill(self):
+        if self._input_closed:
+            return
+        self._queue_input(channel=5)
+
+
+# ---------------------------
+# MountsClient
+# ---------------------------
+
+
+class MountedVolumeConsumer(BaseModel):
+    kind: Literal["room", "container"]
+    container_id: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_container_id(self):
+        if self.kind == "container" and self.container_id is None:
+            raise ValueError("container consumers require container_id")
+        if self.kind == "room" and self.container_id is not None:
+            raise ValueError("room consumers cannot include container_id")
+        return self
+
+
+class MountedVolume(BaseModel):
+    id: str
+    name: str
+    required: bool
+    description: str = ""
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+    storage_class: Literal["standard", "juice", "zerofs"] = "standard"
+    max_size_mb: int | None = None
+    consumers: list[MountedVolumeConsumer] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")
+
+
+class _MountedVolumeListOutput(BaseModel):
+    volumes: list[MountedVolume] = Field(default_factory=list)
+
+
+class MountsClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    async def list(self) -> list[MountedVolume]:
+        response = await self.room.invoke(
+            toolkit="mounts",
+            tool="list",
+            input={},
+        )
+        if not isinstance(response, JsonContent):
+            raise RoomException(
+                "unexpected return type from mounts.list",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        try:
+            return _MountedVolumeListOutput.model_validate(response.json).volumes
+        except ValidationError as exc:
+            raise RoomException(
+                "unexpected return type from mounts.list",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            ) from exc
+
+
+# ---------------------------
+# ContainersClient
+# ---------------------------
+
+
+class ContainersClient:
+    def __init__(self, *, room: RoomClient):
+        self.room = room
+
+    @staticmethod
+    def _unexpected_response_error(*, operation: str) -> RoomException:
+        return RoomException(
+            f"unexpected return type from containers.{operation}",
+            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+        )
+
+    @staticmethod
+    def _image_payload(item: object) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            raise RoomException(
+                "unexpected return type from containers.list_images",
+                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+            )
+        payload = dict(item)
+        references = payload.get("references")
+        if references is None and isinstance(payload.get("tags"), list):
+            payload["references"] = list(payload["tags"])
+            if payload.get("preferred_ref") is None and len(payload["references"]) > 0:
+                payload["preferred_ref"] = payload["references"][0]
+        labels = payload.get("labels")
+        if isinstance(labels, list):
+            normalized_labels = dict[str, str]()
+            for entry in labels:
+                if not isinstance(entry, dict):
+                    raise RoomException(
+                        "unexpected return type from containers.list_images",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+                key = entry.get("key")
+                value = entry.get("value")
+                if not isinstance(key, str) or not isinstance(value, str):
+                    raise RoomException(
+                        "unexpected return type from containers.list_images",
+                        code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                    )
+                normalized_labels[key] = value
+            payload["labels"] = normalized_labels
+        return payload
+
+    @classmethod
+    async def _build_id_from_response(
+        cls, response: Content | AsyncIterable[Content]
+    ) -> str:
+        if isinstance(response, JsonContent):
+            try:
+                payload = _BuildIdToolOutput.model_validate(response.json)
+            except ValidationError as exc:
+                raise cls._unexpected_response_error(operation="build") from exc
+            return payload.build_id
+        if isinstance(response, AsyncIterable):
+            async for chunk in response:
+                if isinstance(chunk, JsonContent):
+                    try:
+                        payload = _BuildIdToolOutput.model_validate(chunk.json)
+                    except ValidationError as exc:
+                        raise cls._unexpected_response_error(operation="build") from exc
+                    return payload.build_id
+                if isinstance(chunk, ErrorContent):
+                    raise RoomException(chunk.text, code=chunk.code)
+            raise cls._unexpected_response_error(operation="build")
+        raise cls._unexpected_response_error(operation="build")
+
+    async def list_images(self) -> List[Image]:
+        res = await self.room.invoke(
+            toolkit="containers",
+            tool="list_images",
+            input={},
+        )
+        if not isinstance(res, JsonContent):
+            raise self._unexpected_response_error(operation="list_images")
+        try:
+            payload = _ListImagesToolOutput.model_validate(res.json)
+            return [
+                Image.model_validate(self._image_payload(i)) for i in payload.images
+            ]
+        except (TypeError, ValidationError) as exc:
+            raise self._unexpected_response_error(operation="list_images") from exc
+
+    async def inspect_image(self, *, image_id: str) -> ImageInspection:
+        res = await self.room.invoke(
+            toolkit="containers",
+            tool="inspect_image",
+            input={"image_id": image_id},
+        )
+        if not isinstance(res, JsonContent):
+            raise self._unexpected_response_error(operation="inspect_image")
+        try:
+            return ImageInspection.model_validate(res.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="inspect_image") from exc
+
+    async def delete_image(self, *, image: str) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="delete_image",
+            input={"image": image},
+        )
+
+    async def pull_image(
+        self, *, tag: str, credentials: List[DockerSecret] | None = None
+    ) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="pull_image",
+            input={
+                "tag": tag,
+                "credentials": [
+                    credential.model_dump(mode="json")
+                    for credential in (credentials or [])
+                ],
+            },
+        )
+
+    async def push_image(
+        self,
+        *,
+        tag: str,
+        credentials: List[DockerSecret] | None = None,
+        private: bool = False,
+    ) -> str:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="push_image",
+            input={
+                "tag": tag,
+                "credentials": [
+                    credential.model_dump(mode="json")
+                    for credential in (credentials or [])
+                ],
+                "private": private,
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                payload = _ContainerIdToolOutput.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="push_image") from exc
+            return payload.container_id
+
+        raise self._unexpected_response_error(operation="push_image")
+
+    async def load(
+        self,
+        *,
+        archive_path: str,
+    ) -> ImportedImage:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="load",
+            input={
+                "archive_path": archive_path,
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                return ImportedImage.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="load") from exc
+
+        raise self._unexpected_response_error(operation="load")
+
+    async def load_image(
+        self,
+        *,
+        mounts: List[ContainerMountSpec],
+        archive_path: str,
+        private: bool = False,
+    ) -> str:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="load_image",
+            input={
+                "mounts": [
+                    mount.model_dump(mode="json", exclude_none=True) for mount in mounts
+                ],
+                "archive_path": archive_path,
+                "private": private,
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                payload = _ContainerIdToolOutput.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="load_image") from exc
+            return payload.container_id
+
+        raise self._unexpected_response_error(operation="load_image")
+
+    async def save_image(
+        self,
+        *,
+        tag: str,
+        mounts: List[ContainerMountSpec],
+        archive_path: str,
+        private: bool = False,
+    ) -> str:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="save_image",
+            input={
+                "tag": tag,
+                "mounts": [
+                    mount.model_dump(mode="json", exclude_none=True) for mount in mounts
+                ],
+                "archive_path": archive_path,
+                "private": private,
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                payload = _ContainerIdToolOutput.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="save_image") from exc
+            return payload.container_id
+
+        raise self._unexpected_response_error(operation="save_image")
+
+    # ---- Run Container ----
+
+    async def run(
+        self,
+        *,
+        image: str,
+        command: Optional[str] = None,
+        working_dir: Optional[str] = None,
+        env: Dict[str, str] | None = None,
+        mount_path: Optional[str] = None,
+        mount_subpath: Optional[str] = None,
+        role: Optional[str] = None,
+        participant_name: Optional[str] = None,
+        ports: Dict[int, int] | None = None,
+        credentials: List[DockerSecret] | None = None,
+        name: Optional[str] = None,
+        annotations: Dict[str, str] | None = None,
+        mounts: Optional[ContainerMountSpec] = None,
+        template: Optional[ContainerTemplate] = "none",
+        writable_root_fs: Optional[bool] = None,
+        private: Optional[bool] = None,
+    ) -> str:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="run",
+            input={
+                "image": image,
+                "command": command,
+                "working_dir": working_dir,
+                "env": _container_string_pairs(env),
+                "mount_path": mount_path,
+                "mount_subpath": mount_subpath,
+                "role": role,
+                "participant_name": participant_name,
+                "ports": _container_port_pairs(ports),
+                "credentials": [
+                    credential.model_dump(mode="json")
+                    for credential in (credentials or [])
+                ],
+                "name": name,
+                "annotations": annotations,
+                "mounts": mounts.model_dump(mode="json", exclude_none=True)
+                if mounts is not None
+                else None,
+                "template": template,
+                "writable_root_fs": writable_root_fs,
+                "private": private,
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                payload = _ContainerIdToolOutput.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="run") from exc
+            return payload.container_id
+
+        raise self._unexpected_response_error(operation="run")
+
+    async def build(
+        self,
+        *,
+        tags: List[str] | None = None,
+        tag: str | None = None,
+        mount_path: str,
+        context_path: str,
+        chunks: AsyncIterable[bytes],
+        dockerfile_path: Optional[str] = None,
+        optimize_image: bool = True,
+        private: bool = False,
+        credentials: List[DockerSecret] | None = None,
+        builder_name: str | None = None,
+        size: int | None = None,
+    ) -> str:
+        if tags is None:
+            if tag is None:
+                raise ValueError("containers.build requires tags")
+            warnings.warn(
+                "ContainersClient.build(tag=...) is deprecated; use tags=[...]",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            tags = [tag]
+        if len(tags) == 0:
+            raise ValueError("containers.build requires at least one tag")
+        response = await self.room.invoke(
+            toolkit="containers",
+            tool="build",
+            input=_BuildContextInputStream(
+                tags=tags,
+                mount_path=mount_path,
+                context_path=context_path,
+                dockerfile_path=dockerfile_path,
+                optimize_image=optimize_image,
+                private=private,
+                credentials=credentials or [],
+                builder_name=builder_name,
+                chunks=chunks,
+                size=size,
+            ),
+        )
+        return await self._build_id_from_response(response)
+
+    async def list_builds(self) -> List[BuildJob]:
+        response = await self.room.invoke(
+            toolkit="containers",
+            tool="list_builds",
+            input={},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="list_builds")
+        try:
+            payload = _ListBuildsToolOutput.model_validate(response.json)
+        except ValidationError as exc:
+            raise self._unexpected_response_error(operation="list_builds") from exc
+        return payload.builds
+
+    async def cancel_build(self, *, build_id: str) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="cancel_build",
+            input={"build_id": build_id},
+        )
+
+    async def delete_build(self, *, build_id: str) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="delete_build",
+            input={"build_id": build_id},
+        )
+
+    async def run_service(
+        self, *, service_id: str, env: Optional[dict[str, str]] = None
+    ) -> str:
+        resp = await self.room.invoke(
+            toolkit="containers",
+            tool="run_service",
+            input={
+                "service_id": service_id,
+                "env": _container_string_pairs(env),
+            },
+        )
+        if isinstance(resp, JsonContent):
+            try:
+                payload = _ContainerIdToolOutput.model_validate(resp.json)
+            except ValidationError as exc:
+                raise self._unexpected_response_error(operation="run_service") from exc
+            return payload.container_id
+
+        raise self._unexpected_response_error(operation="run_service")
+
+    async def exec(
+        self,
+        *,
+        container_id: str,
+        command: Optional[list[str]] | str = None,
+        tty: Optional[bool] = None,
+    ) -> ExecSession:
+        request_id = str(uuid.uuid4())
+        container_future: asyncio.Future[ExecSession] = (
+            asyncio.get_running_loop().create_future()
+        )
+
+        async def run():
+            container = await container_future
+            try:
+                response = await self.room.invoke(
+                    toolkit="containers",
+                    tool="exec",
+                    input=container.input_stream(),
+                )
+                if isinstance(response, Content):
+                    raise self._unexpected_response_error(operation="exec")
+                container._mark_ready()
+                async for chunk in response:
+                    if isinstance(chunk, ErrorContent):
+                        raise RoomException(chunk.text, code=chunk.code)
+                    if isinstance(chunk, _ControlContent):
+                        if chunk.method == "close":
+                            break
+                        raise self._unexpected_response_error(operation="exec")
+                    if not isinstance(chunk, BinaryContent):
+                        raise self._unexpected_response_error(operation="exec")
+
+                    channel_value = chunk.headers.get("channel")
+                    if isinstance(channel_value, bool) or not isinstance(
+                        channel_value, int
+                    ):
+                        raise RoomException(
+                            "containers.exec returned a chunk without a valid channel",
+                            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                        )
+
+                    if channel_value == 1:
+                        container._push_output(chunk.data)
+                        continue
+                    if channel_value == 2:
+                        container._push_err(chunk.data)
+                        continue
+                    if channel_value == 3:
+                        return _container_status_from_bytes(
+                            operation="exec",
+                            data=chunk.data,
+                        )
+
+                    logger.warning(
+                        "ignoring unexpected containers.exec channel %s",
+                        channel_value,
+                    )
+
+                raise RoomException(
+                    "containers.exec stream closed before a status was returned",
+                    code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                )
+            finally:
+                container._close_input_stream()
+
+        container = ExecSession(
+            room=self.room,
+            request_id=request_id,
+            task=asyncio.create_task(run()),
+            container_id=container_id,
+            command=command,
+            tty=tty,
+        )
+        container_future.set_result(container)
+
+        return container
+
+    # ---- Logs ----
+
+    def logs(self, *, container_id: str, follow: bool = False) -> LogStream[None]:
+        request_id = uuid.uuid4().hex
+        input_stream = _ContainerLogInputStream(
+            request_id=request_id,
+            container_id=container_id,
+            follow=follow,
+        )
+        task: asyncio.Task[None] | None = None
+
+        async def cancel():
+            input_stream.close()
+            if task is not None:
+                await asyncio.gather(task, return_exceptions=True)
+
+        async def _run():
+            try:
+                response = await self.room.invoke(
+                    toolkit="containers",
+                    tool="logs",
+                    input=input_stream,
+                )
+                if isinstance(response, Content):
+                    raise self._unexpected_response_error(operation="logs")
+                async for chunk in response:
+                    if isinstance(chunk, ErrorContent):
+                        raise RoomException(chunk.text, code=chunk.code)
+                    if isinstance(chunk, _ControlContent):
+                        if chunk.method == "close":
+                            return None
+                        raise self._unexpected_response_error(operation="logs")
+                    if not isinstance(chunk, BinaryContent):
+                        raise self._unexpected_response_error(operation="logs")
+
+                    channel_value = chunk.headers.get("channel")
+                    if isinstance(channel_value, bool) or not isinstance(
+                        channel_value, int
+                    ):
+                        raise RoomException(
+                            "containers.logs returned a chunk without a valid channel",
+                            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                        )
+                    if channel_value != 1:
+                        logger.warning(
+                            "ignoring unexpected containers.logs channel %s",
+                            channel_value,
+                        )
+                        continue
+
+                    try:
+                        text = chunk.data.decode("utf-8")
+                    except UnicodeDecodeError as ex:
+                        raise RoomException(
+                            "containers.logs returned invalid UTF-8 data",
+                            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                        ) from ex
+                    stream._logs_q.put_nowait(text)
+                return None
+            finally:
+                input_stream.close()
+
+        run_task = asyncio.create_task(_run())
+        stream = _ContainerLogStream(
+            cancel_cb=cancel,
+            task=run_task,
+        )
+        task = run_task
+        return stream
+
+    def get_build_logs(
+        self,
+        *,
+        build_id: str,
+        follow: bool = True,
+    ) -> LogStream[int | None]:
+        request_id = uuid.uuid4().hex
+        input_stream = _BuildLogInputStream(
+            request_id=request_id,
+            build_id=build_id,
+            follow=follow,
+        )
+        task: asyncio.Task[int | None] | None = None
+
+        async def cancel():
+            input_stream.close()
+            if task is not None:
+                await asyncio.gather(task, return_exceptions=True)
+
+        async def _run() -> int | None:
+            try:
+                response = await self.room.invoke(
+                    toolkit="containers",
+                    tool="get_build_logs",
+                    input=input_stream,
+                )
+                if isinstance(response, Content):
+                    raise self._unexpected_response_error(operation="get_build_logs")
+                async for chunk in response:
+                    if isinstance(chunk, ErrorContent):
+                        raise RoomException(chunk.text, code=chunk.code)
+                    if isinstance(chunk, _ControlContent):
+                        if chunk.method == "close":
+                            return None
+                        raise self._unexpected_response_error(
+                            operation="get_build_logs"
+                        )
+                    if not isinstance(chunk, BinaryContent):
+                        raise self._unexpected_response_error(
+                            operation="get_build_logs"
+                        )
+
+                    channel_value = chunk.headers.get("channel")
+                    if isinstance(channel_value, bool) or not isinstance(
+                        channel_value, int
+                    ):
+                        raise RoomException(
+                            "containers.get_build_logs returned a chunk without a valid channel",
+                            code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                        )
+                    if channel_value in (1, 2):
+                        try:
+                            text = chunk.data.decode("utf-8")
+                        except UnicodeDecodeError as ex:
+                            raise RoomException(
+                                "containers.get_build_logs returned invalid UTF-8 data",
+                                code=ErrorCode.UNEXPECTED_RESPONSE_TYPE,
+                            ) from ex
+                        stream._logs_q.put_nowait(text)
+                        continue
+                    if channel_value == 3:
+                        return _container_status_from_bytes(
+                            operation="get_build_logs",
+                            data=chunk.data,
+                        )
+
+                    logger.warning(
+                        "ignoring unexpected containers.get_build_logs channel %s",
+                        channel_value,
+                    )
+                return None
+            finally:
+                input_stream.close()
+
+        run_task = asyncio.create_task(_run())
+        stream = _BuildLogStream(
+            cancel_cb=cancel,
+            task=run_task,
+        )
+        task = run_task
+        return stream
+
+    # ---- Misc ----
+
+    async def stop(self, *, container_id: str, force: bool = False) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="stop_container",
+            input={"container_id": container_id, "force": force},
+        )
+
+    async def wait_for_exit(self, *, container_id: str) -> int:
+        status = await self.wait_for_exit_status(container_id=container_id)
+        return status.exit_code
+
+    async def wait_for_exit_status(self, *, container_id: str) -> ContainerExitStatus:
+        response = await self.room.invoke(
+            toolkit="containers",
+            tool="wait_for_exit",
+            input={"container_id": container_id},
+        )
+        if not isinstance(response, JsonContent):
+            raise self._unexpected_response_error(operation="wait_for_exit")
+        exit_code = response.json.get("exit_code")
+        if isinstance(exit_code, bool) or not isinstance(exit_code, int):
+            raise self._unexpected_response_error(operation="wait_for_exit")
+        return ContainerExitStatus.model_validate(response.json)
+
+    async def delete(self, *, container_id: str) -> None:
+        await self.room.invoke(
+            toolkit="containers",
+            tool="delete_container",
+            input={"container_id": container_id},
+        )
+
+    async def list(self, all: Optional[bool] = None) -> List[RoomContainer]:
+        res = await self.room.invoke(
+            toolkit="containers",
+            tool="list_containers",
+            input={"all": all},
+        )
+        if not isinstance(res, JsonContent):
+            raise self._unexpected_response_error(operation="list")
+        return [RoomContainer(**c) for c in res["containers"]]

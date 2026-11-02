@@ -1,0 +1,58 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union
+from datetime import datetime
+from typing_extensions import Literal, Required, Annotated, TypedDict
+
+from ..._utils import PropertyInfo
+
+__all__ = ["PhysicalCardCreateParams"]
+
+
+class PhysicalCardCreateParams(TypedDict, total=False):
+    category: Required[
+        Literal[
+            "in_transit",
+            "processed_for_delivery",
+            "delivered",
+            "delivery_issue",
+            "returning_to_sender",
+            "returned_to_sender",
+        ]
+    ]
+    """The type of tracking event.
+
+    - `in_transit` - The physical card is in transit.
+    - `processed_for_delivery` - The physical card has been processed for delivery.
+    - `delivered` - The physical card has been delivered. Note that some couriers
+      track delivery status based on driver location data rather than an explicit
+      scan. While uncommon, a single physical card may have more than one delivered
+      event.
+    - `delivery_issue` - There is an issue preventing delivery. The delivery will be
+      attempted again if possible. If the issue cannot be resolved, the physical
+      card will be rerouted to the return address.
+    - `returning_to_sender` - The physical card has been rerouted to the return
+      address.
+    - `returned_to_sender` - The physical card has been delivered to the return
+      address.
+    """
+
+    carrier_estimated_delivery_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time when the
+    carrier expects the card to be delivered.
+    """
+
+    city: str
+    """The city where the event took place. Required if postal_code is not provided."""
+
+    postal_code: str
+    """The postal code where the event took place.
+
+    Required unless both city and state are provided.
+    """
+
+    state: str
+    """The state where the event took place. Required if postal_code is not provided."""

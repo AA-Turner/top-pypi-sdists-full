@@ -1,0 +1,242 @@
+"""Orthogonal spiral navigators, for tracking rigid motion during a scan."""
+
+from __future__ import annotations
+
+__all__ = ["SpiralNavigator"]
+
+from typing import Any
+
+import pypulseqpp as pp
+
+from .._module import SequenceModule
+from ..excitation.selective import SpatialSelectiveExcitation
+from .noncartesian import SpiralReadout2D
+
+#: The planes a navigator reads, and the rotation that carries the designed
+#: interleaf onto each. The module is designed in x-y with its selection
+#: gradient on z, which is the axial plane; the other two are that same
+#: module turned a quarter turn, so one waveform serves all three. Axes follow
+#: the patient convention: x left-right, y anterior-posterior, z
+#: inferior-superior.
+PLANES = ("axial", "sagittal", "coronal")
+
+_TURNS = {
+    "axial": None,
+    "sagittal": ("y", 90.0),
+    "coronal": ("x", 90.0),
+}
+
+
+class SpiralNavigator(SequenceModule):
+    """Three orthogonal thick-slab spiral navigators.
+
+    One excitation and readout are played under axial, sagittal and coronal
+    rotations. The blocks that acquire set the ``NAV`` label to 1, and a final
+    block sets it to 0. The navigator excitations perturb the longitudinal
+    magnetisation of the host sequence.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    fov : float, default=0.32
+        In-plane field of view (m).
+    matrix : int, default=32
+        In-plane matrix size, at least 8.
+    thickness_m : float, default=0.01
+        Slab thickness (m).
+    flip_angle_deg : float, default=8.0
+        Flip angle (degrees).
+    duration_s : float, default=0.001
+        Excitation pulse duration (s).
+    readout_bandwidth_hz : float, default=250000.0
+        Requested ADC sampling rate (Hz).
+    navigator_tr : float, default=None
+        Repetition time of one three-plane navigator (s). ``None`` plays the
+        planes back to back; otherwise each plane is padded to a third of it.
+    spoiling_cycles : float, default=4.0
+        Cycles of spoiler dephasing at the end of each plane, across the
+        spiral's resolution.
+
+    Attributes
+    ----------
+    excitation : SpatialSelectiveExcitation
+        The pulse every plane is opened by.
+    readout : SpiralReadout2D
+        The designed interleaf every plane plays.
+    rotations : dict
+        Rotation applied to the blocks of each plane (``None`` for axial),
+        keyed by plane name.
+    plane_duration : float
+        Duration of one plane (s).
+
+    Examples
+    --------
+    The three planes are one designed arm under three rotations, so the module
+    stores one waveform regardless of the number of planes played:
+
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts(max_grad=40, grad_unit="mT/m",
+    ...                  max_slew=150, slew_unit="T/m/s")
+    >>> navigator = design.SpiralNavigator(system)
+    >>> sorted(navigator.rotations)
+    ['axial', 'coronal', 'sagittal']
+    >>> navigator.readout.adc.num_samples > 0
+    True
+
+    The navigator repetition, and the spiral its ADC event samples:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp import sequences
+
+       system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+       navigator = sequences.SpiralNavigator(system)
+       navigator.seq.paper_plot()
+       pp.plot.plot_kspace(navigator.seq, plane="xy", show_trajectory=True)
+       plt.show()
+    """
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        *,
+        fov: float = 0.32,
+        matrix: int = 32,
+        thickness_m: float = 10e-3,
+        flip_angle_deg: float = 8.0,
+        duration_s: float = 1e-3,
+        readout_bandwidth_hz: float = 250e3,
+        navigator_tr: float | None = None,
+        spoiling_cycles: float = 4.0,
+        **kwargs: Any,
+    ) -> None:
+        if flip_angle_deg <= 0:
+            raise ValueError("flip_angle_deg must be positive")
+        if matrix < 8:
+            raise ValueError("matrix must be at least 8 to resolve a pose")
+
+        excitation = SpatialSelectiveExcitation(
+            system,
+            flip_angle_deg,
+            thickness_m,
+            duration_s,
+            is_slab=False,
+        )
+        readout = SpiralReadout2D(
+            system,
+            excitation.rf,
+            excitation.gz,
+            excitation.gz_reph,
+            fov=fov,
+            matrix=matrix,
+            design_interleaves=1,
+            readout_bandwidth_hz=readout_bandwidth_hz,
+            spoiling_cycles=spoiling_cycles,
+            **kwargs,
+        )
+
+        self.seq = pp.Sequence(system)
+        rotations = {
+            plane: None if turn is None else pp.make_rotation(_turn_of(turn))
+            for plane, turn in _TURNS.items()
+        }
+        plane_duration = readout.duration
+
+        # A label is sequence state, not a property of the block that sets it,
+        # so the flag has to be turned off again: an imaging readout that
+        # followed a navigator would otherwise be delivered as navigator data.
+        nav_on = pp.make_label(type="SET", label="NAV", value=1)
+        nav_off = pp.make_label(type="SET", label="NAV", value=0)
+
+        pad = _plane_padding(navigator_tr, plane_duration, system.block_duration_raster)
+        for plane in PLANES:
+            rotation = rotations[plane]
+            turn = () if rotation is None else (rotation,)
+            for block in readout.blocks:
+                flag = (nav_on,) if _acquires(block) else ()
+                self.seq.add_block(*block, *turn, *flag)
+            if pad is not None:
+                self.seq.add_block(pad)
+        self.seq.add_block(pp.make_delay(system.block_duration_raster), nav_off)
+
+        self.register(
+            excitation=excitation,
+            readout=readout,
+            rotations=rotations,
+            plane_duration=plane_duration,
+            nav_on=nav_on,
+            nav_off=nav_off,
+        )
+
+    def fit(
+        self, window: float, requested: int | str = "auto", *, limit: int | None = None
+    ) -> int:
+        """Return the number of navigators that fit in a time window.
+
+        Parameters
+        ----------
+        window : float
+            Available dead time (s).
+        requested : int or str, default='auto'
+            ``"auto"`` takes as many as fit, up to ``limit``; an integer
+            requests exactly that many and raises if they do not fit.
+        limit : int, default=None
+            Ceiling on the ``"auto"`` count. Ignored for an explicit integer
+            request.
+
+        Returns
+        -------
+        int
+            Navigators to play.
+
+        Raises
+        ------
+        ValueError
+            If ``requested`` is negative, or exceeds the number that fits in
+            ``window``.
+        """
+        if requested == "auto":
+            fits = max(int(window // self.duration), 0)
+            return fits if limit is None else min(fits, int(limit))
+        count = int(requested)
+        if count < 0:
+            raise ValueError("n_navigators must not be negative")
+        if count * self.duration > window:
+            raise ValueError(
+                f"{count} navigators take {count * self.duration * 1e3:.1f} ms, "
+                f"more than the {window * 1e3:.1f} ms of dead time available; "
+                f"at most {int(window // self.duration)} fit"
+            )
+        return count
+
+
+def _acquires(block: tuple) -> bool:
+    return any(getattr(event, "type", "") == "adc" for event in block)
+
+
+def _turn_of(turn: tuple[str, float]) -> Any:
+    from scipy.spatial.transform import Rotation
+
+    axis, degrees = turn
+    return Rotation.from_euler(axis, degrees, degrees=True)
+
+
+def _plane_padding(
+    navigator_tr: float | None, plane_duration: float, raster_s: float
+) -> Any:
+    """Return the delay that paces the planes, or None when they are packed."""
+    if navigator_tr is None:
+        return None
+    pad = navigator_tr / len(PLANES) - plane_duration
+    if pad < 0:
+        raise ValueError(
+            f"navigator_tr={navigator_tr * 1e3:.1f} ms is shorter than the "
+            f"{len(PLANES)} planes it has to hold "
+            f"({len(PLANES) * plane_duration * 1e3:.1f} ms)"
+        )
+    return pp.make_delay(pp.round_to_raster(pad, raster_s))

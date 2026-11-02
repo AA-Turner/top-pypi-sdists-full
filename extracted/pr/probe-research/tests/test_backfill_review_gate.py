@@ -22,12 +22,13 @@ from __future__ import annotations
 import pytest
 from backfill_test_client import ScopedClient
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as bp
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as bp
 from probe.cli import backfill_run as br
-from probe.cli import tui
-from probe.cli.backfill_coverage import Coverage, Scope
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
 
 
 @pytest.fixture
@@ -45,7 +46,10 @@ def state_dir(tmp_path, monkeypatch):
     d = tmp_path / "state"
     d.mkdir()
     monkeypatch.setenv("PROBE_BACKFILL_STATE_DIR", str(d))
-    monkeypatch.setattr(bf, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: f"/bin/{agent.value}")
     return d
 
 
@@ -68,7 +72,9 @@ class _Client(ScopedClient):
 
 
 def _review_dialog(monkeypatch, *, feedback=(), pages=None):
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
     decisions = iter([*("revise" for _ in feedback), "import"])
     corrections = iter(feedback)
 
@@ -83,8 +89,13 @@ def _review_dialog(monkeypatch, *, feedback=(), pages=None):
             pages.append(list(lines))
         return next(decisions)
 
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(tui, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr(tui.forms, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.choices, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.clipboard, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.layout, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.status_board, "text", lambda *a, **kw: next(corrections))
+    monkeypatch.setattr(tui.terminal, "text", lambda *a, **kw: next(corrections))
 
 
 # -- the loop ---------------------------------------------------------------
@@ -95,10 +106,10 @@ def test_selecting_import_keeps_the_plan_unchanged(folder, monkeypatch):
     plan = _plan(dict.fromkeys(files, "odyssey"))
     revisions: list = []
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "sess-1"))
-    monkeypatch.setattr(br, "revise", lambda *a, **k: revisions.append(a) or (plan, "", "s"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "sess-1"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **k: revisions.append(a) or (plan, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch)
 
     client = _Client()
@@ -119,10 +130,10 @@ def test_typed_feedback_revises_and_shows_the_gate_again(folder, monkeypatch):
         sent.append(feedback)
         return better, "", "sess-1"
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (first, "", "sess-1"))
-    monkeypatch.setattr(br, "revise", fake_revise)
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (first, "", "sess-1"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", fake_revise)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch, feedback=["  lockfiles are not research, split them out  "], pages=seen)
 
     br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
@@ -144,10 +155,10 @@ def test_the_revision_resumes_the_classify_session(folder, monkeypatch):
         kwargs.append(kw)
         return plan, "", kw.get("session_id")
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "sess-abc"))
-    monkeypatch.setattr(br, "revise", fake_revise)
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "sess-abc"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", fake_revise)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch, feedback=["change something"])
 
     br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
@@ -165,10 +176,10 @@ def test_a_second_correction_resumes_the_first_revision(folder, monkeypatch):
         sessions.append(kw.get("session_id"))
         return plan, "", "sess-2"  # a cold rerun that minted its own
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", None))  # codex
-    monkeypatch.setattr(br, "revise", fake_revise)
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", None))  # codex
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", fake_revise)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch, feedback=["first", "second"])
 
     br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CODEX)
@@ -186,10 +197,10 @@ def test_a_failed_revision_keeps_the_plan_they_were_reading(folder, monkeypatch)
     pages: list[list[str]] = []
     _review_dialog(monkeypatch, feedback=["do something impossible"], pages=pages)
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (good, "", "s"))
-    monkeypatch.setattr(br, "revise", lambda *a, **k: (None, "the agent died", "s"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (good, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **k: (None, "the agent died", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     client = _Client()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE)
     created = sorted(row["slug"] for row in client.projects.values())
@@ -212,10 +223,10 @@ def test_a_plan_naming_a_path_the_walk_lacks_drops_it_and_still_imports(folder, 
     pages: list[list[str]] = []
     _review_dialog(monkeypatch, feedback=["add the ghost"], pages=pages)
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (good, "", "s"))
-    monkeypatch.setattr(br, "revise", lambda *a, **k: (odd, "", "s"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (good, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **k: (odd, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     client = _Client()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE)
     created = sorted(row["slug"] for row in client.projects.values())
@@ -232,15 +243,26 @@ def test_an_automated_run_never_stops_to_ask(folder, monkeypatch, interactive, y
     plan = _plan(dict.fromkeys(files, "odyssey"))
     asked: list = []
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "s"))
-    monkeypatch.setattr(br, "revise", lambda *a, **k: asked.append(1) or (plan, "", "s"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: asked.append("review"))
-    monkeypatch.setattr(tui, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **k: asked.append(1) or (plan, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: asked.append("review"))
+    monkeypatch.setattr(tui.forms, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr(tui.choices, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr(tui.clipboard, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr(tui.layout, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr(tui.status_board, "text", lambda *a, **kw: asked.append("text"))
+    monkeypatch.setattr(tui.terminal, "text", lambda *a, **kw: asked.append("text"))
     # Status pages remain output-only for automated runs.
     monkeypatch.setattr(
-        tui, "page", lambda lines, prompt=None: (asked.append(prompt) if prompt else None) or ""
+        tui.layout, "page", lambda lines, prompt=None: (asked.append(prompt) if prompt else None) or ""
+    )
+    monkeypatch.setattr(
+        tui.forms, "page", lambda lines, prompt=None: (asked.append(prompt) if prompt else None) or ""
+    )
+    monkeypatch.setattr(
+        tui.progress, "page", lambda lines, prompt=None: (asked.append(prompt) if prompt else None) or ""
     )
 
     lines = br.execute(
@@ -255,9 +277,9 @@ def test_an_automated_run_never_stops_to_ask(folder, monkeypatch, interactive, y
 def test_leaving_the_review_never_approves_the_plan(folder, monkeypatch, decision):
     plan = _plan(dict.fromkeys(_all_files(folder), "odyssey"))
     client = _Client()
-    monkeypatch.setattr(br, "classify", lambda *a, **kw: (plan, "", "session"))
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: decision)
-    monkeypatch.setattr(br, "run_units", lambda *a, **kw: pytest.fail("unapproved import"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **kw: (plan, "", "session"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: decision)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **kw: pytest.fail("unapproved import"))
 
     lines = br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE)
 
@@ -273,10 +295,10 @@ def test_leaving_an_empty_correction_returns_to_review(folder, monkeypatch, feed
     plan = _plan(dict.fromkeys(_all_files(folder), "odyssey"))
     pages = []
     _review_dialog(monkeypatch, feedback=[feedback], pages=pages)
-    monkeypatch.setattr(br, "classify", lambda *a, **kw: (plan, "", "session"))
-    monkeypatch.setattr(br, "revise", lambda *a, **kw: pytest.fail("empty correction"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **kw: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **kw: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **kw: (plan, "", "session"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **kw: pytest.fail("empty correction"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **kw: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **kw: (0, []))
 
     br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
 
@@ -288,9 +310,9 @@ def test_interrupting_a_correction_never_approves_the_plan(folder, monkeypatch):
     plan = _plan(dict.fromkeys(_all_files(folder), "odyssey"))
     client = _Client()
     _review_dialog(monkeypatch, feedback=[None])
-    monkeypatch.setattr(br, "classify", lambda *a, **kw: (plan, "", "session"))
-    monkeypatch.setattr(br, "revise", lambda *a, **kw: pytest.fail("interrupted correction"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **kw: pytest.fail("unapproved import"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **kw: (plan, "", "session"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **kw: pytest.fail("interrupted correction"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **kw: pytest.fail("unapproved import"))
 
     lines = br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE)
 
@@ -339,7 +361,12 @@ def test_a_file_still_resolves_directly():
 
 
 def test_page_returns_empty_when_it_cannot_ask(monkeypatch):
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     assert tui.page(["body"], prompt="? ") == ""
     assert tui.page(["body"]) == ""
 
@@ -364,9 +391,9 @@ def test_the_gate_names_a_skipped_directory_before_anything_is_queued(folder, mo
     pages: list[list[str]] = []
     files = _all_files(folder)
     plan = _plan(dict.fromkeys(files, "odyssey"))
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "sess-1"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "sess-1"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch, pages=pages)
 
     br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
@@ -391,9 +418,9 @@ def test_the_gate_does_not_print_the_warning_twice(folder, monkeypatch):
 
     files = _all_files(folder)
     plan = _plan(dict.fromkeys(files, "odyssey"))
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "sess-1"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "sess-1"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch)
 
     lines = br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
@@ -414,9 +441,11 @@ def test_every_exit_carries_what_the_walk_could_not_see(folder, monkeypatch):
     (outside / "buried.py").write_text("x\n")
     (folder / "shared_data").symlink_to(outside)
 
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
     # no-plan: the exit Michael's --autocompact failure lands on.
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (None, "boom", None))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (None, "boom", None))
     lines = br.execute(client_factory=_Client, folder=folder, agent=bf.Agent.CLAUDE)
     assert any("shared_data" in ln for ln in lines), "no-plan exit lost the warning"
     assert any("did not produce a usable plan" in ln for ln in lines)

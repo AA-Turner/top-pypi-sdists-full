@@ -91,7 +91,7 @@ def remove_blocks(sources: tuple[str, ...] | None = None) -> list[str]:
     the pointer block and everything else alone. Returns the harnesses whose file
     changed. A damaged or unreadable file is left untouched (the next render
     reports it)."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     removed: list[str] = []
     for source in RENDER_SOURCES if sources is None else sources:
@@ -187,7 +187,7 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None
     also edit destroys edits it did not understand.
     """
     sources = RENDER_SOURCES if sources is None else sources
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     body = text.strip()
     # Hidden team items render nothing, so a body that cannot render is moot.

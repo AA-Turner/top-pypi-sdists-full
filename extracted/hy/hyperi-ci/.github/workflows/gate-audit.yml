@@ -1,0 +1,90 @@
+# Project:   HyperI CI
+# File:      .github/workflows/gate-audit.yml
+# Purpose:   Weekly sweep for repos whose quality gate never actually runs
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# The gate doctrine skips quality and test on non-bumping pushes to main, so a run
+# whose gate never executed still concludes `success`. A repo landing work by
+# direct push reports green while nothing has been verified (issue #96). This
+# makes the answer never more than a week old, with no PR needed.
+#
+# Report-only. It reads other repos and writes to none of them.
+#
+# A FAILING gate is deliberately not reported -- GitHub already shows a red repo
+# as red, and pre-GA repos are expected to be red. Repos declaring a pre-GA
+# `publish.channel` are skipped for the same reason, and what was skipped is
+# always named.
+#
+# Each audited repo also gets a line with its last successful `Test (full)`,
+# or `never`. Older than the window is a warning for a repo that schedules full
+# runs or requires one to release, and an info line otherwise. It never fails
+# the job.
+
+name: Gate audit
+
+on:
+  schedule:
+    # Monday morning AEST, so a finding lands at the start of the week.
+    - cron: "23 20 * * 0"
+  workflow_dispatch:
+    inputs:
+      max-age-days:
+        type: string
+        default: "7"
+        description: "How old a gate's last real execution, or the last passing full test tier, may be."
+      include-prerelease:
+        type: boolean
+        default: false
+        description: "Audit pre-GA repos too."
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Gate audit
+    runs-on: ${{ vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Mint an org-wide read token
+        # An org sweep reads workflow runs and jobs across SIBLING repos, which
+        # GITHUB_TOKEN cannot do -- it is scoped to this repo alone.
+        # No `repositories`: the sweep audits every repo `orgs/<org>/repos`
+        # returns, reading runs and jobs (actions) and .hyperi-ci.yaml plus the
+        # caller workflow (contents).
+        id: bot
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-actions: read
+          permission-contents: read
+
+      - name: Audit every consumer's gate
+        # No fallback to github.token on a failed mint: a repo-scoped token
+        # would sweep one repo and report "all clear", which is the very fault
+        # this workflow exists to catch.
+        # Inputs reach the script through env, never `${{ }}` in the body, so a
+        # crafted dispatch value cannot run as shell beside the org token.
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          MAX_AGE_DAYS: ${{ inputs.max-age-days || '7' }}
+          INCLUDE_PRERELEASE: ${{ inputs.include-prerelease || false }}
+        run: |
+          extra=()
+          if [ "$INCLUDE_PRERELEASE" = "true" ]; then extra+=(--include-prerelease); fi
+          uv run hyperi-ci audit-gates \
+            --org hyperi-io \
+            --max-age-days "$MAX_AGE_DAYS" \
+            "${extra[@]}"

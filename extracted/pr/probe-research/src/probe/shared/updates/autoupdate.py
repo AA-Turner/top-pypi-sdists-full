@@ -282,7 +282,7 @@ def _tell_lifeboat(enabled: bool) -> None:
     at its next run, not at the next service start (plan fool-proof-updates).
     Never raises."""
     try:
-        from probe.service import lifeboat
+        from probe.service.updater import lifeboat
 
         lifeboat.note_auto_update(enabled)
     except Exception:  # noqa: BLE001 -- the next service start writes it anyway

@@ -22,7 +22,7 @@ import math
 import pytest
 
 from probe import cli
-from probe.cli import charts
+from probe.cli.commands.runs import charts
 from tests.conftest import make_client
 
 PLAIN = {"color": False, "unicode": True}

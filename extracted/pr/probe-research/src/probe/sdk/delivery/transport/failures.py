@@ -1,9 +1,13 @@
 """map a failed response or connection error to the SDK's typed errors, and say whether it may still have landed."""
 
 from __future__ import annotations
+
 import json
 
 import httpx
+
+from probe.sdk.settings import workspace_limit as _workspace_limit
+
 from ... import errors
 
 
@@ -62,6 +66,47 @@ def _is_trash_notice(resp: httpx.Response) -> bool:
     except (json.JSONDecodeError, ValueError):
         return False
     return isinstance(body, dict) and body.get("detail") == "in_trash"
+
+
+class ErrorMappingMixin:
+    """Part of Transport: its methods run with `self` the Transport; fold_parts() copies them into Transport."""
+
+    def _to_error(self, resp: httpx.Response) -> errors.RosError:
+        try:
+            body = resp.json()
+            detail = body.get("detail")
+            if body.get("code") == errors.CLIENT_TOO_OLD:
+                min_version = body.get("min_version")
+                min_version = min_version if isinstance(min_version, str) else None
+                return errors.ClientTooOldError(
+                    errors.upgrade_message(errors._detail_message(detail), min_version),
+                    status=resp.status_code,
+                    detail=detail,
+                    min_version=min_version,
+                )
+            # A run, group, experiment or project in the TRASH answers 410 with a fixed token
+            # plus the notice ("in the trash since ..., Probe can restore it until ...").
+            # The sentence is what a person or agent needs; the token alone says nothing.
+            in_trash = detail == "in_trash"
+            if in_trash and isinstance(body.get("message"), str):
+                detail = body["message"]
+        except (json.JSONDecodeError, ValueError, AttributeError):
+            detail, in_trash = resp.text, False
+        error = errors.error_for(resp.status_code, detail)
+        if in_trash:
+            error.in_trash = True
+        applied = resp.headers.get(_workspace_limit.APPLIED_HEADER)
+        if applied and resp.status_code == 404:
+            # The API answered under this computer's workspace limit: what was asked for may
+            # exist outside it. Said, never left to read as gone (agents have filed
+            # data-loss reports off a silent miss).
+            error.workspace_limit_applied = applied
+            _workspace_limit.annotate_not_found(
+                error,
+                _workspace_limit.hidden_hint(applied, getattr(self.settings, "workspace_limit", None)),
+            )
+        return _with_retry_after(error, resp)
+
 from probe.sdk.delivery.transport.blobs import _blob_label  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.deadlines import _with_retry_after  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.transport import _CONNECT_ERRORS  # noqa: E402 -- pieces need each other; the front door loads this one first

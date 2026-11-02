@@ -1,0 +1,23 @@
+[package]
+name = "ch-core-py"
+version = "0.2.3"
+edition = "2021"
+description = "PyO3 binding crate for the clickhouse-connect-core wheel"
+license = "Apache-2.0"
+repository = "https://github.com/ClickHouse/clickhouse-connect"
+readme = "README.md"
+
+[lib]
+name = "_ch_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+ch-core-rs = { git = "https://github.com/ClickHouse/ch-core-rs", tag = "v0.2.0" }
+# generate-import-lib synthesizes the CPython import library when
+# cross-compiling to Windows targets with no local interpreter
+# Maturin configures extension builds. Keep this dependency linkable to
+# libpython for cargo test. The pyproject feature supports older maturin.
+pyo3 = { version = "0.29", features = ["generate-import-lib"] }
+
+[build-dependencies]
+pyo3-build-config = { version = "0.29", features = ["resolve-config"] }

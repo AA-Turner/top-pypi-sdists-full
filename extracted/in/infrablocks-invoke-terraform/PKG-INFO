@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: infrablocks.invoke_terraform
+Version: 0.1.2
+Summary: Provides invoke tasks to interact with terraform
+License: MIT
+Author: Toby Clemson
+Author-email: tobyclemson@gmail.com
+Requires-Python: >=3.13,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Dist: infrablocks-invoke-factory (>=0.1.0,<0.2.0)
+Requires-Dist: invoke (>=2.2.0,<4.0)
+Description-Content-Type: text/markdown
+
+# Invoke Terraform
+
+Provides invoke tasks to interact with terraform
+
+## Development
+
+For the best developer experience make sure you have `direnv` and `asdf` installed.
+
+Contributing
+Bug reports and pull requests are welcome on GitHub at https://github.com/infrablocks/invoke_terraform.
+This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the
+Contributor Covenant code of conduct.
+
+License
+Copyright © 2025 InfraBlocks Maintainers
+
+Distributed under the terms of the MIT License.
+

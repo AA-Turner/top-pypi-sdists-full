@@ -25,7 +25,7 @@ import json
 import pytest
 import typer
 
-from probe.cli.main import _print_json, _select_fields
+from probe.cli.commands.json_print import _print_json, _select_fields
 
 
 def test_piped_output_is_compact_and_terminal_output_is_pretty(monkeypatch, capsys):

@@ -1,0 +1,445 @@
+# This file is part of Radicale Server - Calendar Server
+# Copyright © 2026-2026 Peter Bieringer <pb@bieringer.de>
+# Copyright © 2026-2026 Max Berger <max@berger.name>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import csv
+import json
+import os
+from typing import Union
+
+from radicale import config, sharing
+from radicale.log import logger
+from radicale.sharing import common
+
+""" CVS based sharing by token or map """
+
+
+class Sharing(sharing.BaseSharing):
+    _lines: int = 0
+    _sharing_cache: list[dict] = []
+    _sharing_db_file: str
+
+    # *** Overloaded functions ***
+    def database_init(self) -> bool:
+        logger.debug("sharing database initialization for type 'csv'")
+        sharing_db_file = self.configuration.get("sharing", "database_path")
+        if sharing_db_file == "":
+            folder = self.configuration.get("storage", "filesystem_folder")
+            folder_db = os.path.join(folder, "collection-db")
+            sharing_db_file = os.path.join(folder_db, "sharing.csv")
+            logger.info("sharing database filename not provided, use default: %r", sharing_db_file)
+        else:
+            sharing_db_file = os.path.abspath(sharing_db_file)
+            folder_db = os.path.dirname(sharing_db_file)
+            logger.info("sharing database filename: %r", sharing_db_file)
+
+        if not os.path.exists(folder_db):
+            logger.notice("sharing database folder is not existing: %r (create now)", folder_db)
+            try:
+                os.mkdir(folder_db)
+            except Exception as e:
+                logger.error("sharing database folder cannot be created (check permissions): %r (%r)", folder_db, e)
+                return False
+            logger.notice("sharing database folder successfully created: %r", folder_db)
+
+        if not os.path.exists(sharing_db_file):
+            logger.notice("sharing database is not existing: %r", sharing_db_file)
+            try:
+                if self._create_empty_csv(sharing_db_file) is not True:
+                    raise
+            except Exception as e:
+                logger.error("sharing database (empty) cannot be created (check permissions): %r (%r)", sharing_db_file, e)
+                return False
+            logger.notice("sharing database (empty) successfully created: %r", sharing_db_file)
+        else:
+            logger.info("sharing database exists: %r", sharing_db_file)
+
+        # read database
+        try:
+            if self._load_csv(sharing_db_file) is not True:
+                return False
+        except Exception as e:
+            logger.error("sharing database load failed: %r (%r)", sharing_db_file, e)
+            return False
+        logger.info("sharing database load successful: %r (lines=%d)", sharing_db_file, self._lines)
+        self._sharing_db_file = sharing_db_file
+        return True
+
+    def database_get_info(self) -> Union[dict, None]:
+        database_info = {'type': "csv"}
+        return database_info
+
+    def database_verify(self) -> bool:
+        logger.info("sharing database (csv) verification begin")
+        logger.info("sharing database (csv) file: %r", self._sharing_db_file)
+        logger.info("sharing database (csv) loaded entries: %d", self._lines)
+        # nothing more todo for CSV
+        logger.info("sharing database (csv) verification end")
+        return True
+
+    def database_get_sharing(self,
+                             ShareType: str,
+                             PathOrToken: str,
+                             OnlyEnabled: bool = True,
+                             User: Union[str, None] = None) -> Union[dict, None]:
+        """ retrieve sharing target and attributes by map """
+        logger.trace("sharing/%s/get: PathOrToken=%r User=%r OnlyEnabled=%s", ShareType, PathOrToken, User, OnlyEnabled)
+
+        found = False
+        for row in self.database_list_sharing(ShareType=ShareType, PathOrToken=PathOrToken, User=User):
+            # run through prefiltered list
+            logger.trace("sharing/get/check: %r", row)
+            if OnlyEnabled is True and row['EnabledByOwner'] is False:
+                continue
+            elif OnlyEnabled is True and row['EnabledByUser'] is False:
+                continue
+            else:
+                found = True
+                break
+
+        if found:
+            logger.trace("sharing/get/hit : %r", row)
+            Hidden: bool = (row['HiddenByOwner'] or row['HiddenByUser'])
+            Properties: Union[dict, None] = None
+            Conversion: Union[str, None] = None
+            Actions: Union[dict, None] = None
+            if 'Properties' in row:
+                Properties = row['Properties']
+            if 'Conversion' in row:
+                Conversion = row['Conversion']
+            if 'Actions' in row:
+                Actions = row['Actions']
+            return {
+                    "mapped": True,
+                    "ShareType": ShareType,
+                    "PathOrToken": PathOrToken,
+                    "PathMapped": row['PathMapped'],
+                    "Owner": row['Owner'],
+                    "User": row['User'],
+                    "Hidden": Hidden,
+                    "EnabledByOwner": row['EnabledByOwner'],
+                    "EnabledByUser": row['EnabledByUser'],
+                    "Permissions": row['Permissions'],
+                    "Properties": Properties,
+                    "Conversion": Conversion,
+                    "Actions": Actions,
+                    }
+        return None
+
+    def database_list_sharing(self,
+                              OwnerOrUser: Union[str, None] = None,
+                              ShareType: Union[str, None] = None,
+                              PathOrToken: Union[str, None] = None,
+                              PathMapped: Union[str, None] = None,
+                              User: Union[str, None] = None,
+                              EnabledByOwner: Union[bool, None] = None,
+                              EnabledByUser: Union[bool, None] = None,
+                              HiddenByOwner: Union[bool, None] = None,
+                              HiddenByUser: Union[bool, None] = None,
+                              Conversion: Union[str, None] = None,
+                              ) -> list[dict]:
+        """ retrieve sharing """
+        row: dict
+        index = 0
+        result: list[dict] = []
+
+        with self._storage.acquire_lock("r", path=self._sharing_db_file):
+            logger.trace("sharing/%s/list: OwnerOrUser=%r User=%r PathOrToken=%r PathMapped=%r EnabledByOwner=%s EnabledByUser=%s HiddenByOwner=%s HiddenByUser=%s Conversion=%r", ShareType, OwnerOrUser, User, PathOrToken, PathMapped, EnabledByOwner, EnabledByUser, HiddenByOwner, HiddenByUser, Conversion)
+
+            for row in self._sharing_cache:
+                index += 1
+                if index == 1:
+                    # skip fieldnames
+                    continue
+
+                logger.trace("sharing/%s/list/row: test: %r", ShareType, row)
+
+                row_match = common.database_common_check_row_match(
+                                                            row=row,
+                                                            OwnerOrUser=OwnerOrUser,
+                                                            ShareType=ShareType,
+                                                            PathOrToken=PathOrToken,
+                                                            PathMapped=PathMapped,
+                                                            User=User,
+                                                            EnabledByOwner=EnabledByOwner,
+                                                            EnabledByUser=EnabledByUser,
+                                                            HiddenByOwner=HiddenByOwner,
+                                                            HiddenByUser=HiddenByUser,
+                                                            Conversion=Conversion,
+                                                            )
+                if row_match is not None:
+                    result.append(row_match)
+
+        return common.database_common_filter_resolved_duplicate_shares(result)
+
+    def database_create_sharing(self,
+                                ShareType: str,
+                                PathOrToken: str, PathMapped: str,
+                                Conversion: str,
+                                Owner: str, User: str,
+                                Permissions: str = "r",
+                                EnabledByOwner: bool = False, EnabledByUser: bool = False,
+                                HiddenByOwner:  bool = True, HiddenByUser:  bool = True,
+                                Timestamp: int = 0,
+                                Properties: Union[dict, None] = None,
+                                Actions: Union[dict, None] = None,
+                                ) -> dict:
+        """ create sharing """
+        row: dict
+
+        with self._storage.acquire_lock("w", path=self._sharing_db_file):
+            logger.trace("sharing: ShareType=%r", ShareType)
+            if ShareType == "token":
+                logger.trace("sharing/token/create: PathOrToken=%r Owner=%r PathMapped=%r User=%r Permissions=%r", PathOrToken, Owner, PathMapped, User, Permissions)
+                # check for duplicate token entry
+                for row in self._sharing_cache:
+                    if row['ShareType'] != "token":
+                        continue
+                    if row['PathOrToken'] == PathOrToken:
+                        # must be unique systemwide
+                        logger.error("sharing/token/create: PathOrToken already exists: PathOrToken=%r", PathOrToken)
+                        return {"status": "conflict"}
+            elif ShareType == "map":
+                logger.trace("sharing/map/create: PathOrToken=%r Owner=%r PathMapped=%r User=%r Permissions=%r", PathOrToken, Owner, PathMapped, User, Permissions)
+                # check for duplicate map entry
+                for row in self._sharing_cache:
+                    if row['ShareType'] != "map":
+                        continue
+                    if row['PathMapped'] == PathMapped and row['User'] == User and row['PathOrToken'] == PathOrToken:
+                        # must be unique systemwide
+                        logger.error("sharing/map/create: entry already exists: PathMapped=%r User=%r", PathMapped, User)
+                        return {"status": "conflict"}
+            else:
+                return {"status": "error"}
+
+            row = {"ShareType": ShareType,
+                   "PathOrToken": PathOrToken,
+                   "PathMapped": PathMapped,
+                   "Owner": Owner,
+                   "User": User,
+                   "Permissions": Permissions,
+                   "EnabledByOwner": EnabledByOwner,
+                   "EnabledByUser": EnabledByUser,
+                   "HiddenByOwner": HiddenByOwner,
+                   "HiddenByUser": HiddenByUser,
+                   "TimestampCreated": Timestamp,
+                   "TimestampUpdated": Timestamp,
+                   "Properties": Properties,
+                   "Conversion": Conversion,
+                   "Actions": Actions,
+                   }
+
+            logger.trace("sharing/*/create: add row: %r", row)
+            self._sharing_cache.append(row)
+
+            if self._write_csv(self._sharing_db_file):
+                logger.trace("sharing/%s/create: write CSV done", ShareType)
+                return {"status": "success"}
+
+        logger.error("sharing/%s/create: cannot update CSV database", ShareType)
+        return {"status": "error"}
+
+    def database_update_sharing(self,
+                                ShareType: str,
+                                PathOrToken: str,
+                                OwnerOrUser: Union[str, None] = None,
+                                User: Union[str, None] = None,
+                                PathMapped: Union[str, None] = None,
+                                Permissions: Union[str, None] = None,
+                                EnabledByOwner: Union[bool, None] = None,
+                                EnabledByUser:  Union[bool, None] = None,
+                                HiddenByOwner:  Union[bool, None] = None,
+                                HiddenByUser:   Union[bool, None] = None,
+                                Timestamp: int = 0,
+                                Properties: Union[dict, None] = None,
+                                Conversion: Union[str, None] = None,
+                                Actions: Union[dict, None] = None,
+                                ) -> dict:
+        """ update sharing """
+        logger.trace("sharing/%s/update: PathOrToken=%r OwnerOrUser=%r PathMapped=%r Properties=%r EnabledByOwner=%s EnabledByUser=%s HiddenByOwner=%s HiddenByUser=%s", ShareType, PathOrToken, OwnerOrUser, PathMapped, Properties, EnabledByOwner, EnabledByUser, HiddenByOwner, HiddenByUser)
+
+        with self._storage.acquire_lock("w", path=self._sharing_db_file):
+            # lookup token
+            found = False
+            index = 0
+            for row in self._sharing_cache:
+                if index == 0:
+                    # skip fieldnames
+                    pass
+                if row['ShareType'] != ShareType:
+                    pass
+                elif row['PathOrToken'] != PathOrToken:
+                    pass
+                else:
+                    found = True
+                    break
+                index += 1
+
+            if found:
+                logger.trace("sharing/%s/update: orig row[%d]=%r", ShareType, index, row)
+
+                # CSV: remove+adjust+readd
+                if PathMapped is not None:
+                    self._sharing_cache[index]["PathMapped"] = PathMapped
+                if Permissions is not None:
+                    self._sharing_cache[index]["Permissions"] = Permissions
+                if User is not None:
+                    self._sharing_cache[index]["User"] = User
+                if EnabledByOwner is not None:
+                    self._sharing_cache[index]["EnabledByOwner"] = EnabledByOwner
+                if EnabledByUser is not None:
+                    self._sharing_cache[index]["EnabledByUser"] = EnabledByUser
+                if HiddenByOwner is not None:
+                    self._sharing_cache[index]["HiddenByOwner"] = HiddenByOwner
+                if HiddenByUser is not None:
+                    self._sharing_cache[index]["HiddenByUser"] = HiddenByUser
+                if Properties is not None:
+                    self._sharing_cache[index]["Properties"] = Properties
+                if Conversion is not None:
+                    self._sharing_cache[index]["Conversion"] = Conversion
+                if Actions is not None:
+                    self._sharing_cache[index]["Actions"] = Actions
+                # update timestamp
+                self._sharing_cache[index]["TimestampUpdated"] = Timestamp
+
+                logger.trace("sharing/%s/update: adj  row[%d]=%r", ShareType, index, self._sharing_cache[index])
+
+                if self._write_csv(self._sharing_db_file):
+                    logger.trace("sharing/%s/update: write CSV done", ShareType)
+                    return {"status": "success"}
+
+                logger.error("sharing/%s/update: cannot update CSV database", ShareType)
+                return {"status": "error"}
+            else:
+                return {"status": "not-found"}
+
+    def database_delete_sharing(self,
+                                ShareType: str,
+                                PathOrToken: str,
+                                User: str) -> dict:
+        """ delete sharing """
+        logger.trace("sharing/%s/delete: PathOrToken=%r", ShareType, PathOrToken)
+
+        with self._storage.acquire_lock("w", User, path=self._sharing_db_file):
+            # lookup token
+            found = False
+            index = 0
+            for row in self._sharing_cache:
+                logger.trace("sharing/%s/delete: check: %r", ShareType, row)
+                if index == 0:
+                    # skip fieldnames
+                    pass
+                if row['ShareType'] != ShareType:
+                    pass
+                elif row['PathOrToken'] != PathOrToken:
+                    pass
+                else:
+                    found = True
+                    break
+                index += 1
+
+            if found:
+                logger.trace("sharing/%s/delete: PathOrToken=%r Owner=%r index=%d", ShareType, PathOrToken, row['Owner'], index)
+                self._sharing_cache.pop(index)
+
+                if self._write_csv(self._sharing_db_file):
+                    logger.trace("sharing/%s/delete: write CSV done", ShareType)
+                    return {"status": "success"}
+
+                logger.error("sharing/%s/delete: cannot update CSV database", ShareType)
+                return {"status": "error"}
+            else:
+                return {"status": "not-found"}
+
+    # *** local functions ***
+    def _create_empty_csv(self, file: str) -> bool:
+        with self._storage.acquire_lock("w", None, path=file):
+            with open(file, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=sharing.DB_FIELDS_V1, delimiter=';')
+                writer.writeheader()
+        return True
+
+    def _load_csv(self, file: str) -> bool:
+        logger.debug("sharing database load begin: %r", file)
+        self._sharing_cache = []
+        with self._storage.acquire_lock("r", None):
+            with open(file, 'r', newline='', encoding=self._encoding) as csvfile:
+                reader = csv.DictReader(csvfile, fieldnames=sharing.DB_FIELDS_V1, delimiter=';')
+                self._lines = 0
+                for row in reader:
+                    # logger.debug("sharing database load read: %r", row)
+                    if self._lines == 0:
+                        # header line, check
+                        for fieldname in sharing.DB_FIELDS_V1:
+                            logger.debug("sharing database load check fieldname: %r", fieldname)
+                            if fieldname not in row:
+                                logger.debug("sharing database is incompatible: %r", file)
+                                return False
+                    # convert txt to bool or int
+                    if self._lines > 0:
+                        for fieldname in row:
+                            logger.trace("sharing/_load_csv: test fieldname=%r", fieldname)
+                            if fieldname not in sharing.DB_TYPES_V1:
+                                logger.error("sharing database row error, unsupported fieldname found: %r", fieldname)
+                                return False
+                            if sharing.DB_TYPES_V1[fieldname] is bool:
+                                try:
+                                    row[fieldname] = config._convert_to_bool(row[fieldname])
+                                except Exception as e:
+                                    logger.error("sharing database row error in type conversion fieldname=%r row=%r error: %r", fieldname, row, e)
+                                    return False
+                            elif sharing.DB_TYPES_V1[fieldname] is int:
+                                try:
+                                    row[fieldname] = int(row[fieldname])
+                                except Exception as e:
+                                    logger.error("sharing database row error in type conversion fieldname=%r row=%r error: %r", fieldname, row, e)
+                                    return False
+                            elif sharing.DB_TYPES_V1[fieldname] is dict:
+                                if row[fieldname] is None or row[fieldname] == '':
+                                    row[fieldname] = {}
+                                else:
+                                    field = row[fieldname].lstrip('"').rstrip('"')
+                                    logger.trace("json prep quote replacer match (before): %s", field)
+                                    field = field.replace('"', '\\"').replace("\\'", "'")  # escape "
+                                    field = field.replace("{'", '{"')  # replace for JSON start {' -> {"
+                                    field = field.replace("'}", '"}')  # replace for JSON end '} -> "}
+                                    field = field.replace("': '", '": "')  # replace for JSON entry/value ': ' -> ": "
+                                    field = field.replace("': {", '": {')  # replace for JSON entry/value ': { -> ": {
+                                    field = field.replace("': ", '": ')  # replace for JSON entry/value ':  -> ":(whitespace)
+                                    field = field.replace("', '", '", "')  # replace for JSON delimiter ', ' -> ", "
+                                    field = field.replace(", '", ', "')  # replace for JSON delimiter , ' -> , "
+                                    logger.trace("json prep quote replacer match (after) : %s", field)
+                                    try:
+                                        row[fieldname] = json.loads(field)
+                                    except Exception as e:
+                                        logger.error("sharing database row error in type conversion fieldname=%r field=%r row=%r error: %r", fieldname, field, row, e)
+                                        return False
+                    # check for duplicates
+                    for row_cached in self._sharing_cache:
+                        if row == row_cached:
+                            logger.error("sharing database row duplicate row=%r", row)
+                            return False
+                    # logger.debug("sharing database load add: %r", row)
+                    self._sharing_cache.append(row)
+                    self._lines += 1
+        logger.debug("sharing database load end: %r", file)
+        return True
+
+    def _write_csv(self, file: str) -> bool:
+        with open(file, 'w', newline='', encoding=self._encoding) as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=sharing.DB_FIELDS_V1, delimiter=';')
+            writer.writerows(self._sharing_cache)
+        return True

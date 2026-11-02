@@ -1,0 +1,654 @@
+//! `egobox`, Rust toolbox for efficient global optimization
+//!
+//! Thanks to the [PyO3 project](https://pyo3.rs), which makes Rust well suited for building Python extensions,
+//! the mixture of gaussian process surrogates is binded in Python. You can install the Python package using:
+//!
+//! ```bash
+//! pip install egobox
+//! ```
+//!
+//! See the [tutorial notebook](https://github.com/relf/egobox/notebooks/Gpx_Tutorial.ipynb) for usage.
+//!
+use std::cmp::Ordering;
+
+use crate::errors::{gp_file_format, input_x, moe_err, moe_file_err, output_y, training_data};
+use crate::logging::init_logger;
+use crate::types::*;
+use crate::{domain::parse, gp_config::GpConfig};
+
+use egobox_ego::{EGO_GP_OPTIM_MAX_EVAL, EGO_GP_OPTIM_N_START};
+use egobox_moe::{
+    Clustered, GpMetrics, MixintGpMixture, MixtureGpSurrogate, NbClusters, ThetaTuning,
+};
+#[allow(unused_imports)] // Avoid linting problem
+use egobox_moe::{GpMixture, GpSurrogate, GpSurrogateExt};
+use linfa::{Dataset, traits::Fit};
+use ndarray::{Array1, Array2, Zip, array};
+use ndarray_rand::rand::SeedableRng;
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArrayDyn};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use rand_xoshiro::Xoshiro256Plus;
+
+/// Gaussian processes mixture builder
+///
+/// Parameters
+/// ----------
+/// xspecs : list of XSpec, list of [lower, upper] or None
+///     Specifications of the nx components of the input x (eg. len(xspecs) == nx),
+///     with XSpec(xtype=FLOAT|INT|ORD|ENUM, xlimits=[<f(xtype)>] or tags=[strings]).
+///     Depending on the x type we get the following for xlimits:
+///
+///     * when FLOAT: xlimits is [float lower_bound, float upper_bound],
+///     * when INT: xlimits is [int lower_bound, int upper_bound],
+///     * when ORD: xlimits is [float_1, float_2, ..., float_n],
+///     * when ENUM: xlimits is just the int size of the enumeration otherwise a list of tags is specified
+///       (eg xlimits=[3] or tags=["red", "green", "blue"], tags are there for documentation purpose but
+///       tags specific values themselves are not used only indices in the enum are used hence
+///       we can just specify the size of the enum, xlimits=[3]).
+///
+///     When None, inputs are expected to be floats and no input space restriction is applied
+///     (ie. xlimits is [-inf, inf] for all components).
+/// regr_spec : int
+///     RegressionSpec flags, an int in [1, 7]. Specification of regression models used in mixture.
+///     Can be RegressionSpec.CONSTANT (1), RegressionSpec.LINEAR (2), RegressionSpec.QUADRATIC (4) or
+///     any bit-wise union of these values (e.g. RegressionSpec.CONSTANT | RegressionSpec.LINEAR)
+/// corr_spec : int
+///     CorrelationSpec flags, an int in [1, 15]. Specification of correlation models used in mixture.
+///     Can be CorrelationSpec.SQUARED_EXPONENTIAL (1), CorrelationSpec.ABSOLUTE_EXPONENTIAL (2),
+///     CorrelationSpec.MATERN32 (4), CorrelationSpec.MATERN52 (8) or
+///     any bit-wise union of these values (e.g. CorrelationSpec.MATERN32 | CorrelationSpec.MATERN52)
+/// kpls_dim : int, optional
+///     Number of components to be used when PLS projection is used (a.k.a KPLS method), 0 < kpls_dim < nx.
+///     This is used to address high-dimensional problems typically when nx > 9.
+/// n_clusters : int
+///     Number of clusters used by the mixture of surrogate experts (default is 1).
+///     When set to 0, the number of cluster is determined automatically and refreshed every
+///     10-points addition (should say 'tentative addition' because addition may fail for some points
+///     but it is counted anyway).
+///     When set to negative number -n, the number of clusters is determined automatically in [1, n]
+///     this is used to limit the number of trials hence the execution time.
+/// recombination : Recombination
+///     Specify how the various experts predictions are recombined (default is Recombination.HARD)
+///
+///     * SMOOTH: prediction is a combination of experts prediction wrt their responsibilities,
+///       the heaviside factor which controls steepness of the change between experts regions is optimized
+///       to get best mixture quality.
+///     * HARD: prediction is taken from the expert with highest responsibility
+///       resulting in a model with discontinuities.
+/// theta_init : list of float, optional
+///     Initial guess for GP theta hyperparameters, one value per input component.
+///     When None the default is 1e-1 for all components
+/// theta_bounds : list of [float, float], optional
+///     Search space [[lower_1, upper_1], ..., [lower_nx, upper_nx]] when optimizing theta GP hyperparameters.
+///     When None the default is [1e-2, 1e1] for all components.
+/// theta_n_start : int >= 0, optional
+///     Number of internal GP hyperparameters optimization restarts (multistart, default is 10).
+///     When zero, optimization is disabled and theta init value is used as is.
+/// theta_max_eval : int >= 0, optional
+///     Max number of likelihood evaluations of each GP hyperparameters optimization start (default is 50).
+///     This is an upper limit: each start gets clamp(10 * nx, 25, theta_max_eval) evaluations.
+/// seed : int >= 0, optional
+///     Random generator seed to allow computation reproducibility.
+///     Unlike `Egor` where seed is given to `minimize()`, it is given here at construction.
+/// verbose : Verbose or int in [0, 4], optional
+///     Optional verbose level to control logging output (default is 0)
+///     Used mainly for debugging and development purposes.
+///     Unlike `Egor` where verbose is given to `minimize()`, it is given here at construction.
+///
+/// Returns
+/// -------
+/// GpMix
+///     A builder which can be fitted to data to get a Gpx object (a trained Gaussian processes mixture)
+///
+#[gen_stub_pyclass]
+#[pyclass(skip_from_py_object, module = "egobox")]
+pub(crate) struct GpMix {
+    gp_config: GpConfig,
+    xtypes: Option<Vec<egobox_moe::XType>>,
+    seed: Option<u64>,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl GpMix {
+    #[new]
+    #[pyo3(signature = (
+        xspecs=None,
+        regr_spec=RegressionSpec::CONSTANT,
+        corr_spec=CorrelationSpec::SQUARED_EXPONENTIAL,
+        kpls_dim=None,
+        n_clusters=1,
+        recombination=Recombination::Hard,
+        theta_init=None,
+        theta_bounds=None,
+        theta_n_start=EGO_GP_OPTIM_N_START,
+        theta_max_eval=EGO_GP_OPTIM_MAX_EVAL,
+        seed=None,
+        verbose=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python,
+        #[gen_stub(override_type(type_repr = "typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64] | None", imports = ("typing", "builtins", "numpy", "numpy.typing")))]
+        xspecs: Option<Py<PyAny>>,
+        regr_spec: u8,
+        corr_spec: u8,
+        kpls_dim: Option<usize>,
+        n_clusters: isize,
+        recombination: Recombination,
+        theta_init: Option<Vec<f64>>,
+        theta_bounds: Option<Vec<Vec<f64>>>,
+        theta_n_start: usize,
+        theta_max_eval: usize,
+        seed: Option<u64>,
+        #[gen_stub(override_type(type_repr = "Verbose | builtins.int | None", imports = ("typing", "builtins", "numpy", "numpy.typing")))]
+        verbose: Option<Py<PyAny>>,
+    ) -> PyResult<Self> {
+        init_logger(py, verbose);
+        let xtypes = xspecs
+            .as_ref()
+            .map(|xspecs| parse(py, xspecs.clone_ref(py)))
+            .transpose()?;
+        Ok(GpMix {
+            gp_config: GpConfig::from_values(
+                regr_spec,
+                corr_spec,
+                kpls_dim,
+                n_clusters,
+                recombination,
+                theta_init,
+                theta_bounds,
+                theta_n_start,
+                theta_max_eval,
+            ),
+            xtypes,
+            seed,
+        })
+    }
+
+    /// Fit the parameters of the model using the training dataset to build a trained model
+    ///
+    /// Parameters
+    /// ----------
+    /// xt : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     input samples
+    /// yt : array[nsamples] or array[nsamples, 1]
+    ///     output samples
+    ///
+    /// Returns
+    /// -------
+    /// Gpx
+    ///     the fitted Gaussian process mixture
+    ///
+    fn fit(
+        &mut self,
+        py: Python,
+        xt: PyReadonlyArrayDyn<f64>,
+        yt: PyReadonlyArrayDyn<f64>,
+    ) -> PyResult<Gpx> {
+        self.gp_config.validate()?;
+        let (xt, yt) = training_data(xt.as_array(), yt.as_array())?;
+        if let Some(xtypes) = self.xtypes.as_ref()
+            && xtypes.len() != xt.ncols()
+        {
+            return Err(PyValueError::new_err(format!(
+                "training input should have {} columns as specified by xspecs, got {}",
+                xtypes.len(),
+                xt.ncols()
+            )));
+        }
+        let dataset = Dataset::new(xt, yt);
+
+        let recomb = match self.gp_config.recombination {
+            Recombination::Hard => egobox_moe::Recombination::Hard,
+            Recombination::Smooth => egobox_moe::Recombination::Smooth(None),
+        };
+        let rng = if let Some(seed) = self.seed {
+            Xoshiro256Plus::seed_from_u64(seed)
+        } else {
+            Xoshiro256Plus::from_entropy()
+        };
+
+        let mut theta_tuning = ThetaTuning::default();
+        if let Some(init) = self.gp_config.theta_init.as_ref() {
+            theta_tuning = ThetaTuning::Full {
+                init: Array1::from_vec(init.to_vec()),
+                bounds: array![ThetaTuning::<f64>::DEFAULT_BOUNDS],
+            }
+        }
+        if let Some(bounds) = self.gp_config.theta_bounds.as_ref() {
+            theta_tuning = ThetaTuning::Full {
+                init: theta_tuning.init().to_owned(),
+                bounds: bounds.iter().map(|v| (v[0], v[1])).collect(),
+            }
+        }
+
+        let n_clusters = match self.gp_config.n_clusters.cmp(&0) {
+            Ordering::Greater => NbClusters::fixed(self.gp_config.n_clusters as usize),
+            Ordering::Equal => NbClusters::auto(),
+            Ordering::Less => NbClusters::automax(-self.gp_config.n_clusters as usize),
+        };
+        let n_start: usize = if self.gp_config.theta_n_start == 0 {
+            // no multistart, use theta_init as is
+            theta_tuning = ThetaTuning::Fixed(theta_tuning.init().to_owned());
+            0 // no multistart, value not used
+        } else {
+            self.gp_config.theta_n_start
+        };
+
+        let theta_tunings = if let NbClusters::Fixed { nb } = n_clusters {
+            vec![theta_tuning; nb]
+        } else {
+            vec![theta_tuning; 1] // used as default theta tuning for all experts
+        };
+
+        if let Err(ctrlc::Error::MultipleHandlers) = ctrlc::set_handler(|| std::process::exit(2)) {
+            // ignore multiple handlers error
+        };
+        let moe = py.detach(|| {
+            let regr = RegressionSpec(self.gp_config.regr_spec);
+            let corr = CorrelationSpec(self.gp_config.corr_spec);
+            MixintGpMixture::params(self.xtypes.as_deref())
+                .n_clusters(n_clusters)
+                .recombination(recomb)
+                .regression_spec(egobox_moe::RegressionSpec::from_bits(regr.0).unwrap())
+                .correlation_spec(egobox_moe::CorrelationSpec::from_bits(corr.0).unwrap())
+                .theta_tunings(&theta_tunings)
+                .kpls_dim(self.gp_config.kpls_dim)
+                .n_start(n_start)
+                .max_eval(self.gp_config.theta_max_eval)
+                .with_rng(rng)
+                .fit(&dataset)
+        });
+
+        Ok(Gpx(moe.map_err(moe_err)?))
+    }
+}
+
+/// A trained Gaussian processes mixture
+#[gen_stub_pyclass]
+#[pyclass(skip_from_py_object, module = "egobox")]
+pub(crate) struct Gpx(MixintGpMixture);
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl Gpx {
+    /// Get Gaussian processes mixture builder aka `GpMix`
+    ///
+    /// See `GpMix` constructor for parameters description
+    #[staticmethod]
+    #[pyo3(signature = (
+        xspecs=None,
+        regr_spec=GpConfig::default().regr_spec,
+        corr_spec=GpConfig::default().corr_spec,
+        kpls_dim=GpConfig::default().kpls_dim,
+        n_clusters=GpConfig::default().n_clusters,
+        recombination=GpConfig::default().recombination,
+        theta_init=GpConfig::default().theta_init,
+        theta_bounds=GpConfig::default().theta_bounds,
+        theta_n_start=GpConfig::default().theta_n_start,
+        theta_max_eval=GpConfig::default().theta_max_eval,
+        seed=None,
+        verbose=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn builder(
+        py: Python,
+        #[gen_stub(override_type(type_repr = "typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64] | None", imports = ("typing", "builtins", "numpy", "numpy.typing")))]
+        xspecs: Option<Py<PyAny>>,
+        regr_spec: u8,
+        corr_spec: u8,
+        kpls_dim: Option<usize>,
+        n_clusters: isize,
+        recombination: Recombination,
+        theta_init: Option<Vec<f64>>,
+        theta_bounds: Option<Vec<Vec<f64>>>,
+        theta_n_start: usize,
+        theta_max_eval: usize,
+        seed: Option<u64>,
+        #[gen_stub(override_type(type_repr = "Verbose | builtins.int | None", imports = ("typing", "builtins", "numpy", "numpy.typing")))]
+        verbose: Option<Py<PyAny>>,
+    ) -> PyResult<GpMix> {
+        GpMix::new(
+            py,
+            xspecs,
+            regr_spec,
+            corr_spec,
+            kpls_dim,
+            n_clusters,
+            recombination,
+            theta_init,
+            theta_bounds,
+            theta_n_start,
+            theta_max_eval,
+            seed,
+            verbose,
+        )
+    }
+
+    /// Returns the String representation from serde json serializer
+    fn __repr__(&self) -> PyResult<String> {
+        serde_json::to_string(&self.0).map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Returns a String informal representation
+    fn __str__(&self) -> String {
+        self.0.to_string()
+    }
+
+    /// Save Gaussian processes mixture in a file.
+    /// If the filename has .json JSON human readable format is used
+    /// otherwise an optimized binary format is used.
+    ///
+    /// Parameters
+    /// ----------
+    /// filename : str
+    ///     file path with .json or .bin extension
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True when save succeeds
+    ///
+    /// Raises
+    /// ------
+    /// OSError or ValueError
+    ///     when the model can not be saved
+    ///
+    fn save(&self, filename: String) -> PyResult<bool> {
+        self.0
+            .save(&filename, gp_file_format(&filename))
+            .map_err(|e| moe_file_err(e, &filename))?;
+        Ok(true)
+    }
+
+    /// Load Gaussian processes mixture from file.
+    ///
+    /// Parameters
+    /// ----------
+    /// filename : str
+    ///     .json or .bin file path generated by saving a trained model
+    ///
+    /// Returns
+    /// -------
+    /// Gpx
+    ///     the loaded model
+    ///
+    /// Raises
+    /// ------
+    /// OSError or ValueError
+    ///     when the model can not be loaded
+    ///
+    #[staticmethod]
+    fn load(filename: String) -> PyResult<Gpx> {
+        let gpx = MixintGpMixture::load(&filename, gp_file_format(&filename))
+            .map_err(|e| moe_file_err(e, &filename))?;
+        Ok(Gpx(*gpx))
+    }
+
+    /// Predict output values at nsamples points.
+    ///
+    /// Parameters
+    /// ----------
+    /// x : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     input values
+    /// return_std : bool
+    ///     When True, the standard deviations of the predictions are also returned,
+    ///     computed as sqrt(predict_var(x)) (default is False)
+    ///
+    /// Returns
+    /// -------
+    /// array[nsamples] or (array[nsamples], array[nsamples])
+    ///     the output values at the nsamples x points,
+    ///     and their standard deviations when return_std is True
+    ///
+    #[pyo3(signature = (x, return_std=false))]
+    #[gen_stub(override_return_type(type_repr = "numpy.typing.NDArray[numpy.float64] | tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]", imports = ("numpy", "numpy.typing")))]
+    fn predict<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArrayDyn<f64>,
+        return_std: bool,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let x = input_x(x.as_array(), self.0.dims().0)?;
+        let mean = self.0.predict(&x).map_err(moe_err)?.into_pyarray(py);
+        if return_std {
+            let std = self
+                .0
+                .predict_var(&x)
+                .map_err(moe_err)?
+                .mapv(|v| v.max(0.).sqrt())
+                .into_pyarray(py);
+            Ok((mean, std).into_pyobject(py)?.into_any())
+        } else {
+            Ok(mean.into_any())
+        }
+    }
+
+    /// Predict variances at nsamples points.
+    ///
+    /// Parameters
+    /// ----------
+    /// x : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     input values
+    ///
+    /// Returns
+    /// -------
+    /// array[nsamples]
+    ///     the variances of the output values at the nsamples x points
+    ///
+    fn predict_var<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArrayDyn<f64>,
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let x = input_x(x.as_array(), self.0.dims().0)?;
+        Ok(self.0.predict_var(&x).map_err(moe_err)?.into_pyarray(py))
+    }
+
+    /// Predict surrogate output derivatives at nsamples points.
+    ///
+    /// Parameters
+    /// ----------
+    /// x : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     input values
+    ///
+    /// Returns
+    /// -------
+    /// array[nsamples, nx]
+    ///     the output derivatives wrt inputs at the nsamples x points.
+    ///     The ith column is the partial derivative wrt the ith component of x.
+    ///
+    fn predict_gradients<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArrayDyn<f64>,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let x = input_x(x.as_array(), self.0.dims().0)?;
+        Ok(self
+            .0
+            .predict_gradients(&x)
+            .map_err(moe_err)?
+            .into_pyarray(py))
+    }
+
+    /// Predict variance derivatives at nsamples points.
+    ///
+    /// Parameters
+    /// ----------
+    /// x : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     input values
+    ///
+    /// Returns
+    /// -------
+    /// array[nsamples, nx]
+    ///     the variance derivatives wrt inputs at the nsamples x points.
+    ///     The ith column is the partial derivative wrt the ith component of x.
+    ///
+    fn predict_var_gradients<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArrayDyn<f64>,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let x = input_x(x.as_array(), self.0.dims().0)?;
+        Ok(self
+            .0
+            .predict_var_gradients(&x)
+            .map_err(moe_err)?
+            .into_pyarray(py))
+    }
+
+    /// Sample gaussian process trajectories.
+    ///
+    /// Parameters
+    /// ----------
+    /// x : array[nsamples, nx] or array[nsamples] when nx == 1
+    ///     locations of the sampled trajectories
+    /// n_traj : int
+    ///     number of trajectories to generate
+    ///
+    /// Returns
+    /// -------
+    /// array[nsamples, n_traj]
+    ///     the trajectories
+    ///
+    fn sample<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArrayDyn<f64>,
+        n_traj: usize,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let x = input_x(x.as_array(), self.0.dims().0)?;
+        Ok(self.0.sample(&x, n_traj).map_err(moe_err)?.into_pyarray(py))
+    }
+
+    /// Get the input and output dimensions of the surrogate
+    ///
+    /// Returns
+    /// -------
+    /// tuple[int, int]
+    ///     the couple (nx, ny)
+    ///
+    fn dims(&self) -> (usize, usize) {
+        self.0.dims()
+    }
+
+    /// Number of input components
+    #[getter]
+    fn nx(&self) -> usize {
+        self.0.dims().0
+    }
+
+    /// Number of output components
+    #[getter]
+    fn ny(&self) -> usize {
+        self.0.dims().1
+    }
+
+    /// Update the mixture of experts with new data points.
+    ///
+    /// For single-expert mixtures, uses efficient GP update with Cholesky rank-1 updates.
+    /// For multi-expert mixtures, assigns new points to clusters and refits experts with fixed theta.
+    ///
+    /// Parameters
+    /// ----------
+    /// x_new : array[n_new, nx] or array[n_new] when nx == 1
+    ///     new input data points
+    /// y_new : array[n_new] or array[n_new, 1]
+    ///     new output data values
+    ///
+    /// Returns
+    /// -------
+    /// Gpx
+    ///     a new Gpx instance updated with the new data
+    ///
+    /// Examples
+    /// --------
+    /// >>> import egobox as egx
+    /// >>> import numpy as np
+    /// >>> gpx = egx.Gpx.builder().fit(np.array([[0.0], [1.0]]), np.array([0.0, 1.0]))
+    /// >>> gpx_updated = gpx.update(np.array([[2.0]]), np.array([1.5]))
+    ///
+    fn update(
+        &self,
+        x_new: PyReadonlyArrayDyn<f64>,
+        y_new: PyReadonlyArrayDyn<f64>,
+    ) -> PyResult<Gpx> {
+        let x_arr = input_x(x_new.as_array(), self.0.dims().0)?;
+        let y_arr = output_y(y_new.as_array())?;
+        if x_arr.nrows() != y_arr.len() {
+            return Err(PyValueError::new_err(format!(
+                "x_new and y_new should have the same number of samples, got {} and {}",
+                x_arr.nrows(),
+                y_arr.len()
+            )));
+        }
+
+        let updated_moe = self.0.clone().update(&x_arr, &y_arr).map_err(moe_err)?;
+
+        Ok(Gpx(updated_moe))
+    }
+
+    /// Get the nt training data points used to fit the surrogate
+    ///
+    /// Returns
+    /// -------
+    /// tuple[array[nt, nx], array[nt]]
+    ///     the couple (xt, yt)
+    ///
+    fn training_data<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> (Bound<'py, PyArray2<f64>>, Bound<'py, PyArray1<f64>>) {
+        let (xdata, ydata) = self.0.training_data();
+        (
+            xdata.to_owned().into_pyarray(py),
+            ydata.to_owned().into_pyarray(py),
+        )
+    }
+
+    /// Optimized thetas hyperparameters of the fitted GP experts,
+    /// array[n_clusters, nx or kpls_dim] (one row per expert)
+    #[getter]
+    fn thetas<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<f64>> {
+        let experts = self.0.experts();
+        let proto = experts.first().expect("Mixture should contain an expert");
+        let mut thetas = Array2::zeros((self.0.n_clusters(), proto.theta().len()));
+        Zip::from(thetas.rows_mut())
+            .and(experts)
+            .for_each(|mut theta, expert| theta.assign(expert.theta()));
+        thetas.into_pyarray(py)
+    }
+
+    /// Variance of the fitted GP experts (ie posterior GP variance), array[n_clusters]
+    /// (one value per expert)
+    #[getter]
+    fn variances<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        let experts = self.0.experts();
+        let mut variances = Array1::zeros(self.0.n_clusters());
+        Zip::from(&mut variances)
+            .and(experts)
+            .for_each(|var, expert| *var = expert.variance());
+        variances.into_pyarray(py)
+    }
+
+    /// Reduced likelihood values obtained when fitting the GP experts, array[n_clusters]
+    /// (one value per expert). May be used to compare various parameterizations.
+    #[getter]
+    fn likelihoods<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        let experts = self.0.experts();
+        let mut likelihoods = Array1::zeros(self.0.n_clusters());
+        Zip::from(&mut likelihoods)
+            .and(experts)
+            .for_each(|lkh, expert| *lkh = expert.likelihood());
+        likelihoods.into_pyarray(py)
+    }
+}
+
+impl From<MixintGpMixture> for Gpx {
+    fn from(moe: MixintGpMixture) -> Self {
+        Gpx(moe)
+    }
+}

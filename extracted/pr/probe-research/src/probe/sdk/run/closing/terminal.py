@@ -7,6 +7,7 @@ from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
+from probe.sdk.routes import WriteOp, path_for
 
 
 class TerminalMixin:
@@ -72,7 +73,7 @@ class TerminalMixin:
             current = [t for t in (row.get("tags") or []) if t != "draining"]
             self._client.transport.request(
                 "PATCH",
-                f"/v1/runs/{self.id}",
+                path_for(WriteOp.RUN_PATCH, self.id),
                 json_body={"tags": [*current, "draining"]},
             )
             beacon_tags = current
@@ -93,6 +94,9 @@ class TerminalMixin:
         accounting: dict | None = None,
     ) -> dict:
         """Journal the terminal PATCH behind this run's queued ops."""
+        # Behind the open's snapshot writes too: an interrupted close may get here before
+        # `_close_finalize` settled them, so shut that gate now, without waiting (plan O3).
+        self._settle_open_snapshot(time.monotonic())
         block: dict[str, Any] = {
             **(accounting or {}),
             "deferred": True,
@@ -123,7 +127,7 @@ class TerminalMixin:
             # `dropped_writes` marker (review of #2014). One small op.
             if not leased or self._owns_run_fields():
                 self._client.journal.append_http(
-                    "PATCH", f"/v1/runs/{self.id}", body, run_ref=self.id, admitted=True
+                    "PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, run_ref=self.id, admitted=True
                 )
             if self._lease is not None:
                 # Leased: the verdict. On a run that is not `leases` the PATCH

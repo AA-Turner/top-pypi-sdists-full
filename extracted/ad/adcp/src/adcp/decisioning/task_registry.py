@@ -1,0 +1,778 @@
+"""Task registry for the DecisioningPlatform handoff path.
+
+Defines:
+
+* :class:`TaskRegistry` Protocol — the seam adopters substitute when
+  they need a durable backing store (PostgreSQL, Redis, etc.). The
+  Protocol shape is pinned with per-method contract docstrings; D7 of
+  the dispatch design names every invariant.
+* :class:`InMemoryTaskRegistry` — the v6.0 reference implementation.
+  Process-local, lossy on restart. Suitable for local dev, CI, and
+  test fixtures; production deployments running ``sales-broadcast-tv``
+  or any HITL flow refuse to start without an explicit opt-in (see
+  :func:`adcp.decisioning.serve.serve` Stage 3 wiring).
+* :class:`TaskHandoffContext` — what the framework passes into the
+  adopter's handoff callable when ``ctx.handoff_to_task(fn)`` fires.
+  Carries the framework-issued task id plus ``update(progress)`` and
+  ``heartbeat()`` affordances.
+
+The registry's storage shape is intentionally minimal:
+``{task_id → TaskRecord}`` keyed by the framework-allocated UUID.
+Cross-tenant access control is enforced via the optional
+``expected_account_id`` argument on :meth:`TaskRegistry.get` — sellers
+threading ``ctx.account.id`` through to ``tasks/get`` get a None
+return on mismatch (no principal-enumeration via task_id probing).
+
+Production-mode gate (Emma #8 / round-4):
+:func:`adcp.decisioning.serve.serve` reads ``ADCP_ENV`` (case-insensitive
+``{"prod", "production"}`` — same as
+:func:`adcp.validation.client_hooks._default_response_mode`) and
+refuses to wire :class:`InMemoryTaskRegistry` in production unless
+``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1`` is set. Sales-broadcast-tv
+adopters are structurally forced into the HITL path which depends on
+the registry — silent in-memory fallback is a real prod foot-gun.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import threading
+import time
+import uuid
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, Literal, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
+
+#: Terminal task states per AdCP 3.0 spec (``enums/task-status.json``).
+#: ``submitted`` = task created but not yet started; ``working`` = adopter
+#: callback running; ``completed`` / ``failed`` = terminal.
+TaskState = Literal["submitted", "working", "completed", "failed"]
+
+
+TaskTransition = Literal["submitted", "working", "completed", "failed", "discarded"]
+
+
+class TaskLifecycleObserver(Protocol):
+    """Synchronous best-effort metrics hook; no durable delivery guarantee."""
+
+    def __call__(
+        self,
+        event: TaskTransition,
+        *,
+        task_id: str,
+        account_id: str,
+        task_type: str,
+        created_at: float,
+        updated_at: float,
+    ) -> None: ...
+
+
+class _TaskLifecycleObservers:
+    """Thread-safe observer registration, shared by SDK registry implementations."""
+
+    def _init_lifecycle_observers(self) -> None:
+        self._lifecycle_observers: list[TaskLifecycleObserver] = []
+        self._lifecycle_observers_lock = threading.Lock()
+
+    def add_lifecycle_observer(self, observer: TaskLifecycleObserver) -> None:
+        """Register a synchronous hook fired after commit/outside registry locks.
+
+        Re-registering the same callback is a no-op. Notifications use a snapshot;
+        registration changes during delivery apply to the next notification.
+        Observer exceptions are logged and swallowed. Hooks are best-effort metrics,
+        not a durable event stream, and concurrent transitions may notify out of order.
+        """
+        with self._lifecycle_observers_lock:
+            if observer not in self._lifecycle_observers:
+                self._lifecycle_observers.append(observer)
+
+    def remove_lifecycle_observer(self, observer: TaskLifecycleObserver) -> bool:
+        """Remove a hook, returning whether it was registered."""
+        with self._lifecycle_observers_lock:
+            try:
+                self._lifecycle_observers.remove(observer)
+            except ValueError:
+                return False
+        return True
+
+    def _notify_lifecycle_observers(self, event: TaskTransition, record: dict[str, Any]) -> None:
+        with self._lifecycle_observers_lock:
+            observers = tuple(self._lifecycle_observers)
+        for observer in observers:
+            try:
+                observer(
+                    event,
+                    task_id=record["task_id"],
+                    account_id=record["account_id"],
+                    task_type=record["task_type"],
+                    created_at=record["created_at"],
+                    updated_at=record["updated_at"],
+                )
+            except Exception:
+                logger.exception(
+                    "Task lifecycle observer failed for %s task %s", event, record["task_id"]
+                )
+
+
+@dataclass(frozen=True)
+class TaskWebhookAuthentication:
+    """Buyer-selected authentication for a durable task webhook.
+
+    ``scheme`` deliberately remains a string instead of a closed ``Literal``:
+    custom registries can persist future protocol schemes without waiting for
+    a new SDK type. SDK-owned publishers validate the schemes they support
+    before issuing a task. Credentials are excluded from ``repr`` so routine
+    diagnostics cannot disclose the buyer's bearer token or HMAC secret.
+    """
+
+    scheme: str
+    credentials: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.scheme, str) or not self.scheme:
+            raise ValueError("webhook authentication scheme must be a non-empty string")
+        if not isinstance(self.credentials, str) or not self.credentials:
+            raise ValueError("webhook authentication credentials must be a non-empty string")
+
+
+@dataclass
+class TaskRecord:
+    """The framework's per-task storage row.
+
+    Internal to the registry impl — adopters don't construct these.
+    The Protocol surface returns dicts on :meth:`TaskRegistry.get`
+    rather than the dataclass directly so the storage shape stays
+    swappable (a Postgres impl might return a different row class).
+
+    :param task_id: Framework-allocated UUID. Stable across the
+        task's lifetime.
+    :param account_id: Account that owns the task. Used for the
+        cross-tenant access-control check in :meth:`TaskRegistry.get`.
+    :param state: Terminal state lifecycle. Transitions are
+        framework-driven; adopters drive completion via
+        :meth:`TaskHandoffContext.update` and the dispatcher calls
+        :meth:`TaskRegistry.complete` / :meth:`TaskRegistry.fail` at
+        the end of the handoff fn.
+    :param task_type: Wire-spec task type (``'create_media_buy'``,
+        ``'sync_creatives'``, etc.). Stored on the registry record so
+        ``tasks/get`` can return it on the response payload; NOT part
+        of the synchronous Submitted envelope (per
+        ``schemas/cache/core/protocol-envelope.json``).
+    :param progress: Latest progress payload written by
+        :meth:`TaskHandoffContext.update`. Buyers see this on
+        ``tasks/get`` while the task is in the ``working`` state.
+    :param result: Terminal artifact set by :meth:`TaskRegistry.complete`.
+        MUST be the JSON-serialized spec response shape (e.g. a
+        ``CreateMediaBuySuccessResponse`` projected through
+        ``model_dump()``). v6.1 adds size enforcement; for now the
+        registry trusts adopters.
+    :param error: Terminal failure payload set by
+        :meth:`TaskRegistry.fail`. MUST be the
+        :meth:`AdcpError.to_wire` shape so ``tasks/get`` returns the
+        spec ``adcp_error`` envelope verbatim.
+    :param created_at: Monotonic creation timestamp (Unix epoch
+        seconds). Adopters get the exact value the framework stored;
+        useful for SLA dashboards.
+    :param updated_at: Last-touched timestamp. Updated on every state
+        transition AND every :meth:`TaskHandoffContext.update` call.
+    """
+
+    task_id: str
+    account_id: str
+    state: TaskState
+    task_type: str
+    progress: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None
+    error: dict[str, Any] | None = None
+    request_context: dict[str, Any] | None = None
+    """Buyer-supplied ``context`` extension from the request that
+    issued this task. ``tasks/get`` echoes it inside ``result`` — the
+    original task's terminal response, whose schema carries ``context`` —
+    never as the poll response's top-level ``context``, which echoes the
+    poll request's own (#1574). Captured at ``issue()`` time and
+    immutable afterwards — terminal-state transitions
+    (``complete`` / ``fail``) MUST NOT touch this field. Closes #563.
+    """
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the registry record.
+
+        This is the record shape, not the wire shape:
+        :func:`adcp.decisioning.task_queries.project_task` projects it onto
+        ``tasks/get``. ``created_at`` / ``updated_at`` are included so admin
+        tooling can build SLA reports.
+
+        ``context`` is the creating request's ``context``. The projection
+        echoes it inside ``result``; the poll response's top-level
+        ``context`` belongs to the poll request (#1574).
+        """
+        out: dict[str, Any] = {
+            "task_id": self.task_id,
+            "account_id": self.account_id,
+            "state": self.state,
+            "task_type": self.task_type,
+            "progress": self.progress,
+            "result": self.result,
+            "error": self.error,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+        if self.request_context is not None:
+            out["context"] = self.request_context
+        return out
+
+
+@runtime_checkable
+class TaskRegistry(Protocol):
+    """Per-account task store — the seam adopters substitute for a
+    durable backing implementation.
+
+    **Durability marker** (``is_durable: ClassVar[bool]``):
+
+    Production deployments running ``sales-broadcast-tv`` or any HITL
+    flow refuse to start with a non-durable registry unless the
+    operator explicitly opts in via
+    ``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1``. The framework reads
+    ``registry.is_durable`` to make this decision; subclassing
+    :class:`InMemoryTaskRegistry` for instrumentation does NOT bypass
+    the gate (the subclass inherits ``is_durable = False``). Custom
+    durable impls MUST set ``is_durable = True`` explicitly. The
+    Protocol declares this as a class-level ``bool``.
+
+    Lifecycle (framework-driven; adopters call only :meth:`TaskHandoffContext`
+    methods, not these directly):
+
+    1. Dispatch detects ``ctx.handoff_to_task(fn)`` returned from a
+       platform method. Allocates a task_id and calls :meth:`issue` to
+       persist the ``submitted`` row.
+    2. Dispatch projects the wire ``Submitted`` envelope to the buyer.
+    3. Dispatch runs ``fn(task_handoff_ctx)`` in the background. The
+       adopter calls ``task_handoff_ctx.update(progress)`` zero or
+       more times; the framework routes each to :meth:`update_progress`
+       (also transitions ``submitted`` → ``working`` on first update).
+    4. When ``fn`` returns, dispatch calls :meth:`complete` with the
+       terminal artifact (a JSON-serialized spec response).
+    5. When ``fn`` raises :class:`adcp.decisioning.AdcpError` (or any
+       exception, wrapped to ``INTERNAL_ERROR``), dispatch calls
+       :meth:`fail` with the wire-shaped error payload.
+
+    All write paths set ``updated_at = now``. The registry is
+    expected to be safe for concurrent reads; concurrent writes to
+    the same task are serialized by the dispatcher (one ``fn`` per
+    handoff, no concurrent `update_progress`/`complete` against the
+    same task_id).
+
+    Cross-tenant safety: every read MUST be account-scoped. The
+    :meth:`get` method takes an optional ``expected_account_id`` —
+    when supplied (the wire ``tasks/get`` path always supplies it),
+    a mismatch returns ``None``, NOT the raw record. Adopters
+    implementing custom registries MUST honor this: returning a
+    cross-tenant record on probe enables principal-enumeration via
+    task_id guessing. See
+    ``tests/test_decisioning_task_registry_cross_tenant.py`` for
+    the regression suite.
+
+    **``account_id`` is opaque.** The framework threads
+    ``ctx.account.id`` (whatever the adopter's
+    :class:`~adcp.decisioning.AccountStore.resolve` returned) into
+    every method. The registry MUST NOT parse it or re-derive tenant
+    scope from it. Multi-tenant adopters encode their tenant scope
+    into ``Account.id`` once at the
+    :class:`~adcp.decisioning.AccountStore` layer; the registry then
+    gets a globally-unique scope key and the cross-tenant probe
+    check above degenerates to a simple equality. See the
+    AccountStore docstring's "Multi-tenant deployments" section for
+    the canonical encoding pattern.
+    """
+
+    #: Whether this registry persists tasks across process restarts.
+    #: ``False`` for in-memory / lossy impls; ``True`` for durable
+    #: backings (PostgreSQL, Redis, etc.). The framework's
+    #: production-mode gate refuses non-durable registries unless
+    #: the operator explicitly opts in via
+    #: ``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1``.
+    is_durable: ClassVar[bool]
+
+    async def issue(
+        self,
+        *,
+        account_id: str,
+        task_type: str,
+        request_context: dict[str, Any] | None = None,
+        webhook_url: str | None = None,
+        webhook_operation_id: str | None = None,
+        webhook_token: str | None = None,
+        webhook_authentication: TaskWebhookAuthentication | None = None,
+        webhook_signing_scope_id: str | None = None,
+        **_extra: Any,
+    ) -> str:
+        """Allocate a fresh task_id, persist a ``submitted`` row, and
+        return the id.
+
+        :param account_id: Account that owns the task. Drives the
+            cross-tenant access check on subsequent reads.
+        :param task_type: Wire-spec task type (``'create_media_buy'``,
+            etc.). Persisted on the row and surfaced on ``tasks/get``
+            reads; NOT included in the synchronous Submitted envelope
+            (per ``schemas/cache/core/protocol-envelope.json``).
+        :param request_context: Buyer-supplied ``context`` extension
+            from the request that issued this task. Persisted on the
+            row and surfaced at the top level of ``tasks/get``
+            responses (sibling of ``result`` / ``error``) so buyers
+            can correlate polled task state with the kick-off
+            request. ``None`` when the request carried no context
+            field; the framework supplies it from the original
+            request params. Adopters writing custom registries SHOULD
+            store and surface this field; older registry impls that
+            ignore it are functionally compatible (no echo on
+            ``tasks/get`` reads, identical to pre-#563 behavior).
+        :param webhook_url: Buyer-registered terminal task callback URL.
+            Durable registries with an atomic outbox persist it at issue time
+            and consume it in ``complete`` / ``fail``. ``None`` means polling.
+        :param webhook_operation_id: Buyer-generated operation identifier to
+            echo verbatim in every task webhook. Required with ``webhook_url``.
+        :param webhook_token: Optional buyer validation token to echo in the
+            webhook payload. Treat as sensitive callback registration data.
+        :param webhook_authentication: Optional buyer-selected legacy
+            authentication mode and credentials. Presence selects that mode;
+            absence selects the RFC 9421 signing profile. Durable registries
+            must treat the credentials as secret registration data.
+        :param webhook_signing_scope_id: Framework-derived opaque scope used
+            by an SDK-managed tenant-aware webhook outbox. This value must
+            originate from trusted server-side ``RequestContext`` metadata,
+            never buyer request fields. Custom registries may ignore it.
+        :param _extra: Forward-compat slot for kwargs added by future
+            framework versions. Custom registry impls MUST include
+            ``**_extra: Any`` on their ``issue()`` signature so the
+            framework can introduce new optional kwargs without
+            breaking adopters who haven't yet adopted the new field.
+            Implementations that don't recognize an extra kwarg
+            should silently ignore it (the framework only relies on
+            kwargs the Protocol explicitly declares). Logging the
+            unrecognized keys at DEBUG level is encouraged so
+            adopters notice when they've fallen behind.
+        :returns: The framework-allocated task_id (string UUID).
+        """
+        ...
+
+    async def update_progress(
+        self,
+        task_id: str,
+        progress: dict[str, Any],
+    ) -> None:
+        """Write a progress payload and transition ``submitted`` →
+        ``working`` on first call. No-op transition on subsequent
+        calls (already in ``working``).
+
+        Errors here are swallowed by the dispatch wrapper — a transient
+        registry write failure must NOT abort the adopter's background
+        handoff. Buyer-facing impact is a missed progress event, not a
+        failed task. Adopter impls of this method that need durability
+        guarantees should buffer + retry internally.
+        """
+        ...
+
+    async def complete(
+        self,
+        task_id: str,
+        result: dict[str, Any],
+    ) -> None:
+        """Mark the task ``completed`` with ``result`` as the terminal
+        artifact.
+
+        ``result`` MUST be the JSON-serialized spec response shape
+        (e.g. ``CreateMediaBuySuccessResponse`` via ``model_dump()``).
+        Idempotent on repeated calls with equal ``result``;
+        non-idempotent re-completion with different result raises
+        ``ValueError``.
+        """
+        ...
+
+    async def fail(
+        self,
+        task_id: str,
+        error: dict[str, Any],
+    ) -> None:
+        """Mark the task ``failed`` with ``error`` as the terminal
+        wire-shaped error payload.
+
+        ``error`` MUST be the :meth:`AdcpError.to_wire` shape so
+        ``tasks/get`` round-trips the spec ``adcp_error`` envelope
+        verbatim. Idempotent on repeated calls with equal ``error``.
+        """
+        ...
+
+    async def get(
+        self,
+        task_id: str,
+        *,
+        expected_account_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Look up a task record. Cross-tenant probes return ``None``.
+
+        :param task_id: Framework-allocated id from a prior :meth:`issue`.
+        :param expected_account_id: When supplied, the registry MUST
+            return ``None`` if the stored record's ``account_id`` does
+            not match. The wire ``tasks/get`` path always supplies the
+            authenticated principal's account_id so adopters can't
+            probe across tenants.
+        :returns: The record dict (per :meth:`TaskRecord.to_dict`) or
+            ``None`` if the id is unknown OR a cross-tenant mismatch.
+        """
+        ...
+
+    async def discard(self, task_id: str) -> None:
+        """Remove a task_id from the registry — rollback path.
+
+        Used by the WorkflowHandoff dispatch projection
+        (:func:`adcp.decisioning.dispatch._project_workflow_handoff`)
+        when the adopter's enqueue fn raises after the task_id has
+        been allocated. Without rollback, the buyer would receive a
+        Submitted envelope referencing an orphan task_id their
+        external workflow never registered.
+
+        Idempotent: discarding an unknown task_id is a no-op (no
+        raise). The discard window is tightly scoped — between
+        ``issue()`` and the framework's projection step, with the
+        adopter's enqueue fn in between. In practice this is a few
+        milliseconds.
+
+        Adopters MUST NOT call ``discard`` on a task that has
+        progressed past ``submitted`` — that's the wrong recovery
+        path; use ``fail()`` instead.
+        """
+        ...
+
+
+@runtime_checkable
+class ListableTaskRegistry(Protocol):
+    """Optional account-scoped reconciliation extension; TaskRegistry stays minimal.
+
+    Return a wire-shaped list_tasks page with query_summary, tasks and pagination.
+    Filters/sort/pagination use the canonical request's JSON shape. Implementations
+    must scope reads before materializing records and hide expired references.
+    Conversation history is not required because SDK registries do not store it.
+    """
+
+    async def list(
+        self,
+        *,
+        account_id: str,
+        filters: dict[str, Any] | None = None,
+        sort: dict[str, Any] | None = None,
+        pagination: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
+
+
+# ---------------------------------------------------------------------------
+# In-memory reference implementation — v6.0 ships this; v6.1 lands a
+# durable Postgres-backed counterpart that implements the same Protocol.
+# ---------------------------------------------------------------------------
+
+
+class InMemoryTaskRegistry(_TaskLifecycleObservers):
+    """Process-local task registry — v6.0 reference implementation.
+
+    Storage is a plain ``dict[str, TaskRecord]`` guarded by an
+    :class:`asyncio.Lock`. Adequate for local dev, CI, and test
+    fixtures; production deployments wire a durable counterpart
+    (PostgreSQL, Redis, etc.) implementing the same :class:`TaskRegistry`
+    Protocol.
+
+    Production-mode gate: :func:`adcp.decisioning.serve.serve` refuses
+    to wire this when ``ADCP_ENV`` indicates production unless
+    ``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1`` is set. The gate
+    reads ``registry.is_durable``; subclassing this class for
+    instrumentation does NOT bypass the gate (the ``False`` is
+    inherited). Custom durable impls set ``is_durable = True``
+    explicitly. Production sellers running ``sales-broadcast-tv``
+    or any HITL flow get the explicit refusal so silent in-memory
+    fallback can't bite oncall.
+    """
+
+    is_durable: ClassVar[bool] = False
+
+    def __init__(self) -> None:
+        self._init_lifecycle_observers()
+        self._records: dict[str, TaskRecord] = {}
+        self._lock = asyncio.Lock()
+
+    async def issue(
+        self,
+        *,
+        account_id: str,
+        task_type: str,
+        request_context: dict[str, Any] | None = None,
+        **_extra: Any,
+    ) -> str:
+        # Forward-compat: log unrecognized kwargs at DEBUG so adopters
+        # who haven't yet upgraded notice when they're missing new
+        # framework fields. Don't raise — that would break adopters
+        # the moment a new version ships.
+        if _extra:
+            logger.debug(
+                "InMemoryTaskRegistry.issue ignoring unrecognized kwargs: %s",
+                list(_extra.keys()),
+            )
+        # Reject empty/unset account_id at issue-time. Without this,
+        # two tenants whose AccountStore returns Account(id="") or the
+        # default Account(id="<unset>") share a cache scope class and
+        # can read each other's tasks via cross-tenant probe (the
+        # equality check passes when both are empty). See
+        # tests/test_decisioning_task_registry_cross_tenant.py for the
+        # regression suite.
+        if not account_id or not account_id.strip() or account_id == "<unset>":
+            raise ValueError(
+                f"account_id must be a non-empty, non-default string; "
+                f"got {account_id!r}. AccountStore.resolve must always "
+                "return Account(id=<non-empty>) so cross-tenant cache "
+                "scoping works correctly."
+            )
+        task_id = f"task_{uuid.uuid4().hex[:16]}"
+        async with self._lock:
+            self._records[task_id] = TaskRecord(
+                task_id=task_id,
+                account_id=account_id,
+                state="submitted",
+                task_type=task_type,
+                request_context=(dict(request_context) if request_context is not None else None),
+            )
+            event_record = self._records[task_id].to_dict()
+        self._notify_lifecycle_observers("submitted", event_record)
+        return task_id
+
+    async def update_progress(
+        self,
+        task_id: str,
+        progress: dict[str, Any],
+    ) -> None:
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None:
+                # Silent no-op — the dispatch wrapper expects this method
+                # to never raise on transient lookup failure (see Protocol
+                # docstring).
+                return
+            if record.state in ("completed", "failed"):
+                # Terminal-state guard: a late progress update from a
+                # straggler coroutine MUST NOT mutate a finalized record
+                # — it would resurrect "working" appearance against
+                # ``tasks/get`` reads that already saw the terminal
+                # state. Log + drop is the safe choice (the dispatch
+                # wrapper is expected to swallow update failures
+                # anyway).
+                logger.warning(
+                    "InMemoryTaskRegistry.update_progress(task_id=%s) "
+                    "dropped: task is already in terminal state %r",
+                    task_id,
+                    record.state,
+                )
+                return
+            transitioned = record.state == "submitted"
+            record.progress = dict(progress)
+            if record.state == "submitted":
+                record.state = "working"
+            record.updated_at = time.time()
+            event_record = record.to_dict()
+        if transitioned:
+            self._notify_lifecycle_observers("working", event_record)
+
+    async def complete(
+        self,
+        task_id: str,
+        result: dict[str, Any],
+    ) -> None:
+        # Defense-in-depth credential strip at the persistence boundary.
+        # The dispatcher's TaskHandoff path also strips before calling
+        # complete() (see ``_project_handoff`` in dispatch.py); the
+        # WorkflowHandoff path does NOT (the adopter's external
+        # workflow calls ``registry.complete`` directly, off the
+        # framework's call stack). Stripping here closes that gap and
+        # protects custom registry consumers that bypass the dispatcher
+        # entirely. The strip is method-gated by ``record.task_type``
+        # (the wire verb name persisted at ``issue()``) and idempotent
+        # on already-stripped payloads, so the dispatcher-side double
+        # strip is a no-op.
+        from adcp.decisioning.account_projection import strip_credentials_from_wire_result
+
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None:
+                raise ValueError(f"Task {task_id!r} not found")
+            stripped = strip_credentials_from_wire_result(record.task_type, result)
+            if record.state == "completed":
+                if record.result == stripped:
+                    return  # idempotent
+                raise ValueError(f"Task {task_id!r} already completed with a different result")
+            if record.state == "failed":
+                raise ValueError(f"Task {task_id!r} already in terminal state {record.state!r}")
+            record.state = "completed"
+            record.result = dict(stripped) if isinstance(stripped, dict) else stripped
+            record.updated_at = time.time()
+            event_record = record.to_dict()
+        self._notify_lifecycle_observers("completed", event_record)
+
+    async def fail(
+        self,
+        task_id: str,
+        error: dict[str, Any],
+    ) -> None:
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None:
+                raise ValueError(f"Task {task_id!r} not found")
+            if record.state == "failed":
+                if record.error == error:
+                    return  # idempotent
+                raise ValueError(f"Task {task_id!r} already failed with a different error")
+            if record.state == "completed":
+                raise ValueError(f"Task {task_id!r} already in terminal state {record.state!r}")
+            record.state = "failed"
+            record.error = dict(error)
+            record.updated_at = time.time()
+            event_record = record.to_dict()
+        self._notify_lifecycle_observers("failed", event_record)
+
+    async def get(
+        self,
+        task_id: str,
+        *,
+        expected_account_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None:
+                return None
+            if expected_account_id is not None and record.account_id != expected_account_id:
+                # Cross-tenant probe — return None, NOT raw record.
+                # Critical security boundary: returning the record
+                # here enables principal-enumeration via task_id
+                # probing. The dispatch path that calls this method
+                # always passes the authenticated principal's
+                # account_id; adopter impls implementing this Protocol
+                # MUST preserve this behavior.
+                return None
+            return record.to_dict()
+
+    async def list(
+        self,
+        *,
+        account_id: str,
+        filters: dict[str, Any] | None = None,
+        sort: dict[str, Any] | None = None,
+        pagination: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from adcp.decisioning.task_queries import list_task_records
+
+        async with self._lock:
+            records = [
+                record.to_dict()
+                for record in self._records.values()
+                if record.account_id == account_id
+            ]
+        return list_task_records(
+            records, account_id=account_id, filters=filters, sort=sort, pagination=pagination
+        )
+
+    async def discard(self, task_id: str) -> None:
+        async with self._lock:
+            # Idempotent: pop with default. The Protocol contract
+            # tolerates discarding an unknown id (no raise) so the
+            # WorkflowHandoff projection's rollback can be unconditional.
+            record = self._records.pop(task_id, None)
+            if record is not None:
+                event_record = record.to_dict()
+                event_record["updated_at"] = time.time()
+        if record is not None:
+            self._notify_lifecycle_observers("discarded", event_record)
+
+
+# ---------------------------------------------------------------------------
+# TaskHandoffContext — what the framework passes into adopter handoff fns
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TaskHandoffContext:
+    """Per-task context passed to the handoff fn registered via
+    :meth:`adcp.decisioning.RequestContext.handoff_to_task`.
+
+    Adopter pattern::
+
+        def create_media_buy(self, req, ctx):
+            if self._needs_review(req):
+                return ctx.handoff_to_task(self._async_review)
+
+            return CreateMediaBuySuccess(media_buy_id="mb_1", ...)
+
+        async def _async_review(self, task_ctx: TaskHandoffContext):
+            await task_ctx.update({"message": "Trafficker reviewing"})
+            decision = await self._wait_for_trafficker(task_ctx.id)
+            return CreateMediaBuySuccess(media_buy_id=decision.id, ...)
+
+    The framework allocates ``task_ctx.id`` BEFORE invoking the
+    handoff fn so the adopter can persist the id to its own backend
+    (storyboard runner row, Slack thread reference, etc.) before
+    kicking off slow work. This fixes a documented v1 ergonomics bug
+    where adopters could only learn the task_id AFTER returning.
+
+    Constructed by :func:`adcp.decisioning.dispatch._build_handoff_context`;
+    never instantiated by adopter code.
+    """
+
+    id: str
+    _registry: TaskRegistry
+    _heartbeat_impl: Callable[[], Awaitable[None]] = field(default_factory=lambda: _noop_heartbeat)
+
+    async def update(self, progress: dict[str, Any]) -> None:
+        """Write a progress payload. Transitions ``submitted`` →
+        ``working`` on first call.
+
+        Errors are swallowed (logged at WARNING with traceback):
+        a transient registry write failure must not abort the handoff.
+        Buyer-facing impact is a missed progress event, not a failed
+        task. Adopters who need delivery guarantees plug a durable
+        registry; the warning surfaces the transient via existing
+        observability hooks so silent loss isn't truly invisible.
+        """
+        try:
+            await self._registry.update_progress(self.id, progress)
+        except Exception:
+            logger.warning(
+                "TaskHandoffContext.update(task_id=%s) suppressed "
+                "registry transient — progress event lost; handoff "
+                "continues",
+                self.id,
+                exc_info=True,
+            )
+            return
+
+    async def heartbeat(self) -> None:
+        """Liveness signal for operator infrastructure. v6.1 stub.
+
+        v6.0 ships as a no-op so adopter code calling
+        ``await task_ctx.heartbeat()`` future-proofs against the
+        eventual implementation. Operator-side TTL-reset wiring lands
+        with the durable registry impl.
+        """
+        await self._heartbeat_impl()
+
+
+async def _noop_heartbeat() -> None:
+    """Default no-op heartbeat — adequate for v6.0."""
+    await asyncio.sleep(0)
+
+
+__all__ = [
+    "InMemoryTaskRegistry",
+    "TaskHandoffContext",
+    "TaskRecord",
+    "TaskRegistry",
+    "TaskState",
+    "TaskWebhookAuthentication",
+]

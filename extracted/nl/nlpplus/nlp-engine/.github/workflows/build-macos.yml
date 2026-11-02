@@ -1,0 +1,564 @@
+name: MaxOS
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Build the tagged commit so the release binary carries the right version.
+  push:
+    # Also build on merges to master. Without a run on the default branch,
+    # the vcpkg binary cache added alongside this is useless across PRs:
+    # GitHub Actions lets a run read caches from its own ref and from the
+    # DEFAULT branch only, and nothing ever ran on master -- so every PR
+    # missed, rebuilt ICU (~10 min on Windows, ~4 min on Linux), and saved a
+    # private copy no other PR could see. A master run seeds the shared entry
+    # that PR runs then hit. It also means something finally verifies the
+    # merge result, which nothing did before.
+    branches:
+      - master
+    tags:
+      - '*'
+
+jobs:
+  build_engine:
+    name: Build NLP-ENGINE
+    runs-on: macOS-latest
+    env:
+      # Re-use compiled vcpkg packages between runs; otherwise every run
+      # rebuilds ICU from source (measured: 4m11s on Linux, 10m04s on Windows).
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg-bincache,readwrite"
+      VCPKG_DEFAULT_TRIPLET: arm64-osx
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Vcpkg bootstrap Shell
+        run: ./bootstrap-vcpkg.sh
+        shell: bash
+        working-directory: vcpkg
+
+      - name: List $RUNNER_WORKSPACE before build
+        run: find $RUNNER_WORKSPACE
+        shell: bash
+
+      - name: Install autoconf-archive
+        run: brew install autoconf-archive
+
+      - name: Install Brew
+        run: brew install automake
+
+      # The submodule commit pins the ports, so it decides what the built
+      # packages are; vcpkg.json decides which ones. Key on both. vcpkg checks
+      # each package's ABI hash itself, so a partial restore-keys hit is safe:
+      # anything that does not match is simply rebuilt.
+      - name: Resolve vcpkg commit for cache key
+        id: vcpkgkey
+        shell: bash
+        run: echo "sha=$(git -C vcpkg rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg-bincache
+          # The key names BOTH triplets this job installs. actions/cache never
+          # re-saves on a primary-key hit, so the old key -- first saved before
+          # the x64-osx cross build existed -- froze an arm64-only cache and
+          # ICU for x64-osx was rebuilt from source (~4 min) on every run.
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-arm64+x64-${{ steps.vcpkgkey.outputs.sha }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-arm64+x64-${{ steps.vcpkgkey.outputs.sha }}-
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+
+      # vcpkg errors out if the binary-cache directory does not exist yet.
+      - name: Create vcpkg binary cache dir
+        shell: bash
+        run: mkdir -p "${{ github.workspace }}/vcpkg-bincache"
+
+      - name: Install 3rd Party
+        run: ./vcpkg install
+        working-directory: vcpkg
+
+      - name: List $RUNNER_WORKSPACE before build
+        run: find $RUNNER_WORKSPACE
+        shell: bash
+
+      - name: Make build directory
+        run: mkdir build
+
+      - name: Generate Solution MacOs
+        # NLP-ENGINE-509: dropped `-DCMAKE_CXX_FLAGS=-std=c++11`. The engine
+        # uses std::filesystem (C++17) in lite/dir.cpp::read_files (which
+        # loads the analyzer's kb/user/*.{kb,dict,kbb} dictionary files) and
+        # in cs/libconsh/cg.cpp / lite/nlp_engine.cpp. With Apple libc++ +
+        # -std=c++11, directory_iterator behaved differently from
+        # Windows/Linux and the analyzer's user lexicon never got loaded �
+        # parse-en-us produced "unknown 1" on every word, blowing up the
+        # English-test diff. The engine's CMakeLists already sets
+        # CMAKE_CXX_STANDARD 17; let that drive macOS too.
+        run: cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_BUILD_TYPE=release -B build -S . -DCMAKE_TOOLCHAIN_FILE='${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Cmake Build all targets MaxOs
+        run: cmake --build build/ --target all --parallel $(sysctl -n hw.ncpu)
+
+      - name: Test executable --version
+        run: ./bin/nlp --version || true
+
+      - name: Rule-level debug server
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The engine can stop between rule attempts when started with
+          # -DEBUG <port> (3.9.0). The hooks sit in Pat::matchRules, the hottest
+          # loop in the engine, so they are exactly the kind of thing a later
+          # change removes or reorders without anyone noticing until an author
+          # finds the debugger silently never stops.
+          FIX=.github/workflows/tests/rule-debugger
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          python3 "$FIX/drive.py" ./bin/nlp "$FIX" ./
+          # Debugging must not change the analysis. Run the same fixture with no
+          # debugger and require the parse tree to come out byte for byte the
+          # same as the one the debugged run produced.
+          cp "$FIX/input/text.txt_log/final.tree" /tmp/debugged.tree
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if ! diff -q /tmp/debugged.tree "$FIX/input/text.txt_log/final.tree" >/dev/null; then
+            echo "FAIL(debug): the debugged run produced a different parse tree"
+            diff /tmp/debugged.tree "$FIX/input/text.txt_log/final.tree" | head -20
+            exit 1
+          fi
+          echo "[rule debugger] pause points fire and leave the analysis unchanged"
+
+      - name: Long kbb/dict lines and NLP++ errors
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Three failures that exited 0 with nothing on the console.
+          # kbb-long-line: readKBB read lines into a 2,048-byte buffer and
+          # silently stopped loading at the first longer line. Its long line
+          # is a quoted array, which also loaded a stray 0 after each value.
+          # kbb-long-value: parseKBBLine and parseDictLine copied values
+          # unbounded into 512-byte buffers, overflowing the stack at startup.
+          # code-region-error: an NLP++ error still abandons the rest of its
+          # region, but is now echoed to stderr, not only written to err.log.
+          check() {
+            FIX=.github/workflows/tests/$1
+            rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+            ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> "/tmp/$1.err"
+            if [ ! -f "$FIX/input/text.txt_log/out.txt" ]; then
+              echo "FAIL($1): no out.txt"; cat "/tmp/$1.err"; exit 1
+            fi
+            got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+            if [ "$got" != "$2" ]; then
+              echo "FAIL($1): out.txt was '$got'"; cat "/tmp/$1.err"; exit 1
+            fi
+          }
+          check kbb-long-line '30|item30|140'
+          check kbb-long-value '30|item30|600|3000|600|3000|noun'
+          check code-region-error "$(printf 'item 1\nitem 2\nitem 3\nnext pass ran')"
+          ERR=/tmp/code-region-error.err
+          grep -qF '[Error in NLP++ @CODE: pass 2 (loop) line 13, rest of the region skipped.' "$ERR" \
+            || { echo "FAIL(code-region-error): @CODE error not on stderr"; cat "$ERR"; exit 1; }
+          # The @POST rule matches all four words: one line, not four.
+          n=$(grep -cF '[Error in NLP++ @POST: pass 4 (post) line 6,' "$ERR" || true)
+          if [ "$n" != 1 ]; then
+            echo "FAIL(code-region-error): @POST error echoed $n times, want 1"; cat "$ERR"; exit 1
+          fi
+          echo "[long lines] kbb/dict lines and values of any length load; NLP++ errors reach stderr"
+
+      - name: Inputs over 2 GB are refused with a message
+        shell: bash
+        run: |
+          set -eo pipefail
+          # file_size() returned a long, which is 32 bits on Windows: a file of
+          # 2 to 4 GB went negative and was "not found" in err.log only, and one
+          # over 4 GB wrapped to a small size and was read in part, silently.
+          # Text lengths and node offsets are still long, so an input over
+          # INPUT_MAX (2,000,000,000 bytes) is refused, on stderr as well.
+          # dd seek= sets the size without writing the data, and the engine
+          # refuses the file before reading any of it.
+          FIX=.github/workflows/tests/stdin-stream
+          BIG="$FIX/big"
+          mkdir -p "$BIG"
+          for size in 2200000000 4294967396; do
+            dd if=/dev/zero of="$BIG/big.txt" bs=1 count=0 seek=$size 2> /dev/null
+            err=$(./bin/nlp -ANA "$FIX" -WORK ./ "$BIG/big.txt" 2>&1 > /dev/null | tr -d '\r')
+            if ! grep -q "is $size bytes. The largest input is 2000000000 bytes" <<< "$err"; then
+              echo "FAIL(input-size $size): stderr was:"; echo "$err"; rm -rf "$BIG"; exit 1
+            fi
+          done
+          rm -rf "$BIG"
+          echo "[input-size] inputs over 2 GB are refused with a message, never read in part"
+
+      - name: Zone mode runs the passes after a zone line once per zone
+        shell: bash
+        run: |
+          set -eo pipefail
+          # "zone _line" in analyzer.seq: the passes before it run on the whole
+          # document and build _line nodes; each _line then runs the passes
+          # after it on its own, seeing only itself under _ROOT, with G()
+          # carried over and $isfirstzone/$islastzone set. Afterward a zone
+          # stays as a childless stub, so memory goes by the largest zone.
+          # The passes after "endzone" run once, on the stubs, at the end.
+          FIX=.github/workflows/tests/zone-mode
+          rm -rf "$FIX/logs" "$FIX"/input/*_log "$FIX/output"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -DEV "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' \
+            "zone 1: first=1 last=0 lines under root=1 words=2 text=one two" \
+            "zone 2: first=0 last=0 lines under root=1 words=3 text=three four five" \
+            "zone 3: first=0 last=1 lines under root=1 words=1 text=six" \
+            "summary: zones=3 stubs=3 first=0 last=0")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(zone-mode): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          # The final tree keeps the three zones as stubs with no children.
+          tree=$(tr -d '\r' < "$FIX/input/text.txt_log/final.tree" | grep -c '^      ' || true)
+          if [ "$tree" != "0" ] || [ "$(grep -c '^   _line ' "$FIX/input/text.txt_log/final.tree")" != "3" ]; then
+            echo "FAIL(zone-mode): final.tree is not three _line stubs:"; cat "$FIX/input/text.txt_log/final.tree"; exit 1
+          fi
+          # -DEV writes per-zone pass trees, named by zone. The zone line takes
+          # no pass number, as in the sequence view, so words is pass 3.
+          for z in 001 002 003; do
+            if [ ! -f "$FIX/input/text.txt_log/z$z-ana003.tree" ]; then
+              echo "FAIL(zone-mode): no z$z-ana003.tree"; ls "$FIX/input/text.txt_log"; exit 1
+            fi
+          done
+          echo "[zone-mode] one run of the zone passes per zone, zones kept as stubs"
+
+      - name: -ZONES runs only the zones it names
+        shell: bash
+        run: |
+          set -eo pipefail
+          # -ZONES 2-3: zone 1 gets only the passes before the zone line, so
+          # it keeps its tokens and is no stub. $isfirstzone and $islastzone
+          # mark the first and last zone that runs, and -DEV writes trees for
+          # every zone that runs.
+          FIX=.github/workflows/tests/zone-mode
+          rm -rf "$FIX/logs" "$FIX"/input/*_log "$FIX/output"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -DEV -ZONES 2-3 "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' \
+            "zone 1: first=1 last=0 lines under root=1 words=3 text=three four five" \
+            "zone 2: first=0 last=1 lines under root=1 words=1 text=six" \
+            "summary: zones=2 stubs=2 first=0 last=0")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(-ZONES): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          L="$FIX/input/text.txt_log"
+          if [ -f "$L/z001-ana003.tree" ] || [ ! -f "$L/z002-ana003.tree" ] || [ ! -f "$L/z003-ana003.tree" ]; then
+            echo "FAIL(-ZONES): wrong zone trees:"; ls "$L"; exit 1
+          fi
+          # A list, and a spec that is not zone numbers.
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -ZONES 1,3 "$FIX/input/text.txt" | tr -d '\r' | grep -c '^zone ' || true)
+          if [ "$out" != "2" ]; then echo "FAIL(-ZONES 1,3): ran $out zones"; exit 1; fi
+          if ./bin/nlp -ANA "$FIX" -WORK ./ -ZONES 3-1 "$FIX/input/text.txt" > /dev/null 2>&1; then
+            echo "FAIL(-ZONES 3-1): a bad range was accepted"; exit 1
+          fi
+          echo "[-ZONES] only the named zones run"
+
+      - name: A rec pass that never settles is stopped
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A rec pass repeats while any rule matches, so a rule that kept
+          # matching without changing what it matched (parse-en-us pos50 on
+          # "much I have been to blame.") hung forever with nothing said. A
+          # region may now take 1,000 matches plus 20 a node; NLP_REC_LIMIT
+          # scales that and 0 lifts it. The fixture's rec pass takes 3 matches
+          # in a 6-node region, so at NLP_REC_LIMIT=1 it is stopped at 2 and
+          # the pass after it still runs.
+          FIX=.github/workflows/tests/rec-limit
+          rm -rf "$FIX/logs" "$FIX"/input/*_log
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> rec.err | tr -d '\r')
+          if [ "$out" != "matches=3" ] || grep -q "rec pass" rec.err; then
+            echo "FAIL(rec-limit default): stdout was: $out"; cat rec.err; exit 1
+          fi
+          rm -rf "$FIX/logs" "$FIX"/input/*_log
+          out=$(NLP_REC_LIMIT=1 ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> rec.err | tr -d '\r')
+          if [ "$out" != "matches=2" ]; then
+            echo "FAIL(rec-limit 1): stdout was: $out"; cat rec.err; exit 1
+          fi
+          if ! grep -q "Error in rec pass 3 (cycle): rules matched 1 times in a region of 6 nodes" rec.err; then
+            echo "FAIL(rec-limit 1): no rec pass error on stderr:"; cat rec.err; exit 1
+          fi
+          rm -f rec.err
+          echo "[rec-limit] a rec pass region past its match limit is stopped, with a message"
+
+      - name: Lazy kbb lookups from any pass, and << to a path
+        shell: bash
+        run: |
+          set -eo pipefail
+          # kbb-lazy-lookup: a key of a lazy *full.kbb used to be found only if
+          # the tokenizer or dictfindword() had loaded it, and down() listed
+          # only those. findconcept/getconcept now search the file on a miss,
+          # down() loads it whole, and the tokenizer searches only dictionary
+          # files (top concept "dictionary", or a .dict twin) -- not domain
+          # KBs, which made spelling candidates 100x slower.
+          FIX=.github/workflows/tests/kbb-lazy-lookup
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> /tmp/lazy.err
+          got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+          want=$(printf 'domain not a word: 1\ntwin linked: 1\nkilo: 1\nnested: 1\nquoted key: 1\nmiss: 1\nmiss again: 1\ngetconcept: 1\nchildren: 17')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(kbb-lazy-lookup): out.txt was:"; echo "$got"; cat /tmp/lazy.err; exit 1
+          fi
+          # output-path: "path" << x silently wrote nothing for an absolute
+          # path (it was appended to the output folder). $apppath follows -ANA,
+          # so give it an absolute one.
+          FIX=.github/workflows/tests/output-path
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          ABS="$(pwd -W 2>/dev/null || pwd)/$FIX"
+          ./bin/nlp -ANA "$ABS" -WORK ./ "$ABS/input/text.txt" 2> /tmp/opath.err
+          check() {
+            got=$(tr -d '\r' < "$1" 2>/dev/null || echo "(missing)")
+            [ "$got" = "$2" ] || { echo "FAIL(output-path): $1 was '$got'"; cat /tmp/opath.err; exit 1; }
+          }
+          check "$FIX/output/abs.txt" "$(printf 'one\ntwo')"
+          check "$FIX/output/expr.txt" expr
+          check "$FIX/input/text.txt_log/rel.txt" rel
+          check "$FIX/input/text.txt_log/out.txt" done
+          n=$(grep -c "can't open output file" /tmp/opath.err || true)
+          if [ "$n" != 1 ]; then
+            echo "FAIL(output-path): bad path reported $n times on stderr, want 1"; cat /tmp/opath.err; exit 1
+          fi
+          echo "[lazy kbb] findconcept/getconcept/down reach a lazy file's keys; << writes to an absolute path"
+
+      - name: String positions are characters
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -eo pipefail
+          # strindexof and strlastindexof answered in bytes, strlength in
+          # UTF-16 units, and strpiece and strchar in characters, so on text
+          # outside ASCII a position from one was wrong in another. A loop
+          # that cut at the first colon until none was left never ended on
+          # a curly apostrophe ahead of the colon. strpiece also refused any
+          # piece of 512 characters or more. All five count characters now,
+          # and strpiece has no length limit.
+          FIX=.github/workflows/tests/str-positions
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(str positions): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'len:36' 'colon:26' 'lasta:16' 'tail:TEIXEIRA' 'emoji-len:5' 'emoji-colon:3' 'emoji-lastb:2' 'emoji-piece:b' 'long:600' 'long-piece:599' 'label:TEIXEIRA' 'turns:1')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(str positions): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[str positions] every string position is a character"
+
+      - name: A run past -TIMELIMIT is stopped
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -o pipefail
+          # A loop that never ends used to run until something killed the
+          # process; one that makes a string a turn, until it ran out of
+          # memory. With -TIMELIMIT the run stops at the next while turn past
+          # the limit: the code after the loop and the passes after it do not
+          # run, the stop is reported on stderr, and nlp exits 2.
+          FIX=.github/workflows/tests/run-limit
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          rc=0
+          ./bin/nlp -TIMELIMIT 2 -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> /tmp/runlimit.err || rc=$?
+          if [ "$rc" != 2 ]; then
+            echo "FAIL(run limit): exit $rc, wanted 2"; cat /tmp/runlimit.err; exit 1
+          fi
+          got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+          if [ "$got" != "before" ]; then
+            echo "FAIL(run limit): out.txt was:"; echo "$got"; echo "wanted: before"; exit 1
+          fi
+          grep -qF '[Run stopped: past its time limit of 2000 ms in pass 3 (loop)' /tmp/runlimit.err \
+            || { echo "FAIL(run limit): no stop message on stderr"; cat /tmp/runlimit.err; exit 1; }
+          echo "[run limit] a loop that never ends is stopped at -TIMELIMIT"
+
+      # INTEL MACS (#231). The steps above built and tested arm64 (Apple
+      # Silicon). Build the same tree for x86_64 too and merge the two with
+      # lipo, so nlpm.exe and the compile libraries are universal binaries:
+      # one asset that runs natively on both, with the same name as before, so
+      # nothing that downloads it has to change.
+      - name: Keep the arm64 build aside
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p universal/arm64
+          cp bin/nlp universal/arm64/nlp
+          cp lib/*.a universal/arm64/
+
+      - name: Install 3rd Party (x86_64)
+        run: ./vcpkg install --triplet x64-osx
+        working-directory: vcpkg
+
+      - name: Build for Intel (x86_64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_BUILD_TYPE=release -B build-x64 -S . \
+            -DCMAKE_TOOLCHAIN_FILE='${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' \
+            -DVCPKG_TARGET_TRIPLET=x64-osx -DCMAKE_OSX_ARCHITECTURES=x86_64
+          cmake --build build-x64/ --target all --parallel $(sysctl -n hw.ncpu)
+          mkdir -p universal/x86_64
+          cp bin/nlp universal/x86_64/nlp
+          cp lib/*.a universal/x86_64/
+
+      - name: Test the Intel build under Rosetta
+        shell: bash
+        run: |
+          set -euo pipefail
+          lipo -info universal/x86_64/nlp
+          arch -x86_64 universal/x86_64/nlp --version
+          # Same analyzer, same input, both architectures: output must match.
+          FIX=.github/workflows/tests/dict-kbb
+          for a in arm64 x86_64; do
+            rm -rf "$FIX/logs" "$FIX/input/text.txt_log"; mkdir -p "$FIX/logs"
+            arch -$a universal/$a/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+            cp "$FIX/input/text.txt_log/out.txt" "/tmp/out-$a.txt"
+          done
+          diff /tmp/out-arm64.txt /tmp/out-x86_64.txt
+          echo "[intel] x86_64 build runs and matches arm64"
+
+      - name: Make universal binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          lipo -create universal/arm64/nlp universal/x86_64/nlp -output bin/nlp
+          for a in universal/arm64/*.a; do
+            n=$(basename "$a")
+            lipo -create "$a" "universal/x86_64/$n" -output "lib/$n"
+          done
+          mkdir -p universal/icu
+          # The x86_64 ICU may land in the repo-level vcpkg_installed or in
+          # build-x64's (manifest mode). Show what it produced.
+          x64lib=""
+          for d in vcpkg_installed/x64-osx/lib build-x64/vcpkg_installed/x64-osx/lib; do
+            if [ -f "$d/libicuuc.a" ]; then x64lib="$d"; break; fi
+          done
+          if [ -z "$x64lib" ]; then echo "No x86_64 ICU found" >&2; exit 1; fi
+          echo "x86_64 ICU: $x64lib"; ls "$x64lib"
+          for icu_lib in libicudata.a libicuuc.a libicui18n.a libicutu.a; do
+            if [ -f "$x64lib/$icu_lib" ]; then
+              lipo -create "vcpkg_installed/arm64-osx/lib/$icu_lib" "$x64lib/$icu_lib" \
+                -output "universal/icu/$icu_lib"
+            else
+              # Cross-builds make ICU's tools library (icutu) for the host only.
+              # Nothing the engine or compiled analyzers link needs it; keep the
+              # arm64 copy for the libicutum.a asset.
+              echo "no x86_64 $icu_lib; keeping arm64 only"
+              cp "vcpkg_installed/arm64-osx/lib/$icu_lib" "universal/icu/$icu_lib"
+            fi
+          done
+          lipo -info bin/nlp
+          lipo -info universal/icu/libicuuc.a
+
+      - name: Copy nlp.exe to nlpm.exe
+        run: cp bin/nlp bin/nlpm.exe
+        shell: bash
+
+      # Upload nlpm.exe
+      - name: Upload nlpm.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: nlpm.exe
+          path: bin/nlpm.exe
+
+      - name: Copy libicutu.a to libicutum.a
+        run: cp universal/icu/libicutu.a universal/icu/libicutum.a
+        shell: bash
+
+      - name: Upload libicutum.a
+        uses: actions/upload-artifact@v4
+        with:
+          name: libicutum.a
+          path: universal/icu/libicutum.a
+
+      - name: Copy libicuuc.a to libicuucm.a
+        run: cp universal/icu/libicuuc.a universal/icu/libicuucm.a
+        shell: bash
+
+      - name: Upload libicuucm.a
+        uses: actions/upload-artifact@v4
+        with:
+          name: libicuucm.a
+          path: universal/icu/libicuucm.a
+
+      - name: Package compile libraries (prim/kbm/consh/words/lite)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf compile-libs
+          mkdir -p compile-libs/include/Api compile-libs/lib
+          cp -R include/Api/ compile-libs/include/Api/
+          cp -R cs/include compile-libs/include/cs
+
+          for name in prim kbm consh words lite; do
+            lib=$(find "$GITHUB_WORKSPACE" -type f -name "lib${name}.a" \
+              -not -path "*/vcpkg/*" -not -path "*/vcpkg_installed/*" \
+              -not -path "*/compile-libs/*" -not -path "*/universal/*" | head -n1)
+            if [ -z "$lib" ]; then
+              echo "Missing required static library: lib${name}.a" >&2
+              exit 1
+            fi
+            cp "$lib" "compile-libs/lib/lib${name}.a"
+          done
+
+          # ICU static libs from vcpkg (matches the Windows ICU DLL trio:
+          # data/uc/i18n). Downstream analyzer/KB linking against lite needs
+          # i18n for Collator (find_str_nocase).
+          for icu_lib in libicudata.a libicuuc.a libicui18n.a; do
+            cp "universal/icu/$icu_lib" "compile-libs/lib/$icu_lib"
+          done
+
+          (cd compile-libs && zip -r "$GITHUB_WORKSPACE/nlpengine-compile-libs-macos.zip" .)
+
+      - name: Upload nlpengine-compile-libs-macos.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: nlpengine-compile-libs-macos.zip
+          path: nlpengine-compile-libs-macos.zip
+
+      - name: Remove submodule analyzers before fresh checkout
+        run: rm -rf analyzers   # drop the pinned submodule copy so the checkout below lands cleanly
+        shell: bash
+
+      - name: Checkout Analyzers repo
+        uses: actions/checkout@v4
+        with:
+          repository: VisualText/analyzers
+          submodules: recursive
+          path: analyzers
+
+      - name: List runner workspace
+        run: find $RUNNER_WORKSPACE
+        shell: bash
+
+      - name: Run English Parser
+        run: ./bin/nlp -ANA ./analyzers/parse-en-us -WORK ./ ./analyzers/parse-en-us/input/doj.txt -DEV || true
+
+      - name: Full English Test
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/final.tree
+          new: ./analyzers/parse-en-us/input/doj.txt_log/final.tree
+          mode: addition
+          tolerance: same
+          output: parse-en-us-diff-mac.txt
+
+      # parse-en-us runs zone mode (one _TEXTZONE at a time, each freed to a
+      # stub after its passes), so final.tree is only the zone skeleton. The
+      # whole parse is checked through out.xml, which buff_out writes zone by
+      # zone and is byte-identical to the unzoned analyzer's.
+      - name: Full English Test, parse XML
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/out.xml
+          new: ./analyzers/parse-en-us/input/doj.txt_log/out.xml
+          mode: addition
+          tolerance: same
+          output: parse-en-us-xml-diff-mac.txt
+

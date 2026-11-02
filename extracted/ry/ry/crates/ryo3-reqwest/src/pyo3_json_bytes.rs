@@ -1,0 +1,40 @@
+use bytes::Bytes;
+use pyo3::prelude::*;
+use ryo3_jiter::{JiterParseOptions, RyJSONDecodeError};
+
+pub(crate) struct Pyo3JsonBytes {
+    pub bytes: Bytes,
+    pub options: JiterParseOptions,
+}
+
+impl Pyo3JsonBytes {
+    pub(crate) fn new(buf: Bytes, options: JiterParseOptions) -> Self {
+        Self {
+            bytes: buf,
+            options,
+        }
+    }
+}
+
+impl From<(Bytes, JiterParseOptions)> for Pyo3JsonBytes {
+    fn from(value: (Bytes, JiterParseOptions)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
+impl From<Bytes> for Pyo3JsonBytes {
+    fn from(value: Bytes) -> Self {
+        Self::new(value, JiterParseOptions::default())
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Pyo3JsonBytes {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RyJSONDecodeError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let parsed = self.options.parser().python_parse(py, &self.bytes);
+        parsed.map_err(|e| RyJSONDecodeError::from((e, self.bytes)))
+    }
+}

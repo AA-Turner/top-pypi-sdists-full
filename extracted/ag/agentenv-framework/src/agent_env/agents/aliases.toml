@@ -1,0 +1,11 @@
+# Ids a task can name these agents by; a task's own bundle, or the store, wins over an alias.
+[agents]
+claude-code = ["claude-code"]
+codex = ["codex"]
+gemini = ["gemini"]
+hermes = ["hermes"]
+opencode = ["opencode"]
+pi = ["pi"]
+openhands = ["openhands"]
+letta-code = ["letta-code"]
+pydantic-ai = ["pydantic-ai"]

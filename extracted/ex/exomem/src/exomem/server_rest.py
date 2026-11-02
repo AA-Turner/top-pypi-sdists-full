@@ -1,0 +1,650 @@
+"""Personal REST facade generated from the command registry."""
+
+from __future__ import annotations
+
+import hashlib
+import inspect
+import json
+import logging
+import os
+import secrets
+import time
+import typing
+from pathlib import Path
+from typing import Any
+
+from fastmcp import FastMCP
+from pydantic import TypeAdapter
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from . import (
+    capabilities,
+    cf_access,
+    cli_ops,
+    edit_operations,
+    local_ingress,
+    runtime_resources,
+    semantic_authoring,
+    upload_tokens,
+)
+from . import commands as commands_module
+from .command_surface import canonical_request_id, compact_input_schema
+from .governance import authorization_request, authorization_transport, projection_timing
+from .server_transfer import TransferConfig
+
+_log = logging.getLogger(__name__)
+
+
+def _log_rest_failure(
+    *, tool: str, request_id: str, code: str, duration_ms: float, message: str, scope: str
+) -> None:
+    try:
+        from . import metrics
+        from .log_events import log_event
+
+        log_event(
+            _log,
+            logging.WARNING,
+            "rest_failure",
+            fields={
+                "tool": tool,
+                "request_id": request_id,
+                "code": code,
+                "duration_ms": duration_ms,
+                "scope": scope,
+            },
+            content={"message": message[:300]},
+        )
+        metrics.inc_counter("exomem_tool_calls_total", {"tool": tool, "outcome": "failure"})
+        metrics.inc_counter("exomem_tool_failures_total", {"tool": tool, "code": code})
+        metrics.observe_duration_ms("exomem_tool_duration_ms", duration_ms, {"tool": tool})
+    except Exception:  # noqa: BLE001 - observability must never break a REST call
+        pass
+
+
+def _log_rest_success(*, tool: str, duration_ms: float) -> None:
+    try:
+        from . import metrics
+
+        metrics.inc_counter("exomem_tool_calls_total", {"tool": tool, "outcome": "success"})
+        metrics.observe_duration_ms("exomem_tool_duration_ms", duration_ms, {"tool": tool})
+    except Exception:  # noqa: BLE001 - observability must never break a REST call
+        pass
+
+
+class RestJSONResponse(JSONResponse):
+    """JSONResponse that renders frontmatter dates as ISO-like strings."""
+
+    def render(self, content) -> bytes:  # noqa: ANN001
+        return json.dumps(content, ensure_ascii=False, allow_nan=False, default=str).encode("utf-8")
+
+
+_OPENAPI_TYPES = {
+    "str": {"type": "string"},
+    "int": {"type": "integer"},
+    "bool": {"type": "boolean"},
+    "list[str]": {"type": "array", "items": {"type": "string"}},
+    "dict": {"type": "object"},
+    "json": {},
+    "client_artifact_files": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 8,
+        "items": {
+            "type": "object",
+            "properties": {
+                "download_url": {"type": "string"},
+                "file_id": {"type": "string", "minLength": 1, "maxLength": 256},
+                "mime_type": {"type": "string", "maxLength": 255},
+                "file_name": {"type": "string"},
+            },
+            "required": ["download_url", "file_id"],
+        },
+    },
+}
+
+_OPENAPI_OUTCOME_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "kind": {"type": "string"},
+        "committed": {"type": "boolean"},
+        "incomplete": {"type": "boolean"},
+        "affected_count": {"type": "integer", "minimum": 0},
+        "targets": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 16,
+        },
+        "omitted_target_count": {"type": "integer", "minimum": 0},
+    },
+    "required": [
+        "kind",
+        "committed",
+        "incomplete",
+        "affected_count",
+        "targets",
+        "omitted_target_count",
+    ],
+    "additionalProperties": False,
+}
+_OPENAPI_MUTATION_HOLDER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "state": {"const": "held"},
+        "request_id": {"type": "string"},
+        "operation": {"type": "string"},
+        "holder_kind": {"type": "string"},
+        "age_seconds": {"type": "number", "minimum": 0},
+        "overdue": {"type": "boolean"},
+    },
+    "required": [
+        "state",
+        "request_id",
+        "operation",
+        "holder_kind",
+        "age_seconds",
+        "overdue",
+    ],
+    "additionalProperties": False,
+}
+def _retrieval_warming_sites() -> tuple[str, ...]:
+    """The refusal-site vocabulary, read from its single source of truth.
+
+    The `find` import is deferred out of the module's top-level import block,
+    but the schema below calls this while the module loads, so `find` is
+    still imported at process start — deliberately: the schema must be
+    correct at import time, and any process serving recall pays for `find`
+    on its first request anyway. Deriving the enum here rather than
+    transcribing the list is the point — a hand-copied enum goes stale
+    silently, which is the drift the vocabulary exists to prevent.
+    """
+    from .find import RETRIEVAL_WARMING_SITES
+
+    return RETRIEVAL_WARMING_SITES
+
+
+_OPENAPI_ERROR_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "remediation": {"type": ["string", "null"]},
+        "compact_remediation": {"type": "string"},
+        "rich_remediation": {"type": "string"},
+        "findings": {"type": "array", "items": {"type": "object"}},
+        "outcome": _OPENAPI_OUTCOME_SCHEMA,
+        "ok": {"type": "boolean"},
+        "error_code": {"type": "string"},
+        "status": {"type": "string"},
+        "complete": {"type": "boolean"},
+        "committed": {"type": ["boolean", "null"]},
+        "retry_after_ms": {"type": "integer", "minimum": 0},
+        # Which gate declined a RETRIEVAL_INDEX_WARMING, and how long it waited
+        # before giving up, so a client can attribute a refusal from the
+        # response alone rather than from the server's logs. The enum is
+        # DERIVED from the single source of truth, never transcribed.
+        "site": {"type": "string", "enum": list(_retrieval_warming_sites())},
+        "waited_ms": {"type": "integer", "minimum": 0},
+        # One lock acquire's wait, on a MUTATION_BUSY the server did not wait out.
+        "wait_ms": {"type": "number", "minimum": 0},
+        # Why a write's server-side wait on a busy mutation boundary ended in
+        # MUTATION_BUSY, and how many busy attempts it absorbed before that.
+        "cause": {"type": "string"},
+        "absorbed_attempts": {"type": "integer", "minimum": 0},
+        # The process-local contention counters a MUTATION_BUSY carries
+        # (`mutation_lock._contention_view`).
+        "acquire_attempts": {"type": ["integer", "null"], "minimum": 0},
+        "busy_refusals": {"type": ["integer", "null"], "minimum": 0},
+        "busy_refusals_recent": {"type": ["integer", "null"], "minimum": 0},
+        "contention_scope": {"type": ["string", "null"]},
+        "last_holder": {"type": ["object", "null"]},
+        "unresolved_sources": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 256},
+            "maxItems": 8,
+        },
+        "unresolved_source_count": {"type": "integer", "minimum": 0},
+        "unresolved_sources_truncated": {"type": "boolean"},
+        "holder": _OPENAPI_MUTATION_HOLDER_SCHEMA,
+        "request_id": {"type": "string", "format": "uuid"},
+        "receipt_id": {"type": ["string", "null"]},
+        "idempotency_key": {"type": "string"},
+    },
+    "required": ["code", "message", "remediation"],
+    "additionalProperties": False,
+}
+_OPENAPI_ERROR_ENVELOPE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "success": {"const": False},
+        "error": {"$ref": "#/components/schemas/Error"},
+        "validation_state": {"const": "rejected"},
+        "mutated": {"const": False},
+    },
+    "required": ["success", "error"],
+    "additionalProperties": False,
+}
+_OPENAPI_ERROR_RESPONSE = {
+    "description": (
+        "{success: false, error: {code, message, remediation, terminal-state fields?}}"
+    ),
+    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}},
+}
+
+
+def _openapi_success_schema(
+    command: commands_module.Command,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Derive a REST success envelope from the command's public return type."""
+    try:
+        annotation = typing.get_type_hints(command.leaf).get("return", Any)
+        result_schema = TypeAdapter(annotation).json_schema(
+            ref_template=(f"#/components/schemas/{command.name}_" + "{model}")
+        )
+    except Exception:  # noqa: BLE001 - undocumented legacy returns stay generic
+        result_schema = {}
+    definitions = result_schema.pop("$defs", {})
+    components = {f"{command.name}_{name}": schema for name, schema in definitions.items()}
+    return (
+        {
+            "type": "object",
+            "properties": {
+                "success": {"const": True},
+                "data": result_schema,
+            },
+            "required": ["success", "data"],
+            "additionalProperties": False,
+        },
+        components,
+    )
+
+
+def register_rest_facade(
+    mcp_app: FastMCP,
+    *,
+    vault_root: Path,
+    source_schema: Any,
+    transfer_config: TransferConfig,
+) -> bool:
+    """Register /api routes and return whether Tier 2 is exposed."""
+    rest_api_key = os.environ.get("EXOMEM_REST_API_KEY", "").strip() or None
+    rest_enabled = rest_api_key is not None
+    expose_tier2 = not os.environ.get("EXOMEM_DISABLE_TIER2")
+    rest_commands = commands_module.product_commands_for("rest", expose_tier2=expose_tier2)
+    surface_descriptor = capabilities.ActiveSurfaceDescriptor(
+        surface="rest",
+        profile="openapi",
+        tier2_enabled=expose_tier2,
+        product_commands=tuple(command.public_name for command in rest_commands),
+        compatibility_commands=tuple(command.name for command in rest_commands if command.preferred_name),
+    )
+
+    def _rest_principal(request: Request) -> tuple[bool, str | None]:
+        if rest_api_key is not None:
+            header = request.headers.get("authorization", "")
+            if header.startswith("Bearer "):
+                presented = header[len("Bearer ") :].strip()
+                # Bytes: `compare_digest` raises on a non-ASCII str.
+                if secrets.compare_digest(presented.encode(), rest_api_key.encode()):
+                    local_ingress.note_owner_credential("rest_api_key", request.headers)
+                    return True, None
+                if upload_tokens.verify(presented, rest_api_key, scope="rest"):
+                    return True, None
+        if transfer_config.cf_jwks is not None:
+            claims = cf_access.verified_claims(
+                request.headers.get("cf-access-jwt-assertion"),
+                jwks_client=transfer_config.cf_jwks,
+                team_domain=transfer_config.cf_team,
+                audience=transfer_config.cf_aud,
+            )
+            if claims is not None:
+                subject = str(claims.get("sub") or claims.get("email") or "").strip()
+                issuer = str(claims.get("iss") or "").strip()
+                if subject and issuer:
+                    digest = hashlib.sha256(f"{issuer}\0{subject}".encode()).hexdigest()
+                    return True, f"cf-access:{digest}"
+        return False, None
+
+    def _rest_err(
+        code: str, message: str, status: int, remediation: str | None = None
+    ) -> JSONResponse:
+        return RestJSONResponse(
+            cli_ops.envelope(
+                False, error={"code": code, "message": message, "remediation": remediation}
+            ),
+            status_code=status,
+        )
+
+    def _rest_gate(request: Request) -> tuple[JSONResponse | None, str | None]:
+        if not rest_enabled:
+            return (
+                _rest_err(
+                    "REST_DISABLED",
+                    "REST API is off: set EXOMEM_REST_API_KEY to enable the /api/* facade",
+                    503,
+                ),
+                None,
+            )
+        authorized, principal_scope = _rest_principal(request)
+        if not authorized:
+            return (
+                _rest_err("UNAUTHORIZED", "missing or invalid REST API key", 401),
+                None,
+            )
+        return None, principal_scope
+
+    async def _rest_body(request: Request) -> dict | None:
+        try:
+            raw = await request.body()
+        except Exception:  # noqa: BLE001
+            return {}
+        if not raw or not raw.strip():
+            return {}
+        try:
+            data = json.loads(raw)
+        except Exception:  # noqa: BLE001
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _observe_rest(tool: str, *, outcome: str, started: float | None,
+                      request_id: str | None = None) -> None:
+        try:
+            from . import latency_watch
+
+            latency_watch.observe(
+                tool=tool, client=None, deep=False, surface="rest", outcome=outcome,
+                total_ms=(time.perf_counter() - started) * 1000 if started is not None else None,
+                correlated=bool(request_id and request_id != "unknown"),
+                excluded=started is None,
+            )
+        except Exception:  # noqa: BLE001 - observation must not change a REST response
+            from . import latency_watch
+
+            latency_watch.current().record_failure()
+
+    def _register_rest(cmd: commands_module.Command, exposed_name: str) -> None:
+        @mcp_app.custom_route(f"/api/{exposed_name}", methods=["POST"])
+        async def _served(request: Request, _cmd: commands_module.Command = cmd) -> JSONResponse:
+            # Everything the handler does with a restricted refusal happens inside its floor.
+            async with projection_timing.surface_refusal_floor():
+                return await _handler(request, _cmd)
+
+        async def _handler(request: Request, _cmd: commands_module.Command) -> JSONResponse:
+            # On local ingress the gate in front of this route already verified
+            # a local client token; nothing else is accepted there.
+            local_grant = local_ingress.current_grant()
+            if local_grant is None:
+                gate, principal_scope = _rest_gate(request)
+                if gate is not None:
+                    _observe_rest(_cmd.name, outcome="refused", started=None)
+                    return gate
+            else:
+                principal_scope = None
+            log_scope = (
+                "local"
+                if local_grant is not None
+                else "cf_access"
+                if principal_scope
+                else "api_key"
+            )
+            if (
+                "authorization_session_credential" in request.query_params
+                or "principal" in request.query_params
+                or "principal_scope" in request.query_params
+                or "issuer" in request.query_params
+                or "cell_id" in request.query_params
+                or "authorization_session_id" in request.query_params
+            ):
+                _observe_rest(_cmd.name, outcome="refused", started=None)
+                return _rest_err(
+                    "AUTHORIZATION_SESSION_UNAVAILABLE",
+                    "authorization session is unavailable",
+                    400,
+                )
+            request_carrier = authorization_transport.current_request_authorization_carrier()
+            if request_carrier is None or request_carrier.is_invalid:
+                _observe_rest(_cmd.name, outcome="refused", started=None)
+                return _rest_err(
+                    "AUTHORIZATION_SESSION_UNAVAILABLE",
+                    "authorization session is unavailable",
+                    400,
+                )
+            request_id = (
+                canonical_request_id(request.headers.get("x-exomem-request-id")) or "unknown"
+            )
+            t0 = time.perf_counter()
+            outcome = "error"
+            try:
+                try:
+                    from .governance import principal as principal_module
+
+                    principal = (
+                        principal_module.local_owner_principal(surface="rest")
+                        if local_grant is not None
+                        else principal_module.resolve_rest_principal(principal_scope)
+                    )
+                    admission = await run_in_threadpool(
+                        authorization_request.verify_authorization_context,
+                        vault_root,
+                        principal=principal,
+                        credential=request_carrier.consume(),
+                        now=int(time.time()),
+                    )
+                    body = await _rest_body(request)
+                    if body is None:
+                        raise cli_ops.OpError("INVALID_BODY", "request body must be a JSON object")
+                    forbidden_identity_fields = {
+                        "authorization_session_credential",
+                        "principal",
+                        "principal_scope",
+                        "issuer",
+                        "cell_id",
+                        "logical_vault_id",
+                        "authorization_session_id",
+                    }
+                    if forbidden_identity_fields.intersection(body):
+                        raise authorization_request.AuthorizationContextUnavailable
+                    rule = authorization_request.credential_rule(_cmd.name, body)
+                    bound_principal = authorization_request.enforce_credential_rule(
+                        admission,
+                        rule,
+                    )
+                    from . import auth_sessions
+                    from .governance import connector_boundary
+
+                    if not await auth_sessions.origin_session_active(bound_principal):
+                        raise authorization_request.AuthorizationContextUnavailable
+                    boundary_revision = connector_boundary.cache_identity(vault_root, bound_principal)
+                    unrestricted = connector_boundary.unrestricted(vault_root, bound_principal)
+                    if _cmd.name == "edit_memory":
+                        body = edit_operations.normalize_edit_surface_arguments(body)
+                    kwargs = cli_ops.coerce(
+                        _cmd.params, body, guarded_fields=_cmd.guarded_fields, tool=_cmd.name
+                    )
+                    injected = (vault_root, source_schema) if _cmd.needs_schema else (vault_root,)
+                    from .writer_lease import invoke_command
+
+                    def invoke_bound() -> Any:
+                        # Canonical audience at the REST boundary (design D5): a
+                        # `None` scope is the vault's own shared key (owner); a
+                        # CF-Access scope folds into the shared OAuth id space.
+                        with (
+                            capabilities.active_surface(surface_descriptor),
+                            principal_module.request_scope(bound_principal),
+                        ):
+                            return invoke_command(
+                                _cmd,
+                                *injected,
+                                idempotency_key=request.headers.get("idempotency-key"),
+                                idempotency_principal_scope=principal_scope,
+                                mutation_request_id=canonical_request_id(
+                                    request.headers.get("x-exomem-request-id")
+                                ),
+                                **kwargs,
+                            )
+
+                    result = await run_in_threadpool(invoke_bound)
+                    changed = connector_boundary.cache_identity(vault_root, bound_principal) != boundary_revision
+                    limited = not unrestricted or not connector_boundary.unrestricted(vault_root, bound_principal)
+                    if not await auth_sessions.origin_session_active(bound_principal) or changed and limited:
+                        raise authorization_request.AuthorizationContextUnavailable
+                except runtime_resources.ModelBusyError as exc:
+                    outcome = "refused"
+                    err = cli_ops.error_dict(exc)
+                    _log_rest_failure(
+                        tool=_cmd.name,
+                        request_id=request_id,
+                        code=str(err.get("code") or "MODEL_BUSY"),
+                        duration_ms=round((time.perf_counter() - t0) * 1000, 2),
+                        message=str(err.get("message") or ""),
+                        scope=log_scope,
+                    )
+                    return RestJSONResponse(
+                        cli_ops.envelope(False, error=err),
+                        status_code=cli_ops.http_status_for(err["code"]),
+                    )
+                except (
+                    authorization_request.AuthorizationContextUnavailable,
+                    authorization_request.AuthorizationRouteUnclassified,
+                    cli_ops.OpError,
+                    ValueError,
+                    TypeError,
+                ) as exc:
+                    outcome = "refused"
+                    err = cli_ops.error_dict(exc)
+                    _log_rest_failure(
+                        tool=_cmd.name,
+                        request_id=request_id,
+                        code=str(err.get("code") or "OP_ERROR"),
+                        duration_ms=round((time.perf_counter() - t0) * 1000, 2),
+                        message=str(err.get("message") or ""),
+                        scope=log_scope,
+                    )
+                    return RestJSONResponse(
+                        cli_ops.envelope(False, error=err),
+                        status_code=cli_ops.http_status_for(err["code"]),
+                    )
+                _log_rest_success(
+                    tool=_cmd.name, duration_ms=round((time.perf_counter() - t0) * 1000, 2)
+                )
+                response = RestJSONResponse(cli_ops.envelope(True, data=result))
+                outcome = "abstained" if isinstance(result, dict) and result.get("abstained") else "ok"
+                return response
+
+            finally:
+                _observe_rest(_cmd.name, outcome=outcome, started=t0, request_id=request_id)
+
+        _served.__name__ = f"_api_{exposed_name}"
+
+    for cmd in rest_commands:
+        for exposed_name in cmd.callable_names:
+            _register_rest(cmd, exposed_name)
+
+    @mcp_app.custom_route("/api/openapi.json", methods=["GET"])
+    async def _api_openapi(request: Request) -> JSONResponse:  # noqa: ARG001
+        if not rest_enabled:
+            return _rest_err("REST_DISABLED", "set EXOMEM_REST_API_KEY to enable", 503)
+        paths: dict = {}
+        response_schemas: dict[str, Any] = {}
+        for cmd in rest_commands:
+            properties: dict = {}
+            required: list[str] = []
+            for prm in cmd.params:
+                schema_obj = dict(prm.schema or _OPENAPI_TYPES.get(prm.type, {}))
+                if prm.schema_description:
+                    schema_obj["description"] = prm.schema_description
+                elif prm.help:
+                    schema_obj["description"] = prm.help
+                if prm.schema_default is not inspect.Parameter.empty:
+                    schema_obj["default"] = prm.schema_default
+                if prm.choices:
+                    schema_obj["enum"] = list(prm.choices)
+                properties[prm.name] = schema_obj
+                if prm.required:
+                    required.append(prm.name)
+            if cmd.name == "edit_memory":
+                operation_schema = edit_operations.public_edit_operation_schema()
+                operation_help = next(
+                    (parameter.help for parameter in cmd.params if parameter.name == "operation"),
+                    "",
+                )
+                if operation_help:
+                    operation_schema = {
+                        **operation_schema,
+                        "description": operation_help,
+                    }
+                properties["operation"] = operation_schema
+            request_schema: dict = {"type": "object", "properties": properties}
+            if cmd.name == "edit_memory":
+                request_schema["additionalProperties"] = False
+            if required:
+                request_schema["required"] = required
+            # Same published shape as the MCP tool: no advertised optional null.
+            request_schema = compact_input_schema(request_schema)
+            summary = (cmd.description or cmd.name).strip().splitlines()[0]
+            success_schema, command_schemas = _openapi_success_schema(cmd)
+            response_schemas.update(command_schemas)
+            paths[f"/api/{cmd.public_name}"] = {
+                "post": {
+                    "operationId": cmd.public_name,
+                    "summary": summary,
+                    **(
+                        {"description": semantic_authoring.CLI_REST_POINTER}
+                        if cmd.name in semantic_authoring.AUTHORING_TOOLS
+                        else {}
+                    ),
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {
+                            "name": (authorization_transport.AUTHORIZATION_SESSION_HEADER_NAME),
+                            "in": "header",
+                            "required": False,
+                            "description": (
+                                "Optional opaque authorization-session capability; "
+                                "distinct from service Authorization."
+                            ),
+                            "schema": {
+                                "type": "string",
+                                "minLength": 70,
+                                "maxLength": 70,
+                            },
+                        }
+                    ],
+                    "requestBody": {"content": {"application/json": {"schema": request_schema}}},
+                    "responses": {
+                        "200": {
+                            "description": "{success: true, data: ...}",
+                            "content": {"application/json": {"schema": success_schema}},
+                        },
+                        "400": _OPENAPI_ERROR_RESPONSE,
+                        "409": _OPENAPI_ERROR_RESPONSE,
+                        "401": {"description": "missing/invalid API key"},
+                        "503": {
+                            **_OPENAPI_ERROR_RESPONSE,
+                            "description": (
+                                "REST API disabled, or a retryable "
+                                "RETRIEVAL_INDEX_WARMING outcome (see retry_after_ms)"
+                            ),
+                        },
+                    },
+                }
+            }
+        return JSONResponse(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "exomem personal REST facade", "version": "1.0.0"},
+                "components": {
+                    "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}},
+                    "schemas": {
+                        "Error": _OPENAPI_ERROR_SCHEMA,
+                        "ErrorEnvelope": _OPENAPI_ERROR_ENVELOPE_SCHEMA,
+                        **response_schemas,
+                    },
+                },
+                "paths": paths,
+            }
+        )
+
+    return expose_tier2

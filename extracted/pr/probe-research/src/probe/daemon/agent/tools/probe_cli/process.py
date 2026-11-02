@@ -271,28 +271,28 @@ async def read_in_host(deps: Deps, argv: list[str], op_id: str, timeout: float) 
 async def _attempt(deps: Deps, argv: list[str], env: dict[str, str], timeout: float, cwd: Path) -> ProbeResult:
     from probe.daemon.shell.runner import stop_group
 
-    proc = await asyncio.create_subprocess_exec(
+    process = await asyncio.create_subprocess_exec(
         *probe_executable(), *argv, cwd=str(cwd), env=env, stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=True)
-    reader = asyncio.ensure_future(proc.communicate())
+    reader = asyncio.ensure_future(process.communicate())
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     try:
         while True:
             left = deadline - loop.time()
             if left <= 0:
-                await stop_group(proc, reader)
+                await stop_group(process, reader)
                 return ProbeResult(None, "", f"stopped after {timeout:.0f}s")
             done, _ = await asyncio.wait({reader}, timeout=min(LEASE_POLL_S, left))
             if done:
-                out, err = reader.result()
-                return ProbeResult(proc.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"))
+                out, error = reader.result()
+                return ProbeResult(process.returncode, out.decode("utf-8", "replace"), error.decode("utf-8", "replace"))
             if write_refusal(deps) is not None:
-                await stop_group(proc, reader)
+                await stop_group(process, reader)
                 return ProbeResult(None, "", f"stopped while it ran ({deps.stopped}) - it may have written part "
                                              "of its work")
     except BaseException:
-        await stop_group(proc, reader)
+        await stop_group(process, reader)
         raise
 
 

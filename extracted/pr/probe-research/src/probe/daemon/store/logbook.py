@@ -19,9 +19,9 @@ class LogbookMixin:
 
     # -- bites --
     def open_bite(self, trigger: str, first_seq: int | None, last_seq: int | None) -> int:
-        cur = self.db.execute("INSERT INTO bites (started, trigger, first_seq, last_seq) VALUES (?, ?, ?, ?)",
+        current = self.db.execute("INSERT INTO bites (started, trigger, first_seq, last_seq) VALUES (?, ?, ?, ?)",
                               (self.clock(), trigger, first_seq, last_seq))
-        return int(cur.lastrowid)
+        return int(current.lastrowid)
 
     def close_bite(self, bite_id: int, *, outcome: str, error: str | None = None, input_tokens: int = 0,
                    output_tokens: int = 0, cached_tokens: int = 0) -> None:
@@ -45,13 +45,13 @@ class LogbookMixin:
     def log_write(self, *, bite: int | None, op_id: str, argv: list[str], head: str, status: str,
                   reason: str | None = None, output: str | None = None, exit_code: int | None = None,
                   request: str | None = None) -> int:
-        cur = self.db.execute(
+        current = self.db.execute(
             "INSERT INTO writes (bite, op_id, at, argv, head, status, reason, output, exit_code, request) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (bite, op_id, self.clock(), json.dumps([scrub(a) for a in argv]), head, status, reason,
              scrub(output or "")[:20_000] if output is not None else None, exit_code, request),
         )
-        return int(cur.lastrowid)
+        return int(current.lastrowid)
 
     def update_write(self, row_id: int, *, status: str, reason: str | None, output: str | None = None,
                      exit_code: int | None = None) -> None:

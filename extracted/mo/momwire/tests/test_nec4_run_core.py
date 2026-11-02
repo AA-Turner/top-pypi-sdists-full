@@ -30,8 +30,26 @@ masked, by exact pattern and with the same count on both sides, over:
 - networks: a TL (straight, and crossed with shunts and its length taken
   between the segment centres), an NT beside a port load, a TL under a
   current source and under a phased drive, and a TL read after a run;
-- the declines: GD's far-field cliff, a near-field point on a
-  wire's finite-ground contact or in the soil.
+- GD's far-field cliff over GN 1, GN 2 and GN 3: an edge and a step
+  splitting the reflection points, with a range, an average, further tables,
+  a monopole on the ground, an empty second medium, and GD in free space
+  (its block printed, no number moved);
+- a wire listed twice (momwire#1042): merged on the dense and the sparse
+  route, reversed, three times, made by GM, as a T's arm, over GN 1 and
+  GN 2, under LD 5, with PQ / RP / NE; refused for a feed on the pair,
+  differing segment counts, radii, and LD 2 / LD 5 on the copy alone;
+- a wholly-buried deck (momwire#1607 B6a): a dipole over GN 2 with PQ and
+  RP, GN 3 with LD 5, an FR sweep under EX 6, a buried hub, two radii with a
+  port load; the refusals in Python's words (a buried wire over GN 1, and
+  the crossing scope: two radii, a hub, an oblique node, two nodes, two
+  nodes too close);
+- the declines: a near-field point on a wire's finite-ground contact or in
+  the soil, a near field over a buried wire;
+- wires on both sides with no crossing (momwire#1718 S12): the stitched
+  basis and the two transmitted pair classes;
+- a crossing node (momwire#1607 B6b): a rise over a rod with PQ and RP, a
+  rise to a buried hub of two radials, a sparse fill under GN 3 with LD 5,
+  an FR sweep under EX 6, and beside a loaded parasite.
 """
 
 from __future__ import annotations
@@ -74,6 +92,13 @@ def acc():
     except (IndexError, AttributeError, OSError):
         pytest.skip("no bundled OpenBLAS beside numpy / SciPy (not a wheel install)")
     return _accel.acc
+
+
+@pytest.fixture(autouse=True)
+def _below_anchors_off(monkeypatch):
+    # The below/below grid's anchors (momwire#1471) follow the frequencies a
+    # process has seen; the gates hold both copies to the exact grid.
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
 
 
 @pytest.fixture(autouse=True)
@@ -134,6 +159,12 @@ DIPOLE = "GW 1 11 0 0 -.25 0 0 .25 .001\n"
 TWO = DIPOLE + "GW 2 11 .2 0 -.25 .2 0 .25 .001\n"
 TEE = "GW 1 10 0 0 -.25 0 0 .25 .001\nGW 2 5 0 0 0 .3 0 0 .001\n"
 RP = "RP 0 7 4 1000 0 0 30 90\n"
+GD_DIPOLE = "GW 1 11 0 -.25 .6 0 .25 .6 .001\n"
+DUP_DIPOLE = "GW 1 41 0 0 -.25 0 0 .25 .001\n"
+BURIED_DIPOLE = "GW 1 21 -5 0 -.5 5 0 -.5 .001\n"
+BFR = "FR 0 1 0 0 7.15\n"
+DUP_PARASITE = "GW 2 31 .2 0 -.23 .2 0 .23 .001\n"
+GD_RP = "RP 0 19 4 1000 0 0 5 45\n"
 
 CASES = [
     ("ex0", deck(DIPOLE, FR + "EX 0 1 6 0 1\nXQ\n"), "printed"),
@@ -251,10 +282,399 @@ CASES = [
         "printed",
     ),
     (
-        "gd_declines",
+        "gd_under_xq",
         "CM run\nCE\nGW 1,11,0.,-.25,10.,0.,.25,10.,.0005\nGE 1,-1\n"
         "FR 0,1,0,0,299.7925\nGN 1,0,0,0,0.,0.\nEX 0,1,6,0,1.414214,0.\n"
         "GD 2,0,0,0,13.,.005,0.,0.\nXQ 0\nEN\n",
+        "printed",
+    ),
+    # GD's second medium (B5d): the cliff's edge and step put some
+    # reflection points short of the edge and some beyond it
+    (
+        "gd_cliff_over_gn1",
+        deck(
+            GD_DIPOLE,
+            "GN 1\n" + FR + "EX 0 1 6 0 1\nGD 2 0 0 0 5 .001 .8 .1\n" + GD_RP,
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_cliff_over_gn1_range",
+        deck(
+            GD_DIPOLE,
+            "GN 1\n" + FR + "EX 0 1 6 0 1\nGD 2 0 0 0 5 .001 .8 -.2\n"
+            "RP 0 19 4 1000 0 0 5 45 1000\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_cliff_over_gn2",
+        deck(
+            GD_DIPOLE,
+            "GN 2 0 0 0 13 .005\n" + FR + "EX 0 1 6 0 1\nGD 2 0 0 0 5 .001 .8 .1\n"
+            "RP 0 37 4 1000 0 0 5 45\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_over_gn3_average",
+        deck(
+            GD_DIPOLE,
+            "GN 3 0 0 0 13 .005\n" + FR + "EX 0 1 6 0 1\nGD 2 0 0 0 20 .02 0 0\n"
+            "RP 0 19 2 1001 0 0 5 90\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_further_tables_over_gn2",
+        deck(
+            GD_DIPOLE,
+            "GN 2 0 0 0 13 .005\n" + FR + "EX 0 1 6 0 1\nGD 2 0 0 0 5 .001 .8 .1\n"
+            "RP 0 10 1 1000 0 0 10 0\nNE 0 1 1 2 .1 0 .1 0 0 .1\nRP 0 5 1 1000 0 0 20 0\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_in_free_space",
+        deck(GD_DIPOLE, FR + "EX 0 1 6 0 1\nGD 2 0 0 0 5 .001 .8 .1\n" + RP),
+        "printed",
+    ),
+    (
+        "gd_monopole_on_gn1",
+        deck(
+            "GW 1 10 0 0 0 0 0 .25 .001\n",
+            "GN 1\n" + FR + "EX 0 1 1 0 1\nGD 2 0 0 0 5 .001 .3 .05\n" + GD_RP,
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "gd_empty_second_medium",
+        deck(
+            GD_DIPOLE,
+            "GN 1\n"
+            + FR
+            + "EX 0 1 6 0 1\nGD 2 0 0 0 0 0 0 0\nRP 0 7 2 1000 0 0 15 90\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    # momwire#1042: a wire listed twice is solved once (the dropped copy
+    # reads its twin's current in the tables and none in RP / NE), or refused
+    # in the constructor's words
+    (
+        "duplicate_sparse_ld5_pq_rp",
+        deck(
+            DUP_DIPOLE + DUP_PARASITE + DUP_PARASITE.replace("GW 2", "GW 3"),
+            "LD 5 0 0 0 3.5e7\n"
+            + FR
+            + "EX 0 1 21 0 1\nPQ 0\nRP 0 7 4 1000 0 0 30 90\n",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_reversed_sparse_ne",
+        deck(
+            DUP_DIPOLE + DUP_PARASITE + "GW 3 31 .2 0 .23 .2 0 -.23 .001\n",
+            FR + "EX 0 1 21 0 1\nNE 0 1 3 1 .3 -.1 0 0 .1 0\n",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_three_times",
+        deck(
+            DIPOLE
+            + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 9 .2 0 -.23 .2 0 .23 .001\n"
+            + "GW 4 9 .2 0 .23 .2 0 -.23 .001\n",
+            FR + "EX 0 1 6 0 1\nPQ 0\nXQ\n",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_by_gm",
+        deck(
+            DIPOLE + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGM 0 0 0 0 0 0 0 0 2\n",
+            FR + "EX 0 1 6 0 1\nRP 0 7 1 1000 0 0 15 0\n",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_tee_arm",
+        deck(
+            DIPOLE + "GW 2 5 0 0 .25 .2 0 .25 .001\nGW 3 5 0 0 .25 .2 0 .25 .001\n",
+            FR + "EX 0 1 6 0 1\nPQ 0\nXQ\n",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_monopoles_on_gn1",
+        deck(
+            "GW 1 10 0 0 0 0 0 .25 .001\nGW 2 10 .3 0 0 .3 0 .23 .001\n"
+            "GW 3 10 .3 0 0 .3 0 .23 .001\n",
+            "GN 1\n" + FR + "EX 0 1 1 0 1\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_reversed_over_gn2",
+        deck(
+            "GW 1 10 0 0 .1 0 0 .35 .001\nGW 2 10 .3 0 .1 .3 0 .33 .001\n"
+            "GW 3 10 .3 0 .33 .3 0 .1 .001\n",
+            "GN 2 0 0 0 13 .005\n"
+            + FR
+            + "EX 0 1 5 0 1\nPQ 0\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE 1",
+        ),
+        "printed",
+    ),
+    (
+        "duplicate_fed_refused",
+        deck(DIPOLE + DIPOLE.replace("GW 1", "GW 2"), FR + "EX 0 1 6 0 1\nXQ\n"),
+        "refused",
+    ),
+    (
+        "duplicate_counts_differ_refused",
+        deck(
+            DIPOLE + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 7 .2 0 .23 .2 0 -.23 .001\n",
+            FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "refused",
+    ),
+    (
+        "duplicate_radius_differs_refused",
+        deck(
+            DIPOLE + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 9 .2 0 -.23 .2 0 .23 .002\n",
+            FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "refused",
+    ),
+    (
+        "duplicate_ld2_on_the_copy_refused",
+        deck(
+            DIPOLE + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 9 .2 0 -.23 .2 0 .23 .001\n",
+            "LD 2 3 0 0 10 1e-7 0\n" + FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "refused",
+    ),
+    (
+        "duplicate_ld5_on_the_copy_refused",
+        deck(
+            DIPOLE + "GW 2 9 .2 0 -.23 .2 0 .23 .001\nGW 3 9 .2 0 -.23 .2 0 .23 .001\n",
+            "LD 5 3 0 0 1e7\n" + FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "refused",
+    ),
+    # momwire#1607 B6a: a wholly-buried deck, solved at k_m (anchors off, as
+    # the exe audit runs: the below grid's anchors follow process history)
+    (
+        "buried_dipole_gn2_pq_rp",
+        deck(
+            BURIED_DIPOLE,
+            "GN 2 0 0 0 13 .005\n"
+            + BFR
+            + "EX 0 1 11 0 1\nPQ 0\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_dipole_gn3_ld5",
+        deck(
+            "GW 1 15 -3 0 -.3 3 0 -.3 .002\n",
+            "GN 3 0 0 0 20 .01\nLD 5 0 0 0 5.8e7\n" + BFR + "EX 0 1 8 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_sweep_ex6",
+        deck(
+            "GW 1 11 -3 0 -.3 3 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 3 0 0 7 0.5\nEX 6 1 6 0 1 0\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_hub_of_three",
+        deck(
+            "GW 1 10 0 0 -.3 3 0 -.3 .001\nGW 2 10 0 0 -.3 -3 0 -.3 .001\nGW 3 10 0 0 -.3 0 3 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nPQ 0\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_two_radii_port_load",
+        deck(
+            "GW 1 11 -3 0 -.3 3 0 -.3 .001\nGW 2 11 -3 1 -.3 3 1 -.3 .002\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 6 0 1\nLD 4 2 6 6 50 0\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_over_pec_refused",
+        deck(
+            "GW 1 11 -3 0 -.3 3 0 -.3 .001\n",
+            "GN 1\n" + BFR + "EX 0 1 6 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    (
+        "crossing_two_radii_refused",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .002\nGW 2 10 0 0 0 3 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    (
+        "crossing_hub_refused",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 10 0 0 0 3 0 -.3 .001\nGW 3 10 0 0 0 -3 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    (
+        "crossing_oblique_refused",
+        deck(
+            "GW 1 10 0 0 0 3 0 5 .001\nGW 2 10 0 0 0 3 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    (
+        "crossing_two_nodes_refused",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 10 0 0 0 3 0 -.3 .001\n"
+            "GW 3 10 5 0 0 5 0 5 .001\nGW 4 10 5 0 0 8 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    (
+        "crossing_close_nodes_refused",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 10 0 0 0 3 0 -.3 .001\n"
+            "GW 3 10 .5 0 0 .5 0 5 .001\nGW 4 10 .5 0 0 3 2 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "refused",
+    ),
+    # momwire#1718 S12: a vertical over a separate buried wire, the stitched
+    # basis and the two transmitted pair classes
+    (
+        "mixed_vertical_over_buried_pq_rp",
+        deck(
+            "GW 1 10 0 0 .5 0 0 10 .001\nGW 2 10 -5 1 -.1 5 1 -.1 .001\n",
+            "GN 2 0 0 0 13 .005\n"
+            + BFR
+            + "EX 0 1 1 0 1\nPQ 0\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    # momwire#1607 B6b: a crossing node, the two-k basis, the class
+    # blocks and the point rows
+    (
+        "crossing_rise_rod_pq_rp",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 5 0 0 0 0 0 -1 .001\n",
+            "GN 2 0 0 0 13 .005\n"
+            + BFR
+            + "EX 0 1 1 0 1\nPQ 0\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "crossing_rise_to_a_buried_hub",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 3 0 0 0 0 0 -.3 .001\n"
+            "GW 3 10 0 0 -.3 3 0 -.3 .001\nGW 4 10 0 0 -.3 -3 0 -.3 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "crossing_sparse_ld5",
+        deck(
+            "GW 1 30 0 0 0 0 0 10 .001\nGW 2 10 0 0 0 0 0 -.5 .001\nGW 3 30 0 0 -.5 8 0 -.5 .001\n",
+            "GN 3 0 0 0 20 .01\nLD 5 0 0 0 5.8e7\n" + BFR + "EX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    # momwire#1607: kΔ under `_WELL_SCALED_KD`, so the above class takes the
+    # folded cos-1 shape on numpy's reduced-kernel route (dense, then sparse)
+    (
+        "crossing_folded_rise_rod",
+        deck(
+            "GW 1 10 0 0 0 0 0 1 .001\nGW 2 5 0 0 0 0 0 -.5 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 0.5\nEX 0 1 1 0 1\nRP 0 10 4 1000 0 0 10 90\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "crossing_folded_sparse",
+        deck(
+            "GW 1 40 0 0 0 0 0 4 .001\nGW 2 10 0 0 0 0 0 -.5 .001\nGW 3 30 0 0 -.5 8 0 -.5 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 1 0 0 0.5\nEX 0 1 1 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "crossing_sweep_ex6",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 5 0 0 0 0 0 -1 .001\n",
+            "GN 2 0 0 0 13 .005\nFR 0 2 0 0 7 0.3\nEX 6 1 1 0 1 0\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "crossing_beside_a_loaded_parasite",
+        deck(
+            "GW 1 10 0 0 0 0 0 5 .001\nGW 2 5 0 0 0 0 0 -1 .001\nGW 3 10 2 0 1 2 0 6 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 1 0 1\nLD 4 3 5 5 50 0\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        # momwire#1718 S12: served since the transmitted blocks
+        "above_and_below_prints",
+        deck(
+            "GW 1 11 -3 0 -.3 3 0 -.3 .001\nGW 2 5 5 0 .5 5 0 2 .001\n",
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 2 3 0 1\nXQ\n",
+            "GE -1",
+        ),
+        "printed",
+    ),
+    (
+        "buried_near_field_declines",
+        deck(
+            BURIED_DIPOLE,
+            "GN 2 0 0 0 13 .005\n" + BFR + "EX 0 1 11 0 1\nNE 0 1 1 1 0 0 1 0 0 0\n",
+            "GE -1",
+        ),
         "declined",
     ),
     ("tl", deck(TWO, FR + "TL 1 6 2 6 50 .1\nEX 0 1 6 0 1\nXQ\n"), "printed"),
@@ -390,16 +810,31 @@ CASES = [
 ]
 
 
-@pytest.mark.parametrize("name, text, expect", CASES, ids=[c[0] for c in CASES])
+# Default-lane budget is 5 s; CI median 9.3 s Linux for crossing_folded_rise_rod
+# (momwire 0.85.0 release prep). The other cases stay as the PR guard.
+_SLOW = {"crossing_folded_rise_rod"}
+
+
+@pytest.mark.parametrize(
+    "name, text, expect",
+    [pytest.param(*c, marks=pytest.mark.slow) if c[0] in _SLOW else c for c in CASES],
+    ids=[c[0] for c in CASES],
+)
 def test_a_hand_written_deck_prints_the_same(name, text, expect, acc):
+    # "refused": printed, and the printout is the reference's refusal
     ok, cxx = rc.cxx_printout(text, acc)
-    assert ("printed" if ok else "declined") == expect, cxx[:400]
+    assert ("declined" if not ok else "printed") == expect.replace(
+        "refused", "printed"
+    ), cxx[:400]
     if not ok:
         return
     a, na = rc.mask(rc.py_printout(text))
     b, nb = rc.mask(cxx)
     assert rc.first_difference(a, b) is None, rc.first_difference(a, b)
-    assert na == nb and na >= 2, (na, nb)
+    if expect == "refused":
+        assert "NEC ERROR - " in cxx and na == nb == 0, (na, nb)
+    else:
+        assert na == nb and na >= 2, (na, nb)
 
 
 def test_the_masks_hide_only_the_two_timing_lines():

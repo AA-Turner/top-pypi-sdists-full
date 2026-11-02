@@ -1,0 +1,39 @@
+[aliases]
+compliance-team = ["sgryt", "melindaczirjak-hub"]
+tenant-routing = ["janmeier", "mickhansen"]
+
+[[scopes]]
+name = "compliance"
+description = "Files that impact compliance."
+paths = ["**/CODEREVIEW.toml"]
+request = 2
+require = 1
+reviewers = ["$compliance-team"]
+ownership = "append"
+labels = ["review/compliance"]
+checklist.items = [
+  { label = "This PR does not require a change in compliance procedures", required = false, notes = "required_if_unchecked", help = "If not checked, add a ticket to the compliance tracker and link it here." },
+]
+
+[[scopes]]
+name = "Regular PR"
+paths = ["**"]
+description = "Regular PR."
+ownership = "append"
+reviewers = ["*"]
+request = 0
+require = 1
+checklist.items = [
+  { label = "This PR does not add new GraphQL resolvers", required = false, notes = "required_if_unchecked", help = "Describe how you verified that the resolver has an appropriate authorizer." },
+  { label = "I have performed manual exploratory testing", required = false, notes = "optional", help = "Describe how you have tested the change." },
+]
+
+[[scopes]]
+name = "Tenant routing PR"
+paths = ["tenant-routing/**"]
+description = "Tenant routing PR."
+ownership = "append"
+request = 2
+require = 1
+reviewers = ["$tenant-routing"]
+labels = ["review/tenant-routing"]

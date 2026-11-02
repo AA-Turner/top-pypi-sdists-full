@@ -1,0 +1,502 @@
+"""The ``capt-hook review`` command group: the SessionEnd reviewer's CLI surface.
+
+``review run`` is the wired SessionEnd hook and must exit 0 fast on every path,
+so this module imports nothing heavy at load; every command pulls the review
+machinery lazily once it actually runs, and the commands that drive async LLM or
+``gh`` passes bridge with ``asyncio.run`` at the command boundary.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import click
+
+from captain_hook.review.status import CandidateStatus
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from cc_transcript.corrections import Correction
+    from cc_transcript.judge.similar import KeyOverlap
+
+    from captain_hook.cli import CliState
+    from captain_hook.review.judge import JudgeReport
+    from captain_hook.review.repo import RepoKey
+    from captain_hook.review.scan import ScanReport
+    from captain_hook.review.store import ReviewStore, ThresholdStatus
+    from captain_hook.review.sync import SyncReport
+
+STATUS_CHOICES = tuple(status.value for status in CandidateStatus)
+KIND_CHOICES = ("create", "fix")
+
+
+def current_repo(root: Path) -> RepoKey:
+    from captain_hook.review.repo import repo_key
+
+    if (repo := repo_key(root)) is None:
+        raise click.ClickException(
+            f"{root} is not a git repo with an 'origin' remote (the session reviewer opens PRs against origin)"
+        )
+    return repo
+
+
+def resolve_repo(repo_: str | None, root: Path) -> RepoKey:
+    from captain_hook.review.repo import RepoKey
+
+    return RepoKey(repo_.lower()) if repo_ else current_repo(root)
+
+
+def run_store[T](fn: Callable[[ReviewStore], Awaitable[T]]) -> T:
+    """Open the review store and run ``fn`` against it — the shared store boundary for every command."""
+    import asyncio
+
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.store import ReviewStore
+
+    async def run() -> T:
+        async with await ReviewStore.open(ReviewSettings().db_path) as store:
+            return await fn(store)
+
+    return asyncio.run(run())
+
+
+def watch_repo(repo: RepoKey) -> None:
+    """Flip the global watching bit for ``repo``.
+
+    The single persistence path shared by ``init`` and ``review enable``.
+    """
+    run_store(lambda store: store.enable(repo))
+
+
+def candidate_line(row: dict[str, object]) -> str:
+    text = str(row["sample_text"] or "").replace("\n", " ")
+    cross_repo = f" -> {row['repo_key']}" if row["origin_repo_key"] else ""
+    return (
+        f"#{row['id']} [{row['status']}] {row['candidate_kind']}/{row['source_kind']} "
+        f"x{row['observations']}{cross_repo}: {text[:80]}"
+    )
+
+
+@click.group()
+def review() -> None:
+    """Mine ended sessions for durable corrections and draft hook PRs."""
+
+
+@review.command(name="run")
+def run_hook() -> None:
+    """SessionEnd hook entry: guard and detach the reviewer (always exits 0)."""
+    from captain_hook.review.pipeline import guard_and_spawn
+
+    guard_and_spawn(sys.stdin.buffer.read())
+
+
+@review.command(name="sweep")
+def sweep_hook() -> None:
+    """Stop hook entry: guard and detach a throttled repo-wide sweep (always exits 0)."""
+    from captain_hook.review.pipeline import guard_and_sweep
+
+    guard_and_sweep(sys.stdin.buffer.read())
+
+
+@review.command(hidden=True)
+@click.option("--transcript", required=True, type=click.Path(path_type=Path), help="The ended session's transcript")
+@click.option("--cwd", "cwd", default=None, help="The session's working directory (default: the process cwd)")
+@click.option("--sweep", is_flag=True, default=False, help="Run the throttled sweep (no PR sync, no brain)")
+@click.option("--pending-fd", type=int, default=None, help="The inherited pending-pass lock descriptor")
+def spawn(transcript: Path, cwd: str | None, sweep: bool, pending_fd: int | None) -> None:
+    """Run the detached reviewer pass over one ended session (spawned by ``review run``)."""
+    import asyncio
+
+    from captain_hook.review.pipeline import spawn_session
+
+    click.echo(asyncio.run(spawn_session(transcript, cwd=cwd or os.getcwd(), sweep=sweep, pending_fd=pending_fd)))
+
+
+@review.command()
+@click.pass_obj
+def enable(state: CliState) -> None:
+    """Watch the current repo and register the captain-hook plugin."""
+    from captain_hook.cli import register_marketplace
+
+    repo = current_repo(state.root)
+    watch_repo(repo)
+    register_marketplace(state.root)
+    click.echo(f"watching {repo}")
+
+
+@review.command()
+@click.pass_obj
+def disable(state: CliState) -> None:
+    """Stop watching the current repo (its candidates stay recorded)."""
+    repo = current_repo(state.root)
+    run_store(lambda store: store.disable(repo))
+    click.echo(f"not watching {repo}")
+
+
+@review.command()
+@click.option(
+    "--transcript",
+    "transcripts",
+    multiple=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="A transcript file to scan",
+)
+@click.option(
+    "--dir",
+    "dirs",
+    multiple=True,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help="A directory to scan recursively for *.jsonl transcripts",
+)
+def scan(transcripts: tuple[Path, ...], dirs: tuple[Path, ...]) -> None:
+    """Scan explicit transcripts for corrections, incrementally."""
+    from captain_hook.review.scan import scan as run_scan
+    from captain_hook.review.settings import ReviewSettings
+
+    if not transcripts and not dirs:
+        raise click.UsageError("pass at least one --transcript or --dir")
+    settings = ReviewSettings()
+    report: ScanReport = run_store(lambda store: run_scan(store, settings=settings, transcripts=[*transcripts, *dirs]))
+    click.echo(f"scanned {report.scanned} transcripts, {report.inserted} new corrections")
+
+
+@review.command()
+@click.option("--limit", type=int, default=None, help="Judge at most this many rows (default: the per-session cap)")
+def triage(limit: int | None) -> None:
+    """Judge stored corrections lacking a verdict (manual/backfill)."""
+    from captain_hook.review.judge import judge_pass
+    from captain_hook.review.settings import ReviewSettings
+
+    settings = ReviewSettings()
+
+    async def body(store: ReviewStore) -> tuple[JudgeReport, list[KeyOverlap]]:
+        report = await judge_pass(store, settings=settings, limit=limit)
+        return report, await store.slug_splits()
+
+    report, splits = run_store(body)
+    click.echo(
+        f"judged {report.judged}, failed {report.failed}, pending {report.pending}, "
+        f"merged {report.merged}, retired {report.retired}, reopened {report.reopened}"
+    )
+    for split in splits:
+        click.echo(f"possible split: {split.key_a} ~ {split.key_b} ({split.similarity:.2f})")
+
+
+@review.command(name="status")
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.option("--sync/--no-sync", default=True, help="Refresh open PR states from GitHub in the background")
+@click.pass_obj
+def status(state: CliState, repo_: str | None, sync: bool) -> None:
+    """Show the tracked corrections, their progress toward a PR, and open PR status."""
+    from captain_hook.app import _state
+    from captain_hook.packs.plugins import wired
+    from captain_hook.review.dashboard import status_command
+
+    state.discover()
+    status_command(
+        resolve_repo(repo_, state.root),
+        sync=sync,
+        wired=wired(state.root),
+        load_errors=list(_state.load_errors),
+    )
+
+
+@review.command(name="list")
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.pass_obj
+def list_candidates(state: CliState, repo_: str | None) -> None:
+    """List the repo's PR candidates."""
+    repo = resolve_repo(repo_, state.root)
+    if not (rows := run_store(lambda store: store.candidates(repo))):
+        click.echo(f"no candidates for {repo}")
+    for row in rows:
+        click.echo(candidate_line(row))
+
+
+def correction_lines(correction: Correction) -> tuple[str, ...]:
+    match correction.correction_origin:
+        case "session" | "git":
+            return (
+                f"  correction ({correction.correction_origin}):",
+                f"    - {correction.correction_old}",
+                f"    + {correction.correction_new}",
+            )
+        case _ if correction.correction_text:
+            return (f"  correction note: {correction.correction_text}",)
+        case _:
+            return ()
+
+
+def correction_block(correction: Correction) -> str:
+    return "\n".join(
+        (
+            f"- {correction.incorrect_file} (session {correction.session_id}):",
+            f"    - {correction.incorrect_old}",
+            f"    + {correction.incorrect_new}",
+            *correction_lines(correction),
+        )
+    )
+
+
+@review.command()
+@click.argument("candidate_id", type=int)
+def show(candidate_id: int) -> None:
+    """Show one candidate's row, its threshold status, and the shared ledger's faulted edits."""
+    from captain_hook.review.settings import ReviewSettings
+
+    settings = ReviewSettings()
+
+    async def body(
+        store: ReviewStore,
+    ) -> tuple[dict[str, object], ThresholdStatus, bool, tuple[Correction, ...]]:
+        return (
+            await store.candidate(candidate_id),
+            await store.threshold_status(candidate_id, settings=settings),
+            await store.eligible(candidate_id, settings=settings),
+            await store.correction_evidence(candidate_id),
+        )
+
+    try:
+        row, status, ok, evidence = run_store(body)
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
+    for key, value in row.items():
+        click.echo(f"{key}: {value}")
+    click.echo(
+        f"thresholds: sessions={status.sessions} days={status.days} open_prs={status.open_prs} "
+        f"single_observation={status.single_observation} eligible={ok}"
+    )
+    if row["pack_name"]:
+        click.echo(
+            f"routing: target_repo={row['repo_key']} pack={row['pack_name']} origin_repo={row['origin_repo_key']}"
+        )
+    if evidence:
+        click.echo("correction_evidence:")
+        for correction in evidence:
+            click.echo(correction_block(correction))
+
+
+@review.command()
+@click.argument("candidate_id", type=int)
+@click.option("--limit", type=click.IntRange(1, 40), default=10)
+def evidence(candidate_id: int, limit: int) -> None:
+    """Verify recorded quotes against bounded, pinned transcript evidence."""
+    import asyncio
+    import json
+    from dataclasses import asdict
+
+    from cc_transcript.context import ContextWindow
+
+    from captain_hook.review.judge import CONTEXT_BUDGET, TRIGGER_BUDGET
+    from captain_hook.snapshots.review import RenderedEvidence, render_review_windows, review_roots
+
+    async def body(store: ReviewStore) -> dict[str, object]:
+        await store.candidate(candidate_id)
+        rows = await store.db.sql(
+            "SELECT e.text, e.context_json, e.occurred_at, e.payload_json FROM candidate_observations o "
+            "JOIN feedback_events e ON e.dedup_key = o.dedup_key "
+            "WHERE o.candidate_id = ? ORDER BY o.id LIMIT ?",
+            (candidate_id, limit + 1),
+        )
+        selected = rows[:limit]
+        windows = [ContextWindow.from_json(str(row["context_json"])) for row in selected]
+        source_paths = [json.loads(str(row["payload_json"])).get("source_path") for row in selected]
+        rendered = await asyncio.to_thread(
+            render_review_windows,
+            windows,
+            source_paths=source_paths,
+            roots=review_roots(list(await store.file_mtimes())) if None in source_paths else [],
+            render={
+                "before": asdict(CONTEXT_BUDGET),
+                "trigger": asdict(TRIGGER_BUDGET),
+                "after": asdict(CONTEXT_BUDGET),
+            },
+        )
+        return {
+            "candidate_id": candidate_id,
+            "complete": len(rows) <= limit and not any(isinstance(item, Exception) for item in rendered),
+            "evidence": [
+                {
+                    "session_id": window.anchor.session_id,
+                    "event_uuid": window.anchor.event_uuid,
+                    "occurred_at": row["occurred_at"],
+                    "quote": row["text"],
+                    "verified": isinstance(item, RenderedEvidence) and str(row["text"]) in item.text,
+                    "reference": item.reference if isinstance(item, RenderedEvidence) else None,
+                    "context": item.text if isinstance(item, RenderedEvidence) else None,
+                    "availability": "full"
+                    if isinstance(item, RenderedEvidence)
+                    else "incomplete"
+                    if isinstance(item, Exception)
+                    else "missing_ref",
+                }
+                for row, window, item in zip(selected, windows, rendered, strict=True)
+            ],
+        }
+
+    try:
+        click.echo(json.dumps(run_store(body), ensure_ascii=False))
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@review.command(name="threshold-check")
+@click.argument("candidate_id", type=int, required=False)
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.pass_obj
+def threshold_check(state: CliState, candidate_id: int | None, repo_: str | None) -> None:
+    """Report which candidates cross their PR thresholds."""
+    from captain_hook.review.settings import ReviewSettings
+
+    settings = ReviewSettings()
+
+    async def body(store: ReviewStore) -> list[str]:
+        from captain_hook.review.store import open_pr_cap, threshold_targets
+
+        ids = (
+            [candidate_id]
+            if candidate_id is not None
+            else [int(str(row["id"])) for row in await store.candidates(resolve_repo(repo_, state.root))]
+        )
+        lines: list[str] = []
+        for cid in ids:
+            status = await store.threshold_status(cid, settings=settings)
+            eligible = await store.eligible(cid, settings=settings)
+            progress = " ".join(f"{label}={done}/{need}" for label, done, need in threshold_targets(status, settings))
+            lines.append(
+                f"#{cid} eligible={eligible} {progress}"
+                f" open_prs={status.open_prs}/{open_pr_cap(status.kind, settings=settings)} watching={status.watching}"
+            )
+        return lines
+
+    try:
+        lines = run_store(body)
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not lines:
+        click.echo("no candidates")
+    for line in lines:
+        click.echo(line)
+
+
+@review.command()
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.option(
+    "--kind",
+    "kind_",
+    type=click.Choice(KIND_CHOICES),
+    default=None,
+    help="Report one kind's pool and exit 1 when it is full (default: every pool; exit 1 when all are full)",
+)
+@click.pass_obj
+def slots(state: CliState, repo_: str | None, kind_: str | None) -> None:
+    """Show the available open-PR slots for a repo, one pool per candidate kind."""
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.store import CandidateKind, open_pr_cap
+
+    settings = ReviewSettings()
+    repo = resolve_repo(repo_, state.root)
+    open_prs = run_store(lambda store: store.open_pr_slots(repo, settings=settings))
+    free = {
+        kind: max(open_pr_cap(kind, settings=settings) - open_prs[kind], 0)
+        for kind in ([CandidateKind(kind_)] if kind_ else CandidateKind)
+    }
+    for kind, count in free.items():
+        cap = open_pr_cap(kind, settings=settings)
+        click.echo(f"{repo}: kind={kind} open_prs={open_prs[kind]}/{cap} free={count}")
+    if not any(free.values()):
+        sys.exit(1)
+
+
+@review.command()
+@click.argument("candidate_id", type=int)
+@click.argument("status", type=click.Choice(STATUS_CHOICES))
+@click.option("--pr-url", default=None, help="PR URL stamped with the move (also stamps pr_opened_at)")
+@click.option("--pr-title", default=None, help="PR title stamped with the move (kept across later moves)")
+def update(candidate_id: int, status: str, pr_url: str | None, pr_title: str | None) -> None:
+    """Move a candidate to a new status."""
+    from captain_hook.review.repo import pr_repo_key
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.snapshot import write_status
+    from captain_hook.review.store import CandidateStatus, InvalidTransition
+
+    if pr_url is not None:
+        try:
+            pr_repo_key(pr_url)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+    settings = ReviewSettings()
+
+    async def apply(store: ReviewStore) -> None:
+        await store.transition(
+            candidate_id,
+            CandidateStatus(status),
+            pr_url=pr_url,
+            pr_title=pr_title,
+            pr_opened_at=datetime.now(UTC) if pr_url else None,
+        )
+        try:
+            await write_status(store, settings=settings)
+        except OSError as exc:
+            click.echo(f"warning: status.json not written: {exc}", err=True)
+
+    try:
+        run_store(apply)
+    except (InvalidTransition, LookupError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"#{candidate_id} -> {status}")
+
+
+@review.command()
+@click.option("--refresh", is_flag=True, default=False, help="Sync each watched repo's open PRs before writing")
+@click.pass_obj
+def snapshot(state: CliState, refresh: bool) -> None:
+    """Write ~/.capt-hook/status.json for the desktop widget.
+
+    Guards on an existing review database, so the widget's periodic refresh never mints a store
+    on a machine that never enabled review. With ``--refresh``, each repo's open PRs are synced
+    through the TTL-cached GitHub read first, so a merge shows up without a session.
+    """
+    import asyncio
+
+    from captain_hook.review.repo import RepoKey
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.snapshot import write_status
+    from captain_hook.review.store import ReviewStore
+    from captain_hook.review.sync import sync_open_prs
+
+    settings = ReviewSettings()
+    if not settings.db_path.exists():
+        click.echo("no review database yet — nothing to snapshot")
+        return
+
+    async def body() -> Path:
+        async with await ReviewStore.open(settings.db_path) as store:
+            if refresh:
+                for repo in await store.repos():
+                    await sync_open_prs(store, RepoKey(str(repo["repo_key"])), settings=settings)
+            return await write_status(store, settings=settings)
+
+    click.echo(str(asyncio.run(body())))
+
+
+@review.command(name="sync-prs")
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.pass_obj
+def sync_prs(state: CliState, repo_: str | None) -> None:
+    """Fold open PR states back into candidate statuses."""
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.sync import sync_open_prs
+
+    settings = ReviewSettings()
+    repo = resolve_repo(repo_, state.root)
+    report: SyncReport = run_store(lambda store: sync_open_prs(store, repo, settings=settings, force_refresh=True))
+    click.echo(
+        f"accepted {report.accepted}, rejected {report.rejected}, "
+        f"stale {report.stale}, unreachable {report.unreachable}"
+    )
